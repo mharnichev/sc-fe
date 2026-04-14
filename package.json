@@ -1,0 +1,17 @@
+{
+  "name": "barbershop-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev:barbershop": "pnpm --filter @apps/barbershop dev",
+    "dev:shop": "pnpm --filter @apps/shop dev",
+    "dev:backoffice": "pnpm --filter @apps/backoffice dev",
+    "dev:api": "cd apps/api && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "vite-svg-loader": "^5.1.0",
+    "vue-tsc": "^2.2.6"
+  }
+}

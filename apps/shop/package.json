@@ -1,0 +1,20 @@
+{
+  "name": "@apps/shop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3000",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "lint": "nuxi typecheck"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.12.1",
+    "@pinia/nuxt": "^0.5.5",
+    "@shared-types": "workspace:*",
+    "@shared-ui": "workspace:*",
+    "@shared-utils": "workspace:*",
+    "nuxt": "^3.13.2",
+    "pinia": "^2.2.4"
+  }
+}

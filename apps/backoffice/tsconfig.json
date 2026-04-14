@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@shared-utils": ["../../packages/shared-utils/src/index.ts"],
+      "@shared-ui": ["../../packages/shared-ui/src/index.ts"],
+      "@shared-ui/*": ["../../packages/shared-ui/src/*"]
+    },
+    "types": ["nuxt", "@pinia/nuxt"]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.vue",
+    "**/*.mts",
+    "**/*.cts",
+    "types/**/*.d.ts",
+    ".nuxt/**/*.d.ts"
+  ]
+}

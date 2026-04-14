@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-barbershop}
+      POSTGRES_USER: ${POSTGRES_USER:-barbershop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-barbershop}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-barbershop} -d ${POSTGRES_DB:-barbershop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app
+    command: bash -lc "alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  barbershop:
+    build:
+      context: .
+      dockerfile: ./apps/barbershop/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+
+  shop:
+    build:
+      context: .
+      dockerfile: ./apps/shop/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "3002:3000"
+    depends_on:
+      - api
+
+  backoffice:
+    build:
+      context: .
+      dockerfile: ./apps/backoffice/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "3003:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
