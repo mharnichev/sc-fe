@@ -6,7 +6,6 @@
     "dev:barbershop": "pnpm --filter @apps/barbershop dev",
     "dev:shop": "pnpm --filter @apps/shop dev",
     "dev:backoffice": "pnpm --filter @apps/backoffice dev",
-    "dev:api": "cd apps/api && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },

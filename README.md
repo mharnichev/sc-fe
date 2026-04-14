@@ -5,23 +5,13 @@ Production-ready monorepo for a barbershop business with:
 - Public barbershop website: Nuxt 3 SSR
 - E-commerce storefront: Nuxt 3 SSR
 - Backoffice admin panel: Nuxt 3 + JWT auth
-- Unified backend API: FastAPI + PostgreSQL + SQLAlchemy + Alembic
+- Unified backend API (FastAPI + PostgreSQL + SQLAlchemy + Alembic) maintained in [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be)
 
 ## Monorepo Structure
 
 ```text
 .
 ├── apps
-│   ├── api
-│   │   ├── alembic
-│   │   ├── app
-│   │   │   ├── api
-│   │   │   ├── core
-│   │   │   ├── db
-│   │   │   ├── models
-│   │   │   ├── repositories
-│   │   │   ├── schemas
-│   │   │   └── services
 │   ├── backoffice
 │   ├── barbershop
 │   └── shop
@@ -40,7 +30,7 @@ Production-ready monorepo for a barbershop business with:
 ### Barbershop app
 
 - Home, about, services, masters, contacts, blog/faq
-- Booking request form connected to FastAPI
+- Booking request form connected to the FastAPI backend (`mharnichev/sc-be`)
 - SEO metadata for public pages
 
 ### Shop app
@@ -58,7 +48,9 @@ Production-ready monorepo for a barbershop business with:
 - Entity management for products, categories, brands, orders, customers, bookings, masters, services, pages, banners
 - Reusable table and form components
 
-### FastAPI backend
+### Backend (`mharnichev/sc-be`)
+
+The FastAPI backend powering these apps is maintained separately in [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be). It provides:
 
 - Auth: login, refresh, current user
 - Public catalog and barbershop endpoints
@@ -77,6 +69,8 @@ cp .env.example .env
 
 ## Run With Docker
 
+Start the FastAPI backend from [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be) (for example via `docker compose up` in that repo) so that these frontends can reach `http://localhost:8000`, then run:
+
 ```bash
 docker compose up --build
 ```
@@ -86,7 +80,7 @@ Apps:
 - Barbershop: [http://localhost:3001](http://localhost:3001)
 - Shop: [http://localhost:3002](http://localhost:3002)
 - Backoffice: [http://localhost:3003](http://localhost:3003)
-- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- API docs (served by `mharnichev/sc-be`): [http://localhost:8000/docs](http://localhost:8000/docs)
 
 Default admin credentials:
 
@@ -101,24 +95,25 @@ Install frontend dependencies:
 pnpm install
 ```
 
-Run individual apps:
+Run individual apps (while the backend from [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be) is running locally):
 
 ```bash
 pnpm dev:barbershop
 pnpm dev:shop
 pnpm dev:backoffice
-pnpm dev:api
 ```
 
 ## API Notes
 
-- Public endpoints live under `/api/v1/public`
-- Admin endpoints live under `/api/v1/admin`
-- Auth endpoints live under `/api/v1/auth`
+The FastAPI backend in [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be) exposes:
+
+- Public endpoints under `/api/v1/public`
+- Admin endpoints under `/api/v1/admin`
+- Auth endpoints under `/api/v1/auth`
 
 ## Database
 
-Core tables:
+Core PostgreSQL tables (defined in [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be)):
 
 - users
 - customers
@@ -136,13 +131,9 @@ Core tables:
 
 ## Seed Data
 
-The API container runs:
+When you start the backend via Docker Compose inside [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be), the API container runs:
 
 - `alembic upgrade head`
 - `python -m app.db.seed`
 
-Standalone seed command:
-
-```bash
-make api-seed
-```
+See that repository for any additional seed commands or data tweaks.

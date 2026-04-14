@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: install dev up down api-seed
+.PHONY: install dev up down
 
 install:
 	pnpm install
@@ -13,6 +13,3 @@ up:
 
 down:
 	docker compose down
-
-api-seed:
-	cd apps/api && python -m app.db.seed
