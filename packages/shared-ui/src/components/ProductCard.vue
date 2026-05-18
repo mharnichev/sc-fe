@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ProductDto } from '@shared-types'
-import { formatPrice } from '@shared-utils'
+import type { ProductDto } from '../../../shared-types/src'
+import { formatPrice } from '../../../shared-utils/src'
 
 defineProps<{
   product: ProductDto

@@ -5,19 +5,44 @@ import {
   TagIcon,
   BuildingStorefrontIcon,
   ShoppingBagIcon,
+  UsersIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  UserGroupIcon,
+  SparklesIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
 const route = useRoute()
+const api = useBackofficeApi()
 
-const links = [
-  { label: 'Dashboard', to: '/', icon: HomeIcon },
-  { label: 'Products', to: '/products', icon: CubeIcon },
-  { label: 'Categories', to: '/categories', icon: TagIcon },
-  { label: 'Brands', to: '/brands', icon: BuildingStorefrontIcon },
-  { label: 'Orders', to: '/orders', icon: ShoppingBagIcon },
-]
+const { data: publicMasters } = await useAsyncData('sidebar-public-masters', () => api.getPublicMasters())
+const masterList = computed(() => publicMasters.value || [])
+const { isAdmin, isBarber, roleLabel } = useBackofficeAccess(masterList)
+
+const links = computed(() => [
+  ...(isBarber.value
+    ? [
+        { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
+        { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
+        { label: 'Мої блокування часу', to: '/my-time-blocks', icon: ClockIcon },
+      ]
+    : []),
+  ...(isAdmin.value
+    ? [
+        { label: 'Дашборд', to: '/', icon: HomeIcon },
+        { label: 'Майстри', to: '/masters', icon: UserGroupIcon },
+        { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
+        { label: 'Блокування часу', to: '/time-blocks', icon: ClockIcon },
+        { label: 'Товари', to: '/products', icon: CubeIcon },
+        { label: 'Категорії', to: '/categories', icon: TagIcon },
+        { label: 'Бренди', to: '/brands', icon: BuildingStorefrontIcon },
+        { label: 'Клієнти', to: '/customers', icon: UsersIcon },
+        { label: 'Замовлення', to: '/orders', icon: ShoppingBagIcon },
+      ]
+    : []),
+])
 
 const logout = () => {
   if (!auth.user) return
@@ -32,6 +57,9 @@ const logout = () => {
       <p v-if="auth.user" class="mt-4 text-sm text-slate-400">
         {{ auth.user.email }}
       </p>
+      <p v-if="auth.user" class="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-cyan-100">
+        {{ roleLabel }}
+      </p>
     </div>
     <nav class="space-y-2">
       <NuxtLink
@@ -39,7 +67,7 @@ const logout = () => {
         :key="link.to"
         :to="link.to"
         class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition"
-        :class="route.path === link.to ? 'bg-cyan-400/15 text-white' : 'text-slate-300 hover:bg-white/5'"
+        :class="route.path === link.to || route.path.startsWith(`${link.to}/`) ? 'bg-cyan-400/15 text-white' : 'text-slate-300 hover:bg-white/5'"
       >
         <component :is="link.icon" class="h-5 w-5" aria-hidden="true" />
         <span>{{ link.label }}</span>
@@ -51,7 +79,7 @@ const logout = () => {
       @click="logout"
     >
       <ArrowRightOnRectangleIcon class="h-5 w-5" aria-hidden="true" />
-      <span>Logout</span>
+      <span>Вийти</span>
     </button>
   </aside>
 </template>

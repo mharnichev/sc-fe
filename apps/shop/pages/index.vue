@@ -12,7 +12,7 @@ useSeo('Men’s grooming store', 'Premium men’s cosmetics, styling, beard and 
     <section class="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
       <div class="space-y-6">
         <p class="text-sm uppercase tracking-[0.35em] text-emerald-700">E-commerce</p>
-        <h1 class="text-5xl font-semibold leading-tight text-neutral-900 md:text-6xl">
+        <h1 class="text-5xl font-semibold leading-tight text-neutral-900 md:text-[52px]">
           Men’s cosmetics chosen like a barber shelf, not a supermarket aisle.
         </h1>
         <p class="max-w-2xl text-lg leading-8 text-neutral-600">

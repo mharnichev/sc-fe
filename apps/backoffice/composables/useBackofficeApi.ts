@@ -1,57 +1,99 @@
-interface TokenResponse {
+export interface TokenResponse {
   access_token: string
   token_type: string
 }
 
-interface AdminUser {
+export interface AdminUser {
   id: number
   email: string
+  full_name?: string | null
+  role?: string | null
+  master_id?: number | null
   is_active: boolean
   is_superuser: boolean
   created_at: string
   updated_at: string
 }
 
-interface PaginatedResponse<T> {
+export interface UploadAsset {
+  id: number
+  file_name: string
+  file_path: string
+  file_url: string | null
+  content_type: string | null
+  size: number | null
+  created_at: string
+}
+
+export interface PaginatedResponse<T> {
   total: number
   page: number
   page_size: number
   items: T[]
 }
 
-interface Category {
+export interface Category {
   id: number
   name: string
   slug: string
   description: string | null
   is_active: boolean
+  parent_id: number | null
 }
 
-interface Brand {
+export interface CategoryTreeNode extends Category {
+  children: CategoryTreeNode[]
+}
+
+export interface Brand {
   id: number
   name: string
   slug: string
   description: string | null
 }
 
-interface Product {
+export interface Product {
   id: number
+  created_at: string
+  updated_at: string
   name: string
   slug: string
   description: string | null
   short_description: string | null
   price: string
-  old_price: string | null
+  recommended_retail_price: string | null
   sku: string | null
   stock_quantity: number
   is_active: boolean
+  image_url: string | null
+  external_url: string | null
+  availability_status: string | null
+  attributes_json: Record<string, unknown> | null
   brand_id: number | null
   category_id: number | null
   brand?: Brand | null
   category?: Category | null
 }
 
-interface OrderSummary {
+export interface ProductPayload {
+  name: string
+  slug: string
+  description: string | null
+  short_description: string | null
+  price: number
+  recommended_retail_price: number | null
+  sku: string | null
+  stock_quantity: number
+  is_active: boolean
+  image_url: string | null
+  external_url: string | null
+  availability_status: string | null
+  attributes_json: Record<string, unknown> | null
+  brand_id: number | null
+  category_id: number | null
+}
+
+export interface OrderSummary {
   id: number
   status: string
   customer_name: string
@@ -62,9 +104,213 @@ interface OrderSummary {
   updated_at: string
 }
 
+export interface CustomerSummary {
+  id: number
+  phone: string
+  name: string | null
+  surname: string | null
+  is_verified: boolean
+}
+
+export interface Customer {
+  id: number
+  created_at: string
+  updated_at: string
+  phone: string
+  email: string | null
+  name: string | null
+  surname: string | null
+  birthday: string | null
+  is_active: boolean
+  phone_verified_at: string | null
+  last_login_at: string | null
+}
+
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+
+export interface Master {
+  id: number
+  admin_user_id?: number | null
+  full_name?: string | null
+  name?: string | null
+  phone?: string | null
+  email?: string | null
+  description?: string | null
+  photo_url?: string | null
+  photo_upload_id?: number | null
+  photo?: string | UploadAsset | null
+  avatar_url?: string | null
+  avatar_upload_id?: number | null
+  avatar?: string | UploadAsset | null
+  is_active?: boolean
+  status?: string | null
+  service_ids?: number[]
+  services?: Service[]
+}
+
+export interface Service {
+  id: number
+  barber_id?: number | string
+  base_service_id?: number | string | null
+  source_type?: 'base' | 'custom'
+  name: string
+  description?: string | null
+  duration_minutes: number
+  price: string | number
+  is_active?: boolean
+  status?: string | null
+  base_service?: BaseServiceSummary | null
+}
+
+export interface BaseServiceSummary {
+  id: number | string
+  name: string
+  duration_minutes: number
+  price: string | number
+  is_active: boolean
+}
+
+export interface BaseService {
+  id: number | string
+  name: string
+  duration_minutes: number
+  price: string | number
+  description?: string | null
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface MasterService {
+  id: number | string
+  barber_id: number | string
+  base_service_id?: number | string | null
+  source_type: 'base' | 'custom'
+  name: string
+  duration_minutes: number
+  price: string | number
+  description?: string | null
+  is_active: boolean
+  base_service?: BaseServiceSummary | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Booking {
+  id: number
+  master_id?: number
+  service_id?: number
+  customer_name?: string | null
+  customer_phone?: string | null
+  customer_comment?: string | null
+  comment?: string | null
+  note?: string | null
+  start_at?: string
+  end_at?: string
+  scheduled_at?: string
+  status: BookingStatus | string
+  created_at?: string
+  updated_at?: string
+  cancelled_at?: string | null
+  master?: Master | null
+  barber?: Master | null
+  service?: Service | null
+  customer?: {
+    id?: number
+    name?: string | null
+    first_name?: string | null
+    last_name?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
+}
+
+export interface AvailableSlot {
+  start_at: string
+  end_at: string
+}
+
+export interface PublicBookingPayload {
+  master_id: number
+  service_id: number
+  customer_name: string
+  customer_phone: string
+  customer_comment?: string | null
+  start_at: string
+}
+
+export interface TimeBlock {
+  id: number
+  master_id: number
+  start_at: string
+  end_at: string
+  reason?: string | null
+  created_at?: string
+  master?: Master | null
+}
+
+export interface TimeBlockPayload {
+  start_at: string
+  end_at: string
+  reason?: string | null
+  master_id?: number
+}
+
+export interface ServicePayload {
+  name: string
+  description: string | null
+  duration_minutes: number
+  price: number
+  is_active: boolean
+}
+
+export type BaseServicePayload = ServicePayload
+export interface MasterServicePayload {
+  base_service_id?: number | null
+  name?: string
+  description?: string | null
+  duration_minutes?: number
+  price?: number
+  is_active?: boolean
+}
+
+export interface SyncDefaultServicesResponse {
+  barber_id: number
+  created_count: number
+}
+
+export interface MasterPayload {
+  full_name: string
+  phone: string | null
+  email: string | null
+  password?: string | null
+  description: string | null
+  photo_url: string | null
+  photo_upload_id?: number | null
+  avatar_url?: string | null
+  avatar_upload_id?: number | null
+  is_active: boolean
+  service_ids?: number[]
+  admin_user_id?: number | null
+}
+
+export type MasterFormPayload = Partial<MasterPayload> & {
+  photo?: File | null
+  avatar?: File | null
+}
+
+export interface BookingFilters {
+  date_from?: string
+  date_to?: string
+  master_id?: number | null
+  service_id?: number | null
+  status?: BookingStatus | '' | null
+}
+
 export const useBackofficeApi = () => {
   const api = useApi()
   const config = useRuntimeConfig()
+  const normalizePageSize = (pageSize: number) => Math.min(Math.max(pageSize, 1), 100)
 
   const login = (email: string, password: string) =>
     $fetch<TokenResponse>('/backoffice/auth/login', {
@@ -81,32 +327,373 @@ export const useBackofficeApi = () => {
 
   const me = () => api<AdminUser>('/backoffice/auth/me')
 
-  const getProducts = (page = 1, pageSize = 10) =>
+  const getProducts = (
+    page = 1,
+    pageSize = 10,
+    filters: {
+      search?: string
+      category_id?: number | null
+      brand_id?: number | null
+      is_active?: boolean | null
+      availability_status?: string | null
+    } = {},
+  ) =>
     api<PaginatedResponse<Product>>('/backoffice/products', {
-      query: { page, page_size: pageSize },
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        category_id: filters.category_id ?? undefined,
+        brand_id: filters.brand_id ?? undefined,
+        is_active: filters.is_active ?? undefined,
+        availability_status: filters.availability_status || undefined,
+      },
     })
 
-  const getCategories = (page = 1, pageSize = 10) =>
-    api<PaginatedResponse<Category>>('/backoffice/categories', {
-      query: { page, page_size: pageSize },
+  const getProduct = (productId: number | string) =>
+    api<Product>(`/backoffice/products/${productId}`)
+
+  const createProduct = (payload: ProductPayload) =>
+    api<Product>('/backoffice/products', {
+      method: 'POST',
+      body: payload,
     })
+
+  const updateProduct = (productId: number | string, payload: Partial<ProductPayload>) =>
+    api<Product>(`/backoffice/products/${productId}`, {
+      method: 'PUT',
+      body: payload,
+    })
+
+  const deleteProduct = (productId: number | string) =>
+    api(`/backoffice/products/${productId}`, {
+      method: 'DELETE',
+    })
+
+  const getCategories = (
+    page = 1,
+    pageSize = 10,
+    filters: {
+      search?: string
+      parent_id?: number | null
+      is_active?: boolean | null
+    } = {},
+  ) =>
+    api<PaginatedResponse<Category>>('/backoffice/categories', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        parent_id: filters.parent_id ?? undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    })
+
+  const getCategoryTree = () => api<CategoryTreeNode[]>('/backoffice/categories/tree')
 
   const getBrands = (page = 1, pageSize = 10) =>
     api<PaginatedResponse<Brand>>('/backoffice/brands', {
-      query: { page, page_size: pageSize },
+      query: { page, page_size: normalizePageSize(pageSize) },
     })
 
   const getOrders = (page = 1, pageSize = 10) =>
     api<PaginatedResponse<OrderSummary>>('/backoffice/orders', {
-      query: { page, page_size: pageSize },
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
+  const getCustomers = (
+    page = 1,
+    pageSize = 10,
+    filters: {
+      search?: string
+      is_active?: string | null
+      is_verified?: string | null
+      sort_by?: string
+      sort_order?: string
+    } = {},
+  ) =>
+    api<PaginatedResponse<CustomerSummary>>('/backoffice/customers', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        is_active: filters.is_active || undefined,
+        is_verified: filters.is_verified || undefined,
+        sort_by: filters.sort_by || 'created_at',
+        sort_order: filters.sort_order || 'desc',
+      },
+    })
+
+  const getCustomer = (customerId: number | string) =>
+    api<Customer>(`/backoffice/customers/${customerId}`)
+
+  const getCustomerOrders = (customerId: number | string, page = 1, pageSize = 10) =>
+    api<PaginatedResponse<OrderSummary>>(`/backoffice/customers/${customerId}/orders`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
+  const getPublicMasters = () => api<Master[]>('/public/masters')
+
+  const getServices = () => api<Service[]>('/public/services')
+
+  const getAvailableSlots = (masterId: number | string, date: string, serviceId: number | string) =>
+    api<AvailableSlot[]>(`/public/masters/${masterId}/available-slots`, {
+      query: {
+        date,
+        service_id: serviceId,
+      },
+    })
+
+  const createPublicBooking = (payload: PublicBookingPayload) =>
+    api<Booking>('/public/bookings', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const getMyCalendar = (filters: BookingFilters = {}) =>
+    api<Booking[] | PaginatedResponse<Booking>>('/backoffice/masters/me/calendar', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+    })
+
+  const getMyBookings = (filters: BookingFilters = {}) =>
+    api<Booking[] | PaginatedResponse<Booking>>('/backoffice/masters/me/bookings', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        status: filters.status || undefined,
+      },
+    })
+
+  const updateMyBookingStatus = (bookingId: number | string, status: BookingStatus) =>
+    api<Booking>(`/backoffice/masters/me/bookings/${bookingId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    })
+
+  const getMyTimeBlocks = () =>
+    api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/masters/me/time-blocks')
+
+  const createMyTimeBlock = (payload: TimeBlockPayload) =>
+    api<TimeBlock>('/backoffice/masters/me/time-blocks', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const deleteMyTimeBlock = (blockId: number | string) =>
+    api(`/backoffice/masters/me/time-blocks/${blockId}`, {
+      method: 'DELETE',
+    })
+
+  const adminGetMasters = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
+    api<Master[] | PaginatedResponse<Master>>('/backoffice/masters', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    })
+
+  const masterPayloadBody = (payload: MasterFormPayload) => {
+    const { photo: _photo, avatar: _avatar, ...body } = payload
+    return body
+  }
+
+  const uploadMasterImage = (masterId: number | string, kind: 'photo' | 'avatar', file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api<Master>(`/backoffice/masters/${masterId}/${kind}`, {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
+  const applyMasterImageUploads = async (master: Master, payload: MasterFormPayload) => {
+    let result = master
+    if (payload.photo) {
+      result = await uploadMasterImage(result.id, 'photo', payload.photo)
+    }
+    if (payload.avatar) {
+      result = await uploadMasterImage(result.id, 'avatar', payload.avatar)
+    }
+    return result
+  }
+
+  const adminCreateMaster = async (payload: MasterFormPayload) => {
+    const master = await api<Master>('/backoffice/masters', {
+      method: 'POST',
+      body: masterPayloadBody(payload),
+    })
+    return applyMasterImageUploads(master, payload)
+  }
+
+  const adminUpdateMaster = async (masterId: number | string, payload: MasterFormPayload) => {
+    const master = await api<Master>(`/backoffice/masters/${masterId}`, {
+      method: 'PUT',
+      body: masterPayloadBody(payload),
+    })
+    return applyMasterImageUploads(master, payload)
+  }
+
+  const adminGetServices = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
+    api<Service[] | PaginatedResponse<Service>>('/backoffice/booking-services', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    })
+
+  const adminCreateService = (payload: ServicePayload) =>
+    api<Service>('/backoffice/booking-services', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminUpdateService = (serviceId: number | string, payload: Partial<ServicePayload>) =>
+    api<Service>(`/backoffice/booking-services/${serviceId}`, {
+      method: 'PUT',
+      body: payload,
+    })
+
+  const adminGetBaseServices = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
+    api<BaseService[] | PaginatedResponse<BaseService>>('/backoffice/admin/services', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    })
+
+  const adminCreateBaseService = (payload: BaseServicePayload) =>
+    api<BaseService>('/backoffice/admin/services', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminUpdateBaseService = (serviceId: number | string, payload: Partial<BaseServicePayload>) =>
+    api<BaseService>(`/backoffice/admin/services/${serviceId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
+  const adminDeleteBaseService = (serviceId: number | string) =>
+    api(`/backoffice/admin/services/${serviceId}`, {
+      method: 'DELETE',
+    })
+
+  const getMasterServices = (barberId: number | string) =>
+    api<MasterService[] | PaginatedResponse<MasterService>>(`/backoffice/barbers/${barberId}/services`)
+
+  const createMasterService = (barberId: number | string, payload: MasterServicePayload) =>
+    api<MasterService>(`/backoffice/barbers/${barberId}/services`, {
+      method: 'POST',
+      body: payload,
+    })
+
+  const updateMasterService = (barberId: number | string, serviceId: number | string, payload: Partial<MasterServicePayload>) =>
+    api<MasterService>(`/backoffice/barbers/${barberId}/services/${serviceId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
+  const deleteMasterService = (barberId: number | string, serviceId: number | string) =>
+    api(`/backoffice/barbers/${barberId}/services/${serviceId}`, {
+      method: 'DELETE',
+    })
+
+  const syncDefaultMasterServices = (barberId: number | string) =>
+    api<SyncDefaultServicesResponse>(`/backoffice/admin/barbers/${barberId}/services/sync-defaults`, {
+      method: 'POST',
+    })
+
+  const adminGetBookings = (page = 1, pageSize = 100, filters: BookingFilters = {}) =>
+    api<Booking[] | PaginatedResponse<Booking>>('/backoffice/bookings', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        master_id: filters.master_id ?? undefined,
+        status: filters.status || undefined,
+      },
+    })
+
+  const adminUpdateBookingStatus = (bookingId: number | string, status: BookingStatus) =>
+    api<Booking>(`/backoffice/bookings/${bookingId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    })
+
+  const adminGetTimeBlocks = (page = 1, pageSize = 100, filters: { date_from?: string, date_to?: string, master_id?: number | null } = {}) =>
+    api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/time-blocks', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        master_id: filters.master_id ?? undefined,
+      },
+    })
+
+  const adminCreateTimeBlock = (payload: TimeBlockPayload) =>
+    api<TimeBlock>('/backoffice/time-blocks', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminDeleteTimeBlock = (blockId: number | string) =>
+    api(`/backoffice/time-blocks/${blockId}`, {
+      method: 'DELETE',
     })
 
   return {
     login,
     me,
     getProducts,
+    getProduct,
+    createProduct,
+    updateProduct,
+    deleteProduct,
     getCategories,
+    getCategoryTree,
     getBrands,
     getOrders,
+    getCustomers,
+    getCustomer,
+    getCustomerOrders,
+    getPublicMasters,
+    getServices,
+    getAvailableSlots,
+    createPublicBooking,
+    getMyCalendar,
+    getMyBookings,
+    updateMyBookingStatus,
+    getMyTimeBlocks,
+    createMyTimeBlock,
+    deleteMyTimeBlock,
+    adminGetMasters,
+    adminCreateMaster,
+    adminUpdateMaster,
+    adminGetServices,
+    adminCreateService,
+    adminUpdateService,
+    adminGetBaseServices,
+    adminCreateBaseService,
+    adminUpdateBaseService,
+    adminDeleteBaseService,
+    getMasterServices,
+    createMasterService,
+    updateMasterService,
+    deleteMasterService,
+    syncDefaultMasterServices,
+    adminGetBookings,
+    adminUpdateBookingStatus,
+    adminGetTimeBlocks,
+    adminCreateTimeBlock,
+    adminDeleteTimeBlock,
   }
 }

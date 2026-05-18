@@ -18,7 +18,7 @@ const submit = async () => {
     const message =
         typeof cause === 'object' && cause && 'data' in cause && typeof cause.data === 'object' && cause.data && 'detail' in cause.data
             ? String(cause.data.detail)
-            : 'Invalid credentials'
+            : 'Невірні облікові дані'
     error.value = message
   } finally {
     pending.value = false
@@ -36,22 +36,22 @@ const submit = async () => {
           <img :src="logoScUrl" alt="Soul Cuts logo" width="120" height="120"
                class="h-26 w-26 object-contain p-3 rounded-xl bg-white"/>
           <h3 class="text-xl md:text-3xl font-semibold text-slate-700">
-            Welcome to Soul Cuts admin panel
+            Ласкаво просимо до адмін-панелі Soul Cuts
           </h3>
         </div>
         <div class="space-y-2">
           <label class="text-sm font-medium text-slate-700">Email</label>
-          <input v-model="form.email" placeholder="Enter your email" autocomplete="username"
+          <input v-model="form.email" placeholder="Введіть email" autocomplete="username"
                  class="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-cyan-500">
         </div>
         <div class="space-y-2">
-          <label class="text-sm font-medium text-slate-700">Password</label>
-          <input v-model="form.password" type="password" placeholder="Enter password" autocomplete="current-password"
+          <label class="text-sm font-medium text-slate-700">Пароль</label>
+          <input v-model="form.password" type="password" placeholder="Введіть пароль" autocomplete="current-password"
                  class="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-cyan-500">
         </div>
         <button type="submit" :disabled="pending"
                 class="w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60">
-          {{ pending ? 'Signing in...' : 'Enter backoffice' }}
+          {{ pending ? 'Вхід...' : 'Увійти в backoffice' }}
         </button>
         <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ error }}</p>
       </form>

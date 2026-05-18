@@ -6,10 +6,9 @@ export const useApi = () => {
     baseURL: config.public.apiBase,
     onRequest({ options }) {
       if (auth.accessToken) {
-        options.headers = {
-          ...(options.headers || {}),
-          Authorization: `Bearer ${auth.accessToken}`,
-        }
+        const headers = new Headers(options.headers || {})
+        headers.set('Authorization', `Bearer ${auth.accessToken}`)
+        options.headers = headers
       }
     },
     onResponseError({ response }) {

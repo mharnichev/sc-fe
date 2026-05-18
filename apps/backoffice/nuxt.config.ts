@@ -1,9 +1,11 @@
-import { fileURLToPath } from 'node:url'
 import svgLoader from 'vite-svg-loader'
 
-const sharedTypesPath = fileURLToPath(new URL('../../packages/shared-types/src', import.meta.url))
-const sharedUtilsPath = fileURLToPath(new URL('../../packages/shared-utils/src', import.meta.url))
-const sharedUiPath = fileURLToPath(new URL('../../packages/shared-ui/src', import.meta.url))
+const apiBase =
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NUXT_PUBLIC_API_BASE
+  || 'http://127.0.0.1:8000/api/v1'
+const sharedTypesPath = new URL('../../packages/shared-types/src/index.ts', import.meta.url).pathname
+const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
+const sharedUiPath = new URL('../../packages/shared-ui/src/index.ts', import.meta.url).pathname
 
 export default defineNuxtConfig({
   devtools: { enabled: false },
@@ -12,7 +14,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000/api/v1',
+      apiBase,
     },
   },
   typescript: {

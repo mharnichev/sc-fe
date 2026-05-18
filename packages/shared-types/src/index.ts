@@ -48,22 +48,50 @@ export interface ProductDto {
 export interface ServiceDto {
   id: number
   name: string
-  slug: string
+  slug?: string
   description: string | null
   price: string
   duration_minutes: number
-  status: string
+  status?: string
+  is_active?: boolean
+}
+
+export interface ServiceCatalogBarberServiceDto {
+  id: number
+  barber_id: number
+  name: string
+  description: string | null
+  price: string | number
+  duration_minutes: number
+  is_active?: boolean
+}
+
+export interface ServiceCatalogItemDto {
+  catalog_id: string
+  base_service_id: number | null
+  source_type: 'base' | 'custom'
+  name: string
+  description: string | null
+  price: string | number
+  duration_minutes: number
+  barber_ids: number[]
+  barber_service_ids: number[]
+  barber_services: ServiceCatalogBarberServiceDto[]
 }
 
 export interface MasterDto {
   id: number
-  name: string
-  slug: string
-  title: string
+  name?: string
+  full_name?: string
+  slug?: string
+  title?: string
   description: string | null
-  bio: string | null
-  photo: string | null
-  status: string
+  bio?: string | null
+  photo?: string | null
+  photo_url?: string | null
+  status?: string
+  is_active?: boolean
+  services?: ServiceDto[]
 }
 
 export interface CustomerDto {
@@ -78,11 +106,23 @@ export interface CustomerDto {
 export interface BookingDto {
   id: number
   status: string
-  scheduled_at: string
-  note: string | null
-  customer: CustomerDto
-  master: MasterDto
-  service: ServiceDto
+  scheduled_at?: string
+  start_at?: string
+  end_at?: string
+  note?: string | null
+  customer_name?: string
+  customer_phone?: string
+  customer_comment?: string | null
+  customer?: CustomerDto
+  master?: MasterDto
+  service?: ServiceDto
+  master_id?: number
+  service_id?: number
+}
+
+export interface AvailableSlotDto {
+  start_at: string
+  end_at: string
 }
 
 export interface OrderItemDto {
@@ -114,6 +154,46 @@ export interface PageDto {
   seo_title: string | null
   seo_description: string | null
   status: string
+}
+
+export interface GoogleBusinessReviewerDto {
+  display_name: string | null
+  profile_photo_url: string | null
+  is_anonymous: boolean
+}
+
+export interface GoogleBusinessReviewReplyDto {
+  comment: string | null
+  update_time: string | null
+}
+
+export interface GoogleBusinessReviewDto {
+  review_id: string
+  name?: string
+  reviewer: GoogleBusinessReviewerDto | null
+  star_rating: number | null
+  comment: string | null
+  translations?: {
+    uk?: string | null
+    ua?: string | null
+    en?: string | null
+  } | null
+  original_comment?: string | null
+  original_text?: string | null
+  source_comment?: string | null
+  raw_comment?: string | null
+  create_time: string | null
+  update_time: string | null
+  review_reply?: GoogleBusinessReviewReplyDto | null
+}
+
+export interface GoogleBusinessReviewsResponseDto {
+  average_rating: number | null
+  total_review_count: number
+  fetched_at: string | null
+  cache_expires_at: string | null
+  stale: boolean
+  items: GoogleBusinessReviewDto[]
 }
 
 export interface BannerDto {

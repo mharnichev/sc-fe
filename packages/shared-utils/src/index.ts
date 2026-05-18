@@ -1,5 +1,5 @@
-export const formatPrice = (value: string | number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(value))
+export const formatPrice = (value: string | number, currency = 'UAH') =>
+  new Intl.NumberFormat('UAH', { style: 'currency', currency }).format(Number(value))
 
 export const slugify = (value: string) =>
   value

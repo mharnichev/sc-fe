@@ -1,19 +1,24 @@
 <script setup lang="ts">
-useSeo('About', 'About Atelier Barber, our team and the studio philosophy.')
+const { terms } = useTerms()
+
+useSeo(
+  () => terms.value.seo.aboutTitle,
+  () => terms.value.seo.aboutDescription,
+)
 </script>
 
 <template>
   <div class="grid gap-8 lg:grid-cols-2 lg:items-center">
-    <div class="space-y-5">
-      <p class="text-sm uppercase tracking-[0.35em] text-amber-700">About</p>
-      <h1 class="text-5xl font-semibold text-stone-900">Built like a studio, run like a discipline.</h1>
+    <div class="space-y-5" data-reveal="soft">
+      <p class="text-sm uppercase tracking-[0.35em] text-amber-700">{{ terms.pages.about.label }}</p>
+      <h1 class="text-5xl font-semibold text-stone-900">{{ terms.pages.about.title }}</h1>
       <p class="text-lg leading-8 text-stone-600">
-        We design the experience around repeatability: sharp consultation, clean execution, tight scheduling and products that extend the result at home.
+        {{ terms.pages.about.firstText }}
       </p>
       <p class="text-base leading-8 text-stone-600">
-        The shop serves business professionals, creatives and athletes who want a stable grooming routine without generic salon treatment.
+        {{ terms.pages.about.secondText }}
       </p>
     </div>
-    <img src="https://images.unsplash.com/photo-1503951458645-643d53bfd90f?auto=format&fit=crop&w=1200&q=80" alt="Barber at work" class="h-[34rem] rounded-[2.5rem] object-cover shadow-xl">
+    <img src="https://images.unsplash.com/photo-1503951458645-643d53bfd90f?auto=format&fit=crop&w=1200&q=80" :alt="terms.pages.about.imageAlt" class="h-[34rem] rounded-[2.5rem] object-cover shadow-xl" data-reveal="image" data-reveal-delay="140">
   </div>
 </template>

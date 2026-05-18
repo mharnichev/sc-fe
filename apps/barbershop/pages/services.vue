@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { AppSection } from '@shared-ui'
 
+const { terms } = useTerms()
 const domain = useBarbershopDomain()
-const { data: services } = await useAsyncData('services', domain.getServices)
+const { data: services } = await useAsyncData('service-catalog', domain.getServiceCatalog)
 
-useSeo('Services', 'Haircuts, beard work, shaves and premium grooming services.')
+useSeo(
+  () => terms.value.seo.servicesTitle,
+  () => terms.value.seo.servicesDescription,
+)
 </script>
 
 <template>
-  <AppSection eyebrow="Menu" title="Service lineup" description="Straightforward pricing, premium finishing, and enough detail to make return visits easy to plan.">
+  <AppSection :eyebrow="terms.pages.services.label" :title="terms.pages.services.title" :description="terms.pages.services.description">
     <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="service in services || []" :key="service.id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200">
+      <article v-for="(service, index) in services || []" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="text-2xl font-semibold text-stone-900">{{ service.name }}</h3>
@@ -20,7 +24,7 @@ useSeo('Services', 'Haircuts, beard work, shaves and premium grooming services.'
             {{ service.duration_minutes }}m
           </span>
         </div>
-        <p class="mt-6 text-3xl font-semibold text-stone-900">${{ service.price }}</p>
+        <p class="mt-6 text-3xl font-semibold text-stone-900">₴ {{ service.price }}</p>
       </article>
     </div>
   </AppSection>

@@ -1,9 +1,7 @@
 <script setup lang="ts">
+const { terms } = useTerms()
 const domain = useBarbershopDomain()
-const [{ data: masters }, { data: services }] = await Promise.all([
-  useAsyncData('booking-masters', domain.getMasters),
-  useAsyncData('booking-services', domain.getServices),
-])
+const { data: masters } = await useAsyncData('booking-masters', domain.getMasters)
 
 const form = reactive({
   first_name: '',
@@ -18,20 +16,87 @@ const form = reactive({
 
 const state = reactive({ loading: false, success: '', error: '' })
 
-useSeo('Contacts & Booking', 'Contacts, opening hours and appointment request form.')
+const phoneHref = computed(() => `tel:${terms.value.pages.contacts.phone.replace(/[^\d+]/g, '')}`)
+const emailHref = computed(() => `mailto:${terms.value.pages.contacts.email}`)
+
+const formatDateTimeLocalInput = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+const minScheduledAt = formatDateTimeLocalInput(new Date())
+const maxScheduledAt = formatDateTimeLocalInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+
+const masterName = (master: { full_name?: string, name?: string, id: number }) =>
+  master.full_name || master.name || `Master #${master.id}`
+
+const selectedMaster = computed(() =>
+  (masters.value || []).find(master => master.id === Number(form.master_id)) || null,
+)
+
+const availableServices = computed(() =>
+  (selectedMaster.value?.services || []).filter(service => service.is_active ?? service.status !== 'inactive'),
+)
+
+watch(() => form.master_id, () => {
+  if (form.service_id && !availableServices.value.some(service => service.id === Number(form.service_id))) {
+    form.service_id = ''
+  }
+})
+
+const handlePhoneInput = (event: Event) => {
+  form.phone = formatPhoneInput((event.target as HTMLInputElement).value)
+}
+
+const handleTextInput = (
+  field: 'first_name' | 'last_name' | 'email' | 'note',
+  maxLength: number,
+  options: { multiline?: boolean } = {},
+) => {
+  form[field] = constrainFormInput(form[field], maxLength, options)
+}
+
+useSeo(
+  () => terms.value.seo.contactsTitle,
+  () => terms.value.seo.contactsDescription,
+)
 
 const submit = async () => {
+  const safeFirstName = sanitizeFormText(form.first_name, FORM_FIELD_LIMITS.name)
+  const safeLastName = sanitizeFormText(form.last_name, FORM_FIELD_LIMITS.name)
+  const safeNote = sanitizeFormText(form.note, FORM_FIELD_LIMITS.comment, { multiline: true })
+  const safeCustomerName = `${safeFirstName} ${safeLastName}`.trim()
+
+  if (!safeFirstName || !safeLastName) {
+    state.success = ''
+    state.error = terms.value.pages.contacts.error
+    return
+  }
+
+  if (!isValidPhoneNumber(form.phone)) {
+    state.success = ''
+    state.error = terms.value.pages.contacts.phoneInvalid
+    return
+  }
+
   state.loading = true
   state.success = ''
   state.error = ''
   try {
     await domain.createBooking({
-      ...form,
       master_id: Number(form.master_id),
       service_id: Number(form.service_id),
-      scheduled_at: new Date(form.scheduled_at).toISOString(),
+      customer_name: safeCustomerName,
+      customer_phone: formatPhoneForSubmit(form.phone),
+      customer_comment: safeNote || null,
+      start_at: new Date(form.scheduled_at).toISOString(),
     })
-    state.success = 'Booking request sent. The team will confirm the slot shortly.'
+    state.success = terms.value.pages.contacts.success
     Object.assign(form, {
       first_name: '',
       last_name: '',
@@ -44,7 +109,7 @@ const submit = async () => {
     })
   }
   catch (error) {
-    state.error = 'Unable to create the booking request.'
+    state.error = terms.value.pages.contacts.error
     console.error(error)
   }
   finally {
@@ -55,44 +120,106 @@ const submit = async () => {
 
 <template>
   <div class="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-    <section class="space-y-6">
+    <section class="space-y-6" data-reveal="soft">
       <div class="space-y-3">
-        <p class="text-sm uppercase tracking-[0.3em] text-amber-700">Contacts</p>
-        <h1 class="text-5xl font-semibold text-stone-900">Visit the studio or request a booking.</h1>
+        <p class="text-sm uppercase tracking-[0.3em] text-amber-700">{{ terms.pages.contacts.label }}</p>
+        <h1 class="text-5xl font-semibold text-stone-900">{{ terms.pages.contacts.title }}</h1>
       </div>
       <div class="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm">
         <div class="space-y-4 text-sm leading-7 text-stone-600">
-          <p><strong class="text-stone-900">Address:</strong> 214 West Elm Street, Chicago, IL</p>
-          <p><strong class="text-stone-900">Phone:</strong> +1 (312) 555-0199</p>
-          <p><strong class="text-stone-900">Hours:</strong> Mon-Sat 10:00-20:00</p>
-          <p><strong class="text-stone-900">Email:</strong> hello@atelierbarber.local</p>
+          <p><strong class="text-stone-900">{{ terms.pages.contacts.addressLabel }}</strong> {{ terms.pages.contacts.address }}</p>
+          <p>
+            <strong class="text-stone-900">{{ terms.pages.contacts.phoneLabel }}</strong>
+            <a :href="phoneHref" class="transition hover:text-stone-900 hover:underline">
+              {{ terms.pages.contacts.phone }}
+            </a>
+          </p>
+          <p><strong class="text-stone-900">{{ terms.pages.contacts.hoursLabel }}</strong> {{ terms.pages.contacts.hours }}</p>
+          <p v-if="terms.pages.contacts.email">
+            <strong class="text-stone-900">{{ terms.pages.contacts.emailLabel }}</strong>
+            <a :href="emailHref" class="transition hover:text-stone-900 hover:underline">
+              {{ terms.pages.contacts.email }}
+            </a>
+          </p>
         </div>
       </div>
     </section>
 
-    <form class="space-y-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm" @submit.prevent="submit">
+    <form class="space-y-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
       <div class="grid gap-4 md:grid-cols-2">
-        <input v-model="form.first_name" required placeholder="First name" class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0">
-        <input v-model="form.last_name" required placeholder="Last name" class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0">
+        <input
+          v-model="form.first_name"
+          required
+          autocomplete="given-name"
+          minlength="2"
+          :maxlength="FORM_FIELD_LIMITS.name"
+          :placeholder="terms.pages.contacts.placeholders.firstName"
+          class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0"
+          @input="handleTextInput('first_name', FORM_FIELD_LIMITS.name)"
+        >
+        <input
+          v-model="form.last_name"
+          required
+          autocomplete="family-name"
+          minlength="2"
+          :maxlength="FORM_FIELD_LIMITS.name"
+          :placeholder="terms.pages.contacts.placeholders.lastName"
+          class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0"
+          @input="handleTextInput('last_name', FORM_FIELD_LIMITS.name)"
+        >
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        <input v-model="form.email" type="email" required placeholder="Email" class="rounded-2xl border border-stone-300 px-4 py-3">
-        <input v-model="form.phone" placeholder="Phone" class="rounded-2xl border border-stone-300 px-4 py-3">
+        <input
+          v-model="form.email"
+          type="email"
+          required
+          autocomplete="email"
+          :maxlength="FORM_FIELD_LIMITS.email"
+          :placeholder="terms.pages.contacts.placeholders.email"
+          class="rounded-2xl border border-stone-300 px-4 py-3"
+          @input="handleTextInput('email', FORM_FIELD_LIMITS.email)"
+        >
+        <input
+          v-model="form.phone"
+          required
+          type="tel"
+          inputmode="tel"
+          autocomplete="tel"
+          maxlength="17"
+          pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
+          :placeholder="terms.pages.contacts.placeholders.phone"
+          class="rounded-2xl border border-stone-300 px-4 py-3"
+          @input="handlePhoneInput"
+        >
       </div>
       <div class="grid gap-4 md:grid-cols-2">
         <select v-model="form.master_id" required class="rounded-2xl border border-stone-300 px-4 py-3">
-          <option value="">Choose master</option>
-          <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ master.name }}</option>
+          <option value="">{{ terms.pages.contacts.placeholders.master }}</option>
+          <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
         </select>
-        <select v-model="form.service_id" required class="rounded-2xl border border-stone-300 px-4 py-3">
-          <option value="">Choose service</option>
-          <option v-for="service in services || []" :key="service.id" :value="service.id">{{ service.name }}</option>
+        <select v-model="form.service_id" required :disabled="!selectedMaster" class="rounded-2xl border border-stone-300 px-4 py-3 disabled:bg-stone-100 disabled:text-stone-400">
+          <option value="">{{ terms.pages.contacts.placeholders.service }}</option>
+          <option v-for="service in availableServices" :key="service.id" :value="service.id">{{ service.name }}</option>
         </select>
       </div>
-      <input v-model="form.scheduled_at" type="datetime-local" required class="w-full rounded-2xl border border-stone-300 px-4 py-3">
-      <textarea v-model="form.note" rows="4" placeholder="Notes" class="w-full rounded-2xl border border-stone-300 px-4 py-3" />
+      <input
+        v-model="form.scheduled_at"
+        type="datetime-local"
+        required
+        :min="minScheduledAt"
+        :max="maxScheduledAt"
+        class="w-full rounded-2xl border border-stone-300 px-4 py-3"
+      >
+      <textarea
+        v-model="form.note"
+        rows="4"
+        :maxlength="FORM_FIELD_LIMITS.comment"
+        :placeholder="terms.pages.contacts.placeholders.notes"
+        class="w-full rounded-2xl border border-stone-300 px-4 py-3"
+        @input="handleTextInput('note', FORM_FIELD_LIMITS.comment, { multiline: true })"
+      />
       <button type="submit" :disabled="state.loading" class="rounded-full bg-stone-900 px-6 py-3 text-sm font-medium text-white disabled:opacity-50">
-        {{ state.loading ? 'Sending...' : 'Send request' }}
+        {{ state.loading ? terms.pages.contacts.sending : terms.pages.contacts.sendRequest }}
       </button>
       <p v-if="state.success" class="text-sm text-emerald-700">{{ state.success }}</p>
       <p v-if="state.error" class="text-sm text-rose-700">{{ state.error }}</p>

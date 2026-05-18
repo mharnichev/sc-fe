@@ -4,6 +4,9 @@ export const useAuthStore = defineStore('auth', {
     user: null as null | {
       id: number
       email: string
+      full_name?: string | null
+      role?: string | null
+      master_id?: number | null
       is_active: boolean
       is_superuser: boolean
       created_at: string
@@ -34,7 +37,7 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.accessToken = ''
       this.user = null
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.removeItem('backoffice-auth')
       }
       return navigateTo('/login')
