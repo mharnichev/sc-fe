@@ -15,3 +15,29 @@ export const initials = (value: string) =>
     .slice(0, 2)
     .map(part => part[0]?.toUpperCase() ?? '')
     .join('')
+
+export interface ApiUploadAssetLike {
+  file_url?: string | null
+}
+
+export type ApiAssetValue = string | ApiUploadAssetLike | null | undefined
+
+const absoluteUrlPattern = /^[a-z][a-z\d+\-.]*:/i
+
+export const resolveApiAssetUrl = (value: ApiAssetValue, apiBase: string, clientOrigin = '') => {
+  const rawValue = typeof value === 'string' ? value : value?.file_url
+  if (!rawValue) return ''
+  if (absoluteUrlPattern.test(rawValue) || rawValue.startsWith('//')) return rawValue
+  if (!rawValue.startsWith('/')) return rawValue
+
+  if (apiBase.startsWith('/')) {
+    return clientOrigin ? `${clientOrigin}${rawValue}` : rawValue
+  }
+
+  try {
+    return `${new URL(apiBase).origin}${rawValue}`
+  }
+  catch {
+    return rawValue
+  }
+}

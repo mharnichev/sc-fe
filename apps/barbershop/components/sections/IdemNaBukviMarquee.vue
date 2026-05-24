@@ -4,8 +4,7 @@ import idemNaBukviLogo from '~/assets/idem-na-bukvi-white.png'
 const youtubeUrl = 'https://www.youtube.com/@idemnabukvy/featured'
 const marqueeItems = Array.from({ length: 10 }, (_, index) => index)
 const marqueeTextLines = [
-  'Ми тут підіймаємо культуру youtube барбарінгу,',
-  'пригай до нас',
+  'Тут ми висвітлюємо та розвиваємо культуру українського барберінгу. Приєднуйся!',
 ]
 </script>
 
@@ -22,8 +21,8 @@ const marqueeTextLines = [
           class="idem-marquee__item"
           aria-label="Відкрити YouTube канал Idem na bukvi"
         >
-          <img :src="idemNaBukviLogo" alt="Idem na bukvi" class="h-[4.5rem] w-auto shrink-0 object-contain md:h-[5.625rem]">
-          <span class="max-w-[17rem] text-sm font-semibold uppercase leading-tight tracking-normal text-neutral-950 md:text-base">
+          <img :src="idemNaBukviLogo" alt="Idem na bukvi" class="h-[3.75rem] w-auto shrink-0 object-contain md:h-[4.75rem]">
+          <span class="max-w-[12rem] text-[10px] font-semibold uppercase leading-[1.05] tracking-normal text-neutral-950 md:text-xs">
             <span v-for="line in marqueeTextLines" :key="line" class="block">
               {{ line }}
             </span>
@@ -54,7 +53,7 @@ const marqueeTextLines = [
   display: inline-flex;
   min-width: max-content;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   padding: 0;
   text-decoration: none;
   transition:

@@ -45,6 +45,16 @@ export interface ProductDto {
   images: ProductImageDto[]
 }
 
+export interface UploadAssetDto {
+  id: number
+  file_name: string
+  file_path: string
+  file_url: string | null
+  content_type: string | null
+  size: number | null
+  created_at: string
+}
+
 export interface ServiceDto {
   id: number
   name: string
@@ -87,8 +97,10 @@ export interface MasterDto {
   title?: string
   description: string | null
   bio?: string | null
-  photo?: string | null
+  photo?: string | UploadAssetDto | null
   photo_url?: string | null
+  avatar?: string | UploadAssetDto | null
+  avatar_url?: string | null
   status?: string
   is_active?: boolean
   services?: ServiceDto[]

@@ -4,6 +4,7 @@ import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp';
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
+const assetUrl = useAssetUrl()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 
@@ -20,7 +21,10 @@ const selectedSlotStart = ref('')
 const activeStepIndex = ref(0)
 const submitAttempted = ref(false)
 const isResettingAfterSubmit = ref(false)
+const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepIds = ['booking-service', 'booking-master', 'booking-time', 'booking-contact']
+const bookingScrollOffset = 24
+const bookingAutoScrollMediaQuery = '(max-width: 1023px), (hover: none) and (pointer: coarse) and (max-width: 1366px)'
 
 const form = reactive({
   customer_name: '',
@@ -86,7 +90,7 @@ const masterName = (master?: MasterDto | null) =>
   master?.full_name || master?.name || (master?.id ? `Master #${master.id}` : '')
 
 const masterPhoto = (master?: MasterDto | null) =>
-  master?.photo_url || master?.photo || 'https://placehold.co/640x480'
+  assetUrl(master?.photo_url || master?.photo) || 'https://placehold.co/640x480'
 
 const selectedService = computed<SelectableService | null>(() => {
   if (selectedServiceId.value) {
@@ -136,6 +140,24 @@ const resolveSelectedServiceForMaster = () => {
   }
 }
 
+const shouldAutoScrollBooking = () =>
+  import.meta.client && window.matchMedia(bookingAutoScrollMediaQuery).matches
+
+const scrollToBookingStart = async () => {
+  if (!shouldAutoScrollBooking()) return
+
+  await nextTick()
+
+  window.requestAnimationFrame(() => {
+    if (!bookingForm.value) return
+
+    window.scrollTo({
+      top: Math.max(0, bookingForm.value.getBoundingClientRect().top + window.scrollY - bookingScrollOffset),
+      behavior: 'smooth',
+    })
+  })
+}
+
 const selectCatalogService = (catalogId: string) => {
   selectedCatalogId.value = catalogId
   selectedServiceId.value = null
@@ -149,6 +171,7 @@ const selectCatalogService = (catalogId: string) => {
 
   resolveSelectedServiceForMaster()
   goToStep(1)
+  void scrollToBookingStart()
 }
 
 const selectService = (service: SelectableService) => {
@@ -159,7 +182,20 @@ const selectService = (service: SelectableService) => {
     selectedCatalogId.value = null
     selectedServiceId.value = service.id
     goToStep(1)
+    void scrollToBookingStart()
   }
+}
+
+const selectMaster = (masterId: number) => {
+  selectedMasterId.value = masterId
+  goToStep(2)
+  void scrollToBookingStart()
+}
+
+const selectSlot = (slotStart: string) => {
+  selectedSlotStart.value = slotStart
+  goToStep(3)
+  void scrollToBookingStart()
 }
 
 const handleExternalServiceSelect = (event: Event) => {
@@ -377,18 +413,26 @@ const closeSuccess = () => {
     <div class="site-container">
       <div class="grid gap-8 lg:grid-cols-[0.36fr_0.64fr] lg:gap-12">
         <div class="lg:sticky lg:top-28 lg:self-start" data-reveal="soft">
-          <SectionLabel>{{ terms.home.booking.label }}</SectionLabel>
-          <h2 class="section-title-inverse mt-4">
-            {{ terms.home.booking.title }}
-          </h2>
-          <p class="mt-4 text-base leading-7 text-white/65 md:mt-6 md:leading-8">
-            {{ terms.home.booking.description }}
-          </p>
+          <div class="grid gap-6 min-[560px]:grid-cols-[minmax(0,1fr)_minmax(10rem,18rem)] min-[560px]:items-start lg:block">
+            <div>
+              <SectionLabel>{{ terms.home.booking.label }}</SectionLabel>
+              <h2 class="section-title-inverse mt-4">
+                {{ terms.home.booking.title }}
+              </h2>
+              <p class="mt-4 text-base leading-7 text-white/65 md:mt-6 md:leading-8">
+                {{ terms.home.booking.description }}
+              </p>
+            </div>
 
-          <img :src="bookingSectionPhotos" alt="photo booking" />
+            <img
+              :src="bookingSectionPhotos"
+              alt="photo booking"
+              class="hidden w-full object-contain min-[560px]:mx-0 min-[560px]:block min-[560px]:max-w-[18rem] min-[560px]:justify-self-end lg:mt-8 lg:max-w-md"
+            >
+          </div>
         </div>
 
-        <form class="relative overflow-hidden border border-white/15 bg-white/[0.03]" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+        <form ref="bookingForm" class="relative overflow-hidden border border-white/15 bg-white/[0.03]" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
           <div class="grid grid-cols-2 border-b border-white/15 sm:grid-cols-4">
             <button
               v-for="(step, index) in bookingStepState"
@@ -470,7 +514,7 @@ const closeSuccess = () => {
                       type="button"
                       class="grid grid-cols-[3.5rem_1fr] gap-4 border p-3 text-left transition"
                       :class="selectedMasterId === master.id ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/75 hover:border-white/50'"
-                      @click="selectedMasterId = master.id; goToStep(2)"
+                      @click="selectMaster(master.id)"
                     >
                       <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover">
                       <span class="self-center">
@@ -508,7 +552,7 @@ const closeSuccess = () => {
                         type="button"
                         class="border px-3 py-2 text-sm font-semibold transition"
                         :class="selectedSlotStart === slot.start_at ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/75 hover:border-white/50'"
-                        @click="selectedSlotStart = slot.start_at; goToStep(3)"
+                        @click="selectSlot(slot.start_at)"
                       >
                         {{ formatTime(slot.start_at) }}
                       </button>

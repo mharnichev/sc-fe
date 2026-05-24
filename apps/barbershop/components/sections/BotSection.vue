@@ -8,8 +8,8 @@ const botLink = 'https://t.me/SoulcutsBot'
   <section id="bot" data-header-theme="dark" class="scroll-mt-24 bg-neutral-950 pb-12 text-white sm:pb-14 md:pb-24 xl:pb-28">
     <div class="site-container">
       <div class="grid gap-6 border border-white/15 bg-white/[0.03] p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_15rem] md:p-8 lg:grid-cols-[minmax(0,1fr)_16rem]" data-reveal="soft">
-        <div class="flex flex-col justify-between gap-8">
-          <div>
+        <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem] md:contents">
+          <div class="md:col-start-1">
             <p class="inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
               {{ terms.home.bot.badge }}
             </p>
@@ -21,7 +21,14 @@ const botLink = 'https://t.me/SoulcutsBot'
             </p>
           </div>
 
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div class="border border-white/15 bg-white p-2 text-neutral-950 sm:p-3 md:col-start-2 md:row-span-2 md:p-4">
+            <img src="/soulcuts-bot-qr.svg" :alt="terms.home.bot.qrAlt" class="aspect-square w-full object-contain">
+            <p class="mt-2 text-center text-[0.6rem] font-semibold uppercase leading-4 tracking-[0.12em] text-neutral-500 md:mt-4 md:text-xs md:tracking-[0.18em]">
+              {{ terms.home.bot.qrCaption }}
+            </p>
+          </div>
+
+          <div class="col-span-2 flex flex-col gap-4 sm:flex-row sm:items-center md:col-span-1 md:col-start-1 md:row-start-2 md:self-end">
             <NuxtLink
               :to="botLink"
               target="_blank"
@@ -38,13 +45,6 @@ const botLink = 'https://t.me/SoulcutsBot'
               {{ terms.home.bot.features }}
             </p>
           </div>
-        </div>
-
-        <div class="border border-white/15 bg-white p-4 text-neutral-950">
-          <img src="/soulcuts-bot-qr.svg" :alt="terms.home.bot.qrAlt" class="aspect-square w-full object-contain">
-          <p class="mt-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
-            {{ terms.home.bot.qrCaption }}
-          </p>
         </div>
       </div>
     </div>

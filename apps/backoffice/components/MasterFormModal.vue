@@ -14,6 +14,7 @@ const emit = defineEmits<{
 }>()
 
 const api = useBackofficeApi()
+const assetUrl = useAssetUrl()
 const { masterName, apiErrorMessage } = useBookingFormatting()
 
 const form = reactive<MasterPayload>({
@@ -40,9 +41,9 @@ const uploadUrl = (value?: string | UploadAsset | null) => {
   return typeof value === 'string' ? value : value.file_url || ''
 }
 
-const existingPhotoUrl = computed(() => editing.value?.photo_url || uploadUrl(editing.value?.photo))
-const existingAvatarUrl = computed(() => editing.value?.avatar_url || uploadUrl(editing.value?.avatar))
-const displayedPhotoUrl = computed(() => photoPreviewUrl.value || form.photo_url || existingPhotoUrl.value)
+const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo_url || uploadUrl(editing.value?.photo)))
+const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar_url || uploadUrl(editing.value?.avatar)))
+const displayedPhotoUrl = computed(() => photoPreviewUrl.value || assetUrl(form.photo_url) || existingPhotoUrl.value)
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
 
 const revokeObjectUrl = (url: string) => {

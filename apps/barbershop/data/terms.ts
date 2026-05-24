@@ -64,6 +64,8 @@ export const termsDictionary = {
         quote: 'Чоловіча перукарня з душевною атмосферою та повагою до класики.',
         author: 'Філософія Soul Cuts',
         imageAlt: 'Інтер’єр та майстри Soul Cuts',
+        readAll: 'Читати все',
+        readLess: 'Згорнути',
         text: [
           'Для нас стрижка - це не лише стиль. В першу чергу це охайність, комфорт та форма, яка органічно живе разом із людиною.',
           'Ми не женемось за швидкоплинними трендами. Наша задача - підібрати стрижку, яка буде пасувати саме Вам, враховуючи ріст волосся, форму та повсякденний комфорт у носінні.',
@@ -468,6 +470,8 @@ export const termsDictionary = {
         quote: 'Soul Cuts is a men’s barbershop with a warm atmosphere and respect for the classics.',
         author: 'Soul Cuts philosophy',
         imageAlt: 'Soul Cuts interior and barbers',
+        readAll: 'Read all',
+        readLess: 'Collapse',
         text: [
           'For us, a haircut is not only about style. First of all, it is neatness, comfort and a shape that naturally lives with the person.',
           'We do not chase short-lived trends. Our task is to choose a haircut that suits you personally, taking into account hair growth, shape and everyday comfort.',

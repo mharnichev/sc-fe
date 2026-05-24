@@ -3,6 +3,7 @@ import type { MasterDto } from '@shared-types'
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
+const assetUrl = useAssetUrl()
 const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters)
 
 const activeMemberIndex = ref(0)
@@ -22,7 +23,7 @@ const masterName = (master: MasterDto) =>
   master.full_name || master.name || `Master #${master.id}`
 
 const masterPhoto = (master: MasterDto) =>
-  master.photo_url || master.photo || teamImages[0]
+  assetUrl(master.photo_url || master.photo) || teamImages[0]
 
 const isMasterActive = (master: MasterDto) =>
   master.is_active ?? master.status !== 'inactive'
@@ -42,6 +43,7 @@ const teamMembers = computed(() =>
 
 const activeMember = computed(() => teamMembers.value[activeMemberIndex.value] || teamMembers.value[0] || null)
 const activeImage = computed(() => activeMember.value?.image || teamImages[0])
+const hasMultipleTeamMembers = computed(() => teamMembers.value.length > 1)
 const teamScrollHeight = computed(() => isMobile.value ? '100svh' : `${Math.max(teamMembers.value.length, 1) * 100}vh`)
 
 const updateActiveMemberFromScroll = () => {
@@ -194,9 +196,9 @@ watch(teamMembers, (members) => {
           </p>
         </div>
 
-        <div v-if="teamMembers.length" class="pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-white">
+        <div v-if="hasMultipleTeamMembers" class="pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-white">
           <span>{{ terms.home.team.swipeHint }}</span>
-          <svg class="h-5 w-5 animate-[team-arrow_1.2s_ease-in-out_infinite]" viewBox="0 0 24 24" aria-hidden="true">
+          <svg class="team-swipe-arrow h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
@@ -295,6 +297,10 @@ watch(teamMembers, (members) => {
 
 .team-mobile-slider::-webkit-scrollbar {
   display: none;
+}
+
+.team-swipe-arrow {
+  animation: team-arrow 1.2s ease-in-out infinite;
 }
 
 @keyframes team-arrow {

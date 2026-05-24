@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
+const assetUrl = useAssetUrl()
 const { masterName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
 
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
@@ -32,6 +34,9 @@ const { data, pending, error, refresh } = await useAsyncData(
 const masters = computed(() => normalizeItems(data.value))
 const total = computed(() => normalizeTotal(data.value))
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
+const masterImageUrl = (master: Master) =>
+  assetUrl(master.avatar_url || master.avatar || master.photo_url || master.photo)
+const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
 
 const openCreateMaster = () => {
   editing.value = null
@@ -150,10 +155,22 @@ const applyFilters = async () => {
       <div v-else-if="!masters.length" class="text-sm text-slate-500">Майстрів не знайдено.</div>
       <div v-else class="divide-y divide-slate-100">
         <article v-for="master in masters" :key="master.id" class="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
-            <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
-            <p class="text-xs text-slate-500">{{ master.services?.map(service => service.name).join(', ') || 'Немає призначених послуг' }}</p>
+          <div class="flex items-start gap-3">
+            <img
+              v-if="masterImageUrl(master)"
+              :src="masterImageUrl(master)"
+              :alt="masterName(master)"
+              class="h-14 w-14 shrink-0 rounded-2xl object-cover"
+              loading="lazy"
+            >
+            <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-500">
+              {{ masterInitials(master) }}
+            </div>
+            <div>
+              <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
+              <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
+              <p class="text-xs text-slate-500">{{ master.services?.map(service => service.name).join(', ') || 'Немає призначених послуг' }}</p>
+            </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <span class="rounded-full px-3 py-1 text-xs font-medium" :class="isMasterActive(master) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">

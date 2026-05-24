@@ -4,7 +4,6 @@ import heroImageTwo from '~/assets/images/hero/2021-03-17.webp'
 import heroImageThree from '~/assets/images/hero/2021-03-17_2.webp'
 import heroImageFour from '~/assets/images/hero/sc-hero-barber-1.webp'
 import heroImageFive from '~/assets/images/hero/sc-hero-barber-2.webp'
-import heroImageSix from '~/assets/images/hero/sc-hero-barber-3.webp'
 
 const { terms } = useTerms()
 
@@ -14,7 +13,6 @@ const heroImages = [
   heroImageThree,
   heroImageFour,
   heroImageFive,
-  heroImageSix
 ]
 
 const activeImageIndex = ref(0)
@@ -69,7 +67,7 @@ onBeforeUnmount(() => {
           {{ terms.home.hero.text }}
         </p>
       </div>
-      <div class="max-w-3xl flex gap-3 w-full" data-reveal="soft" data-reveal-delay="280">
+      <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row" data-reveal="soft" data-reveal-delay="280">
         <PrimaryButton to="#booking" class="w-full text-center">{{ terms.home.hero.primaryCta }}</PrimaryButton>
         <NuxtLink to="#services" class="w-full inline-flex justify-center items-center border border-white/35 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-neutral-950 text-center">
           {{ terms.home.hero.secondaryCta }}
