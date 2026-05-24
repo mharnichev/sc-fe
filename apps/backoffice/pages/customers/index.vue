@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { EyeIcon } from '@heroicons/vue/24/outline'
+
 const api = useBackofficeApi()
 const page = ref(1)
 const pageSize = 20
@@ -103,20 +105,26 @@ const prev = async () => {
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-for="item in data?.items || []" :key="item.id">
-            <td class="px-4 py-3 text-slate-700">{{ item.id }}</td>
-            <td class="px-4 py-3">
+            <td data-label="ID" class="px-4 py-3 text-slate-700">{{ item.id }}</td>
+            <td data-label="Телефон" class="px-4 py-3">
               <p class="font-medium text-slate-900">{{ item.phone }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-700">{{ item.name || '—' }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ item.surname || '—' }}</td>
-            <td class="px-4 py-3">
+            <td data-label="Назва" class="px-4 py-3 text-slate-700">{{ item.name || '—' }}</td>
+            <td data-label="Прізвище" class="px-4 py-3 text-slate-700">{{ item.surname || '—' }}</td>
+            <td data-label="Верифіковані" class="px-4 py-3">
               <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_verified ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                 {{ item.is_verified ? 'верифіковано' : 'не верифіковано' }}
               </span>
             </td>
-            <td class="px-4 py-3">
-              <NuxtLink :to="`/customers/${item.id}`" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700">
-                Переглянути
+            <td data-label="Дії" class="px-4 py-3">
+              <NuxtLink
+                :to="`/customers/${item.id}`"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                aria-label="Переглянути клієнта"
+                title="Переглянути"
+              >
+                <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                <span class="sr-only">Переглянути</span>
               </NuxtLink>
             </td>
           </tr>
@@ -124,7 +132,7 @@ const prev = async () => {
       </table>
     </div>
 
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
       <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
       <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
     </div>

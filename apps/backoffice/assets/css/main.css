@@ -5,4 +5,125 @@
 body {
   @apply bg-slate-100 text-slate-900 antialiased;
   font-family: "Manrope", "Segoe UI", sans-serif;
+  overflow-x: hidden;
+}
+
+@media (max-width: 640px) {
+  main h1 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  main h2 {
+    line-height: 1.75rem;
+  }
+
+  main input,
+  main select,
+  main textarea {
+    font-size: 16px;
+  }
+
+  main button,
+  main a {
+    overflow-wrap: anywhere;
+  }
+
+  main [class*="rounded-[1.75rem]"] {
+    border-radius: 1.25rem;
+  }
+
+  main section[class*="p-6"],
+  main form[class*="p-6"],
+  main article[class*="p-6"] {
+    padding: 1rem;
+  }
+
+  main dl [class*="grid-cols-[140px_1fr]"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 767px) {
+  main table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  main table thead {
+    display: none;
+  }
+
+  main table tbody {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+  }
+
+  main table tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+
+  main table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid #f1f5f9;
+    padding: 0.875rem 1rem !important;
+    text-align: right;
+  }
+
+  main table td:first-child {
+    border-top: 0;
+  }
+
+  main table td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    max-width: 42%;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  main table td:not([data-label])::before {
+    display: none;
+  }
+
+  main table td > * {
+    min-width: 0;
+  }
+
+  main table td.max-w-xs {
+    max-width: none;
+  }
+
+  main table td[data-label="Дії"] {
+    display: block;
+    text-align: left;
+  }
+
+  main table td[data-label="Дії"]::before {
+    display: block;
+    max-width: none;
+    margin-bottom: 0.5rem;
+  }
+
+  main table td[data-label="Дії"] > div {
+    justify-content: flex-start;
+  }
 }

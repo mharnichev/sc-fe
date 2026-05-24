@@ -44,25 +44,25 @@ const prev = async () => {
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-for="order in data?.items || []" :key="order.id">
-            <td class="px-4 py-3">
+            <td data-label="Замовлення" class="px-4 py-3">
               <p class="font-medium text-slate-900">#{{ order.id }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-700">
+            <td data-label="Клієнт" class="px-4 py-3 text-slate-700">
               {{ order.customer_name }}
             </td>
-            <td class="px-4 py-3">
+            <td data-label="Контакти" class="px-4 py-3">
               <p class="text-slate-700">{{ order.customer_email || '—' }}</p>
               <p class="text-xs text-slate-500">{{ order.customer_phone || 'Без телефону' }}</p>
             </td>
-            <td class="px-4 py-3 font-medium text-slate-900">
+            <td data-label="Усього" class="px-4 py-3 font-medium text-slate-900">
               {{ order.total_amount }}
             </td>
-            <td class="px-4 py-3">
+            <td data-label="Статус" class="px-4 py-3">
               <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.15em] text-slate-700">
                 {{ order.status }}
               </span>
             </td>
-            <td class="px-4 py-3 text-slate-700">
+            <td data-label="Створено" class="px-4 py-3 text-slate-700">
               {{ order.created_at }}
             </td>
           </tr>
@@ -70,7 +70,7 @@ const prev = async () => {
       </table>
     </div>
 
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
       <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
       <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
     </div>

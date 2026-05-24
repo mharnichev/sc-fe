@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -138,9 +139,17 @@ const updateStatus = async (status: BookingStatus) => {
             <p class="font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
             <p class="text-sm text-slate-500">{{ serviceName(resolveService(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <BookingStatusBadge :status="booking.status" />
-            <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="selected = booking">Переглянути</button>
+            <button
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+              aria-label="Переглянути бронювання"
+              title="Переглянути"
+              @click="selected = booking"
+            >
+              <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              <span class="sr-only">Переглянути</span>
+            </button>
           </div>
         </article>
       </div>
@@ -161,9 +170,17 @@ const updateStatus = async (status: BookingStatus) => {
             <p class="font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
             <p class="text-sm text-slate-500">{{ serviceName(resolveService(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <BookingStatusBadge :status="booking.status" />
-            <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="selected = booking">Переглянути</button>
+            <button
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+              aria-label="Переглянути бронювання"
+              title="Переглянути"
+              @click="selected = booking"
+            >
+              <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              <span class="sr-only">Переглянути</span>
+            </button>
           </div>
         </article>
       </div>

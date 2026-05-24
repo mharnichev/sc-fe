@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PencilIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
 import type { ProductPayload } from '~/composables/useBackofficeApi'
 
@@ -92,12 +93,23 @@ const submit = async (payload: ProductPayload) => {
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ product.name }}</h1>
         <p class="mt-2 text-sm text-slate-500">Товар #{{ product.id }} · {{ product.slug }}</p>
       </div>
-      <div class="flex gap-3">
+      <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
         <NuxtLink to="/products" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
           Назад до списку
         </NuxtLink>
-        <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="editMode = !editMode">
-          {{ editMode ? 'Закрити редагування' : 'Редагувати товар' }}
+        <button
+          class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
+          :aria-label="editMode ? 'Закрити редагування' : 'Редагувати товар'"
+          :title="editMode ? 'Закрити редагування' : 'Редагувати'"
+          @click="editMode = !editMode"
+        >
+          <template v-if="editMode">
+            Закрити редагування
+          </template>
+          <template v-else>
+            <PencilIcon class="h-4 w-4" aria-hidden="true" />
+            <span class="sr-only">Редагувати товар</span>
+          </template>
         </button>
       </div>
     </div>
@@ -134,7 +146,7 @@ const submit = async (payload: ProductPayload) => {
           </p>
         </div>
 
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 class="text-xl font-semibold text-slate-900">Огляд</h2>
           <span class="rounded-full px-3 py-1 text-xs font-medium" :class="product.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
             {{ product.is_active ? 'активний' : 'неактивний' }}

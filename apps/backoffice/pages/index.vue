@@ -46,12 +46,12 @@ const { data: dashboard } = await useAsyncData('backoffice-dashboard', async () 
         <h2 class="text-xl font-semibold text-slate-900">Останні замовлення</h2>
         <div class="mt-4 space-y-3">
           <article v-for="order in dashboard?.orders.items || []" :key="order.id" class="rounded-2xl bg-slate-50 px-4 py-3">
-            <div class="flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p class="font-medium text-slate-900">#{{ order.id }} · {{ order.customer_name }}</p>
                 <p class="text-sm text-slate-500">{{ order.customer_email || order.customer_phone || 'Без контактів' }}</p>
               </div>
-              <div class="text-right">
+              <div class="sm:text-right">
                 <p class="font-semibold text-slate-900">{{ order.total_amount }}</p>
                 <p class="text-xs uppercase tracking-[0.2em] text-cyan-700">{{ order.status }}</p>
               </div>
@@ -64,12 +64,12 @@ const { data: dashboard } = await useAsyncData('backoffice-dashboard', async () 
         <h2 class="text-xl font-semibold text-slate-900">Зріз каталогу</h2>
         <div class="mt-4 space-y-3">
           <article v-for="product in dashboard?.products.items || []" :key="product.id" class="rounded-2xl bg-slate-50 px-4 py-3">
-            <div class="flex items-start justify-between gap-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p class="font-medium text-slate-900">{{ product.name }}</p>
                 <p class="text-sm text-slate-500">{{ product.category?.name || 'Без категорії' }} · {{ product.brand?.name || 'Без бренду' }}</p>
               </div>
-              <div class="text-right">
+              <div class="sm:text-right">
                 <p class="font-semibold text-slate-900">{{ product.price }}</p>
                 <p class="text-xs uppercase tracking-[0.2em]" :class="product.is_active ? 'text-emerald-700' : 'text-slate-400'">
                   {{ product.is_active ? 'активний' : 'неактивний' }}

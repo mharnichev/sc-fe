@@ -88,7 +88,7 @@ const fullName = computed(() => {
       </section>
 
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <h2 class="text-xl font-semibold text-slate-900">Замовлення</h2>
           <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {{ orders?.total || 0 }} total
@@ -97,12 +97,12 @@ const fullName = computed(() => {
 
         <div v-if="orders?.items.length" class="mt-5 space-y-3">
           <article v-for="order in orders?.items || []" :key="order.id" class="rounded-2xl bg-slate-50 p-4">
-            <div class="flex items-start justify-between gap-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p class="font-medium text-slate-900">Замовлення #{{ order.id }}</p>
                 <p class="mt-1 text-sm text-slate-500">{{ order.customer_email || order.customer_phone || 'Без контактів' }}</p>
               </div>
-              <div class="text-right">
+              <div class="sm:text-right">
                 <p class="font-semibold text-slate-900">{{ order.total_amount }}</p>
                 <p class="mt-1 text-xs uppercase tracking-[0.2em] text-cyan-700">{{ order.status }}</p>
               </div>

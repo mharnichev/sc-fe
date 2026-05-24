@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { EyeIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+
 const api = useBackofficeApi()
 const page = ref(1)
 const pageSize = 20
@@ -86,7 +88,8 @@ const prev = async () => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Товари</h1>
       </div>
-      <NuxtLink to="/products/new" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white">
+      <NuxtLink to="/products/new" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white">
+        <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Додати товар
       </NuxtLink>
     </div>
@@ -140,35 +143,50 @@ const prev = async () => {
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-for="item in data?.items || []" :key="item.id">
-            <td class="px-4 py-3">
+            <td data-label="Назва" class="px-4 py-3">
               <p class="font-medium text-slate-900">{{ item.name }}</p>
               <p class="text-xs text-slate-500">{{ item.slug }}</p>
               <p v-if="item.sku" class="text-xs text-slate-400">SKU: {{ item.sku }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-700">{{ item.category?.name || '—' }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ item.brand?.name || '—' }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ item.price }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ item.recommended_retail_price }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ item.stock_quantity }}</td>
-            <td class="px-4 py-3">
+            <td data-label="Категорія" class="px-4 py-3 text-slate-700">{{ item.category?.name || '—' }}</td>
+            <td data-label="Бренд" class="px-4 py-3 text-slate-700">{{ item.brand?.name || '—' }}</td>
+            <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ item.price }}</td>
+            <td data-label="Рекомендована ціна" class="px-4 py-3 text-slate-700">{{ item.recommended_retail_price }}</td>
+            <td data-label="Склад" class="px-4 py-3 text-slate-700">{{ item.stock_quantity }}</td>
+            <td data-label="Статус" class="px-4 py-3">
               <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                 {{ item.is_active ? 'активний' : 'неактивний' }}
               </span>
             </td>
-            <td class="px-4 py-3">
-              <div class="flex gap-2">
-                <NuxtLink :to="`/products/${item.id}`" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700">
-                  Переглянути
+            <td data-label="Дії" class="px-4 py-3">
+              <div class="flex flex-wrap gap-2">
+                <NuxtLink
+                  :to="`/products/${item.id}`"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                  aria-label="Переглянути товар"
+                  title="Переглянути"
+                >
+                  <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                  <span class="sr-only">Переглянути</span>
                 </NuxtLink>
-                <NuxtLink :to="`/products/${item.id}`" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700">
-                  Редагувати
+                <NuxtLink
+                  :to="`/products/${item.id}`"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                  aria-label="Редагувати товар"
+                  title="Редагувати"
+                >
+                  <PencilIcon class="h-4 w-4" aria-hidden="true" />
+                  <span class="sr-only">Редагувати</span>
                 </NuxtLink>
                 <button
-                  class="rounded-full border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 disabled:opacity-60"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                   :disabled="pendingDeleteId === item.id"
+                  :aria-label="pendingDeleteId === item.id ? 'Видалення товару' : 'Видалити товар'"
+                  :title="pendingDeleteId === item.id ? 'Видалення...' : 'Видалити'"
                   @click="removeProduct(item.id)"
                 >
-                  {{ pendingDeleteId === item.id ? 'Видалення...' : 'Видалити' }}
+                  <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                  <span class="sr-only">{{ pendingDeleteId === item.id ? 'Видалення...' : 'Видалити' }}</span>
                 </button>
               </div>
             </td>
@@ -176,7 +194,7 @@ const prev = async () => {
         </tbody>
       </table>
     </div>
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
       <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
       <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
     </div>

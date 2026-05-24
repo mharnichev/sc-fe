@@ -54,13 +54,13 @@ const applyFilters = async () => {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="item in data?.items || []" :key="item.id">
-              <td class="px-4 py-3">
+              <td data-label="Назва" class="px-4 py-3">
                 <p class="font-medium text-slate-900">{{ item.name }}</p>
                 <p class="text-xs text-slate-500">{{ item.description || 'Без опису' }}</p>
               </td>
-              <td class="px-4 py-3 text-slate-700">{{ item.slug }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ item.parent_id || '—' }}</td>
-              <td class="px-4 py-3">
+              <td data-label="Slug" class="px-4 py-3 text-slate-700">{{ item.slug }}</td>
+              <td data-label="Батьківська категорія" class="px-4 py-3 text-slate-700">{{ item.parent_id || '—' }}</td>
+              <td data-label="Статус" class="px-4 py-3">
                 <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                   {{ item.is_active ? 'активний' : 'неактивний' }}
                 </span>

@@ -91,11 +91,11 @@ const submit = () => {
   <form class="space-y-6" @submit.prevent="submit">
     <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
       <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 class="text-xl font-semibold text-slate-900">Основна інформація</h2>
           <button
             type="button"
-            class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700"
+            class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 sm:self-auto"
             @click="form.slug = slugify(form.name)"
           >
             Згенерувати slug
@@ -180,7 +180,7 @@ const submit = () => {
       </section>
     </div>
 
-    <div class="flex items-center gap-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
       <button type="submit" :disabled="loading" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
         {{ submitLabel || 'Зберегти товар' }}
       </button>

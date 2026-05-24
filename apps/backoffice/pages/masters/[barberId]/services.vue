@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { MasterService, MasterServicePayload, BaseService, Master } from '~/composables/useBackofficeApi'
+import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import type { MasterService, BaseService, Master } from '~/composables/useBackofficeApi'
 
 definePageMeta({
   middleware: () => {
@@ -19,32 +20,14 @@ const { data: masters } = await useAsyncData('admin-barber-service-master-option
 const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const selectedMaster = computed(() => masterOptions.value.find(master => String(master.id) === barberId.value) || null)
 
-type ServiceFormMode = 'base' | 'custom'
-interface MasterServiceForm {
-  mode: ServiceFormMode
-  base_service_id: string
-  name: string
-  description: string | null
-  duration_minutes: number | string | null
-  price: number | string | null
-  is_active: boolean
-}
-
-const form = reactive<MasterServiceForm>({
-  mode: 'base',
-  base_service_id: '',
-  name: '',
-  description: null,
-  duration_minutes: null,
-  price: null,
-  is_active: true,
-})
 const editing = ref<MasterService | null>(null)
 const formError = ref('')
 const successMessage = ref('')
-const saving = ref(false)
 const deletingId = ref<number | string | null>(null)
 const syncPending = ref(false)
+const serviceModalOpen = ref(false)
+const togglingService = ref<MasterService | null>(null)
+const togglePending = ref(false)
 
 const [{ data, pending, error, refresh }, { data: baseServiceData }] = await Promise.all([
   useAsyncData(
@@ -58,98 +41,70 @@ const [{ data, pending, error, refresh }, { data: baseServiceData }] = await Pro
 const services = computed(() => normalizeItems(data.value))
 const baseServiceOptions = computed<BaseService[]>(() => normalizeItems(baseServiceData.value).filter(service => service.is_active))
 
-const resetForm = () => {
+const openCreateService = () => {
   editing.value = null
-  form.mode = 'base'
-  form.base_service_id = ''
-  form.name = ''
-  form.description = null
-  form.duration_minutes = null
-  form.price = null
-  form.is_active = true
   formError.value = ''
+  successMessage.value = ''
+  serviceModalOpen.value = true
 }
 
 const editService = (service: MasterService) => {
   editing.value = service
-  form.mode = service.source_type || (service.base_service_id ? 'base' : 'custom')
-  form.base_service_id = service.base_service_id ? String(service.base_service_id) : ''
-  form.name = service.name
-  form.description = service.description || null
-  form.duration_minutes = service.duration_minutes
-  form.price = Number(service.price)
-  form.is_active = service.is_active
   formError.value = ''
+  successMessage.value = ''
+  serviceModalOpen.value = true
 }
 
-const validate = () => {
-  if (!editing.value && form.mode === 'base' && !form.base_service_id) return 'Виберіть базову послугу.'
-  if (form.mode === 'custom') {
-    if (!form.name.trim()) return 'Назва обов’язкова.'
-    if (!form.duration_minutes || Number(form.duration_minutes) <= 0) return 'Тривалість має бути більшою за 0.'
-    if (form.price === null || Number(form.price) < 0) return 'Ціна має бути 0 або більше.'
-  }
-  if (form.mode === 'base') {
-    if (form.duration_minutes !== null && form.duration_minutes !== '' && Number(form.duration_minutes) <= 0) return 'Перевизначена тривалість має бути більшою за 0.'
-    if (form.price !== null && form.price !== '' && Number(form.price) < 0) return 'Перевизначена ціна має бути 0 або більше.'
-  }
-  return ''
+const handleServiceSaved = async (message: string) => {
+  successMessage.value = message
+  formError.value = ''
+  editing.value = null
+  await refresh()
 }
 
-const servicePayload = () => ({
-  base_service_id: form.mode === 'base' && form.base_service_id ? Number(form.base_service_id) : null,
-  name: form.name.trim() || undefined,
-  description: form.description?.trim() || null,
-  duration_minutes: form.duration_minutes === null || form.duration_minutes === '' ? undefined : Number(form.duration_minutes),
-  price: form.price === null || form.price === '' ? undefined : Number(form.price),
-  is_active: form.is_active,
+const handleServiceModalUpdate = (value: boolean) => {
+  serviceModalOpen.value = value
+  if (!value) editing.value = null
+}
+
+const toggleContextItems = computed(() => {
+  if (!togglingService.value) return []
+  return [
+    { label: 'Майстер', value: selectedMaster.value ? masterName(selectedMaster.value) : `#${barberId.value}` },
+    { label: 'Послуга', value: togglingService.value.name },
+    { label: 'Поточний статус', value: togglingService.value.is_active ? 'активна' : 'неактивна' },
+    { label: 'Новий статус', value: togglingService.value.is_active ? 'неактивна' : 'активна' },
+  ]
 })
 
-const submitPayload = (): MasterServicePayload => {
-  const payload = servicePayload()
-  if (editing.value && form.mode === 'base') {
-    const { base_service_id: _baseServiceId, ...updatePayload } = payload
-    return updatePayload
-  }
-  return payload
-}
-
-const submit = async () => {
-  formError.value = validate()
-  successMessage.value = ''
-  if (formError.value) return
-  saving.value = true
-
-  try {
-    if (editing.value) {
-      await api.updateMasterService(barberId.value, editing.value.id, submitPayload())
-      successMessage.value = 'Послугу майстра оновлено.'
-    }
-    else {
-      await api.createMasterService(barberId.value, servicePayload())
-      successMessage.value = 'Послугу майстра створено.'
-    }
-    resetForm()
-    await refresh()
-  }
-  catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося зберегти послугу майстра.')
-  }
-  finally {
-    saving.value = false
-  }
-}
-
-const toggleService = async (service: MasterService) => {
+const openToggleServiceConfirm = (service: MasterService) => {
   formError.value = ''
   successMessage.value = ''
+  togglingService.value = service
+}
+
+const handleToggleConfirmUpdate = (value: boolean) => {
+  if (!value && !togglePending.value) togglingService.value = null
+}
+
+const confirmToggleService = async () => {
+  const service = togglingService.value
+  if (!service) return
+
+  formError.value = ''
+  successMessage.value = ''
+  togglePending.value = true
   try {
     await api.updateMasterService(barberId.value, service.id, { is_active: !service.is_active })
     successMessage.value = 'Статус послуги майстра оновлено.'
+    togglingService.value = null
     await refresh()
   }
   catch (cause) {
     formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус послуги майстра.')
+  }
+  finally {
+    togglePending.value = false
   }
 }
 
@@ -162,7 +117,10 @@ const deleteService = async (service: MasterService) => {
   try {
     await api.deleteMasterService(barberId.value, service.id)
     successMessage.value = 'Послугу майстра вимкнено.'
-    if (editing.value?.id === service.id) resetForm()
+    if (editing.value?.id === service.id) {
+      editing.value = null
+      serviceModalOpen.value = false
+    }
     await refresh()
   }
   catch (cause) {
@@ -190,17 +148,6 @@ const syncDefaults = async () => {
   }
 }
 
-watch(
-  () => form.mode,
-  mode => {
-    if (editing.value) return
-    form.base_service_id = ''
-    form.duration_minutes = mode === 'custom' ? 30 : null
-    form.price = mode === 'custom' ? 0 : null
-    form.name = ''
-    form.description = null
-  },
-)
 </script>
 
 <template>
@@ -213,75 +160,26 @@ watch(
           {{ selectedMaster ? `${masterName(selectedMaster)} Services` : `Майстер #${barberId} Services` }}
         </h1>
       </div>
-      <button :disabled="syncPending" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60" @click="syncDefaults">
-        {{ syncPending ? 'Синхронізація...' : 'Синхронізувати відсутні типові послуги' }}
-      </button>
+      <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+        <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateService">
+          <PlusIcon class="h-4 w-4" aria-hidden="true" />
+          Створити послугу майстра
+        </button>
+        <button :disabled="syncPending" class="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 disabled:opacity-60" @click="syncDefaults">
+          {{ syncPending ? 'Синхронізація...' : 'Синхронізувати відсутні типові послуги' }}
+        </button>
+      </div>
     </div>
     <p class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
       Синхронізація додає лише відсутні активні базові послуги для цього майстра. Вона не перезаписує власні назви, ціни, тривалість або описи наявних послуг майстра.
     </p>
 
-    <section class="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-      <form class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm" @submit.prevent="submit">
-        <h2 class="text-xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу майстра' : 'Створити послугу майстра' }}</h2>
-        <fieldset v-if="!editing" class="space-y-3 rounded-2xl border border-slate-200 p-4">
-          <legend class="px-1 text-sm font-medium text-slate-700">Тип створення</legend>
-          <div class="flex flex-wrap gap-3">
-            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-              <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
-              З базової послуги
-            </label>
-            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-              <input v-model="form.mode" type="radio" value="custom" class="h-4 w-4">
-              Власна
-            </label>
-          </div>
-        </fieldset>
-        <label v-if="!editing && form.mode === 'base'" class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Базова послуга</span>
-          <select v-model="form.base_service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-            <option value="">Виберіть базову послугу</option>
-            <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
-              {{ service.name }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
-            </option>
-          </select>
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Назва</span>
-          <input v-model="form.name" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Опис</span>
-          <textarea v-model="form.description" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Тривалість, хвилини</span>
-            <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Ціна</span>
-            <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          </label>
-        </div>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          Послуга активна
-        </label>
-        <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          Based on {{ editing.base_service.name }}. Редагуватиing this service changes only this barber's personal copy.
-        </p>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
-            {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
-          </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">Скинути</button>
-        </div>
-        <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
-        <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
-      </form>
+    <div class="space-y-3">
+      <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
+      <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
+    </div>
 
-      <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
           {{ apiErrorMessage(error, 'Не вдалося завантажити послуги майстра.') }}
         </p>
@@ -302,33 +200,60 @@ watch(
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="service in services" :key="service.id">
-                <td class="px-4 py-3">
+                <td data-label="Назва" class="px-4 py-3">
                   <p class="font-medium text-slate-900">{{ service.name }}</p>
                   <p class="mt-1 text-xs text-slate-500">{{ service.description || 'Без опису' }}</p>
                 </td>
-                <td class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-                <td class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
-                <td class="px-4 py-3">
+                <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
+                <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
+                <td data-label="Джерело" class="px-4 py-3">
                   <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.source_type === 'base' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'">
                     {{ service.source_type }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-slate-500">
+                <td data-label="Базова послуга" class="px-4 py-3 text-slate-500">
                   {{ service.base_service ? `${service.base_service.name} #${service.base_service.id}` : '-' }}
                 </td>
-                <td class="px-4 py-3">
+                <td data-label="Статус" class="px-4 py-3">
                   <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                     {{ service.is_active ? 'активний' : 'неактивний' }}
                   </span>
                 </td>
-                <td class="px-4 py-3">
+                <td data-label="Дії" class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="editService(service)">Редагувати</button>
-                    <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="toggleService(service)">
-                      {{ service.is_active ? 'Деактивувати' : 'Активувати' }}
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      aria-label="Редагувати послугу майстра"
+                      title="Редагувати"
+                      @click="editService(service)"
+                    >
+                      <PencilIcon class="h-4 w-4" aria-hidden="true" />
+                      <span class="sr-only">Редагувати</span>
                     </button>
-                    <button class="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 disabled:opacity-60" :disabled="deletingId === service.id || !service.is_active" @click="deleteService(service)">
-                      {{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      :aria-label="service.is_active ? 'Деактивувати послугу майстра' : 'Активувати послугу майстра'"
+                      :title="service.is_active ? 'Деактивувати' : 'Активувати'"
+                      @click="openToggleServiceConfirm(service)"
+                    >
+                      <template v-if="service.is_active">
+                        <NoSymbolIcon class="h-4 w-4" aria-hidden="true" />
+                        <span class="sr-only">Деактивувати</span>
+                      </template>
+                      <template v-else>
+                        <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
+                        <span class="sr-only">Активувати</span>
+                      </template>
+                    </button>
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                      :disabled="deletingId === service.id || !service.is_active"
+                      :aria-label="deletingId === service.id ? 'Вимкнення послуги майстра' : 'Видалити послугу майстра'"
+                      :title="deletingId === service.id ? 'Вимкнення...' : 'Видалити'"
+                      @click="deleteService(service)"
+                    >
+                      <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                      <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
                     </button>
                   </div>
                 </td>
@@ -336,7 +261,26 @@ watch(
             </tbody>
           </table>
         </div>
-      </section>
     </section>
+
+    <MasterServiceFormModal
+      :model-value="serviceModalOpen"
+      :barber-id="barberId"
+      :service="editing"
+      :base-service-options="baseServiceOptions"
+      @saved="handleServiceSaved"
+      @update:model-value="handleServiceModalUpdate"
+    />
+    <ConfirmActionModal
+      :model-value="Boolean(togglingService)"
+      :title="togglingService?.is_active ? 'Деактивувати послугу майстра?' : 'Активувати послугу майстра?'"
+      :message="togglingService?.is_active ? 'Ця послуга стане неактивною саме для вибраного майстра. Історія записів збережеться. Ви точно хочете виконати цю дію?' : 'Ця послуга знову стане активною для вибраного майстра. Ви точно хочете виконати цю дію?'"
+      :confirm-label="togglingService?.is_active ? 'Так, деактивувати' : 'Так, активувати'"
+      :context-items="toggleContextItems"
+      :pending="togglePending"
+      :destructive="Boolean(togglingService?.is_active)"
+      @confirm="confirmToggleService"
+      @update:model-value="handleToggleConfirmUpdate"
+    />
   </div>
 </template>

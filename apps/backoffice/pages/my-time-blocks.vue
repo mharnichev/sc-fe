@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+
 const api = useBackofficeApi()
 const {
   todayInput,
@@ -151,7 +153,8 @@ const deleteBlock = async (blockId: number) => {
           <span class="font-medium">Причина</span>
           <textarea v-model="form.reason" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
-        <button type="submit" :disabled="saving" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+        <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+          <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
           {{ saving ? 'Створення...' : 'Створити блокування' }}
         </button>
         <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
@@ -187,11 +190,14 @@ const deleteBlock = async (blockId: number) => {
               <p class="text-sm text-slate-500">{{ block.reason || 'Без причини' }}</p>
             </div>
             <button
-              class="rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 disabled:opacity-60"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
               :disabled="deletingId === block.id"
+              :aria-label="deletingId === block.id ? 'Видалення блокування часу' : 'Видалити блокування часу'"
+              :title="deletingId === block.id ? 'Видалення...' : 'Видалити'"
               @click="deleteBlock(block.id)"
             >
-              {{ deletingId === block.id ? 'Видалення...' : 'Видалити' }}
+              <TrashIcon class="h-5 w-5" aria-hidden="true" />
+              <span class="sr-only">{{ deletingId === block.id ? 'Видалення...' : 'Видалити' }}</span>
             </button>
           </article>
         </div>

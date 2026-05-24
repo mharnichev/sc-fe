@@ -40,9 +40,9 @@ const resolvedService = computed(() =>
 </script>
 
 <template>
-  <div v-if="booking" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-    <section class="max-h-full w-full max-w-3xl overflow-y-auto rounded-[1.75rem] bg-white shadow-2xl">
-      <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+  <div v-if="booking" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-0 py-0 sm:items-center sm:px-4 sm:py-6">
+    <section class="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-[1.5rem] bg-white shadow-2xl sm:max-h-full sm:rounded-[1.75rem]">
+      <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
         <div>
           <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Деталі бронювання</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">
@@ -54,7 +54,7 @@ const resolvedService = computed(() =>
         </button>
       </div>
 
-      <div class="space-y-6 px-6 py-5">
+      <div class="space-y-6 px-4 py-5 sm:px-6">
         <div class="flex flex-wrap items-center gap-3">
           <BookingStatusBadge :status="booking.status" />
           <p class="text-sm text-slate-500">{{ formatDateTime(bookingStart(booking)) }} - {{ formatDateTime(bookingEnd(booking)) }}</p>

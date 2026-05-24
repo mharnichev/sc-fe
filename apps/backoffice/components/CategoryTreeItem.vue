@@ -8,12 +8,12 @@ defineProps<{
 
 <template>
   <article class="rounded-2xl bg-slate-50 px-4 py-3">
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="font-medium text-slate-900">{{ node.name }}</p>
         <p class="text-xs text-slate-500">{{ node.slug }}</p>
       </div>
-      <span class="rounded-full px-3 py-1 text-xs font-medium" :class="node.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+      <span class="shrink-0 rounded-full px-3 py-1 text-xs font-medium" :class="node.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
         {{ node.is_active ? 'активний' : 'неактивний' }}
       </span>
     </div>

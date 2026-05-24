@@ -1,0 +1,218 @@
+<script setup lang="ts">
+import { PlusIcon } from '@heroicons/vue/24/outline'
+import type { BaseService, MasterService, MasterServicePayload } from '~/composables/useBackofficeApi'
+
+type ServiceFormMode = 'base' | 'custom'
+
+interface MasterServiceForm {
+  mode: ServiceFormMode
+  base_service_id: string
+  name: string
+  description: string | null
+  duration_minutes: number | string | null
+  price: number | string | null
+  is_active: boolean
+}
+
+const props = defineProps<{
+  modelValue: boolean
+  barberId: string
+  service?: MasterService | null
+  baseServiceOptions: BaseService[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  saved: [message: string]
+}>()
+
+const api = useBackofficeApi()
+const { formatDuration, formatPrice, apiErrorMessage } = useBookingFormatting()
+
+const form = reactive<MasterServiceForm>({
+  mode: 'base',
+  base_service_id: '',
+  name: '',
+  description: null,
+  duration_minutes: null,
+  price: null,
+  is_active: true,
+})
+const formError = ref('')
+const saving = ref(false)
+
+const editing = computed(() => props.service || null)
+
+const fillForm = (service?: MasterService | null) => {
+  form.mode = service ? (service.source_type || (service.base_service_id ? 'base' : 'custom')) : 'base'
+  form.base_service_id = service?.base_service_id ? String(service.base_service_id) : ''
+  form.name = service?.name || ''
+  form.description = service?.description || null
+  form.duration_minutes = service?.duration_minutes || null
+  form.price = service ? Number(service.price) : null
+  form.is_active = service?.is_active ?? true
+  formError.value = ''
+}
+
+const close = () => {
+  emit('update:modelValue', false)
+}
+
+const validate = () => {
+  if (!editing.value && form.mode === 'base' && !form.base_service_id) return 'Виберіть базову послугу.'
+  if (form.mode === 'custom') {
+    if (!form.name.trim()) return 'Назва обов’язкова.'
+    if (!form.duration_minutes || Number(form.duration_minutes) <= 0) return 'Тривалість має бути більшою за 0.'
+    if (form.price === null || Number(form.price) < 0) return 'Ціна має бути 0 або більше.'
+  }
+  if (form.mode === 'base') {
+    if (form.duration_minutes !== null && form.duration_minutes !== '' && Number(form.duration_minutes) <= 0) return 'Перевизначена тривалість має бути більшою за 0.'
+    if (form.price !== null && form.price !== '' && Number(form.price) < 0) return 'Перевизначена ціна має бути 0 або більше.'
+  }
+  return ''
+}
+
+const servicePayload = () => ({
+  base_service_id: form.mode === 'base' && form.base_service_id ? Number(form.base_service_id) : null,
+  name: form.name.trim() || undefined,
+  description: form.description?.trim() || null,
+  duration_minutes: form.duration_minutes === null || form.duration_minutes === '' ? undefined : Number(form.duration_minutes),
+  price: form.price === null || form.price === '' ? undefined : Number(form.price),
+  is_active: form.is_active,
+})
+
+const submitPayload = (): MasterServicePayload => {
+  const payload = servicePayload()
+  if (editing.value && form.mode === 'base') {
+    const { base_service_id: _baseServiceId, ...updatePayload } = payload
+    return updatePayload
+  }
+  return payload
+}
+
+const submit = async () => {
+  formError.value = validate()
+  if (formError.value) return
+  saving.value = true
+
+  try {
+    if (editing.value) {
+      await api.updateMasterService(props.barberId, editing.value.id, submitPayload())
+      emit('saved', 'Послугу майстра оновлено.')
+    }
+    else {
+      await api.createMasterService(props.barberId, servicePayload())
+      emit('saved', 'Послугу майстра створено.')
+    }
+    close()
+  }
+  catch (cause) {
+    formError.value = apiErrorMessage(cause, 'Не вдалося зберегти послугу майстра.')
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+const resetForm = () => {
+  fillForm(editing.value)
+}
+
+watch(
+  () => form.mode,
+  mode => {
+    if (editing.value) return
+    form.base_service_id = ''
+    form.duration_minutes = mode === 'custom' ? 30 : null
+    form.price = mode === 'custom' ? 0 : null
+    form.name = ''
+    form.description = null
+  },
+)
+
+watch(
+  () => [props.modelValue, props.service] as const,
+  ([open, service]) => {
+    if (open) fillForm(service)
+  },
+  { immediate: true },
+)
+</script>
+
+<template>
+  <BaseModal :model-value="modelValue" max-width-class="max-w-3xl" @update:model-value="emit('update:modelValue', $event)" @close="formError = ''">
+    <template #head="{ close: closeModal }">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Послуги майстра</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу майстра' : 'Створити послугу майстра' }}</h2>
+        </div>
+        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
+          Закрити
+        </button>
+      </div>
+    </template>
+
+    <template #body>
+      <form class="space-y-5" @submit.prevent="submit">
+        <fieldset v-if="!editing" class="space-y-3 rounded-2xl border border-slate-200 p-4">
+          <legend class="px-1 text-sm font-medium text-slate-700">Тип створення</legend>
+          <div class="flex flex-wrap gap-3">
+            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+              <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
+              З базової послуги
+            </label>
+            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+              <input v-model="form.mode" type="radio" value="custom" class="h-4 w-4">
+              Власна
+            </label>
+          </div>
+        </fieldset>
+        <label v-if="!editing && form.mode === 'base'" class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Базова послуга</span>
+          <select v-model="form.base_service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <option value="">Виберіть базову послугу</option>
+            <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
+              {{ service.name }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
+            </option>
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Назва</span>
+          <input v-model="form.name" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Опис</span>
+          <textarea v-model="form.description" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+        </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Тривалість, хвилини</span>
+            <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Ціна</span>
+            <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          </label>
+        </div>
+        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          Послуга активна
+        </label>
+        <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ editing.base_service.name }}.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+            <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
+            {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
+          </button>
+          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">
+            Скинути
+          </button>
+        </div>
+        <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
+      </form>
+    </template>
+  </BaseModal>
+</template>

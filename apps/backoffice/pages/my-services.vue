@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { MasterService, MasterServicePayload, BaseService, Master } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -44,6 +45,8 @@ const formError = ref('')
 const successMessage = ref('')
 const saving = ref(false)
 const deletingId = ref<number | string | null>(null)
+const togglingService = ref<MasterService | null>(null)
+const togglePending = ref(false)
 
 const [{ data, pending, error, refresh }, { data: baseServiceData }] = await Promise.all([
   useAsyncData(
@@ -148,17 +151,45 @@ const submit = async () => {
   }
 }
 
-const toggleService = async (service: MasterService) => {
+const toggleContextItems = computed(() => {
+  if (!togglingService.value) return []
+  return [
+    { label: 'Майстер', value: linkedMaster.value ? masterName(linkedMaster.value) : 'Ваш профіль майстра' },
+    { label: 'Послуга', value: togglingService.value.name },
+    { label: 'Поточний статус', value: togglingService.value.is_active ? 'активна' : 'неактивна' },
+    { label: 'Новий статус', value: togglingService.value.is_active ? 'неактивна' : 'активна' },
+  ]
+})
+
+const openToggleServiceConfirm = (service: MasterService) => {
   if (!barberId.value) return
   formError.value = ''
   successMessage.value = ''
+  togglingService.value = service
+}
+
+const handleToggleConfirmUpdate = (value: boolean) => {
+  if (!value && !togglePending.value) togglingService.value = null
+}
+
+const confirmToggleService = async () => {
+  const service = togglingService.value
+  if (!service || !barberId.value) return
+
+  formError.value = ''
+  successMessage.value = ''
+  togglePending.value = true
   try {
     await api.updateMasterService(barberId.value, service.id, { is_active: !service.is_active })
     successMessage.value = 'Статус послуги оновлено.'
+    togglingService.value = null
     await refresh()
   }
   catch (cause) {
     formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус послуги.')
+  }
+  finally {
+    togglePending.value = false
   }
 }
 
@@ -264,7 +295,8 @@ watch(canCreateFromBase, value => {
           Based on {{ editing.base_service.name }}. Редагуватиing this service changes only your personal copy.
         </p>
         <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving || !barberId" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+          <button type="submit" :disabled="saving || !barberId" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+            <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
           </button>
           <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">Скинути</button>
@@ -294,33 +326,60 @@ watch(canCreateFromBase, value => {
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="service in services" :key="service.id">
-                <td class="px-4 py-3">
+                <td data-label="Назва" class="px-4 py-3">
                   <p class="font-medium text-slate-900">{{ service.name }}</p>
                   <p class="mt-1 text-xs text-slate-500">{{ service.description || 'Без опису' }}</p>
                 </td>
-                <td class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-                <td class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
-                <td class="px-4 py-3">
+                <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
+                <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
+                <td data-label="Джерело" class="px-4 py-3">
                   <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.source_type === 'base' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'">
                     {{ service.source_type }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-slate-500">
+                <td data-label="Базова послуга" class="px-4 py-3 text-slate-500">
                   {{ service.base_service ? `${service.base_service.name} #${service.base_service.id}` : '-' }}
                 </td>
-                <td class="px-4 py-3">
+                <td data-label="Статус" class="px-4 py-3">
                   <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                     {{ service.is_active ? 'активний' : 'неактивний' }}
                   </span>
                 </td>
-                <td class="px-4 py-3">
+                <td data-label="Дії" class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="editService(service)">Редагувати</button>
-                    <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="toggleService(service)">
-                      {{ service.is_active ? 'Деактивувати' : 'Активувати' }}
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      aria-label="Редагувати послугу"
+                      title="Редагувати"
+                      @click="editService(service)"
+                    >
+                      <PencilIcon class="h-4 w-4" aria-hidden="true" />
+                      <span class="sr-only">Редагувати</span>
                     </button>
-                    <button class="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 disabled:opacity-60" :disabled="deletingId === service.id || !service.is_active" @click="deleteService(service)">
-                      {{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      :aria-label="service.is_active ? 'Деактивувати послугу' : 'Активувати послугу'"
+                      :title="service.is_active ? 'Деактивувати' : 'Активувати'"
+                      @click="openToggleServiceConfirm(service)"
+                    >
+                      <template v-if="service.is_active">
+                        <NoSymbolIcon class="h-4 w-4" aria-hidden="true" />
+                        <span class="sr-only">Деактивувати</span>
+                      </template>
+                      <template v-else>
+                        <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
+                        <span class="sr-only">Активувати</span>
+                      </template>
+                    </button>
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                      :disabled="deletingId === service.id || !service.is_active"
+                      :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"
+                      :title="deletingId === service.id ? 'Вимкнення...' : 'Видалити'"
+                      @click="deleteService(service)"
+                    >
+                      <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                      <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
                     </button>
                   </div>
                 </td>
@@ -330,5 +389,16 @@ watch(canCreateFromBase, value => {
         </div>
       </section>
     </section>
+    <ConfirmActionModal
+      :model-value="Boolean(togglingService)"
+      :title="togglingService?.is_active ? 'Деактивувати послугу?' : 'Активувати послугу?'"
+      :message="togglingService?.is_active ? 'Ця послуга стане неактивною у вашому профілі майстра. Історія записів збережеться. Ви точно хочете виконати цю дію?' : 'Ця послуга знову стане активною у вашому профілі майстра. Ви точно хочете виконати цю дію?'"
+      :confirm-label="togglingService?.is_active ? 'Так, деактивувати' : 'Так, активувати'"
+      :context-items="toggleContextItems"
+      :pending="togglePending"
+      :destructive="Boolean(togglingService?.is_active)"
+      @confirm="confirmToggleService"
+      @update:model-value="handleToggleConfirmUpdate"
+    />
   </div>
 </template>

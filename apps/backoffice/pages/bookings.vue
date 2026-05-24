@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { EyeIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { AvailableSlot, Booking, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -437,21 +438,27 @@ const updateStatus = async (status: BookingStatus) => {
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-for="booking in visibleBookings" :key="booking.id">
-            <td class="px-4 py-3">
+            <td data-label="Час" class="px-4 py-3">
               <p class="font-medium text-slate-900">{{ formatDateTime(bookingStart(booking)) }}</p>
               <p class="text-xs text-slate-500">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
             </td>
-            <td class="px-4 py-3">
+            <td data-label="Клієнт" class="px-4 py-3">
               <p class="font-medium text-slate-900">{{ customerName(booking) }}</p>
               <p class="text-xs text-slate-500">{{ bookingPhone(booking) || 'Без телефону' }}</p>
             </td>
-            <td class="px-4 py-3 text-slate-700">{{ masterName(resolveMaster(booking)) }}</td>
-            <td class="px-4 py-3 text-slate-700">{{ serviceName(resolveService(booking)) }}</td>
-            <td class="px-4 py-3"><BookingStatusBadge :status="booking.status" /></td>
-            <td class="max-w-xs px-4 py-3 text-slate-600">{{ bookingComment(booking) || '-' }}</td>
-            <td class="px-4 py-3">
-              <button class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" @click="selected = booking">
-                Переглянути
+            <td data-label="Майстер" class="px-4 py-3 text-slate-700">{{ masterName(resolveMaster(booking)) }}</td>
+            <td data-label="Послуга" class="px-4 py-3 text-slate-700">{{ serviceName(resolveService(booking)) }}</td>
+            <td data-label="Статус" class="px-4 py-3"><BookingStatusBadge :status="booking.status" /></td>
+            <td data-label="Коментар" class="max-w-xs px-4 py-3 text-slate-600">{{ bookingComment(booking) || '-' }}</td>
+            <td data-label="Дії" class="px-4 py-3">
+              <button
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                aria-label="Переглянути бронювання"
+                title="Переглянути"
+                @click="selected = booking"
+              >
+                <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                <span class="sr-only">Переглянути</span>
               </button>
               <p v-if="!canManageBooking(booking.master_id)" class="mt-2 text-xs text-slate-400">Лише перегляд</p>
             </td>
@@ -471,9 +478,9 @@ const updateStatus = async (status: BookingStatus) => {
       @update-status="updateStatus"
     />
 
-    <div v-if="showCreate" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-      <section class="max-h-full w-full max-w-6xl overflow-y-auto rounded-[1.75rem] bg-white shadow-2xl">
-        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+    <div v-if="showCreate" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-0 py-0 sm:items-center sm:px-4 sm:py-6">
+      <section class="max-h-[94dvh] w-full max-w-6xl overflow-y-auto rounded-t-[1.5rem] bg-white shadow-2xl sm:max-h-full sm:rounded-[1.75rem]">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
           <div>
             <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Нове бронювання</p>
             <h2 class="mt-2 text-2xl font-semibold text-slate-900">Створити запис</h2>
@@ -483,7 +490,7 @@ const updateStatus = async (status: BookingStatus) => {
           </button>
         </div>
 
-        <div class="space-y-6 px-6 py-5">
+        <div class="space-y-6 px-4 py-5 sm:px-6">
           <div class="grid gap-3 md:grid-cols-4">
             <button
               v-for="step in createSteps"
@@ -607,7 +614,8 @@ const updateStatus = async (status: BookingStatus) => {
           <p v-if="createSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ createSuccess }}</p>
 
           <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5">
-            <button :disabled="createPending" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60" @click="createBooking">
+            <button :disabled="createPending" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60" @click="createBooking">
+              <PlusIcon v-if="!createPending" class="h-4 w-4" aria-hidden="true" />
               {{ createPending ? 'Створення...' : 'Створити бронювання' }}
             </button>
             <button class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetCreateForm">
