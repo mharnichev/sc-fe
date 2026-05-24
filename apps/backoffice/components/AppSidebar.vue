@@ -93,7 +93,7 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 border-b border-slate-200 bg-slate-950/95 px-4 py-3 text-white shadow-sm backdrop-blur lg:hidden">
+  <header class="sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-slate-200 bg-slate-950/95 px-4 py-3 text-white shadow-sm backdrop-blur lg:hidden">
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Backoffice</p>
