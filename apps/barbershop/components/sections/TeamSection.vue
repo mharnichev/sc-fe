@@ -23,7 +23,7 @@ const masterName = (master: MasterDto) =>
   master.full_name || master.name || `Master #${master.id}`
 
 const masterPhoto = (master: MasterDto) =>
-  assetUrl(master.photo_url || master.photo) || teamImages[0]
+  assetUrl(master.photo || master.photo_url) || teamImages[0]
 
 const isMasterActive = (master: MasterDto) =>
   master.is_active ?? master.status !== 'inactive'

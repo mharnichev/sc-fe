@@ -90,7 +90,7 @@ const masterName = (master?: MasterDto | null) =>
   master?.full_name || master?.name || (master?.id ? `Master #${master.id}` : '')
 
 const masterPhoto = (master?: MasterDto | null) =>
-  assetUrl(master?.photo_url || master?.photo) || 'https://placehold.co/640x480'
+  assetUrl(master?.photo || master?.photo_url) || 'https://placehold.co/640x480'
 
 const selectedService = computed<SelectableService | null>(() => {
   if (selectedServiceId.value) {

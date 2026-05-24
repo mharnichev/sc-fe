@@ -41,9 +41,15 @@ const uploadUrl = (value?: string | UploadAsset | null) => {
   return typeof value === 'string' ? value : value.file_url || ''
 }
 
-const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo_url || uploadUrl(editing.value?.photo)))
-const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar_url || uploadUrl(editing.value?.avatar)))
-const displayedPhotoUrl = computed(() => photoPreviewUrl.value || assetUrl(form.photo_url) || existingPhotoUrl.value)
+const currentPhotoUrl = computed(() => editing.value?.photo_url || uploadUrl(editing.value?.photo) || '')
+const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo || editing.value?.photo_url))
+const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar || editing.value?.avatar_url))
+const displayedPhotoUrl = computed(() => {
+  if (photoPreviewUrl.value) return photoPreviewUrl.value
+  const formPhotoUrl = form.photo_url?.trim() || ''
+  if (formPhotoUrl && formPhotoUrl !== currentPhotoUrl.value) return assetUrl(formPhotoUrl)
+  return existingPhotoUrl.value || assetUrl(formPhotoUrl)
+})
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
 
 const revokeObjectUrl = (url: string) => {

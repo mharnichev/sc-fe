@@ -35,7 +35,7 @@ const masters = computed(() => normalizeItems(data.value))
 const total = computed(() => normalizeTotal(data.value))
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
 const masterImageUrl = (master: Master) =>
-  assetUrl(master.avatar_url || master.avatar || master.photo_url || master.photo)
+  assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url)
 const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
 
 const openCreateMaster = () => {

@@ -15,7 +15,7 @@ const masterName = (master: MasterDto) =>
   master.full_name || master.name || `Master #${master.id}`
 
 const masterPhoto = (master: MasterDto) =>
-  assetUrl(master.photo_url || master.photo) || 'https://placehold.co/1200x900'
+  assetUrl(master.photo || master.photo_url) || 'https://placehold.co/1200x900'
 </script>
 
 <template>
