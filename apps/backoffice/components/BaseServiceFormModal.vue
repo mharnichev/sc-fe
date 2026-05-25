@@ -17,7 +17,11 @@ const { apiErrorMessage } = useBookingFormatting()
 
 const form = reactive<BaseServicePayload>({
   name: '',
+  title_uk: '',
+  title_en: '',
   description: null,
+  description_uk: null,
+  description_en: null,
   duration_minutes: 30,
   price: 0,
   is_active: true,
@@ -28,8 +32,12 @@ const saving = ref(false)
 const editing = computed(() => props.service || null)
 
 const fillForm = (service?: BaseService | null) => {
-  form.name = service?.name || ''
-  form.description = service?.description || null
+  form.title_uk = service?.title_uk || service?.name || ''
+  form.name = form.title_uk
+  form.title_en = service?.title_en || ''
+  form.description_uk = service?.description_uk || service?.description || null
+  form.description = form.description_uk
+  form.description_en = service?.description_en || null
   form.duration_minutes = service?.duration_minutes || 30
   form.price = service ? Number(service.price) : 0
   form.is_active = service?.is_active ?? true
@@ -41,7 +49,8 @@ const close = () => {
 }
 
 const validate = () => {
-  if (!form.name.trim()) return 'Назва обов’язкова.'
+  if (!form.title_uk.trim()) return 'Назва українською обов’язкова.'
+  if (!form.title_en.trim()) return 'Назва англійською обов’язкова.'
   if (!form.duration_minutes || Number(form.duration_minutes) <= 0) return 'Тривалість має бути більшою за 0.'
   if (Number(form.price) < 0) return 'Ціна має бути 0 або більше.'
   return ''
@@ -49,8 +58,12 @@ const validate = () => {
 
 const servicePayload = () => ({
   ...form,
-  name: form.name.trim(),
-  description: form.description?.trim() || null,
+  name: form.title_uk.trim(),
+  title_uk: form.title_uk.trim(),
+  title_en: form.title_en.trim(),
+  description: form.description_uk?.trim() || null,
+  description_uk: form.description_uk?.trim() || null,
+  description_en: form.description_en?.trim() || null,
   duration_minutes: Number(form.duration_minutes),
   price: Number(form.price),
 })
@@ -104,14 +117,26 @@ watch(
 
     <template #body>
       <form class="space-y-5" @submit.prevent="submit">
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Назва</span>
-          <input v-model="form.name" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Опис</span>
-          <textarea v-model="form.description" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Назва українською</span>
+            <input v-model="form.title_uk" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Назва англійською</span>
+            <input v-model="form.title_en" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          </label>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Опис українською</span>
+            <textarea v-model="form.description_uk" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Опис англійською</span>
+            <textarea v-model="form.description_en" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Тривалість, хвилини</span>

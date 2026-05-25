@@ -47,6 +47,13 @@ const formatDateInput = (date: Date) => {
   return `${year}-${month}-${day}`
 }
 
+const isMondayDateInput = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return false
+
+  return new Date(year, month - 1, day).getDay() === 1
+}
+
 const today = formatDateInput(new Date())
 const maxBookableDate = formatDateInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
 
@@ -223,8 +230,10 @@ watch([selectedServiceId, selectedMasterId, selectedDate], () => {
   }
 })
 
+const isSelectedDateClosed = computed(() => isMondayDateInput(selectedDate.value))
+
 const slotsKey = computed(() =>
-  selectedServiceId.value && selectedMasterId.value && selectedDate.value
+  selectedServiceId.value && selectedMasterId.value && selectedDate.value && !isSelectedDateClosed.value
     ? `home-booking-slots-${selectedMasterId.value}-${selectedServiceId.value}-${selectedDate.value}`
     : 'home-booking-slots-empty',
 )
@@ -237,7 +246,7 @@ const {
 } = await useAsyncData(
   slotsKey,
   () => {
-    if (!selectedMasterId.value || !selectedServiceId.value || !selectedDate.value) {
+    if (!selectedMasterId.value || !selectedServiceId.value || !selectedDate.value || isSelectedDateClosed.value) {
       return Promise.resolve([])
     }
 
@@ -247,6 +256,10 @@ const {
     watch: [selectedServiceId, selectedMasterId, selectedDate],
     default: () => [],
   },
+)
+
+const visibleSlots = computed<AvailableSlotDto[]>(() =>
+  isSelectedDateClosed.value ? [] : slots.value || [],
 )
 
 const formatTime = (value: string) =>
@@ -267,12 +280,12 @@ const formatBookingDateTime = (value: string) =>
   }).format(new Date(value))
 
 const selectedSlot = computed(() =>
-  (slots.value || []).find(slot => slot.start_at === selectedSlotStart.value) || null,
+  visibleSlots.value.find(slot => slot.start_at === selectedSlotStart.value) || null,
 )
 
 const isServiceComplete = computed(() => Boolean(selectedService.value))
 const isMasterComplete = computed(() => Boolean(selectedMaster.value))
-const isTimeComplete = computed(() => Boolean(selectedDate.value && selectedSlot.value))
+const isTimeComplete = computed(() => Boolean(selectedDate.value && !isSelectedDateClosed.value && selectedSlot.value))
 const isContactComplete = computed(() =>
   Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
 )
@@ -547,7 +560,7 @@ const closeSuccess = () => {
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">Слот</p>
                     <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       <button
-                        v-for="slot in (slots as AvailableSlotDto[])"
+                        v-for="slot in visibleSlots"
                         :key="slot.start_at"
                         type="button"
                         class="border px-3 py-2 text-sm font-semibold transition"
@@ -557,9 +570,12 @@ const closeSuccess = () => {
                         {{ formatTime(slot.start_at) }}
                       </button>
                     </div>
-                    <p v-if="slotsPending" class="mt-4 text-sm text-white/55">Шукаємо вільні слоти...</p>
+                    <p v-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
+                      {{ terms.home.booking.closedOnMonday }}
+                    </p>
+                    <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">Шукаємо вільні слоти...</p>
                     <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">Не вдалося завантажити слоти.</p>
-                    <p v-else-if="selectedMasterId && selectedServiceId && !(slots || []).length" class="mt-4 text-sm text-white/55">
+                    <p v-else-if="selectedMasterId && selectedServiceId && !visibleSlots.length" class="mt-4 text-sm text-white/55">
                       На цю дату немає вільного часу.
                     </p>
                   </div>

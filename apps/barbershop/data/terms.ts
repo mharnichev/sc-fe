@@ -122,6 +122,7 @@ export const termsDictionary = {
         successLabel: 'Запис створено',
         successTitle: 'Все готово. Побачимось у Soul Cuts.',
         successAction: 'Новий запис',
+        closedOnMonday: 'Понеділок - вихідний день. Оберіть іншу дату для запису.',
       },
       bot: {
         badge: 'Telegram Bot',
@@ -528,6 +529,7 @@ export const termsDictionary = {
         successLabel: 'Booking created',
         successTitle: 'Everything is ready. See you at Soul Cuts.',
         successAction: 'New booking',
+        closedOnMonday: 'Monday is our day off. Please choose another date to book.',
       },
       bot: {
         badge: 'Telegram Bot',

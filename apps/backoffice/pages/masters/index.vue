@@ -6,7 +6,7 @@ import type { Master } from '~/composables/useBackofficeApi'
 const api = useBackofficeApi()
 const auth = useAuthStore()
 const assetUrl = useAssetUrl()
-const { masterName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
+const { masterName, serviceName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
 
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
 const page = ref(1)
@@ -169,7 +169,7 @@ const applyFilters = async () => {
             <div>
               <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
               <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
-              <p class="text-xs text-slate-500">{{ master.services?.map(service => service.name).join(', ') || 'Немає призначених послуг' }}</p>
+              <p class="text-xs text-slate-500">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">

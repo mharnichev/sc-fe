@@ -4,7 +4,7 @@ import type { BaseService, MasterService, MasterServicePayload } from '~/composa
 
 type ServiceFormMode = 'base' | 'custom'
 
-interface MasterServiceForm {
+interface MyServiceForm {
   mode: ServiceFormMode
   base_service_id: string
   name: string
@@ -20,7 +20,7 @@ interface MasterServiceForm {
 
 const props = defineProps<{
   modelValue: boolean
-  barberId: string
+  barberId: number | string | null
   service?: MasterService | null
   baseServiceOptions: BaseService[]
 }>()
@@ -33,8 +33,8 @@ const emit = defineEmits<{
 const api = useBackofficeApi()
 const { formatDuration, formatPrice, serviceName, apiErrorMessage } = useBookingFormatting()
 
-const form = reactive<MasterServiceForm>({
-  mode: 'base',
+const form = reactive<MyServiceForm>({
+  mode: 'custom',
   base_service_id: '',
   name: '',
   title_uk: '',
@@ -42,17 +42,22 @@ const form = reactive<MasterServiceForm>({
   description: null,
   description_uk: null,
   description_en: null,
-  duration_minutes: null,
-  price: null,
+  duration_minutes: 30,
+  price: 0,
   is_active: true,
 })
 const formError = ref('')
 const saving = ref(false)
 
 const editing = computed(() => props.service || null)
+const canCreateFromBase = computed(() => props.baseServiceOptions.length > 0)
 
 const fillForm = (service?: MasterService | null) => {
-  form.mode = service ? (service.source_type || (service.base_service_id ? 'base' : 'custom')) : 'base'
+  const mode = service
+    ? service.source_type || (service.base_service_id ? 'base' : 'custom')
+    : canCreateFromBase.value ? 'base' : 'custom'
+
+  form.mode = mode
   form.base_service_id = service?.base_service_id ? String(service.base_service_id) : ''
   form.title_uk = service?.title_uk || service?.name || ''
   form.name = form.title_uk
@@ -60,8 +65,8 @@ const fillForm = (service?: MasterService | null) => {
   form.description_uk = service?.description_uk || service?.description || null
   form.description = form.description_uk
   form.description_en = service?.description_en || null
-  form.duration_minutes = service?.duration_minutes || null
-  form.price = service ? Number(service.price) : null
+  form.duration_minutes = service ? service.duration_minutes : mode === 'custom' ? 30 : null
+  form.price = service ? Number(service.price) : mode === 'custom' ? 0 : null
   form.is_active = service?.is_active ?? true
   formError.value = ''
 }
@@ -71,6 +76,7 @@ const close = () => {
 }
 
 const validate = () => {
+  if (!props.barberId) return 'Ваш акаунт не прив’язаний до профілю майстра.'
   if (!editing.value && form.mode === 'base' && !form.base_service_id) return 'Виберіть базову послугу.'
   if (form.mode === 'custom') {
     if (!form.title_uk.trim()) return 'Назва українською обов’язкова.'
@@ -109,22 +115,23 @@ const submitPayload = (): MasterServicePayload => {
 
 const submit = async () => {
   formError.value = validate()
-  if (formError.value) return
+  const barberId = props.barberId
+  if (formError.value || !barberId) return
   saving.value = true
 
   try {
     if (editing.value) {
-      await api.updateMasterService(props.barberId, editing.value.id, submitPayload())
-      emit('saved', 'Послугу майстра оновлено.')
+      await api.updateMasterService(barberId, editing.value.id, submitPayload())
+      emit('saved', 'Послугу оновлено.')
     }
     else {
-      await api.createMasterService(props.barberId, servicePayload())
-      emit('saved', 'Послугу майстра створено.')
+      await api.createMasterService(barberId, servicePayload())
+      emit('saved', 'Послугу створено.')
     }
     close()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося зберегти послугу майстра.')
+    formError.value = apiErrorMessage(cause, 'Не вдалося зберегти послугу.')
   }
   finally {
     saving.value = false
@@ -152,7 +159,7 @@ watch(
 )
 
 watch(
-  () => [props.modelValue, props.service] as const,
+  () => [props.modelValue, props.service, canCreateFromBase.value] as const,
   ([open, service]) => {
     if (open) fillForm(service)
   },
@@ -165,8 +172,8 @@ watch(
     <template #head="{ close: closeModal }">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Послуги майстра</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу майстра' : 'Створити послугу майстра' }}</h2>
+          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Мої послуги</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу' : 'Створити послугу' }}</h2>
         </div>
         <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
           Закрити
@@ -179,7 +186,7 @@ watch(
         <fieldset v-if="!editing" class="space-y-3 rounded-2xl border border-slate-200 p-4">
           <legend class="px-1 text-sm font-medium text-slate-700">Тип створення</legend>
           <div class="flex flex-wrap gap-3">
-            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+            <label v-if="canCreateFromBase" class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
               <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
               З базової послуги
             </label>
@@ -233,10 +240,10 @@ watch(
           Послуга активна
         </label>
         <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ serviceName(editing.base_service) }}.
+          Зміни цієї послуги впливають лише на вашу особисту копію. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>
         <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+          <button type="submit" :disabled="saving || !barberId" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
           </button>

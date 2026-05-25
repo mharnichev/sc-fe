@@ -396,7 +396,7 @@ const updateStatus = async (status: BookingStatus) => {
         <select v-model="filters.service_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
           <option value="">Усі послуги</option>
           <option v-for="service in serviceOptions" :key="service.id" :value="String(service.id)">
-            {{ service.name }}
+            {{ serviceName(service) }}
           </option>
         </select>
       </label>
@@ -545,9 +545,9 @@ const updateStatus = async (status: BookingStatus) => {
                 :class="createForm.service_id === String(service.id) ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:bg-slate-50'"
                 @click="selectCreateService(service.id)"
               >
-                <p class="font-medium text-slate-900">{{ service.name }}</p>
+                <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
                 <p class="mt-1 text-sm text-slate-500">{{ service.duration_minutes }} min · {{ service.price }} UAH</p>
-                <p v-if="service.description" class="mt-2 text-sm text-slate-500">{{ service.description }}</p>
+                <p v-if="service.description_uk || service.description" class="mt-2 text-sm text-slate-500">{{ service.description_uk || service.description }}</p>
               </button>
             </div>
             <p v-if="!createServiceOptions.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Для вибраного майстра немає доступних послуг.</p>

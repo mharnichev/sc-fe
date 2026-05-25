@@ -13,7 +13,17 @@ definePageMeta({
 
 const route = useRoute()
 const api = useBackofficeApi()
-const { masterName, formatDuration, formatPrice, normalizeItems, apiErrorMessage } = useBookingFormatting()
+const {
+  masterName,
+  formatDuration,
+  formatPrice,
+  normalizeItems,
+  serviceName,
+  serviceNameEn,
+  serviceDescriptionUk,
+  serviceDescriptionEn,
+  apiErrorMessage,
+} = useBookingFormatting()
 
 const barberId = computed(() => String(route.params.barberId))
 const { data: masters } = await useAsyncData('admin-barber-service-master-options', () => api.adminGetMasters(1, 200))
@@ -71,7 +81,7 @@ const toggleContextItems = computed(() => {
   if (!togglingService.value) return []
   return [
     { label: 'Майстер', value: selectedMaster.value ? masterName(selectedMaster.value) : `#${barberId.value}` },
-    { label: 'Послуга', value: togglingService.value.name },
+    { label: 'Послуга', value: serviceName(togglingService.value) },
     { label: 'Поточний статус', value: togglingService.value.is_active ? 'активна' : 'неактивна' },
     { label: 'Новий статус', value: togglingService.value.is_active ? 'неактивна' : 'активна' },
   ]
@@ -109,7 +119,7 @@ const confirmToggleService = async () => {
 }
 
 const deleteService = async (service: MasterService) => {
-  if (!confirm(`Disable service "${service.name}" for this barber? It will be removed from активний lists but kept in history.`)) return
+  if (!confirm(`Disable service "${serviceName(service)}" for this barber? It will be removed from активний lists but kept in history.`)) return
 
   formError.value = ''
   successMessage.value = ''
@@ -201,8 +211,10 @@ const syncDefaults = async () => {
             <tbody class="divide-y divide-slate-100">
               <tr v-for="service in services" :key="service.id">
                 <td data-label="Назва" class="px-4 py-3">
-                  <p class="font-medium text-slate-900">{{ service.name }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ service.description || 'Без опису' }}</p>
+                  <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
+                  <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                  <p class="mt-2 text-xs font-medium text-slate-700">{{ serviceNameEn(service) || 'Без англійської назви' }}</p>
+                  <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
                 </td>
                 <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
                 <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
@@ -212,7 +224,7 @@ const syncDefaults = async () => {
                   </span>
                 </td>
                 <td data-label="Базова послуга" class="px-4 py-3 text-slate-500">
-                  {{ service.base_service ? `${service.base_service.name} #${service.base_service.id}` : '-' }}
+                  {{ service.base_service ? `${serviceName(service.base_service)} #${service.base_service.id}` : '-' }}
                 </td>
                 <td data-label="Статус" class="px-4 py-3">
                   <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">

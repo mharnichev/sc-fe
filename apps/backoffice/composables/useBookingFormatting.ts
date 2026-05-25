@@ -1,4 +1,14 @@
-import type { Booking, BookingStatus, Master, PaginatedResponse, Service } from '~/composables/useBackofficeApi'
+import type { Booking, BookingStatus, Master, PaginatedResponse } from '~/composables/useBackofficeApi'
+
+interface LocalizedServiceText {
+  id?: number | string
+  name?: string | null
+  title_uk?: string | null
+  title_en?: string | null
+  description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
+}
 
 const timeZone = 'Europe/Kyiv'
 const statuses: BookingStatus[] = ['pending', 'confirmed', 'cancelled', 'completed']
@@ -74,23 +84,32 @@ const customerName = (booking: Booking) => {
 const masterName = (master?: Master | null) =>
   master?.full_name || master?.name || (master?.id ? `Майстер #${master.id}` : 'Не призначено')
 
-  const serviceName = (service?: Service | null) =>
-    service?.name || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
+const serviceName = (service?: LocalizedServiceText | null) =>
+  service?.title_uk || service?.name || service?.title_en || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
 
-  const formatDuration = (minutes?: number | null) => {
-    const value = Number(minutes || 0)
-    if (!value || value < 0) return '0 хв'
-    const hours = Math.floor(value / 60)
-    const rest = value % 60
-    if (!hours) return `${rest} хв`
-    if (!rest) return `${hours} год`
-    return `${hours} год ${rest} хв`
-  }
+const serviceNameEn = (service?: LocalizedServiceText | null) =>
+  service?.title_en || ''
 
-  const formatPrice = (price?: number | string | null) => {
-    const value = Number(price || 0)
-    return `${Number.isInteger(value) ? value : value.toFixed(2)} грн`
-  }
+const serviceDescriptionUk = (service?: LocalizedServiceText | null) =>
+  service?.description_uk || service?.description || ''
+
+const serviceDescriptionEn = (service?: LocalizedServiceText | null) =>
+  service?.description_en || ''
+
+const formatDuration = (minutes?: number | null) => {
+  const value = Number(minutes || 0)
+  if (!value || value < 0) return '0 хв'
+  const hours = Math.floor(value / 60)
+  const rest = value % 60
+  if (!hours) return `${rest} хв`
+  if (!rest) return `${hours} год`
+  return `${hours} год ${rest} хв`
+}
+
+const formatPrice = (price?: number | string | null) => {
+  const value = Number(price || 0)
+  return `${Number.isInteger(value) ? value : value.toFixed(2)} грн`
+}
 
 export const useBookingFormatting = () => {
   const todayInput = () => {
@@ -185,6 +204,9 @@ export const useBookingFormatting = () => {
     customerName,
     masterName,
     serviceName,
+    serviceNameEn,
+    serviceDescriptionUk,
+    serviceDescriptionEn,
     formatDuration,
     formatPrice,
     normalizeItems,

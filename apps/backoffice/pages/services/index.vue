@@ -12,7 +12,17 @@ definePageMeta({
 })
 
 const api = useBackofficeApi()
-const { formatDuration, formatPrice, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
+const {
+  formatDuration,
+  formatPrice,
+  normalizeItems,
+  normalizeTotal,
+  serviceName,
+  serviceNameEn,
+  serviceDescriptionUk,
+  serviceDescriptionEn,
+  apiErrorMessage,
+} = useBookingFormatting()
 
 const page = ref(1)
 const pageSize = 100
@@ -66,7 +76,7 @@ const handleServiceModalUpdate = (value: boolean) => {
 const toggleContextItems = computed(() => {
   if (!togglingService.value) return []
   return [
-    { label: 'Послуга', value: togglingService.value.name },
+    { label: 'Послуга', value: serviceName(togglingService.value) },
     { label: 'Поточний статус', value: togglingService.value.is_active ? 'активна' : 'неактивна' },
     { label: 'Новий статус', value: togglingService.value.is_active ? 'неактивна' : 'активна' },
   ]
@@ -104,7 +114,7 @@ const confirmToggleService = async () => {
 }
 
 const deleteService = async (service: BaseService) => {
-  if (!confirm(`Деактивувати base service "${service.name}"? Existing barber services keep their custom values.`)) return
+  if (!confirm(`Деактивувати base service "${serviceName(service)}"? Existing barber services keep their custom values.`)) return
 
   formError.value = ''
   successMessage.value = ''
@@ -175,8 +185,10 @@ const applyFilters = async () => {
           <tbody class="divide-y divide-slate-100">
             <tr v-for="service in services" :key="service.id">
               <td data-label="Назва" class="px-4 py-3">
-                <p class="font-medium text-slate-900">{{ service.name }}</p>
-                <p class="mt-1 text-xs text-slate-500">{{ service.description || 'Без опису' }}</p>
+                <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                <p class="mt-2 text-xs font-medium text-slate-700">{{ serviceNameEn(service) || 'Без англійської назви' }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
               </td>
               <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
               <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>

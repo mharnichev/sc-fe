@@ -154,7 +154,11 @@ export interface Service {
   base_service_id?: number | string | null
   source_type?: 'base' | 'custom'
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
   duration_minutes: number
   price: string | number
   is_active?: boolean
@@ -165,6 +169,11 @@ export interface Service {
 export interface BaseServiceSummary {
   id: number | string
   name: string
+  title_uk?: string | null
+  title_en?: string | null
+  description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
   duration_minutes: number
   price: string | number
   is_active: boolean
@@ -173,9 +182,13 @@ export interface BaseServiceSummary {
 export interface BaseService {
   id: number | string
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   duration_minutes: number
   price: string | number
   description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
   is_active: boolean
   created_at?: string
   updated_at?: string
@@ -187,9 +200,13 @@ export interface MasterService {
   base_service_id?: number | string | null
   source_type: 'base' | 'custom'
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   duration_minutes: number
   price: string | number
   description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
   is_active: boolean
   base_service?: BaseServiceSummary | null
   created_at?: string
@@ -258,7 +275,11 @@ export interface TimeBlockPayload {
 
 export interface ServicePayload {
   name: string
+  title_uk: string
+  title_en: string
   description: string | null
+  description_uk: string | null
+  description_en: string | null
   duration_minutes: number
   price: number
   is_active: boolean
@@ -268,7 +289,11 @@ export type BaseServicePayload = ServicePayload
 export interface MasterServicePayload {
   base_service_id?: number | null
   name?: string
+  title_uk?: string
+  title_en?: string
   description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
   duration_minutes?: number
   price?: number
   is_active?: boolean

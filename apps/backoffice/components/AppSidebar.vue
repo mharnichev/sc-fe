@@ -37,6 +37,7 @@ const { isAdmin, isBarber, roleLabel } = useBackofficeAccess(masterList)
 const barberShopLinks = computed(() => [
   ...(isBarber.value
     ? [
+        { label: 'Дашборд', to: '/dashboard', icon: HomeIcon },
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
         { label: 'Мої блокування часу', to: '/my-time-blocks', icon: ClockIcon },
