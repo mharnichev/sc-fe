@@ -20,7 +20,7 @@ const {
 const form = reactive({
   date: todayInput(),
   block_type: 'full_day',
-  start_time: '08:00',
+  start_time: '09:00',
   end_time: '20:00',
   reason: '',
 })
@@ -30,7 +30,7 @@ const saving = ref(false)
 const fillForm = () => {
   form.date = todayInput()
   form.block_type = 'full_day'
-  form.start_time = '08:00'
+  form.start_time = '09:00'
   form.end_time = '20:00'
   form.reason = ''
   formError.value = ''
@@ -44,7 +44,7 @@ watch(
   () => form.block_type,
   value => {
     if (value === 'full_day') {
-      form.start_time = '08:00'
+      form.start_time = '09:00'
       form.end_time = '20:00'
     }
   },
@@ -56,7 +56,7 @@ const validate = () => {
   if (form.block_type === 'custom') {
     if (!form.start_time || !form.end_time) return 'Час початку й завершення обов’язкові.'
     if (form.start_time >= form.end_time) return 'Час початку має бути раніше часу завершення.'
-    if (form.start_time < '08:00' || form.end_time > '20:00') return 'Власний інтервал має бути в межах 08:00-20:00.'
+    if (form.start_time < '09:00' || form.end_time > '20:00') return 'Власний інтервал має бути в межах 09:00-20:00.'
   }
   return ''
 }
@@ -68,7 +68,7 @@ const submit = async () => {
 
   try {
     await api.createMyTimeBlock({
-      start_at: toKyivIso(form.date, form.block_type === 'full_day' ? '08:00' : form.start_time),
+      start_at: toKyivIso(form.date, form.block_type === 'full_day' ? '09:00' : form.start_time),
       end_at: toKyivIso(form.date, form.block_type === 'full_day' ? '20:00' : form.end_time),
       reason: form.reason.trim() || null,
     })
@@ -122,11 +122,11 @@ watch(
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Час початку</span>
-            <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="08:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
+            <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Час завершення</span>
-            <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="08:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
+            <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
           </label>
         </div>
         <label class="space-y-2 text-sm text-slate-700">

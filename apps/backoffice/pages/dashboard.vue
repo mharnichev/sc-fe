@@ -45,9 +45,9 @@ const {
 
 const today = todayInput()
 const rangeEnd = addDaysInput(today, 14)
-const workdayStart = '08:00'
+const workdayStart = '09:00'
 const workdayEnd = '20:00'
-const workdayMinutes = 12 * 60
+const workdayMinutes = 11 * 60
 const availabilityDays = 30
 
 const { data: publicMasters } = await useAsyncData('barber-dashboard-master-options', () => api.getPublicMasters())
@@ -369,7 +369,7 @@ const quickActions = [
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-900">Найближчі 7 днів</h2>
-            <p class="mt-1 text-sm text-slate-500">Заповнення відносно робочого дня 08:00-20:00.</p>
+            <p class="mt-1 text-sm text-slate-500">Заповнення відносно робочого дня 09:00-20:00.</p>
           </div>
           <p class="rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700">
             {{ formatPrice(rangeRevenue) }}

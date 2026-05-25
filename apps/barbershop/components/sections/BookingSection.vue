@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
-import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp';
+import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp'
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
@@ -529,7 +529,7 @@ const closeSuccess = () => {
                       :class="selectedMasterId === master.id ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/75 hover:border-white/50'"
                       @click="selectMaster(master.id)"
                     >
-                      <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover">
+                      <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover object-top">
                       <span class="self-center">
                         <span class="block text-sm font-semibold">{{ masterName(master) }}</span>
                         <span class="mt-1 block text-xs leading-5 opacity-70">{{ master.description || master.title }}</span>

@@ -5,6 +5,7 @@ const headerElement = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const headerTheme = ref<HeaderTheme>('dark')
 const { locale, localeOptions, setLocale, terms } = useTerms()
+const route = useRoute()
 
 const menuItems = computed(() => terms.value.nav)
 const menuButtonClass = computed(() =>
@@ -42,6 +43,55 @@ const toggleMobileMenu = () => {
 
 const closeMenu = () => {
   isOpen.value = false
+}
+
+const waitForTarget = async (hash: string) => {
+  const targetId = hash.replace(/^#/, '')
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const target = document.getElementById(targetId)
+    if (target) return target
+
+    await new Promise(resolve => window.setTimeout(resolve, 50))
+  }
+
+  return null
+}
+
+const scrollToHash = async (hash: string) => {
+  if (!import.meta.client || !hash) return
+
+  closeMenu()
+  await nextTick()
+  await new Promise(resolve => window.requestAnimationFrame(resolve))
+
+  const target = await waitForTarget(hash)
+  if (!target) return
+
+  const top = target.getBoundingClientRect().top + window.scrollY
+
+  window.history.replaceState(window.history.state, '', `/${hash}`)
+  window.scrollTo({
+    top,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  })
+
+  requestHeaderThemeUpdate()
+}
+
+const handleMenuItemClick = async (href: string) => {
+  if (!import.meta.client) return
+
+  const url = new URL(href, window.location.origin)
+
+  if (url.pathname !== route.path) {
+    closeMenu()
+    await navigateTo(`${url.pathname}${url.hash}`)
+    await scrollToHash(url.hash)
+    return
+  }
+
+  await scrollToHash(url.hash)
 }
 
 const syncBodyOverflow = () => {
@@ -139,7 +189,7 @@ onBeforeUnmount(() => {
 
     <nav
       id="desktop-nav"
-      class="pointer-events-none fixed left-4 top-4 z-40 hidden flex-col items-start lg:flex"
+      class="pointer-events-none fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start overflow-y-auto pr-3 lg:flex"
       :aria-label="terms.common.menu"
       @mouseenter="openDesktopMenu"
       @mouseleave="closeDesktopMenu"
@@ -172,7 +222,7 @@ onBeforeUnmount(() => {
             class="group block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
             style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
-            @click="closeMenu"
+            @click.prevent="handleMenuItemClick(item.href)"
           >
             <AnimatedMenuText :text="item.label" />
           </NuxtLink>
@@ -198,14 +248,14 @@ onBeforeUnmount(() => {
           ×
         </button>
 
-        <nav class="flex min-h-screen flex-col justify-center px-8 py-20" :aria-label="terms.common.menu">
+        <nav class="flex min-h-screen flex-col justify-center overflow-y-auto px-8 py-20" :aria-label="terms.common.menu">
           <NuxtLink
             v-for="(item, index) in menuItems"
             :key="item.href"
             :to="item.href"
-            class="group block text-left text-[52px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 sm:text-7xl"
+            class="group block text-left text-[42px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
             :style="{ transitionDelay: `${index * 45}ms` }"
-            @click="closeMenu"
+            @click.prevent="handleMenuItemClick(item.href)"
           >
             <AnimatedMenuText :text="item.label" />
           </NuxtLink>

@@ -12,11 +12,10 @@ const COOKIE_CONSENT_VERSION = 1
 const COOKIE_CONSENT_MAX_AGE = 60 * 60 * 24 * 180
 
 export const useCookieConsent = () => {
-  const consent = useCookie<CookieConsentState | null>('barbershop-cookie-consent', {
+  const consent = useCookie<CookieConsentState | null>('barbershop-cookie-consent', useBarbershopCookieOptions({
     default: () => null,
     maxAge: COOKIE_CONSENT_MAX_AGE,
-    sameSite: 'lax',
-  })
+  }))
 
   const hasConsent = computed(() => consent.value?.version === COOKIE_CONSENT_VERSION)
   const canUseAnalytics = computed(() => Boolean(hasConsent.value && consent.value?.analytics))

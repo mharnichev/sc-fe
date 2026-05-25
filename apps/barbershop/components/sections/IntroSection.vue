@@ -16,7 +16,7 @@ const hasIntroAccordion = computed(() => introText.value.length > 2)
 </script>
 
 <template>
-  <section data-header-theme="dark" class="section-y bg-neutral-950 text-white">
+  <section id="approach" data-header-theme="dark" class="section-y bg-neutral-950 text-white">
     <div class="site-container flex flex-col items-center gap-8 md:gap-12" data-reveal="soft">
       <img
         :src="logoNameDark"

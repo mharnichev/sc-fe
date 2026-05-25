@@ -1,9 +1,29 @@
 <script setup lang="ts">
-import { EyeIcon, PlusIcon } from '@heroicons/vue/24/outline'
-import type { AvailableSlot, Booking, BookingStatus } from '~/composables/useBackofficeApi'
+import {
+  ArrowPathIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EyeIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline'
+import type {
+  Booking,
+  BookingStatus,
+  ManualBookingPayload,
+  Master,
+  Service,
+  TimeBlock,
+} from '~/composables/useBackofficeApi'
+import type {
+  CalendarActionPayload,
+  CalendarDisplayEntry,
+  CalendarSelection,
+  CalendarViewMode,
+} from '~/composables/useBookingCalendar'
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
+const calendar = useBookingCalendar()
 const {
   statuses,
   todayInput,
@@ -15,7 +35,6 @@ const {
   customerName,
   masterName,
   serviceName,
-  toKyivIso,
   formatDateTime,
   formatTime,
   formatBookingStatus,
@@ -24,315 +43,321 @@ const {
   apiErrorMessage,
 } = useBookingFormatting()
 
-const page = ref(1)
-const pageSize = 100
+const pageSize = 200
+const today = todayInput()
+const viewMode = ref<CalendarViewMode>('week')
+const anchorDate = ref(today)
 const filters = reactive({
-  date_from: todayInput(),
-  date_to: addDaysInput(todayInput(), 7),
   master_id: '',
   service_id: '',
   status: '',
 })
 
-const { data, pending, error, refresh } = await useAsyncData(
-  'admin-bookings',
-  () => api.adminGetBookings(page.value, pageSize, {
-    date_from: filters.date_from,
-    date_to: filters.date_to,
-    master_id: filters.master_id ? Number(filters.master_id) : null,
-    service_id: filters.service_id ? Number(filters.service_id) : null,
-    status: filters.status as BookingStatus | '',
-  }),
-  { watch: [page] },
-)
+const selected = ref<Booking | null>(null)
+const selectedBlock = ref<TimeBlock | null>(null)
+const selectedSelection = ref<CalendarSelection | null>(null)
+const actionModalOpen = ref(false)
+const actionError = ref('')
+const actionSuccess = ref('')
+const pendingStatus = ref<BookingStatus | ''>('')
+const actionPending = ref(false)
+const deletingBlock = ref(false)
 
 const [{ data: masters }, { data: services }] = await Promise.all([
-  useAsyncData('booking-master-options', () =>
-    auth.user?.is_superuser ? api.adminGetMasters(1, 200) : api.getPublicMasters(),
+  useAsyncData('booking-calendar-master-options', () =>
+    auth.user?.is_superuser || auth.user?.role === 'admin' ? api.adminGetMasters(1, 200) : api.getPublicMasters(),
   ),
-  useAsyncData('booking-service-options', () => api.getServices()),
+  useAsyncData('booking-calendar-service-options', () => api.getServices()),
 ])
 
-const selected = ref<Booking | null>(null)
-const actionError = ref('')
-const pendingStatus = ref<BookingStatus | ''>('')
-const showCreate = ref(false)
-const activeCreateStep = ref<'master' | 'service' | 'time' | 'customer'>('master')
-const createForm = reactive({
-  master_id: '',
-  service_id: '',
-  date: todayInput(),
-  time: '',
-  customer_name: '',
-  customer_phone: '',
-  customer_comment: '',
-})
-const availableSlots = ref<AvailableSlot[]>([])
-const slotsPending = ref(false)
-const createPending = ref(false)
-const createError = ref('')
-const createSuccess = ref('')
-
-const bookings = computed(() => normalizeItems(data.value))
-const masterOptions = computed(() => normalizeItems(masters.value))
-const serviceOptions = computed(() => normalizeItems(services.value))
-const createServiceOptions = computed(() => {
-  const masterId = createForm.master_id ? Number(createForm.master_id) : null
-  if (!masterId) return serviceOptions.value
-  return serviceOptions.value.filter(service => !service.barber_id || Number(service.barber_id) === masterId)
-})
+const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
+const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
 const { isAdmin, isBarber, linkedMaster, roleLabel, canManageBooking } = useBackofficeAccess(masterOptions)
-
-const visibleBookings = computed(() => {
-  const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
-  if (!selectedServiceId) return bookings.value
-  return bookings.value.filter(booking => booking.service_id === selectedServiceId)
-})
-
-const total = computed(() =>
-  filters.service_id ? visibleBookings.value.length : normalizeTotal(data.value),
-)
-
-const resolveMaster = (booking: Booking) =>
-  booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
-
-const resolveService = (booking: Booking) =>
-  booking.service || serviceOptions.value.find(service => service.id === booking.service_id) || null
-
-const selectedCreateMaster = computed(() =>
-  masterOptions.value.find(master => master.id === Number(createForm.master_id)) || null,
-)
-
-const selectedCreateService = computed(() =>
-  createServiceOptions.value.find(service => service.id === Number(createForm.service_id)) || null,
-)
-
-const effectiveCreateDuration = computed(() => selectedCreateService.value?.duration_minutes || 60)
-
-const createSteps = computed(() => [
-  {
-    id: 'master' as const,
-    label: 'Майстер',
-    value: selectedCreateMaster.value ? masterName(selectedCreateMaster.value) : 'Не вибрано',
-    complete: Boolean(createForm.master_id),
-  },
-  {
-    id: 'service' as const,
-    label: 'Послуга',
-    value: selectedCreateService.value ? serviceName(selectedCreateService.value) : 'Не вибрано',
-    complete: Boolean(createForm.service_id),
-  },
-  {
-    id: 'time' as const,
-    label: 'Час',
-    value: createForm.time ? `${createForm.date} ${createForm.time}` : 'Не вибрано',
-    complete: Boolean(createForm.date && createForm.time),
-  },
-  {
-    id: 'customer' as const,
-    label: 'Клієнт',
-    value: createForm.customer_name || 'Не вибрано',
-    complete: Boolean(createForm.customer_name && createForm.customer_phone),
-  },
-])
-
-const padTime = (value: number) => String(value).padStart(2, '0')
-
-const addMinutesToTime = (time: string, minutes: number) => {
-  const [hour, minute] = time.split(':').map(Number)
-  const total = hour * 60 + minute + minutes
-  return `${padTime(Math.floor(total / 60))}:${padTime(total % 60)}`
-}
-
-const createTimeCandidates = computed(() => {
-  const duration = effectiveCreateDuration.value
-  const result: { time: string, endTime: string }[] = []
-  for (let minutes = 8 * 60; minutes + duration <= 20 * 60; minutes += 30) {
-    const time = `${padTime(Math.floor(minutes / 60))}:${padTime(minutes % 60)}`
-    result.push({ time, endTime: addMinutesToTime(time, duration) })
-  }
-  return result
-})
-
-const slotAvailabilityReady = computed(() =>
-  Boolean(createForm.master_id && createForm.service_id && createForm.date),
-)
-
-const availableSlotByTime = computed(() => {
-  const map = new Map<string, AvailableSlot>()
-  for (const slot of availableSlots.value) {
-    map.set(formatTime(slot.start_at), slot)
-  }
-  return map
-})
-
-const createSlotState = (time: string) => {
-  if (!slotAvailabilityReady.value) return 'unchecked'
-  return availableSlotByTime.value.has(time) ? 'available' : 'busy'
-}
-
-const selectedSlotIsBusy = computed(() =>
-  Boolean(createForm.time && createSlotState(createForm.time) === 'busy'),
-)
-
-const loadAvailableSlots = async () => {
-  availableSlots.value = []
-  createError.value = ''
-  if (!slotAvailabilityReady.value) return
-  slotsPending.value = true
-  try {
-    availableSlots.value = await api.getAvailableSlots(
-      createForm.master_id,
-      createForm.date,
-      createForm.service_id,
-    )
-  }
-  catch (cause) {
-    createError.value = apiErrorMessage(cause, 'Не вдалося завантажити доступні слоти.')
-  }
-  finally {
-    slotsPending.value = false
-  }
-}
-
-watch(
-  () => [createForm.master_id, createForm.service_id, createForm.date],
-  () => {
-    void loadAvailableSlots()
-  },
-)
 
 watch(
   linkedMaster,
   master => {
-    if (!isAdmin.value && master && !createForm.master_id) {
-      createForm.master_id = String(master.id)
+    if (!isAdmin.value && master && filters.master_id !== String(master.id)) {
+      filters.master_id = String(master.id)
     }
   },
   { immediate: true },
 )
 
-const openCreateBooking = () => {
-  showCreate.value = true
-  activeCreateStep.value = isAdmin.value ? 'master' : 'service'
-  createError.value = ''
-  createSuccess.value = ''
-  if (!isAdmin.value && linkedMaster.value) {
-    createForm.master_id = String(linkedMaster.value.id)
-  }
-}
+const selectedMasterId = computed(() => {
+  if (filters.master_id) return Number(filters.master_id)
+  if (!isAdmin.value && linkedMaster.value) return linkedMaster.value.id
+  if (!isAdmin.value && auth.user?.master_id) return auth.user.master_id
+  return null
+})
 
-const resetCreateForm = () => {
-  createForm.master_id = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
-  createForm.service_id = ''
-  createForm.date = todayInput()
-  createForm.time = ''
-  createForm.customer_name = ''
-  createForm.customer_phone = ''
-  createForm.customer_comment = ''
-  activeCreateStep.value = isAdmin.value ? 'master' : 'service'
-  availableSlots.value = []
-  createError.value = ''
-}
+const selectedMaster = computed(() =>
+  masterOptions.value.find(master => master.id === selectedMasterId.value) || linkedMaster.value || null,
+)
 
-const closeCreateBooking = () => {
-  showCreate.value = false
-}
+const selectedMasterLabel = computed(() =>
+  selectedMaster.value ? masterName(selectedMaster.value) : selectedMasterId.value ? `Майстер #${selectedMasterId.value}` : 'Майстра не вибрано',
+)
 
-const selectCreateMaster = (masterId: number) => {
-  if (!isAdmin.value && linkedMaster.value?.id !== masterId) return
-  createForm.master_id = String(masterId)
-  if (createForm.service_id && !createServiceOptions.value.some(service => service.id === Number(createForm.service_id))) {
-    createForm.service_id = ''
-  }
-}
+const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInView(viewMode.value) - 1))
+const calendarDays = computed(() => calendar.buildDays(anchorDate.value, viewMode.value))
+const slotsByDay = computed(() => calendar.buildSlotsByDay(calendarDays.value))
+const canSelectSlots = computed(() => Boolean(selectedMasterId.value && (isAdmin.value || isBarber.value || linkedMaster.value || auth.user?.master_id)))
 
-const selectCreateService = (serviceId: number) => {
-  createForm.service_id = String(serviceId)
-}
+const { data, pending, error, refresh } = await useAsyncData(
+  'booking-calendar-data',
+  async () => {
+    const masterId = selectedMasterId.value
+    const bookingFilters = {
+      date_from: anchorDate.value,
+      date_to: rangeEnd.value,
+      master_id: masterId,
+      service_id: filters.service_id ? Number(filters.service_id) : null,
+      status: filters.status as BookingStatus | '',
+    }
 
-const selectCreateTime = (time: string) => {
-  if (createSlotState(time) === 'busy') return
-  createForm.time = time
-}
+    if (isAdmin.value) {
+      const [bookings, timeBlocks] = await Promise.all([
+        api.adminGetBookings(1, pageSize, bookingFilters),
+        api.adminGetTimeBlocks(1, pageSize, {
+          date_from: anchorDate.value,
+          date_to: rangeEnd.value,
+          master_id: masterId,
+        }),
+      ])
+      return { bookings, timeBlocks }
+    }
 
-const createBooking = async () => {
-  createError.value = ''
-  createSuccess.value = ''
-  if (!createForm.master_id) {
-    createError.value = 'Виберіть майстра.'
-    activeCreateStep.value = 'master'
-    return
-  }
-  if (!createForm.service_id) {
-    createError.value = 'Виберіть послугу.'
-    activeCreateStep.value = 'service'
-    return
-  }
-  if (!createForm.date || !createForm.time) {
-    createError.value = 'Виберіть дату й час.'
-    activeCreateStep.value = 'time'
-    return
-  }
-  if (selectedSlotIsBusy.value) {
-    createError.value = 'Вибраний час уже зайнятий для цього майстра й послуги.'
-    activeCreateStep.value = 'time'
-    return
-  }
-  if (!createForm.customer_name.trim() || !createForm.customer_phone.trim()) {
-    createError.value = 'Ім’я клієнта та телефон обов’язкові.'
-    activeCreateStep.value = 'customer'
-    return
-  }
+    const [bookings, timeBlocks] = await Promise.all([
+      api.getMyBookings({
+        date_from: anchorDate.value,
+        date_to: rangeEnd.value,
+        status: filters.status as BookingStatus | '',
+      }),
+      api.getMyTimeBlocks({
+        date_from: anchorDate.value,
+        date_to: rangeEnd.value,
+      }),
+    ])
+    return { bookings, timeBlocks }
+  },
+  {
+    watch: [
+      viewMode,
+      anchorDate,
+      selectedMasterId,
+      () => filters.service_id,
+      () => filters.status,
+      isAdmin,
+    ],
+  },
+)
 
-  const matchedSlot = availableSlotByTime.value.get(createForm.time)
-  createPending.value = true
-  try {
-    await api.createPublicBooking({
-      master_id: Number(createForm.master_id),
-      service_id: Number(createForm.service_id),
-      customer_name: createForm.customer_name.trim(),
-      customer_phone: createForm.customer_phone.trim(),
-      customer_comment: createForm.customer_comment.trim() || null,
-      start_at: matchedSlot?.start_at || toKyivIso(createForm.date, createForm.time),
-    })
-    createSuccess.value = 'Бронювання створено.'
-    await refresh()
-    resetCreateForm()
-  }
-  catch (cause) {
-    createError.value = apiErrorMessage(cause, 'Не вдалося створити бронювання.')
-  }
-  finally {
-    createPending.value = false
-  }
-}
+const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
+const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
 
-const applyFilters = async () => {
-  page.value = 1
-  if (page.value === 1) await refresh()
-}
+const visibleBookings = computed(() => {
+  const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
+  return bookings.value.filter(booking => {
+    if (selectedServiceId && Number(booking.service_id) !== selectedServiceId) return false
+    if (filters.status && booking.status !== filters.status) return false
+    return true
+  })
+})
 
-const clearFilters = async () => {
-  filters.date_from = todayInput()
-  filters.date_to = addDaysInput(todayInput(), 7)
-  filters.master_id = ''
-  filters.service_id = ''
-  filters.status = ''
-  await applyFilters()
-}
+const visibleBlocks = computed(() =>
+  timeBlocks.value.filter(block => !selectedMasterId.value || Number(block.master_id) === selectedMasterId.value),
+)
+
+const activeBookings = computed(() => visibleBookings.value.filter(booking => booking.status !== 'cancelled'))
+const busyRanges = computed(() => calendar.buildBusyRanges(activeBookings.value, visibleBlocks.value, serviceOptions.value))
+const calendarEntries = computed(() => calendar.buildDisplayEntries(activeBookings.value, visibleBlocks.value, serviceOptions.value))
+const total = computed(() => normalizeTotal(data.value?.bookings))
+
+const bookingServiceOptions = computed(() => {
+  if (!selectedMasterId.value) return serviceOptions.value
+  return serviceOptions.value.filter(service => !service.barber_id || Number(service.barber_id) === selectedMasterId.value)
+})
+
+const resolveMaster = (booking: Booking) =>
+  booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
+
+const resolveService = (booking: Booking) =>
+  booking.service || serviceOptions.value.find(service => Number(service.id) === Number(booking.service_id)) || null
 
 const allowedStatusActions = (booking: Booking | null) =>
   !booking || !canManageBooking(booking.master_id)
     ? []
     : statuses.filter(status => status !== booking.status)
 
+const setViewMode = (mode: CalendarViewMode) => {
+  viewMode.value = mode
+  if (mode === 'today') {
+    anchorDate.value = todayInput()
+  }
+}
+
+const moveRange = (direction: -1 | 1) => {
+  anchorDate.value = addDaysInput(anchorDate.value, direction * calendar.daysInView(viewMode.value))
+}
+
+const goToToday = () => {
+  anchorDate.value = todayInput()
+}
+
+const applyFilters = async () => {
+  actionError.value = ''
+  actionSuccess.value = ''
+  await refresh()
+}
+
+const clearFilters = async () => {
+  filters.master_id = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
+  filters.service_id = ''
+  filters.status = ''
+  anchorDate.value = todayInput()
+  viewMode.value = 'week'
+  await refresh()
+}
+
+const openActionModal = (selection: CalendarSelection) => {
+  actionError.value = ''
+  actionSuccess.value = ''
+  if (!canSelectSlots.value) {
+    actionError.value = 'Виберіть майстра, щоб створювати бронювання або блокування часу.'
+    return
+  }
+  selectedSelection.value = selection
+  actionModalOpen.value = true
+}
+
+const handleEntryClick = (entry: CalendarDisplayEntry) => {
+  if (entry.booking) {
+    selected.value = entry.booking
+    return
+  }
+  if (entry.block) {
+    selectedBlock.value = entry.block
+  }
+}
+
+const isMissingCreateEndpoint = (cause: unknown) => {
+  if (typeof cause !== 'object' || !cause || !('response' in cause)) return false
+  const status = (cause as { response?: { status?: number } }).response?.status
+  return status === 404 || status === 405
+}
+
+const validateCalendarPayload = (payload: CalendarActionPayload) => {
+  if (!selectedMasterId.value) return 'Виберіть майстра.'
+  const date = calendar.dateInputFromDateTime(payload.start_at)
+  const startTime = formatTime(payload.start_at)
+  const endTime = formatTime(payload.end_at)
+  if (!date || startTime === '-' || endTime === '-') return 'Некоректний час інтервалу.'
+  if (calendar.isMonday(date)) return 'Понеділок — вихідний день.'
+  if (startTime < calendar.workdayStart || endTime > calendar.workdayEnd || startTime >= endTime) {
+    return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
+  }
+  if (new Date(payload.end_at).getTime() <= Date.now()) return 'Минулі часові слоти недоступні.'
+  if (calendar.rangeOverlapsBusy(payload.start_at, payload.end_at, busyRanges.value)) {
+    return payload.action === 'booking'
+      ? 'Бронювання не може перетинатися з іншим бронюванням або блокуванням.'
+      : 'Блокування не може перетинатися з бронюванням або іншим блокуванням.'
+  }
+  return ''
+}
+
+const createManualBooking = async (payload: CalendarActionPayload) => {
+  const body: ManualBookingPayload = {
+    master_id: selectedMasterId.value as number,
+    service_id: payload.service_id as number,
+    customer_name: payload.customer_name,
+    customer_phone: payload.customer_phone,
+    customer_comment: payload.note || null,
+    note: payload.note || null,
+    start_at: payload.start_at,
+    end_at: payload.end_at,
+    status: 'confirmed',
+  }
+
+  try {
+    if (isAdmin.value) {
+      await api.adminCreateBooking(body)
+    }
+    else {
+      await api.createMyManualBooking(body)
+    }
+  }
+  catch (cause) {
+    if (!isMissingCreateEndpoint(cause)) throw cause
+    await api.createPublicBooking({
+      master_id: body.master_id,
+      service_id: body.service_id,
+      customer_name: body.customer_name,
+      customer_phone: body.customer_phone,
+      customer_comment: body.customer_comment,
+      start_at: body.start_at,
+    })
+  }
+}
+
+const createTimeBlock = async (payload: CalendarActionPayload) => {
+  if (isAdmin.value) {
+    await api.adminCreateTimeBlock({
+      master_id: selectedMasterId.value as number,
+      start_at: payload.start_at,
+      end_at: payload.end_at,
+      reason: payload.note || null,
+    })
+    return
+  }
+
+  await api.createMyTimeBlock({
+    start_at: payload.start_at,
+    end_at: payload.end_at,
+    reason: payload.note || null,
+  })
+}
+
+const submitCalendarAction = async (payload: CalendarActionPayload) => {
+  actionError.value = validateCalendarPayload(payload)
+  actionSuccess.value = ''
+  if (actionError.value) return
+
+  actionPending.value = true
+  try {
+    if (payload.action === 'booking') {
+      await createManualBooking(payload)
+      actionSuccess.value = 'Бронювання створено.'
+    }
+    else {
+      await createTimeBlock(payload)
+      actionSuccess.value = 'Блокування часу створено.'
+    }
+    actionModalOpen.value = false
+    selectedSelection.value = null
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(
+      cause,
+      payload.action === 'booking'
+        ? 'Не вдалося створити бронювання.'
+        : 'Не вдалося створити блокування часу.',
+    )
+  }
+  finally {
+    actionPending.value = false
+  }
+}
+
 const updateStatus = async (status: BookingStatus) => {
   if (!selected.value) return
   pendingStatus.value = status
   actionError.value = ''
   try {
-    const updated = await api.adminUpdateBookingStatus(selected.value.id, status)
+    const updated = isAdmin.value
+      ? await api.adminUpdateBookingStatus(selected.value.id, status)
+      : await api.updateMyBookingStatus(selected.value.id, status)
     selected.value = { ...selected.value, ...updated }
     await refresh()
   }
@@ -343,6 +368,30 @@ const updateStatus = async (status: BookingStatus) => {
     pendingStatus.value = ''
   }
 }
+
+const deleteSelectedBlock = async () => {
+  if (!selectedBlock.value) return
+  deletingBlock.value = true
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    if (isAdmin.value) {
+      await api.adminDeleteTimeBlock(selectedBlock.value.id)
+    }
+    else {
+      await api.deleteMyTimeBlock(selectedBlock.value.id)
+    }
+    selectedBlock.value = null
+    actionSuccess.value = 'Блокування часу видалено.'
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося видалити блокування часу.')
+  }
+  finally {
+    deletingBlock.value = false
+  }
+}
 </script>
 
 <template>
@@ -351,121 +400,172 @@ const updateStatus = async (status: BookingStatus) => {
       <div>
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Календар</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Бронювання</h1>
-        <p class="mt-2 text-sm text-slate-500">Години бронювання: 08:00-20:00 Europe/Kyiv.</p>
-        <p class="mt-1 text-sm text-slate-500">
-          Роль: {{ roleLabel }}<span v-if="linkedMaster"> · {{ masterName(linkedMaster) }}</span>
+        <p class="mt-2 text-sm text-slate-500">
+          {{ roleLabel }}<span v-if="selectedMasterId"> · {{ selectedMasterLabel }}</span> · {{ calendar.workdayStart }}-{{ calendar.workdayEnd }} Europe/Kyiv
         </p>
       </div>
       <div class="flex flex-wrap gap-3">
-        <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateBooking">
-          Нове бронювання
+        <button
+          type="button"
+          :disabled="pending"
+          class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+          @click="refresh"
+        >
+          <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
+          {{ pending ? 'Оновлення...' : 'Оновити' }}
         </button>
-        <NuxtLink to="/my-bookings" class="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700">
+        <NuxtLink to="/my-bookings" class="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700">
           Мої бронювання
         </NuxtLink>
       </div>
     </div>
 
     <p v-if="isBarber" class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
-      Майстри можуть переглядати всі бронювання, але дії зі статусом доступні лише для бронювань, призначених їхньому профілю майстра.
+      Майстри можуть керувати календарем свого профілю. Понеділок недоступний для бронювань і блокувань.
     </p>
-    <p v-else-if="!isAdmin && !linkedMaster" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      Ваш акаунт не прив’язаний до профілю майстра. Ви можете переглядати бронювання, якщо це дозволяє бекенд, але дії зі статусом приховані.
+    <p v-else-if="isAdmin && !selectedMasterId" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      Виберіть майстра у фільтрах, щоб створювати ручні бронювання або блокування часу.
+    </p>
+    <p v-else-if="!isAdmin && !linkedMaster && !auth.user?.master_id" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      Ваш акаунт не прив’язаний до профілю майстра, тому створення інтервалів вимкнено.
     </p>
 
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6">
-      <label class="space-y-2 text-sm text-slate-700">
-        <span class="font-medium">Від</span>
-        <input v-model="filters.date_from" type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-      </label>
-      <label class="space-y-2 text-sm text-slate-700">
-        <span class="font-medium">До</span>
-        <input v-model="filters.date_to" type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-      </label>
-      <label class="space-y-2 text-sm text-slate-700">
-        <span class="font-medium">Майстер</span>
-        <select v-model="filters.master_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          <option value="">Усі майстри</option>
-          <option v-for="master in masterOptions" :key="master.id" :value="String(master.id)">
-            {{ masterName(master) }}
-          </option>
-        </select>
-      </label>
-      <label class="space-y-2 text-sm text-slate-700">
-        <span class="font-medium">Послуга</span>
-        <select v-model="filters.service_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          <option value="">Усі послуги</option>
-          <option v-for="service in serviceOptions" :key="service.id" :value="String(service.id)">
-            {{ serviceName(service) }}
-          </option>
-        </select>
-      </label>
-      <label class="space-y-2 text-sm text-slate-700">
-        <span class="font-medium">Статус</span>
-        <select v-model="filters.status" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          <option value="">Будь-який статус</option>
-          <option v-for="status in statuses" :key="status" :value="status">{{ formatBookingStatus(status) }}</option>
-        </select>
-      </label>
-      <div class="flex items-end gap-3">
-        <button class="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
-        <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
+    <section class="space-y-4 rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
+          <button
+            v-for="mode in (['today', 'week', 'month'] as CalendarViewMode[])"
+            :key="mode"
+            type="button"
+            class="min-h-10 rounded-xl px-3 py-2 text-sm font-medium transition"
+            :class="viewMode === mode ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
+            @click="setViewMode(mode)"
+          >
+            {{ calendarViewLabels[mode] }}
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+            aria-label="Попередній період"
+            title="Попередній період"
+            @click="moveRange(-1)"
+          >
+            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+          </button>
+          <input v-model="anchorDate" type="date" class="min-h-10 rounded-2xl border border-slate-300 px-3 py-2 text-sm">
+          <button type="button" class="min-h-10 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" @click="goToToday">
+            Сьогодні
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+            aria-label="Наступний період"
+            title="Наступний період"
+            @click="moveRange(1)"
+          >
+            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Майстер</span>
+          <select v-model="filters.master_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3" :disabled="!isAdmin">
+            <option value="">{{ isAdmin ? 'Усі майстри' : selectedMasterLabel }}</option>
+            <option v-for="master in masterOptions" :key="master.id" :value="String(master.id)">
+              {{ masterName(master) }}
+            </option>
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Послуга</span>
+          <select v-model="filters.service_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <option value="">Усі послуги</option>
+            <option v-for="service in bookingServiceOptions" :key="service.id" :value="String(service.id)">
+              {{ serviceName(service) }}
+            </option>
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Статус</span>
+          <select v-model="filters.status" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <option value="">Будь-який статус</option>
+            <option v-for="status in statuses" :key="status" :value="status">{{ formatBookingStatus(status) }}</option>
+          </select>
+        </label>
+        <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
+          <p class="mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
+        </div>
+        <div class="flex items-end gap-3">
+          <button class="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+          <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
+        </div>
       </div>
     </section>
 
-    <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
-      {{ apiErrorMessage(error, 'Не вдалося завантажити бронювання з /backoffice/bookings.') }}
-    </p>
-
-    <div class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
-      Total: {{ total }}
+    <div class="space-y-3">
+      <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+        {{ apiErrorMessage(error, 'Не вдалося завантажити календар бронювань.') }}
+      </p>
+      <p v-if="actionError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ actionError }}</p>
+      <p v-if="actionSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ actionSuccess }}</p>
+      <p v-if="pending" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Завантаження календаря...</p>
+      <p v-else-if="!calendarEntries.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+        У вибраному діапазоні немає бронювань або блокувань. Вільні слоти можна вибирати прямо в календарі.
+      </p>
     </div>
 
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-      <div v-if="pending" class="p-6 text-sm text-slate-500">Завантаження бронювань...</div>
-      <div v-else-if="!visibleBookings.length" class="p-6 text-sm text-slate-500">За вибраними фільтрами бронювань не знайдено.</div>
-      <table v-else class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-50">
-          <tr>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Час</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Клієнт</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Майстер</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Послуга</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Коментар</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="booking in visibleBookings" :key="booking.id">
-            <td data-label="Час" class="px-4 py-3">
-              <p class="font-medium text-slate-900">{{ formatDateTime(bookingStart(booking)) }}</p>
-              <p class="text-xs text-slate-500">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
-            </td>
-            <td data-label="Клієнт" class="px-4 py-3">
-              <p class="font-medium text-slate-900">{{ customerName(booking) }}</p>
-              <p class="text-xs text-slate-500">{{ bookingPhone(booking) || 'Без телефону' }}</p>
-            </td>
-            <td data-label="Майстер" class="px-4 py-3 text-slate-700">{{ masterName(resolveMaster(booking)) }}</td>
-            <td data-label="Послуга" class="px-4 py-3 text-slate-700">{{ serviceName(resolveService(booking)) }}</td>
-            <td data-label="Статус" class="px-4 py-3"><BookingStatusBadge :status="booking.status" /></td>
-            <td data-label="Коментар" class="max-w-xs px-4 py-3 text-slate-600">{{ bookingComment(booking) || '-' }}</td>
-            <td data-label="Дії" class="px-4 py-3">
-              <button
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
-                aria-label="Переглянути бронювання"
-                title="Переглянути"
-                @click="selected = booking"
-              >
-                <EyeIcon class="h-4 w-4" aria-hidden="true" />
-                <span class="sr-only">Переглянути</span>
-              </button>
-              <p v-if="!canManageBooking(booking.master_id)" class="mt-2 text-xs text-slate-400">Лише перегляд</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <BookingCalendarGrid
+      :days="calendarDays"
+      :slots-by-day="slotsByDay"
+      :entries="calendarEntries"
+      :busy-ranges="busyRanges"
+      :selectable="canSelectSlots"
+      :loading="pending"
+      @select="openActionModal"
+      @entry-click="handleEntryClick"
+    />
+
+    <section class="rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Список бронювань</h2>
+          <p class="mt-1 text-sm text-slate-500">Поточний діапазон: {{ anchorDate }} - {{ rangeEnd }} · Total: {{ total }}</p>
+        </div>
+      </div>
+      <div v-if="!visibleBookings.length" class="p-4 text-sm text-slate-500">Бронювань за цими фільтрами немає.</div>
+      <div v-else class="divide-y divide-slate-100">
+        <article v-for="booking in visibleBookings" :key="booking.id" class="grid gap-3 px-4 py-3 md:grid-cols-[160px_1fr_auto] md:items-center">
+          <div>
+            <p class="font-semibold text-slate-900">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
+            <p class="text-xs text-slate-500">{{ formatDateTime(bookingStart(booking)) }}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="truncate font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
+            <p class="mt-1 truncate text-sm text-slate-500">
+              {{ serviceName(resolveService(booking)) }} · {{ masterName(resolveMaster(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <BookingStatusBadge :status="booking.status" />
+            <button
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+              aria-label="Переглянути бронювання"
+              title="Переглянути"
+              @click="selected = booking"
+            >
+              <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              <span class="sr-only">Переглянути</span>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <BookingDetailsModal
       :booking="selected"
@@ -478,152 +578,45 @@ const updateStatus = async (status: BookingStatus) => {
       @update-status="updateStatus"
     />
 
-    <div v-if="showCreate" class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 px-0 py-0 sm:items-center sm:px-4 sm:py-6">
-      <section class="max-h-[94dvh] w-full max-w-6xl overflow-y-auto rounded-t-[1.5rem] bg-white shadow-2xl sm:max-h-full sm:rounded-[1.75rem]">
-        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
+    <BookingCalendarActionModal
+      v-model="actionModalOpen"
+      :selection="selectedSelection"
+      :services="bookingServiceOptions"
+      :master-name="selectedMasterLabel"
+      :pending="actionPending"
+      :error="actionError"
+      @submit="submitCalendarAction"
+    />
+
+    <BaseModal :model-value="Boolean(selectedBlock)" max-width-class="max-w-xl" @update:model-value="selectedBlock = null">
+      <template #head="{ close }">
+        <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Нове бронювання</p>
-            <h2 class="mt-2 text-2xl font-semibold text-slate-900">Створити запис</h2>
+            <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Блокування</p>
+            <h2 class="mt-2 text-2xl font-semibold text-slate-900">Недоступний час</h2>
           </div>
-          <button class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeCreateBooking">
+          <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="close">
             Закрити
           </button>
         </div>
-
-        <div class="space-y-6 px-4 py-5 sm:px-6">
-          <div class="grid gap-3 md:grid-cols-4">
-            <button
-              v-for="step in createSteps"
-              :key="step.id"
-              type="button"
-              class="rounded-2xl border px-4 py-3 text-left transition"
-              :class="activeCreateStep === step.id ? 'border-cyan-500 bg-cyan-50' : step.complete ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'"
-              @click="activeCreateStep = step.id"
-            >
-              <p class="text-xs uppercase tracking-[0.18em]" :class="step.complete ? 'text-emerald-700' : 'text-slate-500'">
-                {{ step.complete ? 'Вибрано' : 'Крок' }}
-              </p>
-              <p class="mt-1 font-medium text-slate-900">{{ step.label }}</p>
-              <p class="mt-1 truncate text-sm text-slate-500">{{ step.value }}</p>
-            </button>
+      </template>
+      <template #body>
+        <div v-if="selectedBlock" class="space-y-4">
+          <div class="rounded-2xl bg-slate-50 px-4 py-3">
+            <p class="font-medium text-slate-900">{{ formatDateTime(selectedBlock.start_at) }} - {{ formatDateTime(selectedBlock.end_at) }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ selectedBlock.reason || 'Без причини' }}</p>
           </div>
-
-          <section v-show="activeCreateStep === 'master'" class="space-y-4">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900">Виберіть майстра</h3>
-              <p class="mt-1 text-sm text-slate-500">Адміністратор може вибрати будь-якого майстра. Майстри можуть створювати бронювання лише для власного профілю.</p>
-            </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <button
-                v-for="master in masterOptions"
-                :key="master.id"
-                type="button"
-                class="rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45"
-                :class="createForm.master_id === String(master.id) ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:bg-slate-50'"
-                :disabled="!isAdmin && linkedMaster?.id !== master.id"
-                @click="selectCreateMaster(master.id)"
-              >
-                <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ master.email || master.phone || 'Без контактів' }}</p>
-                <p v-if="!isAdmin && linkedMaster?.id !== master.id" class="mt-2 text-xs text-slate-400">Для вашої ролі доступний лише перегляд</p>
-              </button>
-            </div>
-            <p v-if="!masterOptions.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Немає доступних майстрів.</p>
-          </section>
-
-          <section v-show="activeCreateStep === 'service'" class="space-y-4">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900">Виберіть послугу</h3>
-              <p class="mt-1 text-sm text-slate-500">Послугу можна вибрати до або після вибору часу.</p>
-            </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <button
-                v-for="service in createServiceOptions"
-                :key="service.id"
-                type="button"
-                class="rounded-2xl border p-4 text-left transition"
-                :class="createForm.service_id === String(service.id) ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:bg-slate-50'"
-                @click="selectCreateService(service.id)"
-              >
-                <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ service.duration_minutes }} min · {{ service.price }} UAH</p>
-                <p v-if="service.description_uk || service.description" class="mt-2 text-sm text-slate-500">{{ service.description_uk || service.description }}</p>
-              </button>
-            </div>
-            <p v-if="!createServiceOptions.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Для вибраного майстра немає доступних послуг.</p>
-          </section>
-
-          <section v-show="activeCreateStep === 'time'" class="space-y-4">
-            <div class="grid gap-4 md:grid-cols-[220px_1fr] md:items-end">
-              <label class="space-y-2 text-sm text-slate-700">
-                <span class="font-medium">Дата</span>
-                <input v-model="createForm.date" type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-              </label>
-              <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <span v-if="slotAvailabilityReady && slotsPending">Перевірка слотів...</span>
-                <span v-else-if="slotAvailabilityReady">Недоступний час вимкнено для вибраного майстра, послуги та дати.</span>
-                <span v-else>Зараз можна вибрати будь-який час. Доступність перевіряється після вибору майстра й послуги.</span>
-              </div>
-            </div>
-            <div class="grid gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-              <button
-                v-for="slot in createTimeCandidates"
-                :key="slot.time"
-                type="button"
-                class="rounded-2xl border px-4 py-3 text-left text-sm transition disabled:cursor-not-allowed"
-                :class="[
-                  createForm.time === slot.time ? 'border-cyan-500 bg-cyan-50 text-slate-950' : 'border-slate-200',
-                  createSlotState(slot.time) === 'available' ? 'hover:bg-emerald-50' : '',
-                  createSlotState(slot.time) === 'busy' ? 'border-rose-200 bg-rose-50 text-rose-700 opacity-70' : '',
-                  createSlotState(slot.time) === 'unchecked' ? 'hover:bg-slate-50' : '',
-                ]"
-                :disabled="createSlotState(slot.time) === 'busy'"
-                @click="selectCreateTime(slot.time)"
-              >
-                <span class="font-medium">{{ slot.time }} - {{ slot.endTime }}</span>
-                <span class="mt-1 block text-xs">
-                  <span v-if="createSlotState(slot.time) === 'available'" class="text-emerald-700">Вільно</span>
-                  <span v-else-if="createSlotState(slot.time) === 'busy'" class="text-rose-700">Зайнято</span>
-                  <span v-else class="text-slate-500">Не перевірено</span>
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <section v-show="activeCreateStep === 'customer'" class="space-y-4">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900">Дані клієнта</h3>
-            </div>
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="space-y-2 text-sm text-slate-700">
-                <span class="font-medium">Назва</span>
-                <input v-model="createForm.customer_name" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-              </label>
-              <label class="space-y-2 text-sm text-slate-700">
-                <span class="font-medium">Телефон</span>
-                <input v-model="createForm.customer_phone" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-              </label>
-            </div>
-            <label class="space-y-2 text-sm text-slate-700">
-              <span class="font-medium">Коментар</span>
-              <textarea v-model="createForm.customer_comment" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-            </label>
-          </section>
-
-          <p v-if="createError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ createError }}</p>
-          <p v-if="createSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ createSuccess }}</p>
-
-          <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5">
-            <button :disabled="createPending" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60" @click="createBooking">
-              <PlusIcon v-if="!createPending" class="h-4 w-4" aria-hidden="true" />
-              {{ createPending ? 'Створення...' : 'Створити бронювання' }}
-            </button>
-            <button class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetCreateForm">
-              Скинути
-            </button>
-          </div>
+          <button
+            type="button"
+            :disabled="deletingBlock"
+            class="inline-flex items-center justify-center gap-2 rounded-full border border-rose-300 px-5 py-3 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+            @click="deleteSelectedBlock"
+          >
+            <TrashIcon class="h-4 w-4" aria-hidden="true" />
+            {{ deletingBlock ? 'Видалення...' : 'Видалити блокування' }}
+          </button>
         </div>
-      </section>
-    </div>
+      </template>
+    </BaseModal>
   </div>
 </template>

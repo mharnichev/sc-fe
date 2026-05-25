@@ -15,6 +15,21 @@ type FaqSection = {
 }
 
 const faqItems = computed(() => terms.value.home.faq.items as readonly FaqSection[])
+
+const faqStructuredItems = computed(() =>
+  faqItems.value.flatMap(section =>
+    section.questions.map(question => ({
+      question: question.question,
+      answer: [
+        ...question.answer,
+        ...(question.list || []).map(entry => `${entry.label} ${entry.text}`),
+        question.note || '',
+      ].filter(Boolean).join('\n'),
+    })),
+  ),
+)
+
+useFaqStructuredData(faqStructuredItems)
 </script>
 
 <template>

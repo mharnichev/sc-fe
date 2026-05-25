@@ -171,7 +171,7 @@ watch(teamMembers, (members) => {
             <img
               :src="member.image"
               :alt="member.imageAlt"
-              class="absolute inset-0 h-full w-full object-cover"
+              class="absolute inset-0 h-full w-full object-cover object-top"
               loading="lazy"
             >
             <div class="absolute inset-0 bg-gradient-to-b from-white via-white/25 to-transparent" />
@@ -204,10 +204,10 @@ watch(teamMembers, (members) => {
         </div>
       </div>
 
-      <div class="relative left-1/2 hidden h-screen w-screen -translate-x-1/2 bg-white md:grid md:grid-cols-[minmax(430px,0.5fr)_minmax(0,1fr)] lg:grid-cols-[minmax(520px,0.46fr)_minmax(0,1fr)]">
+      <div class="relative left-1/2 hidden h-screen w-screen -translate-x-1/2 bg-white md:grid md:grid-cols-[minmax(430px,0.58fr)_minmax(0,0.83fr)] lg:grid-cols-[minmax(520px,0.58fr)_minmax(0,0.79fr)] xl:grid-cols-[minmax(600px,0.52fr)_minmax(0,0.7fr)]">
         <div class="relative z-10 flex min-h-0 flex-col justify-between gap-5 px-4 py-5 sm:px-8 sm:py-8 md:pb-10 md:pl-24 md:pt-24 lg:pl-28 lg:pr-14 lg:pt-28" data-reveal="soft">
           <div class="flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-4 border-b border-neutral-950/15 pb-4">
+            <div class="flex w-fit max-w-full items-start justify-between gap-4 border-b border-neutral-950/15 pb-4 pr-8">
               <div>
                 <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
                 <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-neutral-950 sm:text-5xl lg:text-[52px]">
@@ -251,7 +251,7 @@ watch(teamMembers, (members) => {
               :key="activeMember.name"
               :src="activeImage"
               :alt="activeMember.imageAlt"
-              class="absolute inset-0 h-full w-full object-cover"
+              class="absolute inset-0 h-full w-full object-cover object-top"
               loading="lazy"
             >
           </Transition>

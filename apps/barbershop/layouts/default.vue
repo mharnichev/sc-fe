@@ -6,6 +6,8 @@ useHead({
     lang: () => locale.value,
   },
 })
+
+useLocalBusinessStructuredData()
 </script>
 
 <template>

@@ -85,7 +85,7 @@ const deleteBlock = async (blockId: number) => {
       <div>
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Доступність</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Мої блокування часу</h1>
-        <p class="mt-2 text-sm text-slate-500">Блокуйте недоступні інтервали в межах 08:00-20:00 Europe/Kyiv.</p>
+        <p class="mt-2 text-sm text-slate-500">Блокуйте недоступні інтервали в межах 09:00-20:00 Europe/Kyiv.</p>
       </div>
       <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateBlock">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />

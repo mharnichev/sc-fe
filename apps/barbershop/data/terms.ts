@@ -40,12 +40,13 @@ export const termsDictionary = {
       acceptAll: 'Прийняти всі',
     },
     nav: [
-      { label: 'Послуги', href: '#services' },
-      { label: 'Студія', href: '#studio' },
-      { label: 'Команда', href: '#team' },
-      { label: 'Журнал', href: '#journal' },
-      { label: 'FAQ', href: '#faq' },
-      { label: 'Контакти', href: '#contact' },
+      { label: 'Послуги', href: '/#services' },
+      { label: 'Запис', href: '/#booking' },
+      { label: 'Команда', href: '/#team' },
+      { label: 'Відгуки', href: '/#reviews' },
+      { label: 'FAQ', href: '/#faq' },
+      { label: 'Фідбек', href: '/#feedback' },
+      { label: 'Контакти', href: '/#contact' },
     ],
     home: {
       hero: {
@@ -448,12 +449,13 @@ export const termsDictionary = {
       acceptAll: 'Accept all',
     },
     nav: [
-      { label: 'Services', href: '#services' },
-      { label: 'Studio', href: '#studio' },
-      { label: 'Team', href: '#team' },
-      { label: 'Journal', href: '#journal' },
-      { label: 'FAQ', href: '#faq' },
-      { label: 'Contact', href: '#contact' },
+      { label: 'Services', href: '/#services' },
+      { label: 'Booking', href: '/#booking' },
+      { label: 'Team', href: '/#team' },
+      { label: 'Reviews', href: '/#reviews' },
+      { label: 'FAQ', href: '/#faq' },
+      { label: 'Feedback', href: '/#feedback' },
+      { label: 'Contact', href: '/#contact' },
     ],
     home: {
       hero: {

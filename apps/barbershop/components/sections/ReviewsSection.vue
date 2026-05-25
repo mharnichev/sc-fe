@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section data-header-theme="light" class="section-y-tight bg-stone-100">
+  <section id="reviews" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
       <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6" data-reveal="soft">
         <div>

@@ -256,6 +256,12 @@ export interface PublicBookingPayload {
   start_at: string
 }
 
+export interface ManualBookingPayload extends PublicBookingPayload {
+  end_at: string
+  note?: string | null
+  status?: BookingStatus
+}
+
 export interface TimeBlock {
   id: number
   master_id: number
@@ -475,6 +481,12 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
+  const createMyManualBooking = (payload: ManualBookingPayload) =>
+    api<Booking>('/backoffice/masters/me/bookings', {
+      method: 'POST',
+      body: payload,
+    })
+
   const getMyCalendar = (filters: BookingFilters = {}) =>
     api<Booking[] | PaginatedResponse<Booking>>('/backoffice/masters/me/calendar', {
       query: {
@@ -498,8 +510,13 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
-  const getMyTimeBlocks = () =>
-    api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/masters/me/time-blocks')
+  const getMyTimeBlocks = (filters: { date_from?: string, date_to?: string } = {}) =>
+    api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/masters/me/time-blocks', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+    })
 
   const createMyTimeBlock = (payload: TimeBlockPayload) =>
     api<TimeBlock>('/backoffice/masters/me/time-blocks', {
@@ -645,8 +662,15 @@ export const useBackofficeApi = () => {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
         master_id: filters.master_id ?? undefined,
+        service_id: filters.service_id ?? undefined,
         status: filters.status || undefined,
       },
+    })
+
+  const adminCreateBooking = (payload: ManualBookingPayload) =>
+    api<Booking>('/backoffice/bookings', {
+      method: 'POST',
+      body: payload,
     })
 
   const adminUpdateBookingStatus = (bookingId: number | string, status: BookingStatus) =>
@@ -660,6 +684,8 @@ export const useBackofficeApi = () => {
       query: {
         page,
         page_size: normalizePageSize(pageSize),
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
         master_id: filters.master_id ?? undefined,
       },
     })
@@ -694,6 +720,7 @@ export const useBackofficeApi = () => {
     getServices,
     getAvailableSlots,
     createPublicBooking,
+    createMyManualBooking,
     getMyCalendar,
     getMyBookings,
     updateMyBookingStatus,
@@ -716,6 +743,7 @@ export const useBackofficeApi = () => {
     deleteMasterService,
     syncDefaultMasterServices,
     adminGetBookings,
+    adminCreateBooking,
     adminUpdateBookingStatus,
     adminGetTimeBlocks,
     adminCreateTimeBlock,
