@@ -2,9 +2,11 @@ declare const process: {
   env: Record<string, string | undefined>
 }
 
-const defaultApiBase = 'http://localhost:8000/api/v1'
+const developmentApiBase = 'http://localhost:8000/api/v1'
+const productionApiBase = 'https://api.soulcuts.com.ua/api/v1'
 const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || 'https://soulcuts.com.ua'
 const isProduction = process.env.NODE_ENV === 'production'
+const defaultApiBase = isProduction ? productionApiBase : developmentApiBase
 
 const normalizeApiBase = (value: string) => {
   const trimmed = value.trim()
