@@ -23,6 +23,7 @@ const props = defineProps<{
   barberId: number | string | null
   service?: MasterService | null
   baseServiceOptions: BaseService[]
+  useOwnEndpoint?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -106,7 +107,7 @@ const servicePayload = () => ({
 
 const submitPayload = (): MasterServicePayload => {
   const payload = servicePayload()
-  if (editing.value && form.mode === 'base') {
+  if (editing.value) {
     const { base_service_id: _baseServiceId, ...updatePayload } = payload
     return updatePayload
   }
@@ -121,7 +122,12 @@ const submit = async () => {
 
   try {
     if (editing.value) {
-      await api.updateMasterService(barberId, editing.value.id, submitPayload())
+      if (props.useOwnEndpoint) {
+        await api.updateMyService(editing.value.id, submitPayload())
+      }
+      else {
+        await api.updateMasterService(barberId, editing.value.id, submitPayload())
+      }
       emit('saved', 'Послугу оновлено.')
     }
     else {

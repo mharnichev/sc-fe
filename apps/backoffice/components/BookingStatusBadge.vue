@@ -14,7 +14,7 @@ const statusClass = (status: BookingStatus | string) => {
     case 'cancelled':
       return 'bg-rose-50 text-rose-700 ring-rose-200'
     case 'completed':
-      return 'bg-slate-100 text-slate-600 ring-slate-200'
+      return 'bg-indigo-50 text-indigo-700 ring-indigo-200'
     case 'pending':
     default:
       return 'bg-amber-50 text-amber-700 ring-amber-200'

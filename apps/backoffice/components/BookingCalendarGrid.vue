@@ -30,6 +30,20 @@ const scrollRef = ref<HTMLElement | null>(null)
 const allSlots = computed(() => Object.values(props.slotsByDay).flat())
 const busyRangesRef = computed(() => props.busyRanges)
 const enabledRef = computed(() => props.selectable && !props.loading)
+const entryTapMoveThreshold = 10
+const entryTapMaxDuration = 700
+const entryTapCancelWindow = 350
+
+const activeEntryTap = ref<{
+  id: string
+  pointerId: number
+  startX: number
+  startY: number
+  startScrollTop: number
+  startedAt: number
+  moved: boolean
+} | null>(null)
+const lastEntryTapCancelAt = ref(0)
 
 const {
   selectedSlotIds,
@@ -74,9 +88,21 @@ const slotClass = (slot: CalendarSlot) => {
   }[state]
 }
 
+const bookingEntryClass = (entry: CalendarDisplayEntry) => {
+  switch (entry.booking?.status) {
+    case 'completed':
+      return 'border-indigo-200 bg-indigo-50 text-indigo-950 shadow-indigo-950/5 hover:border-indigo-300'
+    case 'pending':
+      return 'border-amber-200 bg-amber-50 text-amber-950 shadow-amber-950/5 hover:border-amber-300'
+    case 'confirmed':
+    default:
+      return 'border-emerald-200 bg-emerald-50 text-emerald-950 shadow-emerald-950/5 hover:border-emerald-300'
+  }
+}
+
 const entryClass = (entry: CalendarDisplayEntry) =>
   entry.kind === 'booking'
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-950 shadow-emerald-950/5 hover:border-emerald-300'
+    ? bookingEntryClass(entry)
     : 'blocked-entry border-slate-400 bg-slate-100 text-slate-800 shadow-slate-950/5 hover:border-slate-500'
 
 const entryStyle = (entry: CalendarDisplayEntry) => {
@@ -118,6 +144,51 @@ const handlePointerMove = (event: PointerEvent) => {
   }
 }
 
+const beginEntryTap = (entry: CalendarDisplayEntry, event: PointerEvent) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  activeEntryTap.value = {
+    id: entry.id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startScrollTop: scrollRef.value?.scrollTop || 0,
+    startedAt: performance.now(),
+    moved: false,
+  }
+}
+
+const updateEntryTap = (event: PointerEvent) => {
+  const tap = activeEntryTap.value
+  if (!tap || tap.pointerId !== event.pointerId) return
+  const movedByPointer = Math.hypot(event.clientX - tap.startX, event.clientY - tap.startY)
+  const movedByScroll = Math.abs((scrollRef.value?.scrollTop || 0) - tap.startScrollTop)
+  if (movedByPointer > entryTapMoveThreshold || movedByScroll > entryTapMoveThreshold) {
+    tap.moved = true
+  }
+}
+
+const cancelEntryTap = (event?: PointerEvent) => {
+  if (event && activeEntryTap.value?.pointerId !== event.pointerId) return
+  activeEntryTap.value = null
+  lastEntryTapCancelAt.value = performance.now()
+}
+
+const handleEntryClick = (entry: CalendarDisplayEntry, event: MouseEvent) => {
+  const tap = activeEntryTap.value
+  const isKeyboardClick = event.detail === 0
+  const cancelledRecently = performance.now() - lastEntryTapCancelAt.value < entryTapCancelWindow
+
+  if (!isKeyboardClick) {
+    if (!tap || tap.id !== entry.id || tap.moved || cancelledRecently || performance.now() - tap.startedAt > entryTapMaxDuration) {
+      activeEntryTap.value = null
+      return
+    }
+  }
+
+  activeEntryTap.value = null
+  emit('entryClick', entry)
+}
+
 onMounted(() => {
   window.addEventListener('pointerup', endSlotSelection)
   window.addEventListener('pointercancel', endSlotSelection)
@@ -142,7 +213,10 @@ watch(
           <span class="h-2 w-2 rounded-full bg-white ring-1 ring-slate-300" /> Вільно
         </span>
         <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 ring-1 ring-emerald-100">
-          <span class="h-2 w-2 rounded-full bg-emerald-500" /> Бронювання
+          <span class="h-2 w-2 rounded-full bg-emerald-500" /> Забукано
+        </span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-800 ring-1 ring-indigo-100">
+          <span class="h-2 w-2 rounded-full bg-indigo-500" /> Виконано
         </span>
         <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2.5 py-1 text-slate-800 ring-1 ring-slate-300">
           <span class="h-2 w-2 rounded-full bg-slate-600" /> Блокування
@@ -222,7 +296,10 @@ watch(
             class="absolute left-1 right-1 z-10 flex items-start overflow-hidden rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition"
             :class="entryClass(entry)"
             :style="entryStyle(entry)"
-            @click.stop="emit('entryClick', entry)"
+            @pointerdown="beginEntryTap(entry, $event)"
+            @pointermove="updateEntryTap"
+            @pointercancel="cancelEntryTap"
+            @click.stop="handleEntryClick(entry, $event)"
           >
             <span class="w-full" :class="entry.kind === 'block' ? 'blocked-entry-label' : ''">
               <span class="block truncate font-semibold">{{ entry.meta }}</span>

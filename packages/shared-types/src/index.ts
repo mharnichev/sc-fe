@@ -58,8 +58,12 @@ export interface UploadAssetDto {
 export interface ServiceDto {
   id: number
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   slug?: string
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
   price: string
   duration_minutes: number
   status?: string
@@ -70,7 +74,11 @@ export interface ServiceCatalogBarberServiceDto {
   id: number
   barber_id: number
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
   price: string | number
   duration_minutes: number
   is_active?: boolean
@@ -81,7 +89,11 @@ export interface ServiceCatalogItemDto {
   base_service_id: number | null
   source_type: 'base' | 'custom'
   name: string
+  title_uk?: string | null
+  title_en?: string | null
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
   price: string | number
   duration_minutes: number
   barber_ids: number[]

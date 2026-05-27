@@ -58,6 +58,7 @@ export interface CalendarActionPayload {
   service_id: number | null
   customer_name: string
   customer_phone: string
+  customer_email: string
   note: string
   start_at: string
   end_at: string

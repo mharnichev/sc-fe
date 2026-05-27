@@ -3,6 +3,7 @@ import { AppSection } from '@shared-ui'
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
+const localizedService = useLocalizedService()
 const { data: services } = await useAsyncData('service-catalog', domain.getServiceCatalog)
 
 useSeo(
@@ -17,14 +18,14 @@ useSeo(
       <article v-for="(service, index) in services || []" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h3 class="text-2xl font-semibold text-stone-900">{{ service.name }}</h3>
-            <p class="mt-2 text-sm leading-7 text-stone-600">{{ service.description }}</p>
+            <h3 class="text-2xl font-semibold text-stone-900">{{ localizedService.serviceName(service) }}</h3>
+            <p class="mt-2 text-sm leading-7 text-stone-600">{{ localizedService.serviceDescription(service) }}</p>
           </div>
           <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">
-            {{ service.duration_minutes }}m
+            {{ localizedService.serviceDuration(service.duration_minutes) }}
           </span>
         </div>
-        <p class="mt-6 text-3xl font-semibold text-stone-900">₴ {{ service.price }}</p>
+        <p class="mt-6 text-3xl font-semibold text-stone-900">{{ localizedService.servicePrice(service.price) }}</p>
       </article>
     </div>
   </AppSection>

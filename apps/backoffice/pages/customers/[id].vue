@@ -8,6 +8,7 @@ const {
   formatBookingStatus,
   formatDate,
   formatDateTime,
+  formatMoney,
   formatTime,
 } = useBookingFormatting()
 
@@ -84,6 +85,22 @@ const topServices = computed(() => stats.value?.most_used_services || [])
           <div class="grid grid-cols-[140px_1fr] gap-3">
             <dt class="text-slate-500">Нотатки</dt>
             <dd class="whitespace-pre-line font-medium text-slate-900">{{ customer.notes || '—' }}</dd>
+          </div>
+          <div class="grid grid-cols-[140px_1fr] gap-3">
+            <dt class="text-slate-500">Імпортні витрати</dt>
+            <dd class="font-medium text-slate-900">{{ formatMoney(customer.imported_total_spent) }}</dd>
+          </div>
+          <div class="grid grid-cols-[140px_1fr] gap-3">
+            <dt class="text-slate-500">Імпортний візит</dt>
+            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.imported_last_visit_at) }}</dd>
+          </div>
+          <div class="grid grid-cols-[140px_1fr] gap-3">
+            <dt class="text-slate-500">Імпортний статус</dt>
+            <dd>
+              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="customer.imported_is_new_client ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-500'">
+                {{ customer.imported_is_new_client ? 'новий клієнт' : 'поточний клієнт' }}
+              </span>
+            </dd>
           </div>
           <div class="grid grid-cols-[140px_1fr] gap-3">
             <dt class="text-slate-500">Статус</dt>
@@ -209,6 +226,7 @@ const topServices = computed(() => stats.value?.most_used_services || [])
             <div class="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
               <p>{{ booking.customer_email || booking.customer_phone || 'Без контактів' }}</p>
               <p v-if="booking.cancelled_at">Скасовано: {{ formatDateTime(booking.cancelled_at) }}</p>
+              <p v-if="booking.completed_at">Завершено: {{ formatDateTime(booking.completed_at) }}</p>
             </div>
             <p v-if="bookingComment(booking)" class="mt-3 whitespace-pre-line text-sm text-slate-600">
               {{ bookingComment(booking) }}

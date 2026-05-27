@@ -272,6 +272,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
     service_id: payload.service_id as number,
     customer_name: payload.customer_name,
     customer_phone: payload.customer_phone,
+    customer_email: payload.customer_email || null,
     customer_comment: payload.note || null,
     note: payload.note || null,
     start_at: payload.start_at,
@@ -294,6 +295,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
       service_id: body.service_id,
       customer_name: body.customer_name,
       customer_phone: body.customer_phone,
+      customer_email: body.customer_email,
       customer_comment: body.customer_comment,
       start_at: body.start_at,
     })

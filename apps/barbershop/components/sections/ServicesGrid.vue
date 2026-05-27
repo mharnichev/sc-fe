@@ -3,6 +3,7 @@ import type { ServiceCatalogItemDto } from '@shared-types'
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
+const localizedService = useLocalizedService()
 
 const { data: serviceCatalog, pending: servicesPending } = await useAsyncData('home-services-catalog', domain.getServiceCatalog)
 
@@ -20,9 +21,9 @@ const baseServices = computed(() =>
     .sort((first, second) => servicePriceValue(first) - servicePriceValue(second)),
 )
 
-const formatServicePrice = (service: ServiceCatalogItemDto) => `від ₴ ${service.price}`
+const formatServicePrice = (service: ServiceCatalogItemDto) => localizedService.servicePrice(service.price, { from: true })
 const formatServiceDuration = (service: ServiceCatalogItemDto) =>
-  service.duration_minutes ? `${service.duration_minutes} хв` : ''
+  localizedService.serviceDuration(service.duration_minutes)
 
 const selectService = async (service: ServiceCatalogItemDto) => {
   if (import.meta.client) {
@@ -68,14 +69,14 @@ const selectService = async (service: ServiceCatalogItemDto) => {
           >
             <div class="flex items-start justify-between gap-5">
               <h3 class="text-xl font-semibold text-neutral-950">
-                {{ service.name }}
+                {{ localizedService.serviceName(service) }}
               </h3>
               <p class="shrink-0 text-sm font-semibold text-neutral-950">
                 {{ formatServicePrice(service) }}
               </p>
             </div>
             <p class="text-sm leading-6 text-neutral-600 md:leading-7">
-              {{ service.description || terms.home.services.noDescription }}
+              {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
             </p>
             <span class="flex items-center justify-between gap-4 border-t border-neutral-300 pt-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
               <span>{{ formatServiceDuration(service) }}</span>

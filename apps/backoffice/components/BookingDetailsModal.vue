@@ -70,6 +70,19 @@ const resolvedService = computed(() =>
             <dd class="mt-2 font-medium text-slate-900">{{ bookingPhone(booking) || '-' }}</dd>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
+            <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">Email</dt>
+            <dd class="mt-2 font-medium text-slate-900">{{ booking.customer_email || booking.customer?.email || '-' }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">Профіль клієнта</dt>
+            <dd class="mt-2 font-medium text-slate-900">
+              <NuxtLink v-if="booking.customer_id || booking.customer?.id" :to="`/customers/${booking.customer_id || booking.customer?.id}`" class="text-cyan-700 hover:text-cyan-900">
+                Customer #{{ booking.customer_id || booking.customer?.id }}
+              </NuxtLink>
+              <span v-else>-</span>
+            </dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4">
             <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">Майстер</dt>
             <dd class="mt-2 font-medium text-slate-900">{{ masterName(resolvedMaster) }}</dd>
           </div>
@@ -92,6 +105,10 @@ const resolvedService = computed(() =>
           <div class="rounded-2xl bg-slate-50 p-4">
             <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">Скасовано</dt>
             <dd class="mt-2 font-medium text-slate-900">{{ formatDateTime(booking.cancelled_at) }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <dt class="text-xs uppercase tracking-[0.18em] text-slate-500">Завершено</dt>
+            <dd class="mt-2 font-medium text-slate-900">{{ formatDateTime(booking.completed_at) }}</dd>
           </div>
         </dl>
 

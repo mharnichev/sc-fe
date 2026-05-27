@@ -10,6 +10,7 @@ import {
   ClockIcon,
   UserGroupIcon,
   SparklesIcon,
+  ChartBarSquareIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   ChevronLeftIcon,
@@ -38,6 +39,7 @@ const barberShopLinks = computed(() => [
   ...(isBarber.value
     ? [
         { label: 'Дашборд', to: '/dashboard', icon: HomeIcon },
+        { label: 'Статистика', to: '/statistics', icon: ChartBarSquareIcon },
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
         { label: 'Мої блокування часу', to: '/my-time-blocks', icon: ClockIcon },
@@ -46,6 +48,7 @@ const barberShopLinks = computed(() => [
   ...(isAdmin.value
     ? [
         { label: 'Дашборд', to: '/', icon: HomeIcon },
+        { label: 'Статистика', to: '/admin/statistics', icon: ChartBarSquareIcon },
         { label: 'Майстри', to: '/masters', icon: UserGroupIcon },
         { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
         { label: 'Блокування часу', to: '/time-blocks', icon: ClockIcon },

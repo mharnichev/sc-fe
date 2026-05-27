@@ -33,6 +33,7 @@ const form = reactive({
   end_time: '',
   customer_name: '',
   customer_phone: '',
+  customer_email: '',
   note: '',
 })
 const localError = ref('')
@@ -45,6 +46,7 @@ const resetForm = () => {
   form.end_time = props.selection?.endTime || ''
   form.customer_name = ''
   form.customer_phone = ''
+  form.customer_email = ''
   form.note = ''
   localError.value = ''
 }
@@ -77,6 +79,7 @@ const submit = () => {
     service_id: form.action === 'booking' ? Number(form.service_id) : null,
     customer_name: form.customer_name.trim(),
     customer_phone: form.customer_phone.trim(),
+    customer_email: form.customer_email.trim(),
     note: form.note.trim(),
     start_at: toKyivIso(form.date, form.start_time),
     end_at: toKyivIso(form.date, form.end_time),
@@ -174,6 +177,10 @@ watch(
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Телефон клієнта</span>
             <input v-model="form.customer_phone" required inputmode="tel" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+            <span class="font-medium">Email клієнта</span>
+            <input v-model="form.customer_email" type="email" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
           </label>
         </div>
 

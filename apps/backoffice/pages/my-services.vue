@@ -41,7 +41,7 @@ const togglePending = ref(false)
 const [{ data, pending, error, refresh }, { data: baseServiceData }] = await Promise.all([
   useAsyncData(
     'my-barber-services',
-    () => barberId.value ? api.getMasterServices(barberId.value) : Promise.resolve([] as MasterService[]),
+    () => barberId.value ? api.getMyServices() : Promise.resolve([] as MasterService[]),
     { watch: [barberId] },
   ),
   useAsyncData('my-services-base-options', async () => {
@@ -114,7 +114,7 @@ const confirmToggleService = async () => {
   successMessage.value = ''
   togglePending.value = true
   try {
-    await api.updateMasterService(barberId.value, service.id, { is_active: !service.is_active })
+    await api.updateMyService(service.id, { is_active: !service.is_active })
     successMessage.value = 'Статус послуги оновлено.'
     togglingService.value = null
     await refresh()
@@ -264,6 +264,7 @@ const deleteService = async (service: MasterService) => {
       :barber-id="barberId"
       :service="editing"
       :base-service-options="baseServiceOptions"
+      use-own-endpoint
       @saved="handleServiceSaved"
       @update:model-value="handleServiceModalUpdate"
     />

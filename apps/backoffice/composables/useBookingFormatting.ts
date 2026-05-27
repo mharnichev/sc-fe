@@ -77,7 +77,7 @@ const parseDateTime = (value?: string | null) => {
 const customerName = (booking: Booking) => {
   if (booking.customer_name) return booking.customer_name
   const first = booking.customer?.first_name || booking.customer?.name || ''
-  const last = booking.customer?.last_name || ''
+  const last = booking.customer?.last_name || booking.customer?.surname || ''
   return `${first} ${last}`.trim() || 'Невідомий клієнт'
 }
 
@@ -109,6 +109,14 @@ const formatDuration = (minutes?: number | null) => {
 const formatPrice = (price?: number | string | null) => {
   const value = Number(price || 0)
   return `${Number.isInteger(value) ? value : value.toFixed(2)} грн`
+}
+
+const formatMoney = (amount?: number | string | null) => {
+  const value = Number(amount || 0)
+  return `${value.toLocaleString('uk-UA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} грн`
 }
 
 export const useBookingFormatting = () => {
@@ -209,6 +217,7 @@ export const useBookingFormatting = () => {
     serviceDescriptionEn,
     formatDuration,
     formatPrice,
+    formatMoney,
     normalizeItems,
     normalizeTotal,
     isValidBookingStatus,

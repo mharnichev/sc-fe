@@ -2,6 +2,7 @@
 import { EyeIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
+const { formatDateTime, formatMoney } = useBookingFormatting()
 const page = ref(1)
 const pageSize = 20
 const filters = reactive({
@@ -99,6 +100,7 @@ const prev = async () => {
             <th class="px-4 py-3 text-left font-medium text-slate-500">Клієнт</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Контакти</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Прізвище</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Імпорт</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Нотатки</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Верифікація</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
@@ -116,6 +118,11 @@ const prev = async () => {
               <p class="mt-1 text-xs text-slate-500">{{ item.email || 'Без email' }}</p>
             </td>
             <td data-label="Прізвище" class="px-4 py-3 text-slate-700">{{ item.surname || '—' }}</td>
+            <td data-label="Імпорт" class="px-4 py-3 text-slate-700">
+              <p class="font-medium text-slate-900">{{ formatMoney(item.imported_total_spent) }}</p>
+              <p class="mt-1 text-xs text-slate-500">{{ formatDateTime(item.imported_last_visit_at) }}</p>
+              <span v-if="item.imported_is_new_client" class="mt-2 inline-flex rounded-full bg-cyan-50 px-2 py-1 text-xs font-medium text-cyan-700">новий</span>
+            </td>
             <td data-label="Нотатки" class="max-w-xs px-4 py-3 text-slate-700">
               <p class="line-clamp-2">{{ item.notes || '—' }}</p>
             </td>

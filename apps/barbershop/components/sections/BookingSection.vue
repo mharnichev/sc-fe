@@ -5,6 +5,7 @@ import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp'
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
+const localizedService = useLocalizedService()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 
@@ -76,10 +77,11 @@ const activeServices = computed<SelectableService[]>(() =>
     : (serviceCatalog.value || []),
 )
 
-const serviceName = (service?: SelectableService | null) => service?.name || ''
-const servicePrice = (service?: SelectableService | null) => service ? `₴ ${service.price}` : ''
+const serviceName = (service?: SelectableService | null) => localizedService.serviceName(service)
+const serviceDescription = (service?: SelectableService | null) => localizedService.serviceDescription(service)
+const servicePrice = (service?: SelectableService | null) => localizedService.servicePrice(service?.price)
 const serviceDuration = (service?: SelectableService | null) =>
-  service?.duration_minutes ? `${service.duration_minutes} хв` : ''
+  localizedService.serviceDuration(service?.duration_minutes)
 
 const serviceKey = (service: SelectableService) =>
   'catalog_id' in service ? service.catalog_id : String(service.id)
@@ -500,7 +502,7 @@ const closeSuccess = () => {
                           class="mt-1 block line-clamp-2 text-xs leading-5 sm:mt-1.5 sm:text-sm sm:leading-6 md:mt-2"
                           :class="serviceSelected(service) ? 'text-neutral-600' : 'text-white/55'"
                         >
-                          {{ service.description }}
+                          {{ serviceDescription(service) }}
                         </span>
                       </span>
                       <span
@@ -511,8 +513,8 @@ const closeSuccess = () => {
                         <span class="block">{{ serviceDuration(service) }}</span>
                       </span>
                     </button>
-                    <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">Завантажуємо послуги...</p>
-                    <p v-else-if="!activeServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">Послуги поки недоступні.</p>
+                    <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.loading }}</p>
+                    <p v-else-if="!activeServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.empty }}</p>
                   </div>
                 </section>
 

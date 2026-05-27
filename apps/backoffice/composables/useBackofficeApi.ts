@@ -111,6 +111,9 @@ export interface CustomerSummary {
   name: string | null
   surname: string | null
   notes: string | null
+  imported_total_spent: string | number
+  imported_last_visit_at: string | null
+  imported_is_new_client: boolean
   is_verified: boolean
 }
 
@@ -124,6 +127,9 @@ export interface Customer {
   surname: string | null
   birthday: string | null
   notes: string | null
+  imported_total_spent: string | number
+  imported_last_visit_at: string | null
+  imported_is_new_client: boolean
   is_active: boolean
   phone_verified_at: string | null
   last_login_at: string | null
@@ -233,6 +239,7 @@ export interface Booking {
   id: number
   master_id?: number
   service_id?: number
+  customer_id?: number | null
   customer_name?: string | null
   customer_phone?: string | null
   customer_email?: string | null
@@ -246,6 +253,7 @@ export interface Booking {
   created_at?: string
   updated_at?: string
   cancelled_at?: string | null
+  completed_at?: string | null
   master?: Master | null
   barber?: Master | null
   service?: Service | null
@@ -253,6 +261,7 @@ export interface Booking {
     id?: number
     name?: string | null
     first_name?: string | null
+    surname?: string | null
     last_name?: string | null
     phone?: string | null
     email?: string | null
@@ -269,6 +278,7 @@ export interface PublicBookingPayload {
   service_id: number
   customer_name: string
   customer_phone: string
+  customer_email?: string | null
   customer_comment?: string | null
   start_at: string
 }
@@ -325,6 +335,93 @@ export interface MasterServicePayload {
 export interface SyncDefaultServicesResponse {
   barber_id: number
   created_count: number
+}
+
+export interface StatisticsBarberSummary {
+  id: number
+  full_name: string
+}
+
+export interface StatisticsServiceItem {
+  service_id: number
+  service_name: string
+  count: number
+  revenue: string | number
+}
+
+export interface StatisticsCategoryItem {
+  category: string
+  count: number
+  revenue: string | number
+}
+
+export interface StatisticsWorkloadDayItem {
+  date: string
+  completed_appointments: number
+  revenue: string | number
+}
+
+export interface StatisticsWorkloadWeekItem {
+  week: number
+  completed_appointments: number
+  revenue: string | number
+}
+
+export interface StatisticsClientBreakdown {
+  new_clients: number
+  returning_clients: number
+}
+
+export interface BarberMonthlyStatisticsResponse {
+  year: number
+  month: number
+  barber: StatisticsBarberSummary | null
+  total_income: string | number
+  completed_appointments: number
+  unique_clients: number
+  total_services_performed: number
+  most_popular_services: StatisticsServiceItem[]
+  revenue_by_service: StatisticsServiceItem[]
+  average_check_per_appointment: string | number
+  average_revenue_per_client: string | number
+  clients: StatisticsClientBreakdown
+  cancelled_appointments: number
+  no_show_appointments: number
+  workload_by_day: StatisticsWorkloadDayItem[]
+  workload_by_week: StatisticsWorkloadWeekItem[]
+  best_revenue_day: StatisticsWorkloadDayItem | null
+  service_category_breakdown: StatisticsCategoryItem[]
+  tips: string | number
+  bonuses: string | number
+}
+
+export interface BarberComparisonItem {
+  barber: StatisticsBarberSummary
+  revenue: string | number
+  unique_clients: number
+  completed_appointments: number
+  average_check: string | number
+  popular_services: StatisticsServiceItem[]
+}
+
+export interface AdminMonthlyStatisticsResponse {
+  year: number
+  month: number
+  barber_id: number | null
+  total_barbershop_monthly_revenue: string | number
+  total_clients: number
+  total_completed_appointments: number
+  total_cancelled_appointments: number
+  aggregate: BarberMonthlyStatisticsResponse
+  top_barbers: BarberComparisonItem[]
+  most_popular_services: StatisticsServiceItem[]
+}
+
+export interface BarbersComparisonResponse {
+  year: number
+  month: number
+  barbers: BarberComparisonItem[]
+  top_performing_barbers: BarberComparisonItem[]
 }
 
 export interface MasterPayload {
@@ -535,6 +632,15 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
+  const getMyServices = () =>
+    api<MasterService[]>('/backoffice/masters/me/services')
+
+  const updateMyService = (serviceId: number | string, payload: Partial<MasterServicePayload>) =>
+    api<MasterService>(`/backoffice/masters/me/services/${serviceId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
   const getMyTimeBlocks = (filters: { date_from?: string, date_to?: string } = {}) =>
     api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/masters/me/time-blocks', {
       query: {
@@ -552,6 +658,30 @@ export const useBackofficeApi = () => {
   const deleteMyTimeBlock = (blockId: number | string) =>
     api(`/backoffice/masters/me/time-blocks/${blockId}`, {
       method: 'DELETE',
+    })
+
+  const getMyMonthlyStatistics = (year: number, month: number) =>
+    api<BarberMonthlyStatisticsResponse>('/backoffice/statistics/me/monthly', {
+      query: { year, month },
+    })
+
+  const getBarberMonthlyStatistics = (barberId: number | string, year: number, month: number) =>
+    api<BarberMonthlyStatisticsResponse>(`/backoffice/statistics/barbers/${barberId}/monthly`, {
+      query: { year, month },
+    })
+
+  const adminGetMonthlyStatistics = (year: number, month: number, barberId?: number | string | null) =>
+    api<AdminMonthlyStatisticsResponse>('/backoffice/statistics/admin/monthly', {
+      query: {
+        year,
+        month,
+        barber_id: barberId ?? undefined,
+      },
+    })
+
+  const adminGetBarbersComparison = (year: number, month: number) =>
+    api<BarbersComparisonResponse>('/backoffice/statistics/admin/barbers-comparison', {
+      query: { year, month },
     })
 
   const adminGetMasters = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
@@ -751,9 +881,15 @@ export const useBackofficeApi = () => {
     getMyCalendar,
     getMyBookings,
     updateMyBookingStatus,
+    getMyServices,
+    updateMyService,
     getMyTimeBlocks,
     createMyTimeBlock,
     deleteMyTimeBlock,
+    getMyMonthlyStatistics,
+    getBarberMonthlyStatistics,
+    adminGetMonthlyStatistics,
+    adminGetBarbersComparison,
     adminGetMasters,
     adminCreateMaster,
     adminUpdateMaster,
