@@ -76,7 +76,7 @@ const prev = async () => {
       <select v-model="filters.sort_by" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="created_at">Створено</option>
         <option value="last_login_at">Останній вхід</option>
-        <option value="name">Назва</option>
+        <option value="name">Ім’я</option>
         <option value="surname">Прізвище</option>
         <option value="phone">Телефон</option>
         <option value="id">ID</option>
@@ -88,7 +88,7 @@ const prev = async () => {
     </section>
 
     <div class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
-      Total: {{ data?.total || 0 }}
+      Усього клієнтів: {{ data?.total || 0 }}
     </div>
 
     <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
@@ -96,22 +96,30 @@ const prev = async () => {
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-medium text-slate-500">ID</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Телефон</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Клієнт</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Контакти</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Прізвище</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Верифіковані</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Нотатки</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Верифікація</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-for="item in data?.items || []" :key="item.id">
             <td data-label="ID" class="px-4 py-3 text-slate-700">{{ item.id }}</td>
-            <td data-label="Телефон" class="px-4 py-3">
-              <p class="font-medium text-slate-900">{{ item.phone }}</p>
+            <td data-label="Клієнт" class="px-4 py-3">
+              <p class="font-medium text-slate-900">{{ item.name || 'Клієнт без імені' }}</p>
+              <p class="mt-1 text-xs text-slate-500">Customer #{{ item.id }}</p>
             </td>
-            <td data-label="Назва" class="px-4 py-3 text-slate-700">{{ item.name || '—' }}</td>
+            <td data-label="Контакти" class="px-4 py-3">
+              <p class="font-medium text-slate-900">{{ item.phone }}</p>
+              <p class="mt-1 text-xs text-slate-500">{{ item.email || 'Без email' }}</p>
+            </td>
             <td data-label="Прізвище" class="px-4 py-3 text-slate-700">{{ item.surname || '—' }}</td>
-            <td data-label="Верифіковані" class="px-4 py-3">
+            <td data-label="Нотатки" class="max-w-xs px-4 py-3 text-slate-700">
+              <p class="line-clamp-2">{{ item.notes || '—' }}</p>
+            </td>
+            <td data-label="Верифікація" class="px-4 py-3">
               <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_verified ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                 {{ item.is_verified ? 'верифіковано' : 'не верифіковано' }}
               </span>
@@ -130,10 +138,14 @@ const prev = async () => {
           </tr>
         </tbody>
       </table>
+      <p v-if="!data?.items.length" class="px-5 py-8 text-center text-sm text-slate-500">
+        Клієнтів за цими фільтрами не знайдено.
+      </p>
     </div>
 
-    <div class="flex flex-wrap gap-3">
+    <div class="flex flex-wrap items-center gap-3">
       <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
+      <span class="text-sm text-slate-500">Сторінка {{ page }}</span>
       <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
     </div>
   </div>

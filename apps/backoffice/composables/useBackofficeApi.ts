@@ -107,8 +107,10 @@ export interface OrderSummary {
 export interface CustomerSummary {
   id: number
   phone: string
+  email: string | null
   name: string | null
   surname: string | null
+  notes: string | null
   is_verified: boolean
 }
 
@@ -121,9 +123,23 @@ export interface Customer {
   name: string | null
   surname: string | null
   birthday: string | null
+  notes: string | null
   is_active: boolean
   phone_verified_at: string | null
   last_login_at: string | null
+}
+
+export interface CustomerBookingStatsItem {
+  id: number | null
+  name: string
+  count: number
+}
+
+export interface CustomerBookingStats {
+  total_bookings: number
+  most_visited_barber: CustomerBookingStatsItem | null
+  most_used_services: CustomerBookingStatsItem[]
+  last_visit_date: string | null
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
@@ -219,6 +235,7 @@ export interface Booking {
   service_id?: number
   customer_name?: string | null
   customer_phone?: string | null
+  customer_email?: string | null
   customer_comment?: string | null
   comment?: string | null
   note?: string | null
@@ -462,6 +479,14 @@ export const useBackofficeApi = () => {
     api<PaginatedResponse<OrderSummary>>(`/backoffice/customers/${customerId}/orders`, {
       query: { page, page_size: normalizePageSize(pageSize) },
     })
+
+  const getCustomerBookings = (customerId: number | string, page = 1, pageSize = 10) =>
+    api<PaginatedResponse<Booking>>(`/backoffice/customers/${customerId}/bookings`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
+  const getCustomerStats = (customerId: number | string) =>
+    api<CustomerBookingStats>(`/backoffice/customers/${customerId}/stats`)
 
   const getPublicMasters = () => api<Master[]>('/public/masters')
 
@@ -716,6 +741,8 @@ export const useBackofficeApi = () => {
     getCustomers,
     getCustomer,
     getCustomerOrders,
+    getCustomerBookings,
+    getCustomerStats,
     getPublicMasters,
     getServices,
     getAvailableSlots,
