@@ -148,7 +148,7 @@ export interface CustomerBookingStats {
   last_visit_date: string | null
 }
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+export type BookingStatus = 'confirmed' | 'cancelled' | 'completed'
 
 export interface Master {
   id: number
@@ -279,6 +279,7 @@ export interface PublicBookingPayload {
   master_id: number
   service_id: number
   service_ids?: number[]
+  duration_minutes?: number
   customer_name: string
   customer_phone: string
   customer_email?: string | null
@@ -598,13 +599,14 @@ export const useBackofficeApi = () => {
 
   const getServices = () => api<Service[]>('/public/services')
 
-  const getAvailableSlots = (masterId: number | string, date: string, serviceId: number | string | Array<number | string>) => {
+  const getAvailableSlots = (masterId: number | string, date: string, serviceId: number | string | Array<number | string>, durationMinutes?: number) => {
     const serviceIds = Array.isArray(serviceId) ? serviceId : [serviceId]
     return api<AvailableSlot[]>(`/public/masters/${masterId}/available-slots`, {
       query: {
         date,
         service_id: serviceIds[0],
         service_ids: serviceIds,
+        duration_minutes: durationMinutes,
       },
     })
   }
@@ -648,6 +650,11 @@ export const useBackofficeApi = () => {
     api<Booking>(`/backoffice/masters/me/bookings/${bookingId}`, {
       method: 'PATCH',
       body: payload,
+    })
+
+  const deleteMyBooking = (bookingId: number | string) =>
+    api(`/backoffice/masters/me/bookings/${bookingId}`, {
+      method: 'DELETE',
     })
 
   const getMyServices = () =>
@@ -858,6 +865,11 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
+  const adminDeleteBooking = (bookingId: number | string) =>
+    api(`/backoffice/bookings/${bookingId}`, {
+      method: 'DELETE',
+    })
+
   const adminGetTimeBlocks = (page = 1, pageSize = 100, filters: { date_from?: string, date_to?: string, master_id?: number | null } = {}) =>
     api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/time-blocks', {
       query: {
@@ -906,6 +918,7 @@ export const useBackofficeApi = () => {
     getMyBookings,
     updateMyBookingStatus,
     updateMyBookingSchedule,
+    deleteMyBooking,
     getMyServices,
     updateMyService,
     getMyTimeBlocks,
@@ -934,6 +947,7 @@ export const useBackofficeApi = () => {
     adminCreateBooking,
     adminUpdateBookingStatus,
     adminUpdateBookingSchedule,
+    adminDeleteBooking,
     adminGetTimeBlocks,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,

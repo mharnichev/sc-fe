@@ -40,8 +40,10 @@ const { data: services } = await useAsyncData('my-booking-service-options', () =
 
 const selected = ref<Booking | null>(null)
 const actionError = ref('')
+const actionSuccess = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
+const pendingDelete = ref(false)
 
 const bookings = computed(() => normalizeItems(data.value))
 const serviceOptions = computed(() => normalizeItems(services.value))
@@ -67,6 +69,7 @@ const updateStatus = async (status: BookingStatus) => {
   if (!selected.value || selected.value.status === 'completed') return
   pendingStatus.value = status
   actionError.value = ''
+  actionSuccess.value = ''
   try {
     const updated = await api.updateMyBookingStatus(selected.value.id, status)
     selected.value = { ...selected.value, ...updated }
@@ -84,6 +87,7 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   if (!selected.value || selected.value.status === 'completed') return
   pendingSchedule.value = true
   actionError.value = ''
+  actionSuccess.value = ''
   try {
     const updated = await api.updateMyBookingSchedule(selected.value.id, payload)
     selected.value = { ...selected.value, ...updated }
@@ -94,6 +98,25 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   }
   finally {
     pendingSchedule.value = false
+  }
+}
+
+const deleteSelectedBooking = async () => {
+  if (!selected.value || selected.value.status === 'completed') return
+  pendingDelete.value = true
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    await api.deleteMyBooking(selected.value.id)
+    selected.value = null
+    actionSuccess.value = 'Бронювання видалено.'
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
+  }
+  finally {
+    pendingDelete.value = false
   }
 }
 </script>
@@ -131,6 +154,8 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
     <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити ваші бронювання. TODO: підтвердити підтримку endpoint /masters/me/bookings у бекенді.') }}
     </p>
+    <p v-if="actionError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ actionError }}</p>
+    <p v-if="actionSuccess" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ actionSuccess }}</p>
 
     <div class="grid grid-cols-3 gap-2 xl:gap-4">
       <div class="rounded-xl bg-slate-50 px-2 py-2 text-xs text-slate-600 xl:rounded-[1.25rem] xl:px-4 xl:py-3 xl:text-sm">Total: {{ total }}</div>
@@ -206,12 +231,15 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
+      :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed')"
+      :can-delete="Boolean(selected && selected.status !== 'completed')"
       :error="actionError"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
       @update-schedule="updateSchedule"
+      @delete="deleteSelectedBooking"
     />
   </div>
 </template>

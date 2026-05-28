@@ -57,6 +57,7 @@ export interface CalendarActionPayload {
   action: CalendarActionType
   service_id: number | null
   service_ids: number[]
+  duration_minutes?: number
   customer_name: string
   customer_phone: string
   customer_email: string

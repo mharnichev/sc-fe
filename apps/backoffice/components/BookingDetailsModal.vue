@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Service } from '~/composables/useBackofficeApi'
 
@@ -8,7 +8,9 @@ const props = defineProps<{
   allowedStatuses?: BookingStatus[]
   pendingStatus?: BookingStatus | ''
   pendingSchedule?: boolean
+  pendingDelete?: boolean
   canEdit?: boolean
+  canDelete?: boolean
   error?: string
   masters?: Master[]
   services?: Service[]
@@ -18,6 +20,7 @@ const emit = defineEmits<{
   close: []
   updateStatus: [status: BookingStatus]
   updateSchedule: [payload: BookingSchedulePayload]
+  delete: []
 }>()
 
 const {
@@ -48,6 +51,7 @@ const scheduleError = ref('')
 const serviceError = ref('')
 const scheduleEditing = ref(false)
 const serviceEditing = ref(false)
+const deleteConfirmOpen = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
 const masterOptions = computed(() => props.masters || [])
@@ -130,6 +134,11 @@ const editableServiceOptions = computed(() => {
 })
 
 const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canEdit !== false))
+const canDeleteBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canDelete !== false))
+const orderedAllowedStatuses = computed(() => {
+  const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
+  return [...allowed.value].sort((first, second) => order.indexOf(first) - order.indexOf(second))
+})
 
 const statusActionClass = (status: BookingStatus) => {
   if (status === 'cancelled') return 'border border-rose-300 text-rose-700'
@@ -198,6 +207,11 @@ const copyPhone = async () => {
 
 const handleModalUpdate = (value: boolean) => {
   if (!value) emit('close')
+}
+
+const confirmDelete = () => {
+  if (!canDeleteBooking.value || props.pendingDelete) return
+  emit('delete')
 }
 
 watch(
@@ -410,20 +424,46 @@ onBeforeUnmount(() => {
           {{ error }}
         </p>
 
-        <div v-if="allowed.length" class="grid gap-2 border-t border-slate-200 pt-3 sm:gap-3 sm:pt-5">
+        <div v-if="orderedAllowedStatuses.length || canDeleteBooking" class="grid grid-cols-2 gap-2 pt-2 sm:gap-3 sm:pt-3">
           <button
-            v-for="status in allowed"
+            v-for="status in orderedAllowedStatuses"
             :key="status"
-            class="inline-flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium disabled:opacity-60 sm:gap-2 sm:px-4 sm:py-2"
-            :class="statusActionClass(status)"
+            class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium disabled:opacity-60 sm:gap-2"
+            :class="[statusActionClass(status), status === 'completed' ? 'col-span-2' : '']"
             :disabled="pendingStatus === status"
             @click="emit('updateStatus', status)"
           >
             <component :is="statusActionIcon(status)" class="h-4 w-4 shrink-0" aria-hidden="true" />
-            {{ pendingStatus === status ? 'Оновлення...' : `Позначити як "${formatBookingStatus(status)}"` }}
+            {{ pendingStatus === status ? 'Оновлення...' : formatBookingStatus(status) }}
+          </button>
+          <button
+            v-if="canDeleteBooking"
+            type="button"
+            class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 sm:gap-2"
+            :disabled="pendingDelete"
+            @click="deleteConfirmOpen = true"
+          >
+            <TrashIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+            {{ pendingDelete ? 'Видалення...' : 'Видалити' }}
           </button>
         </div>
       </div>
+
+      <ConfirmActionModal
+        v-if="booking"
+        v-model="deleteConfirmOpen"
+        title="Видалити бронювання?"
+        message="Це повністю прибере помилково створений запис з календаря. Для клієнтських відмов використовуйте зміну статусу на скасований."
+        confirm-label="Видалити"
+        :pending="pendingDelete"
+        destructive
+        :context-items="[
+          { label: 'Клієнт', value: customerName(booking) },
+          { label: 'Час', value: formatDateTime(bookingStart(booking)) },
+          { label: 'Послуги', value: bookingServicesLabel(booking, services || []) },
+        ]"
+        @confirm="confirmDelete"
+      />
     </template>
   </BaseModal>
 </template>

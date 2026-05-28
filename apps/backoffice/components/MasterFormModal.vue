@@ -16,6 +16,7 @@ const emit = defineEmits<{
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
 const { masterName, apiErrorMessage } = useBookingFormatting()
+const { formatPhone, normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 
 const form = reactive<MasterPayload>({
   full_name: '',
@@ -33,8 +34,15 @@ const avatarFile = ref<File | null>(null)
 const photoPreviewUrl = ref('')
 const avatarPreviewUrl = ref('')
 const fileInputKey = ref(0)
+const phoneFocused = ref(false)
 
 const editing = computed(() => props.master || null)
+const maskedPhone = computed({
+  get: () => formatPhone(form.phone, phoneFocused.value),
+  set: value => {
+    form.phone = formatPhone(value, true)
+  },
+})
 
 const uploadUrl = (value?: string | UploadAsset | null) => {
   if (!value) return ''
@@ -102,9 +110,20 @@ const validate = () => {
   if (!editing.value && !form.email?.trim()) return 'Email для входу майстра обов’язковий.'
   if (!editing.value && !form.password?.trim()) return 'Пароль для входу майстра обов’язковий.'
   if (!editing.value && (form.password || '').trim().length < 6) return 'Пароль має містити щонайменше 6 символів.'
+  if (form.phone?.trim() && !isCompletePhone(form.phone)) return 'Введіть повний український номер у форматі +380 XX XXX XX XX.'
   if (photoFile.value && photoFile.value.type !== 'image/webp') return 'Фото має бути у форматі .webp.'
   if (avatarFile.value && avatarFile.value.type !== 'image/webp') return 'Avatar має бути у форматі .webp.'
   return ''
+}
+
+const focusPhone = () => {
+  phoneFocused.value = true
+  form.phone = formatPhone(form.phone, true)
+}
+
+const blurPhone = () => {
+  phoneFocused.value = false
+  form.phone = formatPhone(form.phone) || null
 }
 
 const submit = async () => {
@@ -114,7 +133,7 @@ const submit = async () => {
   const payload: MasterFormPayload = {
     ...form,
     full_name: form.full_name.trim(),
-    phone: form.phone?.trim() || null,
+    phone: normalizePhone(form.phone) || null,
     email: form.email?.trim() || null,
     password: editing.value ? undefined : form.password?.trim() || null,
     description: form.description?.trim() || null,
@@ -177,7 +196,17 @@ onBeforeUnmount(resetFiles)
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Телефон</span>
-            <input v-model="form.phone" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input
+              v-model="maskedPhone"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="+380 XX XXX XX XX"
+              maxlength="17"
+              class="w-full rounded-2xl border border-slate-300 px-4 py-3"
+              @focus="focusPhone"
+              @blur="blurPhone"
+            >
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Email для входу</span>

@@ -105,8 +105,6 @@ const bookingEntryClass = (entry: CalendarDisplayEntry) => {
   switch (entry.booking?.status) {
     case 'completed':
       return 'border-indigo-200 bg-indigo-50 text-indigo-950 shadow-indigo-950/5 hover:border-indigo-300'
-    case 'pending':
-      return 'border-amber-200 bg-amber-50 text-amber-950 shadow-amber-950/5 hover:border-amber-300'
     case 'confirmed':
     default:
       return 'border-emerald-200 bg-emerald-50 text-emerald-950 shadow-emerald-950/5 hover:border-emerald-300'

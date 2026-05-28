@@ -178,7 +178,6 @@ const daySummaries = computed(() =>
 
 const statusSummaries = computed(() =>
   statuses
-    .filter(status => status !== 'pending')
     .map(status => ({
       status,
       label: formatBookingStatus(status),

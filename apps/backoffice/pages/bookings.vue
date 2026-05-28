@@ -63,6 +63,7 @@ const actionError = ref('')
 const actionSuccess = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
+const pendingDelete = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
 const statusFilterOpen = ref(false)
@@ -328,6 +329,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
       customer_phone: body.customer_phone,
       customer_email: body.customer_email,
       customer_comment: body.customer_comment,
+      duration_minutes: payload.duration_minutes,
       start_at: body.start_at,
     })
   }
@@ -420,6 +422,30 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   }
   finally {
     pendingSchedule.value = false
+  }
+}
+
+const deleteSelectedBooking = async () => {
+  if (!selected.value || selected.value.status === 'completed' || !canManageBooking(selected.value.master_id)) return
+  pendingDelete.value = true
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    if (isAdmin.value) {
+      await api.adminDeleteBooking(selected.value.id)
+    }
+    else {
+      await api.deleteMyBooking(selected.value.id)
+    }
+    selected.value = null
+    actionSuccess.value = 'Бронювання видалено.'
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
+  }
+  finally {
+    pendingDelete.value = false
   }
 }
 
@@ -635,13 +661,16 @@ const deleteSelectedBlock = async () => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
+      :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
+      :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
       :error="actionError"
       :masters="masterOptions"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
       @update-schedule="updateSchedule"
+      @delete="deleteSelectedBooking"
     />
 
     <BookingCalendarActionModal
