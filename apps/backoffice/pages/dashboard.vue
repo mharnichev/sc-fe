@@ -253,19 +253,19 @@ const quickActions = [
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3 xl:space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Огляд майстра</p>
-        <h1 class="mt-1 text-3xl font-semibold text-slate-900">Дашборд</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Огляд майстра</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:text-3xl">Дашборд</h1>
+        <p class="mt-1 text-xs text-slate-500 xl:text-sm">
           {{ roleLabel }}<span v-if="linkedMaster"> · {{ masterName(linkedMaster) }}</span>
         </p>
       </div>
       <button
         type="button"
         :disabled="pending"
-        class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+        class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm"
         @click="refresh"
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
@@ -273,112 +273,114 @@ const quickActions = [
       </button>
     </div>
 
-    <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
+    <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-3 xl:gap-3 xl:rounded-[1.75rem] xl:p-4">
       <NuxtLink
         v-for="action in quickActions"
         :key="action.to"
         :to="action.to"
-        class="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-200 px-3 py-2.5 text-left transition hover:border-cyan-300 hover:bg-cyan-50"
+        class="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-slate-200 px-2.5 py-2 text-left transition hover:border-cyan-300 hover:bg-cyan-50 xl:min-h-16 xl:gap-3 xl:rounded-2xl xl:px-3 xl:py-2.5"
       >
-        <span class="flex min-w-0 items-center gap-3">
-          <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
-            <component :is="action.icon" class="h-5 w-5" aria-hidden="true" />
+        <span class="flex min-w-0 items-center gap-2 xl:gap-3">
+          <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white xl:h-10 xl:w-10">
+            <component :is="action.icon" class="h-4 w-4 xl:h-5 xl:w-5" aria-hidden="true" />
           </span>
           <span class="min-w-0">
-            <span class="block font-medium text-slate-900">{{ action.label }}</span>
-            <span class="mt-1 block truncate text-sm text-slate-500">{{ action.value }}</span>
+            <span class="block text-sm font-medium text-slate-900 xl:text-base">{{ action.label }}</span>
+            <span class="mt-0.5 block truncate text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ action.value }}</span>
           </span>
         </span>
         <ArrowRightIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
       </NuxtLink>
     </section>
 
-    <p v-if="!isBarber || !barberId" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+    <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       Для повного огляду потрібен акаунт із роллю майстра або прив’язкою до профілю майстра.
     </p>
 
-    <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+    <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити dashboard майстра.') }}
     </p>
 
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">Статуси бронювань</h2>
-          <p class="mt-1 text-sm text-slate-500">Діапазон: {{ formatInputDate(today) }} - {{ formatInputDate(rangeEnd) }}</p>
+          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Статуси бронювань</h2>
+          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Діапазон: {{ formatInputDate(today) }} - {{ formatInputDate(rangeEnd) }}</p>
         </div>
-        <NuxtLink to="/my-bookings" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+        <NuxtLink to="/my-bookings" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
           Мої бронювання
           <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
         </NuxtLink>
       </div>
-      <div class="mt-3 grid gap-3 md:grid-cols-3">
-        <div v-for="summary in statusSummaries" :key="summary.status" class="rounded-2xl bg-slate-50 px-4 py-2.5">
-          <p class="text-sm text-slate-500">{{ summary.label }}</p>
-          <p class="mt-1 text-2xl font-semibold text-slate-900">{{ summary.count }}</p>
+      <div class="mt-2 grid grid-cols-3 gap-2 xl:mt-3 xl:gap-3">
+        <div v-for="summary in statusSummaries" :key="summary.status" class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
+          <p class="truncate text-xs text-slate-500 xl:text-sm">{{ summary.label }}</p>
+          <p class="mt-0.5 text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ summary.count }}</p>
         </div>
       </div>
     </section>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <article class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <p class="text-sm text-slate-500">Сьогодні</p>
-        <p class="mt-2 text-3xl font-semibold text-slate-900">{{ todayBookings.length }}</p>
-        <p class="mt-2 text-sm text-slate-500">{{ formatDuration(todayBookedMinutes) }} · {{ formatPrice(todayRevenue) }}</p>
+    <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
+      <article class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+        <p class="text-xs text-slate-500 xl:text-sm">Сьогодні</p>
+        <p class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">{{ todayBookings.length }}</p>
+        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">{{ formatDuration(todayBookedMinutes) }} · {{ formatPrice(todayRevenue) }}</p>
       </article>
-      <article class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <p class="text-sm text-slate-500">Наступний запис</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-900">
+      <article class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+        <p class="text-xs text-slate-500 xl:text-sm">Наступний запис</p>
+        <p class="mt-1 text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">
           {{ nextTodayBooking ? formatTime(bookingStart(nextTodayBooking)) : 'Немає' }}
         </p>
-        <p class="mt-2 truncate text-sm text-slate-500">
+        <p class="mt-1 truncate text-xs text-slate-500 xl:mt-2 xl:text-sm">
           {{ nextTodayBooking ? `${formatDateTime(bookingStart(nextTodayBooking))} · ${bookingServicesLabel(nextTodayBooking, services)}` : 'На сьогодні наступних записів немає' }}
         </p>
       </article>
     </div>
 
-    <div class="grid gap-4">
-      <section class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-200 px-4 py-3">
-          <h2 class="text-lg font-semibold text-slate-900">Сьогоднішній розклад</h2>
-          <p class="mt-1 text-sm text-slate-500">{{ formatInputDate(today) }}</p>
+    <div class="grid gap-3 xl:gap-4">
+      <section class="rounded-[1.25rem] border border-slate-200 bg-white shadow-sm xl:rounded-[1.75rem]">
+        <div class="border-b border-slate-200 px-3 py-2 xl:px-4 xl:py-3">
+          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Сьогоднішній розклад</h2>
+          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ formatInputDate(today) }}</p>
         </div>
-        <div v-if="pending" class="p-4 text-sm text-slate-500">Завантаження даних...</div>
-        <div v-else-if="!todayBookings.length" class="p-4 text-sm text-slate-500">На сьогодні записів немає.</div>
+        <div v-if="pending" class="p-3 text-xs text-slate-500 xl:p-4 xl:text-sm">Завантаження даних...</div>
+        <div v-else-if="!todayBookings.length" class="p-3 text-xs text-slate-500 xl:p-4 xl:text-sm">На сьогодні записів немає.</div>
         <div v-else class="divide-y divide-slate-100">
-          <article v-for="booking in todayBookings.slice(0, 6)" :key="booking.id" class="grid gap-3 px-4 py-3 md:grid-cols-[120px_1fr_auto] md:items-center">
+          <article v-for="booking in todayBookings.slice(0, 6)" :key="booking.id" class="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2 px-3 py-2 md:grid-cols-[120px_1fr_auto] md:items-center xl:gap-3 xl:px-4 xl:py-3">
             <div>
-              <p class="font-semibold text-slate-900">{{ formatTime(bookingStart(booking)) }}</p>
+              <p class="text-sm font-semibold text-slate-900 xl:text-base">{{ formatTime(bookingStart(booking)) }}</p>
               <p class="text-xs text-slate-500">{{ formatTime(bookingEnd(booking)) }}</p>
             </div>
             <div class="min-w-0">
-              <p class="truncate font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-              <p class="mt-1 truncate text-sm text-slate-500">
+              <p class="truncate text-sm font-medium text-slate-900 xl:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-500 xl:mt-1 xl:text-sm">
                 {{ bookingServicesLabel(booking, services) }} · {{ bookingComment(booking) || 'Без коментаря' }}
               </p>
             </div>
-            <BookingStatusBadge :status="booking.status" />
+            <div class="col-span-2 md:col-span-1">
+              <BookingStatusBadge :status="booking.status" />
+            </div>
           </article>
         </div>
       </section>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-2">
-      <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="grid gap-3 xl:grid-cols-2 xl:gap-4">
+      <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-slate-900">Найближчі 7 днів</h2>
-            <p class="mt-1 text-sm text-slate-500">Заповнення відносно робочого дня 09:00-20:00.</p>
+            <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Найближчі 7 днів</h2>
+            <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Заповнення відносно робочого дня 09:00-20:00.</p>
           </div>
-          <p class="rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700">
+          <p class="rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-medium text-cyan-700 xl:px-3 xl:py-1 xl:text-sm">
             {{ formatPrice(rangeRevenue) }}
           </p>
         </div>
-        <div class="mt-3 space-y-3">
-          <div v-for="day in daySummaries" :key="day.date" class="space-y-2">
-            <div class="flex items-center justify-between gap-4 text-sm">
+        <div class="mt-2 space-y-2 xl:mt-3 xl:space-y-3">
+          <div v-for="day in daySummaries" :key="day.date" class="space-y-1.5 xl:space-y-2">
+            <div class="flex items-center justify-between gap-3 text-xs xl:gap-4 xl:text-sm">
               <span class="font-medium text-slate-900">{{ day.label }}</span>
-              <span class="text-slate-500">
+              <span class="truncate text-right text-slate-500">
                 {{ day.dayOff ? 'Вихідний' : `${day.bookings} записів · ${formatDuration(day.bookedMinutes)}` }}
               </span>
             </div>
@@ -395,36 +397,36 @@ const quickActions = [
         </div>
       </section>
 
-      <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+      <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-slate-900">Послуги</h2>
-            <p class="mt-1 text-sm text-slate-500">Активні послуги персонального профілю майстра.</p>
+            <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Послуги</h2>
+            <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Активні послуги персонального профілю майстра.</p>
           </div>
-          <NuxtLink to="/my-services" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+          <NuxtLink to="/my-services" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
             Послуги
             <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
           </NuxtLink>
         </div>
 
-        <dl class="mt-3 grid gap-3 sm:grid-cols-3">
-          <div class="rounded-2xl bg-slate-50 px-4 py-2.5">
-            <dt class="text-sm text-slate-500">Активні</dt>
-            <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ activeServices.length }}</dd>
+        <dl class="mt-2 grid grid-cols-3 gap-2 xl:mt-3 xl:gap-3">
+          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
+            <dt class="truncate text-xs text-slate-500 xl:text-sm">Активні</dt>
+            <dd class="mt-0.5 text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ activeServices.length }}</dd>
           </div>
-          <div class="rounded-2xl bg-slate-50 px-4 py-2.5">
-            <dt class="text-sm text-slate-500">Середня тривалість</dt>
-            <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ formatDuration(averageServiceDuration) }}</dd>
+          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
+            <dt class="truncate text-xs text-slate-500 xl:text-sm">Тривалість</dt>
+            <dd class="mt-0.5 truncate text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ formatDuration(averageServiceDuration) }}</dd>
           </div>
-          <div class="rounded-2xl bg-slate-50 px-4 py-2.5">
-            <dt class="text-sm text-slate-500">Середня ціна</dt>
-            <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ formatPrice(averageServicePrice) }}</dd>
+          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
+            <dt class="truncate text-xs text-slate-500 xl:text-sm">Ціна</dt>
+            <dd class="mt-0.5 truncate text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ formatPrice(averageServicePrice) }}</dd>
           </div>
         </dl>
 
-        <div class="mt-3 max-h-[18rem] divide-y divide-slate-100 overflow-y-auto pr-2">
-          <article v-for="service in activeServices" :key="service.id" class="py-2.5">
-            <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start">
+        <div class="mt-2 max-h-[16rem] divide-y divide-slate-100 overflow-y-auto pr-1 xl:mt-3 xl:max-h-[18rem] xl:pr-2">
+          <article v-for="service in activeServices" :key="service.id" class="py-2 xl:py-2.5">
+            <div class="grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start xl:gap-2">
               <div class="min-w-0">
                 <p class="text-sm font-medium text-slate-900">{{ service.name }}</p>
                 <p v-if="service.description" class="mt-0.5 line-clamp-1 text-xs text-slate-500">{{ service.description }}</p>
@@ -440,55 +442,55 @@ const quickActions = [
               </div>
             </div>
           </article>
-          <p v-if="!activeServices.length" class="py-3 text-sm text-slate-500">Активних послуг немає.</p>
+          <p v-if="!activeServices.length" class="py-2 text-xs text-slate-500 xl:py-3 xl:text-sm">Активних послуг немає.</p>
         </div>
       </section>
     </div>
 
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">Доступність</h2>
-          <p class="mt-1 text-sm text-slate-500">
+          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Доступність</h2>
+          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">
             Місяць вперед за графіком {{ workdayStart }}-{{ workdayEnd }}. Понеділок — вихідний за замовчуванням.
           </p>
         </div>
-        <NuxtLink to="/my-time-blocks" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+        <NuxtLink to="/my-time-blocks" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
           Блокування
           <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
         </NuxtLink>
       </div>
 
-      <div class="availability-table-scroll mt-3 overflow-x-auto rounded-2xl border border-slate-200">
-        <table class="availability-table min-w-[760px] w-full divide-y divide-slate-200 text-sm">
+      <div class="availability-table-scroll mt-2 overflow-x-auto rounded-xl border border-slate-200 xl:mt-3 xl:rounded-2xl">
+        <table class="availability-table min-w-[680px] w-full divide-y divide-slate-200 text-xs xl:min-w-[760px] xl:text-sm">
           <thead class="bg-slate-50">
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Дата</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Заблоковано</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Доступно</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Блокування часу</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Дата</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Статус</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Заблоковано</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Доступно</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Блокування часу</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="row in availabilityRows" :key="row.date">
-              <td data-label="Дата" class="px-4 py-3">
+              <td data-label="Дата" class="px-3 py-2 xl:px-4 xl:py-3">
                 <p class="font-medium text-slate-900">{{ row.label }}</p>
                 <p class="mt-1 text-xs text-slate-500">{{ row.dayOff ? 'Понеділок' : `${workdayStart}-${workdayEnd}` }}</p>
               </td>
-              <td data-label="Статус" class="px-4 py-3">
-                <span class="rounded-full px-3 py-1 text-xs font-medium" :class="availabilityStatusClass(row.tone)">
+              <td data-label="Статус" class="px-3 py-2 xl:px-4 xl:py-3">
+                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium xl:px-3 xl:py-1" :class="availabilityStatusClass(row.tone)">
                   {{ row.status }}
                 </span>
               </td>
-              <td data-label="Заблоковано" class="px-4 py-3">
+              <td data-label="Заблоковано" class="px-3 py-2 xl:px-4 xl:py-3">
                 <p class="font-medium text-slate-900">{{ formatDuration(row.blockedMinutes) }}</p>
                 <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div class="h-full rounded-full bg-slate-900" :style="{ width: `${row.busyPercent}%` }" />
                 </div>
               </td>
-              <td data-label="Доступно" class="px-4 py-3 text-slate-700">{{ formatDuration(row.availableMinutes) }}</td>
-              <td data-label="Блокування часу" class="px-4 py-3">
+              <td data-label="Доступно" class="px-3 py-2 text-slate-700 xl:px-4 xl:py-3">{{ formatDuration(row.availableMinutes) }}</td>
+              <td data-label="Блокування часу" class="px-3 py-2 xl:px-4 xl:py-3">
                 <div v-if="row.blocks.length" class="space-y-1">
                   <p v-for="segment in row.blocks.slice(0, 2)" :key="segment.block.id" class="text-sm text-slate-600">
                     {{ formatTime(segment.block.start_at) }}-{{ formatTime(segment.block.end_at) }} · {{ segment.block.reason || 'Без причини' }}
@@ -543,7 +545,7 @@ const quickActions = [
   .availability-table th,
   .availability-table td {
     display: table-cell !important;
-    padding: 0.75rem 0.875rem !important;
+    padding: 0.5rem 0.625rem !important;
     text-align: left !important;
     vertical-align: top;
     white-space: nowrap;
@@ -555,7 +557,7 @@ const quickActions = [
   }
 
   .availability-table td:last-child {
-    min-width: 240px;
+    min-width: 210px;
     white-space: normal;
   }
 }

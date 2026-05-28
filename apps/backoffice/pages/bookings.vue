@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ArrowPathIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
@@ -40,7 +40,6 @@ const {
   bookingServicesLabel,
   formatDateTime,
   formatTime,
-  formatBookingStatus,
   normalizeItems,
   normalizeTotal,
   apiErrorMessage,
@@ -66,6 +65,8 @@ const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
+const statusFilterOpen = ref(false)
+const statusFilterRef = ref<HTMLElement | null>(null)
 
 const [{ data: masters }, { data: services }] = await Promise.all([
   useAsyncData('booking-calendar-master-options', () =>
@@ -101,6 +102,9 @@ const selectedMaster = computed(() =>
 
 const selectedMasterLabel = computed(() =>
   selectedMaster.value ? masterName(selectedMaster.value) : selectedMasterId.value ? `Майстер #${selectedMasterId.value}` : 'Майстра не вибрано',
+)
+const selectedStatusFilter = computed(() =>
+  statuses.includes(filters.status as BookingStatus) ? filters.status as BookingStatus : '',
 )
 
 const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInView(viewMode.value) - 1))
@@ -209,6 +213,7 @@ const goToToday = () => {
 const applyFilters = async () => {
   actionError.value = ''
   actionSuccess.value = ''
+  statusFilterOpen.value = false
   await refresh()
 }
 
@@ -216,10 +221,32 @@ const clearFilters = async () => {
   filters.master_id = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
   filters.service_id = ''
   filters.status = ''
+  statusFilterOpen.value = false
   anchorDate.value = todayInput()
   viewMode.value = 'week'
   await refresh()
 }
+
+const selectStatusFilter = (status: BookingStatus | '') => {
+  filters.status = status
+  statusFilterOpen.value = false
+}
+
+const handleStatusFilterClickOutside = (event: MouseEvent) => {
+  if (!statusFilterOpen.value) return
+  const target = event.target
+  if (target instanceof Node && !statusFilterRef.value?.contains(target)) {
+    statusFilterOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', handleStatusFilterClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleStatusFilterClickOutside)
+})
 
 const openActionModal = (selection: CalendarSelection) => {
   actionError.value = ''
@@ -422,49 +449,27 @@ const deleteSelectedBlock = async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
+  <div class="space-y-4 md:space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3 md:gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Календар</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Бронювання</h1>
-        <p class="mt-2 text-sm text-slate-500">
-          {{ roleLabel }}<span v-if="selectedMasterId"> · {{ selectedMasterLabel }}</span> · {{ calendar.workdayStart }}-{{ calendar.workdayEnd }} Europe/Kyiv
-        </p>
+        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 md:text-sm md:tracking-[0.3em]">Календар</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900 md:mt-2 md:text-3xl">Бронювання</h1>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="button"
-          :disabled="pending"
-          class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          @click="refresh"
-        >
-          <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
-          {{ pending ? 'Оновлення...' : 'Оновити' }}
-        </button>
-        <NuxtLink to="/my-bookings" class="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700">
+      <div class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
+        <NuxtLink to="/my-bookings" class="inline-flex min-h-9 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
           Мої бронювання
         </NuxtLink>
       </div>
     </div>
 
-    <p v-if="isBarber" class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
-      Майстри можуть керувати календарем свого профілю. Понеділок недоступний для бронювань і блокувань.
-    </p>
-    <p v-else-if="isAdmin && !selectedMasterId" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      Виберіть майстра у фільтрах, щоб створювати ручні бронювання або блокування часу.
-    </p>
-    <p v-else-if="!isAdmin && !linkedMaster && !auth.user?.master_id" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      Ваш акаунт не прив’язаний до профілю майстра, тому створення інтервалів вимкнено.
-    </p>
-
-    <section class="space-y-4 rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:space-y-4 md:p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 md:gap-3">
         <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
           <button
             v-for="mode in (['today', 'week', 'month'] as CalendarViewMode[])"
             :key="mode"
             type="button"
-            class="min-h-10 rounded-xl px-3 py-2 text-sm font-medium transition"
+            class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
             :class="viewMode === mode ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
             @click="setViewMode(mode)"
           >
@@ -472,77 +477,108 @@ const deleteSelectedBlock = async () => {
           </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 sm:w-auto md:flex md:flex-wrap md:gap-2">
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-10 md:w-10"
             aria-label="Попередній період"
             title="Попередній період"
             @click="moveRange(-1)"
           >
-            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+            <ChevronLeftIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
           </button>
-          <input v-model="anchorDate" type="date" class="min-h-10 rounded-2xl border border-slate-300 px-3 py-2 text-sm">
-          <button type="button" class="min-h-10 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" @click="goToToday">
+          <input v-model="anchorDate" type="date" class="min-h-9 min-w-0 rounded-xl border border-slate-300 px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm">
+          <button type="button" class="min-h-9 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 md:min-h-10 md:px-4 md:py-2 md:text-sm" @click="goToToday">
             Сьогодні
           </button>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-10 md:w-10"
             aria-label="Наступний період"
             title="Наступний період"
             @click="moveRange(1)"
           >
-            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+            <ChevronRightIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <label class="space-y-2 text-sm text-slate-700">
+      <div class="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-5">
+        <label v-if="isAdmin" class="space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
           <span class="font-medium">Майстер</span>
-          <select v-model="filters.master_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3" :disabled="!isAdmin">
+          <select v-model="filters.master_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:rounded-2xl md:px-4 md:py-3" :disabled="!isAdmin">
             <option value="">{{ isAdmin ? 'Усі майстри' : selectedMasterLabel }}</option>
             <option v-for="master in masterOptions" :key="master.id" :value="String(master.id)">
               {{ masterName(master) }}
             </option>
           </select>
         </label>
-        <label class="space-y-2 text-sm text-slate-700">
+        <label class="space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
           <span class="font-medium">Послуга</span>
-          <select v-model="filters.service_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <select v-model="filters.service_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:rounded-2xl md:px-4 md:py-3">
             <option value="">Усі послуги</option>
             <option v-for="service in bookingServiceOptions" :key="service.id" :value="String(service.id)">
               {{ serviceName(service) }}
             </option>
           </select>
         </label>
-        <label class="space-y-2 text-sm text-slate-700">
+        <div ref="statusFilterRef" class="relative space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
           <span class="font-medium">Статус</span>
-          <select v-model="filters.status" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-            <option value="">Будь-який статус</option>
-            <option v-for="status in statuses" :key="status" :value="status">{{ formatBookingStatus(status) }}</option>
-          </select>
-        </label>
-        <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
-          <p class="mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
+          <button
+            type="button"
+            class="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            :aria-expanded="statusFilterOpen"
+            @click="statusFilterOpen = !statusFilterOpen"
+          >
+            <span class="min-w-0">
+              <BookingStatusBadge v-if="selectedStatusFilter" :status="selectedStatusFilter" />
+              <span v-else class="text-slate-500">Будь-який статус</span>
+            </span>
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="statusFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+          </button>
+          <div
+            v-if="statusFilterOpen"
+            class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
+              :class="!selectedStatusFilter ? 'bg-slate-50' : ''"
+              @click="selectStatusFilter('')"
+            >
+              Будь-який статус
+            </button>
+            <button
+              v-for="status in statuses"
+              :key="status"
+              type="button"
+              class="flex w-full items-center rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-50"
+              :class="selectedStatusFilter === status ? 'bg-slate-50' : ''"
+              @click="selectStatusFilter(status)"
+            >
+              <BookingStatusBadge :status="status" />
+            </button>
+          </div>
         </div>
-        <div class="flex items-end gap-3">
-          <button class="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
-          <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
+        <div class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
+          <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
+          <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
+        </div>
+        <div class="flex items-end gap-2 md:gap-3">
+          <button class="flex-1 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white md:px-4 md:py-3 md:text-sm" @click="applyFilters">Застосувати</button>
+          <button class="flex-1 rounded-full border border-slate-300 px-3 py-2 text-xs md:px-4 md:py-3 md:text-sm" @click="clearFilters">Очистити</button>
         </div>
       </div>
     </section>
 
-    <div class="space-y-3">
-      <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+    <div class="space-y-2 md:space-y-3">
+      <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити календар бронювань.') }}
       </p>
-      <p v-if="actionError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ actionError }}</p>
-      <p v-if="actionSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ actionSuccess }}</p>
-      <p v-if="pending" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Завантаження календаря...</p>
-      <p v-else-if="!calendarEntries.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+      <p v-if="actionError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">{{ actionError }}</p>
+      <p v-if="actionSuccess" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 md:rounded-2xl md:px-4 md:py-3 md:text-sm">{{ actionSuccess }}</p>
+      <p v-if="pending" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">Завантаження календаря...</p>
+      <p v-else-if="!calendarEntries.length" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
         У вибраному діапазоні немає бронювань або блокувань. Вільні слоти можна вибирати прямо в календарі.
       </p>
     </div>
@@ -559,34 +595,34 @@ const deleteSelectedBlock = async () => {
     />
 
     <section class="rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 md:gap-3 md:px-4 md:py-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">Список бронювань</h2>
-          <p class="mt-1 text-sm text-slate-500">Поточний діапазон: {{ anchorDate }} - {{ rangeEnd }} · Total: {{ total }}</p>
+          <h2 class="text-base font-semibold text-slate-900 md:text-lg">Список бронювань</h2>
+          <p class="mt-0.5 text-xs text-slate-500 md:mt-1 md:text-sm">Поточний діапазон: {{ anchorDate }} - {{ rangeEnd }} · Total: {{ total }}</p>
         </div>
       </div>
-      <div v-if="!visibleBookings.length" class="p-4 text-sm text-slate-500">Бронювань за цими фільтрами немає.</div>
+      <div v-if="!visibleBookings.length" class="p-3 text-sm text-slate-500 md:p-4">Бронювань за цими фільтрами немає.</div>
       <div v-else class="divide-y divide-slate-100">
-        <article v-for="booking in visibleBookings" :key="booking.id" class="grid gap-3 px-4 py-3 md:grid-cols-[160px_1fr_auto] md:items-center">
-          <div>
-            <p class="font-semibold text-slate-900">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
-            <p class="text-xs text-slate-500">{{ formatDateTime(bookingStart(booking)) }}</p>
+        <article v-for="booking in visibleBookings" :key="booking.id" class="grid gap-2 px-3 py-2 text-left md:grid-cols-[160px_1fr_auto] md:items-center md:gap-3 md:px-4 md:py-3">
+          <div class="min-w-0 md:min-w-max">
+            <p class="truncate text-sm font-semibold text-slate-900 md:text-base">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
+            <p class="truncate text-[0.68rem] text-slate-500 md:text-xs">{{ formatDateTime(bookingStart(booking)) }}</p>
           </div>
           <div class="min-w-0">
-            <p class="truncate font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="mt-1 truncate text-sm text-slate-500">
+            <p class="truncate text-sm font-medium text-slate-900 md:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
+            <p class="mt-0.5 truncate text-xs text-slate-500 md:mt-1 md:text-sm">
               {{ bookingServicesLabel(booking, serviceOptions) }} · {{ masterName(resolveMaster(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
             </p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center justify-start gap-2 md:flex-wrap md:justify-end md:gap-3">
             <BookingStatusBadge :status="booking.status" />
             <button
-              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-8 md:w-8"
               aria-label="Переглянути бронювання"
               title="Переглянути"
               @click="selected = booking"
             >
-              <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              <EyeIcon class="h-3.5 w-3.5 md:h-4 md:w-4" aria-hidden="true" />
               <span class="sr-only">Переглянути</span>
             </button>
           </div>

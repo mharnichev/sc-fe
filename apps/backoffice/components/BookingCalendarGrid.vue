@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhoneIcon, UserIcon } from '@heroicons/vue/24/outline'
 import type {
   CalendarBusyRange,
   CalendarDay,
@@ -25,7 +26,9 @@ const emit = defineEmits<{
 }>()
 
 const calendar = useBookingCalendar()
-const slotHeight = 68
+const { bookingPhone, customerName } = useBookingFormatting()
+const isCompactViewport = ref(false)
+const slotHeight = computed(() => isCompactViewport.value ? 54 : 60)
 const scrollRef = ref<HTMLElement | null>(null)
 const allSlots = computed(() => Object.values(props.slotsByDay).flat())
 const busyRangesRef = computed(() => props.busyRanges)
@@ -64,8 +67,12 @@ const {
 } = useBookingSlotSelection(allSlots, busyRangesRef, enabledRef)
 
 const timeSlots = computed(() => props.days[0] ? props.slotsByDay[props.days[0].date] || [] : [])
-const bodyHeight = computed(() => `${timeSlots.value.length * slotHeight}px`)
-const gridTemplateColumns = computed(() => `4.75rem repeat(${props.days.length}, minmax(11.5rem, 1fr))`)
+const bodyHeight = computed(() => `${timeSlots.value.length * slotHeight.value}px`)
+const gridTemplateColumns = computed(() =>
+  isCompactViewport.value
+    ? `3.25rem repeat(${props.days.length}, minmax(7.75rem, 1fr))`
+    : `3.75rem repeat(${props.days.length}, minmax(8.5rem, 1fr))`,
+)
 const entriesByDay = computed(() => {
   const map: Record<string, CalendarDisplayEntry[]> = {}
   for (const day of props.days) {
@@ -111,15 +118,22 @@ const entryClass = (entry: CalendarDisplayEntry) =>
     ? bookingEntryClass(entry)
     : 'blocked-entry border-slate-400 bg-slate-100 text-slate-800 shadow-slate-950/5 hover:border-slate-500'
 
+const entryCustomerName = (entry: CalendarDisplayEntry) =>
+  entry.booking ? customerName(entry.booking) : ''
+
+const entryPhone = (entry: CalendarDisplayEntry) =>
+  entry.booking ? bookingPhone(entry.booking) : ''
+
 const entryStyle = (entry: CalendarDisplayEntry) => {
   const visibleStart = Math.max(calendar.workdayStartMinutes, entry.startMinutes)
   const visibleEnd = Math.min(calendar.workdayEndMinutes, entry.endMinutes)
-  const top = ((visibleStart - calendar.workdayStartMinutes) / calendar.slotMinutes) * slotHeight
-  const height = Math.max(38, ((visibleEnd - visibleStart) / calendar.slotMinutes) * slotHeight - 6)
+  const top = ((visibleStart - calendar.workdayStartMinutes) / calendar.slotMinutes) * slotHeight.value
+  const height = Math.max(34, ((visibleEnd - visibleStart) / calendar.slotMinutes) * slotHeight.value - 6)
 
   return {
     top: `${top + 3}px`,
     height: `${height}px`,
+    width: 'calc(100% - 0.5rem)',
   }
 }
 
@@ -231,6 +245,7 @@ const handleEntryClick = (entry: CalendarDisplayEntry, event: MouseEvent) => {
 }
 
 onMounted(() => {
+  isCompactViewport.value = window.matchMedia('(max-width: 767px)').matches
   window.addEventListener('pointerup', endSlotSelection)
   window.addEventListener('pointercancel', cancelSlotSelection)
 })
@@ -248,21 +263,21 @@ watch(
 
 <template>
   <section class="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
       <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">
+        <span class="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 ring-1 ring-slate-200">
           <span class="h-2 w-2 rounded-full bg-white ring-1 ring-slate-300" /> Вільно
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 ring-1 ring-emerald-100">
+        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800 ring-1 ring-emerald-100">
           <span class="h-2 w-2 rounded-full bg-emerald-500" /> Забукано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-800 ring-1 ring-indigo-100">
+        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-800 ring-1 ring-indigo-100">
           <span class="h-2 w-2 rounded-full bg-indigo-500" /> Виконано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2.5 py-1 text-slate-800 ring-1 ring-slate-300">
+        <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-slate-800 ring-1 ring-slate-300">
           <span class="h-2 w-2 rounded-full bg-slate-600" /> Блокування
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500 ring-1 ring-slate-200">
+        <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 ring-1 ring-slate-200">
           <span class="h-2 w-2 rounded-full bg-slate-300" /> Вихідний
         </span>
       </div>
@@ -274,15 +289,15 @@ watch(
       class="calendar-scroll max-h-[72dvh] overflow-auto"
       @pointermove="handlePointerMove"
     >
-      <div class="grid min-w-max" :style="{ gridTemplateColumns }">
-        <div class="sticky left-0 top-0 z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+      <div class="isolate grid min-w-max" :style="{ gridTemplateColumns }">
+        <div class="sticky left-0 top-0 z-[70] border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
           Час
         </div>
 
         <div
           v-for="day in days"
           :key="day.date"
-          class="sticky top-0 z-20 min-w-0 border-b border-r border-slate-200 px-3 py-3"
+          class="sticky top-0 z-[60] min-w-0 border-b border-r border-slate-200 px-2 py-2"
           :class="day.isMonday ? 'bg-slate-100 text-slate-500' : day.isToday ? 'bg-cyan-50 text-cyan-950' : 'bg-white text-slate-900'"
         >
           <p class="truncate text-sm font-semibold capitalize">{{ day.weekday }}</p>
@@ -291,11 +306,11 @@ watch(
           </p>
         </div>
 
-        <div class="sticky left-0 z-10 border-r border-slate-200 bg-white" :style="{ height: bodyHeight }">
+        <div class="sticky left-0 z-40 border-r border-slate-200 bg-white" :style="{ height: bodyHeight }">
           <div
             v-for="slot in timeSlots"
             :key="slot.id"
-            class="flex items-start justify-end border-t border-slate-100 px-2 pt-2 text-xs font-medium text-slate-400"
+            class="flex items-start justify-end border-t border-slate-100 px-1.5 pt-1.5 text-[0.7rem] font-medium text-slate-400"
             :style="{ height: `${slotHeight}px` }"
           >
             {{ slot.startTime }}
@@ -305,7 +320,7 @@ watch(
         <div
           v-for="day in days"
           :key="`${day.date}-body`"
-          class="relative border-r border-slate-200"
+          class="relative z-0 border-r border-slate-200"
           :class="day.isMonday ? 'bg-slate-100/80' : 'bg-white'"
           :style="{ height: bodyHeight }"
         >
@@ -334,7 +349,7 @@ watch(
             v-for="entry in entriesByDay[day.date]"
             :key="entry.id"
             type="button"
-            class="absolute left-1 right-1 z-10 flex items-start overflow-hidden rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition"
+            class="absolute left-1 z-[1] flex items-start overflow-hidden rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition"
             :class="entryClass(entry)"
             :style="entryStyle(entry)"
             @pointerdown="beginEntryTap(entry, $event)"
@@ -342,7 +357,19 @@ watch(
             @pointercancel="cancelEntryTap"
             @click.stop="handleEntryClick(entry, $event)"
           >
-            <span class="w-full" :class="entry.kind === 'block' ? 'blocked-entry-label' : ''">
+            <span v-if="entry.kind === 'booking'" class="w-full space-y-1">
+              <span class="block truncate font-semibold">{{ entry.meta }}</span>
+              <span class="mt-0.5 block truncate">{{ entry.title }}</span>
+              <span class="flex items-center gap-1.5 rounded-md bg-white/70 px-1.5 py-0.5 shadow-sm ring-1 ring-white/60">
+                <UserIcon class="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                <span class="min-w-0 truncate">{{ entryCustomerName(entry) }}</span>
+              </span>
+              <span class="flex items-center gap-1.5 rounded-md bg-white/70 px-1.5 py-0.5 shadow-sm ring-1 ring-white/60">
+                <PhoneIcon class="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                <span class="min-w-0 truncate">{{ entryPhone(entry) || 'Без телефону' }}</span>
+              </span>
+            </span>
+            <span v-else class="w-full blocked-entry-label">
               <span class="block truncate font-semibold">{{ entry.meta }}</span>
               <span class="mt-0.5 block truncate">{{ entry.title }}</span>
               <span class="mt-0.5 block truncate opacity-80">{{ entry.subtitle }}</span>

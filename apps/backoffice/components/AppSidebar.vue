@@ -30,6 +30,8 @@ const auth = useAuthStore()
 const route = useRoute()
 const api = useBackofficeApi()
 const menuOpen = ref(false)
+const bottomNavHidden = ref(false)
+const lastScrollY = ref(0)
 
 const { data: publicMasters } = await useAsyncData('sidebar-public-masters', () => api.getPublicMasters())
 const masterList = computed(() => publicMasters.value || [])
@@ -68,6 +70,17 @@ const onlineStoreLinks = computed(() => [
     : []),
 ])
 
+const barberBottomLinks = computed(() =>
+  isBarber.value
+    ? [
+        { label: 'Дашборд', to: '/dashboard', icon: HomeIcon },
+        { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
+        { label: 'Статистика', to: '/statistics', icon: ChartBarSquareIcon },
+        { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
+      ]
+    : [],
+)
+
 const menuSections = computed(() =>
   [
     { title: 'Барбершоп', links: barberShopLinks.value },
@@ -86,8 +99,28 @@ watch(
   () => route.fullPath,
   () => {
     menuOpen.value = false
+    bottomNavHidden.value = false
   },
 )
+
+const handleScroll = () => {
+  const currentScrollY = window.scrollY
+  const delta = currentScrollY - lastScrollY.value
+
+  if (Math.abs(delta) < 8) return
+
+  bottomNavHidden.value = delta > 0 && currentScrollY > 80
+  lastScrollY.value = currentScrollY
+}
+
+onMounted(() => {
+  lastScrollY.value = window.scrollY
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 
 const logout = () => {
   if (!auth.user) return
@@ -97,7 +130,7 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-slate-200 bg-slate-950/95 px-4 py-3 text-white shadow-sm backdrop-blur lg:hidden">
+  <header class="sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-slate-200 bg-slate-950/95 px-4 py-3 text-white shadow-sm backdrop-blur xl:hidden">
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Backoffice</p>
@@ -159,7 +192,7 @@ const logout = () => {
   </header>
 
   <aside
-    class="hidden border-r border-slate-200 bg-slate-950 py-6 text-white transition-[padding] duration-200 lg:block"
+    class="hidden border-r border-slate-200 bg-slate-950 py-6 text-white transition-[padding] duration-200 xl:block"
     :class="isCollapsed ? 'px-3' : 'px-5'"
   >
     <div class="mb-8">
@@ -228,4 +261,25 @@ const logout = () => {
       <span v-if="!isCollapsed">Вийти</span>
     </button>
   </aside>
+
+  <nav
+    v-if="barberBottomLinks.length"
+    class="fixed bottom-0 left-2 right-2 z-50 rounded-t-2xl border border-b-0 border-slate-200 bg-white/95 px-1.5 pt-1.5 shadow-[0_-8px_24px_rgb(15_23_42_/_0.12)] backdrop-blur transition-transform duration-300 ease-out xl:hidden"
+    :class="bottomNavHidden ? 'translate-y-[calc(100%+env(safe-area-inset-bottom)+0.5rem)]' : 'translate-y-0'"
+    style="padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));"
+    aria-label="Швидка навігація майстра"
+  >
+    <div class="mx-auto grid max-w-3xl grid-cols-4 gap-1">
+      <NuxtLink
+        v-for="link in barberBottomLinks"
+        :key="link.to"
+        :to="link.to"
+        class="flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center text-[0.62rem] font-medium leading-tight transition"
+        :class="isActive(link.to) ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'"
+      >
+        <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span class="max-w-full truncate">{{ link.label }}</span>
+      </NuxtLink>
+    </div>
+  </nav>
 </template>

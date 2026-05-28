@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
             <div class="mt-3 flex flex-wrap gap-2">
               <button type="submit" :disabled="pendingSchedule" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
-                {{ pendingSchedule ? 'Збереження...' : 'Зберегти послуги' }}
+                {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </button>
               <button type="button" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50" @click="cancelServiceEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitSchedule">
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_9rem] sm:items-end">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem] sm:items-end">
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Дата</span>
                 <input v-model="scheduleForm.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
                 <span>Початок</span>
                 <input v-model="scheduleForm.start_time" required type="time" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               </label>
-              <label class="col-span-2 space-y-1 text-xs font-medium text-slate-600 sm:col-span-1">
+              <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Тривалість, хв</span>
                 <input v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               </label>

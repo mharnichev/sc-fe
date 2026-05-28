@@ -95,54 +95,54 @@ watch(
 <template>
   <BaseModal :model-value="modelValue" max-width-class="max-w-2xl" @update:model-value="emit('update:modelValue', $event)" @close="formError = ''">
     <template #head="{ close: closeModal }">
-      <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex flex-wrap items-start justify-between gap-3 xl:gap-4">
         <div>
-          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Доступність</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-900">Створити блокування</h2>
+          <p class="text-xs uppercase tracking-[0.2em] text-cyan-700 xl:text-sm xl:tracking-[0.25em]">Доступність</p>
+          <h2 class="mt-1 text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">Створити блокування</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
+        <button type="button" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm" @click="closeModal">
           Закрити
         </button>
       </div>
     </template>
 
     <template #body>
-      <form class="space-y-5" @submit.prevent="submit">
-        <label class="space-y-2 text-sm text-slate-700">
+      <form class="space-y-3 xl:space-y-5" @submit.prevent="submit">
+        <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="font-medium">Дата</span>
-          <input v-model="form.date" required type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <input v-model="form.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
         </label>
-        <label class="space-y-2 text-sm text-slate-700">
+        <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="font-medium">Тип блокування</span>
-          <select v-model="form.block_type" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <select v-model="form.block_type" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
             <option value="full_day">Повний день</option>
             <option value="custom">Власний інтервал</option>
           </select>
         </label>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Час початку</span>
-            <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
+            <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Час завершення</span>
-            <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
+            <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
         </div>
-        <label class="space-y-2 text-sm text-slate-700">
+        <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="font-medium">Причина</span>
-          <textarea v-model="form.reason" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          <textarea v-model="form.reason" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
         </label>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+        <div class="flex flex-wrap gap-2 xl:gap-3">
+          <button type="submit" :disabled="saving" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-medium text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm">
             <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Створення...' : 'Створити блокування' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="fillForm">
+          <button type="button" class="min-h-9 flex-1 rounded-full border border-slate-300 px-4 py-2 text-xs sm:flex-none xl:min-h-11 xl:px-5 xl:py-3 xl:text-sm" @click="fillForm">
             Скинути
           </button>
         </div>
-        <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
+        <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
       </form>
     </template>
   </BaseModal>

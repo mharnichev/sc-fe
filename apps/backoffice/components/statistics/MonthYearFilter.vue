@@ -41,23 +41,23 @@ const selectedYear = computed({
 </script>
 
 <template>
-  <div class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-    <label class="grid gap-1.5 text-sm font-medium text-slate-700">
+  <div class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end xl:gap-3 xl:rounded-[1.75rem] xl:p-4">
+    <label class="grid gap-1 text-xs font-medium text-slate-700 xl:gap-1.5 xl:text-sm">
       Місяць
-      <select v-model="selectedMonth" class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900">
+      <select v-model="selectedMonth" class="min-h-9 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 xl:min-h-11 xl:rounded-2xl xl:px-4 xl:py-2.5">
         <option v-for="option in monthOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
       </select>
     </label>
-    <label class="grid gap-1.5 text-sm font-medium text-slate-700">
+    <label class="grid gap-1 text-xs font-medium text-slate-700 xl:gap-1.5 xl:text-sm">
       Рік
-      <select v-model="selectedYear" class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900">
+      <select v-model="selectedYear" class="min-h-9 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 xl:min-h-11 xl:rounded-2xl xl:px-4 xl:py-2.5">
         <option v-for="option in yearOptions" :key="option" :value="option">{{ option }}</option>
       </select>
     </label>
     <button
       type="button"
       :disabled="loading"
-      class="inline-flex min-h-11 items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+      class="inline-flex min-h-9 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
       @click="emit('refresh')"
     >
       {{ loading ? 'Оновлення...' : 'Оновити' }}

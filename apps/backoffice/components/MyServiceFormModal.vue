@@ -176,88 +176,88 @@ watch(
 <template>
   <BaseModal :model-value="modelValue" max-width-class="max-w-3xl" @update:model-value="emit('update:modelValue', $event)" @close="formError = ''">
     <template #head="{ close: closeModal }">
-      <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex flex-wrap items-start justify-between gap-3 xl:gap-4">
         <div>
-          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Мої послуги</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу' : 'Створити послугу' }}</h2>
+          <p class="text-xs uppercase tracking-[0.2em] text-cyan-700 xl:text-sm xl:tracking-[0.25em]">Мої послуги</p>
+          <h2 class="mt-1 text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">{{ editing ? 'Редагувати послугу' : 'Створити послугу' }}</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
+        <button type="button" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm" @click="closeModal">
           Закрити
         </button>
       </div>
     </template>
 
     <template #body>
-      <form class="space-y-5" @submit.prevent="submit">
-        <fieldset v-if="!editing" class="space-y-3 rounded-2xl border border-slate-200 p-4">
-          <legend class="px-1 text-sm font-medium text-slate-700">Тип створення</legend>
-          <div class="flex flex-wrap gap-3">
-            <label v-if="canCreateFromBase" class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+      <form class="space-y-3 xl:space-y-5" @submit.prevent="submit">
+        <fieldset v-if="!editing" class="space-y-2 rounded-xl border border-slate-200 p-3 xl:space-y-3 xl:rounded-2xl xl:p-4">
+          <legend class="px-1 text-xs font-medium text-slate-700 xl:text-sm">Тип створення</legend>
+          <div class="flex flex-wrap gap-2 xl:gap-3">
+            <label v-if="canCreateFromBase" class="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm">
               <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
               З базової послуги
             </label>
-            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm">
               <input v-model="form.mode" type="radio" value="custom" class="h-4 w-4">
               Власна
             </label>
           </div>
         </fieldset>
-        <label v-if="!editing && form.mode === 'base'" class="space-y-2 text-sm text-slate-700">
+        <label v-if="!editing && form.mode === 'base'" class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="font-medium">Базова послуга</span>
-          <select v-model="form.base_service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <select v-model="form.base_service_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
             <option value="">Виберіть базову послугу</option>
             <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
               {{ serviceName(service) }} / {{ service.title_en || 'без англ. назви' }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
             </option>
           </select>
         </label>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Назва українською</span>
-            <input v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Назва англійською</span>
-            <input v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
         </div>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Опис українською</span>
-            <textarea v-model="form.description_uk" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <textarea v-model="form.description_uk" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Опис англійською</span>
-            <textarea v-model="form.description_en" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <textarea v-model="form.description_en" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
         </div>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Тривалість, хвилини</span>
-            <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="font-medium">Ціна</span>
-            <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
         </div>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
           Послуга активна
         </label>
-        <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+        <p v-if="editing?.base_service" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           Зміни цієї послуги впливають лише на вашу особисту копію. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving || !barberId" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+        <div class="flex flex-wrap gap-2 xl:gap-3">
+          <button type="submit" :disabled="saving || !barberId" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-medium text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">
+          <button type="button" class="min-h-9 flex-1 rounded-full border border-slate-300 px-4 py-2 text-xs sm:flex-none xl:min-h-11 xl:px-5 xl:py-3 xl:text-sm" @click="resetForm">
             Скинути
           </button>
         </div>
-        <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
+        <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
       </form>
     </template>
   </BaseModal>

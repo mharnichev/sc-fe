@@ -23,11 +23,11 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3 xl:space-y-4">
     <div>
-      <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Статистика</p>
-      <h1 class="mt-1 text-3xl font-semibold text-slate-900">Моя статистика</h1>
-      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+      <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Статистика</p>
+      <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:text-3xl">Моя статистика</h1>
+      <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500 xl:mt-2 xl:text-sm xl:leading-6">
         Дохід, записи, клієнти та завантаження за вибраний місяць.
       </p>
     </div>
@@ -39,7 +39,7 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
       @refresh="refresh"
     />
 
-    <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+    <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ statisticsErrorMessage(error, 'Не вдалося завантажити статистику майстра. Перевірте, що backend запущений з monthly statistics API.') }}
     </p>
 

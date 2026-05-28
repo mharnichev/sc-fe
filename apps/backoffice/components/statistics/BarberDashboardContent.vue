@@ -36,9 +36,10 @@ const bestRevenueDayLabel = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <div class="space-y-3 xl:space-y-4">
+    <div class="grid grid-cols-2 gap-2 xl:grid-cols-4 xl:gap-4">
       <StatisticsStatCard
+        class="col-span-2 xl:col-span-1"
         label="Дохід за місяць"
         :value="formatMoney(stats?.total_income)"
         :loading="loading"
@@ -57,6 +58,7 @@ const bestRevenueDayLabel = computed(() => {
         :hint="stats ? `Нові: ${stats.clients.new_clients} · Повернулися: ${stats.clients.returning_clients}` : ''"
       />
       <StatisticsStatCard
+        class="col-span-2 xl:col-span-1"
         label="Середній чек"
         :value="formatMoney(stats?.average_check_per_appointment)"
         :loading="loading"
@@ -70,7 +72,7 @@ const bestRevenueDayLabel = computed(() => {
       description="Змініть місяць або перевірте, чи є завершені записи у календарі."
     />
 
-    <div class="grid gap-4 md:grid-cols-3">
+    <div class="grid grid-cols-2 gap-2 xl:grid-cols-3 xl:gap-4">
       <StatisticsStatCard
         label="Нові клієнти"
         :value="stats?.clients.new_clients || 0"
@@ -83,6 +85,7 @@ const bestRevenueDayLabel = computed(() => {
         :loading="loading"
       />
       <StatisticsStatCard
+        class="col-span-2 xl:col-span-1"
         label="Скасування / неявки"
         :value="cancellationTotal"
         :loading="loading"
@@ -91,7 +94,7 @@ const bestRevenueDayLabel = computed(() => {
       />
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
       <StatisticsWorkloadChart
         :days="stats?.workload_by_day || []"
         :weeks="stats?.workload_by_week || []"
@@ -107,7 +110,7 @@ const bestRevenueDayLabel = computed(() => {
       />
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-2">
+    <div class="grid gap-3 xl:grid-cols-2 xl:gap-4">
       <StatisticsPopularServicesChart
         :items="stats?.most_popular_services || []"
         :loading="loading"
