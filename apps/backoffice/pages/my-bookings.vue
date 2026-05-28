@@ -12,7 +12,7 @@ const {
   bookingComment,
   bookingPhone,
   customerName,
-  serviceName,
+  bookingServicesLabel,
   formatDateTime,
   formatTime,
   formatBookingStatus,
@@ -49,9 +49,6 @@ const total = computed(() => normalizeTotal(data.value))
 const todayБронювання = computed(() => bookings.value.filter(booking => bookingStart(booking).slice(0, 10) === filters.date_from))
 const upcomingБронювання = computed(() => bookings.value.filter(booking => bookingStart(booking).slice(0, 10) !== filters.date_from))
 
-const resolveService = (booking: Booking) =>
-  booking.service || serviceOptions.value.find(service => service.id === booking.service_id) || null
-
 const applyFilters = async () => {
   await refresh()
 }
@@ -64,10 +61,10 @@ const clearFilters = async () => {
 }
 
 const allowedStatusActions = (booking: Booking | null) =>
-  booking ? statuses.filter(status => status !== booking.status) : []
+  booking && booking.status !== 'completed' ? statuses.filter(status => status !== booking.status) : []
 
 const updateStatus = async (status: BookingStatus) => {
-  if (!selected.value) return
+  if (!selected.value || selected.value.status === 'completed') return
   pendingStatus.value = status
   actionError.value = ''
   try {
@@ -84,7 +81,7 @@ const updateStatus = async (status: BookingStatus) => {
 }
 
 const updateSchedule = async (payload: BookingSchedulePayload) => {
-  if (!selected.value) return
+  if (!selected.value || selected.value.status === 'completed') return
   pendingSchedule.value = true
   actionError.value = ''
   try {
@@ -155,7 +152,7 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
           </div>
           <div>
             <p class="font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="text-sm text-slate-500">{{ serviceName(resolveService(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
+            <p class="text-sm text-slate-500">{{ bookingServicesLabel(booking, serviceOptions) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <BookingStatusBadge :status="booking.status" />
@@ -186,7 +183,7 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
           </div>
           <div>
             <p class="font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="text-sm text-slate-500">{{ serviceName(resolveService(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
+            <p class="text-sm text-slate-500">{{ bookingServicesLabel(booking, serviceOptions) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <BookingStatusBadge :status="booking.status" />
@@ -209,6 +206,7 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
+      :can-edit="Boolean(selected && selected.status !== 'completed')"
       :error="actionError"
       :services="serviceOptions"
       @close="selected = null"

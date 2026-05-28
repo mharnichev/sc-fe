@@ -36,6 +36,8 @@ const {
   customerName,
   masterName,
   serviceName,
+  bookingServiceIds,
+  bookingServicesLabel,
   formatDateTime,
   formatTime,
   formatBookingStatus,
@@ -161,7 +163,7 @@ const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBl
 const visibleBookings = computed(() => {
   const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
   return bookings.value.filter(booking => {
-    if (selectedServiceId && Number(booking.service_id) !== selectedServiceId) return false
+    if (selectedServiceId && !bookingServiceIds(booking).includes(selectedServiceId)) return false
     if (filters.status && booking.status !== filters.status) return false
     return true
   })
@@ -184,11 +186,8 @@ const bookingServiceOptions = computed(() => {
 const resolveMaster = (booking: Booking) =>
   booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
 
-const resolveService = (booking: Booking) =>
-  booking.service || serviceOptions.value.find(service => Number(service.id) === Number(booking.service_id)) || null
-
 const allowedStatusActions = (booking: Booking | null) =>
-  !booking || !canManageBooking(booking.master_id)
+  !booking || booking.status === 'completed' || !canManageBooking(booking.master_id)
     ? []
     : statuses.filter(status => status !== booking.status)
 
@@ -265,6 +264,7 @@ const validateCalendarPayload = (payload: CalendarActionPayload) => {
       ? 'Бронювання не може перетинатися з іншим бронюванням або блокуванням.'
       : 'Блокування не може перетинатися з бронюванням або іншим блокуванням.'
   }
+  if (payload.action === 'booking' && !payload.service_ids.length) return 'Виберіть хоча б одну послугу.'
   return ''
 }
 
@@ -272,6 +272,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
   const body: ManualBookingPayload = {
     master_id: selectedMasterId.value as number,
     service_id: payload.service_id as number,
+    service_ids: payload.service_ids,
     customer_name: payload.customer_name,
     customer_phone: payload.customer_phone,
     customer_email: payload.customer_email || null,
@@ -295,6 +296,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
     await api.createPublicBooking({
       master_id: body.master_id,
       service_id: body.service_id,
+      service_ids: body.service_ids,
       customer_name: body.customer_name,
       customer_phone: body.customer_phone,
       customer_email: body.customer_email,
@@ -355,7 +357,7 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
 }
 
 const updateStatus = async (status: BookingStatus) => {
-  if (!selected.value) return
+  if (!selected.value || selected.value.status === 'completed') return
   pendingStatus.value = status
   actionError.value = ''
   try {
@@ -374,7 +376,7 @@ const updateStatus = async (status: BookingStatus) => {
 }
 
 const updateSchedule = async (payload: BookingSchedulePayload) => {
-  if (!selected.value) return
+  if (!selected.value || selected.value.status === 'completed') return
   pendingSchedule.value = true
   actionError.value = ''
   actionSuccess.value = ''
@@ -573,7 +575,7 @@ const deleteSelectedBlock = async () => {
           <div class="min-w-0">
             <p class="truncate font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
             <p class="mt-1 truncate text-sm text-slate-500">
-              {{ serviceName(resolveService(booking)) }} · {{ masterName(resolveMaster(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
+              {{ bookingServicesLabel(booking, serviceOptions) }} · {{ masterName(resolveMaster(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
@@ -597,6 +599,7 @@ const deleteSelectedBlock = async () => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
+      :can-edit="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
       :error="actionError"
       :masters="masterOptions"
       :services="serviceOptions"

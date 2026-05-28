@@ -19,15 +19,12 @@ const emit = defineEmits<{
 
 const {
   toKyivIso,
-  serviceName,
-  formatDuration,
-  formatPrice,
 } = useBookingFormatting()
 const calendar = useBookingCalendar()
 
 const form = reactive({
   action: 'booking' as CalendarActionType,
-  service_id: '',
+  service_ids: [] as string[],
   date: '',
   start_time: '',
   end_time: '',
@@ -39,7 +36,7 @@ const localError = ref('')
 
 const resetForm = () => {
   form.action = 'booking'
-  form.service_id = ''
+  form.service_ids = []
   form.date = props.selection?.date || ''
   form.start_time = props.selection?.startTime || ''
   form.end_time = props.selection?.endTime || ''
@@ -61,7 +58,7 @@ const validate = () => {
     return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
   }
   if (form.action === 'booking') {
-    if (!form.service_id) return 'Виберіть послугу для ручного бронювання.'
+    if (!form.service_ids.length) return 'Виберіть хоча б одну послугу для ручного бронювання.'
     if (!form.customer_name.trim()) return 'Ім’я клієнта обов’язкове.'
     if (!form.customer_phone.trim()) return 'Телефон клієнта обов’язковий.'
   }
@@ -71,10 +68,12 @@ const validate = () => {
 const submit = () => {
   localError.value = validate()
   if (localError.value) return
+  const serviceIds = form.action === 'booking' ? form.service_ids.map(Number).filter(Number.isFinite) : []
 
   emit('submit', {
     action: form.action,
-    service_id: form.action === 'booking' ? Number(form.service_id) : null,
+    service_id: serviceIds[0] || null,
+    service_ids: serviceIds,
     customer_name: form.customer_name.trim(),
     customer_phone: form.customer_phone.trim(),
     customer_email: '',
@@ -156,15 +155,10 @@ watch(
           </label>
         </div>
 
-        <label v-if="form.action === 'booking'" class="space-y-1 text-sm text-slate-700 sm:space-y-2">
-          <span class="font-medium">Послуга</span>
-          <select v-model="form.service_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
-            <option value="">Виберіть послугу</option>
-            <option v-for="service in services" :key="service.id" :value="String(service.id)">
-              {{ serviceName(service) }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
-            </option>
-          </select>
-        </label>
+        <div v-if="form.action === 'booking'" class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Послуги</span>
+          <ServiceMultiSelect v-model="form.service_ids" :services="services" />
+        </div>
 
         <div v-if="form.action === 'booking'" class="grid gap-2 md:grid-cols-2 md:gap-4">
           <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">

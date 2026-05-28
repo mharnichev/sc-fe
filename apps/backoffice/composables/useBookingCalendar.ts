@@ -56,6 +56,7 @@ export interface CalendarSelection {
 export interface CalendarActionPayload {
   action: CalendarActionType
   service_id: number | null
+  service_ids: number[]
   customer_name: string
   customer_phone: string
   customer_email: string
@@ -99,7 +100,8 @@ export const useBookingCalendar = () => {
     bookingEnd,
     bookingPhone,
     customerName,
-    serviceName,
+    bookingServices,
+    bookingServicesLabel,
   } = useBookingFormatting()
 
   const dateInputFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -211,8 +213,10 @@ export const useBookingCalendar = () => {
   const rangeOverlapsBusy = (startAt: string, endAt: string, busyRanges: CalendarBusyRange[]) =>
     busyRanges.some(range => rangesOverlap(startAt, endAt, range.startAt, range.endAt))
 
-  const serviceDuration = (booking: Booking, services: Service[]) =>
-    services.find(service => Number(service.id) === Number(booking.service_id))?.duration_minutes || 30
+  const serviceDuration = (booking: Booking, services: Service[]) => {
+    const duration = bookingServices(booking, services).reduce((total, service) => total + Number(service.duration_minutes || 0), 0)
+    return duration || 30
+  }
 
   const bookingRange = (booking: Booking, services: Service[]): CalendarBusyRange | null => {
     const startAt = bookingStart(booking)
@@ -266,10 +270,9 @@ export const useBookingCalendar = () => {
       .map(booking => {
         const range = bookingRange(booking, services)
         if (!range) return null
-        const service = booking.service || services.find(item => Number(item.id) === Number(booking.service_id)) || null
         return {
           ...range,
-          title: serviceName(service),
+          title: bookingServicesLabel(booking, services),
           subtitle: `${customerName(booking)} · ${bookingPhone(booking) || 'Без телефону'}`,
           meta: `${formatTime(range.startAt)}-${formatTime(range.endAt)}`,
           booking,

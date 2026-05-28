@@ -6,9 +6,8 @@ import {
   ClockIcon,
   SparklesIcon,
 } from '@heroicons/vue/24/outline'
-import type { Booking, Master, MasterService, Service, TimeBlock } from '~/composables/useBackofficeApi'
+import type { Booking, Master, MasterService, TimeBlock } from '~/composables/useBackofficeApi'
 
-type DashboardService = MasterService | Service
 type AvailabilityTone = 'available' | 'partial' | 'blocked' | 'closed'
 
 definePageMeta({
@@ -34,6 +33,8 @@ const {
   bookingPhone,
   customerName,
   masterName,
+  bookingServices,
+  bookingServicesLabel,
   formatDateTime,
   formatTime,
   formatBookingStatus,
@@ -108,19 +109,17 @@ const minutesBetween = (start?: string | null, end?: string | null) => {
 const sortBookings = (items: Booking[]) =>
   [...items].sort((first, second) => new Date(bookingStart(first)).getTime() - new Date(bookingStart(second)).getTime())
 
-const resolveService = (booking: Booking): DashboardService | null =>
-  booking.service || services.value.find(service => Number(service.id) === Number(booking.service_id)) || null
-
-const dashboardServiceName = (service?: DashboardService | null) =>
-  service?.name || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
+const resolveServices = (booking: Booking) =>
+  bookingServices(booking, services.value)
 
 const bookingDurationMinutes = (booking: Booking) => {
   const duration = minutesBetween(bookingStart(booking), bookingEnd(booking))
   if (duration) return duration
-  return Number(resolveService(booking)?.duration_minutes || 0)
+  return resolveServices(booking).reduce((total, service) => total + Number(service.duration_minutes || 0), 0)
 }
 
-const bookingPrice = (booking: Booking) => Number(resolveService(booking)?.price || 0)
+const bookingPrice = (booking: Booking) =>
+  resolveServices(booking).reduce((total, service) => total + Number(service.price || 0), 0)
 
 const activeBookings = computed(() => bookings.value.filter(booking => booking.status !== 'cancelled'))
 const todayBookings = computed(() =>
@@ -333,7 +332,7 @@ const quickActions = [
           {{ nextTodayBooking ? formatTime(bookingStart(nextTodayBooking)) : 'Немає' }}
         </p>
         <p class="mt-2 truncate text-sm text-slate-500">
-          {{ nextTodayBooking ? `${formatDateTime(bookingStart(nextTodayBooking))} · ${dashboardServiceName(resolveService(nextTodayBooking))}` : 'На сьогодні наступних записів немає' }}
+          {{ nextTodayBooking ? `${formatDateTime(bookingStart(nextTodayBooking))} · ${bookingServicesLabel(nextTodayBooking, services)}` : 'На сьогодні наступних записів немає' }}
         </p>
       </article>
     </div>
@@ -355,7 +354,7 @@ const quickActions = [
             <div class="min-w-0">
               <p class="truncate font-medium text-slate-900">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
               <p class="mt-1 truncate text-sm text-slate-500">
-                {{ dashboardServiceName(resolveService(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
+                {{ bookingServicesLabel(booking, services) }} · {{ bookingComment(booking) || 'Без коментаря' }}
               </p>
             </div>
             <BookingStatusBadge :status="booking.status" />

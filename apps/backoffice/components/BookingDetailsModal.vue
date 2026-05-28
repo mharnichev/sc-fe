@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, UserIcon, XCircleIcon } from '@heroicons/vue/24/outline'
+import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Service } from '~/composables/useBackofficeApi'
 
@@ -8,6 +8,7 @@ const props = defineProps<{
   allowedStatuses?: BookingStatus[]
   pendingStatus?: BookingStatus | ''
   pendingSchedule?: boolean
+  canEdit?: boolean
   error?: string
   masters?: Master[]
   services?: Service[]
@@ -26,7 +27,9 @@ const {
   bookingPhone,
   customerName,
   masterName,
-  serviceName,
+  bookingServiceIds,
+  bookingServices,
+  bookingServicesLabel,
   formatDateTime,
   formatBookingStatus,
   toKyivIso,
@@ -38,8 +41,13 @@ const scheduleForm = reactive({
   start_time: '',
   duration_minutes: 30,
 })
+const serviceForm = reactive({
+  service_ids: [] as string[],
+})
 const scheduleError = ref('')
+const serviceError = ref('')
 const scheduleEditing = ref(false)
+const serviceEditing = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
 const masterOptions = computed(() => props.masters || [])
@@ -77,7 +85,9 @@ const timeInputFromDateTime = (value?: string | null) => {
 const bookingDurationMinutes = (booking: Booking) => {
   const start = new Date(bookingStart(booking)).getTime()
   const end = new Date(bookingEnd(booking)).getTime()
-  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return resolvedService.value?.duration_minutes || 30
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+    return resolvedServices.value.reduce((total, service) => total + Number(service.duration_minutes || 0), 0) || 30
+  }
 
   return Math.max(1, Math.round((end - start) / 60000))
 }
@@ -91,13 +101,35 @@ const resetScheduleForm = () => {
   scheduleEditing.value = false
 }
 
+const resetServiceForm = () => {
+  if (!props.booking) return
+  serviceForm.service_ids = bookingServiceIds(props.booking).map(String)
+  serviceError.value = ''
+  serviceEditing.value = false
+}
+
 const resolvedMaster = computed(() =>
   props.booking?.master || props.booking?.barber || props.masters?.find(master => master.id === props.booking?.master_id) || null,
 )
 
-const resolvedService = computed(() =>
-  props.booking?.service || props.services?.find(service => service.id === props.booking?.service_id) || null,
+const resolvedServices = computed(() =>
+  props.booking ? bookingServices(props.booking, props.services || []) : [],
 )
+
+const editableServiceOptions = computed(() => {
+  if (!props.booking) return []
+  const masterId = Number(props.booking.master_id)
+  const options = (props.services || []).filter(service => !service.barber_id || Number(service.barber_id) === masterId)
+  const byId = new Map<number, Service>()
+
+  for (const service of [...options, ...resolvedServices.value]) {
+    byId.set(Number(service.id), service as Service)
+  }
+
+  return Array.from(byId.values())
+})
+
+const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canEdit !== false))
 
 const statusActionClass = (status: BookingStatus) => {
   if (status === 'cancelled') return 'border border-rose-300 text-rose-700'
@@ -129,9 +161,25 @@ const submitSchedule = () => {
   emit('updateSchedule', { start_at: startAt, end_at: endAt })
 }
 
+const submitServices = () => {
+  serviceError.value = ''
+  const serviceIds = serviceForm.service_ids.map(Number).filter(Number.isFinite)
+  if (!serviceIds.length) {
+    serviceError.value = 'Виберіть хоча б одну послугу.'
+    return
+  }
+
+  emit('updateSchedule', { service_ids: serviceIds })
+}
+
 const cancelScheduleEditing = () => {
   resetScheduleForm()
   scheduleEditing.value = false
+}
+
+const cancelServiceEditing = () => {
+  resetServiceForm()
+  serviceEditing.value = false
 }
 
 const copyPhone = async () => {
@@ -155,6 +203,12 @@ const handleModalUpdate = (value: boolean) => {
 watch(
   () => [props.booking?.id, props.booking ? bookingStart(props.booking) : '', props.booking ? bookingEnd(props.booking) : ''],
   resetScheduleForm,
+  { immediate: true },
+)
+
+watch(
+  () => [props.booking?.id, props.booking?.service_id, props.booking?.service_ids?.join(',') || ''],
+  resetServiceForm,
   { immediate: true },
 )
 
@@ -222,9 +276,34 @@ onBeforeUnmount(() => {
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ masterName(resolvedMaster) }}</dd>
           </div>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber ? 'col-span-2' : ''">
-            <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуга</dt>
-            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ serviceName(resolvedService) }}</dd>
+            <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуги</dt>
+            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ bookingServicesLabel(booking, services || []) }}</dd>
           </div>
+          <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
+            <button
+              type="button"
+              class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
+              aria-label="Редагувати послуги бронювання"
+              @click="serviceEditing = true"
+            >
+              <PencilIcon class="h-4 w-4" aria-hidden="true" />
+              Редагувати послуги
+            </button>
+          </div>
+          <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitServices">
+            <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="submit" :disabled="pendingSchedule" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60">
+                <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
+                {{ pendingSchedule ? 'Збереження...' : 'Зберегти послуги' }}
+              </button>
+              <button type="button" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50" @click="cancelServiceEditing">
+                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+                Скасувати
+              </button>
+            </div>
+            <p v-if="serviceError" class="mt-2 text-sm text-rose-600">{{ serviceError }}</p>
+          </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <PlayIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -239,7 +318,7 @@ onBeforeUnmount(() => {
             </dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ formatDateTime(bookingEnd(booking)) }}</dd>
           </div>
-          <div v-if="!scheduleEditing" class="col-span-2">
+          <div v-if="canEditBooking && !scheduleEditing" class="col-span-2">
             <button
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
@@ -250,12 +329,8 @@ onBeforeUnmount(() => {
               Редагувати час
             </button>
           </div>
-          <form v-else class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitSchedule">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm font-medium text-slate-900">Час запису</p>
-              <p class="text-xs text-slate-500">{{ formatDateTime(bookingStart(booking)) }} - {{ formatDateTime(bookingEnd(booking)) }}</p>
-            </div>
-            <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_9rem_auto] sm:items-end">
+          <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitSchedule">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_9rem] sm:items-end">
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Дата</span>
                 <input v-model="scheduleForm.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -268,13 +343,17 @@ onBeforeUnmount(() => {
                 <span>Тривалість, хв</span>
                 <input v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               </label>
-              <button type="submit" :disabled="pendingSchedule" class="col-span-2 inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 sm:col-span-1">
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="submit" :disabled="pendingSchedule" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60">
+                <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </button>
+              <button type="button" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50" @click="cancelScheduleEditing">
+                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+                Скасувати
+              </button>
             </div>
-            <button type="button" class="mt-2 text-sm font-medium text-slate-500 hover:text-slate-800" @click="cancelScheduleEditing">
-              Скасувати редагування
-            </button>
             <p v-if="scheduleError" class="mt-2 text-sm text-rose-600">{{ scheduleError }}</p>
           </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">

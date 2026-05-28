@@ -33,6 +33,7 @@ const enabledRef = computed(() => props.selectable && !props.loading)
 const entryTapMoveThreshold = 10
 const entryTapMaxDuration = 700
 const entryTapCancelWindow = 350
+const slotScrollCancelThreshold = 10
 
 const activeEntryTap = ref<{
   id: string
@@ -44,6 +45,11 @@ const activeEntryTap = ref<{
   moved: boolean
 } | null>(null)
 const lastEntryTapCancelAt = ref(0)
+const activeSlotGesture = ref<{
+  pointerId: number
+  startScrollTop: number
+  startScrollLeft: number
+} | null>(null)
 
 const {
   selectedSlotIds,
@@ -119,8 +125,17 @@ const entryStyle = (entry: CalendarDisplayEntry) => {
 
 const beginSlotSelection = (slot: CalendarSlot, event: PointerEvent) => {
   if (event.pointerType === 'mouse' && event.button !== 0) return
-  event.preventDefault()
-  startSelection(slot)
+  if (event.pointerType === 'mouse') {
+    event.preventDefault()
+  }
+  activeSlotGesture.value = {
+    pointerId: event.pointerId,
+    startScrollTop: scrollRef.value?.scrollTop || 0,
+    startScrollLeft: scrollRef.value?.scrollLeft || 0,
+  }
+  if (!startSelection(slot)) {
+    activeSlotGesture.value = null
+  }
 }
 
 const extendSlotSelection = (slot: CalendarSlot) => {
@@ -128,14 +143,40 @@ const extendSlotSelection = (slot: CalendarSlot) => {
 }
 
 const endSlotSelection = () => {
+  const gesture = activeSlotGesture.value
+  activeSlotGesture.value = null
+
+  if (gesture && slotGestureScrolled(gesture)) {
+    clearSelection()
+    return
+  }
+
   const selection = finishSelection()
   if (selection) {
     emit('select', selection)
   }
 }
 
+const cancelSlotSelection = (event?: PointerEvent) => {
+  if (event && activeSlotGesture.value?.pointerId !== event.pointerId) return
+  activeSlotGesture.value = null
+  clearSelection()
+}
+
+const slotGestureScrolled = (gesture: NonNullable<typeof activeSlotGesture.value>) => {
+  const scrollTopDelta = Math.abs((scrollRef.value?.scrollTop || 0) - gesture.startScrollTop)
+  const scrollLeftDelta = Math.abs((scrollRef.value?.scrollLeft || 0) - gesture.startScrollLeft)
+  return scrollTopDelta > slotScrollCancelThreshold || scrollLeftDelta > slotScrollCancelThreshold
+}
+
 const handlePointerMove = (event: PointerEvent) => {
   if (!isSelecting.value) return
+  const gesture = activeSlotGesture.value
+  if (gesture?.pointerId === event.pointerId && slotGestureScrolled(gesture)) {
+    cancelSlotSelection(event)
+    return
+  }
+
   const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-slot-id]')
   const slotId = element?.dataset.slotId
   const slot = slotId ? slotById.value.get(slotId) : null
@@ -191,12 +232,12 @@ const handleEntryClick = (entry: CalendarDisplayEntry, event: MouseEvent) => {
 
 onMounted(() => {
   window.addEventListener('pointerup', endSlotSelection)
-  window.addEventListener('pointercancel', endSlotSelection)
+  window.addEventListener('pointercancel', cancelSlotSelection)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerup', endSlotSelection)
-  window.removeEventListener('pointercancel', endSlotSelection)
+  window.removeEventListener('pointercancel', cancelSlotSelection)
 })
 
 watch(
@@ -277,7 +318,7 @@ watch(
           >
             <button
               type="button"
-              class="absolute inset-0 h-full w-full touch-none px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-500"
+              class="absolute inset-0 h-full w-full touch-auto px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-500"
               :class="selectedSlotIds.has(slot.id) ? 'bg-cyan-100/80' : ''"
               :data-slot-id="slot.id"
               :disabled="slotState(slot) !== 'free' && slotState(slot) !== 'selected'"

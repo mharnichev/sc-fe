@@ -239,6 +239,7 @@ export interface Booking {
   id: number
   master_id?: number
   service_id?: number
+  service_ids?: number[]
   customer_id?: number | null
   customer_name?: string | null
   customer_phone?: string | null
@@ -257,6 +258,7 @@ export interface Booking {
   master?: Master | null
   barber?: Master | null
   service?: Service | null
+  services?: Service[]
   customer?: {
     id?: number
     name?: string | null
@@ -276,6 +278,7 @@ export interface AvailableSlot {
 export interface PublicBookingPayload {
   master_id: number
   service_id: number
+  service_ids?: number[]
   customer_name: string
   customer_phone: string
   customer_email?: string | null
@@ -290,8 +293,9 @@ export interface ManualBookingPayload extends PublicBookingPayload {
 }
 
 export interface BookingSchedulePayload {
-  start_at: string
-  end_at: string
+  start_at?: string
+  end_at?: string
+  service_ids?: number[]
 }
 
 export interface TimeBlock {
@@ -594,13 +598,16 @@ export const useBackofficeApi = () => {
 
   const getServices = () => api<Service[]>('/public/services')
 
-  const getAvailableSlots = (masterId: number | string, date: string, serviceId: number | string) =>
-    api<AvailableSlot[]>(`/public/masters/${masterId}/available-slots`, {
+  const getAvailableSlots = (masterId: number | string, date: string, serviceId: number | string | Array<number | string>) => {
+    const serviceIds = Array.isArray(serviceId) ? serviceId : [serviceId]
+    return api<AvailableSlot[]>(`/public/masters/${masterId}/available-slots`, {
       query: {
         date,
-        service_id: serviceId,
+        service_id: serviceIds[0],
+        service_ids: serviceIds,
       },
     })
+  }
 
   const createPublicBooking = (payload: PublicBookingPayload) =>
     api<Booking>('/public/bookings', {

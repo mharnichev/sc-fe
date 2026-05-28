@@ -10,6 +10,11 @@ interface LocalizedServiceText {
   description_en?: string | null
 }
 
+interface BookingServiceOption extends LocalizedServiceText {
+  duration_minutes?: number
+  price?: string | number
+}
+
 const timeZone = 'Europe/Kyiv'
 const statuses: BookingStatus[] = ['pending', 'confirmed', 'cancelled', 'completed']
 const statusLabels: Record<BookingStatus, string> = {
@@ -86,6 +91,35 @@ const masterName = (master?: Master | null) =>
 
 const serviceName = (service?: LocalizedServiceText | null) =>
   service?.title_uk || service?.name || service?.title_en || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
+
+const bookingServiceIds = (booking: Booking) => {
+  const ids = booking.service_ids?.length
+    ? booking.service_ids
+    : booking.services?.length
+      ? booking.services.map(service => service.id)
+      : booking.service_id
+        ? [booking.service_id]
+        : booking.service?.id
+          ? [booking.service.id]
+          : []
+
+  return [...new Set(ids.map(id => Number(id)).filter(Number.isFinite))]
+}
+
+const bookingServices = (booking: Booking, services: BookingServiceOption[] = []) => {
+  const byId = new Map<number, BookingServiceOption>()
+  for (const service of [...(booking.services || []), ...(booking.service ? [booking.service] : []), ...services]) {
+    byId.set(Number(service.id), service)
+  }
+
+  return bookingServiceIds(booking).map(id => byId.get(id)).filter(Boolean) as BookingServiceOption[]
+}
+
+const bookingServicesLabel = (booking: Booking, services: BookingServiceOption[] = []) => {
+  const labels = bookingServices(booking, services).map(service => serviceName(service))
+  if (labels.length) return labels.join(', ')
+  return booking.service_id ? `Послуга #${booking.service_id}` : 'Немає послуги'
+}
 
 const serviceNameEn = (service?: LocalizedServiceText | null) =>
   service?.title_en || ''
@@ -212,6 +246,9 @@ export const useBookingFormatting = () => {
     customerName,
     masterName,
     serviceName,
+    bookingServiceIds,
+    bookingServices,
+    bookingServicesLabel,
     serviceNameEn,
     serviceDescriptionUk,
     serviceDescriptionEn,

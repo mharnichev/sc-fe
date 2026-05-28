@@ -5,6 +5,7 @@ const {
   bookingComment,
   bookingEnd,
   bookingStart,
+  bookingServicesLabel,
   formatBookingStatus,
   formatDate,
   formatDateTime,
@@ -220,7 +221,7 @@ const topServices = computed(() => stats.value?.most_used_services || [])
               </div>
               <div class="sm:text-right">
                 <p class="text-xs uppercase tracking-[0.2em] text-cyan-700">{{ formatBookingStatus(booking.status) }}</p>
-                <p class="mt-1 text-sm text-slate-500">Майстер #{{ booking.master_id }} · Послуга #{{ booking.service_id }}</p>
+                <p class="mt-1 text-sm text-slate-500">Майстер #{{ booking.master_id }} · {{ bookingServicesLabel(booking) }}</p>
               </div>
             </div>
             <div class="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
