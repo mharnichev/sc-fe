@@ -289,6 +289,11 @@ export interface ManualBookingPayload extends PublicBookingPayload {
   status?: BookingStatus
 }
 
+export interface BookingSchedulePayload {
+  start_at: string
+  end_at: string
+}
+
 export interface TimeBlock {
   id: number
   master_id: number
@@ -632,6 +637,12 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
+  const updateMyBookingSchedule = (bookingId: number | string, payload: BookingSchedulePayload) =>
+    api<Booking>(`/backoffice/masters/me/bookings/${bookingId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
   const getMyServices = () =>
     api<MasterService[]>('/backoffice/masters/me/services')
 
@@ -834,6 +845,12 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
+  const adminUpdateBookingSchedule = (bookingId: number | string, payload: BookingSchedulePayload) =>
+    api<Booking>(`/backoffice/bookings/${bookingId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
   const adminGetTimeBlocks = (page = 1, pageSize = 100, filters: { date_from?: string, date_to?: string, master_id?: number | null } = {}) =>
     api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/time-blocks', {
       query: {
@@ -881,6 +898,7 @@ export const useBackofficeApi = () => {
     getMyCalendar,
     getMyBookings,
     updateMyBookingStatus,
+    updateMyBookingSchedule,
     getMyServices,
     updateMyService,
     getMyTimeBlocks,
@@ -908,6 +926,7 @@ export const useBackofficeApi = () => {
     adminGetBookings,
     adminCreateBooking,
     adminUpdateBookingStatus,
+    adminUpdateBookingSchedule,
     adminGetTimeBlocks,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,

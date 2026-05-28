@@ -8,6 +8,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import type {
   Booking,
+  BookingSchedulePayload,
   BookingStatus,
   ManualBookingPayload,
   Master,
@@ -60,6 +61,7 @@ const actionModalOpen = ref(false)
 const actionError = ref('')
 const actionSuccess = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
+const pendingSchedule = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
 
@@ -371,6 +373,27 @@ const updateStatus = async (status: BookingStatus) => {
   }
 }
 
+const updateSchedule = async (payload: BookingSchedulePayload) => {
+  if (!selected.value) return
+  pendingSchedule.value = true
+  actionError.value = ''
+  actionSuccess.value = ''
+  try {
+    const updated = isAdmin.value
+      ? await api.adminUpdateBookingSchedule(selected.value.id, payload)
+      : await api.updateMyBookingSchedule(selected.value.id, payload)
+    selected.value = { ...selected.value, ...updated }
+    actionSuccess.value = 'Час бронювання оновлено.'
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити час бронювання.')
+  }
+  finally {
+    pendingSchedule.value = false
+  }
+}
+
 const deleteSelectedBlock = async () => {
   if (!selectedBlock.value) return
   deletingBlock.value = true
@@ -573,11 +596,13 @@ const deleteSelectedBlock = async () => {
       :booking="selected"
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
+      :pending-schedule="pendingSchedule"
       :error="actionError"
       :masters="masterOptions"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
+      @update-schedule="updateSchedule"
     />
 
     <BookingCalendarActionModal

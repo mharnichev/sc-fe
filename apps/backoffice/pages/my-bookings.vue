@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EyeIcon } from '@heroicons/vue/24/outline'
-import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
+import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const {
@@ -41,6 +41,7 @@ const { data: services } = await useAsyncData('my-booking-service-options', () =
 const selected = ref<Booking | null>(null)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
+const pendingSchedule = ref(false)
 
 const bookings = computed(() => normalizeItems(data.value))
 const serviceOptions = computed(() => normalizeItems(services.value))
@@ -79,6 +80,23 @@ const updateStatus = async (status: BookingStatus) => {
   }
   finally {
     pendingStatus.value = ''
+  }
+}
+
+const updateSchedule = async (payload: BookingSchedulePayload) => {
+  if (!selected.value) return
+  pendingSchedule.value = true
+  actionError.value = ''
+  try {
+    const updated = await api.updateMyBookingSchedule(selected.value.id, payload)
+    selected.value = { ...selected.value, ...updated }
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити час бронювання.')
+  }
+  finally {
+    pendingSchedule.value = false
   }
 }
 </script>
@@ -190,10 +208,12 @@ const updateStatus = async (status: BookingStatus) => {
       :booking="selected"
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
+      :pending-schedule="pendingSchedule"
       :error="actionError"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
+      @update-schedule="updateSchedule"
     />
   </div>
 </template>

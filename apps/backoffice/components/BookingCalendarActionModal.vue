@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NoSymbolIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, NoSymbolIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
 import type { Service } from '~/composables/useBackofficeApi'
 
@@ -33,7 +33,6 @@ const form = reactive({
   end_time: '',
   customer_name: '',
   customer_phone: '',
-  customer_email: '',
   note: '',
 })
 const localError = ref('')
@@ -46,7 +45,6 @@ const resetForm = () => {
   form.end_time = props.selection?.endTime || ''
   form.customer_name = ''
   form.customer_phone = ''
-  form.customer_email = ''
   form.note = ''
   localError.value = ''
 }
@@ -79,7 +77,7 @@ const submit = () => {
     service_id: form.action === 'booking' ? Number(form.service_id) : null,
     customer_name: form.customer_name.trim(),
     customer_phone: form.customer_phone.trim(),
-    customer_email: form.customer_email.trim(),
+    customer_email: '',
     note: form.note.trim(),
     start_at: toKyivIso(form.date, form.start_time),
     end_at: toKyivIso(form.date, form.end_time),
@@ -109,24 +107,23 @@ watch(
     @close="localError = ''"
   >
     <template #head="{ close: closeModal }">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Календар</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-900">Новий інтервал</h2>
-          <p class="mt-1 text-sm text-slate-500">{{ masterName }}</p>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-700 sm:text-sm sm:tracking-[0.25em]">Календар</p>
+          <h2 class="mt-1 truncate text-xl font-semibold text-slate-900 sm:mt-2 sm:text-2xl">Новий інтервал</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
+        <button type="button" class="shrink-0 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700 sm:px-4 sm:py-2" @click="closeModal">
           Закрити
         </button>
       </div>
     </template>
 
     <template #body>
-      <form class="space-y-5" @submit.prevent="submit">
-        <div class="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+      <form class="space-y-3 sm:space-y-5" @submit.prevent="submit">
+        <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:gap-2 sm:rounded-2xl">
           <button
             type="button"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition"
+            class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3"
             :class="form.action === 'booking' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
             @click="form.action = 'booking'"
           >
@@ -135,7 +132,7 @@ watch(
           </button>
           <button
             type="button"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition"
+            class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition sm:min-h-11 sm:gap-2 sm:rounded-xl sm:px-3"
             :class="form.action === 'block' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
             @click="form.action = 'block'"
           >
@@ -144,24 +141,24 @@ watch(
           </button>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div class="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-4">
+          <label class="col-span-2 space-y-1 text-sm text-slate-700 sm:space-y-2 md:col-span-1">
             <span class="font-medium">Дата</span>
-            <input v-model="form.date" required type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">
             <span class="font-medium">Початок</span>
-            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">
             <span class="font-medium">Завершення</span>
-            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
           </label>
         </div>
 
-        <label v-if="form.action === 'booking'" class="space-y-2 text-sm text-slate-700">
+        <label v-if="form.action === 'booking'" class="space-y-1 text-sm text-slate-700 sm:space-y-2">
           <span class="font-medium">Послуга</span>
-          <select v-model="form.service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <select v-model="form.service_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
             <option value="">Виберіть послугу</option>
             <option v-for="service in services" :key="service.id" :value="String(service.id)">
               {{ serviceName(service) }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
@@ -169,43 +166,42 @@ watch(
           </select>
         </label>
 
-        <div v-if="form.action === 'booking'" class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
+        <div v-if="form.action === 'booking'" class="grid gap-2 md:grid-cols-2 md:gap-4">
+          <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">
             <span class="font-medium">Ім’я клієнта</span>
-            <input v-model="form.customer_name" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.customer_name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
           </label>
-          <label class="space-y-2 text-sm text-slate-700">
+          <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">
             <span class="font-medium">Телефон клієнта</span>
-            <input v-model="form.customer_phone" required inputmode="tel" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-          </label>
-          <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
-            <span class="font-medium">Email клієнта</span>
-            <input v-model="form.customer_email" type="email" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <input v-model="form.customer_phone" required inputmode="tel" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3">
           </label>
         </div>
 
-        <label class="space-y-2 text-sm text-slate-700">
+        <label class="space-y-1 text-sm text-slate-700 sm:space-y-2">
           <span class="font-medium">{{ form.action === 'booking' ? 'Коментар' : 'Причина' }}</span>
-          <textarea v-model="form.note" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          <textarea v-model="form.note" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:rounded-2xl sm:px-4 sm:py-3" />
         </label>
 
-        <p v-if="localError || error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+        <p v-if="localError || error" class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600 sm:rounded-2xl sm:px-4 sm:py-3">
           {{ localError || error }}
         </p>
 
-        <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-5">
+        <div class="grid gap-2 border-t border-slate-200 pt-3 sm:gap-3 sm:pt-5">
           <button
             type="submit"
             :disabled="pending"
-            class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium disabled:opacity-60 sm:py-3"
+            :class="form.action === 'booking' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-800 ring-1 ring-slate-400 hover:bg-slate-200'"
           >
             <component :is="form.action === 'booking' ? PlusIcon : NoSymbolIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
             {{ pending ? 'Збереження...' : form.action === 'booking' ? 'Створити бронювання' : 'Заблокувати час' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">
+          <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 sm:py-3" @click="resetForm">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="close">
+          <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-rose-300 px-5 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50 sm:py-3" @click="close">
+            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             Скасувати
           </button>
         </div>
