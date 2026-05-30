@@ -5,6 +5,7 @@ import type { MessagingCampaign } from '~/types/messaging'
 const route = useRoute()
 const api = useBackofficeApi()
 const { campaignTypes, channels, channelLabel } = useMessagingUi()
+const { masterName } = useBookingFormatting()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
 const page = ref(1)
@@ -106,7 +107,7 @@ const closeConfirm = (value: boolean) => {
       <input v-model="filters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
       <select v-model="filters.barber_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option :value="null">Усі майстри</option>
-        <option v-for="master in masterItems" :key="master.id" :value="Number(master.id)">{{ master.full_name || master.name }}</option>
+        <option v-for="master in masterItems" :key="master.id" :value="Number(master.id)">{{ masterName(master) }}</option>
       </select>
       <div class="flex gap-3 md:col-span-3 xl:col-span-6">
         <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>

@@ -163,12 +163,23 @@ export interface CustomerBookingStats {
 }
 
 export type BookingStatus = 'confirmed' | 'cancelled' | 'completed'
+export type MasterPosition = 'ambassador' | 'senior_master' | 'master'
 
 export interface Master {
   id: number
   admin_user_id?: number | null
+  last_name?: string | null
+  first_name_uk?: string | null
+  last_name_uk?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
   full_name?: string | null
+  full_name_uk?: string | null
+  full_name_en?: string | null
   name?: string | null
+  position?: MasterPosition | null
+  position_uk?: string | null
+  position_en?: string | null
   phone?: string | null
   email?: string | null
   description?: string | null
@@ -363,7 +374,13 @@ export interface SyncDefaultServicesResponse {
 
 export interface StatisticsBarberSummary {
   id: number
+  first_name_uk?: string | null
+  last_name_uk?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
   full_name: string
+  full_name_uk?: string | null
+  full_name_en?: string | null
 }
 
 export interface StatisticsServiceItem {
@@ -450,6 +467,10 @@ export interface BarbersComparisonResponse {
 
 export interface MasterPayload {
   full_name: string
+  last_name: string | null
+  first_name_en: string | null
+  last_name_en: string | null
+  position: MasterPosition
   phone: string | null
   email: string | null
   password?: string | null
@@ -480,6 +501,10 @@ export const useBackofficeApi = () => {
   const api = useApi()
   const config = useRuntimeConfig()
   const normalizePageSize = (pageSize: number) => Math.min(Math.max(pageSize, 1), 100)
+  const normalizeDeliveryRate = (value: number | null | undefined) => {
+    const rate = Number(value || 0)
+    return rate > 0 && rate <= 1 ? Math.round(rate * 100) : Math.round(rate)
+  }
   const campaignPurpose = (type?: string) => type === 'post_visit_review_request' ? 'review_request' : 'marketing'
 
   const toBackendAudience = (rules: AudienceRule[] = []) => {
@@ -1053,7 +1078,10 @@ export const useBackofficeApi = () => {
     })
 
   const getMessagingDashboard = () =>
-    api<MessagingDashboard>('/backoffice/messaging/dashboard')
+    api<MessagingDashboard>('/backoffice/messaging/dashboard').then(data => ({
+      ...data,
+      delivery_rate: normalizeDeliveryRate(data.delivery_rate),
+    }))
 
   const getMessagingCampaigns = (
     page = 1,

@@ -34,8 +34,20 @@ const formatDateTimeLocalInput = (date: Date) => {
 const minScheduledAt = formatDateTimeLocalInput(new Date())
 const maxScheduledAt = formatDateTimeLocalInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
 
-const masterName = (master: { full_name?: string, name?: string, id: number }) =>
-  master.full_name || master.name || `Master #${master.id}`
+const masterName = (master: {
+  full_name?: string | null
+  name?: string | null
+  id: number
+  last_name?: string | null
+  first_name_uk?: string | null
+  last_name_uk?: string | null
+  full_name_uk?: string | null
+}) =>
+  master.full_name_uk
+  || [master.first_name_uk || master.full_name, master.last_name_uk || master.last_name].filter(Boolean).join(' ')
+  || master.full_name
+  || master.name
+  || `Master #${master.id}`
 
 const selectedMaster = computed(() =>
   (masters.value || []).find(master => master.id === Number(form.master_id)) || null,

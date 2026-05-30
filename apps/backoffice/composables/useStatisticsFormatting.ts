@@ -1,4 +1,10 @@
 export const useStatisticsFormatting = () => {
+  const barberName = (barber?: { id?: number, full_name?: string | null, full_name_uk?: string | null, first_name_uk?: string | null, last_name_uk?: string | null } | null) => {
+    if (!barber) return ''
+    const localizedName = `${barber.first_name_uk || ''} ${barber.last_name_uk || ''}`.trim()
+    return barber.full_name_uk || localizedName || barber.full_name || (barber.id ? `Майстер #${barber.id}` : '')
+  }
+
   const statisticsErrorMessage = (error: unknown, fallback: string) => {
     const status = typeof error === 'object' && error && 'response' in error
       ? (error as { response?: { status?: number } }).response?.status
@@ -18,6 +24,7 @@ export const useStatisticsFormatting = () => {
   }
 
   return {
+    barberName,
     statisticsErrorMessage,
   }
 }

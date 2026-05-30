@@ -115,7 +115,11 @@ const serviceSelected = (service: SelectableService) =>
 const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
 
 const masterName = (master?: MasterDto | null) =>
-  master?.full_name || master?.name || (master?.id ? `Master #${master.id}` : '')
+  master?.full_name_uk
+  || [master?.first_name_uk || master?.full_name, master?.last_name_uk || master?.last_name].filter(Boolean).join(' ')
+  || master?.full_name
+  || master?.name
+  || (master?.id ? `Master #${master.id}` : '')
 
 const masterPhoto = (master?: MasterDto | null) =>
   assetUrl(master?.photo || master?.photo_url) || 'https://placehold.co/640x480'

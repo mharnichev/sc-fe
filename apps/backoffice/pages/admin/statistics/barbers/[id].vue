@@ -10,7 +10,7 @@ definePageMeta({
 
 const route = useRoute()
 const api = useBackofficeApi()
-const { statisticsErrorMessage } = useStatisticsFormatting()
+const { barberName, statisticsErrorMessage } = useStatisticsFormatting()
 
 const barberId = computed(() => Number(route.params.id))
 const now = new Date()
@@ -29,7 +29,7 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Статистика майстра</p>
-        <h1 class="mt-1 text-3xl font-semibold text-slate-900">{{ stats?.barber?.full_name || `Майстер #${barberId}` }}</h1>
+        <h1 class="mt-1 text-3xl font-semibold text-slate-900">{{ barberName(stats?.barber) || `Майстер #${barberId}` }}</h1>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
           Детальний місячний зріз доходу, послуг, клієнтів і завантаження.
         </p>

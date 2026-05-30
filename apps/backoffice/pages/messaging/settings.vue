@@ -24,7 +24,7 @@ const form = reactive<Partial<MessagingSettings>>({
   quiet_hours_from: '21:00',
   quiet_hours_to: '09:00',
   default_rate_limit: 20,
-  default_timezone: 'Europe/Kiev',
+  default_timezone: 'Europe/Kyiv',
   opt_out_text: 'Напишіть STOP, щоб відписатися.',
   test_recipient_chat_id: '',
   multi_location_enabled: false,
@@ -97,7 +97,7 @@ const save = async () => {
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Timezone</span>
             <select v-model="form.default_timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
-              <option value="Europe/Kiev">Europe/Kiev</option>
+              <option value="Europe/Kyiv">Europe/Kyiv</option>
               <option value="Europe/Warsaw">Europe/Warsaw</option>
               <option value="UTC">UTC</option>
             </select>

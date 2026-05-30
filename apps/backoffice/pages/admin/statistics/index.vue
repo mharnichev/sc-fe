@@ -12,7 +12,7 @@ definePageMeta({
 
 const api = useBackofficeApi()
 const { formatMoney, normalizeItems, masterName } = useBookingFormatting()
-const { statisticsErrorMessage } = useStatisticsFormatting()
+const { barberName, statisticsErrorMessage } = useStatisticsFormatting()
 
 const now = new Date()
 const month = ref(now.getMonth() + 1)
@@ -137,7 +137,7 @@ const refreshAll = () => refresh()
             class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 transition hover:border-cyan-300 hover:bg-cyan-50"
           >
             <span class="min-w-0">
-              <span class="block font-medium text-slate-900">#{{ index + 1 }} {{ row.barber.full_name }}</span>
+              <span class="block font-medium text-slate-900">#{{ index + 1 }} {{ barberName(row.barber) }}</span>
               <span class="mt-1 block text-sm text-slate-500">{{ row.completed_appointments }} записів · {{ row.unique_clients }} клієнтів</span>
             </span>
             <span class="shrink-0 text-sm font-semibold text-slate-900">{{ formatMoney(row.revenue) }}</span>

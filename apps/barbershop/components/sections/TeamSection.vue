@@ -20,7 +20,11 @@ const teamImages = [
 ]
 
 const masterName = (master: MasterDto) =>
-  master.full_name || master.name || `Master #${master.id}`
+  master.full_name_uk
+  || [master.first_name_uk || master.full_name, master.last_name_uk || master.last_name].filter(Boolean).join(' ')
+  || master.full_name
+  || master.name
+  || `Master #${master.id}`
 
 const masterPhoto = (master: MasterDto) =>
   assetUrl(master.photo || master.photo_url) || teamImages[0]

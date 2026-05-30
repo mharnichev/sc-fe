@@ -85,8 +85,25 @@ const customerName = (booking: Booking) => {
   return `${first} ${last}`.trim() || 'Невідомий клієнт'
 }
 
+const localizedMasterName = (master?: Master | null, locale: 'uk' | 'en' = 'uk') => {
+  if (!master) return ''
+  const first = locale === 'en'
+    ? master.first_name_en
+    : master.first_name_uk || master.full_name
+  const last = locale === 'en'
+    ? master.last_name_en
+    : master.last_name_uk || master.last_name
+  const fullName = `${first || ''} ${last || ''}`.trim()
+  return locale === 'en'
+    ? master.full_name_en || fullName
+    : master.full_name_uk || fullName || master.full_name || master.name || ''
+}
+
 const masterName = (master?: Master | null) =>
-  master?.full_name || master?.name || (master?.id ? `Майстер #${master.id}` : 'Не призначено')
+  localizedMasterName(master) || (master?.id ? `Майстер #${master.id}` : 'Не призначено')
+
+const masterNameEn = (master?: Master | null) =>
+  localizedMasterName(master, 'en') || masterName(master)
 
 const serviceName = (service?: LocalizedServiceText | null) =>
   service?.title_uk || service?.name || service?.title_en || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
@@ -244,6 +261,7 @@ export const useBookingFormatting = () => {
     bookingPhone,
     customerName,
     masterName,
+    masterNameEn,
     serviceName,
     bookingServiceIds,
     bookingServices,

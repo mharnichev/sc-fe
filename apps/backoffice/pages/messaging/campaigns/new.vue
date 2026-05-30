@@ -33,7 +33,7 @@ const form = reactive<CampaignPayload>({
   follow_up_after_days: null,
   schedule_mode: 'later',
   scheduled_at: '',
-  timezone: 'Europe/Kiev',
+  timezone: 'Europe/Kyiv',
   automation_delay: '24h',
   max_messages_per_minute: 20,
   quiet_hours_enabled: true,
@@ -288,7 +288,7 @@ const nextStep = () => {
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Timezone</span>
               <select v-model="form.timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
-                <option value="Europe/Kiev">Europe/Kiev</option>
+                <option value="Europe/Kyiv">Europe/Kyiv</option>
                 <option value="Europe/Warsaw">Europe/Warsaw</option>
                 <option value="UTC">UTC</option>
               </select>

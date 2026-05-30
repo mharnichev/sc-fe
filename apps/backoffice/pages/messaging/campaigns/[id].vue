@@ -85,7 +85,7 @@ const retryFailed = async () => {
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Тип</dt><dd class="mt-1 font-medium text-slate-900">{{ campaignTypeLabel(campaign.type) }}</dd></div>
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Автор</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.created_by }}</dd></div>
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Заплановано</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString('uk-UA') : '—' }}</dd></div>
-            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Timezone</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.timezone || 'Europe/Kiev' }}</dd></div>
+            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Timezone</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.timezone || 'Europe/Kyiv' }}</dd></div>
           </dl>
         </div>
         <MessagePreview :body="campaign.message_body || ''" />

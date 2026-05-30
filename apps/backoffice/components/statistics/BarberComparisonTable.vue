@@ -8,6 +8,7 @@ defineProps<{
 }>()
 
 const { formatMoney } = useBookingFormatting()
+const { barberName } = useStatisticsFormatting()
 
 const topServiceName = (row: BarberComparisonItem) =>
   row.popular_services[0]?.service_name || '—'
@@ -50,7 +51,7 @@ const topServiceName = (row: BarberComparisonItem) =>
             :key="row.barber.id"
             :class="selectedBarberId === row.barber.id ? 'bg-cyan-50/70' : ''"
           >
-            <td data-label="Майстер" class="px-4 py-3 font-medium text-slate-900">{{ row.barber.full_name }}</td>
+            <td data-label="Майстер" class="px-4 py-3 font-medium text-slate-900">{{ barberName(row.barber) }}</td>
             <td data-label="Дохід" class="px-4 py-3 text-slate-700">{{ formatMoney(row.revenue) }}</td>
             <td data-label="Записи" class="px-4 py-3 text-slate-700">{{ row.completed_appointments }}</td>
             <td data-label="Клієнти" class="px-4 py-3 text-slate-700">{{ row.unique_clients }}</td>

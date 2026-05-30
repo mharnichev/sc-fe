@@ -37,6 +37,12 @@ const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.st
 const masterImageUrl = (master: Master) =>
   assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url)
 const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
+const masterPositionLabel = (master: Master) =>
+  master.position_uk || ({
+    ambassador: 'Амбасадор',
+    senior_master: 'Старший Майстер',
+    master: 'Майстер',
+  } as Record<string, string>)[master.position || ''] || 'Позицію не вказано'
 
 const openCreateMaster = () => {
   editing.value = null
@@ -168,6 +174,7 @@ const applyFilters = async () => {
             </div>
             <div>
               <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
+              <p class="text-sm text-slate-500">{{ masterPositionLabel(master) }}</p>
               <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
               <p class="text-xs text-slate-500">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
             </div>

@@ -19,7 +19,7 @@ const form = reactive<Partial<CampaignPayload>>({
   status: 'draft',
   message_body: '',
   audience_rules: [{ type: 'all_clients' }],
-  timezone: 'Europe/Kiev',
+  timezone: 'Europe/Kyiv',
   schedule_mode: 'later',
   max_messages_per_minute: 20,
   quiet_hours_enabled: true,
@@ -35,7 +35,7 @@ watch(campaign, value => {
   form.message_body = value.message_body || ''
   form.audience_rules = value.audience_rules || [{ type: 'all_clients' }]
   form.review_link = value.review_link || ''
-  form.timezone = value.timezone || 'Europe/Kiev'
+  form.timezone = value.timezone || 'Europe/Kyiv'
   form.scheduled_at = value.scheduled_at
 }, { immediate: true })
 

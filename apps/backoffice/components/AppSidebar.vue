@@ -50,7 +50,7 @@ const barberShopLinks = computed(() => [
     : []),
   ...(isAdmin.value
     ? [
-        { label: 'Дашборд', to: '/', icon: HomeIcon },
+        { label: 'Дашборд барбершопу', to: '/admin/dashboards/barbershop', icon: HomeIcon },
         { label: 'Статистика', to: '/admin/statistics', icon: ChartBarSquareIcon },
         { label: 'Майстри', to: '/masters', icon: UserGroupIcon },
         { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
@@ -64,6 +64,7 @@ const barberShopLinks = computed(() => [
 const onlineStoreLinks = computed(() => [
   ...(isAdmin.value
     ? [
+        { label: 'Дашборд магазину', to: '/admin/dashboards/store', icon: HomeIcon },
         { label: 'Товари', to: '/products', icon: CubeIcon },
         { label: 'Категорії', to: '/categories', icon: TagIcon },
         { label: 'Бренди', to: '/brands', icon: BuildingStorefrontIcon },

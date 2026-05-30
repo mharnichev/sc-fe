@@ -105,6 +105,16 @@ export interface MasterDto {
   id: number
   name?: string
   full_name?: string
+  last_name?: string | null
+  first_name_uk?: string | null
+  last_name_uk?: string | null
+  first_name_en?: string | null
+  last_name_en?: string | null
+  full_name_uk?: string | null
+  full_name_en?: string | null
+  position?: 'ambassador' | 'senior_master' | 'master' | null
+  position_uk?: string | null
+  position_en?: string | null
   slug?: string
   title?: string
   description: string | null

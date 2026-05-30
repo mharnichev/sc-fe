@@ -15,6 +15,8 @@ const emit = defineEmits<{
   preview: []
 }>()
 
+const { masterName } = useBookingFormatting()
+
 const rule = computed({
   get: () => props.modelValue[0] || { type: 'all_clients' as AudienceRuleType },
   set: value => emit('update:modelValue', [value]),
@@ -67,7 +69,7 @@ const clientIdsText = computed({
         <span class="font-medium text-slate-700">Майстер</span>
         <select class="rounded-2xl border border-slate-300 px-4 py-3" :value="rule.barber_id || ''" @change="updateRule({ barber_id: Number(($event.target as HTMLSelectElement).value) || null })">
           <option value="">Оберіть майстра</option>
-          <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ master.full_name || master.name || `Майстер #${master.id}` }}</option>
+          <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
         </select>
       </label>
 
