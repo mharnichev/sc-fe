@@ -14,8 +14,9 @@ const [{ data: serviceCatalog, pending: servicesPending }, { data: masters, pend
   useAsyncData('home-booking-masters', domain.getMasters),
 ])
 
-const selectedCatalogId = ref<string | null>(null)
-const selectedServiceId = ref<number | null>(null)
+const maxSelectedServices = 3
+const selectedCatalogIds = ref<string[]>([])
+const selectedServiceIds = ref<number[]>([])
 const selectedMasterId = ref<number | null>(null)
 const selectedDate = ref('')
 const selectedSlotStart = ref('')
@@ -86,14 +87,32 @@ const serviceDuration = (service?: SelectableService | null) =>
 const serviceKey = (service: SelectableService) =>
   'catalog_id' in service ? service.catalog_id : String(service.id)
 
+const selectedCatalogItems = computed(() =>
+  (serviceCatalog.value || []).filter(service => selectedCatalogIds.value.includes(service.catalog_id)),
+)
+
+const selectedMasterServiceItems = computed(() =>
+  selectedMasterServices.value.filter(service => selectedServiceIds.value.includes(service.id)),
+)
+
+const selectedServices = computed<SelectableService[]>(() =>
+  selectedMasterServiceItems.value.length ? selectedMasterServiceItems.value : selectedCatalogItems.value,
+)
+
+const selectedServiceCount = computed(() =>
+  selectedMasterServiceItems.value.length || selectedCatalogIds.value.length,
+)
+
+const selectedDurationMinutes = computed(() =>
+  selectedServices.value.reduce((total, service) => total + Number(service.duration_minutes || 0), 0),
+)
+
 const serviceSelected = (service: SelectableService) =>
   'catalog_id' in service
-    ? selectedCatalogId.value === service.catalog_id
-    : selectedServiceId.value === service.id
+    ? selectedCatalogIds.value.includes(service.catalog_id)
+    : selectedServiceIds.value.includes(service.id)
 
-const serviceCatalogItem = computed(() =>
-  (serviceCatalog.value || []).find(service => service.catalog_id === selectedCatalogId.value) || null,
-)
+const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
 
 const masterName = (master?: MasterDto | null) =>
   master?.full_name || master?.name || (master?.id ? `Master #${master.id}` : '')
@@ -101,21 +120,15 @@ const masterName = (master?: MasterDto | null) =>
 const masterPhoto = (master?: MasterDto | null) =>
   assetUrl(master?.photo || master?.photo_url) || 'https://placehold.co/640x480'
 
-const selectedService = computed<SelectableService | null>(() => {
-  if (selectedServiceId.value) {
-    const masterService = selectedMasterServices.value.find(service => service.id === selectedServiceId.value)
-    if (masterService) return masterService
-  }
-  return serviceCatalogItem.value
-})
-
 const availableMasters = computed(() => {
   const list = (masters.value || []).filter(master => master.is_active ?? master.status !== 'inactive')
-  if (!serviceCatalogItem.value) return list
+  if (!selectedCatalogItems.value.length) return list
 
   return list.filter((master) => {
     if (!Array.isArray(master.services)) return false
-    return serviceCatalogItem.value?.barber_services.some(service => service.barber_id === master.id) || false
+    return selectedCatalogItems.value.every(catalogItem =>
+      catalogItem.barber_services.some(service => service.barber_id === master.id),
+    )
   })
 })
 
@@ -123,7 +136,7 @@ const selectedMaster = computed(() =>
   availableMasters.value.find(master => master.id === selectedMasterId.value) || null,
 )
 
-watch(selectedServiceId, () => {
+watch(selectedCatalogIds, () => {
   if (
     selectedMasterId.value
     && !availableMasters.value.some(master => master.id === selectedMasterId.value)
@@ -135,18 +148,16 @@ watch(selectedServiceId, () => {
 const resolveSelectedServiceForMaster = () => {
   if (!selectedMasterId.value) return
 
-  if (selectedCatalogId.value) {
-    const matchedService = serviceCatalogItem.value?.barber_services.find(service => service.barber_id === selectedMasterId.value)
-    selectedServiceId.value = matchedService?.id || null
+  if (selectedCatalogIds.value.length) {
+    selectedServiceIds.value = selectedCatalogItems.value
+      .map(service => service.barber_services.find(item => item.barber_id === selectedMasterId.value)?.id)
+      .filter((id): id is number => Boolean(id))
     return
   }
 
-  if (
-    selectedServiceId.value
-    && !selectedMasterServices.value.some(service => service.id === selectedServiceId.value)
-  ) {
-    selectedServiceId.value = null
-  }
+  selectedServiceIds.value = selectedServiceIds.value.filter(serviceId =>
+    selectedMasterServices.value.some(service => service.id === serviceId),
+  )
 }
 
 const shouldAutoScrollBooking = () =>
@@ -168,19 +179,22 @@ const scrollToBookingStart = async () => {
 }
 
 const selectCatalogService = (catalogId: string) => {
-  selectedCatalogId.value = catalogId
-  selectedServiceId.value = null
+  if (selectedCatalogIds.value.includes(catalogId)) {
+    selectedCatalogIds.value = selectedCatalogIds.value.filter(id => id !== catalogId)
+  }
+  else if (!serviceSelectionLimitReached.value) {
+    selectedCatalogIds.value = [...selectedCatalogIds.value, catalogId]
+  }
+  selectedServiceIds.value = []
 
   if (
     selectedMasterId.value
-    && !serviceCatalogItem.value?.barber_services.some(service => service.barber_id === selectedMasterId.value)
+    && !availableMasters.value.some(master => master.id === selectedMasterId.value)
   ) {
     selectedMasterId.value = null
   }
 
   resolveSelectedServiceForMaster()
-  goToStep(1)
-  void scrollToBookingStart()
 }
 
 const selectService = (service: SelectableService) => {
@@ -188,15 +202,19 @@ const selectService = (service: SelectableService) => {
     selectCatalogService(service.catalog_id)
   }
   else {
-    selectedCatalogId.value = null
-    selectedServiceId.value = service.id
-    goToStep(1)
-    void scrollToBookingStart()
+    selectedCatalogIds.value = []
+    if (selectedServiceIds.value.includes(service.id)) {
+      selectedServiceIds.value = selectedServiceIds.value.filter(id => id !== service.id)
+    }
+    else if (!serviceSelectionLimitReached.value) {
+      selectedServiceIds.value = [...selectedServiceIds.value, service.id]
+    }
   }
 }
 
 const selectMaster = (masterId: number) => {
   selectedMasterId.value = masterId
+  resolveSelectedServiceForMaster()
   goToStep(2)
   void scrollToBookingStart()
 }
@@ -224,7 +242,7 @@ onBeforeUnmount(() => {
 
 watch(selectedMasterId, resolveSelectedServiceForMaster)
 
-watch([selectedServiceId, selectedMasterId, selectedDate], () => {
+watch([selectedServiceIds, selectedCatalogIds, selectedMasterId, selectedDate], () => {
   selectedSlotStart.value = ''
   if (!isResettingAfterSubmit.value) {
     state.success = ''
@@ -235,8 +253,8 @@ watch([selectedServiceId, selectedMasterId, selectedDate], () => {
 const isSelectedDateClosed = computed(() => isMondayDateInput(selectedDate.value))
 
 const slotsKey = computed(() =>
-  selectedServiceId.value && selectedMasterId.value && selectedDate.value && !isSelectedDateClosed.value
-    ? `home-booking-slots-${selectedMasterId.value}-${selectedServiceId.value}-${selectedDate.value}`
+  selectedServiceIds.value.length && selectedMasterId.value && selectedDate.value && !isSelectedDateClosed.value
+    ? `home-booking-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
     : 'home-booking-slots-empty',
 )
 
@@ -248,14 +266,14 @@ const {
 } = await useAsyncData(
   slotsKey,
   () => {
-    if (!selectedMasterId.value || !selectedServiceId.value || !selectedDate.value || isSelectedDateClosed.value) {
+    if (!selectedMasterId.value || !selectedServiceIds.value.length || !selectedDate.value || isSelectedDateClosed.value) {
       return Promise.resolve([])
     }
 
-    return domain.getAvailableSlots(selectedMasterId.value, selectedServiceId.value, selectedDate.value)
+    return domain.getAvailableSlots(selectedMasterId.value, selectedServiceIds.value, selectedDate.value, selectedDurationMinutes.value)
   },
   {
-    watch: [selectedServiceId, selectedMasterId, selectedDate],
+    watch: [selectedServiceIds, selectedMasterId, selectedDate],
     default: () => [],
   },
 )
@@ -285,7 +303,7 @@ const selectedSlot = computed(() =>
   visibleSlots.value.find(slot => slot.start_at === selectedSlotStart.value) || null,
 )
 
-const isServiceComplete = computed(() => Boolean(selectedService.value))
+const isServiceComplete = computed(() => selectedServiceCount.value > 0)
 const isMasterComplete = computed(() => Boolean(selectedMaster.value))
 const isTimeComplete = computed(() => Boolean(selectedDate.value && !isSelectedDateClosed.value && selectedSlot.value))
 const isContactComplete = computed(() =>
@@ -341,8 +359,8 @@ const handleTextInput = (
 
 const resetBookingFlow = async () => {
   isResettingAfterSubmit.value = true
-  selectedCatalogId.value = null
-  selectedServiceId.value = null
+  selectedCatalogIds.value = []
+  selectedServiceIds.value = []
   selectedMasterId.value = null
   selectedDate.value = today
   selectedSlotStart.value = ''
@@ -367,7 +385,7 @@ const errorMessage = (error: unknown) => {
 const submit = async () => {
   submitAttempted.value = true
 
-  if (!canSubmit.value || !selectedMasterId.value || !selectedServiceId.value || !selectedSlotStart.value) {
+  if (!canSubmit.value || !selectedMasterId.value || !selectedServiceIds.value.length || !selectedSlotStart.value) {
     goToStep(firstIncompleteStepIndex.value)
     return
   }
@@ -382,7 +400,9 @@ const submit = async () => {
 
     await domain.createBooking({
       master_id: selectedMasterId.value,
-      service_id: selectedServiceId.value,
+      service_id: selectedServiceIds.value[0],
+      service_ids: selectedServiceIds.value,
+      duration_minutes: selectedDurationMinutes.value,
       customer_name: sanitizeFormText(form.customer_name, FORM_FIELD_LIMITS.fullName),
       customer_phone: formatPhoneForSubmit(form.customer_phone),
       customer_comment: sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment, { multiline: true }) || null,
@@ -492,24 +512,48 @@ const closeSuccess = () => {
                       v-for="service in activeServices"
                       :key="serviceKey(service)"
                       type="button"
-                      class="flex min-h-28 w-full flex-col justify-between border p-3 text-left transition hover:border-white/50 hover:text-white sm:min-h-40 sm:p-4"
-                      :class="serviceSelected(service) ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/72'"
+                      class="booking-service__item relative isolate flex min-h-28 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-3 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-40 sm:p-4"
+                      :class="[
+                        serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
+                        serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
+                      ]"
+                      :disabled="serviceSelectionLimitReached && !serviceSelected(service)"
+                      :aria-pressed="serviceSelected(service)"
                       @click="selectService(service)"
                     >
-                      <span>
+                      <Transition name="booking-service-scribble" :duration="{ enter: 560, leave: 410 }">
+                        <svg
+                          v-if="serviceSelected(service)"
+                          class="booking-service__selected-scribble"
+                          viewBox="0 0 420 170"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            class="booking-service__selected-scribble-path"
+                            d="M20 88 C14 24 94 10 205 13 C330 16 404 35 410 83 C416 133 316 157 198 153 C79 149 12 128 20 88 Z"
+                          />
+                          <path
+                            class="booking-service__selected-scribble-path booking-service__selected-scribble-path--second"
+                            d="M25 93 C8 39 89 18 196 17 C318 15 397 30 407 78 C420 132 321 162 202 157 C80 152 15 132 25 93 Z"
+                          />
+                        </svg>
+                      </Transition>
+                      <span class="relative z-10">
                         <span class="block text-base font-semibold leading-snug sm:text-lg">{{ serviceName(service) }}</span>
+                        <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
                         <span
                           class="mt-1 block line-clamp-2 text-xs leading-5 sm:mt-1.5 sm:text-sm sm:leading-6 md:mt-2"
-                          :class="serviceSelected(service) ? 'text-neutral-600' : 'text-white/55'"
+                          :class="serviceSelected(service) ? 'text-white/70' : 'text-white/55'"
                         >
                           {{ serviceDescription(service) }}
                         </span>
                       </span>
                       <span
-                        class="mt-3 flex items-center justify-between gap-3 text-xs sm:mt-5 sm:gap-4 sm:text-sm"
-                        :class="serviceSelected(service) ? 'text-neutral-700' : 'text-white/75'"
+                        class="relative z-10 mt-3 flex items-center justify-between gap-3 text-xs sm:mt-5 sm:gap-4 sm:text-sm"
+                        :class="serviceSelected(service) ? 'text-white/80' : 'text-white/75'"
                       >
-                        <span class="block font-semibold" :class="serviceSelected(service) ? 'text-neutral-950' : 'text-white'">{{ servicePrice(service) }}</span>
+                        <span class="block font-semibold text-white">{{ servicePrice(service) }}</span>
                         <span class="block">{{ serviceDuration(service) }}</span>
                       </span>
                     </button>
@@ -577,7 +621,7 @@ const closeSuccess = () => {
                     </p>
                     <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">Шукаємо вільні слоти...</p>
                     <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">Не вдалося завантажити слоти.</p>
-                    <p v-else-if="selectedMasterId && selectedServiceId && !visibleSlots.length" class="mt-4 text-sm text-white/55">
+                    <p v-else-if="selectedMasterId && selectedServiceIds.length && !visibleSlots.length" class="mt-4 text-sm text-white/55">
                       На цю дату немає вільного часу.
                     </p>
                   </div>
@@ -684,3 +728,80 @@ const closeSuccess = () => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.booking-service__selected-scribble {
+  pointer-events: none;
+  position: absolute;
+  inset: -8px -12px;
+  z-index: 2;
+  width: calc(100% + 24px);
+  height: calc(100% + 16px);
+  overflow: visible;
+}
+
+.booking-service__selected-scribble-path {
+  --path-length: 980;
+  fill: none;
+  stroke: #c01818;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: var(--path-length);
+  stroke-dashoffset: 0;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 2px rgb(192 24 24 / 0.35));
+}
+
+.booking-service__selected-scribble-path--second {
+  stroke-width: 2;
+  opacity: 0.75;
+}
+
+.booking-service-scribble-enter-from .booking-service__selected-scribble-path {
+  stroke-dashoffset: var(--path-length);
+}
+
+.booking-service-scribble-enter-active .booking-service__selected-scribble-path {
+  animation: booking-service-scribble-draw 420ms cubic-bezier(0.58, 0.02, 0.26, 1) both;
+}
+
+.booking-service-scribble-enter-active .booking-service__selected-scribble-path--second {
+  animation-delay: 90ms;
+}
+
+.booking-service-scribble-leave-active .booking-service__selected-scribble-path {
+  animation: booking-service-scribble-erase 320ms cubic-bezier(0.6, 0, 0.4, 1) both;
+}
+
+.booking-service-scribble-leave-active .booking-service__selected-scribble-path--second {
+  animation-delay: 45ms;
+}
+
+@keyframes booking-service-scribble-draw {
+  from {
+    stroke-dashoffset: var(--path-length);
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes booking-service-scribble-erase {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: var(--path-length);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-service__selected-scribble-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+</style>

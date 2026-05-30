@@ -9,6 +9,7 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   UserGroupIcon,
+  ChatBubbleLeftRightIcon,
   SparklesIcon,
   ChartBarSquareIcon,
   ArrowRightOnRectangleIcon,
@@ -55,6 +56,7 @@ const barberShopLinks = computed(() => [
         { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
         { label: 'Блокування часу', to: '/time-blocks', icon: ClockIcon },
         { label: 'Клієнти', to: '/customers', icon: UsersIcon },
+        { label: 'Повідомлення', to: '/messaging', icon: ChatBubbleLeftRightIcon },
       ]
     : []),
 ])

@@ -4,6 +4,9 @@ export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
   const auth = useAuthStore()
 
   const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
+  const canSendMessagingCampaigns = computed(() => isAdmin.value)
+  const canCreateMessagingDrafts = computed(() => isAdmin.value)
+  const canViewMessagingAnalytics = computed(() => isAdmin.value)
 
   const linkedMaster = computed(() => {
     if (!auth.user || !masters?.value.length) return null
@@ -24,6 +27,9 @@ export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
   return {
     isAdmin,
     isBarber,
+    canSendMessagingCampaigns,
+    canCreateMessagingDrafts,
+    canViewMessagingAnalytics,
     linkedMaster,
     roleLabel,
     canManageBooking,

@@ -1,3 +1,17 @@
+import type {
+  AudienceEstimate,
+  AudienceRule,
+  CampaignPayload,
+  CustomerCommunicationProfile,
+  MessageTemplate,
+  MessageTemplatePayload,
+  MessagingCampaign,
+  MessagingDashboard,
+  MessagingSettings,
+  RecipientPreview,
+  SendLog,
+} from '~/types/messaging'
+
 export interface TokenResponse {
   access_token: string
   token_type: string
@@ -466,6 +480,152 @@ export const useBackofficeApi = () => {
   const api = useApi()
   const config = useRuntimeConfig()
   const normalizePageSize = (pageSize: number) => Math.min(Math.max(pageSize, 1), 100)
+  const campaignPurpose = (type?: string) => type === 'post_visit_review_request' ? 'review_request' : 'marketing'
+
+  const toBackendAudience = (rules: AudienceRule[] = []) => {
+    const audience: Record<string, unknown> = {
+      all_clients: false,
+      barber_ids: [],
+      service_ids: [],
+    }
+    for (const rule of rules) {
+      if (rule.type === 'all_clients') audience.all_clients = true
+      if (rule.type === 'selected_barber' && rule.barber_id) (audience.barber_ids as number[]).push(rule.barber_id)
+      if (rule.type === 'selected_service' && rule.service_id) (audience.service_ids as number[]).push(rule.service_id)
+      if (rule.type === 'visited_date_range') {
+        if (rule.date_from) audience.visited_from = rule.date_from
+        if (rule.date_to) audience.visited_to = rule.date_to
+      }
+      if (rule.type === 'inactive_clients' && rule.inactive_days) audience.inactive_days = rule.inactive_days
+      if (rule.type === 'first_time_clients') audience.first_time_clients = true
+      if (rule.type === 'vip_clients') audience.vip_clients = true
+      if (rule.type === 'birthday_this_month') audience.birthday_month = new Date().getMonth() + 1
+    }
+    if (
+      !audience.all_clients
+      && !(audience.barber_ids as number[]).length
+      && !(audience.service_ids as number[]).length
+      && !audience.visited_from
+      && !audience.visited_to
+      && !audience.inactive_days
+      && !audience.first_time_clients
+      && !audience.vip_clients
+      && !audience.birthday_month
+    ) {
+      audience.all_clients = true
+    }
+    return audience
+  }
+
+  const fromBackendAudience = (audience?: Record<string, any> | null): AudienceRule[] => {
+    if (!audience) return [{ type: 'all_clients' }]
+    const rules: AudienceRule[] = []
+    if (audience.all_clients) rules.push({ type: 'all_clients' })
+    for (const barberId of audience.barber_ids || []) rules.push({ type: 'selected_barber', barber_id: Number(barberId) })
+    for (const serviceId of audience.service_ids || []) rules.push({ type: 'selected_service', service_id: Number(serviceId) })
+    if (audience.visited_from || audience.visited_to) rules.push({ type: 'visited_date_range', date_from: audience.visited_from || null, date_to: audience.visited_to || null })
+    if (audience.inactive_days) rules.push({ type: 'inactive_clients', inactive_days: Number(audience.inactive_days) })
+    if (audience.first_time_clients) rules.push({ type: 'first_time_clients' })
+    if (audience.vip_clients) rules.push({ type: 'vip_clients' })
+    if (audience.birthday_month) rules.push({ type: 'birthday_this_month' })
+    return rules.length ? rules : [{ type: 'all_clients' }]
+  }
+
+  const normalizeTemplate = (template: any): MessageTemplate => ({
+    id: template.id,
+    name: template.name,
+    campaign_type: template.campaign_type || template.metadata_json?.campaign_type || 'manual',
+    channel: template.channel || 'telegram',
+    language: template.language || 'uk',
+    message_body: template.message_body || template.body || '',
+    variables: template.variables || [],
+    is_active: template.is_active ?? true,
+    is_default: template.is_default ?? false,
+    created_at: template.created_at || null,
+    updated_at: template.updated_at || null,
+  })
+
+  const templatePayload = (payload: Partial<MessageTemplatePayload>) => ({
+    name: payload.name,
+    channel: payload.channel || 'telegram',
+    language: payload.language || 'uk',
+    body: payload.message_body,
+    is_active: payload.is_active ?? true,
+  })
+
+  const normalizeCampaign = (campaign: any): MessagingCampaign => {
+    const metadata = campaign.metadata_json || {}
+    const messageBody = campaign.message_body || campaign.template_body || metadata.message_body || ''
+    const audienceRules = campaign.audience_rules || metadata.audience_rules || fromBackendAudience(campaign.audience)
+    const sent = campaign.sent_count || campaign.metrics?.sent || 0
+    const failed = campaign.failed_count || campaign.metrics?.failed || 0
+    const audienceSize = campaign.audience_size || campaign.metrics?.total_recipients || 0
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      type: campaign.type,
+      channel: campaign.channel || 'telegram',
+      status: campaign.status,
+      audience_size: audienceSize,
+      sent_count: sent,
+      failed_count: failed,
+      scheduled_at: campaign.scheduled_at || null,
+      created_by: campaign.created_by || 'Soul Cuts',
+      created_at: campaign.created_at,
+      updated_at: campaign.updated_at || null,
+      message_body: messageBody,
+      audience_rules: audienceRules,
+      audience_estimate: campaign.audience_estimate || null,
+      metrics: campaign.metrics || {
+        total_recipients: audienceSize,
+        sent,
+        failed,
+        skipped: 0,
+        delivery_rate: audienceSize ? Math.round((sent / audienceSize) * 100) : 0,
+      },
+      review_link: campaign.review_link || campaign.review_url || null,
+      timezone: campaign.timezone || 'Europe/Kyiv',
+    }
+  }
+
+  const normalizeCampaignPage = (page: PaginatedResponse<any>): PaginatedResponse<MessagingCampaign> => ({
+    ...page,
+    items: page.items.map(normalizeCampaign),
+  })
+
+  const normalizeTemplatePage = (page: PaginatedResponse<any>): PaginatedResponse<MessageTemplate> => ({
+    ...page,
+    items: page.items.map(normalizeTemplate),
+  })
+
+  const campaignPayload = (payload: Partial<CampaignPayload>, templateId?: number | string | null) => ({
+    name: payload.name,
+    type: payload.type,
+    status: payload.status || 'draft',
+    channel: payload.channel || 'telegram',
+    purpose: campaignPurpose(payload.type),
+    template_id: templateId ?? payload.template_id ?? null,
+    scheduled_at: payload.schedule_mode === 'later' ? payload.scheduled_at || null : null,
+    timezone: payload.timezone || 'Europe/Kyiv',
+    review_delay_minutes: payload.automation_delay ? Number.parseInt(payload.automation_delay, 10) || null : null,
+    follow_up_delay_days: payload.follow_up_after_days || null,
+    review_platform: payload.review_platform || null,
+    review_url: payload.review_link || null,
+    discount_code: payload.promo_code || null,
+    metadata_json: {
+      message_body: payload.message_body,
+      language_versions: payload.language_versions,
+      audience_rules: payload.audience_rules || [],
+      inline_button_text: payload.inline_button_text,
+      schedule_mode: payload.schedule_mode,
+      max_messages_per_minute: payload.max_messages_per_minute,
+      quiet_hours_enabled: payload.quiet_hours_enabled,
+      quiet_hours_from: payload.quiet_hours_from,
+      quiet_hours_to: payload.quiet_hours_to,
+      duplicate_protection_days: payload.duplicate_protection_days,
+    },
+    audience: toBackendAudience(payload.audience_rules || []),
+  })
 
   const login = (email: string, password: string) =>
     $fetch<TokenResponse>('/backoffice/auth/login', {
@@ -892,6 +1052,193 @@ export const useBackofficeApi = () => {
       method: 'DELETE',
     })
 
+  const getMessagingDashboard = () =>
+    api<MessagingDashboard>('/backoffice/messaging/dashboard')
+
+  const getMessagingCampaigns = (
+    page = 1,
+    pageSize = 20,
+    filters: {
+      status?: string
+      type?: string
+      channel?: string
+      date_from?: string
+      date_to?: string
+      barber_id?: number | null
+    } = {},
+  ) => {
+    const backendStatus = ['draft', 'active', 'paused', 'completed', 'archived'].includes(filters.status || '') ? filters.status : undefined
+    return api<PaginatedResponse<any>>('/backoffice/messaging/campaigns', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        status: backendStatus,
+        type: filters.type || undefined,
+        channel: filters.channel || undefined,
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        barber_id: filters.barber_id ?? undefined,
+      },
+    }).then(normalizeCampaignPage)
+  }
+
+  const getMessagingCampaign = (campaignId: number | string) =>
+    api<any>(`/backoffice/messaging/campaigns/${campaignId}`).then(normalizeCampaign)
+
+  const ensureCampaignTemplate = async (payload: Partial<CampaignPayload>) => {
+    if (payload.template_id || !payload.message_body) return payload.template_id || null
+    const template = await createMessageTemplate({
+      name: `${payload.name || 'Campaign'} template ${Date.now()}`,
+      campaign_type: payload.type || 'manual',
+      channel: payload.channel || 'telegram',
+      language: 'uk',
+      message_body: payload.message_body,
+      variables: [],
+      is_active: true,
+      is_default: false,
+    })
+    return template.id
+  }
+
+  const createMessagingCampaign = async (payload: CampaignPayload) => {
+    const templateId = await ensureCampaignTemplate(payload)
+    return api<any>('/backoffice/messaging/campaigns', {
+      method: 'POST',
+      body: campaignPayload(payload, templateId),
+    }).then(normalizeCampaign)
+  }
+
+  const updateMessagingCampaign = async (campaignId: number | string, payload: Partial<CampaignPayload>) => {
+    const templateId = await ensureCampaignTemplate(payload)
+    return api<any>(`/backoffice/messaging/campaigns/${campaignId}`, {
+      method: 'PUT',
+      body: campaignPayload(payload, templateId),
+    }).then(normalizeCampaign)
+  }
+
+  const duplicateMessagingCampaign = (campaignId: number | string) =>
+    api<any>(`/backoffice/messaging/campaigns/${campaignId}/duplicate`, {
+      method: 'POST',
+    }).then(normalizeCampaign)
+
+  const updateMessagingCampaignStatus = (campaignId: number | string, status: string) =>
+    api<any>(`/backoffice/messaging/campaigns/${campaignId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    }).then(normalizeCampaign)
+
+  const deleteMessagingCampaign = (campaignId: number | string) =>
+    api(`/backoffice/messaging/campaigns/${campaignId}`, {
+      method: 'DELETE',
+    })
+
+  const sendMessagingCampaignTest = (campaignId: number | string, recipient?: string | null) =>
+    api(`/backoffice/messaging/campaigns/${campaignId}/send-test`, {
+      method: 'POST',
+      body: { recipient },
+    })
+
+  const retryMessagingCampaignFailed = (campaignId: number | string) =>
+    api(`/backoffice/messaging/campaigns/${campaignId}/retry-failed`, {
+      method: 'POST',
+    })
+
+  const estimateMessagingAudience = (rules: AudienceRule[]) =>
+    api<AudienceEstimate>('/backoffice/messaging/audience/estimate', {
+      method: 'POST',
+      body: { rules },
+    })
+
+  const previewMessagingRecipients = (rules: AudienceRule[], limit = 50) =>
+    api<RecipientPreview[]>('/backoffice/messaging/audience/preview', {
+      method: 'POST',
+      body: { rules, limit },
+    })
+
+  const getMessageTemplates = (
+    page = 1,
+    pageSize = 20,
+    filters: { search?: string, campaign_type?: string, channel?: string, language?: string, is_active?: boolean | null } = {},
+  ) =>
+    api<PaginatedResponse<any>>('/backoffice/messaging/templates', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        campaign_type: filters.campaign_type || undefined,
+        channel: filters.channel || undefined,
+        language: filters.language || undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    }).then(normalizeTemplatePage)
+
+  const createMessageTemplate = (payload: MessageTemplatePayload) =>
+    api<any>('/backoffice/messaging/templates', {
+      method: 'POST',
+      body: templatePayload(payload),
+    }).then(normalizeTemplate)
+
+  const updateMessageTemplate = (templateId: number | string, payload: Partial<MessageTemplatePayload>) =>
+    api<any>(`/backoffice/messaging/templates/${templateId}`, {
+      method: 'PUT',
+      body: templatePayload(payload),
+    }).then(normalizeTemplate)
+
+  const duplicateMessageTemplate = (templateId: number | string) =>
+    api<any>(`/backoffice/messaging/templates/${templateId}/duplicate`, {
+      method: 'POST',
+    }).then(normalizeTemplate)
+
+  const deleteMessageTemplate = (templateId: number | string) =>
+    api(`/backoffice/messaging/templates/${templateId}`, {
+      method: 'DELETE',
+    })
+
+  const getMessagingCampaignLogs = (campaignId: number | string, page = 1, pageSize = 50) =>
+    api<PaginatedResponse<any>>(`/backoffice/messaging/campaigns/${campaignId}/logs`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    }).then(page => ({
+      ...page,
+      items: page.items.map(log => ({
+        id: log.id,
+        client_id: log.customer_id,
+        client_name: `Client #${log.customer_id}`,
+        phone: '',
+        telegram_status: log.status,
+        sent_at: log.created_at || null,
+        failure_reason: log.error_reason,
+      })),
+    }))
+
+  const getCustomerCommunication = (customerId: number | string) =>
+    api<CustomerCommunicationProfile>(`/backoffice/messaging/customers/${customerId}/preferences`)
+
+  const sendCustomerManualMessage = (customerId: number | string, body: string) =>
+    api(`/backoffice/messaging/customers/${customerId}/messages`, {
+      method: 'POST',
+      body: { body, channel: 'telegram' },
+    })
+
+  const updateCustomerCommunication = (customerId: number | string, payload: Partial<CustomerCommunicationProfile>) =>
+    api<CustomerCommunicationProfile>(`/backoffice/messaging/customers/${customerId}/preferences`, {
+      method: 'PATCH',
+      body: {
+        telegram_chat_id: payload.telegram_chat_id,
+        preferred_language: payload.preferred_language,
+        marketing_consent: payload.marketing_consent ? 'opted_in' : payload.opt_out ? 'opted_out' : undefined,
+        do_not_contact: payload.opt_out,
+      },
+    })
+
+  const getMessagingSettings = () =>
+    api<MessagingSettings>('/backoffice/messaging/settings')
+
+  const updateMessagingSettings = (payload: Partial<MessagingSettings>) =>
+    api<MessagingSettings>('/backoffice/messaging/settings', {
+      method: 'PATCH',
+      body: payload,
+    })
+
   return {
     login,
     me,
@@ -951,5 +1298,28 @@ export const useBackofficeApi = () => {
     adminGetTimeBlocks,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,
+    getMessagingDashboard,
+    getMessagingCampaigns,
+    getMessagingCampaign,
+    createMessagingCampaign,
+    updateMessagingCampaign,
+    duplicateMessagingCampaign,
+    updateMessagingCampaignStatus,
+    deleteMessagingCampaign,
+    sendMessagingCampaignTest,
+    retryMessagingCampaignFailed,
+    estimateMessagingAudience,
+    previewMessagingRecipients,
+    getMessageTemplates,
+    createMessageTemplate,
+    updateMessageTemplate,
+    duplicateMessageTemplate,
+    deleteMessageTemplate,
+    getMessagingCampaignLogs,
+    getCustomerCommunication,
+    sendCustomerManualMessage,
+    updateCustomerCommunication,
+    getMessagingSettings,
+    updateMessagingSettings,
   }
 }

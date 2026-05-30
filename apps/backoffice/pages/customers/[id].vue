@@ -44,6 +44,7 @@ const fullName = computed(() => {
 })
 
 const topServices = computed(() => stats.value?.most_used_services || [])
+const { isAdmin } = useBackofficeAccess()
 </script>
 
 <template>
@@ -170,6 +171,8 @@ const topServices = computed(() => stats.value?.most_used_services || [])
         </div>
       </section>
     </div>
+
+    <ClientCommunicationPanel v-if="isAdmin" :customer-id="customer.id" />
 
     <div class="grid gap-6 xl:grid-cols-2">
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">

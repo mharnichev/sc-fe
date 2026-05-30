@@ -32,6 +32,5 @@ useSeo(
     <FAQSection />
     <FeedbackSection />
     <IdemNaBukviMarquee />
-    <CTASection />
   </div>
 </template>
