@@ -502,6 +502,7 @@ export interface BookingFilters {
 export const useBackofficeApi = () => {
   const api = useApi()
   const config = useRuntimeConfig()
+  const apiBase = typeof config.public.apiBase === 'string' ? config.public.apiBase : ''
   const normalizePageSize = (pageSize: number) => Math.min(Math.max(pageSize, 1), 100)
   const normalizeDeliveryRate = (value: number | null | undefined) => {
     const rate = Number(value || 0)
@@ -656,7 +657,7 @@ export const useBackofficeApi = () => {
 
   const login = (email: string, password: string) =>
     $fetch<TokenResponse>('/backoffice/auth/login', {
-      baseURL: config.public.apiBase,
+      baseURL: apiBase,
       method: 'POST',
       body: new URLSearchParams({
         username: email,

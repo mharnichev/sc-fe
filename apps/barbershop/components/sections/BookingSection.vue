@@ -114,44 +114,58 @@ const serviceSelected = (service: SelectableService) =>
 
 const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
 
-const joinNameParts = (first?: string | null, last?: string | null) =>
-  [first, last].filter(Boolean).join(' ')
-
 const hasCyrillic = (value?: string | null) => Boolean(value && /[А-Яа-яЁёІіЇїЄєҐґ]/.test(value))
 const hasLatin = (value?: string | null) => Boolean(value && /[A-Za-z]/.test(value))
 const isCleanEnglishText = (value?: string | null) => Boolean(value && !hasCyrillic(value))
 const isCleanUkrainianText = (value?: string | null) => Boolean(value && !hasLatin(value))
 
-const localizedNameParts = (first: string | null | undefined, last: string | null | undefined, language: 'uk' | 'en') =>
-  [first, last]
-    .filter(part => language === 'en' ? isCleanEnglishText(part) : isCleanUkrainianText(part))
-    .join(' ')
+const firstNameFrom = (value?: string | null) =>
+  value?.trim().split(/\s+/)[0] || ''
+
+const localizedFirstName = (value: string | null | undefined, language: 'uk' | 'en') => {
+  const firstName = firstNameFrom(value)
+
+  if (!firstName) return ''
+
+  return language === 'en'
+    ? isCleanEnglishText(firstName) ? firstName : ''
+    : isCleanUkrainianText(firstName) ? firstName : ''
+}
 
 const masterName = (master?: MasterDto | null) => {
   if (!master) return ''
 
-  const ukName = localizedNameParts(master.first_name_uk, master.last_name_uk, 'uk')
-    || joinNameParts(master.first_name_uk, master.last_name_uk)
-  const enName = localizedNameParts(master.first_name_en, master.last_name_en, 'en')
-    || joinNameParts(master.first_name_en, master.last_name_en)
-
   if (locale.value === 'en') {
-    return (isCleanEnglishText(master.full_name_en) ? master.full_name_en : '')
-      || enName
-      || (isCleanEnglishText(master.full_name) ? master.full_name : '')
-      || (isCleanEnglishText(master.full_name_uk) ? master.full_name_uk : '')
-      || ukName
-      || master.name
+    return localizedFirstName(master.first_name_en, 'en')
+      || localizedFirstName(master.full_name_en, 'en')
+      || localizedFirstName(master.full_name, 'en')
+      || localizedFirstName(master.first_name_uk, 'en')
+      || localizedFirstName(master.full_name_uk, 'en')
+      || firstNameFrom(master.first_name_en)
+      || firstNameFrom(master.full_name_en)
+      || firstNameFrom(master.full_name)
+      || firstNameFrom(master.name)
       || `Master #${master.id}`
   }
 
-  return (isCleanUkrainianText(master.full_name_uk) ? master.full_name_uk : '')
-    || ukName
-    || (isCleanUkrainianText(master.full_name) ? master.full_name : '')
-    || (isCleanUkrainianText(master.full_name_en) ? master.full_name_en : '')
-    || enName
-    || master.name
+  return localizedFirstName(master.first_name_uk, 'uk')
+    || localizedFirstName(master.full_name_uk, 'uk')
+    || localizedFirstName(master.full_name, 'uk')
+    || localizedFirstName(master.first_name_en, 'uk')
+    || localizedFirstName(master.full_name_en, 'uk')
+    || firstNameFrom(master.first_name_uk)
+    || firstNameFrom(master.full_name_uk)
+    || firstNameFrom(master.full_name)
+    || firstNameFrom(master.name)
     || `Master #${master.id}`
+}
+
+const masterPosition = (master?: MasterDto | null) => {
+  if (!master) return terms.value.home.team.defaultRole
+
+  return locale.value === 'en'
+    ? master.position_en || master.title_en || master.title || master.position_uk || terms.value.home.team.defaultRole
+    : master.position_uk || master.title_uk || master.title || master.position_en || terms.value.home.team.defaultRole
 }
 
 const masterPhoto = (master?: MasterDto | null) =>
@@ -626,7 +640,7 @@ const closeSuccess = () => {
                       <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover object-top">
                       <span class="self-center">
                         <span class="block text-sm font-semibold">{{ masterName(master) }}</span>
-                        <span class="mt-1 block text-xs leading-5 opacity-70">{{ master.description || master.title }}</span>
+                        <span class="mt-1 block text-xs leading-5 opacity-70">{{ masterPosition(master) }}</span>
                       </span>
                     </button>
                     <p v-if="mastersPending" class="text-sm text-white/55">Завантажуємо майстрів...</p>

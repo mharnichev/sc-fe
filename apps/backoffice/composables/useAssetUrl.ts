@@ -2,8 +2,9 @@ import { resolveApiAssetUrl, type ApiAssetValue } from '../../../packages/shared
 
 export const useAssetUrl = () => {
   const config = useRuntimeConfig()
+  const apiBase = typeof config.public.apiBase === 'string' ? config.public.apiBase : ''
   const clientOrigin = import.meta.client ? window.location.origin : ''
 
   return (value: ApiAssetValue) =>
-    resolveApiAssetUrl(value, config.public.apiBase, clientOrigin)
+    resolveApiAssetUrl(value, apiBase, clientOrigin)
 }
