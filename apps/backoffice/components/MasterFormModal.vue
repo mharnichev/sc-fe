@@ -1,6 +1,25 @@
 <script setup lang="ts">
-import { ArrowsPointingOutIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import type { Master, MasterFormPayload, MasterPayload, MasterPosition, UploadAsset } from '~/composables/useBackofficeApi'
+import {
+  ArrowPathIcon,
+  ArrowsPointingOutIcon,
+  BriefcaseIcon,
+  CheckCircleIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  IdentificationIcon,
+  InformationCircleIcon,
+  KeyIcon,
+  LanguageIcon,
+  PencilSquareIcon,
+  PhoneIcon,
+  PhotoIcon,
+  PlusIcon,
+  UserCircleIcon,
+  UserIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline'
+import type { Master, MasterFormPayload, MasterPayload, MasterPosition } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
   modelValue: boolean
@@ -28,8 +47,8 @@ const form = reactive<MasterPayload>({
   email: null,
   password: '',
   description: null,
-  photo_url: null,
   is_active: true,
+  showOnMasterBlock: true,
 })
 const formError = ref('')
 const saving = ref(false)
@@ -56,19 +75,11 @@ const maskedPhone = computed({
   },
 })
 
-const uploadUrl = (value?: string | UploadAsset | null) => {
-  if (!value) return ''
-  return typeof value === 'string' ? value : value.file_url || ''
-}
-
-const currentPhotoUrl = computed(() => editing.value?.photo_url || uploadUrl(editing.value?.photo) || '')
 const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo || editing.value?.photo_url))
 const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar || editing.value?.avatar_url))
 const displayedPhotoUrl = computed(() => {
   if (photoPreviewUrl.value) return photoPreviewUrl.value
-  const formPhotoUrl = form.photo_url?.trim() || ''
-  if (formPhotoUrl && formPhotoUrl !== currentPhotoUrl.value) return assetUrl(formPhotoUrl)
-  return existingPhotoUrl.value || assetUrl(formPhotoUrl)
+  return existingPhotoUrl.value
 })
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
 
@@ -107,8 +118,8 @@ const fillForm = (master?: Master | null) => {
   form.email = master?.email || null
   form.password = ''
   form.description = master?.description || null
-  form.photo_url = master?.photo_url || uploadUrl(master?.photo) || null
   form.is_active = master ? (master.is_active ?? master.status !== 'неактивний') : true
+  form.showOnMasterBlock = master ? (master.showOnMasterBlock ?? master.show_on_master_block ?? true) : true
   formError.value = ''
 }
 
@@ -180,7 +191,6 @@ const submit = async () => {
     email: form.email?.trim() || null,
     password: editing.value ? undefined : form.password?.trim() || null,
     description: form.description?.trim() || null,
-    photo_url: form.photo_url?.trim() || null,
     photo: photoFile.value,
     avatar: avatarFile.value,
   }
@@ -226,49 +236,71 @@ onBeforeUnmount(() => {
 <template>
   <BaseModal :model-value="modelValue" max-width-class="max-w-3xl" @update:model-value="emit('update:modelValue', $event)" @close="formError = ''">
     <template #head="{ close: closeModal }">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 sm:text-sm">Майстри</p>
-          <h2 class="mt-1 text-xl font-semibold text-slate-900 sm:mt-2 sm:text-2xl">{{ editing ? 'Редагувати майстра' : 'Створити майстра' }}</h2>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex min-w-0 items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700">
+            <UserCircleIcon class="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-cyan-700">Майстри</p>
+            <h2 class="mt-0.5 text-lg font-semibold leading-tight text-slate-900 sm:text-xl">{{ editing ? 'Редагувати майстра' : 'Створити майстра' }}</h2>
+          </div>
         </div>
-        <button type="button" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:text-sm" aria-label="Закрити" @click="closeModal">
-          <XMarkIcon class="h-5 w-5 sm:hidden" aria-hidden="true" />
-          <span class="hidden sm:inline">Закрити</span>
+        <button type="button" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50" aria-label="Закрити" title="Закрити" @click="closeModal">
+          <XMarkIcon class="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
     </template>
 
     <template #body>
-      <form class="space-y-3 sm:space-y-5" @submit.prevent="submit">
-        <div class="grid gap-3 md:grid-cols-2 md:gap-4">
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Ім’я українською</span>
-            <input v-model="form.full_name" required autocomplete="given-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+      <form class="space-y-4" @submit.prevent="submit">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <IdentificationIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Ім’я українською
+            </span>
+            <input v-model="form.full_name" required autocomplete="given-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
           </label>
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Прізвище українською</span>
-            <input v-model="form.last_name" required autocomplete="family-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
-          </label>
-        </div>
-        <div class="grid gap-3 md:grid-cols-2 md:gap-4">
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">First name англійською</span>
-            <input v-model="form.first_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
-          </label>
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Last name англійською</span>
-            <input v-model="form.last_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <IdentificationIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Прізвище українською
+            </span>
+            <input v-model="form.last_name" required autocomplete="family-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
           </label>
         </div>
-        <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-          <span class="font-medium">Позиція</span>
-          <select v-model="form.position" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <LanguageIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              First name англійською
+            </span>
+            <input v-model="form.first_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+          </label>
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <LanguageIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Last name англійською
+            </span>
+            <input v-model="form.last_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+          </label>
+        </div>
+        <label class="space-y-1.5 text-sm text-slate-700">
+          <span class="flex items-center gap-2 font-medium">
+            <BriefcaseIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            Позиція
+          </span>
+          <select v-model="form.position" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
             <option v-for="option in positionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
         </label>
-        <div class="grid gap-3 md:grid-cols-2 md:gap-4">
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Телефон</span>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <PhoneIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Телефон
+            </span>
             <input
               v-model="maskedPhone"
               type="tel"
@@ -276,50 +308,59 @@ onBeforeUnmount(() => {
               autocomplete="tel"
               placeholder="+380 XX XXX XX XX"
               maxlength="17"
-              class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3"
+              class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4"
               @focus="focusPhone"
               @blur="blurPhone"
             >
           </label>
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Email для входу</span>
-            <input v-model="form.email" type="email" :required="!editing" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <EnvelopeIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Email для входу
+            </span>
+            <input v-model="form.email" type="email" :required="!editing" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
           </label>
         </div>
-        <label v-if="!editing" class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-          <span class="font-medium">Пароль для входу</span>
-          <input v-model="form.password" required type="password" minlength="6" autocomplete="new-password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+        <label v-if="!editing" class="space-y-1.5 text-sm text-slate-700">
+          <span class="flex items-center gap-2 font-medium">
+            <KeyIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            Пароль для входу
+          </span>
+          <input v-model="form.password" required type="password" minlength="6" autocomplete="new-password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
         </label>
-        <p v-else class="rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:rounded-2xl sm:px-4 sm:py-3">
-          Пароль для входу задається лише під час створення майстра. Для зміни наявного пароля потрібен backend endpoint керування користувачами.
+        <p v-else class="flex gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:px-4">
+          <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-cyan-700" aria-hidden="true" />
+          <span>Пароль для входу задається лише під час створення майстра. Для зміни наявного пароля потрібен backend endpoint керування користувачами.</span>
         </p>
-        <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-          <span class="font-medium">URL фото</span>
-          <input v-model="form.photo_url" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
-        </label>
-        <div class="grid gap-3 md:grid-cols-2 md:gap-4">
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Фото</span>
-            <input :key="`photo-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:rounded-2xl sm:px-4 sm:py-3 sm:file:mr-4 sm:file:px-4 sm:file:py-2" @change="setFilePreview($event, 'photo')">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <PhotoIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Фото
+            </span>
+            <input :key="`photo-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'photo')">
           </label>
-          <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-            <span class="font-medium">Avatar</span>
-            <input :key="`avatar-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:rounded-2xl sm:px-4 sm:py-3 sm:file:mr-4 sm:file:px-4 sm:file:py-2" @change="setFilePreview($event, 'avatar')">
+          <label class="space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <UserCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Avatar
+            </span>
+            <input :key="`avatar-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'avatar')">
           </label>
         </div>
-        <div v-if="displayedPhotoUrl || displayedAvatarUrl" class="grid gap-3 rounded-xl bg-slate-50 p-3 sm:rounded-2xl sm:p-4 md:grid-cols-2 md:gap-4">
-          <div v-if="displayedPhotoUrl" class="space-y-1.5 sm:space-y-2">
+        <div v-if="displayedPhotoUrl || displayedAvatarUrl" class="grid gap-4 rounded-xl bg-slate-50 p-3 sm:p-4 md:grid-cols-2">
+          <div v-if="displayedPhotoUrl" class="space-y-1.5">
             <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото' : 'Попередній перегляд фото' }}</p>
-            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white sm:rounded-2xl" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
+            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
               <img :src="displayedPhotoUrl" alt="Фото майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
             </button>
           </div>
-          <div v-if="displayedAvatarUrl" class="space-y-1.5 sm:space-y-2">
+          <div v-if="displayedAvatarUrl" class="space-y-1.5">
             <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточний avatar' : 'Попередній перегляд avatar' }}</p>
-            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white sm:rounded-2xl" title="Відкрити повний перегляд" @click="openImagePreview(displayedAvatarUrl, 'Avatar майстра')">
+            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedAvatarUrl, 'Avatar майстра')">
               <img :src="displayedAvatarUrl" alt="Avatar майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
@@ -327,23 +368,35 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
-        <label class="space-y-1.5 text-sm text-slate-700 sm:space-y-2">
-          <span class="font-medium">Опис</span>
-          <textarea v-model="form.description" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3" />
+        <label class="space-y-1.5 text-sm text-slate-700">
+          <span class="flex items-center gap-2 font-medium">
+            <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            Опис
+          </span>
+          <textarea v-model="form.description" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
         </label>
-        <p class="rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:rounded-2xl sm:px-4 sm:py-3">
-          Після створення майстра активні базові послуги копіюються автоматично. Використовуйте дію «Послуги» у списку, щоб керувати особистими послугами майстра.
+        <p class="flex gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:px-4">
+          <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-cyan-700" aria-hidden="true" />
+          <span>Після створення майстра активні базові послуги копіюються автоматично. Використовуйте дію «Послуги» у списку, щоб керувати особистими послугами майстра.</span>
         </p>
-        <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:rounded-2xl sm:px-4 sm:py-3">
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
           <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <CheckCircleIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
           Майстер активний
+        </label>
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
+          <input v-model="form.showOnMasterBlock" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <EyeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
+          Показувати у блоці майстрів
         </label>
         <div class="flex flex-wrap gap-2 sm:gap-3">
           <button type="submit" :disabled="saving || disabled" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60 sm:flex-none sm:px-5 sm:py-3">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
+            <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти майстра' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-4 py-2.5 text-sm sm:px-5 sm:py-3" @click="fillForm(editing)">
+          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-4 py-2.5 text-sm sm:px-5 sm:py-3" @click="fillForm(editing)">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
         </div>

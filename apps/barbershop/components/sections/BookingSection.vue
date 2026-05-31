@@ -2,7 +2,7 @@
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp'
 
-const { terms } = useTerms()
+const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
@@ -114,12 +114,45 @@ const serviceSelected = (service: SelectableService) =>
 
 const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
 
-const masterName = (master?: MasterDto | null) =>
-  master?.full_name_uk
-  || [master?.first_name_uk || master?.full_name, master?.last_name_uk || master?.last_name].filter(Boolean).join(' ')
-  || master?.full_name
-  || master?.name
-  || (master?.id ? `Master #${master.id}` : '')
+const joinNameParts = (first?: string | null, last?: string | null) =>
+  [first, last].filter(Boolean).join(' ')
+
+const hasCyrillic = (value?: string | null) => Boolean(value && /[А-Яа-яЁёІіЇїЄєҐґ]/.test(value))
+const hasLatin = (value?: string | null) => Boolean(value && /[A-Za-z]/.test(value))
+const isCleanEnglishText = (value?: string | null) => Boolean(value && !hasCyrillic(value))
+const isCleanUkrainianText = (value?: string | null) => Boolean(value && !hasLatin(value))
+
+const localizedNameParts = (first: string | null | undefined, last: string | null | undefined, language: 'uk' | 'en') =>
+  [first, last]
+    .filter(part => language === 'en' ? isCleanEnglishText(part) : isCleanUkrainianText(part))
+    .join(' ')
+
+const masterName = (master?: MasterDto | null) => {
+  if (!master) return ''
+
+  const ukName = localizedNameParts(master.first_name_uk, master.last_name_uk, 'uk')
+    || joinNameParts(master.first_name_uk, master.last_name_uk)
+  const enName = localizedNameParts(master.first_name_en, master.last_name_en, 'en')
+    || joinNameParts(master.first_name_en, master.last_name_en)
+
+  if (locale.value === 'en') {
+    return (isCleanEnglishText(master.full_name_en) ? master.full_name_en : '')
+      || enName
+      || (isCleanEnglishText(master.full_name) ? master.full_name : '')
+      || (isCleanEnglishText(master.full_name_uk) ? master.full_name_uk : '')
+      || ukName
+      || master.name
+      || `Master #${master.id}`
+  }
+
+  return (isCleanUkrainianText(master.full_name_uk) ? master.full_name_uk : '')
+    || ukName
+    || (isCleanUkrainianText(master.full_name) ? master.full_name : '')
+    || (isCleanUkrainianText(master.full_name_en) ? master.full_name_en : '')
+    || enName
+    || master.name
+    || `Master #${master.id}`
+}
 
 const masterPhoto = (master?: MasterDto | null) =>
   assetUrl(master?.photo || master?.photo_url) || 'https://placehold.co/640x480'
@@ -255,9 +288,10 @@ watch([selectedServiceIds, selectedCatalogIds, selectedMasterId, selectedDate], 
 })
 
 const isSelectedDateClosed = computed(() => isMondayDateInput(selectedDate.value))
+const canLoadSlots = computed(() => Boolean(selectedMasterId.value && selectedServiceIds.value.length && selectedDate.value))
 
 const slotsKey = computed(() =>
-  selectedServiceIds.value.length && selectedMasterId.value && selectedDate.value && !isSelectedDateClosed.value
+  canLoadSlots.value && !isSelectedDateClosed.value
     ? `home-booking-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
     : 'home-booking-slots-empty',
 )
@@ -270,11 +304,15 @@ const {
 } = await useAsyncData(
   slotsKey,
   () => {
-    if (!selectedMasterId.value || !selectedServiceIds.value.length || !selectedDate.value || isSelectedDateClosed.value) {
+    const masterId = selectedMasterId.value
+    const serviceIds = selectedServiceIds.value
+    const date = selectedDate.value
+
+    if (!masterId || !serviceIds.length || !date || isSelectedDateClosed.value) {
       return Promise.resolve([])
     }
 
-    return domain.getAvailableSlots(selectedMasterId.value, selectedServiceIds.value, selectedDate.value, selectedDurationMinutes.value)
+    return domain.getAvailableSlots(masterId, serviceIds, date, selectedDurationMinutes.value)
   },
   {
     watch: [selectedServiceIds, selectedMasterId, selectedDate],
@@ -284,6 +322,12 @@ const {
 
 const visibleSlots = computed<AvailableSlotDto[]>(() =>
   isSelectedDateClosed.value ? [] : slots.value || [],
+)
+
+const emptySlotsMessage = computed(() =>
+  selectedDate.value === today
+    ? terms.value.home.booking.noSlotsToday
+    : terms.value.home.booking.noSlotsDate,
 )
 
 const formatTime = (value: string) =>
@@ -608,7 +652,7 @@ const closeSuccess = () => {
 
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">Слот</p>
-                    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div v-if="visibleSlots.length" class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       <button
                         v-for="slot in visibleSlots"
                         :key="slot.start_at"
@@ -620,13 +664,16 @@ const closeSuccess = () => {
                         {{ formatTime(slot.start_at) }}
                       </button>
                     </div>
-                    <p v-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
+                    <p v-if="!canLoadSlots" class="mt-4 text-sm text-white/55">
+                      {{ terms.home.booking.selectServiceAndMaster }}
+                    </p>
+                    <p v-else-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
                       {{ terms.home.booking.closedOnMonday }}
                     </p>
                     <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">Шукаємо вільні слоти...</p>
                     <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">Не вдалося завантажити слоти.</p>
-                    <p v-else-if="selectedMasterId && selectedServiceIds.length && !visibleSlots.length" class="mt-4 text-sm text-white/55">
-                      На цю дату немає вільного часу.
+                    <p v-else-if="!visibleSlots.length" class="mt-4 text-sm text-white/55">
+                      {{ emptySlotsMessage }}
                     </p>
                   </div>
                 </section>

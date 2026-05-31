@@ -190,6 +190,8 @@ export interface Master {
   avatar_upload_id?: number | null
   avatar?: string | UploadAsset | null
   is_active?: boolean
+  showOnMasterBlock?: boolean
+  show_on_master_block?: boolean
   status?: string | null
   service_ids?: number[]
   services?: Service[]
@@ -475,11 +477,11 @@ export interface MasterPayload {
   email: string | null
   password?: string | null
   description: string | null
-  photo_url: string | null
   photo_upload_id?: number | null
   avatar_url?: string | null
   avatar_upload_id?: number | null
   is_active: boolean
+  showOnMasterBlock: boolean
   service_ids?: number[]
   admin_user_id?: number | null
 }

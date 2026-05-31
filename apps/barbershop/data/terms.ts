@@ -123,7 +123,10 @@ export const termsDictionary = {
         successLabel: 'Запис створено',
         successTitle: 'Все готово. Побачимось у Soul Cuts.',
         successAction: 'Новий запис',
+        selectServiceAndMaster: 'Оберіть послугу і майстра, щоб побачити доступний час.',
         closedOnMonday: 'Понеділок - вихідний день. Оберіть іншу дату для запису.',
+        noSlotsToday: 'На сьогодні слоти закінчилися або шоп уже закритий. Майстри не можуть прийняти запис на цей день.',
+        noSlotsDate: 'На цю дату немає доступних слотів. Майстри не можуть прийняти запис у вибраний час.',
       },
       bot: {
         badge: 'Telegram Bot',
@@ -531,7 +534,10 @@ export const termsDictionary = {
         successLabel: 'Booking created',
         successTitle: 'Everything is ready. See you at Soul Cuts.',
         successAction: 'New booking',
+        selectServiceAndMaster: 'Choose a service and a barber to see available times.',
         closedOnMonday: 'Monday is our day off. Please choose another date to book.',
+        noSlotsToday: 'Today\'s slots are over or the shop is already closed. The barbers cannot take another appointment today.',
+        noSlotsDate: 'There are no available slots for this date. The barbers cannot take an appointment at the selected time.',
       },
       bot: {
         badge: 'Telegram Bot',

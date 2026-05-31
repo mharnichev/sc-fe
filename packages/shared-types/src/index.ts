@@ -115,16 +115,24 @@ export interface MasterDto {
   position?: 'ambassador' | 'senior_master' | 'master' | null
   position_uk?: string | null
   position_en?: string | null
+  title_uk?: string | null
+  title_en?: string | null
   slug?: string
   title?: string
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
   bio?: string | null
+  bio_uk?: string | null
+  bio_en?: string | null
   photo?: string | UploadAssetDto | null
   photo_url?: string | null
   avatar?: string | UploadAssetDto | null
   avatar_url?: string | null
   status?: string
   is_active?: boolean
+  showOnMasterBlock?: boolean
+  show_on_master_block?: boolean
   services?: ServiceDto[]
 }
 

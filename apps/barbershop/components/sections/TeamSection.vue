@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import type { MasterDto } from '@shared-types'
 
-const { terms } = useTerms()
+type LocalizedMasterDto = MasterDto & {
+  title_uk?: string | null
+  title_en?: string | null
+  description_uk?: string | null
+  description_en?: string | null
+  bio_uk?: string | null
+  bio_en?: string | null
+}
+
+const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
 const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters)
@@ -19,12 +28,53 @@ const teamImages = [
   'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&w=900&q=80',
 ]
 
-const masterName = (master: MasterDto) =>
-  master.full_name_uk
-  || [master.first_name_uk || master.full_name, master.last_name_uk || master.last_name].filter(Boolean).join(' ')
-  || master.full_name
-  || master.name
-  || `Master #${master.id}`
+const joinNameParts = (first?: string | null, last?: string | null) =>
+  [first, last].filter(Boolean).join(' ')
+
+const hasCyrillic = (value?: string | null) => Boolean(value && /[А-Яа-яЁёІіЇїЄєҐґ]/.test(value))
+const hasLatin = (value?: string | null) => Boolean(value && /[A-Za-z]/.test(value))
+const isCleanEnglishText = (value?: string | null) => Boolean(value && !hasCyrillic(value))
+const isCleanUkrainianText = (value?: string | null) => Boolean(value && !hasLatin(value))
+
+const localizedNameParts = (first: string | null | undefined, last: string | null | undefined, language: 'uk' | 'en') =>
+  [first, last]
+    .filter(part => language === 'en' ? isCleanEnglishText(part) : isCleanUkrainianText(part))
+    .join(' ')
+
+const masterName = (master: LocalizedMasterDto) => {
+  const ukName = localizedNameParts(master.first_name_uk, master.last_name_uk, 'uk')
+    || joinNameParts(master.first_name_uk, master.last_name_uk)
+  const enName = localizedNameParts(master.first_name_en, master.last_name_en, 'en')
+    || joinNameParts(master.first_name_en, master.last_name_en)
+
+  if (locale.value === 'en') {
+    return (isCleanEnglishText(master.full_name_en) ? master.full_name_en : '')
+      || enName
+      || (isCleanEnglishText(master.full_name) ? master.full_name : '')
+      || (isCleanEnglishText(master.full_name_uk) ? master.full_name_uk : '')
+      || ukName
+      || master.name
+      || `Master #${master.id}`
+  }
+
+  return (isCleanUkrainianText(master.full_name_uk) ? master.full_name_uk : '')
+    || ukName
+    || (isCleanUkrainianText(master.full_name) ? master.full_name : '')
+    || (isCleanUkrainianText(master.full_name_en) ? master.full_name_en : '')
+    || enName
+    || master.name
+    || `Master #${master.id}`
+}
+
+const masterRole = (master: LocalizedMasterDto) =>
+  locale.value === 'en'
+    ? master.position_en || master.title_en || master.title || master.position_uk || terms.value.home.team.defaultRole
+    : master.position_uk || master.title_uk || master.title || master.position_en || terms.value.home.team.defaultRole
+
+const masterDescription = (master: LocalizedMasterDto) =>
+  locale.value === 'en'
+    ? master.bio_en || master.description_en || master.bio || master.description || master.bio_uk || master.description_uk || terms.value.home.team.noDescription
+    : master.bio_uk || master.description_uk || master.bio || master.description || master.bio_en || master.description_en || terms.value.home.team.noDescription
 
 const masterPhoto = (master: MasterDto) =>
   assetUrl(master.photo || master.photo_url) || teamImages[0]
@@ -32,14 +82,18 @@ const masterPhoto = (master: MasterDto) =>
 const isMasterActive = (master: MasterDto) =>
   master.is_active ?? master.status !== 'inactive'
 
+const isVisibleInMasterBlock = (master: MasterDto) =>
+  master.showOnMasterBlock ?? master.show_on_master_block ?? true
+
 const teamMembers = computed(() =>
   (masters.value || [])
     .filter(isMasterActive)
+    .filter(isVisibleInMasterBlock)
     .map(master => ({
       id: master.id,
       name: masterName(master),
-      role: master.title || terms.value.home.team.defaultRole,
-      description: master.bio || master.description || terms.value.home.team.noDescription,
+      role: masterRole(master),
+      description: masterDescription(master),
       image: masterPhoto(master),
       imageAlt: masterName(master),
     })),
@@ -141,63 +195,71 @@ watch(teamMembers, (members) => {
   <section id="team" ref="teamSection" data-header-theme="light" class="relative bg-stone-100" :style="{ height: teamScrollHeight }">
     <div class="sticky top-0 h-screen w-full overflow-hidden">
       <div class="relative left-1/2 h-screen w-screen -translate-x-1/2 bg-white md:hidden">
-        <div class="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-white via-white/90 to-transparent px-4 pb-14 pt-5" data-reveal="soft">
-          <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
-          <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-neutral-950">
-            {{ terms.home.team.title }}
-          </h2>
-
-          <div class="mt-5 flex items-center gap-3" :aria-label="`${terms.home.team.title} pagination`">
-            <button
-              v-for="(member, index) in teamMembers"
-              :key="member.name"
-              type="button"
-              class="h-3.5 rounded-full border border-neutral-950 transition-all"
-              :class="activeMemberIndex === index ? 'w-14 bg-neutral-950' : 'w-3.5 bg-white/80'"
-              :aria-label="`Show ${member.name}`"
-              @click="selectMember(index)"
-            />
+        <div class="absolute inset-x-0 top-0 z-20 pb-14 pt-5" data-reveal="soft">
+          <div class="site-container">
+            <SectionLabel class="text-white/75">{{ terms.home.team.label }}</SectionLabel>
+            <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-white">
+              {{ terms.home.team.title }}
+            </h2>
           </div>
         </div>
 
-        <div
-          v-if="teamMembers.length"
-          ref="mobileSlider"
-          class="team-mobile-slider flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth"
-          @scroll.passive="updateActiveMemberFromSlider"
-        >
-          <article
+        <div v-if="hasMultipleTeamMembers" class="absolute right-5 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-3" :aria-label="`${terms.home.team.title} pagination`">
+          <button
             v-for="(member, index) in teamMembers"
             :key="member.name"
-            class="relative h-full w-screen shrink-0 snap-start overflow-hidden bg-white"
-            :aria-label="member.name"
-          >
-            <img
-              :src="member.image"
-              :alt="member.imageAlt"
-              class="absolute inset-0 h-full w-full object-cover object-top"
-              loading="lazy"
-            >
-            <div class="absolute inset-0 bg-gradient-to-b from-white via-white/25 to-transparent" />
-            <div class="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/28 to-transparent" />
-            <div class="absolute bottom-28 left-0 right-0 px-5 text-white">
-              <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
-                {{ member.role }}
-              </p>
-              <h3 class="mt-3 text-5xl font-black uppercase leading-none text-white">
-                {{ member.name }}
-              </h3>
-              <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
-                {{ member.description }}
-              </p>
-            </div>
-          </article>
+            type="button"
+            class="w-3.5 rounded-full border border-white bg-white transition-all"
+            :class="activeMemberIndex === index ? 'h-12 opacity-100' : 'h-3.5 opacity-55'"
+            :aria-label="`Show ${member.name}`"
+            @click="selectMember(index)"
+          />
         </div>
 
-        <div v-else class="flex h-full items-end px-5 pb-24 text-neutral-950">
-          <p class="max-w-sm text-lg leading-8">
-            {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
-          </p>
+        <template v-if="teamMembers.length">
+          <div
+            ref="mobileSlider"
+            class="team-mobile-slider flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth"
+            @scroll.passive="updateActiveMemberFromSlider"
+          >
+            <article
+              v-for="(member, index) in teamMembers"
+              :key="member.name"
+              class="relative h-full w-screen shrink-0 snap-start overflow-hidden bg-neutral-950"
+              :aria-label="member.name"
+            >
+              <img
+                :src="member.image"
+                :alt="member.imageAlt"
+                class="absolute inset-0 h-full w-full object-cover object-top"
+                loading="lazy"
+              >
+            </article>
+          </div>
+
+          <div v-if="activeMember" class="pointer-events-none absolute bottom-28 left-0 right-0 z-20 text-white">
+            <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
+              <div :key="activeMember.id" class="site-container">
+                <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
+                  {{ activeMember.role }}
+                </p>
+                <h3 class="mt-3 text-4xl font-black uppercase leading-none text-white">
+                  {{ activeMember.name }}
+                </h3>
+                <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
+                  {{ activeMember.description }}
+                </p>
+              </div>
+            </Transition>
+          </div>
+        </template>
+
+        <div v-else class="flex h-full items-end pb-24 text-neutral-950">
+          <div class="site-container">
+            <p class="max-w-sm text-lg leading-8">
+              {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
+            </p>
+          </div>
         </div>
 
         <div v-if="hasMultipleTeamMembers" class="pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-white">
@@ -208,48 +270,45 @@ watch(teamMembers, (members) => {
         </div>
       </div>
 
-      <div class="relative left-1/2 hidden h-screen w-screen -translate-x-1/2 bg-white md:grid md:grid-cols-[minmax(430px,0.58fr)_minmax(0,0.83fr)] lg:grid-cols-[minmax(520px,0.58fr)_minmax(0,0.79fr)] xl:grid-cols-[minmax(600px,0.52fr)_minmax(0,0.7fr)]">
-        <div class="relative z-10 flex min-h-0 flex-col justify-between gap-5 px-4 py-5 sm:px-8 sm:py-8 md:pb-10 md:pl-24 md:pt-24 lg:pl-28 lg:pr-14 lg:pt-28" data-reveal="soft">
-          <div class="flex flex-col gap-3">
-            <div class="flex w-fit max-w-full items-start justify-between gap-4 border-b border-neutral-950/15 pb-4 pr-8">
-              <div>
-                <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
-                <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-neutral-950 sm:text-5xl lg:text-[52px]">
-                  {{ terms.home.team.title }}
-                </h2>
+      <div class="relative left-1/2 hidden h-screen w-screen -translate-x-1/2 overflow-hidden bg-white md:block">
+        <div class="site-container grid h-full gap-12 md:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:gap-16 xl:gap-20">
+        <div class="relative z-10 flex h-full min-h-0 py-5 pl-3 sm:py-8 md:pb-10 md:pt-24 lg:pt-28" data-reveal="soft">
+          <div class="flex h-full min-w-0 max-w-[17rem] flex-col items-start justify-between gap-8 text-left">
+            <div class="flex flex-col items-start gap-3">
+              <div class="flex w-fit max-w-full items-start justify-start border-b border-neutral-950/15 pb-4">
+                <div>
+                  <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
+                  <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-neutral-950 sm:text-5xl lg:text-[52px]">
+                    {{ terms.home.team.title }}
+                  </h2>
+                </div>
               </div>
+
             </div>
 
-            <p class="max-w-xs text-sm leading-6 text-neutral-600 md:hidden">
-              {{ terms.home.team.description }}
-            </p>
-          </div>
+            <nav class="flex gap-3 overflow-x-auto pb-2 md:block md:space-y-1 md:overflow-visible md:pb-0" :aria-label="terms.home.team.title">
+              <button
+                v-for="(member, index) in teamMembers"
+                :key="member.name"
+                type="button"
+                class="shrink-0 border px-3 py-2 text-left text-4xl font-black uppercase leading-none tracking-normal transition duration-300 sm:text-5xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-4xl xl:text-[42px]"
+                :class="activeMemberIndex === index ? 'border-neutral-950 bg-stone-100 text-neutral-950 md:bg-transparent md:text-neutral-950' : 'border-transparent text-neutral-950/35 hover:text-neutral-950/70'"
+                :aria-current="activeMemberIndex === index ? 'true' : undefined"
+                @click="selectMember(index)"
+                @focus="selectMember(index)"
+              >
+                {{ member.name }}
+              </button>
+            </nav>
 
-          <nav class="flex gap-3 overflow-x-auto pb-2 md:block md:space-y-1 md:overflow-visible md:pb-0" :aria-label="terms.home.team.title">
-            <button
-              v-for="(member, index) in teamMembers"
-              :key="member.name"
-              type="button"
-              class="shrink-0 border px-3 py-2 text-left text-4xl font-black uppercase leading-none tracking-normal transition duration-300 sm:text-5xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-[52px] lg:text-7xl"
-              :class="activeMemberIndex === index ? 'border-neutral-950 bg-stone-100 text-neutral-950 md:bg-transparent md:text-neutral-950' : 'border-transparent text-neutral-950/35 hover:text-neutral-950/70'"
-              :aria-current="activeMemberIndex === index ? 'true' : undefined"
-              @click="selectMember(index)"
-              @focus="selectMember(index)"
-            >
-              {{ member.name }}
-            </button>
-          </nav>
+            <NuxtLink to="#booking" class="inline-flex w-fit border-b border-neutral-950 pb-2 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-950 transition hover:opacity-60">
+              {{ terms.home.team.cta }}
+            </NuxtLink>
 
-          <NuxtLink to="#booking" class="inline-flex w-fit border-b border-neutral-950 pb-2 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-950 transition hover:opacity-60">
-            {{ terms.home.team.cta }}
-          </NuxtLink>
-
-          <div class="hidden max-w-xs border-t border-neutral-950/20 pt-5 text-sm leading-7 text-neutral-600 md:block">
-            {{ terms.home.team.description }}
           </div>
         </div>
 
-        <article v-if="activeMember" class="relative min-h-0 overflow-hidden" data-reveal="image" data-reveal-delay="160">
+        <article v-if="activeMember" class="relative -mr-6 min-h-0 overflow-hidden bg-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]" data-reveal="image" data-reveal-delay="160">
           <Transition name="team-photo" mode="out-in">
             <img
               :key="activeMember.name"
@@ -259,24 +318,30 @@ watch(teamMembers, (members) => {
               loading="lazy"
             >
           </Transition>
-          <div class="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent md:bg-gradient-to-r md:from-white md:via-white/65 md:to-neutral-950/20" />
-          <div class="absolute bottom-0 left-0 right-0 p-6 text-white sm:p-8 md:left-auto md:max-w-xl md:p-12">
-            <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
-              {{ activeMember.role }}
-            </p>
-            <h3 class="mt-3 text-4xl font-black uppercase leading-none text-white md:hidden">
-              {{ activeMember.name }}
-            </h3>
-            <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
-              {{ activeMember.description }}
-            </p>
+          <div class="absolute bottom-0 left-0 right-0 text-white md:left-auto">
+            <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
+              <div :key="activeMember.id" class="site-container py-6 sm:py-8 md:max-w-xl md:px-12 md:py-12">
+                <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
+                  {{ activeMember.role }}
+                </p>
+                <h3 class="mt-3 text-3xl font-black uppercase leading-none text-white md:hidden">
+                  {{ activeMember.name }}
+                </h3>
+                <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
+                  {{ activeMember.description }}
+                </p>
+              </div>
+            </Transition>
           </div>
         </article>
 
-        <div v-else class="flex min-h-0 items-end bg-white p-12 text-neutral-950">
-          <p class="max-w-sm text-lg leading-8">
-            {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
-          </p>
+        <div v-else class="-mr-6 flex min-h-0 items-end bg-white text-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]">
+          <div class="py-12">
+            <p class="max-w-sm text-lg leading-8">
+              {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
+            </p>
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -286,13 +351,29 @@ watch(teamMembers, (members) => {
 <style scoped>
 .team-photo-enter-active,
 .team-photo-leave-active {
-  transition: opacity 220ms ease, transform 420ms ease;
+  transition: opacity 260ms ease, filter 320ms ease, transform 420ms ease;
 }
 
 .team-photo-enter-from,
 .team-photo-leave-to {
   opacity: 0;
+  filter: brightness(0);
   transform: scale(1.03);
+}
+
+.team-member-copy-enter-active,
+.team-member-copy-leave-active {
+  transition: opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.team-member-copy-enter-from {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
+.team-member-copy-leave-to {
+  opacity: 0;
+  transform: translateY(-0.75rem);
 }
 
 .team-mobile-slider {
