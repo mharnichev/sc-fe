@@ -63,19 +63,18 @@ if (!selectedDate.value) {
   selectedDate.value = today
 }
 
-const isServiceActive = (service: SelectableService) =>
-  (service as ServiceDto).is_active ?? (service as ServiceDto).status !== 'inactive'
+const activeServiceCatalog = computed(() => activeCatalogItems(serviceCatalog.value))
 
 const selectedMasterServices = computed(() => {
   if (!selectedMasterId.value) return []
   const master = (masters.value || []).find(master => master.id === selectedMasterId.value)
-  return (master?.services || []).filter(isServiceActive)
+  return activeMasterServices(master?.services)
 })
 
 const activeServices = computed<SelectableService[]>(() =>
   selectedMasterId.value
     ? selectedMasterServices.value
-    : (serviceCatalog.value || []),
+    : activeServiceCatalog.value,
 )
 
 const serviceName = (service?: SelectableService | null) => localizedService.serviceName(service)
@@ -88,7 +87,7 @@ const serviceKey = (service: SelectableService) =>
   'catalog_id' in service ? service.catalog_id : String(service.id)
 
 const selectedCatalogItems = computed(() =>
-  (serviceCatalog.value || []).filter(service => selectedCatalogIds.value.includes(service.catalog_id)),
+  activeServiceCatalog.value.filter(service => selectedCatalogIds.value.includes(service.catalog_id)),
 )
 
 const selectedMasterServiceItems = computed(() =>
@@ -230,6 +229,8 @@ const scrollToBookingStart = async () => {
 }
 
 const selectCatalogService = (catalogId: string) => {
+  if (!activeServiceCatalog.value.some(service => service.catalog_id === catalogId)) return
+
   if (selectedCatalogIds.value.includes(catalogId)) {
     selectedCatalogIds.value = selectedCatalogIds.value.filter(id => id !== catalogId)
   }

@@ -16,8 +16,8 @@ const servicePriceValue = (service: ServiceCatalogItemDto) => {
 }
 
 const baseServices = computed(() =>
-  [...(serviceCatalog.value || [])]
-    .filter(service => service.source_type === 'base' && service.barber_services.length)
+  activeCatalogItems(serviceCatalog.value)
+    .filter(service => service.source_type === 'base')
     .sort((first, second) => servicePriceValue(first) - servicePriceValue(second)),
 )
 

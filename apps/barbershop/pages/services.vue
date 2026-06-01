@@ -5,6 +5,7 @@ const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { data: services } = await useAsyncData('service-catalog', domain.getServiceCatalog)
+const activeServices = computed(() => activeCatalogItems(services.value))
 
 useSeo(
   () => terms.value.seo.servicesTitle,
@@ -15,7 +16,7 @@ useSeo(
 <template>
   <AppSection :eyebrow="terms.pages.services.label" :title="terms.pages.services.title" :description="terms.pages.services.description">
     <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="(service, index) in services || []" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
+      <article v-for="(service, index) in activeServices" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="text-2xl font-semibold text-stone-900">{{ localizedService.serviceName(service) }}</h3>
