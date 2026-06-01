@@ -150,6 +150,15 @@ body {
   main table td.service-actions > div {
     justify-content: flex-start;
   }
+
+  main table.service-table tbody {
+    padding: 0;
+    background: transparent;
+  }
+
+  main table.service-table tbody > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 0;
+  }
 }
 
 @media (max-width: 640px) {

@@ -172,7 +172,7 @@ const applyFilters = async () => {
       <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження базових послуг...</div>
       <div v-else-if="!services.length" class="text-xs text-slate-500 xl:text-sm">Базових послуг не знайдено.</div>
       <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+        <table class="service-table min-w-full divide-y divide-slate-100 text-left text-sm">
           <thead class="text-xs uppercase text-slate-500">
             <tr>
               <th class="px-3 py-2.5 font-medium">Назва</th>

@@ -250,7 +250,7 @@ const deleteService = async (service: MasterService) => {
           </article>
         </div>
         <div class="hidden overflow-x-auto xl:block">
-          <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+          <table class="service-table min-w-full divide-y divide-slate-100 text-left text-sm">
           <thead class="text-xs uppercase text-slate-500">
             <tr>
               <th class="px-3 py-2.5 font-medium">Назва</th>
