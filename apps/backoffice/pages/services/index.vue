@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { BaseService } from '~/composables/useBackofficeApi'
 
 definePageMeta({
@@ -140,97 +140,105 @@ const applyFilters = async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
+  <div class="space-y-4 xl:space-y-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Послуги</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Базові послуги</h1>
+        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Послуги</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Базові послуги</h1>
       </div>
-      <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateService">
+      <button type="button" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити базову послугу
       </button>
     </div>
 
-    <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
-    <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
+    <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
+    <p v-if="successMessage" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ successMessage }}</p>
 
-    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <input v-model="filters.search" placeholder="Пошук базових послуг" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <select v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+        <input v-model="filters.search" placeholder="Пошук базових послуг" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
+        <select v-model="filters.is_active" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
           <option value="">Будь-який статус</option>
           <option value="true">Активні</option>
           <option value="false">Неактивні</option>
         </select>
-        <button class="rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+        <button class="rounded-full bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
       </div>
-      <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+      <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити базові послуги з /backoffice/admin/services.') }}
       </p>
-      <p class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">Total: {{ total }}</p>
-      <div v-if="pending" class="text-sm text-slate-500">Завантаження базових послуг...</div>
-      <div v-else-if="!services.length" class="text-sm text-slate-500">Базових послуг не знайдено.</div>
+      <p class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 xl:text-sm">Total: {{ total }}</p>
+      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження базових послуг...</div>
+      <div v-else-if="!services.length" class="text-xs text-slate-500 xl:text-sm">Базових послуг не знайдено.</div>
       <div v-else class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
           <thead class="text-xs uppercase text-slate-500">
             <tr>
-              <th class="px-4 py-3 font-medium">Назва</th>
-              <th class="px-4 py-3 font-medium">Тривалість</th>
-              <th class="px-4 py-3 font-medium">Ціна</th>
-              <th class="px-4 py-3 font-medium">Статус</th>
-              <th class="px-4 py-3 font-medium">Дії</th>
+              <th class="px-3 py-2.5 font-medium">Назва</th>
+              <th class="px-3 py-2.5 font-medium">Тривалість</th>
+              <th class="px-3 py-2.5 font-medium">Ціна</th>
+              <th class="px-3 py-2.5 font-medium">Статус</th>
+              <th class="px-3 py-2.5 font-medium"><span class="sr-only">Дії</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="service in services" :key="service.id">
-              <td data-label="Назва" class="px-4 py-3">
-                <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
-                <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
-                <p class="mt-2 text-xs font-medium text-slate-700">{{ serviceNameEn(service) || 'Без англійської назви' }}</p>
-                <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+              <td data-label="Назва" class="service-name-cell px-3 py-2.5">
+                <div class="min-w-0 text-left">
+                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-slate-900">
+                    <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700" aria-hidden="true" />
+                    <span class="min-w-0 break-words">{{ serviceName(service) }}</span>
+                  </p>
+                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-slate-700">
+                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                    <span class="min-w-0 break-words">{{ serviceNameEn(service) || 'Без англійської назви' }}</span>
+                  </p>
+                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+                </div>
               </td>
-              <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-              <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
-              <td data-label="Статус" class="px-4 py-3">
-                <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <td data-label="Тривалість" class="px-3 py-2.5 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
+              <td data-label="Ціна" class="px-3 py-2.5 text-slate-700">{{ formatPrice(service.price) }}</td>
+              <td data-label="Статус" class="px-3 py-2.5">
+                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                   {{ service.is_active ? 'активний' : 'неактивний' }}
                 </span>
               </td>
-              <td data-label="Дії" class="px-4 py-3">
-                <div class="flex flex-wrap gap-2">
+              <td class="service-actions px-3 py-2.5">
+                <div class="flex flex-wrap gap-1.5">
                   <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     aria-label="Редагувати базову послугу"
                     title="Редагувати"
                     @click="editService(service)"
                   >
-                    <PencilIcon class="h-4 w-4" aria-hidden="true" />
+                    <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">Редагувати</span>
                   </button>
                   <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     :aria-label="service.is_active ? 'Деактивувати базову послугу' : 'Активувати базову послугу'"
                     :title="service.is_active ? 'Деактивувати' : 'Активувати'"
                     @click="openToggleServiceConfirm(service)"
                   >
                     <template v-if="service.is_active">
-                      <NoSymbolIcon class="h-4 w-4" aria-hidden="true" />
+                      <NoSymbolIcon class="h-3.5 w-3.5" aria-hidden="true" />
                       <span class="sr-only">Деактивувати</span>
                     </template>
                     <template v-else>
-                      <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
+                      <CheckCircleIcon class="h-3.5 w-3.5" aria-hidden="true" />
                       <span class="sr-only">Активувати</span>
                     </template>
                   </button>
                   <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Деактивація базової послуги' : 'Видалити базову послугу'"
                     :title="deletingId === service.id ? 'Деактивація...' : 'Видалити'"
                     @click="deleteService(service)"
                   >
-                    <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                    <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">{{ deletingId === service.id ? 'Деактивація...' : 'Видалити' }}</span>
                   </button>
                 </div>

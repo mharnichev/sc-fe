@@ -126,6 +126,30 @@ body {
   main table td[data-label="Дії"] > div {
     justify-content: flex-start;
   }
+
+  main table td.service-name-cell {
+    display: block;
+    text-align: left;
+  }
+
+  main table td.service-name-cell::before {
+    display: block;
+    max-width: none;
+    margin-bottom: 0.375rem;
+  }
+
+  main table td.service-actions {
+    display: block;
+    text-align: left;
+  }
+
+  main table td.service-actions::before {
+    display: none;
+  }
+
+  main table td.service-actions > div {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
