@@ -35,6 +35,7 @@ const {
   bookingPhone,
   customerName,
   masterName,
+  bookingRedirectSourceLabel,
   serviceName,
   bookingServiceIds,
   bookingServicesLabel,
@@ -190,6 +191,10 @@ const bookingServiceOptions = computed(() => {
 
 const resolveMaster = (booking: Booking) =>
   booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
+const bookingListMeta = (booking: Booking) =>
+  [bookingServicesLabel(booking, serviceOptions.value), masterName(resolveMaster(booking)), bookingRedirectSourceLabel(booking), bookingComment(booking) || 'Без коментаря']
+    .filter(Boolean)
+    .join(' · ')
 
 const allowedStatusActions = (booking: Booking | null) =>
   !booking || booking.status === 'completed' || !canManageBooking(booking.master_id)
@@ -637,7 +642,7 @@ const deleteSelectedBlock = async () => {
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-slate-900 md:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
             <p class="mt-0.5 truncate text-xs text-slate-500 md:mt-1 md:text-sm">
-              {{ bookingServicesLabel(booking, serviceOptions) }} · {{ masterName(resolveMaster(booking)) }} · {{ bookingComment(booking) || 'Без коментаря' }}
+              {{ bookingListMeta(booking) }}
             </p>
           </div>
           <div class="flex items-center justify-start gap-2 md:flex-wrap md:justify-end md:gap-3">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
   ArrowsPointingOutIcon,
   BriefcaseIcon,
   CheckCircleIcon,
@@ -24,6 +25,7 @@ import type { Master, MasterFormPayload, MasterPayload, MasterPosition } from '~
 const props = defineProps<{
   modelValue: boolean
   master?: Master | null
+  masters?: Master[]
   disabled?: boolean
 }>()
 
@@ -34,7 +36,7 @@ const emit = defineEmits<{
 
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
-const { apiErrorMessage } = useBookingFormatting()
+const { apiErrorMessage, masterName } = useBookingFormatting()
 const { formatPhone, normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 
 const form = reactive<MasterPayload>({
@@ -47,6 +49,7 @@ const form = reactive<MasterPayload>({
   email: null,
   password: '',
   description: null,
+  bookingRedirectMasterId: null,
   is_active: true,
   showOnMasterBlock: true,
 })
@@ -82,6 +85,52 @@ const displayedPhotoUrl = computed(() => {
   return existingPhotoUrl.value
 })
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
+const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
+const formBookingRedirectMasterId = computed(() => {
+  const numeric = Number(form.bookingRedirectMasterId)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+})
+const redirectTargetId = (master?: Master | null) =>
+  master?.bookingRedirectMasterId ?? master?.booking_redirect_master_id ?? null
+const redirectMasterOptions = computed(() => {
+  const currentId = editing.value?.id ?? null
+  return (props.masters || []).filter(master => master.id !== currentId && isMasterActive(master))
+})
+const selectedRedirectMaster = computed(() =>
+  props.masters?.find(master => master.id === formBookingRedirectMasterId.value) || null,
+)
+const wouldCreateRedirectCycle = (targetMaster: Master) => {
+  const sourceId = editing.value?.id
+  if (!sourceId) return false
+
+  const mastersById = new Map((props.masters || []).map(master => [master.id, master]))
+  const visited = new Set<number>()
+  let nextId: number | null | undefined = targetMaster.id
+
+  while (nextId) {
+    if (nextId === sourceId) return true
+    if (visited.has(nextId)) return false
+    visited.add(nextId)
+    nextId = redirectTargetId(mastersById.get(nextId))
+  }
+
+  return false
+}
+const availableRedirectMasterOptions = computed(() =>
+  redirectMasterOptions.value.filter(master => !wouldCreateRedirectCycle(master)),
+)
+const selectedRedirectMasterMissing = computed(() =>
+  Boolean(formBookingRedirectMasterId.value && !selectedRedirectMaster.value),
+)
+const selectedRedirectMasterInactive = computed(() =>
+  Boolean(selectedRedirectMaster.value && !isMasterActive(selectedRedirectMaster.value)),
+)
+const selectedRedirectMasterUnavailable = computed(() =>
+  Boolean(
+    selectedRedirectMaster.value
+    && !availableRedirectMasterOptions.value.some(master => master.id === selectedRedirectMaster.value?.id),
+  ),
+)
 
 const revokeObjectUrl = (url: string) => {
   if (url) URL.revokeObjectURL(url)
@@ -118,6 +167,7 @@ const fillForm = (master?: Master | null) => {
   form.email = master?.email || null
   form.password = ''
   form.description = master?.description || null
+  form.bookingRedirectMasterId = redirectTargetId(master)
   form.is_active = master ? (master.is_active ?? master.status !== 'неактивний') : true
   form.showOnMasterBlock = master ? (master.showOnMasterBlock ?? master.show_on_master_block ?? true) : true
   formError.value = ''
@@ -161,6 +211,9 @@ const validate = () => {
   if (!editing.value && !form.email?.trim()) return 'Email для входу майстра обов’язковий.'
   if (!editing.value && !form.password?.trim()) return 'Пароль для входу майстра обов’язковий.'
   if (!editing.value && (form.password || '').trim().length < 6) return 'Пароль має містити щонайменше 6 символів.'
+  if (editing.value && formBookingRedirectMasterId.value === editing.value.id) return 'Майстер не може перенаправляти записи на себе.'
+  if (selectedRedirectMasterInactive.value) return 'Для перенаправлення можна вибрати лише активного майстра.'
+  if (formBookingRedirectMasterId.value && selectedRedirectMaster.value && wouldCreateRedirectCycle(selectedRedirectMaster.value)) return 'Таке перенаправлення створює цикл.'
   if (form.phone?.trim() && !isCompletePhone(form.phone)) return 'Введіть повний український номер у форматі +380 XX XXX XX XX.'
   if (photoFile.value && photoFile.value.type !== 'image/webp') return 'Фото має бути у форматі .webp.'
   if (avatarFile.value && avatarFile.value.type !== 'image/webp') return 'Avatar має бути у форматі .webp.'
@@ -193,6 +246,7 @@ const submit = async () => {
     description: form.description?.trim() || null,
     photo: photoFile.value,
     avatar: avatarFile.value,
+    bookingRedirectMasterId: formBookingRedirectMasterId.value,
   }
 
   try {
@@ -293,6 +347,20 @@ onBeforeUnmount(() => {
           </span>
           <select v-model="form.position" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
             <option v-for="option in positionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+        <label class="space-y-1.5 text-sm text-slate-700">
+          <span class="flex items-center gap-2 font-medium">
+            <ArrowRightIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            Перенаправляти онлайн-записи до
+          </span>
+          <select v-model="form.bookingRedirectMasterId" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <option :value="null">Не перенаправляти</option>
+            <option v-if="selectedRedirectMasterMissing" :value="formBookingRedirectMasterId" disabled>Майстер #{{ formBookingRedirectMasterId }}</option>
+            <option v-if="selectedRedirectMasterUnavailable && selectedRedirectMaster" :value="selectedRedirectMaster.id" disabled>
+              {{ masterName(selectedRedirectMaster) }}
+            </option>
+            <option v-for="master in availableRedirectMasterOptions" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
           </select>
         </label>
         <div class="grid gap-4 md:grid-cols-2">

@@ -192,6 +192,8 @@ export interface Master {
   is_active?: boolean
   showOnMasterBlock?: boolean
   show_on_master_block?: boolean
+  bookingRedirectMasterId?: number | null
+  booking_redirect_master_id?: number | null
   status?: string | null
   service_ids?: number[]
   services?: Service[]
@@ -284,6 +286,10 @@ export interface Booking {
   completed_at?: string | null
   master?: Master | null
   barber?: Master | null
+  redirectedFromMasterId?: number | null
+  redirected_from_master_id?: number | null
+  redirectedFromMaster?: BookingRedirectMaster | null
+  redirected_from_master?: BookingRedirectMaster | null
   service?: Service | null
   services?: Service[]
   customer?: {
@@ -295,6 +301,11 @@ export interface Booking {
     phone?: string | null
     email?: string | null
   } | null
+}
+
+export interface BookingRedirectMaster {
+  id: number
+  full_name: string
 }
 
 export interface AvailableSlot {
@@ -480,6 +491,7 @@ export interface MasterPayload {
   photo_upload_id?: number | null
   avatar_url?: string | null
   avatar_upload_id?: number | null
+  bookingRedirectMasterId?: number | null
   is_active: boolean
   showOnMasterBlock: boolean
   service_ids?: number[]

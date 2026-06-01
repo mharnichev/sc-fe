@@ -30,10 +30,28 @@ const { data, pending, error, refresh } = await useAsyncData(
   },
   { watch: [page] },
 )
+const { data: redirectMasters, refresh: refreshRedirectMasters } = await useAsyncData(
+  'admin-master-redirect-options',
+  () => isAdmin.value ? api.adminGetMasters(1, pageSize, { is_active: true }) : Promise.resolve([] as Master[]),
+)
 
 const masters = computed(() => normalizeItems(data.value))
+const allKnownMasters = computed(() => {
+  const byId = new Map<number, Master>()
+  for (const master of [...normalizeItems(redirectMasters.value), ...masters.value]) {
+    byId.set(master.id, master)
+  }
+  return Array.from(byId.values())
+})
 const total = computed(() => normalizeTotal(data.value))
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
+const masterRedirectId = (master: Master) => master.bookingRedirectMasterId ?? master.booking_redirect_master_id ?? null
+const masterRedirectLabel = (master: Master) => {
+  const redirectId = masterRedirectId(master)
+  if (!redirectId) return ''
+  const target = allKnownMasters.value.find(item => item.id === redirectId)
+  return target ? masterName(target) : `Майстер #${redirectId}`
+}
 const masterImageUrl = (master: Master) =>
   assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url)
 const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
@@ -63,6 +81,7 @@ const handleMasterSaved = async (message: string) => {
   formError.value = ''
   editing.value = null
   await refresh()
+  await refreshRedirectMasters()
 }
 
 const handleMasterModalUpdate = (value: boolean) => {
@@ -102,6 +121,7 @@ const confirmToggleMaster = async () => {
     successMessage.value = 'Статус майстра оновлено.'
     togglingMaster.value = null
     await refresh()
+    await refreshRedirectMasters()
   }
   catch (cause) {
     formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус майстра.')
@@ -176,6 +196,7 @@ const applyFilters = async () => {
               <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
               <p class="text-sm text-slate-500">{{ masterPositionLabel(master) }}</p>
               <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
+              <p v-if="masterRedirectId(master)" class="text-sm text-slate-500">Онлайн-запис → {{ masterRedirectLabel(master) }}</p>
               <p class="text-xs text-slate-500">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
             </div>
           </div>
@@ -217,6 +238,7 @@ const applyFilters = async () => {
     <MasterFormModal
       :model-value="masterModalOpen"
       :master="editing"
+      :masters="allKnownMasters"
       :disabled="!isAdmin"
       @saved="handleMasterSaved"
       @update:model-value="handleMasterModalUpdate"

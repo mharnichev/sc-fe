@@ -101,6 +101,7 @@ export const useBookingCalendar = () => {
     bookingEnd,
     bookingPhone,
     customerName,
+    bookingRedirectSourceLabel,
     bookingServices,
     bookingServicesLabel,
   } = useBookingFormatting()
@@ -274,7 +275,7 @@ export const useBookingCalendar = () => {
         return {
           ...range,
           title: bookingServicesLabel(booking, services),
-          subtitle: `${customerName(booking)} · ${bookingPhone(booking) || 'Без телефону'}`,
+          subtitle: [customerName(booking), bookingPhone(booking) || 'Без телефону', bookingRedirectSourceLabel(booking)].filter(Boolean).join(' · '),
           meta: `${formatTime(range.startAt)}-${formatTime(range.endAt)}`,
           booking,
         }

@@ -12,6 +12,7 @@ const {
   bookingComment,
   bookingPhone,
   customerName,
+  bookingRedirectSourceLabel,
   bookingServicesLabel,
   formatDateTime,
   formatTime,
@@ -50,6 +51,10 @@ const serviceOptions = computed(() => normalizeItems(services.value))
 const total = computed(() => normalizeTotal(data.value))
 const todayБронювання = computed(() => bookings.value.filter(booking => bookingStart(booking).slice(0, 10) === filters.date_from))
 const upcomingБронювання = computed(() => bookings.value.filter(booking => bookingStart(booking).slice(0, 10) !== filters.date_from))
+const bookingSecondaryLabel = (booking: Booking) =>
+  [bookingServicesLabel(booking, serviceOptions.value), bookingRedirectSourceLabel(booking), bookingComment(booking) || 'Без коментаря']
+    .filter(Boolean)
+    .join(' · ')
 
 const applyFilters = async () => {
   await refresh()
@@ -177,7 +182,7 @@ const deleteSelectedBooking = async () => {
           </div>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-slate-900 xl:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="mt-0.5 truncate text-xs text-slate-500 xl:text-sm">{{ bookingServicesLabel(booking, serviceOptions) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
+            <p class="mt-0.5 truncate text-xs text-slate-500 xl:text-sm">{{ bookingSecondaryLabel(booking) }}</p>
           </div>
           <div class="flex flex-wrap items-center justify-start gap-2 xl:gap-3">
             <BookingStatusBadge :status="booking.status" />
@@ -208,7 +213,7 @@ const deleteSelectedBooking = async () => {
           </div>
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-slate-900 xl:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="mt-0.5 truncate text-xs text-slate-500 xl:text-sm">{{ bookingServicesLabel(booking, serviceOptions) }} · {{ bookingComment(booking) || 'Без коментаря' }}</p>
+            <p class="mt-0.5 truncate text-xs text-slate-500 xl:text-sm">{{ bookingSecondaryLabel(booking) }}</p>
           </div>
           <div class="flex flex-wrap items-center justify-start gap-2 xl:gap-3">
             <BookingStatusBadge :status="booking.status" />

@@ -105,6 +105,27 @@ const masterName = (master?: Master | null) =>
 const masterNameEn = (master?: Master | null) =>
   localizedMasterName(master, 'en') || masterName(master)
 
+const bookingRedirectMasterId = (master?: Master | null) =>
+  master?.bookingRedirectMasterId ?? master?.booking_redirect_master_id ?? null
+
+const redirectedFromMaster = (booking: Booking) =>
+  booking.redirectedFromMaster || booking.redirected_from_master || null
+
+const redirectedFromMasterId = (booking: Booking) =>
+  booking.redirectedFromMasterId ?? booking.redirected_from_master_id ?? redirectedFromMaster(booking)?.id ?? null
+
+const redirectedFromMasterName = (booking: Booking) => {
+  const master = redirectedFromMaster(booking)
+  if (master?.full_name) return master.full_name
+  const masterId = redirectedFromMasterId(booking)
+  return masterId ? `Майстер #${masterId}` : ''
+}
+
+const bookingRedirectSourceLabel = (booking: Booking) => {
+  const name = redirectedFromMasterName(booking)
+  return name ? `Перенаправлено від: ${name}` : ''
+}
+
 const serviceName = (service?: LocalizedServiceText | null) =>
   service?.title_uk || service?.name || service?.title_en || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
 
@@ -262,6 +283,11 @@ export const useBookingFormatting = () => {
     customerName,
     masterName,
     masterNameEn,
+    bookingRedirectMasterId,
+    redirectedFromMaster,
+    redirectedFromMasterId,
+    redirectedFromMasterName,
+    bookingRedirectSourceLabel,
     serviceName,
     bookingServiceIds,
     bookingServices,

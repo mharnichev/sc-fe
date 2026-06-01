@@ -30,6 +30,7 @@ const {
   bookingPhone,
   customerName,
   masterName,
+  redirectedFromMasterName,
   bookingServiceIds,
   bookingServices,
   bookingServicesLabel,
@@ -114,6 +115,9 @@ const resetServiceForm = () => {
 
 const resolvedMaster = computed(() =>
   props.booking?.master || props.booking?.barber || props.masters?.find(master => master.id === props.booking?.master_id) || null,
+)
+const redirectSourceName = computed(() =>
+  props.booking ? redirectedFromMasterName(props.booking) : '',
 )
 
 const resolvedServices = computed(() =>
@@ -289,7 +293,11 @@ onBeforeUnmount(() => {
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Майстер</dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ masterName(resolvedMaster) }}</dd>
           </div>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber ? 'col-span-2' : ''">
+          <div v-if="redirectSourceName" class="rounded-xl bg-cyan-50 px-3 py-2 ring-1 ring-cyan-100 sm:rounded-2xl sm:p-4">
+            <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-cyan-700 sm:text-xs sm:tracking-[0.18em]">Перенаправлено від</dt>
+            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ redirectSourceName }}</dd>
+          </div>
+          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber && !redirectSourceName ? 'col-span-2' : ''">
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуги</dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ bookingServicesLabel(booking, services || []) }}</dd>
           </div>
