@@ -21,56 +21,13 @@ const mobileSlider = ref<HTMLElement | null>(null)
 const isMobile = ref(false)
 let mobileMediaQuery: MediaQueryList | null = null
 let mobileMediaHandler: (() => void) | null = null
+const { masterName } = useMasterDisplay()
 
 const teamImages = [
   'https://images.unsplash.com/photo-1599351431613-18ef1fdd27e1?auto=format&fit=crop&w=900&q=80',
   'https://images.unsplash.com/photo-1588771930296-88c2cb03f386?auto=format&fit=crop&w=900&q=80',
   'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&w=900&q=80',
 ]
-
-const hasCyrillic = (value?: string | null) => Boolean(value && /[А-Яа-яЁёІіЇїЄєҐґ]/.test(value))
-const hasLatin = (value?: string | null) => Boolean(value && /[A-Za-z]/.test(value))
-const isCleanEnglishText = (value?: string | null) => Boolean(value && !hasCyrillic(value))
-const isCleanUkrainianText = (value?: string | null) => Boolean(value && !hasLatin(value))
-
-const firstNameFrom = (value?: string | null) =>
-  value?.trim().split(/\s+/)[0] || ''
-
-const localizedFirstName = (value: string | null | undefined, language: 'uk' | 'en') => {
-  const firstName = firstNameFrom(value)
-
-  if (!firstName) return ''
-
-  return language === 'en'
-    ? isCleanEnglishText(firstName) ? firstName : ''
-    : isCleanUkrainianText(firstName) ? firstName : ''
-}
-
-const masterName = (master: LocalizedMasterDto) => {
-  if (locale.value === 'en') {
-    return localizedFirstName(master.first_name_en, 'en')
-      || localizedFirstName(master.full_name_en, 'en')
-      || localizedFirstName(master.full_name, 'en')
-      || localizedFirstName(master.first_name_uk, 'en')
-      || localizedFirstName(master.full_name_uk, 'en')
-      || firstNameFrom(master.first_name_en)
-      || firstNameFrom(master.full_name_en)
-      || firstNameFrom(master.full_name)
-      || firstNameFrom(master.name)
-      || `Master #${master.id}`
-  }
-
-  return localizedFirstName(master.first_name_uk, 'uk')
-    || localizedFirstName(master.full_name_uk, 'uk')
-    || localizedFirstName(master.full_name, 'uk')
-    || localizedFirstName(master.first_name_en, 'uk')
-    || localizedFirstName(master.full_name_en, 'uk')
-    || firstNameFrom(master.first_name_uk)
-    || firstNameFrom(master.full_name_uk)
-    || firstNameFrom(master.full_name)
-    || firstNameFrom(master.name)
-    || `Master #${master.id}`
-}
 
 const masterRole = (master: LocalizedMasterDto) =>
   locale.value === 'en'

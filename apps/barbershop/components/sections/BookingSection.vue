@@ -112,52 +112,7 @@ const serviceSelected = (service: SelectableService) =>
     : selectedServiceIds.value.includes(service.id)
 
 const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
-
-const hasCyrillic = (value?: string | null) => Boolean(value && /[А-Яа-яЁёІіЇїЄєҐґ]/.test(value))
-const hasLatin = (value?: string | null) => Boolean(value && /[A-Za-z]/.test(value))
-const isCleanEnglishText = (value?: string | null) => Boolean(value && !hasCyrillic(value))
-const isCleanUkrainianText = (value?: string | null) => Boolean(value && !hasLatin(value))
-
-const firstNameFrom = (value?: string | null) =>
-  value?.trim().split(/\s+/)[0] || ''
-
-const localizedFirstName = (value: string | null | undefined, language: 'uk' | 'en') => {
-  const firstName = firstNameFrom(value)
-
-  if (!firstName) return ''
-
-  return language === 'en'
-    ? isCleanEnglishText(firstName) ? firstName : ''
-    : isCleanUkrainianText(firstName) ? firstName : ''
-}
-
-const masterName = (master?: MasterDto | null) => {
-  if (!master) return ''
-
-  if (locale.value === 'en') {
-    return localizedFirstName(master.first_name_en, 'en')
-      || localizedFirstName(master.full_name_en, 'en')
-      || localizedFirstName(master.full_name, 'en')
-      || localizedFirstName(master.first_name_uk, 'en')
-      || localizedFirstName(master.full_name_uk, 'en')
-      || firstNameFrom(master.first_name_en)
-      || firstNameFrom(master.full_name_en)
-      || firstNameFrom(master.full_name)
-      || firstNameFrom(master.name)
-      || `Master #${master.id}`
-  }
-
-  return localizedFirstName(master.first_name_uk, 'uk')
-    || localizedFirstName(master.full_name_uk, 'uk')
-    || localizedFirstName(master.full_name, 'uk')
-    || localizedFirstName(master.first_name_en, 'uk')
-    || localizedFirstName(master.full_name_en, 'uk')
-    || firstNameFrom(master.first_name_uk)
-    || firstNameFrom(master.full_name_uk)
-    || firstNameFrom(master.full_name)
-    || firstNameFrom(master.name)
-    || `Master #${master.id}`
-}
+const { masterName } = useMasterDisplay()
 
 const masterPosition = (master?: MasterDto | null) => {
   if (!master) return terms.value.home.team.defaultRole

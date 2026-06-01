@@ -126,6 +126,8 @@ const bookingRedirectSourceLabel = (booking: Booking) => {
   return name ? `Перенаправлено від: ${name}` : ''
 }
 
+const isRedirectedBooking = (booking: Booking) => Boolean(redirectedFromMasterId(booking))
+
 const serviceName = (service?: LocalizedServiceText | null) =>
   service?.title_uk || service?.name || service?.title_en || (service?.id ? `Послуга #${service.id}` : 'Немає послуги')
 
@@ -288,6 +290,7 @@ export const useBookingFormatting = () => {
     redirectedFromMasterId,
     redirectedFromMasterName,
     bookingRedirectSourceLabel,
+    isRedirectedBooking,
     serviceName,
     bookingServiceIds,
     bookingServices,

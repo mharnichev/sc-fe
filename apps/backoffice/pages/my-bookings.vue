@@ -13,6 +13,7 @@ const {
   bookingPhone,
   customerName,
   bookingRedirectSourceLabel,
+  isRedirectedBooking,
   bookingServicesLabel,
   formatDateTime,
   formatTime,
@@ -186,6 +187,12 @@ const deleteSelectedBooking = async () => {
           </div>
           <div class="flex flex-wrap items-center justify-start gap-2 xl:gap-3">
             <BookingStatusBadge :status="booking.status" />
+            <span
+              v-if="isRedirectedBooking(booking)"
+              class="inline-flex h-7 items-center rounded-full border border-amber-300 bg-amber-50 px-2 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-amber-700 xl:h-8"
+            >
+              Редирект
+            </span>
             <button
               class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 xl:h-8 xl:w-8"
               aria-label="Переглянути бронювання"
@@ -217,6 +224,12 @@ const deleteSelectedBooking = async () => {
           </div>
           <div class="flex flex-wrap items-center justify-start gap-2 xl:gap-3">
             <BookingStatusBadge :status="booking.status" />
+            <span
+              v-if="isRedirectedBooking(booking)"
+              class="inline-flex h-7 items-center rounded-full border border-amber-300 bg-amber-50 px-2 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-amber-700 xl:h-8"
+            >
+              Редирект
+            </span>
             <button
               class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 xl:h-8 xl:w-8"
               aria-label="Переглянути бронювання"
