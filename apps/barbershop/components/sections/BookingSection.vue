@@ -63,7 +63,7 @@ if (!selectedDate.value) {
   selectedDate.value = today
 }
 
-const activeServiceCatalog = computed(() => activeCatalogItems(serviceCatalog.value))
+const activeServiceCatalog = computed(() => activeBaseCatalogItems(serviceCatalog.value))
 
 const selectedMasterServices = computed(() => {
   if (!selectedMasterId.value) return []

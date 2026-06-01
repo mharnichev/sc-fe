@@ -5,7 +5,7 @@ const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { data: services } = await useAsyncData('service-catalog', domain.getServiceCatalog)
-const activeServices = computed(() => activeCatalogItems(services.value))
+const activeServices = computed(() => activeBaseCatalogItems(services.value))
 
 useSeo(
   () => terms.value.seo.servicesTitle,

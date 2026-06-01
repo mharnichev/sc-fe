@@ -43,6 +43,52 @@ export const activeCatalogItems = (services: ServiceCatalogItemDto[] | null | un
     return activeItem ? [activeItem] : []
   })
 
+const servicePriceValue = (service: ServiceCatalogItemDto) => {
+  const value = typeof service.price === 'number'
+    ? service.price
+    : Number.parseFloat(String(service.price).replace(/[^\d.,]/g, '').replace(',', '.'))
+
+  return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER
+}
+
+const preferredCatalogItem = (first: ServiceCatalogItemDto, second: ServiceCatalogItemDto) => {
+  const priceDifference = servicePriceValue(first) - servicePriceValue(second)
+  if (priceDifference !== 0) return priceDifference <= 0 ? first : second
+
+  const durationDifference = Number(first.duration_minutes || 0) - Number(second.duration_minutes || 0)
+  return durationDifference <= 0 ? first : second
+}
+
+const mergeBarberServices = (first: ServiceCatalogBarberServiceDto[], second: ServiceCatalogBarberServiceDto[]) =>
+  [...new Map([...first, ...second].map(service => [service.id, service])).values()]
+    .sort((firstService, secondService) => firstService.id - secondService.id)
+
+const mergeBaseCatalogItems = (first: ServiceCatalogItemDto, second: ServiceCatalogItemDto): ServiceCatalogItemDto => {
+  const primary = preferredCatalogItem(first, second)
+  const barberServices = mergeBarberServices(first.barber_services, second.barber_services)
+
+  return {
+    ...primary,
+    catalog_id: `base:${primary.base_service_id}`,
+    barber_ids: sortedUnique(barberServices.map(service => service.barber_id)),
+    barber_service_ids: barberServices.map(service => service.id),
+    barber_services: barberServices,
+  }
+}
+
+export const activeBaseCatalogItems = (services: ServiceCatalogItemDto[] | null | undefined) =>
+  [...activeCatalogItems(services).reduce((items, service) => {
+    if (service.source_type !== 'base' || service.base_service_id === null) return items
+
+    const existing = items.get(service.base_service_id)
+    items.set(service.base_service_id, existing ? mergeBaseCatalogItems(existing, service) : {
+      ...service,
+      catalog_id: `base:${service.base_service_id}`,
+    })
+
+    return items
+  }, new Map<number, ServiceCatalogItemDto>()).values()]
+
 export const activeMasterServices = (services: ServiceDto[] | null | undefined) =>
   (services || []).filter(isPublicServiceActive)
 
