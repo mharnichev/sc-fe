@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { AppSection } from '@shared-ui'
-
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
@@ -14,7 +12,18 @@ useSeo(
 </script>
 
 <template>
-  <AppSection :eyebrow="terms.pages.services.label" :title="terms.pages.services.title" :description="terms.pages.services.description">
+  <section class="space-y-4">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-amber-600">
+      {{ terms.pages.services.label }}
+    </p>
+    <div class="space-y-2">
+      <h2 class="text-3xl font-semibold text-stone-900">
+        {{ terms.pages.services.title }}
+      </h2>
+      <p class="max-w-2xl text-sm leading-7 text-stone-600">
+        {{ terms.pages.services.description }}
+      </p>
+    </div>
     <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       <article v-for="(service, index) in activeServices" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
         <div class="flex items-start justify-between gap-4">
@@ -29,5 +38,5 @@ useSeo(
         <p class="mt-6 text-3xl font-semibold text-stone-900">{{ localizedService.servicePrice(service.price) }}</p>
       </article>
     </div>
-  </AppSection>
+  </section>
 </template>
