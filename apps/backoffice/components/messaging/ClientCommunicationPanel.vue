@@ -4,11 +4,15 @@ import type { CustomerCommunicationProfile } from '~/types/messaging'
 const props = defineProps<{ customerId: number | string }>()
 const api = useBackofficeApi()
 const { canCreateMessagingDrafts } = useBackofficeAccess()
+const { apiErrorMessage } = useBookingFormatting()
 const messageOpen = ref(false)
 const preferencesOpen = ref(false)
 const manualMessage = ref('')
 const saving = ref(false)
 const saved = ref('')
+const connectLinkError = ref('')
+const connectLink = ref('')
+const connectLinkLoading = ref(false)
 
 const { data, pending, error, refresh } = await useAsyncData(
   () => `customer-${props.customerId}-communication`,
@@ -55,6 +59,29 @@ const savePreferences = async () => {
     saving.value = false
   }
 }
+
+const loadConnectLink = async () => {
+  connectLinkLoading.value = true
+  connectLinkError.value = ''
+  try {
+    const response = await api.getCustomerTelegramConnectLink(props.customerId)
+    connectLink.value = response.connect_link
+    saved.value = 'Telegram посилання створено.'
+  }
+  catch (cause) {
+    connectLink.value = ''
+    connectLinkError.value = apiErrorMessage(cause, 'Не вдалося створити Telegram посилання.')
+  }
+  finally {
+    connectLinkLoading.value = false
+  }
+}
+
+const copyConnectLink = async () => {
+  if (!connectLink.value || !import.meta.client) return
+  await navigator.clipboard.writeText(connectLink.value)
+  saved.value = 'Telegram посилання скопійовано.'
+}
 </script>
 
 <template>
@@ -71,6 +98,7 @@ const savePreferences = async () => {
     </div>
 
     <p v-if="saved" class="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{{ saved }}</p>
+    <p v-if="connectLinkError" class="mt-4 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{{ connectLinkError }}</p>
     <p v-if="pending" class="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Завантажуємо комунікації...</p>
     <p v-else-if="error" class="mt-5 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">Комунікаційний профіль поки недоступний.</p>
 
@@ -80,6 +108,9 @@ const savePreferences = async () => {
           <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Telegram</p>
           <p class="mt-2 font-semibold text-slate-900">{{ data.telegram_chat_id || 'Немає chat_id' }}</p>
           <span class="mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium" :class="data.telegram_status === 'connected' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ data.telegram_status }}</span>
+          <button v-if="data.telegram_status !== 'connected'" class="mt-3 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50" :disabled="connectLinkLoading" @click="loadConnectLink">
+            {{ connectLinkLoading ? 'Створюємо...' : 'Створити Telegram лінк' }}
+          </button>
         </div>
         <div class="rounded-2xl bg-slate-50 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Маркетинг</p>
@@ -92,6 +123,15 @@ const savePreferences = async () => {
         <div class="rounded-2xl bg-slate-50 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Мова</p>
           <p class="mt-2 font-semibold text-slate-900">{{ data.preferred_language }}</p>
+        </div>
+      </div>
+
+      <div v-if="connectLink" class="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Telegram connect link</p>
+        <p class="mt-2 break-all text-sm text-slate-700">{{ connectLink }}</p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white" @click="copyConnectLink">Скопіювати</button>
+          <NuxtLink :to="connectLink" target="_blank" rel="noopener noreferrer" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Відкрити</NuxtLink>
         </div>
       </div>
 

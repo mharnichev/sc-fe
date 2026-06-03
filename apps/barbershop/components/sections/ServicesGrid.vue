@@ -60,14 +60,28 @@ const selectService = async (service: ServiceCatalogItemDto) => {
       </div>
 
       <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
-        <article v-for="(service, index) in baseServices" :key="service.catalog_id" class="border-t border-neutral-950 pt-5" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
+        <article
+          v-for="(service, index) in baseServices"
+          :key="service.catalog_id"
+          class="border-t border-neutral-950 pt-5"
+          :class="service.is_army_client ? 'is-army-service light-bg-army' : ''"
+          data-reveal="soft"
+          :data-reveal-delay="Math.min(index, 5) * 70"
+        >
           <button
             type="button"
             class="grid h-full w-full gap-4 px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-sm md:gap-5 md:py-5"
             @click="selectService(service)"
           >
             <div class="flex items-start justify-between gap-5">
-              <h3 class="text-xl font-semibold text-neutral-950">
+              <h3 class="flex min-w-0 items-center gap-[10px] text-xl font-semibold text-neutral-950">
+                <img
+                  v-if="service.is_army_client"
+                  src="~/assets/images/services/army-logo.webp"
+                  alt=""
+                  class="h-7 w-7 shrink-0 object-contain"
+                  aria-hidden="true"
+                >
                 {{ localizedService.serviceName(service) }}
               </h3>
               <p class="shrink-0 text-sm font-semibold text-neutral-950">
@@ -87,3 +101,19 @@ const selectService = async (service: ServiceCatalogItemDto) => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.light-bg-army > button {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.56), rgb(255 255 255 / 0.7)),
+    url('~/assets/images/services/light-bg-army.webp');
+  background-position: center;
+  background-size: cover;
+}
+
+.light-bg-army > button:hover {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.44), rgb(255 255 255 / 0.62)),
+    url('~/assets/images/services/light-bg-army.webp');
+}
+</style>

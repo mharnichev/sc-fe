@@ -194,6 +194,9 @@ const deleteService = async (service: MasterService) => {
                   <span class="min-w-0 break-words">{{ serviceName(service) }}</span>
                 </p>
                 <p class="mt-0.5 line-clamp-2 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                <span v-if="service.is_army_client" class="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[0.68rem] font-medium text-amber-700">
+                  Для військових
+                </span>
               </div>
               <span class="shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                 {{ service.is_active ? 'активна' : 'неактивна' }}
@@ -276,6 +279,9 @@ const deleteService = async (service: MasterService) => {
                     <span class="min-w-0 break-words">{{ serviceNameEn(service) || 'Без англійської назви' }}</span>
                   </p>
                   <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+                  <span v-if="service.is_army_client" class="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                    Для військових
+                  </span>
                 </div>
               </td>
               <td data-label="Тривалість" class="px-3 py-2.5 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>

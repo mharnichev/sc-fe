@@ -213,6 +213,7 @@ export interface Service {
   duration_minutes: number
   price: string | number
   is_active?: boolean
+  is_army_client?: boolean
   status?: string | null
   base_service?: BaseServiceSummary | null
 }
@@ -228,6 +229,7 @@ export interface BaseServiceSummary {
   duration_minutes: number
   price: string | number
   is_active: boolean
+  is_army_client: boolean
 }
 
 export interface BaseService {
@@ -241,6 +243,7 @@ export interface BaseService {
   description_uk?: string | null
   description_en?: string | null
   is_active: boolean
+  is_army_client: boolean
   created_at?: string
   updated_at?: string
 }
@@ -259,6 +262,7 @@ export interface MasterService {
   description_uk?: string | null
   description_en?: string | null
   is_active: boolean
+  is_army_client: boolean
   base_service?: BaseServiceSummary | null
   created_at?: string
   updated_at?: string
@@ -364,6 +368,7 @@ export interface ServicePayload {
   duration_minutes: number
   price: number
   is_active: boolean
+  is_army_client: boolean
 }
 
 export type BaseServicePayload = ServicePayload
@@ -378,6 +383,7 @@ export interface MasterServicePayload {
   duration_minutes?: number
   price?: number
   is_active?: boolean
+  is_army_client?: boolean
 }
 
 export interface SyncDefaultServicesResponse {
@@ -1256,6 +1262,11 @@ export const useBackofficeApi = () => {
   const getCustomerCommunication = (customerId: number | string) =>
     api<CustomerCommunicationProfile>(`/backoffice/messaging/customers/${customerId}/preferences`)
 
+  const getCustomerTelegramConnectLink = (customerId: number | string) =>
+    api<{ customer_id: number, bot_username: string, connect_link: string, expires_in_days: number }>(
+      `/backoffice/messaging/customers/${customerId}/telegram-connect-link`,
+    )
+
   const sendCustomerManualMessage = (customerId: number | string, body: string) =>
     api(`/backoffice/messaging/customers/${customerId}/messages`, {
       method: 'POST',
@@ -1360,6 +1371,7 @@ export const useBackofficeApi = () => {
     deleteMessageTemplate,
     getMessagingCampaignLogs,
     getCustomerCommunication,
+    getCustomerTelegramConnectLink,
     sendCustomerManualMessage,
     updateCustomerCommunication,
     getMessagingSettings,

@@ -532,6 +532,7 @@ const closeSuccess = () => {
                       type="button"
                       class="booking-service__item relative isolate flex min-h-28 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-3 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-40 sm:p-4"
                       :class="[
+                        service.is_army_client ? 'is-army-service dark-bg-army' : '',
                         serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
                         serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
                       ]"
@@ -558,7 +559,16 @@ const closeSuccess = () => {
                         </svg>
                       </Transition>
                       <span class="relative z-10">
-                        <span class="block text-base font-semibold leading-snug sm:text-lg">{{ serviceName(service) }}</span>
+                        <span class="flex items-center gap-[10px] text-base font-semibold leading-snug sm:text-lg">
+                          <img
+                            v-if="service.is_army_client"
+                            src="~/assets/images/services/army-logo.webp"
+                            alt=""
+                            class="h-7 w-7 shrink-0 object-contain"
+                            aria-hidden="true"
+                          >
+                          <span class="min-w-0">{{ serviceName(service) }}</span>
+                        </span>
                         <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
                         <span
                           class="mt-1 block line-clamp-2 text-xs leading-5 sm:mt-1.5 sm:text-sm sm:leading-6 md:mt-2"
@@ -751,6 +761,15 @@ const closeSuccess = () => {
 </template>
 
 <style scoped>
+.booking-service__item.dark-bg-army {
+  background-image:
+    linear-gradient(rgb(10 10 10 / 0.28), rgb(10 10 10 / 0.42)),
+    url('~/assets/images/services/dark-bg-army.webp');
+  background-position: center;
+  background-size: cover;
+  border-color: rgb(255 255 255 / 0.24);
+}
+
 .booking-service__selected-scribble {
   pointer-events: none;
   position: absolute;

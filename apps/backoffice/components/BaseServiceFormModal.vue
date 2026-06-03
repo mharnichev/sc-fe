@@ -25,6 +25,7 @@ const form = reactive<BaseServicePayload>({
   duration_minutes: 30,
   price: 0,
   is_active: true,
+  is_army_client: false,
 })
 const formError = ref('')
 const saving = ref(false)
@@ -41,6 +42,7 @@ const fillForm = (service?: BaseService | null) => {
   form.duration_minutes = service?.duration_minutes || 30
   form.price = service ? Number(service.price) : 0
   form.is_active = service?.is_active ?? true
+  form.is_army_client = service?.is_army_client ?? false
   formError.value = ''
 }
 
@@ -150,6 +152,10 @@ watch(
         <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
           <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
           Послуга активна
+        </label>
+        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+          <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          Послуга для військових
         </label>
         <div class="flex flex-wrap gap-3">
           <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">

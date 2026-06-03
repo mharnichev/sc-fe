@@ -68,6 +68,7 @@ export interface ServiceDto {
   duration_minutes: number
   status?: string
   is_active?: boolean
+  is_army_client?: boolean
 }
 
 export interface ServiceCatalogBarberServiceDto {
@@ -82,6 +83,7 @@ export interface ServiceCatalogBarberServiceDto {
   price: string | number
   duration_minutes: number
   is_active?: boolean
+  is_army_client?: boolean
 }
 
 export interface ServiceCatalogItemDto {
@@ -96,6 +98,7 @@ export interface ServiceCatalogItemDto {
   description_en?: string | null
   price: string | number
   duration_minutes: number
+  is_army_client?: boolean
   barber_ids: number[]
   barber_service_ids: number[]
   barber_services: ServiceCatalogBarberServiceDto[]
