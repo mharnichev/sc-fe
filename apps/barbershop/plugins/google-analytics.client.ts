@@ -1,6 +1,20 @@
 const GA_MEASUREMENT_ID = 'G-YYYXH2R239'
 const GA_SCRIPT_ID = 'google-analytics-gtag'
 
+const deniedConsent = {
+  ad_personalization: 'denied',
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  analytics_storage: 'denied',
+} as const
+
+const grantedConsent = {
+  ad_personalization: 'granted',
+  ad_storage: 'granted',
+  ad_user_data: 'granted',
+  analytics_storage: 'granted',
+} as const
+
 declare global {
   interface Window {
     dataLayer?: unknown[]
@@ -13,9 +27,10 @@ export default defineNuxtPlugin(() => {
   const router = useRouter()
   const { canUseAnalytics } = useCookieConsent()
   let isLoaded = false
+  let hasTrackedInitialPageView = false
 
   const trackPageView = () => {
-    if (!window.gtag) return
+    if (!canUseAnalytics.value || !window.gtag) return
 
     window.gtag('config', GA_MEASUREMENT_ID, {
       page_path: route.fullPath,
@@ -31,8 +46,14 @@ export default defineNuxtPlugin(() => {
     window.gtag = function gtag() {
       window.dataLayer?.push(arguments)
     }
+    window.gtag('consent', 'default', {
+      ...deniedConsent,
+      wait_for_update: 500,
+    })
     window.gtag('js', new Date())
-    window.gtag('config', GA_MEASUREMENT_ID)
+    window.gtag('config', GA_MEASUREMENT_ID, {
+      send_page_view: false,
+    })
 
     const script = document.createElement('script')
     script.id = GA_SCRIPT_ID
@@ -43,10 +64,19 @@ export default defineNuxtPlugin(() => {
     isLoaded = true
   }
 
+  loadGoogleAnalytics()
+
   watch(
     canUseAnalytics,
     (allowed) => {
-      if (allowed) loadGoogleAnalytics()
+      if (!window.gtag) return
+
+      window.gtag('consent', 'update', allowed ? grantedConsent : deniedConsent)
+
+      if (allowed && !hasTrackedInitialPageView) {
+        hasTrackedInitialPageView = true
+        requestAnimationFrame(trackPageView)
+      }
     },
     { immediate: true },
   )
