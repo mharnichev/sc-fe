@@ -157,17 +157,17 @@ export const featuredCategories: FeaturedCategory[] = [
   {
     title: 'Culture',
     description: 'Essays, scene notes, and perspective on the people shaping local creative life.',
-    accentClass: 'bg-red-500',
+    accentClass: 'bg-neutral-500',
   },
   {
     title: 'Music',
     description: 'Reviews, interviews, and short dispatches from rooms where new taste is forming.',
-    accentClass: 'bg-sky-500',
+    accentClass: 'bg-stone-500',
   },
   {
     title: 'Cities',
     description: 'Guides and observations about places, habits, and the texture of everyday movement.',
-    accentClass: 'bg-emerald-500',
+    accentClass: 'bg-zinc-500',
   },
 ]
 

@@ -2,8 +2,6 @@
 import { getPostBySlug, getRelatedPosts } from '~/data/posts'
 import bgDark1 from '~/assets/images/background/bg-dark-1.png'
 import bgDark2 from '~/assets/images/background/bg-dark-2.png'
-import bgLight1 from '~/assets/images/background/bg-light-1.png'
-import bgLight2 from '~/assets/images/background/bg-light-2.png'
 
 const route = useRoute()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
@@ -29,14 +27,11 @@ const articleImagesByParagraphIndex = new Map(
 
 const getArticleImageAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.get(paragraphIndex)
 const contentBackgrounds = [
-  { src: bgDark1, tone: 'dark' },
-  { src: bgDark2, tone: 'dark' },
-  { src: bgLight1, tone: 'light' },
-  { src: bgLight2, tone: 'light' },
+  bgDark1,
+  bgDark2,
 ]
 const contentBackgroundIndex = [...post.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgrounds.length
 const contentBackground = contentBackgrounds[contentBackgroundIndex]
-const isLightContentBackground = contentBackground.tone === 'light'
 
 useSeoMeta({
   title: post.title,
@@ -63,16 +58,15 @@ useSeoMeta({
     </header>
 
     <div
-      class="post-content-reveal relative z-10 -mt-10 border-b bg-repeat shadow-none sm:-mt-12"
-      :class="isLightContentBackground ? 'border-neutral-300 text-neutral-950' : 'border-neutral-800 text-neutral-100'"
-      :style="{ backgroundImage: `url(${contentBackground.src})` }"
+      class="post-content-reveal relative z-10 -mt-10 bg-repeat text-neutral-100 shadow-none sm:-mt-12"
+      :style="{ backgroundImage: `url(${contentBackground})` }"
     >
       <div class="site-container py-12 sm:py-16">
         <div class="mx-auto max-w-3xl">
-          <p class="text-xl font-medium leading-9" :class="isLightContentBackground ? 'text-neutral-950' : 'text-neutral-200'">
+          <p class="text-xl font-medium leading-9 text-neutral-200">
             {{ post.excerpt }}
           </p>
-          <div class="mt-8 space-y-7 text-lg leading-9" :class="isLightContentBackground ? 'text-neutral-900' : 'text-neutral-300'">
+          <div class="mt-8 space-y-7 text-lg leading-9 text-neutral-300">
             <template v-for="(paragraph, paragraphIndex) in post.content" :key="paragraph">
               <p>
                 {{ paragraph }}
@@ -90,8 +84,7 @@ useSeoMeta({
                 >
                 <figcaption
                   v-if="getArticleImageAfter(paragraphIndex)?.caption"
-                  class="mt-3 text-sm leading-6"
-                  :class="isLightContentBackground ? 'text-neutral-600' : 'text-neutral-500'"
+                  class="mt-3 text-sm leading-6 text-neutral-500"
                 >
                   {{ getArticleImageAfter(paragraphIndex)?.caption }}
                 </figcaption>
@@ -100,24 +93,28 @@ useSeoMeta({
           </div>
         </div>
       </div>
-      <BlogSocialSharing :title="post.title" :is-light="isLightContentBackground" />
+      <BlogSocialSharing :title="post.title" />
     </div>
   </article>
 
   <section class="section-y bg-neutral-950">
     <div class="site-container">
-      <div class="flex flex-col gap-4 border-b border-neutral-800 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p class="eyebrow">Keep reading</p>
-          <h2 class="section-heading mt-3">Related posts</h2>
-        </div>
-        <NuxtLink class="text-sm font-bold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-red-400" to="/posts">
-          Back to archive
-        </NuxtLink>
+      <div class="text-center">
+        <h2 class="section-heading">Recommended</h2>
       </div>
 
-      <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <PostCard v-for="relatedPost in relatedPosts" :key="relatedPost.slug" :post="relatedPost" compact />
+      <div class="recommended-posts-list mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="relatedPost in relatedPosts"
+          :key="relatedPost.slug"
+          class="recommended-post-card mx-auto w-full max-w-[18.75rem]"
+        >
+          <PostCard
+            :post="relatedPost"
+            compact
+            recommended
+          />
+        </div>
       </div>
     </div>
   </section>
@@ -133,6 +130,18 @@ useSeoMeta({
 
 .article-float-image {
   width: 100%;
+}
+
+.recommended-post-card :deep(img) {
+  filter: grayscale(0);
+}
+
+.recommended-posts-list:hover .recommended-post-card :deep(img) {
+  filter: grayscale(1);
+}
+
+.recommended-posts-list:hover .recommended-post-card:hover :deep(img) {
+  filter: grayscale(0);
 }
 
 @media (min-width: 640px) {

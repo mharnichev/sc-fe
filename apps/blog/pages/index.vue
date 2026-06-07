@@ -17,7 +17,7 @@ useSeoMeta({
           <img
             :src="featuredPost.coverImage"
             :alt="featuredPost.coverImageAlt"
-            class="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+            class="h-full w-full object-cover"
           >
         </NuxtLink>
 
@@ -34,13 +34,13 @@ useSeoMeta({
 
           <div class="mt-8">
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
-              <span class="text-red-400">{{ featuredPost.category }}</span>
+              <span class="text-white/50">{{ featuredPost.category }}</span>
               <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt) }}</time>
               <span>{{ featuredPost.readMinutes }} min read</span>
             </div>
             <NuxtLink
               :to="`/posts/${featuredPost.slug}`"
-              class="mt-6 inline-flex min-h-12 items-center justify-center bg-red-500 px-6 text-sm font-bold uppercase tracking-[0.16em] text-white transition hover:bg-red-600"
+              class="mt-6 inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-bold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/90"
             >
               Read feature
             </NuxtLink>
@@ -56,7 +56,7 @@ useSeoMeta({
             <p class="eyebrow">Latest</p>
             <h2 class="section-heading mt-3">New stories</h2>
           </div>
-          <NuxtLink class="text-sm font-bold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-red-400" to="/posts">
+          <NuxtLink class="text-sm font-bold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-white" to="/posts">
             View all posts
           </NuxtLink>
         </div>

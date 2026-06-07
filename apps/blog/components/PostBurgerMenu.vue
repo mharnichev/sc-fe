@@ -1,10 +1,16 @@
 <script setup lang="ts">
 const { terms } = useBlogLocale()
+const { openSubscribeModal } = useSubscribeModal()
 const route = useRoute()
 const isOpen = ref(false)
 
 const closeMenu = () => {
   isOpen.value = false
+}
+
+const handleSubscribeClick = () => {
+  closeMenu()
+  openSubscribeModal()
 }
 
 watch(() => route.fullPath, closeMenu)
@@ -27,24 +33,24 @@ onBeforeUnmount(() => {
 <template>
   <button
     type="button"
-    class="fixed right-4 top-4 z-[70] flex h-12 w-12 items-center justify-center border border-white/15 bg-black/70 text-white backdrop-blur transition hover:border-red-400 hover:text-red-200 sm:right-6 sm:top-6"
+    class="fixed right-4 top-4 z-[70] flex h-12 w-12 items-center justify-center text-white transition hover:text-white/65 sm:right-6 sm:top-6"
     :aria-expanded="isOpen"
     aria-controls="post-menu-overlay"
     aria-label="Open post menu"
     @click="isOpen = !isOpen"
   >
-    <span class="relative h-5 w-6" aria-hidden="true">
+    <span class="relative h-6 w-8" aria-hidden="true">
       <span
-        class="absolute left-0 top-0 h-0.5 w-6 bg-current transition-transform duration-300"
-        :class="isOpen ? 'translate-y-2 rotate-45' : ''"
+        class="absolute left-0 top-0 h-1 w-8 bg-current transition-transform duration-300"
+        :class="isOpen ? 'translate-y-2.5 rotate-45' : ''"
       />
       <span
-        class="absolute left-0 top-2 h-0.5 w-6 bg-current transition-opacity duration-300"
+        class="absolute left-0 top-2.5 h-1 w-8 bg-current transition-opacity duration-300"
         :class="isOpen ? 'opacity-0' : 'opacity-100'"
       />
       <span
-        class="absolute left-0 top-4 h-0.5 w-6 bg-current transition-transform duration-300"
-        :class="isOpen ? '-translate-y-2 -rotate-45' : ''"
+        class="absolute left-0 top-5 h-1 w-8 bg-current transition-transform duration-300"
+        :class="isOpen ? '-translate-y-2.5 -rotate-45' : ''"
       />
     </span>
   </button>
@@ -65,18 +71,18 @@ onBeforeUnmount(() => {
       <nav class="flex flex-col items-center gap-7" aria-label="Post menu">
         <NuxtLink
           to="/"
-          class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-red-300 sm:text-6xl"
+          class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
           @click="closeMenu"
         >
           Home
         </NuxtLink>
-        <a
-          href="#newsletter"
-          class="border border-red-500 bg-red-500 px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:border-red-600 hover:bg-red-600"
-          @click="closeMenu"
+        <button
+          type="button"
+          class="bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
+          @click="handleSubscribeClick"
         >
           {{ terms.subscribe }}
-        </a>
+        </button>
       </nav>
     </div>
   </Transition>

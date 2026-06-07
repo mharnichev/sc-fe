@@ -23,7 +23,7 @@ const handleSubmit = () => {
     <div class="site-container">
       <div class="grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:items-end">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-red-400">Newsletter</p>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/50">Newsletter</p>
           <h2 class="mt-3 text-3xl font-black leading-tight sm:text-4xl">
             Get the next story in your inbox.
           </h2>
@@ -37,7 +37,7 @@ const handleSubmit = () => {
           <input
             id="newsletter-email"
             v-model="email"
-            class="min-h-12 w-full border border-white/15 bg-neutral-900 px-4 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-red-400"
+            class="min-h-12 w-full border border-white/15 bg-neutral-900 px-4 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-white"
             type="email"
             inputmode="email"
             autocomplete="email"
@@ -45,7 +45,7 @@ const handleSubmit = () => {
             aria-describedby="newsletter-message"
           >
           <button
-            class="min-h-12 border border-red-500 bg-red-500 px-6 text-sm font-bold uppercase tracking-[0.16em] text-white transition hover:border-red-600 hover:bg-red-600"
+            class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
             type="submit"
           >
             Subscribe
@@ -53,7 +53,7 @@ const handleSubmit = () => {
           <p
             id="newsletter-message"
             class="sm:col-span-2 text-sm"
-            :class="status === 'error' ? 'text-red-300' : 'text-white/65'"
+            :class="status === 'error' ? 'text-white/70' : 'text-white/65'"
             aria-live="polite"
           >
             {{ message }}

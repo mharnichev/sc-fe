@@ -1,19 +1,54 @@
 <script setup lang="ts">
 import logoNameDark from '../../barbershop/assets/images/main/sc-logo-name-dark.webp'
-import logoVinylDark from '../../barbershop/assets/logo-vinyl-dark.webp'
 
 const { locale, localeOptions, setLocale, terms } = useBlogLocale()
+const { openSubscribeModal } = useSubscribeModal()
+const isHeaderHidden = ref(false)
+let lastScrollY = 0
+
+const updateHeaderVisibility = () => {
+  const currentScrollY = window.scrollY
+
+  if (currentScrollY <= 120) {
+    isHeaderHidden.value = false
+    lastScrollY = currentScrollY
+    return
+  }
+
+  const scrollDelta = currentScrollY - lastScrollY
+
+  if (Math.abs(scrollDelta) < 6) {
+    return
+  }
+
+  isHeaderHidden.value = scrollDelta > 0
+  lastScrollY = currentScrollY
+}
+
+onMounted(() => {
+  lastScrollY = window.scrollY
+  updateHeaderVisibility()
+  window.addEventListener('scroll', updateHeaderVisibility, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateHeaderVisibility)
+})
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 overflow-hidden border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+  <header
+    class="sticky top-0 z-40 overflow-hidden border-b border-neutral-800 bg-neutral-950/90 backdrop-blur transition-transform duration-300 ease-out"
+    :class="isHeaderHidden ? '-translate-y-full' : 'translate-y-0'"
+  >
     <div class="site-container relative flex min-h-20 items-center justify-between gap-3 pt-2 sm:min-h-24 sm:pt-3">
-      <a
-        href="#newsletter"
-        class="relative z-10 inline-flex min-h-9 items-center justify-center border border-red-500 bg-red-500 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white transition hover:border-red-600 hover:bg-red-600 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+      <button
+        type="button"
+        class="relative z-10 inline-flex min-h-9 items-center justify-center bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-950 transition hover:bg-white/85 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+        @click="openSubscribeModal()"
       >
         {{ terms.subscribe }}
-      </a>
+      </button>
 
       <div class="relative z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-1 py-1 text-white">
         <button
@@ -33,43 +68,15 @@ const { locale, localeOptions, setLocale, terms } = useBlogLocale()
 
       <NuxtLink
         to="/"
-        class="absolute left-1/2 top-1 block h-20 w-24 -translate-x-1/2 overflow-hidden sm:top-2 sm:h-[6.5rem] sm:w-[10.8rem]"
+        class="absolute left-1/2 top-1 flex h-20 w-24 -translate-x-1/2 items-center justify-center overflow-hidden sm:top-2 sm:h-[6.5rem] sm:w-[10.8rem]"
         aria-label="Soul Cuts home"
       >
         <img
-          :src="logoVinylDark"
-          alt=""
-          class="header-vinyl-spin absolute bottom-[-3.25rem] left-1/2 h-[6.5rem] w-[6.5rem] -translate-x-1/2 object-contain opacity-90 sm:bottom-[-3.75rem] sm:h-[7.5rem] sm:w-[7.5rem]"
-          aria-hidden="true"
-        >
-        <img
           :src="logoNameDark"
           alt="Soul Cuts"
-          class="relative z-10 mx-auto mt-7 h-auto w-full object-contain sm:mt-8"
+          class="h-auto w-full object-contain"
         >
       </NuxtLink>
     </div>
   </header>
 </template>
-
-<style scoped>
-.header-vinyl-spin {
-  animation: header-vinyl-spin 18s linear infinite;
-}
-
-@keyframes header-vinyl-spin {
-  from {
-    transform: translateX(-50%) rotate(0deg);
-  }
-
-  to {
-    transform: translateX(-50%) rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .header-vinyl-spin {
-    animation: none;
-  }
-}
-</style>
