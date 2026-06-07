@@ -48,6 +48,7 @@ const originFromUrl = (value: string) => {
 const apiOrigin = originFromUrl(apiBase)
 const siteOrigin = originFromUrl(siteUrl)
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
+const googleAnalyticsMeasurementId = 'G-YYYXH2R239'
 
 const contentSecurityPolicy = [
   `default-src 'self'`,
@@ -55,7 +56,7 @@ const contentSecurityPolicy = [
   `object-src 'none'`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
-  `script-src ${uniqueSources("'self'", "'unsafe-inline'", 'https://www.googletagmanager.com', 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
+  `script-src ${uniqueSources("'self'", "'unsafe-inline'", 'https://www.googletagmanager.com', 'https://tagassistant.google.com', 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
   `style-src ${uniqueSources("'self'", "'unsafe-inline'", 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
   `img-src ${uniqueSources("'self'", 'data:', 'blob:', 'https:', apiOrigin, 'https://static.hotjar.com', 'https://script.hotjar.com', 'https://survey-images.hotjar.com').join(' ')}`,
   `font-src ${uniqueSources("'self'", 'data:', 'https://script.hotjar.com').join(' ')}`,
@@ -66,12 +67,14 @@ const contentSecurityPolicy = [
     'https://www.google-analytics.com',
     'https://*.google-analytics.com',
     'https://analytics.google.com',
+    'https://tagassistant.google.com',
     'https://*.hotjar.com',
     'https://*.hotjar.io',
     'wss://*.hotjar.com',
     ...(isProduction ? [] : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']),
   ).join(' ')}`,
   `media-src 'self' https:`,
+  `frame-src https://tagassistant.google.com`,
   `worker-src 'self' blob:`,
   `manifest-src 'self'`,
 ].join('; ')
@@ -143,6 +146,31 @@ export default defineNuxtConfig({
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'format-detection', content: 'telephone=yes' },
+      ],
+      script: [
+        {
+          key: 'google-analytics-gtag',
+          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
+          async: true,
+        },
+        {
+          key: 'google-analytics-init',
+          innerHTML: `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent', 'default', {
+  ad_personalization: 'denied',
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  analytics_storage: 'denied',
+  wait_for_update: 500
+});
+gtag('js', new Date());
+gtag('config', '${googleAnalyticsMeasurementId}', {
+  send_page_view: false
+});
+          `.trim(),
+        },
       ],
     },
   },
