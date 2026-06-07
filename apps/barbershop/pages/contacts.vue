@@ -2,6 +2,7 @@
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
+const { trackContactClick, trackEvent } = useAnalytics()
 const { data: masters } = await useAsyncData('booking-masters', domain.getMasters)
 const maxSelectedServices = 3
 
@@ -82,9 +83,26 @@ const toggleService = (serviceId: number) => {
   if (serviceSelectionLimitReached.value) return
 
   form.service_ids = [...form.service_ids, id]
+  const service = availableServices.value.find(service => service.id === serviceId)
+  trackEvent('select_service', {
+    source: 'contacts_page',
+    service_id: serviceId,
+    service_name: service ? localizedService.serviceName(service) : undefined,
+    service_count: form.service_ids.length,
+    value: Number(service?.price || 0),
+    currency: 'UAH',
+  })
 }
 
 watch(() => form.master_id, () => {
+  if (form.master_id) {
+    trackEvent('select_master', {
+      source: 'contacts_page',
+      master_id: Number(form.master_id),
+      master_name: selectedMaster.value ? masterName(selectedMaster.value) : undefined,
+    })
+  }
+
   form.service_ids = form.service_ids.filter(serviceId =>
     availableServices.value.some(service => service.id === Number(serviceId)),
   )
@@ -135,6 +153,13 @@ const submit = async () => {
   state.loading = true
   state.success = ''
   state.error = ''
+  trackEvent('booking_submit', {
+    source: 'contacts_page',
+    master_id: Number(form.master_id),
+    appointment_date: form.scheduled_at.slice(0, 10),
+    service_count: serviceIds.length,
+    duration_minutes: selectedDurationMinutes.value,
+  })
   try {
     await domain.createBooking({
       master_id: Number(form.master_id),
@@ -147,6 +172,13 @@ const submit = async () => {
       start_at: new Date(form.scheduled_at).toISOString(),
     })
     state.success = terms.value.pages.contacts.success
+    trackEvent('booking_success', {
+      source: 'contacts_page',
+      master_id: Number(form.master_id),
+      appointment_date: form.scheduled_at.slice(0, 10),
+      service_count: serviceIds.length,
+      duration_minutes: selectedDurationMinutes.value,
+    })
     Object.assign(form, {
       first_name: '',
       last_name: '',
@@ -160,6 +192,12 @@ const submit = async () => {
   }
   catch (error) {
     state.error = terms.value.pages.contacts.error
+    trackEvent('booking_error', {
+      source: 'contacts_page',
+      master_id: Number(form.master_id),
+      appointment_date: form.scheduled_at.slice(0, 10),
+      error_message: state.error,
+    })
     console.error(error)
   }
   finally {
@@ -180,14 +218,14 @@ const submit = async () => {
           <p><strong class="text-stone-900">{{ terms.pages.contacts.addressLabel }}</strong> {{ terms.pages.contacts.address }}</p>
           <p>
             <strong class="text-stone-900">{{ terms.pages.contacts.phoneLabel }}</strong>
-            <a :href="phoneHref" class="transition hover:text-stone-900 hover:underline">
+            <a :href="phoneHref" class="transition hover:text-stone-900 hover:underline" @click="trackContactClick('phone', 'contacts_page')">
               {{ terms.pages.contacts.phone }}
             </a>
           </p>
           <p><strong class="text-stone-900">{{ terms.pages.contacts.hoursLabel }}</strong> {{ terms.pages.contacts.hours }}</p>
           <p v-if="terms.pages.contacts.email">
             <strong class="text-stone-900">{{ terms.pages.contacts.emailLabel }}</strong>
-            <a :href="emailHref" class="transition hover:text-stone-900 hover:underline">
+            <a :href="emailHref" class="transition hover:text-stone-900 hover:underline" @click="trackContactClick('email', 'contacts_page')">
               {{ terms.pages.contacts.email }}
             </a>
           </p>
@@ -285,6 +323,7 @@ const submit = async () => {
         :min="minScheduledAt"
         :max="maxScheduledAt"
         class="w-full rounded-2xl border border-stone-300 px-4 py-3"
+        @change="trackEvent('select_time', { source: 'contacts_page', appointment_date: form.scheduled_at.slice(0, 10) })"
       >
       <textarea
         v-model="form.note"

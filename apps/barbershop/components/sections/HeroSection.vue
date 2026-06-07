@@ -6,6 +6,7 @@ import heroImageFour from '~/assets/images/hero/sc-hero-barber-1.webp'
 import heroImageFive from '~/assets/images/hero/sc-hero-barber-2.webp'
 
 const { terms } = useTerms()
+const { trackContactClick, trackEvent } = useAnalytics()
 
 const heroImages = [
   heroImageOne,
@@ -52,6 +53,7 @@ onBeforeUnmount(() => {
             target="_blank"
             rel="noopener noreferrer"
             class="text-white/80 underline decoration-white/25 underline-offset-4 transition hover:text-white hover:decoration-white"
+            @click="trackContactClick('map', 'hero')"
           >
             {{ terms.home.hero.location }}
           </a>
@@ -68,8 +70,8 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row" data-reveal="soft" data-reveal-delay="280">
-        <PrimaryButton to="#booking" class="w-full text-center">{{ terms.home.hero.primaryCta }}</PrimaryButton>
-        <NuxtLink to="#services" class="w-full inline-flex justify-center items-center border border-white/35 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-neutral-950 text-center">
+        <PrimaryButton to="#booking" class="w-full text-center" @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</PrimaryButton>
+        <NuxtLink to="#services" class="w-full inline-flex justify-center items-center border border-white/35 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-neutral-950 text-center" @click="trackEvent('view_services', { source: 'hero_cta' })">
           {{ terms.home.hero.secondaryCta }}
         </NuxtLink>
       </div>

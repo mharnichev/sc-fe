@@ -4,6 +4,7 @@ import logoVinylDark from '~/assets/logo-vinyl-dark.webp'
 
 const { terms } = useTerms()
 const { resetCookieConsent } = useCookieConsent()
+const { trackContactClick, trackEvent } = useAnalytics()
 
 const footerElement = ref<HTMLElement | null>(null)
 const footerRevealOffset = ref(0)
@@ -110,7 +111,7 @@ onBeforeUnmount(() => {
           <p class="max-w-2xl text-sm leading-6 text-white/65 md:text-base md:leading-8">
             {{ terms.home.cta.text }}
           </p>
-          <PrimaryButton to="#booking">{{ terms.home.cta.button }}</PrimaryButton>
+          <PrimaryButton to="#booking" @click="trackEvent('booking_start', { source: 'footer_cta' })">{{ terms.home.cta.button }}</PrimaryButton>
         </div>
       </div>
 
@@ -130,17 +131,18 @@ onBeforeUnmount(() => {
                 target="_blank"
                 rel="noopener noreferrer"
                 class="underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
+                @click="trackContactClick('map', 'footer')"
               >
                 {{ terms.home.contact.address }}
               </a>
             </p>
             <p>
-              <a :href="phoneHref" class="transition hover:text-white hover:underline">
+              <a :href="phoneHref" class="transition hover:text-white hover:underline" @click="trackContactClick('phone', 'footer')">
                 {{ terms.home.contact.phone }}
               </a>
             </p>
             <p v-if="terms.home.contact.email">
-              <a :href="emailHref" class="transition hover:text-white hover:underline">
+              <a :href="emailHref" class="transition hover:text-white hover:underline" @click="trackContactClick('email', 'footer')">
                 {{ terms.home.contact.email }}
               </a>
             </p>

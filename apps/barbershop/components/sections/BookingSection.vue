@@ -6,6 +6,7 @@ const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
+const { trackEvent } = useAnalytics()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 
@@ -23,6 +24,7 @@ const selectedSlotStart = ref('')
 const activeStepIndex = ref(0)
 const submitAttempted = ref(false)
 const isResettingAfterSubmit = ref(false)
+const bookingStarted = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepIds = ['booking-service', 'booking-master', 'booking-time', 'booking-contact']
 const bookingScrollOffset = 24
@@ -205,6 +207,8 @@ const selectCatalogService = (catalogId: string) => {
 }
 
 const selectService = (service: SelectableService) => {
+  const wasSelected = serviceSelected(service)
+
   if ('catalog_id' in service) {
     selectCatalogService(service.catalog_id)
   }
@@ -217,17 +221,49 @@ const selectService = (service: SelectableService) => {
       selectedServiceIds.value = [...selectedServiceIds.value, service.id]
     }
   }
+
+  if (!wasSelected && serviceSelected(service)) {
+    if (!bookingStarted.value) {
+      bookingStarted.value = true
+      trackEvent('booking_start', {
+        source: 'home_booking',
+      })
+    }
+
+    trackEvent('select_service', {
+      source: 'home_booking',
+      service_id: serviceKey(service),
+      service_name: serviceName(service),
+      service_count: selectedServiceCount.value,
+      value: Number(service.price || 0),
+      currency: 'UAH',
+    })
+  }
 }
 
 const selectMaster = (masterId: number) => {
   selectedMasterId.value = masterId
   resolveSelectedServiceForMaster()
+  trackEvent('select_master', {
+    source: 'home_booking',
+    master_id: masterId,
+    master_name: masterName(selectedMaster.value),
+    service_count: selectedServiceCount.value,
+  })
   goToStep(2)
   void scrollToBookingStart()
 }
 
 const selectSlot = (slotStart: string) => {
   selectedSlotStart.value = slotStart
+  trackEvent('select_time', {
+    source: 'home_booking',
+    master_id: selectedMasterId.value,
+    appointment_date: selectedDate.value,
+    appointment_hour: formatTime(slotStart),
+    service_count: selectedServiceCount.value,
+    duration_minutes: selectedDurationMinutes.value,
+  })
   goToStep(3)
   void scrollToBookingStart()
 }
@@ -387,6 +423,7 @@ const resetBookingFlow = async () => {
   form.customer_comment = ''
   activeStepIndex.value = 0
   submitAttempted.value = false
+  bookingStarted.value = false
   await nextTick()
   isResettingAfterSubmit.value = false
 }
@@ -411,10 +448,26 @@ const submit = async () => {
   state.loading = true
   state.success = ''
   state.error = ''
+  trackEvent('booking_submit', {
+    source: 'home_booking',
+    master_id: selectedMasterId.value,
+    appointment_date: selectedDate.value,
+    appointment_hour: formatTime(selectedSlotStart.value),
+    service_count: selectedServiceIds.value.length,
+    duration_minutes: selectedDurationMinutes.value,
+  })
 
   try {
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
+    const bookingEventParams = {
+      source: 'home_booking',
+      master_id: selectedMasterId.value,
+      appointment_date: bookedStartAt.slice(0, 10),
+      appointment_hour: formatTime(bookedStartAt),
+      service_count: selectedServiceIds.value.length,
+      duration_minutes: selectedDurationMinutes.value,
+    }
 
     await domain.createBooking({
       master_id: selectedMasterId.value,
@@ -432,9 +485,16 @@ const submit = async () => {
     state.successMasterName = bookedMasterName
     state.successStartAt = bookedStartAt
     state.success = terms.value.home.booking.successLabel
+    trackEvent('booking_success', bookingEventParams)
   }
   catch (error) {
     state.error = errorMessage(error)
+    trackEvent('booking_error', {
+      source: 'home_booking',
+      master_id: selectedMasterId.value,
+      appointment_date: selectedDate.value,
+      error_message: state.error,
+    })
     console.error(error)
   }
   finally {

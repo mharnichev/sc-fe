@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { terms } = useTerms()
+const { trackEvent } = useAnalytics()
 
 const botLink = 'https://t.me/SoulcutsBot'
 </script>
@@ -34,6 +35,7 @@ const botLink = 'https://t.me/SoulcutsBot'
               target="_blank"
               rel="noopener noreferrer"
               class="inline-flex w-full items-center justify-center gap-2 bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 sm:w-auto sm:text-sm sm:tracking-[0.16em]"
+              @click="trackEvent('click_telegram_bot', { source: 'bot_section' })"
             >
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M21 4 3.8 10.7c-1 .4-.9 1.8.1 2.1l4.4 1.3 1.7 5.2c.3.9 1.5 1.1 2.1.3l2.4-3 4.5 3.3c.8.6 1.9.1 2.1-.9L23 5.2c.1-.8-.8-1.5-2-1.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />

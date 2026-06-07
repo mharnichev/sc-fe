@@ -4,6 +4,7 @@ import type { ServiceCatalogItemDto } from '@shared-types'
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
+const { trackEvent } = useAnalytics()
 
 const { data: serviceCatalog, pending: servicesPending } = await useAsyncData('home-services-catalog', domain.getServiceCatalog)
 
@@ -25,6 +26,17 @@ const formatServiceDuration = (service: ServiceCatalogItemDto) =>
   localizedService.serviceDuration(service.duration_minutes)
 
 const selectService = async (service: ServiceCatalogItemDto) => {
+  trackEvent('select_service', {
+    source: 'services_grid',
+    service_id: service.catalog_id,
+    service_name: localizedService.serviceName(service),
+    value: Number(service.price || 0),
+    currency: 'UAH',
+  })
+  trackEvent('booking_start', {
+    source: 'services_grid',
+  })
+
   if (import.meta.client) {
     window.dispatchEvent(new CustomEvent('barbershop:select-service', {
       detail: { catalogId: service.catalog_id },

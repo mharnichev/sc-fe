@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { terms } = useTerms()
+const { trackEvent } = useAnalytics()
 
 const form = reactive({
   name: '',
@@ -58,6 +59,10 @@ const submit = () => {
 
   if (!contactEmail.value) {
     state.success = terms.value.home.feedback.fallbackMessage
+    trackEvent('generate_lead', {
+      source: 'feedback_form',
+      method: 'fallback',
+    })
     resetForm()
     return
   }
@@ -76,6 +81,10 @@ const submit = () => {
 
   window.location.href = mailto.toString()
   state.success = terms.value.home.feedback.successMessage
+  trackEvent('generate_lead', {
+    source: 'feedback_form',
+    method: 'mailto',
+  })
   resetForm()
 }
 </script>

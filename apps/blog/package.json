@@ -1,0 +1,15 @@
+{
+  "name": "@apps/blog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 5050",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "lint": "nuxi typecheck"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.12.1",
+    "nuxt": "^3.13.2"
+  }
+}

@@ -4,6 +4,7 @@
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev:barbershop": "pnpm --filter @apps/barbershop dev",
+    "dev:blog": "pnpm --filter @apps/blog dev",
     "dev:shop": "pnpm --filter @apps/shop dev",
     "dev:backoffice": "pnpm --filter @apps/backoffice dev",
     "build": "pnpm -r build",
