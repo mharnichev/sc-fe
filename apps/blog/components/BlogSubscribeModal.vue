@@ -2,10 +2,13 @@
 import logoNameDark from '../../barbershop/assets/images/main/sc-logo-name-dark.webp'
 
 const { initialEmail, isOpen } = useSubscribeModal()
+const { terms } = useBlogLocale()
+const { subscribeToBlog } = useBlogSubscription()
 const isModalVisible = ref(false)
 const email = ref('')
 const message = ref('')
 const status = ref<'idle' | 'error' | 'success'>('idle')
+const isSubmitting = ref(false)
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
@@ -19,16 +22,29 @@ const closeModal = () => {
   isOpen.value = false
 }
 
-const handleSubscribe = () => {
+const handleSubscribe = async () => {
   if (!isValidEmail(email.value)) {
     status.value = 'error'
-    message.value = 'Enter a valid email address.'
+    message.value = terms.value.enterValidEmail
     return
   }
 
-  status.value = 'success'
-  message.value = 'Thanks. This is a placeholder subscription for now.'
-  email.value = ''
+  isSubmitting.value = true
+  resetMessage()
+
+  try {
+    await subscribeToBlog(email.value, 'blog_modal')
+    status.value = 'success'
+    message.value = terms.value.subscriptionSuccess
+    email.value = ''
+  }
+  catch {
+    status.value = 'error'
+    message.value = terms.value.subscriptionError
+  }
+  finally {
+    isSubmitting.value = false
+  }
 }
 
 const handleDocumentClose = (event: MouseEvent | PointerEvent) => {
@@ -96,7 +112,7 @@ onMounted(() => {
       <button
         type="button"
         class="absolute right-4 top-4 flex h-12 w-12 items-center justify-center text-white transition hover:text-white/60 sm:right-6 sm:top-6"
-        aria-label="Close subscribe modal"
+        :aria-label="terms.closeSubscribeModal"
         data-subscribe-close
         @pointerdown.prevent.stop="closeModal"
         @click.prevent.stop="closeModal"
@@ -108,11 +124,11 @@ onMounted(() => {
       </button>
 
       <div class="flex w-full max-w-xl flex-col items-center">
-        <img :src="logoNameDark" alt="Soul Cuts" class="h-auto w-44 object-contain sm:w-56">
-        <h2 id="subscribe-modal-title" class="sr-only">Subscribe</h2>
+        <img :src="logoNameDark" :alt="terms.soulCutsLogoAlt" class="h-auto w-44 object-contain sm:w-56">
+        <h2 id="subscribe-modal-title" class="sr-only">{{ terms.subscribeModalTitle }}</h2>
 
         <form id="subscribe-modal-form" class="mt-10 grid w-full gap-3 sm:grid-cols-[1fr_auto]" novalidate @submit.prevent="handleSubscribe">
-          <label class="sr-only" for="subscribe-modal-email">Email address</label>
+          <label class="sr-only" for="subscribe-modal-email">{{ terms.emailAddress }}</label>
           <input
             id="subscribe-modal-email"
             v-model="email"
@@ -120,15 +136,17 @@ onMounted(() => {
             type="email"
             inputmode="email"
             autocomplete="email"
-            placeholder="Email address"
+            :placeholder="terms.emailAddress"
             aria-describedby="subscribe-modal-message"
             @input="resetMessage"
           >
           <button
             class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
             type="submit"
+            :disabled="isSubmitting"
+            :class="isSubmitting ? 'cursor-wait opacity-70' : ''"
           >
-            Subscribe
+            {{ terms.subscribe }}
           </button>
           <p
             id="subscribe-modal-message"
@@ -141,23 +159,23 @@ onMounted(() => {
         </form>
 
         <p class="mt-7 max-w-lg text-xs leading-6 text-white/55">
-          By subscribing, you agree Substack's
-          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/tos" target="_blank" rel="noopener noreferrer">Terms of Use</a>,
-          and acknowledge its
-          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy#information-collection-notice" target="_blank" rel="noopener noreferrer">Information Collection Notice</a>
-          and
-          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          {{ terms.subscribeAgreementPrefix }}
+          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/tos" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementTerms }}</a>,
+          {{ terms.subscribeAgreementMiddle }}
+          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy#information-collection-notice" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementCollectionNotice }}</a>
+          {{ terms.subscribeAgreementAnd }}
+          <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementPrivacy }}</a>.
         </p>
 
         <button
           type="button"
           class="mt-7 text-sm font-semibold uppercase tracking-[0.16em] text-white/55 transition hover:text-white"
-          aria-label="No thanks, close subscribe modal"
+          :aria-label="terms.noThanksCloseSubscribeModal"
           data-subscribe-close
           @pointerdown.prevent.stop="closeModal"
           @click.prevent.stop="closeModal"
         >
-          No thanks
+          {{ terms.noThanks }}
         </button>
       </div>
     </div>

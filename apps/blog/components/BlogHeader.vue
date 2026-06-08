@@ -69,11 +69,11 @@ onBeforeUnmount(() => {
       <NuxtLink
         to="/"
         class="absolute left-1/2 top-1 flex h-20 w-24 -translate-x-1/2 items-center justify-center overflow-hidden sm:top-2 sm:h-[6.5rem] sm:w-[10.8rem]"
-        aria-label="Soul Cuts home"
+        :aria-label="terms.soulCutsHome"
       >
         <img
           :src="logoNameDark"
-          alt="Soul Cuts"
+          :alt="terms.soulCutsLogoAlt"
           class="h-auto w-full object-contain"
         >
       </NuxtLink>

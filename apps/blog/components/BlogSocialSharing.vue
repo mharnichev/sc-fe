@@ -6,6 +6,7 @@ const props = defineProps<{
 
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
+const { terms } = useBlogLocale()
 const copied = ref(false)
 
 const shareUrl = computed(() => new URL(route.path, runtimeConfig.public.siteUrl).toString())
@@ -24,9 +25,9 @@ const shareLinks = computed(() => [
     href: `https://twitter.com/intent/tweet?text=${encodedTitle.value}&url=${encodedShareUrl.value}`,
   },
   {
-    label: 'Email',
+    label: terms.value.shareEmail,
     shortLabel: '@',
-    href: `mailto:?subject=${encodedTitle.value}&body=${encodeURIComponent(`Here is the link to the article: ${shareUrl.value}`)}`,
+    href: `mailto:?subject=${encodedTitle.value}&body=${encodeURIComponent(`${terms.value.shareEmailBody} ${shareUrl.value}`)}`,
   },
 ])
 
@@ -47,20 +48,20 @@ const copyLink = async () => {
   <section
     class="social-sharing mx-auto max-w-3xl px-4 py-12 text-center sm:px-6 sm:py-14"
     :class="isLight ? 'text-neutral-950' : 'text-white'"
-    aria-label="Share this story"
+    :aria-label="terms.shareStory"
   >
     <h5
       class="sharing-title text-xs font-black uppercase tracking-[0.24em]"
       :class="isLight ? 'text-neutral-600' : 'text-white/55'"
     >
-      Share this story
+      {{ terms.shareStory }}
     </h5>
     <div class="mt-5 flex items-center justify-center gap-3">
       <a
         v-for="link in shareLinks"
         :key="link.label"
         :href="link.href"
-        :title="`Share to ${link.label}`"
+        :title="`${terms.shareTo} ${link.label}`"
         class="flex h-11 w-11 items-center justify-center rounded-full border text-sm font-black uppercase transition"
         :class="isLight ? 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white' : 'border-white text-white hover:bg-white hover:text-neutral-950'"
         target="_blank"
@@ -71,11 +72,50 @@ const copyLink = async () => {
       </a>
       <button
         type="button"
-        class="flex h-11 min-w-11 items-center justify-center rounded-full border px-3 text-xs font-black uppercase transition"
+        class="flex h-11 w-11 items-center justify-center rounded-full border transition"
         :class="isLight ? 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white' : 'border-white text-white hover:bg-white hover:text-neutral-950'"
+        :aria-label="copied ? terms.copiedLink : terms.copyLink"
+        :title="copied ? terms.copiedLink : terms.copyLink"
         @click="copyLink"
       >
-        {{ copied ? 'Copied' : 'Link' }}
+        <span class="sr-only">{{ copied ? terms.copiedLink : terms.copyLink }}</span>
+        <svg
+          v-if="copied"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          v-else
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 4.93"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13 19.07"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
     </div>
   </section>

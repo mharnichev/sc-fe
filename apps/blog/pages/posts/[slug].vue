@@ -1,44 +1,46 @@
 <script setup lang="ts">
-import { getPostBySlug, getRelatedPosts } from '~/data/posts'
+import { getPostBySlug, getRelatedPosts, localizePost } from '~/data/posts'
 import bgDark1 from '~/assets/images/background/bg-dark-1.png'
 import bgDark2 from '~/assets/images/background/bg-dark-2.png'
 
+const { locale, terms } = useBlogLocale()
 const route = useRoute()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
-const post = getPostBySlug(slug)
+const rawPost = getPostBySlug(slug)
 
-if (!post) {
+if (!rawPost) {
   throw createError({
     statusCode: 404,
     statusMessage: 'Post not found',
   })
 }
 
-const relatedPosts = getRelatedPosts(post.slug)
-const articleImagesByParagraphIndex = new Map(
-  post.articleImages?.map((image, imageIndex) => [
+const post = computed(() => localizePost(rawPost, locale.value))
+const relatedPosts = computed(() => getRelatedPosts(rawPost.slug, locale.value))
+const articleImagesByParagraphIndex = computed(() => new Map(
+  post.value.articleImages?.map((image, imageIndex) => [
     image.afterParagraphIndex,
     {
       ...image,
       placement: imageIndex % 2 === 0 ? 'right' : 'left',
     },
   ]) ?? [],
-)
+))
 
-const getArticleImageAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.get(paragraphIndex)
+const getArticleImageAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.value.get(paragraphIndex)
 const contentBackgrounds = [
   bgDark1,
   bgDark2,
 ]
-const contentBackgroundIndex = [...post.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgrounds.length
+const contentBackgroundIndex = [...rawPost.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgrounds.length
 const contentBackground = contentBackgrounds[contentBackgroundIndex]
 
 useSeoMeta({
-  title: post.title,
-  description: post.excerpt,
-  ogTitle: post.title,
-  ogDescription: post.excerpt,
-  ogImage: post.coverImage,
+  title: () => post.value.title,
+  description: () => post.value.excerpt,
+  ogTitle: () => post.value.title,
+  ogDescription: () => post.value.excerpt,
+  ogImage: () => post.value.coverImage,
 })
 </script>
 
@@ -73,7 +75,7 @@ useSeoMeta({
               </p>
               <figure
                 v-if="getArticleImageAfter(paragraphIndex)"
-                class="article-float-image my-10 overflow-hidden sm:my-2"
+                class="article-float-image my-16 overflow-hidden sm:my-20"
                 :class="getArticleImageAfter(paragraphIndex)?.placement === 'left' ? 'article-float-image--left' : 'article-float-image--right'"
               >
                 <img
@@ -94,13 +96,14 @@ useSeoMeta({
         </div>
       </div>
       <BlogSocialSharing :title="post.title" />
+      <BlogPhotoCarousel :images="post.galleryImages" />
     </div>
   </article>
 
-  <section class="section-y bg-neutral-950">
+  <section v-if="relatedPosts.length" class="section-y bg-neutral-950">
     <div class="site-container">
       <div class="text-center">
-        <h2 class="section-heading">Recommended</h2>
+        <h2 class="section-heading">{{ terms.recommended }}</h2>
       </div>
 
       <div class="recommended-posts-list mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -146,7 +149,8 @@ useSeoMeta({
 
 @media (min-width: 640px) {
   .article-float-image {
-    margin-bottom: 1.5rem;
+    margin-bottom: 5rem;
+    margin-top: 5rem;
     width: min(58%, 30rem);
   }
 

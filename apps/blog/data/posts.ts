@@ -1,4 +1,49 @@
+import type { LocaleCode } from './locale'
+import coverImage from '../assets/images/posts/barbering-museum-cover.jpg'
+import articleImageAudience from '../assets/images/posts/barbering-museum-audience.webp'
+import articleImageCuttingDetail from '../assets/images/posts/barbering-museum-cutting-detail.webp'
+import articleImageEntrance from '../assets/images/posts/barbering-museum-entrance.webp'
+import galleryImage9053 from '../assets/images/posts/barbering-museum-gallery-9053.webp'
+import galleryImage9058 from '../assets/images/posts/barbering-museum-gallery-9058.webp'
+import galleryImage9064 from '../assets/images/posts/barbering-museum-gallery-9064.webp'
+import galleryImage8920 from '../assets/images/posts/barbering-museum-gallery-8920.webp'
+import galleryImage9149 from '../assets/images/posts/barbering-museum-gallery-9149.webp'
+import galleryImage9153 from '../assets/images/posts/barbering-museum-gallery-9153.webp'
+import articleImageHighFive from '../assets/images/posts/barbering-museum-high-five.webp'
+import articleImageOne from '../assets/images/posts/barbering-museum-masterclass.webp'
+import articleImagePortrait from '../assets/images/posts/barbering-museum-portrait.webp'
+
+type LocalizedText = Record<LocaleCode, string>
+
+interface BlogGalleryImage {
+  src: string
+  alt: LocalizedText
+}
+
+interface BlogArticleImage {
+  afterParagraphIndex: number
+  src: string
+  alt: LocalizedText
+  caption?: LocalizedText
+}
+
 export interface BlogPost {
+  slug: string
+  title: LocalizedText
+  excerpt: LocalizedText
+  publishedAt: string
+  category: LocalizedText
+  author: LocalizedText
+  readMinutes: number
+  coverImage: string
+  coverImageAlt: LocalizedText
+  featured?: boolean
+  articleImages?: BlogArticleImage[]
+  galleryImages?: BlogGalleryImage[]
+  content: Record<LocaleCode, string[]>
+}
+
+export interface LocalizedBlogPost {
   slug: string
   title: string
   excerpt: string
@@ -15,133 +60,196 @@ export interface BlogPost {
     alt: string
     caption?: string
   }>
+  galleryImages?: Array<{
+    src: string
+    alt: string
+  }>
   content: string[]
 }
 
-export interface FeaturedCategory {
-  title: string
-  description: string
-  accentClass: string
-}
+const eventContentUk = [
+  'Привіт, народ! Оскільки ми вирішили вести свій блог і ділитися тим, як проходять наші двіжухи, ловіть перший репортаж.',
+  'Хто стежить за нашим ютуб-каналом «Ідем на Букви», знає: ми топимо за те, щоб український барберінг розвивався, а майстри спілкувалися між собою без конкуренції та заздрощів. Ми всі робимо одну справу. І от нещодавно ми вирішили зібрати нашу закриту тусовку в дуже незвичному місці - в Одеському художньому музеї східного та західного мистецтва в центрі міста.',
+  'Цього разу з майстеркласом до Одеси 16 березня 2026 року приїхав досить відомий майстер у наших колах - Володимир Мєдвєдєв (@hairkillah_), представник бренду та барбершопу Maza в Києві.',
+  'Приїхали, зайшли в музей. Навколо ліпнина, картини, старовинні зали. Хтось міг би подумати: «Ого, ну й нагнали пафосу». Але для нас це був цікавий досвід - змішати нашу вуличну барбер-культуру з класичною історією. Коли увімкнули атмосферне світло, виглядало це максимально затишно й по-своєму.',
+  'Організувати технічно складний перформанс у діючому музеї - це виклик. Потрібно зберегти автентичність локації й водночас розгорнути технологічну сцену. Коли монтаж завершився, стало зрозуміло: класичний бекграунд музею лише підкреслив футуристичність і чистоту ліній сучасної стрижки.',
+  'Майстер Володимир створював форми, які диктують тренди українського ринку. Це не було демонстрацією «шаблонних стрижок». Це був детальний розбір архітектури волосся, анатомічних особливостей моделей та психології сприйняття образу.',
+  'Навіщо ми це робимо? Для майстрів: ми робимо ці івенти, щоб усі могли видихнути від щоденної рутини у своєму робочому просторі. Прийти, обійнятися, потеревенити про спільні болі - страх батлів, вигорання, професійні сумніви - дізнатися щось нове й зарядитися енергією.',
+  'Тут немає «зірок» - ми всі на одному рівні, просто ділимося досвідом. Хочемо відмітити, що відвідування подібних заходів - це не завжди про отримання конкретного скіллу в моменті. Це можливість надихнутися, подивитися на свою професію з іншого ракурсу, познайомитися з представниками комʼюніті для подальшої співпраці, обмінятися досвідом користування інструментами й підібрати для себе максимально зручний комплект.',
+  'Для наших клієнтів: нам приємно, коли ви бачите, що барбери з Soul Cuts не просто механічно махають машинкою. Ми живемо цією справою, постійно варимося в цій тусовці й розвиваємося. Тому, коли ви приходите до нас на стрижку, ви можете бути впевнені: вам зроблять круто, бо ми приділяємо увагу кожній деталі.',
+  '«Плівкові фото сильно полюбились мені. Ваші емоції на кадрах так яскраво виражені. Вважаю це цінним в рамках нашої індустрії і культурного відображення діяльності всередині барберінгу» - Гліб Аноцький, засновник проєкту про барберів «Ідем на Букви», майстер та власник барбершопу Soul Cuts в Одесі.',
+  'Головна думка, яку ми завжди повторюємо на «Ідем на Букви»: талант - це круто, але якщо ти не пашеш кожен день у кріслі й не поважаєш свою роботу, нічого не буде.',
+  'Ось так пройшов наш перший івент у блозі. Попереду ще багато міст і нових зустрічей. Підписуйтесь на наш ютуб «Ідем на Букви», приходьте на стрижки в барбершоп Soul Cuts і давайте рухати цю культуру разом. Без пафосу, суто на повазі.',
+  'До зустрічі в кріслі або на наступній тусовці!',
+]
+
+const eventContentEn = [
+  'Hey everyone. Since we decided to start our own blog and share how our events actually happen, here is the first report.',
+  'If you follow our YouTube channel Idem na Bukvy, you already know what we stand for: Ukrainian barbering should grow, and barbers should talk to each other without competition, jealousy, or ego. We are all doing the same work. Recently, we decided to bring our closed community together in a very unusual place: the Odesa Museum of Western and Eastern Art in the city center.',
+  'This time, on March 16, 2026, Volodymyr Medvediev (@hairkillah_) came to Odesa with a masterclass. He is a well-known barber in our circle and represents the Maza brand and barbershop in Kyiv.',
+  'We arrived and walked into the museum. Stucco, paintings, old halls everywhere. Someone could have thought, “Wow, they really went for the fancy setup.” For us, it was an interesting experiment: mixing our street-level barber culture with classical history. When the atmospheric lighting came on, the space felt warm, intimate, and completely its own.',
+  'Organizing a technically complex performance inside an active museum is a challenge. You have to preserve the authenticity of the location while building a modern technical stage inside it. Once the setup was finished, it became clear: the classical museum background only emphasized the futuristic precision and clean lines of modern haircutting.',
+  'Volodymyr created shapes that influence the direction of the Ukrainian market. This was not a demonstration of “template haircuts.” It was a detailed breakdown of hair architecture, the anatomical specifics of the models, and the psychology of how an image is perceived.',
+  'Why do we do this? For barbers: we create these events so all of us can exhale after the daily routine of our own workspaces. To come together, hug, talk through shared struggles - fear of battles, burnout, professional doubts - learn something new, and recharge.',
+  'There are no “stars” here. We are all on the same level, simply sharing experience. We also want to point out that attending events like this is not always about getting one specific skill right away. It is a chance to get inspired, to look at your profession from another angle, to meet people from the community for future collaborations, to exchange real experience with tools, and to find the setup that works best for you.',
+  'For our clients: we are happy when you see that Soul Cuts barbers are not just mechanically moving a clipper. We live this craft, stay inside the community, and keep developing. So when you come to us for a haircut, you can be sure we will do it properly, because every detail matters to us.',
+  '“I have really fallen in love with film photos. Your emotions in these frames are so vivid. I consider this valuable for our industry and for the cultural reflection of what happens inside barbering,” says Hlib Anotskyi, founder of the barber project Idem na Bukvy, barber, and owner of Soul Cuts barbershop in Odesa.',
+  'The main idea we always repeat on Idem na Bukvy is simple: talent is great, but if you do not work hard every day behind the chair and respect your craft, nothing will happen.',
+  'That is how our first event report in the blog went. Ahead of us are many more cities and new meetings. Subscribe to our YouTube channel Idem na Bukvy, come get a haircut at Soul Cuts, and let’s move this culture forward together. No ego, just respect.',
+  'See you in the chair or at the next gathering.',
+]
 
 export const posts: BlogPost[] = [
   {
-    slug: 'inside-the-modern-neighborhood-studio',
-    title: 'Inside the Modern Neighborhood Studio',
-    excerpt: 'How independent creative spaces are turning local scenes into sharper, more useful communities.',
-    publishedAt: '2026-05-28',
-    category: 'Culture',
-    author: 'Marta Kovalenko',
-    readMinutes: 6,
-    coverImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Creative studio workspace with desks and warm light',
+    slug: 'barbering-in-the-museum',
+    title: {
+      uk: 'Барберінг у музеї: перший репортаж Soul Cuts',
+      en: 'Barbering in a Museum: The First Soul Cuts Report',
+    },
+    excerpt: {
+      uk: 'Як ми зібрали барберське комʼюніті в Одеському музеї західного та східного мистецтва і навіщо нам такі зустрічі.',
+      en: 'How we brought the barbering community into the Odesa Museum of Western and Eastern Art, and why these gatherings matter.',
+    },
+    publishedAt: '2026-03-16',
+    category: {
+      uk: 'Комʼюніті',
+      en: 'Community',
+    },
+    author: {
+      uk: 'Soul Cuts',
+      en: 'Soul Cuts',
+    },
+    readMinutes: 7,
+    coverImage,
+    coverImageAlt: {
+      uk: 'Учасники барберської події Soul Cuts в музеї',
+      en: 'Soul Cuts barbering event participants in the museum',
+    },
     featured: true,
     articleImages: [
       {
         afterParagraphIndex: 1,
-        src: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1400&q=80',
-        alt: 'Audience gathered in a small creative venue with warm stage light',
-        caption: 'Small rooms turn casual visits into shared reference points for the people who keep returning.',
+        src: articleImageEntrance,
+        alt: {
+          uk: 'Учасники барберської події збираються біля входу до музею',
+          en: 'Participants of the barbering event gather near the museum entrance',
+        },
       },
       {
-        afterParagraphIndex: 5,
-        src: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1400&q=80',
-        alt: 'Creative team working around a long table with laptops and notebooks',
-        caption: 'The strongest studios make production, conversation, and public programming feel like one rhythm.',
+        afterParagraphIndex: 3,
+        src: articleImageOne,
+        alt: {
+          uk: 'Володимир Мєдвєдєв показує техніку стрижки під час майстеркласу',
+          en: 'Volodymyr Medvediev demonstrates a haircut technique during the masterclass',
+        },
+      },
+      {
+        afterParagraphIndex: 4,
+        src: articleImageAudience,
+        alt: {
+          uk: 'Майстерклас проходить у музейній залі серед учасників комʼюніті',
+          en: 'The masterclass takes place in the museum hall among community members',
+        },
+      },
+      {
+        afterParagraphIndex: 6,
+        src: articleImageCuttingDetail,
+        alt: {
+          uk: 'Деталь роботи Володимира Мєдвєдєва з ножицями під час показу',
+          en: 'A close view of Volodymyr Medvediev working with scissors during the demonstration',
+        },
       },
     ],
-    content: [
-      'The best neighborhood studios now work like small publishing rooms, listening posts, and gathering spaces at the same time. They give artists a place to make work, but they also give a city a way to notice itself.',
-      'That shift is less about aesthetics than rhythm. A strong studio has a calendar, a point of view, and enough public-facing activity to turn private experiments into shared reference points.',
-      'Walk into one on a Thursday night and the boundaries are usually blurred. Someone is checking a lighting setup in the corner, a photographer is editing selects at the table, and a few regulars are comparing notes from the last opening. The work is not hidden away from the social life of the room; it is shaped by it.',
-      'That public rhythm matters because it gives people a reason to return before anything is finished. A draft reading, a listening session, or a tiny exhibition can become a checkpoint. The studio is no longer only a place where outcomes are presented. It becomes a place where process is visible enough to invite trust.',
-      'For emerging writers, stylists, photographers, and musicians, these spaces can become the first place where informal work starts to feel legible. The audience is close enough to be honest and small enough to stay generous.',
-      'The best operators understand that generosity needs structure. They keep the calendar light enough to breathe, but consistent enough that people know when to show up. They document the room, publish recaps, and make small archives that help each event become part of a longer story.',
-      'There is also a practical advantage. Neighborhood studios can move faster than institutions because their feedback loop is short. If a format feels stiff, it can change next week. If a collaboration works, it can become a recurring column, a workshop, or a printed object without passing through months of approval.',
-      'That speed does not mean the work is disposable. In fact, the opposite is often true. Because the room is small, details carry more weight: the order of images on a wall, the way a host introduces a guest, the decision to keep a conversation off-mic until it is ready.',
-      'The result is a scene that does not need to wait for permission from a larger platform. It can publish, document, host, and revise in public, building trust one useful event at a time.',
-      'For an online magazine, that makes these studios more than a subject. They are a model for editorial life: specific, recurring, close to the people being covered, and willing to let the archive grow from repeated contact rather than from a single perfect launch.',
+    galleryImages: [
+      {
+        src: articleImageEntrance,
+        alt: {
+          uk: 'Учасники барберської події збираються біля входу до музею',
+          en: 'Participants of the barbering event gather near the museum entrance',
+        },
+      },
+      {
+        src: articleImageOne,
+        alt: {
+          uk: 'Володимир Мєдвєдєв показує техніку стрижки під час майстеркласу',
+          en: 'Volodymyr Medvediev demonstrates a haircut technique during the masterclass',
+        },
+      },
+      {
+        src: articleImageAudience,
+        alt: {
+          uk: 'Майстерклас у музейній залі серед учасників комʼюніті',
+          en: 'The masterclass inside the museum hall among community members',
+        },
+      },
+      {
+        src: articleImageCuttingDetail,
+        alt: {
+          uk: 'Деталь роботи Володимира Мєдвєдєва з ножицями під час показу',
+          en: 'A close view of Volodymyr Medvediev working with scissors during the demonstration',
+        },
+      },
+      {
+        src: articleImageHighFive,
+        alt: {
+          uk: 'Момент підтримки після барберського майстеркласу в музеї',
+          en: 'A supportive moment after the barbering masterclass in the museum',
+        },
+      },
+      {
+        src: articleImagePortrait,
+        alt: {
+          uk: 'Портрет учасників події Soul Cuts у музейній залі',
+          en: 'A portrait of Soul Cuts event participants inside the museum hall',
+        },
+      },
+      {
+        src: galleryImage9053,
+        alt: {
+          uk: 'Портрет учасника події в музейній залі',
+          en: 'A portrait of an event participant inside the museum hall',
+        },
+      },
+      {
+        src: galleryImage9058,
+        alt: {
+          uk: 'Володимир Мєдвєдєв працює під час майстеркласу',
+          en: 'Volodymyr Medvediev works during the masterclass',
+        },
+      },
+      {
+        src: galleryImage9149,
+        alt: {
+          uk: 'Учасник отримує сертифікат після майстеркласу',
+          en: 'A participant receives a certificate after the masterclass',
+        },
+      },
+      {
+        src: galleryImage8920,
+        alt: {
+          uk: 'Груповий портрет гостей події Soul Cuts',
+          en: 'A group portrait of Soul Cuts event guests',
+        },
+      },
+      {
+        src: galleryImage9153,
+        alt: {
+          uk: 'Гості спілкуються після події в музейній залі',
+          en: 'Guests talk after the event inside the museum hall',
+        },
+      },
+      {
+        src: galleryImage9064,
+        alt: {
+          uk: 'Учасники спостерігають за демонстрацією стрижки',
+          en: 'Participants watch the haircut demonstration',
+        },
+      },
     ],
-  },
-  {
-    slug: 'why-good-editorial-calendars-feel-human',
-    title: 'Why Good Editorial Calendars Feel Human',
-    excerpt: 'A practical look at pacing, recurring columns, and how small teams can publish without burning out.',
-    publishedAt: '2026-05-24',
-    category: 'Editorial',
-    author: 'Ivan Chernenko',
-    readMinutes: 5,
-    coverImage: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Notebook with planning notes on a desk',
-    content: [
-      'A calendar becomes useful when it protects attention instead of simply filling boxes. The strongest small publications build repeatable formats that make space for timely work without making every week feel improvised.',
-      'Recurring columns help readers learn how to return. They also reduce decision fatigue for editors because the format already answers questions about scope, length, and tone.',
-      'The human part is the margin. A durable calendar leaves enough room for interviews that run long, photo edits that need another pass, and stories that become clearer after one more conversation.',
-    ],
-  },
-  {
-    slug: 'the-return-of-the-city-guide',
-    title: 'The Return of the City Guide',
-    excerpt: 'Digital city guides are becoming smaller, sharper, and more personal than the old directory model.',
-    publishedAt: '2026-05-18',
-    category: 'Cities',
-    author: 'Nika Melnyk',
-    readMinutes: 4,
-    coverImage: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Dense city street at night with glowing windows',
-    content: [
-      'The most useful city guides no longer try to list everything. They behave more like a trusted friend with taste, context, and a willingness to explain why a place matters.',
-      'That narrower editorial stance is a feature. Readers do not need another infinite map; they need a route through the noise and a reason to care about the stops along the way.',
-      'For publishers, the opportunity is to connect practical recommendations with reporting. A guide can point to a cafe, but it can also tell the story of the people who made it important.',
-    ],
-  },
-  {
-    slug: 'small-venues-big-memory',
-    title: 'Small Venues, Big Memory',
-    excerpt: 'Why intimate rooms still define how people remember performances, scenes, and whole periods of taste.',
-    publishedAt: '2026-05-10',
-    category: 'Music',
-    author: 'Oleh Savchuk',
-    readMinutes: 7,
-    coverImage: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Performer singing into a microphone on a small stage',
-    content: [
-      'Small venues compress the distance between a performance and its consequences. The room is close enough for every mistake, joke, and surprise to become part of the record.',
-      'That intimacy is why these places keep shaping memory long after their capacities suggest they should. A tiny show can become a citywide reference because the people who were there tell the story with unusual detail.',
-      'For a magazine, those rooms are natural reporting ground. They show taste while it is still being argued over, before consensus flattens the edges.',
-    ],
-  },
-  {
-    slug: 'notes-on-building-a-better-archive',
-    title: 'Notes on Building a Better Archive',
-    excerpt: 'Archives become more valuable when they are designed for discovery, not just storage.',
-    publishedAt: '2026-04-30',
-    category: 'Process',
-    author: 'Sofia Bondar',
-    readMinutes: 5,
-    coverImage: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Rows of books and magazines on library shelves',
-    content: [
-      'An archive is not only a place where old work goes. For a growing publication, it is the system that lets readers understand what the publication has been paying attention to over time.',
-      'Good archives expose patterns. They make it easy to trace a recurring question, a neighborhood, a collaborator, or a format without needing to remember the exact headline.',
-      'The first version does not need to be complex. Clear categories, consistent metadata, and readable URLs already create a foundation that future tools can build on.',
-    ],
-  },
-  {
-    slug: 'a-field-guide-to-strong-interviews',
-    title: 'A Field Guide to Strong Interviews',
-    excerpt: 'The best interviews are structured enough to move and loose enough to let the guest surprise you.',
-    publishedAt: '2026-04-22',
-    category: 'Interviews',
-    author: 'Danylo Hrytsenko',
-    readMinutes: 6,
-    coverImage: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1600&q=80',
-    coverImageAlt: 'Two people speaking during a recorded interview',
-    content: [
-      'A strong interview starts before the recorder turns on. The preparation should identify what only this person can explain, then leave enough room for the conversation to move somewhere more specific.',
-      'Questions work best when they create openings rather than performances. Short prompts, grounded follow-ups, and a willingness to wait often produce more useful answers than a heavily decorated setup.',
-      'Editing matters too. A published interview should preserve the person without forcing readers through every detour that happened in the room.',
-    ],
+    content: {
+      uk: eventContentUk,
+      en: eventContentEn,
+    },
   },
 ]
 
@@ -149,30 +257,46 @@ export const sortedPosts = [...posts].sort((first, second) =>
   new Date(second.publishedAt).getTime() - new Date(first.publishedAt).getTime(),
 )
 
-export const featuredPost: BlogPost = posts.find(post => post.featured) ?? sortedPosts[0]
+export const localizePost = (post: BlogPost, locale: LocaleCode): LocalizedBlogPost => ({
+  ...post,
+  title: post.title[locale] || post.title.en,
+  excerpt: post.excerpt[locale] || post.excerpt.en,
+  category: post.category[locale] || post.category.en,
+  author: post.author[locale] || post.author.en,
+  coverImageAlt: post.coverImageAlt[locale] || post.coverImageAlt.en,
+  articleImages: post.articleImages?.map(image => ({
+    ...image,
+    alt: image.alt[locale] || image.alt.en,
+    caption: image.caption ? image.caption[locale] || image.caption.en : undefined,
+  })),
+  galleryImages: post.galleryImages?.map(image => ({
+    ...image,
+    alt: image.alt[locale] || image.alt.en,
+  })),
+  content: post.content[locale] || post.content.en,
+})
 
-export const latestPosts = sortedPosts.filter(post => post.slug !== featuredPost.slug)
+export const getLocalizedPosts = (locale: LocaleCode) => sortedPosts.map(post => localizePost(post, locale))
 
-export const featuredCategories: FeaturedCategory[] = [
-  {
-    title: 'Culture',
-    description: 'Essays, scene notes, and perspective on the people shaping local creative life.',
-    accentClass: 'bg-neutral-500',
-  },
-  {
-    title: 'Music',
-    description: 'Reviews, interviews, and short dispatches from rooms where new taste is forming.',
-    accentClass: 'bg-stone-500',
-  },
-  {
-    title: 'Cities',
-    description: 'Guides and observations about places, habits, and the texture of everyday movement.',
-    accentClass: 'bg-zinc-500',
-  },
-]
+export const getFeaturedPost = (locale: LocaleCode) => {
+  const featuredPost = posts.find(post => post.featured) ?? sortedPosts[0]
 
-export const formatPostDate = (date: string) =>
-  new Intl.DateTimeFormat('en-US', {
+  return localizePost(featuredPost, locale)
+}
+
+export const getLatestPosts = (locale: LocaleCode) => {
+  const featuredPost = posts.find(post => post.featured) ?? sortedPosts[0]
+
+  return sortedPosts
+    .filter(post => post.slug !== featuredPost.slug)
+    .map(post => localizePost(post, locale))
+}
+
+export const formatReadMinutes = (minutes: number, locale: LocaleCode) =>
+  locale === 'uk' ? `${minutes} хв читання` : `${minutes} min read`
+
+export const formatPostDate = (date: string, locale: LocaleCode = 'en') =>
+  new Intl.DateTimeFormat(locale === 'uk' ? 'uk-UA' : 'en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -180,10 +304,10 @@ export const formatPostDate = (date: string) =>
 
 export const getPostBySlug = (slug: string) => posts.find(post => post.slug === slug)
 
-export const getRelatedPosts = (slug: string, limit = 3) => {
+export const getRelatedPosts = (slug: string, locale: LocaleCode, limit = 3) => {
   const currentPost = getPostBySlug(slug)
-  const relatedByCategory = sortedPosts.filter(post => post.slug !== slug && post.category === currentPost?.category)
-  const fallback = sortedPosts.filter(post => post.slug !== slug && post.category !== currentPost?.category)
+  const relatedByCategory = sortedPosts.filter(post => post.slug !== slug && post.category.en === currentPost?.category.en)
+  const fallback = sortedPosts.filter(post => post.slug !== slug && post.category.en !== currentPost?.category.en)
 
-  return [...relatedByCategory, ...fallback].slice(0, limit)
+  return [...relatedByCategory, ...fallback].slice(0, limit).map(post => localizePost(post, locale))
 }

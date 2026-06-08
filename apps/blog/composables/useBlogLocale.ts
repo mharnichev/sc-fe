@@ -19,7 +19,7 @@ const useBlogCookieOptions = (options = {}) => ({
 
 export const useBlogLocale = () => {
   const locale = useCookie<LocaleCode>('blog-locale', useBlogCookieOptions({
-    default: () => 'en',
+    default: () => 'uk',
     maxAge: LOCALE_COOKIE_MAX_AGE,
   }))
 

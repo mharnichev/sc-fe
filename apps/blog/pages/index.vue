@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { featuredPost, formatPostDate, latestPosts } from '~/data/posts'
+import { formatPostDate, formatReadMinutes, getFeaturedPost, getLatestPosts } from '~/data/posts'
 
-const homepagePosts = latestPosts.slice(0, 6)
+const { locale, terms } = useBlogLocale()
+const featuredPost = computed(() => getFeaturedPost(locale.value))
+const homepagePosts = computed(() => getLatestPosts(locale.value).slice(0, 6))
 
 useSeoMeta({
-  title: 'Home',
-  description: 'Soulcuts Journal is a public magazine-style blog for culture, music, cities, and creative process.',
+  title: () => terms.value.homeTitle,
+  description: () => terms.value.homeDescription,
 })
 </script>
 
@@ -23,7 +25,7 @@ useSeoMeta({
 
         <div class="flex flex-col justify-between border-y border-neutral-700 py-6 lg:py-8">
           <div>
-            <p class="eyebrow">Featured Post</p>
+            <p class="eyebrow">{{ terms.featuredPost }}</p>
             <h1 class="mt-5 text-4xl font-black leading-[0.98] text-white sm:text-6xl lg:text-7xl">
               {{ featuredPost.title }}
             </h1>
@@ -35,29 +37,29 @@ useSeoMeta({
           <div class="mt-8">
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
               <span class="text-white/50">{{ featuredPost.category }}</span>
-              <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt) }}</time>
-              <span>{{ featuredPost.readMinutes }} min read</span>
+              <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt, locale) }}</time>
+              <span>{{ formatReadMinutes(featuredPost.readMinutes, locale) }}</span>
             </div>
             <NuxtLink
               :to="`/posts/${featuredPost.slug}`"
               class="mt-6 inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-bold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/90"
             >
-              Read feature
+              {{ terms.readFeature }}
             </NuxtLink>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section-y">
+    <section v-if="homepagePosts.length" class="section-y">
       <div class="site-container">
         <div class="flex flex-col gap-4 border-b border-neutral-800 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p class="eyebrow">Latest</p>
-            <h2 class="section-heading mt-3">New stories</h2>
+            <p class="eyebrow">{{ terms.latest }}</p>
+            <h2 class="section-heading mt-3">{{ terms.newStories }}</h2>
           </div>
           <NuxtLink class="text-sm font-bold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-white" to="/posts">
-            View all posts
+            {{ terms.viewAllPosts }}
           </NuxtLink>
         </div>
 

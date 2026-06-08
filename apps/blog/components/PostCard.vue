@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { BlogPost } from '~/data/posts'
+import type { LocalizedBlogPost } from '~/data/posts'
 import { formatPostDate } from '~/data/posts'
 
+const { locale, terms } = useBlogLocale()
+
 defineProps<{
-  post: BlogPost
+  post: LocalizedBlogPost
   compact?: boolean
   recommended?: boolean
 }>()
@@ -30,7 +32,7 @@ defineProps<{
       <div class="flex h-full flex-col" :class="recommended ? 'pt-5' : 'p-5'">
         <div v-if="!recommended" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
           <span class="text-white/50">{{ post.category }}</span>
-          <time :datetime="post.publishedAt">{{ formatPostDate(post.publishedAt) }}</time>
+          <time :datetime="post.publishedAt">{{ formatPostDate(post.publishedAt, locale) }}</time>
         </div>
         <h2 class="font-black leading-tight text-white" :class="[compact ? 'text-xl' : 'text-2xl', recommended ? '' : 'mt-3']">
           {{ post.title }}
@@ -39,10 +41,10 @@ defineProps<{
           {{ post.excerpt }}
         </p>
         <time v-if="recommended" class="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500" :datetime="post.publishedAt">
-          {{ formatPostDate(post.publishedAt) }}
+          {{ formatPostDate(post.publishedAt, locale) }}
         </time>
         <p v-else class="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-white/70">
-          Read article
+          {{ terms.readArticle }}
         </p>
       </div>
     </NuxtLink>

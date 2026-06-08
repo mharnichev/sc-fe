@@ -250,27 +250,27 @@ const markDurationEdited = () => {
           </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-3 xl:gap-4">
-          <label class="col-span-2 space-y-1 text-xs text-slate-700 md:col-span-1 xl:space-y-2 xl:text-sm">
+        <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid-cols-3 xl:gap-4">
+          <label class="col-span-2 min-w-0 space-y-1 text-xs text-slate-700 md:col-span-1 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <CalendarDaysIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Дата
             </span>
-            <input v-model="form.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <input v-model="form.date" required type="date" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+          <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Початок
             </span>
-            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+          <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Завершення
             </span>
-            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
         </div>
 

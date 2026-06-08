@@ -8,6 +8,7 @@ import {
   UsersIcon,
   CalendarDaysIcon,
   ClockIcon,
+  BookOpenIcon,
   UserGroupIcon,
   ChatBubbleLeftRightIcon,
   SparklesIcon,
@@ -73,6 +74,14 @@ const onlineStoreLinks = computed(() => [
     : []),
 ])
 
+const blogLinks = computed(() => [
+  ...(isAdmin.value
+    ? [
+        { label: 'Статистика', to: '/blog/statistics', icon: BookOpenIcon },
+      ]
+    : []),
+])
+
 const barberBottomLinks = computed(() =>
   isBarber.value
     ? [
@@ -88,6 +97,7 @@ const menuSections = computed(() =>
   [
     { title: 'Барбершоп', links: barberShopLinks.value },
     { title: 'Онлайн магазин', links: onlineStoreLinks.value },
+    { title: 'Блог', links: blogLinks.value },
   ].filter((section) => section.links.length > 0),
 )
 

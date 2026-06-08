@@ -36,7 +36,7 @@ onBeforeUnmount(() => {
     class="fixed right-4 top-4 z-[70] flex h-12 w-12 items-center justify-center text-white transition hover:text-white/65 sm:right-6 sm:top-6"
     :aria-expanded="isOpen"
     aria-controls="post-menu-overlay"
-    aria-label="Open post menu"
+    :aria-label="terms.menuOpen"
     @click="isOpen = !isOpen"
   >
     <span class="relative h-6 w-8" aria-hidden="true">
@@ -68,13 +68,13 @@ onBeforeUnmount(() => {
       id="post-menu-overlay"
       class="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 px-6 text-center backdrop-blur"
     >
-      <nav class="flex flex-col items-center gap-7" aria-label="Post menu">
+      <nav class="flex flex-col items-center gap-7" :aria-label="terms.postMenu">
         <NuxtLink
           to="/"
           class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
           @click="closeMenu"
         >
-          Home
+          {{ terms.home }}
         </NuxtLink>
         <button
           type="button"

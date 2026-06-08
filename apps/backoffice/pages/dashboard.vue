@@ -2,9 +2,6 @@
 import {
   ArrowPathIcon,
   ArrowRightIcon,
-  CalendarDaysIcon,
-  ClockIcon,
-  SparklesIcon,
 } from '@heroicons/vue/24/outline'
 import type { Booking, Master, MasterService, TimeBlock } from '~/composables/useBackofficeApi'
 
@@ -244,11 +241,6 @@ const availabilityRows = computed(() =>
   }),
 )
 
-const quickActions = [
-  { label: 'Бронювання', value: 'Календар', to: '/bookings', icon: CalendarDaysIcon },
-  { label: 'Мої послуги', value: 'Ціни й тривалість', to: '/my-services', icon: SparklesIcon },
-  { label: 'Блокування часу', value: 'Недоступність', to: '/my-time-blocks', icon: ClockIcon },
-]
 </script>
 
 <template>
@@ -271,26 +263,6 @@ const quickActions = [
         {{ pending ? 'Оновлення...' : 'Оновити' }}
       </button>
     </div>
-
-    <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-3 xl:gap-3 xl:rounded-[1.75rem] xl:p-4">
-      <NuxtLink
-        v-for="action in quickActions"
-        :key="action.to"
-        :to="action.to"
-        class="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-slate-200 px-2.5 py-2 text-left transition hover:border-cyan-300 hover:bg-cyan-50 xl:min-h-16 xl:gap-3 xl:rounded-2xl xl:px-3 xl:py-2.5"
-      >
-        <span class="flex min-w-0 items-center gap-2 xl:gap-3">
-          <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white xl:h-10 xl:w-10">
-            <component :is="action.icon" class="h-4 w-4 xl:h-5 xl:w-5" aria-hidden="true" />
-          </span>
-          <span class="min-w-0">
-            <span class="block text-sm font-medium text-slate-900 xl:text-base">{{ action.label }}</span>
-            <span class="mt-0.5 block truncate text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ action.value }}</span>
-          </span>
-        </span>
-        <ArrowRightIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-      </NuxtLink>
-    </section>
 
     <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       Для повного огляду потрібен акаунт із роллю майстра або прив’язкою до профілю майстра.

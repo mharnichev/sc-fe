@@ -484,6 +484,84 @@ export interface BarbersComparisonResponse {
   top_performing_barbers: BarberComparisonItem[]
 }
 
+export type BlogSubscriptionStatus = 'subscribed' | 'unsubscribed'
+export type BlogSubscriptionEventType = 'subscribed' | 'resubscribed' | 'unsubscribed'
+
+export interface BlogSubscription {
+  id: number
+  created_at: string
+  updated_at: string
+  email: string
+  name: string | null
+  status: BlogSubscriptionStatus
+  source: string | null
+  language: string | null
+  referrer: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  first_subscribed_at: string
+  subscribed_at: string
+  unsubscribed_at: string | null
+  unsubscribe_reason: string | null
+  metadata_json: Record<string, unknown>
+}
+
+export interface BlogSubscriptionEvent {
+  id: number
+  subscription_id: number
+  event_type: BlogSubscriptionEventType
+  source: string | null
+  occurred_at: string
+  metadata_json: Record<string, unknown>
+}
+
+export interface BlogSubscriptionDailyStats {
+  date: string
+  subscribed: number
+  unsubscribed: number
+  net_growth: number
+}
+
+export interface BlogSubscriptionSourceStats {
+  source: string
+  active_subscribers: number
+  subscribe_events: number
+  unsubscribe_events: number
+}
+
+export interface BlogSubscriptionLanguageStats {
+  language: string
+  active_subscribers: number
+}
+
+export interface BlogSubscriptionReasonStats {
+  reason: string
+  count: number
+}
+
+export interface BlogSubscriptionEventStats {
+  event_type: BlogSubscriptionEventType
+  count: number
+}
+
+export interface BlogSubscriptionAnalytics {
+  period_start: string
+  period_end: string
+  total_subscribers: number
+  active_subscribers: number
+  unsubscribed_subscribers: number
+  subscribe_events: number
+  unsubscribe_events: number
+  net_growth: number
+  unsubscribe_rate: number
+  events: BlogSubscriptionEventStats[]
+  by_date: BlogSubscriptionDailyStats[]
+  by_source: BlogSubscriptionSourceStats[]
+  by_language: BlogSubscriptionLanguageStats[]
+  unsubscribe_reasons: BlogSubscriptionReasonStats[]
+}
+
 export interface MasterPayload {
   full_name: string
   last_name: string | null
@@ -1092,6 +1170,52 @@ export const useBackofficeApi = () => {
       method: 'DELETE',
     })
 
+  const getBlogStatistics = (filters: { period_start?: string, period_end?: string } = {}) =>
+    api<BlogSubscriptionAnalytics>('/backoffice/blog/statistics', {
+      query: {
+        period_start: filters.period_start || undefined,
+        period_end: filters.period_end || undefined,
+      },
+    })
+
+  const getBlogSubscriptions = (
+    page = 1,
+    pageSize = 20,
+    filters: {
+      status?: BlogSubscriptionStatus | '' | null
+      q?: string
+      source?: string
+      language?: string
+    } = {},
+  ) =>
+    api<PaginatedResponse<BlogSubscription>>('/backoffice/blog/subscriptions', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        status: filters.status || undefined,
+        q: filters.q || undefined,
+        source: filters.source || undefined,
+        language: filters.language || undefined,
+      },
+    })
+
+  const getBlogSubscriptionEvents = (
+    page = 1,
+    pageSize = 20,
+    filters: {
+      subscription_id?: number | null
+      event_type?: BlogSubscriptionEventType | '' | null
+    } = {},
+  ) =>
+    api<PaginatedResponse<BlogSubscriptionEvent>>('/backoffice/blog/events', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        subscription_id: filters.subscription_id ?? undefined,
+        event_type: filters.event_type || undefined,
+      },
+    })
+
   const getMessagingDashboard = () =>
     api<MessagingDashboard>('/backoffice/messaging/dashboard').then(data => ({
       ...data,
@@ -1345,6 +1469,9 @@ export const useBackofficeApi = () => {
     adminGetTimeBlocks,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,
+    getBlogStatistics,
+    getBlogSubscriptions,
+    getBlogSubscriptionEvents,
     getMessagingDashboard,
     getMessagingCampaigns,
     getMessagingCampaign,

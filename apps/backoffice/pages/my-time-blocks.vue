@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const {
@@ -101,14 +101,20 @@ const deleteBlock = async (blockId: number) => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 xl:gap-4">
         <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Наявні блокування</h2>
-        <div class="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-[auto_auto_auto] xl:gap-3">
-          <label class="space-y-1 text-xs text-slate-600">
-            <span>Від</span>
-            <input v-model="filters.date_from" type="date" class="min-h-9 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
+        <div class="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:w-auto sm:grid-cols-[auto_auto_auto] xl:gap-3">
+          <label class="min-w-0 space-y-1 text-xs text-slate-600">
+            <span class="inline-flex items-center gap-1.5">
+              <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+              Від
+            </span>
+            <input v-model="filters.date_from" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
           </label>
-          <label class="space-y-1 text-xs text-slate-600">
-            <span>До</span>
-            <input v-model="filters.date_to" type="date" class="min-h-9 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
+          <label class="min-w-0 space-y-1 text-xs text-slate-600">
+            <span class="inline-flex items-center gap-1.5">
+              <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+              До
+            </span>
+            <input v-model="filters.date_to" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
           </label>
           <button class="col-span-2 min-h-9 rounded-full border border-slate-300 px-3 py-1.5 text-xs sm:col-span-1 xl:px-4 xl:py-2 xl:text-sm" @click="applyFilters">Застосувати</button>
         </div>

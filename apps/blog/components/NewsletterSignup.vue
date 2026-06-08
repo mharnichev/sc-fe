@@ -1,20 +1,37 @@
 <script setup lang="ts">
+const { terms } = useBlogLocale()
+const { subscribeToBlog } = useBlogSubscription()
 const email = ref('')
 const message = ref('')
 const status = ref<'idle' | 'error' | 'success'>('idle')
+const isSubmitting = ref(false)
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!isValidEmail(email.value)) {
     status.value = 'error'
-    message.value = 'Enter a valid email address.'
+    message.value = terms.value.enterValidEmail
     return
   }
 
-  status.value = 'success'
-  message.value = 'Thanks. This is a placeholder subscription for now.'
-  email.value = ''
+  isSubmitting.value = true
+  status.value = 'idle'
+  message.value = ''
+
+  try {
+    await subscribeToBlog(email.value, 'blog_newsletter')
+    status.value = 'success'
+    message.value = terms.value.subscriptionSuccess
+    email.value = ''
+  }
+  catch {
+    status.value = 'error'
+    message.value = terms.value.subscriptionError
+  }
+  finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -23,17 +40,17 @@ const handleSubmit = () => {
     <div class="site-container">
       <div class="grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:items-end">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/50">Newsletter</p>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/50">{{ terms.newsletter }}</p>
           <h2 class="mt-3 text-3xl font-black leading-tight sm:text-4xl">
-            Get the next story in your inbox.
+            {{ terms.newsletterHeadline }}
           </h2>
           <p class="mt-4 max-w-xl text-sm leading-7 text-white/65">
-            A simple subscription block for the first version. Provider integration can be added later.
+            {{ terms.newsletterDescription }}
           </p>
         </div>
 
         <form class="grid gap-3 sm:grid-cols-[1fr_auto]" novalidate @submit.prevent="handleSubmit">
-          <label class="sr-only" for="newsletter-email">Email address</label>
+          <label class="sr-only" for="newsletter-email">{{ terms.emailAddress }}</label>
           <input
             id="newsletter-email"
             v-model="email"
@@ -41,14 +58,16 @@ const handleSubmit = () => {
             type="email"
             inputmode="email"
             autocomplete="email"
-            placeholder="you@example.com"
+            :placeholder="terms.emailPlaceholder"
             aria-describedby="newsletter-message"
           >
           <button
             class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
             type="submit"
+            :disabled="isSubmitting"
+            :class="isSubmitting ? 'cursor-wait opacity-70' : ''"
           >
-            Subscribe
+            {{ terms.subscribe }}
           </button>
           <p
             id="newsletter-message"

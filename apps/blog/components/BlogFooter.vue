@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { terms } = useBlogLocale()
 const currentYear = new Date().getFullYear()
 const footerEmail = ref('')
 const { openSubscribeModal } = useSubscribeModal()
@@ -87,17 +88,17 @@ onBeforeUnmount(() => {
     <div class="site-container">
       <div class="grid gap-7 md:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.65fr)] lg:items-end lg:gap-12">
         <div class="w-full space-y-3 md:space-y-5">
-          <p class="text-xs font-bold uppercase tracking-[0.28em] text-white/50">Soulcuts Journal</p>
+          <p class="text-xs font-bold uppercase tracking-[0.28em] text-white/50">{{ terms.footerEyebrow }}</p>
           <h2 class="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl">
-            Independent notes from the Soulcuts team.
+            {{ terms.footerHeadline }}
           </h2>
           <p class="max-w-2xl text-sm leading-7 text-white/60 md:text-base md:leading-8">
-            A public journal for culture, music, city notes, and the stories around the studio.
+            {{ terms.footerDescription }}
           </p>
         </div>
 
         <form class="grid gap-3 sm:grid-cols-[1fr_auto]" novalidate @submit.prevent="handleFooterSubscribe">
-          <label class="sr-only" for="footer-newsletter-email">Email address</label>
+          <label class="sr-only" for="footer-newsletter-email">{{ terms.emailAddress }}</label>
           <input
             id="footer-newsletter-email"
             v-model="footerEmail"
@@ -105,13 +106,13 @@ onBeforeUnmount(() => {
             type="email"
             inputmode="email"
             autocomplete="email"
-            placeholder="you@example.com"
+            :placeholder="terms.emailPlaceholder"
           >
           <button
             class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
             type="submit"
           >
-            Subscribe
+            {{ terms.subscribe }}
           </button>
         </form>
       </div>
@@ -120,27 +121,27 @@ onBeforeUnmount(() => {
         <div>
           <p class="text-sm font-black uppercase tracking-[0.28em]">Soulcuts</p>
           <p class="mt-4 max-w-sm text-sm leading-7 text-white/55">
-            Browse stories, interviews, guides, and field notes from the studio.
+            {{ terms.footerBrandDescription }}
           </p>
         </div>
 
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Explore</p>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">{{ terms.footerExplore }}</p>
           <div class="mt-4 grid gap-2 text-sm text-white/70">
             <NuxtLink class="transition hover:text-white" to="/">
-              Home
+              {{ terms.home }}
             </NuxtLink>
             <NuxtLink class="transition hover:text-white" to="/posts">
-              All posts
+              {{ terms.allPosts }}
             </NuxtLink>
             <button class="text-left transition hover:text-white" type="button" @click="openSubscribeModal()">
-              Newsletter
+              {{ terms.newsletter }}
             </button>
           </div>
         </div>
 
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Visit</p>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">{{ terms.footerVisit }}</p>
           <div class="mt-4 space-y-2 text-sm text-white/70">
             <p>
               <a
@@ -149,7 +150,7 @@ onBeforeUnmount(() => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Kyiv, Ukraine
+                {{ terms.footerLocation }}
               </a>
             </p>
             <p>
@@ -162,8 +163,8 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
-        <p>Copyright {{ currentYear }} Soulcuts Journal.</p>
-        <p>Independent notes from the Soulcuts team.</p>
+        <p>{{ terms.footerCopyrightPrefix }} {{ currentYear }} Soulcuts Journal.</p>
+        <p>{{ terms.footerTagline }}</p>
       </div>
     </div>
   </footer>
