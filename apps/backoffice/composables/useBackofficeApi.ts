@@ -852,12 +852,6 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
-  const updateMyBookingSchedule = (bookingId: number | string, payload: BookingSchedulePayload) =>
-    api<Booking>(`/backoffice/masters/me/bookings/${bookingId}`, {
-      method: 'PATCH',
-      body: payload,
-    })
-
   const deleteMyBooking = (bookingId: number | string) =>
     api(`/backoffice/masters/me/bookings/${bookingId}`, {
       method: 'DELETE',
@@ -1318,7 +1312,6 @@ export const useBackofficeApi = () => {
     getMyCalendar,
     getMyBookings,
     updateMyBookingStatus,
-    updateMyBookingSchedule,
     deleteMyBooking,
     getMyServices,
     updateMyService,

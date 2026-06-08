@@ -49,6 +49,34 @@ const apiOrigin = originFromUrl(apiBase)
 const siteOrigin = originFromUrl(siteUrl)
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
 const googleAnalyticsMeasurementId = 'G-YYYXH2R239'
+const googleScriptSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://ssl.google-analytics.com',
+  'https://tagassistant.google.com',
+]
+const googleImageSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://ssl.google-analytics.com',
+  'https://stats.g.doubleclick.net',
+]
+const googleConnectSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://*.google-analytics.com',
+  'https://ssl.google-analytics.com',
+  'https://analytics.google.com',
+  'https://www.google.com',
+  'https://stats.g.doubleclick.net',
+  'https://tagassistant.google.com',
+]
 
 const contentSecurityPolicy = [
   `default-src 'self'`,
@@ -56,18 +84,16 @@ const contentSecurityPolicy = [
   `object-src 'none'`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
-  `script-src ${uniqueSources("'self'", "'unsafe-inline'", 'https://www.googletagmanager.com', 'https://tagassistant.google.com', 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
+  `script-src ${uniqueSources("'self'", "'unsafe-inline'", ...googleScriptSources, 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
+  `script-src-elem ${uniqueSources("'self'", "'unsafe-inline'", ...googleScriptSources, 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
   `style-src ${uniqueSources("'self'", "'unsafe-inline'", 'https://static.hotjar.com', 'https://script.hotjar.com').join(' ')}`,
-  `img-src ${uniqueSources("'self'", 'data:', 'blob:', 'https:', apiOrigin, 'https://static.hotjar.com', 'https://script.hotjar.com', 'https://survey-images.hotjar.com').join(' ')}`,
+  `img-src ${uniqueSources("'self'", 'data:', 'blob:', 'https:', apiOrigin, ...googleImageSources, 'https://static.hotjar.com', 'https://script.hotjar.com', 'https://survey-images.hotjar.com').join(' ')}`,
   `font-src ${uniqueSources("'self'", 'data:', 'https://script.hotjar.com').join(' ')}`,
   `connect-src ${uniqueSources(
     "'self'",
     apiOrigin,
     siteOrigin,
-    'https://www.google-analytics.com',
-    'https://*.google-analytics.com',
-    'https://analytics.google.com',
-    'https://tagassistant.google.com',
+    ...googleConnectSources,
     'https://*.hotjar.com',
     'https://*.hotjar.io',
     'wss://*.hotjar.com',

@@ -412,13 +412,15 @@ const updateStatus = async (status: BookingStatus) => {
 
 const updateSchedule = async (payload: BookingSchedulePayload) => {
   if (!selected.value || selected.value.status === 'completed') return
+  if (!isAdmin.value) {
+    actionError.value = 'Лише адміністратор може редагувати час або послуги бронювання.'
+    return
+  }
   pendingSchedule.value = true
   actionError.value = ''
   actionSuccess.value = ''
   try {
-    const updated = isAdmin.value
-      ? await api.adminUpdateBookingSchedule(selected.value.id, payload)
-      : await api.updateMyBookingSchedule(selected.value.id, payload)
+    const updated = await api.adminUpdateBookingSchedule(selected.value.id, payload)
     selected.value = { ...selected.value, ...updated }
     actionSuccess.value = 'Час бронювання оновлено.'
     await refresh()
@@ -674,7 +676,7 @@ const deleteSelectedBlock = async () => {
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
       :pending-delete="pendingDelete"
-      :can-edit="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
+      :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
       :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
       :error="actionError"
       :masters="masterOptions"

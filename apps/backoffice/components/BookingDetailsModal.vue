@@ -56,7 +56,7 @@ const deleteConfirmOpen = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
 const masterOptions = computed(() => props.masters || [])
-const { isBarber } = useBackofficeAccess(masterOptions)
+const { isAdmin, isBarber } = useBackofficeAccess(masterOptions)
 
 const dateInputFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Kyiv',
@@ -137,7 +137,7 @@ const editableServiceOptions = computed(() => {
   return Array.from(byId.values())
 })
 
-const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canEdit !== false))
+const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && isAdmin.value && props.canEdit !== false))
 const canDeleteBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canDelete !== false))
 const orderedAllowedStatuses = computed(() => {
   const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
