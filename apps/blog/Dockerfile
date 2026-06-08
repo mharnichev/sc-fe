@@ -13,6 +13,7 @@ ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
+COPY apps/barbershop/assets ./apps/barbershop/assets
 COPY apps/blog ./apps/blog
 
 RUN pnpm install --frozen-lockfile
