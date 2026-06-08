@@ -40,6 +40,7 @@ onBeforeUnmount(() => {
       class="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out"
       :class="index === activeImageIndex ? 'opacity-70' : 'opacity-0'"
       :loading="index === 0 ? 'eager' : 'lazy'"
+      :fetchpriority="index === 0 ? 'high' : 'auto'"
       :aria-hidden="index === activeImageIndex ? undefined : true"
     >
     <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/45 to-neutral-950/20" />

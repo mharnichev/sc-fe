@@ -146,6 +146,11 @@ onBeforeUnmount(() => {
                 {{ terms.home.contact.email }}
               </a>
             </p>
+            <p>
+              <NuxtLink to="/barbershop-odesa" class="transition hover:text-white hover:underline">
+                {{ terms.common.localSeoPage }}
+              </NuxtLink>
+            </p>
             <button
               type="button"
               class="text-left underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"

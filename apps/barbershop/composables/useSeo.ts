@@ -16,7 +16,7 @@ export const useSeo = (
 ) => {
   const route = useRoute()
   const { absoluteUrl } = useSiteUrl()
-  const { locale } = useTerms()
+  const { locale, terms } = useTerms()
 
   const pagePath = () => toValue(options.path) || normalizeRoutePath(route.path)
   const pageUrl = () => absoluteUrl(pagePath())
@@ -25,8 +25,11 @@ export const useSeo = (
   useSeoMeta({
     title: () => toValue(title),
     description: () => toValue(description),
+    robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+    author: () => terms.value.common.brand,
     ogTitle: () => toValue(title),
     ogDescription: () => toValue(description),
+    ogSiteName: () => terms.value.common.brand,
     ogType: () => toValue(options.type) || 'website',
     ogUrl: pageUrl,
     ogImage: imageUrl,

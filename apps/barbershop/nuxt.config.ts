@@ -168,10 +168,18 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      titleTemplate: '%s | Barbershop',
+      titleTemplate: '%s | Soul Cuts Barbershop Odesa',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'format-detection', content: 'telephone=yes' },
+        { name: 'application-name', content: 'Soul Cuts' },
+        { name: 'theme-color', content: '#0a0a0a' },
+        { name: 'geo.region', content: 'UA-51' },
+        { name: 'geo.placename', content: 'Odesa' },
+      ],
+      link: [
+        { rel: 'preconnect', href: apiOrigin || 'https://api.soulcuts.com.ua', crossorigin: '' },
+        { rel: 'dns-prefetch', href: apiOrigin || 'https://api.soulcuts.com.ua' },
       ],
       script: [
         {

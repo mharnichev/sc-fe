@@ -88,6 +88,19 @@ const reviewText = (review: GoogleBusinessReviewDto) => {
   return review.translations?.uk || review.translations?.ua || review.comment || ''
 }
 
+const reviewsStructuredData = computed(() => ({
+  averageRating: reviewsResponse.value?.average_rating,
+  reviewCount: reviewsResponse.value?.total_review_count,
+  reviews: reviews.value.map(review => ({
+    authorName: reviewerName(review),
+    rating: review.star_rating,
+    body: reviewText(review).trim(),
+    datePublished: review.create_time,
+  })),
+}))
+
+useReviewsStructuredData(reviewsStructuredData)
+
 const isReviewExpanded = (review: GoogleBusinessReviewDto) =>
   expandedReviewIds.value.includes(review.review_id)
 

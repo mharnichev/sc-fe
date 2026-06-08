@@ -1,5 +1,6 @@
 const routes = [
   { loc: '/', priority: '1.0', changefreq: 'weekly' },
+  { loc: '/barbershop-odesa', priority: '0.9', changefreq: 'monthly' },
   { loc: '/services', priority: '0.8', changefreq: 'weekly' },
   { loc: '/masters', priority: '0.8', changefreq: 'weekly' },
   { loc: '/contacts', priority: '0.8', changefreq: 'monthly' },

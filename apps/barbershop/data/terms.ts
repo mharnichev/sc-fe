@@ -8,18 +8,18 @@ export const localeOptions: Array<{ code: LocaleCode, label: string }> = [
 export const termsDictionary = {
   uk: {
     seo: {
-      homeTitle: 'Soul Cuts',
-      homeDescription: 'Барбершоп в Одесі для стрижок, бороди, гоління та швидкого запису онлайн.',
-      aboutTitle: 'Про нас',
-      aboutDescription: 'Про Soul Cuts, команду та філософію студії.',
-      contactsTitle: 'Контакти та бронювання',
-      contactsDescription: 'Контакти, години роботи та форма запиту на запис.',
-      mastersTitle: 'Майстри',
-      mastersDescription: 'Познайомтеся з майстрами Soul Cuts.',
-      servicesTitle: 'Послуги',
-      servicesDescription: 'Стрижки, догляд за бородою, гоління та преміальні grooming-послуги.',
-      blogFaqTitle: 'Журнал і FAQ',
-      blogFaqDescription: 'Відповіді про послуги, записи та догляд між візитами.',
+      homeTitle: 'Барбершоп в Одесі',
+      homeDescription: 'Soul Cuts - барбершоп в Одесі на Канатній, 6. Чоловічі стрижки, борода, гоління, fade та швидкий онлайн-запис.',
+      aboutTitle: 'Про Soul Cuts - барбершоп в Одесі',
+      aboutDescription: 'Про Soul Cuts: барбершоп в Одесі, команда барберів, чоловічі стрижки, борода, гоління та філософія студії.',
+      contactsTitle: 'Контакти барбершопу Soul Cuts в Одесі',
+      contactsDescription: 'Адреса, телефон, графік роботи та онлайн-запис у барбершоп Soul Cuts в Одесі на вулиці Канатній, 6.',
+      mastersTitle: 'Барбери Soul Cuts в Одесі',
+      mastersDescription: 'Майстри барбершопу Soul Cuts в Одесі: чоловічі стрижки, fade, борода, гоління та консультація перед записом.',
+      servicesTitle: 'Послуги барбершопу в Одесі',
+      servicesDescription: 'Чоловічі стрижки, fade, борода, гоління шаветкою та grooming-послуги у барбершопі Soul Cuts в Одесі.',
+      blogFaqTitle: 'FAQ барбершопу Soul Cuts в Одесі',
+      blogFaqDescription: 'Відповіді про онлайн-запис, послуги, ціни, чоловічі стрижки, бороду, гоління та догляд між візитами.',
     },
     common: {
       brand: 'Soul Cuts',
@@ -30,6 +30,7 @@ export const termsDictionary = {
       info: 'Інфо',
       hours: 'Графік',
       read: 'Читати',
+      localSeoPage: 'Барбершоп Одеса',
       cookieSettings: 'Налаштування cookie',
     },
     cookieConsent: {
@@ -53,12 +54,12 @@ export const termsDictionary = {
         eyebrowPrefix: 'Барбершоп / 📍',
         location: 'Одеса',
         // title: 'Точний грумінг для звичайних днів і важливих подій.',
-        title: 'Стиль народжується тут',
-        text: 'Барбершоп, де можна бути собою',
+        title: 'Soul Cuts - барбершоп в Одесі',
+        text: 'Чоловічі стрижки, борода, гоління та онлайн-запис на Канатній, 6',
         primaryCta: 'Записатися',
         secondaryCta: 'Переглянути послуги',
         scrollCue: 'Гортайте вниз',
-        imageAlt: '',
+        imageAlt: 'Барбер Soul Cuts виконує чоловічу стрижку в Одесі',
       },
       intro: {
         label: 'Підхід',
@@ -73,6 +74,7 @@ export const termsDictionary = {
           'Майстри Soul Cuts не питають: «Як Вас підстригти?» Ми питаємо: що Вам заважає, що не подобається, та що хочеться змінити. Саме так народжується правильна форма.',
           'Окреме місце в нашій культурі займає традиційне гоління шаветкою - з розпарюванням, гарячими рушниками та професійним доглядом за шкірою.',
           'Ми поважаємо традиції чоловічого перукарського ремесла, бережемо їх та передаємо наступному поколінню барберів.',
+          'Нас часто шукають як barbershop Odesa, barbershop Odessa, барбершоп Одеса або барбершоп Одесса. Для нас це про одну просту річ: стабільний чоловічий сервіс у центрі Одеси.',
           'Soul Cuts - місце, де класика залишається актуальною.',
         ],
       },
@@ -224,7 +226,7 @@ export const termsDictionary = {
             questions: [
               {
                 question: 'Де знаходиться Soul Cuts?',
-                answer: ['Ми знаходимося в Одесі за адресою: вулиця Канатна, 6. Локація зручна для центральної частини міста та швидкого візиту протягом дня.'],
+                answer: ['Soul Cuts - барбершоп в Одесі за адресою: вулиця Канатна, 6. Локація зручна для центральної частини міста, чоловічої стрижки, бороди або швидкого візиту протягом дня.'],
               },
               {
                 question: 'Як дістатися громадським транспортом?',
@@ -368,7 +370,7 @@ export const termsDictionary = {
       },
       contacts: {
         label: 'Контакти',
-        title: 'Завітайте до студії або залиште запит на запис.',
+        title: 'Барбершоп Soul Cuts в Одесі: адреса, телефон і запис.',
         addressLabel: 'Адреса:',
         address: '📍вулиця Канатна, 6, Одеса',
         phoneLabel: 'Телефон:',
@@ -399,8 +401,8 @@ export const termsDictionary = {
       },
       services: {
         label: 'Меню',
-        title: 'Лінійка послуг',
-        description: 'Прозорі ціни, якісний фініш і достатньо деталей, щоб легко планувати наступні візити.',
+        title: 'Послуги барбершопу Soul Cuts в Одесі',
+        description: 'Чоловічі стрижки, fade, борода, гоління шаветкою та grooming-послуги з прозорими цінами, якісним фінішем і онлайн-записом.',
       },
       blogFaq: {
         label: 'Редакція',
@@ -420,18 +422,18 @@ export const termsDictionary = {
   },
   en: {
     seo: {
-      homeTitle: 'Soul Cuts',
-      homeDescription: 'An Odessa barbershop for haircuts, beard work, shaving and quick online booking.',
-      aboutTitle: 'About',
-      aboutDescription: 'About Soul Cuts, our team and the studio philosophy.',
-      contactsTitle: 'Contacts & Booking',
-      contactsDescription: 'Contacts, opening hours and appointment request form.',
-      mastersTitle: 'Masters',
-      mastersDescription: 'Meet the master barbers behind Soul Cuts.',
-      servicesTitle: 'Services',
-      servicesDescription: 'Haircuts, beard work, shaves and premium grooming services.',
-      blogFaqTitle: 'Blog & FAQ',
-      blogFaqDescription: 'Answers about services, appointments and grooming routine.',
+      homeTitle: 'Barbershop in Odesa',
+      homeDescription: 'Soul Cuts is a barbershop in Odesa at Kanatna St, 6. Men\'s haircuts, fade, beard shaping, shaving and quick online booking.',
+      aboutTitle: 'About Soul Cuts Barbershop in Odesa',
+      aboutDescription: 'About Soul Cuts: a barbershop in Odesa, our barber team, men\'s haircuts, beard work, shaving and studio philosophy.',
+      contactsTitle: 'Soul Cuts Barbershop Odesa Contacts',
+      contactsDescription: 'Address, phone, opening hours and online booking for Soul Cuts barbershop in Odesa at Kanatna St, 6.',
+      mastersTitle: 'Soul Cuts Barbers in Odesa',
+      mastersDescription: 'Barbers at Soul Cuts in Odesa: men\'s haircuts, fade, beard shaping, shaving and consultation before booking.',
+      servicesTitle: 'Barbershop Services in Odesa',
+      servicesDescription: 'Men\'s haircuts, fade, beard shaping, shavette shaving and grooming services at Soul Cuts barbershop in Odesa.',
+      blogFaqTitle: 'Soul Cuts Barbershop Odesa FAQ',
+      blogFaqDescription: 'Answers about online booking, services, prices, men\'s haircuts, beard work, shaving and care between visits.',
     },
     common: {
       brand: 'Soul Cuts',
@@ -442,6 +444,7 @@ export const termsDictionary = {
       info: 'Info',
       hours: 'Hours',
       read: 'Read',
+      localSeoPage: 'Barbershop Odesa',
       cookieSettings: 'Cookie settings',
     },
     cookieConsent: {
@@ -464,12 +467,12 @@ export const termsDictionary = {
       hero: {
         eyebrowPrefix: 'Barbershop / 📍',
         location: 'Odesa',
-        title: 'This is where your style begins',
-        text: 'A place where you can just be yourself',
+        title: 'Soul Cuts Barbershop in Odesa',
+        text: 'Men\'s haircuts, beard work, shaving and online booking at Kanatna St, 6',
         primaryCta: 'Book a visit',
         secondaryCta: 'View services',
         scrollCue: 'Scroll down',
-        imageAlt: '',
+        imageAlt: 'Soul Cuts barber cutting men\'s hair in Odesa',
       },
       intro: {
         label: 'Approach',
@@ -484,6 +487,7 @@ export const termsDictionary = {
           'Soul Cuts barbers do not ask: “How should we cut your hair?” We ask what gets in your way, what you do not like and what you want to change. This is how the right shape is born.',
           'Traditional shavette shaving has a special place in our culture, with steaming, hot towels and professional skin care.',
           'We respect the traditions of men’s barbering, preserve them and pass them on to the next generation of barbers.',
+          'People often find us through barbershop Odesa, barbershop Odessa, barber shop Odesa or men’s haircut Odesa searches. For us, those phrases point to the same thing: reliable men’s service in central Odesa.',
           'Soul Cuts is a place where classics remain relevant.',
         ],
       },
@@ -635,7 +639,7 @@ export const termsDictionary = {
             questions: [
               {
                 question: 'Where exactly is Soul Cuts?',
-                answer: ['We are in Odesa at Kanatna St, 6. The location is convenient for the central part of the city and quick visits during the day.'],
+                answer: ['Soul Cuts is a barbershop in Odesa at Kanatna St, 6. The location is convenient for the central part of the city, men’s haircuts, beard work, shaving and quick visits during the day.'],
               },
               {
                 question: 'How do I get there by public transport?',
@@ -779,9 +783,9 @@ export const termsDictionary = {
       },
       contacts: {
         label: 'Contacts',
-        title: 'Visit the studio or request a booking.',
+        title: 'Soul Cuts Barbershop in Odesa: address, phone and booking.',
         addressLabel: 'Address:',
-        address: '📍Kanatna St, 6, Odes',
+        address: '📍Kanatna St, 6, Odesa',
         phoneLabel: 'Phone:',
         phone: '+380636995730',
         hoursLabel: 'Hours:',
@@ -810,8 +814,8 @@ export const termsDictionary = {
       },
       services: {
         label: 'Menu',
-        title: 'Service lineup',
-        description: 'Straightforward pricing, premium finishing, and enough detail to make return visits easy to plan.',
+        title: 'Soul Cuts Barbershop Services in Odesa',
+        description: 'Men\'s haircuts, fade, beard shaping, shavette shaving and grooming services with clear pricing, premium finishing and online booking.',
       },
       blogFaq: {
         label: 'Editorial',
