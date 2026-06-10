@@ -150,8 +150,9 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
       {{ statisticsErrorMessage(error, apiErrorMessage(error, 'Не вдалося завантажити dashboard барбершопу.')) }}
     </p>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
       <StatisticsStatCard
+        class="col-span-2 xl:col-span-1"
         label="Дохід місяця"
         :value="formatMoney(monthly?.total_barbershop_monthly_revenue)"
         :loading="pending"
@@ -171,6 +172,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
         :loading="pending"
       />
       <StatisticsStatCard
+        class="col-span-2 xl:col-span-1"
         label="Клієнти в базі"
         :value="totalCustomers"
         :hint="`${monthly?.total_clients || 0} унікальних клієнтів цього місяця`"
@@ -310,7 +312,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
         </div>
         <ClockIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
       </div>
-      <div class="mt-4 grid gap-3 md:grid-cols-3">
+      <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         <div class="rounded-2xl bg-slate-50 px-4 py-3">
           <p class="text-sm text-slate-500">Блокування часу</p>
           <p class="mt-2 text-2xl font-semibold text-slate-900">{{ timeBlocks.length }}</p>
@@ -321,7 +323,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
           <p class="mt-2 text-2xl font-semibold text-rose-700">{{ cancelledToday }}</p>
           <p class="mt-1 text-xs text-slate-500">Перевірити причини і перенесення</p>
         </div>
-        <div class="rounded-2xl bg-slate-50 px-4 py-3">
+        <div class="col-span-2 rounded-2xl bg-slate-50 px-4 py-3 md:col-span-1">
           <p class="text-sm text-slate-500">Середній чек</p>
           <p class="mt-2 text-2xl font-semibold text-slate-900">{{ formatMoney(monthly?.aggregate.average_check_per_appointment) }}</p>
           <p class="mt-1 text-xs text-slate-500">За завершеними записами місяця</p>
