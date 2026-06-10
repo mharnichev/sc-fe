@@ -10,6 +10,7 @@ export interface CalendarDay {
   weekday: string
   isToday: boolean
   isMonday: boolean
+  isPast: boolean
 }
 
 export interface CalendarSlot {
@@ -164,6 +165,7 @@ export const useBookingCalendar = () => {
         weekday: formatWeekday(date),
         isToday: date === today,
         isMonday: isMonday(date),
+        isPast: date < today,
       }
     })
   }
@@ -337,6 +339,7 @@ export const useBookingSlotSelection = (
   slots: Ref<CalendarSlot[]>,
   busyRanges: Ref<CalendarBusyRange[]>,
   enabled: Ref<boolean>,
+  allowPastSelection: Ref<boolean> = ref(false),
 ) => {
   const calendar = useBookingCalendar()
   const anchorSlot = ref<CalendarSlot | null>(null)
@@ -359,12 +362,12 @@ export const useBookingSlotSelection = (
     busyRanges.value.some(range => range.date === slot.date && calendar.rangesOverlap(slot.startAt, slot.endAt, range.startAt, range.endAt))
 
   const slotIsSelectable = (slot: CalendarSlot) =>
-    enabled.value && !slot.disabled && !slotHasConflict(slot)
+    enabled.value && !slot.isMonday && (allowPastSelection.value || !slot.isPast) && !slotHasConflict(slot)
 
   const describeBlockedSlot = (slot: CalendarSlot) => {
     if (!enabled.value) return 'Виберіть майстра, щоб керувати календарем.'
     if (slot.isMonday) return 'Понеділок — вихідний день.'
-    if (slot.isPast) return 'Минулі часові слоти недоступні.'
+    if (slot.isPast && !allowPastSelection.value) return 'Минулі часові слоти недоступні.'
     if (slotHasConflict(slot)) return 'Цей час уже має бронювання або блокування.'
     return ''
   }
@@ -435,7 +438,7 @@ export const useBookingSlotSelection = (
   const slotState = (slot: CalendarSlot) => {
     if (selectedSlotIds.value.has(slot.id)) return 'selected'
     if (slot.isMonday) return 'day-off'
-    if (slot.isPast) return 'past'
+    if (slot.isPast && !allowPastSelection.value) return 'past'
     if (slotHasConflict(slot)) return 'busy'
     return enabled.value ? 'free' : 'disabled'
   }

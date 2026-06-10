@@ -14,9 +14,11 @@ const props = withDefaults(defineProps<{
   entries: CalendarDisplayEntry[]
   busyRanges: CalendarBusyRange[]
   selectable?: boolean
+  allowPastSelection?: boolean
   loading?: boolean
 }>(), {
   selectable: true,
+  allowPastSelection: false,
   loading: false,
 })
 
@@ -26,13 +28,15 @@ const emit = defineEmits<{
 }>()
 
 const calendar = useBookingCalendar()
-const { bookingPhone, customerName } = useBookingFormatting()
+const { bookingPhone, customerName, todayInput } = useBookingFormatting()
 const isCompactViewport = ref(false)
+const today = computed(() => todayInput())
 const slotHeight = computed(() => isCompactViewport.value ? 54 : 60)
 const scrollRef = ref<HTMLElement | null>(null)
 const allSlots = computed(() => Object.values(props.slotsByDay).flat())
 const busyRangesRef = computed(() => props.busyRanges)
 const enabledRef = computed(() => props.selectable && !props.loading)
+const allowPastSelectionRef = computed(() => props.allowPastSelection)
 const entryTapMoveThreshold = 10
 const entryTapMaxDuration = 700
 const entryTapCancelWindow = 350
@@ -64,7 +68,7 @@ const {
   finishSelection,
   clearSelection,
   slotState,
-} = useBookingSlotSelection(allSlots, busyRangesRef, enabledRef)
+} = useBookingSlotSelection(allSlots, busyRangesRef, enabledRef, allowPastSelectionRef)
 
 const timeSlots = computed(() => props.days[0] ? props.slotsByDay[props.days[0].date] || [] : [])
 const bodyHeight = computed(() => `${timeSlots.value.length * slotHeight.value}px`)
@@ -91,10 +95,13 @@ const entriesByDay = computed(() => {
 
 const slotClass = (slot: CalendarSlot) => {
   const state = slotState(slot)
+  const isPastDay = slot.date < today.value
   return {
     selected: 'border-cyan-400 bg-cyan-100/85 shadow-inner',
     'day-off': 'cursor-not-allowed border-slate-200 bg-slate-100',
-    past: 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-70',
+    past: isPastDay
+      ? 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-70'
+      : 'cursor-not-allowed border-slate-100 bg-white',
     busy: 'cursor-not-allowed border-rose-100 bg-rose-50/60',
     free: 'border-slate-100 bg-white hover:border-cyan-200 hover:bg-cyan-50/70',
     disabled: 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-75',
@@ -319,7 +326,7 @@ watch(
           v-for="day in days"
           :key="`${day.date}-body`"
           class="relative z-0 border-r border-slate-200"
-          :class="day.isMonday ? 'bg-slate-100/80' : 'bg-white'"
+          :class="day.isMonday ? 'bg-slate-100/80' : day.isPast ? 'bg-slate-50/80' : 'bg-white'"
           :style="{ height: bodyHeight }"
         >
           <div
@@ -377,6 +384,11 @@ watch(
           <div v-if="day.isMonday" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-slate-100/35 px-4 text-center">
             <span class="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
               Понеділок недоступний
+            </span>
+          </div>
+          <div v-else-if="day.isPast" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-slate-100/35 px-4 text-center">
+            <span class="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+              Минулий день
             </span>
           </div>
         </div>

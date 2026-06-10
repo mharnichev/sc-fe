@@ -53,6 +53,7 @@ const barberShopLinks = computed(() => [
     ? [
         { label: 'Дашборд барбершопу', to: '/admin/dashboards/barbershop', icon: HomeIcon },
         { label: 'Статистика', to: '/admin/statistics', icon: ChartBarSquareIcon },
+        { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Майстри', to: '/masters', icon: UserGroupIcon },
         { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
         { label: 'Блокування часу', to: '/time-blocks', icon: ClockIcon },

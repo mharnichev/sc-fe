@@ -2,12 +2,8 @@
 import {
   ArrowPathIcon,
   ArrowRightIcon,
-  CalendarDaysIcon,
-  ChatBubbleLeftRightIcon,
   ClockIcon,
   SparklesIcon,
-  UserGroupIcon,
-  UsersIcon,
 } from '@heroicons/vue/24/outline'
 import type { Booking, Master, TimeBlock } from '~/composables/useBackofficeApi'
 
@@ -127,13 +123,6 @@ const nextSevenDays = computed(() =>
 )
 
 const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day => day.total)))
-
-const quickActions = [
-  { label: 'Календар', value: 'Записи майстрів', to: '/bookings', icon: CalendarDaysIcon },
-  { label: 'Майстри', value: 'Команда і доступи', to: '/masters', icon: UserGroupIcon },
-  { label: 'Клієнти', value: 'База контактів', to: '/customers', icon: UsersIcon },
-  { label: 'Повідомлення', value: 'Кампанії та шаблони', to: '/messaging', icon: ChatBubbleLeftRightIcon },
-]
 </script>
 
 <template>
@@ -160,26 +149,6 @@ const quickActions = [
     <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
       {{ statisticsErrorMessage(error, apiErrorMessage(error, 'Не вдалося завантажити dashboard барбершопу.')) }}
     </p>
-
-    <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
-      <NuxtLink
-        v-for="action in quickActions"
-        :key="action.to"
-        :to="action.to"
-        class="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-200 px-3 py-2.5 transition hover:border-cyan-300 hover:bg-cyan-50"
-      >
-        <span class="flex min-w-0 items-center gap-3">
-          <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
-            <component :is="action.icon" class="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span class="min-w-0">
-            <span class="block font-medium text-slate-900">{{ action.label }}</span>
-            <span class="mt-1 block truncate text-sm text-slate-500">{{ action.value }}</span>
-          </span>
-        </span>
-        <ArrowRightIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-      </NuxtLink>
-    </section>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <StatisticsStatCard

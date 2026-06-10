@@ -3,9 +3,15 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CheckCircleIcon,
+  FunnelIcon,
   EyeIcon,
+  ScissorsIcon,
   TrashIcon,
+  UserCircleIcon,
+  XCircleIcon,
 } from '@heroicons/vue/24/outline'
+import { initials } from '@shared-utils'
 import type {
   Booking,
   BookingSchedulePayload,
@@ -24,6 +30,7 @@ import type {
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
+const assetUrl = useAssetUrl()
 const calendar = useBookingCalendar()
 const {
   statuses,
@@ -68,7 +75,11 @@ const pendingSchedule = ref(false)
 const pendingDelete = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
+const masterFilterOpen = ref(false)
+const serviceFilterOpen = ref(false)
 const statusFilterOpen = ref(false)
+const masterFilterRef = ref<HTMLElement | null>(null)
+const serviceFilterRef = ref<HTMLElement | null>(null)
 const statusFilterRef = ref<HTMLElement | null>(null)
 
 const [{ data: masters }, { data: services }] = await Promise.all([
@@ -114,6 +125,7 @@ const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInVi
 const calendarDays = computed(() => calendar.buildDays(anchorDate.value, viewMode.value))
 const slotsByDay = computed(() => calendar.buildSlotsByDay(calendarDays.value))
 const canSelectSlots = computed(() => Boolean(selectedMasterId.value && (isAdmin.value || isBarber.value || linkedMaster.value || auth.user?.master_id)))
+const canSelectPastSlots = computed(() => isAdmin.value)
 
 const { data, pending, error, refresh } = await useAsyncData(
   'booking-calendar-data',
@@ -189,6 +201,12 @@ const bookingServiceOptions = computed(() => {
   if (!selectedMasterId.value) return serviceOptions.value
   return serviceOptions.value.filter(service => !service.barber_id || Number(service.barber_id) === selectedMasterId.value)
 })
+const selectedServiceFilter = computed(() =>
+  filters.service_id ? bookingServiceOptions.value.find(service => service.id === Number(filters.service_id)) || null : null,
+)
+const masterImageUrl = (master: Master) =>
+  assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url)
+const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
 
 const resolveMaster = (booking: Booking) =>
   booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
@@ -220,6 +238,8 @@ const goToToday = () => {
 const applyFilters = async () => {
   actionError.value = ''
   actionSuccess.value = ''
+  masterFilterOpen.value = false
+  serviceFilterOpen.value = false
   statusFilterOpen.value = false
   await refresh()
 }
@@ -228,10 +248,23 @@ const clearFilters = async () => {
   filters.master_id = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
   filters.service_id = ''
   filters.status = ''
+  masterFilterOpen.value = false
+  serviceFilterOpen.value = false
   statusFilterOpen.value = false
   anchorDate.value = todayInput()
   viewMode.value = 'week'
   await refresh()
+}
+
+const selectMasterFilter = (masterId: string) => {
+  filters.master_id = masterId
+  filters.service_id = ''
+  masterFilterOpen.value = false
+}
+
+const selectServiceFilter = (serviceId: string) => {
+  filters.service_id = serviceId
+  serviceFilterOpen.value = false
 }
 
 const selectStatusFilter = (status: BookingStatus | '') => {
@@ -239,20 +272,26 @@ const selectStatusFilter = (status: BookingStatus | '') => {
   statusFilterOpen.value = false
 }
 
-const handleStatusFilterClickOutside = (event: MouseEvent) => {
-  if (!statusFilterOpen.value) return
+const handleFilterClickOutside = (event: MouseEvent) => {
   const target = event.target
-  if (target instanceof Node && !statusFilterRef.value?.contains(target)) {
+  if (!(target instanceof Node)) return
+  if (masterFilterOpen.value && !masterFilterRef.value?.contains(target)) {
+    masterFilterOpen.value = false
+  }
+  if (serviceFilterOpen.value && !serviceFilterRef.value?.contains(target)) {
+    serviceFilterOpen.value = false
+  }
+  if (statusFilterOpen.value && !statusFilterRef.value?.contains(target)) {
     statusFilterOpen.value = false
   }
 }
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleStatusFilterClickOutside)
+  document.addEventListener('mousedown', handleFilterClickOutside)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleStatusFilterClickOutside)
+  document.removeEventListener('mousedown', handleFilterClickOutside)
 })
 
 const openActionModal = (selection: CalendarSelection) => {
@@ -292,7 +331,7 @@ const validateCalendarPayload = (payload: CalendarActionPayload) => {
   if (startTime < calendar.workdayStart || endTime > calendar.workdayEnd || startTime >= endTime) {
     return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
   }
-  if (new Date(payload.end_at).getTime() <= Date.now()) return 'Минулі часові слоти недоступні.'
+  if (!isAdmin.value && new Date(payload.end_at).getTime() <= Date.now()) return 'Минулі часові слоти недоступні.'
   if (calendar.rangeOverlapsBusy(payload.start_at, payload.end_at, busyRanges.value)) {
     return payload.action === 'booking'
       ? 'Бронювання не може перетинатися з іншим бронюванням або блокуванням.'
@@ -489,7 +528,7 @@ const deleteSelectedBlock = async () => {
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 md:text-sm md:tracking-[0.3em]">Календар</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 md:mt-2 md:text-3xl">Бронювання</h1>
       </div>
-      <div class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
+      <div v-if="!isAdmin" class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
         <NuxtLink to="/my-bookings" class="inline-flex min-h-9 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
           Мої бронювання
         </NuxtLink>
@@ -537,56 +576,93 @@ const deleteSelectedBlock = async () => {
         </div>
       </div>
 
-      <div class="grid gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-5">
-        <label v-if="isAdmin" class="space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
-          <span class="font-medium">Майстер</span>
-          <select v-model="filters.master_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:rounded-2xl md:px-4 md:py-3" :disabled="!isAdmin">
-            <option value="">{{ isAdmin ? 'Усі майстри' : selectedMasterLabel }}</option>
-            <option v-for="master in masterOptions" :key="master.id" :value="String(master.id)">
-              {{ masterName(master) }}
-            </option>
-          </select>
-        </label>
-        <label class="space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
-          <span class="font-medium">Послуга</span>
-          <select v-model="filters.service_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm md:rounded-2xl md:px-4 md:py-3">
-            <option value="">Усі послуги</option>
-            <option v-for="service in bookingServiceOptions" :key="service.id" :value="String(service.id)">
-              {{ serviceName(service) }}
-            </option>
-          </select>
-        </label>
-        <div ref="statusFilterRef" class="relative space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
-          <span class="font-medium">Статус</span>
+      <div class="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-5">
+        <div v-if="isAdmin" ref="masterFilterRef" class="relative min-w-0 space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
+          <span class="inline-flex items-center gap-1.5 font-medium">
+            <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            Майстер
+          </span>
           <button
             type="button"
-            class="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            :aria-expanded="masterFilterOpen"
+            @click="masterFilterOpen = !masterFilterOpen"
+          >
+            <span class="flex min-w-0 items-center gap-2">
+              <span v-if="selectedMaster" class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+                <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterName(selectedMaster)" class="h-full w-full object-cover">
+                <span v-else>{{ masterInitials(selectedMaster) }}</span>
+              </span>
+              <span class="min-w-0 truncate" :class="selectedMaster ? 'text-slate-900' : 'text-slate-500'">
+                {{ selectedMaster ? masterName(selectedMaster) : 'Усі майстри' }}
+              </span>
+            </span>
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+          </button>
+          <div
+            v-if="masterFilterOpen"
+            class="absolute z-50 mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+          >
+            <button
+              type="button"
+              class="flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
+              :class="!filters.master_id ? 'bg-slate-50' : ''"
+              @click="selectMasterFilter('')"
+            >
+              <span class="h-7 w-7 shrink-0 rounded-full bg-slate-100 ring-1 ring-slate-200" />
+              <span class="min-w-0 truncate">Усі майстри</span>
+            </button>
+            <button
+              v-for="master in masterOptions"
+              :key="master.id"
+              type="button"
+              class="flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              :class="filters.master_id === String(master.id) ? 'bg-slate-50' : ''"
+              @click="selectMasterFilter(String(master.id))"
+            >
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+                <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterName(master)" class="h-full w-full object-cover">
+                <span v-else>{{ masterInitials(master) }}</span>
+              </span>
+              <span class="min-w-0 truncate">{{ masterName(master) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div ref="statusFilterRef" class="relative min-w-0 space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
+          <span class="inline-flex items-center gap-1.5 font-medium">
+            <FunnelIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            Статус
+          </span>
+          <button
+            type="button"
+            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
             :aria-expanded="statusFilterOpen"
             @click="statusFilterOpen = !statusFilterOpen"
           >
-            <span class="min-w-0">
+            <span class="min-w-0 overflow-hidden">
               <BookingStatusBadge v-if="selectedStatusFilter" :status="selectedStatusFilter" />
-              <span v-else class="text-slate-500">Будь-який статус</span>
+              <span v-else class="block truncate text-slate-500">Будь-який статус</span>
             </span>
             <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="statusFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
           </button>
           <div
             v-if="statusFilterOpen"
-            class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="absolute z-50 mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
           >
             <button
               type="button"
-              class="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
+              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
               :class="!selectedStatusFilter ? 'bg-slate-50' : ''"
               @click="selectStatusFilter('')"
             >
-              Будь-який статус
+              <span class="min-w-0 truncate">Будь-який статус</span>
             </button>
             <button
               v-for="status in statuses"
               :key="status"
               type="button"
-              class="flex w-full items-center rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-50"
+              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-50"
               :class="selectedStatusFilter === status ? 'bg-slate-50' : ''"
               @click="selectStatusFilter(status)"
             >
@@ -594,13 +670,61 @@ const deleteSelectedBlock = async () => {
             </button>
           </div>
         </div>
-        <div class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
+
+        <div ref="serviceFilterRef" class="relative col-span-2 min-w-0 space-y-1 text-xs text-slate-700 md:col-span-1 md:space-y-2 md:text-sm">
+          <span class="inline-flex items-center gap-1.5 font-medium">
+            <ScissorsIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            Послуга
+          </span>
+          <button
+            type="button"
+            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            :aria-expanded="serviceFilterOpen"
+            @click="serviceFilterOpen = !serviceFilterOpen"
+          >
+            <span class="min-w-0 truncate" :class="selectedServiceFilter ? 'text-slate-900' : 'text-slate-500'">
+              {{ selectedServiceFilter ? serviceName(selectedServiceFilter) : 'Усі послуги' }}
+            </span>
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="serviceFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+          </button>
+          <div
+            v-if="serviceFilterOpen"
+            class="absolute z-50 mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+          >
+            <button
+              type="button"
+              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
+              :class="!filters.service_id ? 'bg-slate-50' : ''"
+              @click="selectServiceFilter('')"
+            >
+              <span class="min-w-0 truncate">Усі послуги</span>
+            </button>
+            <button
+              v-for="service in bookingServiceOptions"
+              :key="service.id"
+              type="button"
+              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+              :class="filters.service_id === String(service.id) ? 'bg-slate-50' : ''"
+              @click="selectServiceFilter(String(service.id))"
+            >
+              <span class="min-w-0 truncate">{{ serviceName(service) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-span-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-1 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
           <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
           <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
         </div>
-        <div class="flex items-end gap-2 md:gap-3">
-          <button class="flex-1 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white md:px-4 md:py-3 md:text-sm" @click="applyFilters">Застосувати</button>
-          <button class="flex-1 rounded-full border border-slate-300 px-3 py-2 text-xs md:px-4 md:py-3 md:text-sm" @click="clearFilters">Очистити</button>
+        <div class="col-span-2 flex min-w-0 items-end gap-2 md:col-span-1 md:gap-3">
+          <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 md:min-h-12 md:px-4 md:py-3 md:text-sm" @click="applyFilters">
+            <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
+            <span class="truncate">Застосувати</span>
+          </button>
+          <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-rose-300 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-50 md:min-h-12 md:px-4 md:py-3 md:text-sm" @click="clearFilters">
+            <XCircleIcon class="h-4 w-4" aria-hidden="true" />
+            <span class="truncate">Очистити</span>
+          </button>
         </div>
       </div>
     </section>
@@ -623,6 +747,7 @@ const deleteSelectedBlock = async () => {
       :entries="calendarEntries"
       :busy-ranges="busyRanges"
       :selectable="canSelectSlots"
+      :allow-past-selection="canSelectPastSlots"
       :loading="pending"
       @select="openActionModal"
       @entry-click="handleEntryClick"
