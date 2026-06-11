@@ -221,9 +221,7 @@ const markDurationEdited = () => {
           <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-700 xl:text-sm xl:tracking-[0.25em]">Календар</p>
           <h2 class="mt-1 truncate text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">Новий інтервал</h2>
         </div>
-        <button type="button" class="shrink-0 rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm" @click="closeModal">
-          Закрити
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -274,16 +272,15 @@ const markDurationEdited = () => {
           </label>
         </div>
 
-        <div v-if="form.action === 'booking'" class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
-          <span class="inline-flex items-center gap-1.5 font-medium">
-            <ScissorsIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
-            Послуги
-          </span>
-          <ServiceMultiSelect v-model="form.service_ids" :services="services" />
-        </div>
-
-        <div v-if="form.action === 'booking'" class="grid gap-2 md:grid-cols-[9rem_minmax(0,1fr)] xl:gap-4">
-          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+        <div v-if="form.action === 'booking'" class="grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem] xl:gap-4">
+          <div class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+            <span class="inline-flex items-center gap-1.5 font-medium">
+              <ScissorsIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+              Послуги
+            </span>
+            <ServiceMultiSelect v-model="form.service_ids" :services="services" />
+          </div>
+          <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Тривалість, хв
@@ -340,21 +337,21 @@ const markDurationEdited = () => {
           {{ localError || error }}
         </p>
 
-        <div class="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 sm:grid-cols-3 xl:gap-3 xl:pt-5">
+        <div class="backoffice-modal-actions pt-3 xl:pt-5">
           <button
             type="submit"
             :disabled="pending"
-            class="col-span-2 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium disabled:opacity-60 sm:col-span-1 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm"
-            :class="form.action === 'booking' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-800 ring-1 ring-slate-400 hover:bg-slate-200'"
+            class="backoffice-modal-action-button"
+            :class="form.action === 'booking' ? 'backoffice-modal-action-primary' : 'backoffice-modal-action-danger'"
           >
             <component :is="form.action === 'booking' ? PlusIcon : NoSymbolIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
             {{ pending ? 'Збереження...' : form.action === 'booking' ? 'Створити бронювання' : 'Заблокувати час' }}
           </button>
-          <button type="button" class="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="resetForm">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
-          <button type="button" class="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-rose-300 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-50 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="close">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="close">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             Скасувати
           </button>

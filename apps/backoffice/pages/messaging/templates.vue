@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DocumentDuplicateIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentDuplicateIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { MessageTemplate, MessageTemplatePayload } from '~/types/messaging'
 
 const api = useBackofficeApi()
@@ -159,13 +159,14 @@ const closeDeleteConfirm = (value: boolean) => {
             <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Шаблон</p>
             <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editingId ? 'Редагувати шаблон' : 'Новий шаблон' }}</h2>
           </div>
-          <button class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="close">Закрити</button>
+          <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>
         <MessageTemplateEditor v-model="templateForm" />
-        <div class="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-5">
-          <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50" :disabled="saving || !templateForm.name || !templateForm.message_body" @click="saveTemplate">
+        <div class="backoffice-modal-actions mt-6 border-t border-slate-200 pt-5">
+          <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !templateForm.name || !templateForm.message_body" @click="saveTemplate">
+            <CheckCircleIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти' }}
           </button>
         </div>

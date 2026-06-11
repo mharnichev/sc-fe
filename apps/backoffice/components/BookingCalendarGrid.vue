@@ -97,31 +97,31 @@ const slotClass = (slot: CalendarSlot) => {
   const state = slotState(slot)
   const isPastDay = slot.date < today.value
   return {
-    selected: 'border-cyan-400 bg-cyan-100/85 shadow-inner',
-    'day-off': 'cursor-not-allowed border-slate-200 bg-slate-100',
+    selected: 'border-white/35 bg-white/18 shadow-inner',
+    'day-off': 'cursor-not-allowed border-white/8 bg-white/[0.025]',
     past: isPastDay
-      ? 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-70'
-      : 'cursor-not-allowed border-slate-100 bg-white',
-    busy: 'cursor-not-allowed border-rose-100 bg-rose-50/60',
-    free: 'border-slate-100 bg-white hover:border-cyan-200 hover:bg-cyan-50/70',
-    disabled: 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-75',
+      ? 'cursor-not-allowed border-white/8 bg-white/[0.025] opacity-50'
+      : 'cursor-not-allowed border-white/8 bg-white/[0.035]',
+    busy: 'cursor-not-allowed border-white/10 bg-white/[0.045]',
+    free: 'border-white/[0.055] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.075]',
+    disabled: 'cursor-not-allowed border-white/8 bg-white/[0.03] opacity-55',
   }[state]
 }
 
 const bookingEntryClass = (entry: CalendarDisplayEntry) => {
   switch (entry.booking?.status) {
     case 'completed':
-      return 'border-indigo-200 bg-indigo-50 text-indigo-950 shadow-indigo-950/5 hover:border-indigo-300'
+      return 'border-white/14 bg-white/13 text-white shadow-black/20 hover:border-white/24'
     case 'confirmed':
     default:
-      return 'border-emerald-200 bg-emerald-50 text-emerald-950 shadow-emerald-950/5 hover:border-emerald-300'
+      return 'border-emerald-300/20 bg-emerald-400/14 text-white shadow-black/20 hover:border-emerald-200/35'
   }
 }
 
 const entryClass = (entry: CalendarDisplayEntry) =>
   entry.kind === 'booking'
     ? bookingEntryClass(entry)
-    : 'blocked-entry border-slate-400 bg-slate-100 text-slate-800 shadow-slate-950/5 hover:border-slate-500'
+    : 'blocked-entry border-white/16 bg-white/10 text-white shadow-black/20 hover:border-white/28'
 
 const entryCustomerName = (entry: CalendarDisplayEntry) =>
   entry.booking ? customerName(entry.booking) : ''
@@ -267,26 +267,26 @@ watch(
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-      <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <span class="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 ring-1 ring-slate-200">
-          <span class="h-2 w-2 rounded-full bg-white ring-1 ring-slate-300" /> Вільно
+  <section class="booking-calendar-grid liquid-glass overflow-hidden rounded-[1.5rem]">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.025] px-3 py-2">
+      <div class="flex flex-wrap items-center gap-2 text-xs text-white/55">
+        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+          <span class="h-2 w-2 rounded-full bg-white/70 ring-1 ring-white/20" /> Вільно
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800 ring-1 ring-emerald-100">
-          <span class="h-2 w-2 rounded-full bg-emerald-500" /> Забукано
+        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
+          <span class="h-2 w-2 rounded-full bg-[var(--success)]" /> Забукано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-800 ring-1 ring-indigo-100">
-          <span class="h-2 w-2 rounded-full bg-indigo-500" /> Виконано
+        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-white/80">
+          <span class="h-2 w-2 rounded-full bg-white/75" /> Виконано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-slate-800 ring-1 ring-slate-300">
-          <span class="h-2 w-2 rounded-full bg-slate-600" /> Блокування
+        <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-white/80 ring-1 ring-white/10">
+          <span class="h-2 w-2 rounded-full bg-white/50" /> Блокування
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 ring-1 ring-slate-200">
-          <span class="h-2 w-2 rounded-full bg-slate-300" /> Вихідний
+        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] px-2 py-0.5 text-white/42">
+          <span class="h-2 w-2 rounded-full bg-white/25" /> Вихідний
         </span>
       </div>
-      <p v-if="selectionError" class="text-sm font-medium text-rose-600">{{ selectionError }}</p>
+      <p v-if="selectionError" class="text-sm font-medium text-[var(--danger)]">{{ selectionError }}</p>
     </div>
 
     <div
@@ -295,27 +295,27 @@ watch(
       @pointermove="handlePointerMove"
     >
       <div class="isolate grid min-w-max" :style="{ gridTemplateColumns }">
-        <div class="sticky left-0 top-0 z-[70] border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+        <div class="sticky left-0 top-0 z-[70] border-b border-r border-white/10 bg-black/70 px-2 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-white/42 backdrop-blur-2xl">
           Час
         </div>
 
         <div
           v-for="day in days"
           :key="day.date"
-          class="sticky top-0 z-[60] min-w-0 border-b border-r border-slate-200 px-2 py-2"
-          :class="day.isMonday ? 'bg-slate-100 text-slate-500' : day.isToday ? 'bg-cyan-50 text-cyan-950' : 'bg-white text-slate-900'"
+          class="sticky top-0 z-[60] min-w-0 border-b border-r border-white/10 bg-black/64 px-2 py-3 backdrop-blur-2xl"
+          :class="day.isMonday ? 'text-white/35' : day.isToday ? 'text-white' : 'text-white/82'"
         >
           <p class="truncate text-sm font-semibold capitalize">{{ day.weekday }}</p>
-          <p class="mt-0.5 truncate text-xs" :class="day.isToday ? 'text-cyan-700' : 'text-slate-500'">
+          <p class="mt-0.5 truncate text-xs" :class="day.isToday ? 'text-white/68' : 'text-white/42'">
             {{ day.label }}<span v-if="day.isMonday"> · вихідний</span>
           </p>
         </div>
 
-        <div class="sticky left-0 z-40 border-r border-slate-200 bg-white" :style="{ height: bodyHeight }">
+        <div class="sticky left-0 z-40 border-r border-white/10 bg-[var(--calendar-time-rail-bg)] backdrop-blur-xl" :style="{ height: bodyHeight }">
           <div
             v-for="slot in timeSlots"
             :key="slot.id"
-            class="flex items-start justify-end border-t border-slate-100 px-1.5 pt-1.5 text-[0.7rem] font-medium text-slate-400"
+            class="flex items-start justify-end border-t border-white/[0.055] px-1.5 pt-1.5 text-[0.7rem] font-medium text-white/35"
             :style="{ height: `${slotHeight}px` }"
           >
             {{ slot.startTime }}
@@ -325,8 +325,8 @@ watch(
         <div
           v-for="day in days"
           :key="`${day.date}-body`"
-          class="relative z-0 border-r border-slate-200"
-          :class="day.isMonday ? 'bg-slate-100/80' : day.isPast ? 'bg-slate-50/80' : 'bg-white'"
+          class="relative z-0 border-r border-white/10"
+          :class="day.isMonday ? 'bg-white/[0.025]' : day.isPast ? 'bg-white/[0.018]' : 'bg-white/[0.035]'"
           :style="{ height: bodyHeight }"
         >
           <div
@@ -338,8 +338,8 @@ watch(
           >
             <button
               type="button"
-              class="absolute inset-0 h-full w-full touch-auto px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-500"
-              :class="selectedSlotIds.has(slot.id) ? 'bg-cyan-100/80' : ''"
+              class="absolute inset-0 h-full w-full touch-auto px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-white/30"
+              :class="selectedSlotIds.has(slot.id) ? 'bg-white/14' : ''"
               :data-slot-id="slot.id"
               :disabled="slotState(slot) !== 'free' && slotState(slot) !== 'selected'"
               :aria-label="`${slot.startTime}-${slot.endTime}`"
@@ -354,7 +354,7 @@ watch(
             v-for="entry in entriesByDay[day.date]"
             :key="entry.id"
             type="button"
-            class="absolute left-1 z-[1] flex items-start overflow-hidden rounded-lg border px-2 py-1.5 text-left text-xs shadow-sm transition"
+            class="absolute left-1 z-[1] flex items-start overflow-hidden rounded-xl border px-2 py-1.5 text-left text-xs shadow-sm backdrop-blur-xl transition hover:scale-[1.01]"
             :class="entryClass(entry)"
             :style="entryStyle(entry)"
             @pointerdown="beginEntryTap(entry, $event)"
@@ -365,11 +365,11 @@ watch(
             <span v-if="entry.kind === 'booking'" class="w-full space-y-1">
               <span class="block truncate font-semibold">{{ entry.meta }}</span>
               <span class="mt-0.5 block truncate">{{ entry.title }}</span>
-              <span class="flex items-center gap-1.5 rounded-md bg-white/70 px-1.5 py-0.5 shadow-sm ring-1 ring-white/60">
+              <span class="flex items-center gap-1.5 rounded-md bg-black/22 px-1.5 py-0.5 shadow-sm ring-1 ring-white/10">
                 <UserIcon class="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
                 <span class="min-w-0 truncate">{{ entryCustomerName(entry) }}</span>
               </span>
-              <span class="flex items-center gap-1.5 rounded-md bg-white/70 px-1.5 py-0.5 shadow-sm ring-1 ring-white/60">
+              <span class="flex items-center gap-1.5 rounded-md bg-black/22 px-1.5 py-0.5 shadow-sm ring-1 ring-white/10">
                 <PhoneIcon class="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
                 <span class="min-w-0 truncate">{{ entryPhone(entry) || 'Без телефону' }}</span>
               </span>
@@ -381,13 +381,13 @@ watch(
             </span>
           </button>
 
-          <div v-if="day.isMonday" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-slate-100/35 px-4 text-center">
-            <span class="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+          <div v-if="day.isMonday" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/12 px-4 text-center">
+            <span class="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/48 backdrop-blur-xl">
               Понеділок недоступний
             </span>
           </div>
-          <div v-else-if="day.isPast" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-slate-100/35 px-4 text-center">
-            <span class="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+          <div v-else-if="day.isPast" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/10 px-4 text-center">
+            <span class="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/48 backdrop-blur-xl">
               Минулий день
             </span>
           </div>
@@ -403,11 +403,11 @@ watch(
 }
 
 .blocked-entry {
-  background-color: #f1f5f9;
+  background-color: rgb(255 255 255 / 0.08);
   background-image: repeating-linear-gradient(
     45deg,
-    rgb(100 116 139 / 0.18) 0,
-    rgb(100 116 139 / 0.18) 7px,
+    rgb(255 255 255 / 0.10) 0,
+    rgb(255 255 255 / 0.10) 7px,
     transparent 7px,
     transparent 14px
   );
@@ -416,8 +416,8 @@ watch(
 .blocked-entry-label {
   display: block;
   border-radius: 0.375rem;
-  background: rgb(255 255 255 / 0.86);
+  background: rgb(0 0 0 / 0.24);
   padding: 0.125rem 0.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
 }
 </style>

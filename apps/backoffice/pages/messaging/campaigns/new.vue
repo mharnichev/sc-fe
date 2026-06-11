@@ -354,7 +354,7 @@ const nextStep = () => {
       <template #head="{ close }">
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-2xl font-semibold text-slate-900">Попередній список отримувачів</h2>
-          <button class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="close">Закрити</button>
+          <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>

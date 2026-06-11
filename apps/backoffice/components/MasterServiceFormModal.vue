@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { BaseService, MasterService, MasterServicePayload } from '~/composables/useBackofficeApi'
 
 type ServiceFormMode = 'base' | 'custom'
@@ -184,9 +184,7 @@ watch(
           <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Послуги майстра</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати послугу майстра' : 'Створити послугу майстра' }}</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
-          Закрити
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -255,12 +253,14 @@ watch(
         <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
           Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+        <div class="backoffice-modal-actions">
+          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
+            <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="resetForm">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
         </div>

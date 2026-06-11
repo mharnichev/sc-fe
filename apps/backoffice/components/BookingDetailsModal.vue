@@ -253,9 +253,7 @@ onBeforeUnmount(() => {
               <BookingStatusBadge :status="booking.status" />
             </div>
           </div>
-          <button class="shrink-0 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700 sm:px-4 sm:py-2" @click="closeModal">
-            Закрити
-          </button>
+          <ModalCloseButton @click="closeModal" />
         </div>
       </template>
     </template>
@@ -314,12 +312,12 @@ onBeforeUnmount(() => {
           </div>
           <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitServices">
             <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button type="submit" :disabled="pendingSchedule" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60">
+            <div class="backoffice-modal-actions mt-3">
+              <button type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </button>
-              <button type="button" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50" @click="cancelServiceEditing">
+              <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelServiceEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
               </button>
@@ -366,12 +364,12 @@ onBeforeUnmount(() => {
                 <input v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               </label>
             </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button type="submit" :disabled="pendingSchedule" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60">
+            <div class="backoffice-modal-actions mt-3">
+              <button type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </button>
-              <button type="button" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50" @click="cancelScheduleEditing">
+              <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelScheduleEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
               </button>

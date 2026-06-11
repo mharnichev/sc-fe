@@ -155,7 +155,7 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
-    <div v-if="open" class="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+    <div v-if="open" class="booking-select-menu absolute z-[180] mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
       <div class="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
         <MagnifyingGlassIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
         <input

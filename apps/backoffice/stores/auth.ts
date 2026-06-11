@@ -38,7 +38,11 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = ''
       this.user = null
       if (import.meta.client) {
+        const selectedTheme = localStorage.getItem('soulcuts-backoffice-theme')
         localStorage.removeItem('backoffice-auth')
+        if (selectedTheme === 'light' || selectedTheme === 'dark') {
+          localStorage.setItem('soulcuts-backoffice-theme', selectedTheme)
+        }
       }
       return navigateTo('/login')
     },

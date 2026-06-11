@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   ArrowsPointingOutIcon,
   BriefcaseIcon,
+  ChevronDownIcon,
   CheckCircleIcon,
   DocumentTextIcon,
   EnvelopeIcon,
@@ -63,6 +64,10 @@ const imagePreviewUrl = ref('')
 const imagePreviewAlt = ref('')
 const fileInputKey = ref(0)
 const phoneFocused = ref(false)
+const positionSelectOpen = ref(false)
+const redirectSelectOpen = ref(false)
+const positionSelectRef = ref<HTMLElement | null>(null)
+const redirectSelectRef = ref<HTMLElement | null>(null)
 
 const positionOptions: Array<{ value: MasterPosition, label: string }> = [
   { value: 'ambassador', label: 'Амбасадор' },
@@ -86,6 +91,9 @@ const displayedPhotoUrl = computed(() => {
 })
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
+const selectedPositionOption = computed(() =>
+  positionOptions.find(option => option.value === form.position) || positionOptions[0],
+)
 const formBookingRedirectMasterId = computed(() => {
   const numeric = Number(form.bookingRedirectMasterId)
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null
@@ -131,6 +139,48 @@ const selectedRedirectMasterUnavailable = computed(() =>
     && !availableRedirectMasterOptions.value.some(master => master.id === selectedRedirectMaster.value?.id),
   ),
 )
+const selectedRedirectLabel = computed(() => {
+  if (selectedRedirectMaster.value) return masterName(selectedRedirectMaster.value)
+  if (formBookingRedirectMasterId.value) return `Майстер #${formBookingRedirectMasterId.value}`
+  return 'Не перенаправляти'
+})
+
+const redirectMasterAvatarUrl = (master?: Master | null) =>
+  assetUrl(master?.avatar || master?.avatar_url || master?.photo || master?.photo_url)
+
+const masterInitials = (master?: Master | null) => {
+  if (!master) return ''
+  const name = masterName(master)
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('')
+}
+
+const selectPosition = (value: MasterPosition) => {
+  form.position = value
+  positionSelectOpen.value = false
+}
+
+const selectRedirectMaster = (value: number | null) => {
+  form.bookingRedirectMasterId = value
+  redirectSelectOpen.value = false
+}
+
+const handleSelectClickOutside = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Node)) return
+
+  if (positionSelectRef.value && !positionSelectRef.value.contains(target)) {
+    positionSelectOpen.value = false
+  }
+
+  if (redirectSelectRef.value && !redirectSelectRef.value.contains(target)) {
+    redirectSelectOpen.value = false
+  }
+}
 
 const revokeObjectUrl = (url: string) => {
   if (url) URL.revokeObjectURL(url)
@@ -274,6 +324,8 @@ watch(
   ([open, master]) => {
     if (!open) {
       closeImagePreview()
+      positionSelectOpen.value = false
+      redirectSelectOpen.value = false
       return
     }
     if (open) fillForm(master)
@@ -281,7 +333,12 @@ watch(
   { immediate: true },
 )
 
+onMounted(() => {
+  document.addEventListener('mousedown', handleSelectClickOutside)
+})
+
 onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleSelectClickOutside)
   closeImagePreview()
   resetFiles()
 })
@@ -300,9 +357,7 @@ onBeforeUnmount(() => {
             <h2 class="mt-0.5 text-lg font-semibold leading-tight text-slate-900 sm:text-xl">{{ editing ? 'Редагувати майстра' : 'Створити майстра' }}</h2>
           </div>
         </div>
-        <button type="button" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50" aria-label="Закрити" title="Закрити" @click="closeModal">
-          <XMarkIcon class="h-5 w-5" aria-hidden="true" />
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -340,29 +395,112 @@ onBeforeUnmount(() => {
             <input v-model="form.last_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
           </label>
         </div>
-        <label class="space-y-1.5 text-sm text-slate-700">
-          <span class="flex items-center gap-2 font-medium">
-            <BriefcaseIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-            Позиція
-          </span>
-          <select v-model="form.position" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
-            <option v-for="option in positionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-        <label class="space-y-1.5 text-sm text-slate-700">
-          <span class="flex items-center gap-2 font-medium">
-            <ArrowRightIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-            Перенаправляти онлайн-записи до
-          </span>
-          <select v-model="form.bookingRedirectMasterId" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
-            <option :value="null">Не перенаправляти</option>
-            <option v-if="selectedRedirectMasterMissing" :value="formBookingRedirectMasterId" disabled>Майстер #{{ formBookingRedirectMasterId }}</option>
-            <option v-if="selectedRedirectMasterUnavailable && selectedRedirectMaster" :value="selectedRedirectMaster.id" disabled>
-              {{ masterName(selectedRedirectMaster) }}
-            </option>
-            <option v-for="master in availableRedirectMasterOptions" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
-          </select>
-        </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div ref="positionSelectRef" class="relative min-w-0 space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <BriefcaseIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Позиція
+            </span>
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-900 shadow-sm sm:px-4"
+              :aria-expanded="positionSelectOpen"
+              @click="positionSelectOpen = !positionSelectOpen"
+            >
+              <span class="min-w-0 truncate">{{ selectedPositionOption.label }}</span>
+              <ChevronDownIcon class="h-4 w-4 shrink-0 text-cyan-700 transition" :class="{ 'rotate-180': positionSelectOpen }" aria-hidden="true" />
+            </button>
+            <div v-if="positionSelectOpen" class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl">
+              <button
+                v-for="option in positionOptions"
+                :key="option.value"
+                type="button"
+                class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                :class="form.position === option.value ? 'bg-slate-50 text-slate-950' : ''"
+                @click="selectPosition(option.value)"
+              >
+                <span>{{ option.label }}</span>
+                <CheckCircleIcon v-if="form.position === option.value" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div ref="redirectSelectRef" class="relative min-w-0 space-y-1.5 text-sm text-slate-700">
+            <span class="flex items-center gap-2 font-medium">
+              <ArrowRightIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              Перенаправляти онлайн-записи до
+            </span>
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 shadow-sm sm:px-4"
+              :aria-expanded="redirectSelectOpen"
+              @click="redirectSelectOpen = !redirectSelectOpen"
+            >
+              <span class="flex min-w-0 items-center gap-2.5">
+                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-cyan-700">
+                  <img v-if="redirectMasterAvatarUrl(selectedRedirectMaster)" :src="redirectMasterAvatarUrl(selectedRedirectMaster)" alt="" class="h-full w-full object-cover">
+                  <ArrowRightIcon v-else-if="!selectedRedirectMaster" class="h-4 w-4" aria-hidden="true" />
+                  <span v-else>{{ masterInitials(selectedRedirectMaster) }}</span>
+                </span>
+                <span class="min-w-0 truncate">{{ selectedRedirectLabel }}</span>
+              </span>
+              <ChevronDownIcon class="h-4 w-4 shrink-0 text-cyan-700 transition" :class="{ 'rotate-180': redirectSelectOpen }" aria-hidden="true" />
+            </button>
+            <div v-if="redirectSelectOpen" class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                :class="!formBookingRedirectMasterId ? 'bg-slate-50 text-slate-950' : ''"
+                @click="selectRedirectMaster(null)"
+              >
+                <span class="flex min-w-0 items-center gap-2.5">
+                  <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-cyan-700">
+                    <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span class="min-w-0 truncate">Не перенаправляти</span>
+                </span>
+                <CheckCircleIcon v-if="!formBookingRedirectMasterId" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              </button>
+              <button
+                v-if="selectedRedirectMasterMissing"
+                type="button"
+                disabled
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-500 opacity-70"
+              >
+                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-cyan-700">#</span>
+                <span class="min-w-0 truncate">Майстер #{{ formBookingRedirectMasterId }}</span>
+              </button>
+              <button
+                v-if="selectedRedirectMasterUnavailable && selectedRedirectMaster"
+                type="button"
+                disabled
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-500 opacity-70"
+              >
+                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-cyan-700">
+                  <img v-if="redirectMasterAvatarUrl(selectedRedirectMaster)" :src="redirectMasterAvatarUrl(selectedRedirectMaster)" alt="" class="h-full w-full object-cover">
+                  <span v-else>{{ masterInitials(selectedRedirectMaster) }}</span>
+                </span>
+                <span class="min-w-0 truncate">{{ masterName(selectedRedirectMaster) }}</span>
+              </button>
+              <button
+                v-for="master in availableRedirectMasterOptions"
+                :key="master.id"
+                type="button"
+                class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                :class="formBookingRedirectMasterId === master.id ? 'bg-slate-50 text-slate-950' : ''"
+                @click="selectRedirectMaster(master.id)"
+              >
+                <span class="flex min-w-0 items-center gap-2.5">
+                  <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-cyan-700">
+                    <img v-if="redirectMasterAvatarUrl(master)" :src="redirectMasterAvatarUrl(master)" alt="" class="h-full w-full object-cover">
+                    <span v-else>{{ masterInitials(master) }}</span>
+                  </span>
+                  <span class="min-w-0 truncate">{{ masterName(master) }}</span>
+                </span>
+                <CheckCircleIcon v-if="formBookingRedirectMasterId === master.id" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-1.5 text-sm text-slate-700">
             <span class="flex items-center gap-2 font-medium">
@@ -436,7 +574,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
-        <label class="space-y-1.5 text-sm text-slate-700">
+        <label class="mt-2 space-y-1.5 text-sm text-slate-700">
           <span class="flex items-center gap-2 font-medium">
             <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
             Опис
@@ -447,23 +585,25 @@ onBeforeUnmount(() => {
           <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-cyan-700" aria-hidden="true" />
           <span>Після створення майстра активні базові послуги копіюються автоматично. Використовуйте дію «Послуги» у списку, щоб керувати особистими послугами майстра.</span>
         </p>
-        <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          <CheckCircleIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
-          Майстер активний
-        </label>
-        <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-          <input v-model="form.showOnMasterBlock" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          <EyeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
-          Показувати у блоці майстрів
-        </label>
-        <div class="flex flex-wrap gap-2 sm:gap-3">
-          <button type="submit" :disabled="saving || disabled" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60 sm:flex-none sm:px-5 sm:py-3">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
+            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <CheckCircleIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
+            <span>Майстер активний</span>
+          </label>
+          <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
+            <input v-model="form.showOnMasterBlock" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <EyeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
+            <span>Показувати у блоці майстрів</span>
+          </label>
+        </div>
+        <div class="backoffice-modal-actions">
+          <button type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти майстра' }}
           </button>
-          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-4 py-2.5 text-sm sm:px-5 sm:py-3" @click="fillForm(editing)">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>

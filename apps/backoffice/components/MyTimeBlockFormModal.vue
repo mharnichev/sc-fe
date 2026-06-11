@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, PlusIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{
   modelValue: boolean
@@ -100,9 +100,7 @@ watch(
           <p class="text-xs uppercase tracking-[0.2em] text-cyan-700 xl:text-sm xl:tracking-[0.25em]">Доступність</p>
           <h2 class="mt-1 text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">Створити блокування</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm" @click="closeModal">
-          Закрити
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -133,12 +131,13 @@ watch(
           <span class="font-medium">Причина</span>
           <textarea v-model="form.reason" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
         </label>
-        <div class="flex flex-wrap gap-2 xl:gap-3">
-          <button type="submit" :disabled="saving" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-medium text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm">
+        <div class="backoffice-modal-actions">
+          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Створення...' : 'Створити блокування' }}
           </button>
-          <button type="button" class="min-h-9 flex-1 rounded-full border border-slate-300 px-4 py-2 text-xs sm:flex-none xl:min-h-11 xl:px-5 xl:py-3 xl:text-sm" @click="fillForm">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
         </div>

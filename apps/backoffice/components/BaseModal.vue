@@ -98,16 +98,16 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/50 px-0 py-0 sm:items-center sm:px-4 sm:py-6"
+      class="fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none bg-black/62 px-0 py-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
       @click.self="close"
     >
       <section
-        class="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[1.5rem] bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[1.75rem]"
+        class="backoffice-modal-panel liquid-glass flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[1.5rem] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[1.75rem]"
         :class="maxWidthClass"
         role="dialog"
         aria-modal="true"
       >
-        <header v-if="$slots.head" class="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
+        <header v-if="$slots.head" class="shrink-0 border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
           <slot name="head" :close="close" />
         </header>
 

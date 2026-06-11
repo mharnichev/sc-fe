@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
@@ -108,9 +108,7 @@ watch(
           <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Адмін</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">Створити блокування майстра</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
-          Закрити
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -148,12 +146,13 @@ watch(
           <span class="font-medium">Причина</span>
           <textarea v-model="form.reason" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving || disabled" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+        <div class="backoffice-modal-actions">
+          <button type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Створення...' : 'Створити блокування' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="fillForm">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
         </div>

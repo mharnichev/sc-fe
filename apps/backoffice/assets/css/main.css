@@ -2,10 +2,747 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+  --bg-main: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-elevated: rgba(255, 255, 255, 0.03);
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-hover: rgba(255, 255, 255, 0.08);
+  --modal-bg: rgba(18, 18, 18, 0.94);
+  --border: rgba(255, 255, 255, 0.10);
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.72);
+  --hint-bg: rgba(255, 255, 255, 0.11);
+  --hint-border: rgba(255, 255, 255, 0.15);
+  --hint-text: rgba(255, 255, 255, 0.82);
+  --accent-text: rgba(180, 244, 255, 0.92);
+  --app-background:
+    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.08), transparent 26rem),
+    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.045), transparent 30rem),
+    linear-gradient(145deg, #050505 0%, var(--bg-main) 44%, #101010 100%);
+  --surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 54px rgba(0, 0, 0, 0.28);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 54px rgba(0, 0, 0, 0.32);
+  --input-bg: rgba(255, 255, 255, 0.16);
+  --input-border: rgba(255, 255, 255, 0.22);
+  --input-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 28px rgba(0, 0, 0, 0.18);
+  --input-placeholder: rgba(255, 255, 255, 0.34);
+  --checkbox-bg: rgba(255, 255, 255, 0.18);
+  --checkbox-accent: #ffffff;
+  --row-bg: rgba(255, 255, 255, 0.055);
+  --row-hover: rgba(255, 255, 255, 0.085);
+  --focus-border: rgba(255, 255, 255, 0.30);
+  --focus-ring: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: rgba(0, 0, 0, 0.35);
+  --sidebar-menu-bg: rgba(0, 0, 0, 0.90);
+  --solid-control: rgba(255, 255, 255, 0.10);
+  --solid-control-hover: rgba(255, 255, 255, 0.14);
+  --interactive-hover-text: #ffffff;
+  --select-menu-bg: #000000;
+  --select-menu-hover: rgba(255, 255, 255, 0.12);
+  --select-menu-item-text: rgba(255, 255, 255, 0.88);
+  --select-menu-item-hover-text: #ffffff;
+  --select-menu-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 24px 70px rgba(0, 0, 0, 0.58);
+  --calendar-header-bg: rgba(0, 0, 0, 0.88);
+  --calendar-time-rail-bg: rgba(0, 0, 0, 0.78);
+  --calendar-column-bg: rgba(255, 255, 255, 0.035);
+  --calendar-muted-bg: rgba(255, 255, 255, 0.02);
+  --selection-bg: rgba(255, 255, 255, 0.22);
+  --selection-color: #fff;
+  --primary-button-bg: #fff;
+  --primary-button-text: #000;
+  --success: #30d158;
+  --warning: #ffd60a;
+  --danger: #ff453a;
+  --ease-apple: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-backoffice-theme="light"] {
+  color-scheme: light;
+  --bg-main: #f5f5f2;
+  --bg-secondary: #ffffff;
+  --bg-elevated: rgba(255, 255, 255, 0.76);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-hover: rgba(255, 255, 255, 0.90);
+  --modal-bg: rgba(255, 255, 255, 0.96);
+  --border: rgba(15, 23, 42, 0.11);
+  --text-primary: rgba(15, 23, 42, 0.94);
+  --text-secondary: rgba(51, 65, 85, 0.64);
+  --hint-bg: rgba(255, 255, 255, 0.82);
+  --hint-border: rgba(15, 23, 42, 0.10);
+  --hint-text: rgba(30, 41, 59, 0.74);
+  --accent-text: #0e7490;
+  --app-background:
+    radial-gradient(circle at 8% 4%, rgba(255, 255, 255, 0.95), transparent 28rem),
+    radial-gradient(circle at 88% 16%, rgba(203, 213, 225, 0.42), transparent 30rem),
+    linear-gradient(145deg, #f8fafc 0%, var(--bg-main) 46%, #ecece8 100%);
+  --surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 18px 48px rgba(15, 23, 42, 0.09);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 18px 54px rgba(15, 23, 42, 0.11);
+  --input-bg: rgba(255, 255, 255, 0.96);
+  --input-border: rgba(15, 23, 42, 0.18);
+  --input-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 8px 22px rgba(15, 23, 42, 0.07);
+  --input-placeholder: rgba(51, 65, 85, 0.45);
+  --checkbox-bg: rgba(255, 255, 255, 0.98);
+  --checkbox-accent: #0f172a;
+  --row-bg: rgba(255, 255, 255, 0.74);
+  --row-hover: rgba(255, 255, 255, 0.92);
+  --focus-border: rgba(15, 23, 42, 0.24);
+  --focus-ring: rgba(15, 23, 42, 0.08);
+  --sidebar-bg: rgba(255, 255, 255, 0.58);
+  --sidebar-menu-bg: rgba(255, 255, 255, 0.94);
+  --solid-control: rgba(15, 23, 42, 0.06);
+  --solid-control-hover: rgba(15, 23, 42, 0.09);
+  --interactive-hover-text: rgba(15, 23, 42, 0.96);
+  --select-menu-bg: #ffffff;
+  --select-menu-hover: rgba(15, 23, 42, 0.07);
+  --select-menu-item-text: rgba(15, 23, 42, 0.78);
+  --select-menu-item-hover-text: rgba(15, 23, 42, 0.96);
+  --select-menu-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 24px 70px rgba(15, 23, 42, 0.18);
+  --calendar-header-bg: rgba(255, 255, 255, 0.98);
+  --calendar-time-rail-bg: rgba(255, 255, 255, 0.94);
+  --calendar-column-bg: rgba(255, 255, 255, 0.56);
+  --calendar-muted-bg: rgba(15, 23, 42, 0.035);
+  --selection-bg: rgba(15, 23, 42, 0.16);
+  --selection-color: #0f172a;
+  --primary-button-bg: #0f172a;
+  --primary-button-text: #fff;
+  --success: #248a3d;
+  --warning: #b77900;
+  --danger: #d70015;
+}
+
+* {
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+}
+
 body {
-  @apply bg-slate-100 text-slate-900 antialiased;
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  @apply antialiased;
+  min-height: 100vh;
+  background: var(--app-background);
+  color: var(--text-primary);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", sans-serif;
   overflow-x: hidden;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-color);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-apple);
+}
+
+button:active,
+a:active {
+  transform: scale(0.98);
+}
+
+main {
+  color: var(--text-primary);
+}
+
+main h1,
+main h2,
+main h3,
+.liquid-glass h1,
+.liquid-glass h2,
+.liquid-glass h3,
+main .text-slate-900,
+main .text-slate-950,
+main .text-slate-800,
+.liquid-glass .text-slate-900,
+.liquid-glass .text-slate-950,
+.liquid-glass .text-slate-800 {
+  color: var(--text-primary) !important;
+}
+
+main label,
+.liquid-glass label,
+main .text-slate-700,
+main .text-slate-600,
+main .text-slate-500,
+.liquid-glass .text-slate-700,
+.liquid-glass .text-slate-600,
+.liquid-glass .text-slate-500,
+.liquid-glass .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+
+main .text-cyan-700,
+main .text-cyan-600,
+main .text-cyan-500,
+.liquid-glass .text-cyan-700,
+.liquid-glass .text-cyan-600,
+.liquid-glass .text-cyan-500 {
+  color: var(--accent-text) !important;
+}
+
+main .bg-white,
+main .bg-slate-50,
+main .bg-slate-100,
+main section[class*="border-slate-200"],
+main article[class*="border-slate-200"],
+main form[class*="border-slate-200"],
+main div[class*="border-slate-200"] {
+  background: var(--glass) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--surface-shadow) !important;
+  backdrop-filter: blur(32px);
+}
+
+.liquid-glass .bg-slate-50,
+.liquid-glass .bg-slate-100,
+.liquid-glass .bg-white {
+  background: var(--hint-bg) !important;
+  border-color: var(--hint-border) !important;
+  color: var(--hint-text) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent),
+    0 8px 24px rgba(0, 0, 0, 0.14) !important;
+}
+
+.liquid-glass .bg-slate-50 *,
+.liquid-glass .bg-slate-100 *,
+.liquid-glass .bg-white * {
+  color: inherit;
+}
+
+main article,
+main section,
+main form {
+  transition:
+    background-color 180ms var(--ease-apple),
+    border-color 180ms var(--ease-apple),
+    transform 180ms var(--ease-apple);
+}
+
+main article:hover,
+main section[class*="shadow"]:hover {
+  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent) !important;
+}
+
+main .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+main .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+main .border-slate-100,
+main .border-slate-200,
+main .border-slate-300 {
+  border-color: var(--border) !important;
+}
+
+main input:not([type="checkbox"]):not([type="radio"]),
+main select,
+main textarea,
+.liquid-glass input:not([type="checkbox"]):not([type="radio"]),
+.liquid-glass select,
+.liquid-glass textarea {
+  min-height: 2.75rem;
+  border-color: var(--input-border) !important;
+  background: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--input-shadow) !important;
+  outline: none;
+}
+
+main input::placeholder,
+main textarea::placeholder,
+.liquid-glass input::placeholder,
+.liquid-glass textarea::placeholder {
+  color: var(--input-placeholder) !important;
+}
+
+main input[type="checkbox"],
+main input[type="radio"],
+.liquid-glass input[type="checkbox"],
+.liquid-glass input[type="radio"] {
+  accent-color: var(--checkbox-accent);
+  background-color: var(--checkbox-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--checkbox-accent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent),
+    0 4px 14px rgba(0, 0, 0, 0.14) !important;
+}
+
+main input:disabled,
+main select:disabled,
+main textarea:disabled,
+.liquid-glass input:disabled,
+.liquid-glass select:disabled,
+.liquid-glass textarea:disabled {
+  opacity: 0.62;
+  background: color-mix(in srgb, var(--input-bg) 72%, transparent) !important;
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus,
+.liquid-glass input:focus,
+.liquid-glass select:focus,
+.liquid-glass textarea:focus,
+main button:focus-visible,
+main a:focus-visible {
+  border-color: var(--focus-border) !important;
+  box-shadow:
+    0 0 0 3px var(--focus-ring),
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent) !important;
+}
+
+main button:hover:not(:disabled),
+main a[class*="rounded"]:hover,
+.liquid-glass button:hover:not(:disabled),
+.liquid-glass a[class*="rounded"]:hover {
+  color: var(--interactive-hover-text) !important;
+}
+
+main button:hover:not(:disabled) *,
+main a[class*="rounded"]:hover *,
+.liquid-glass button:hover:not(:disabled) *,
+.liquid-glass a[class*="rounded"]:hover * {
+  color: inherit !important;
+}
+
+main button:hover:not(:disabled) svg,
+main a[class*="rounded"]:hover svg,
+.liquid-glass button:hover:not(:disabled) svg,
+.liquid-glass a[class*="rounded"]:hover svg,
+.backoffice-modal-panel button:hover:not(:disabled) svg {
+  color: var(--interactive-hover-text) !important;
+  stroke: currentColor !important;
+}
+
+main button[class*="bg-emerald"]:hover,
+main button[class*="bg-rose"]:hover,
+main button[class*="bg-red"]:hover,
+main button[class*="bg-slate-950"]:hover,
+main button[class*="bg-black"]:hover,
+main a[class*="bg-emerald"]:hover,
+main a[class*="bg-rose"]:hover,
+main a[class*="bg-red"]:hover,
+main a[class*="bg-slate-950"]:hover,
+main a[class*="bg-black"]:hover,
+.liquid-glass button[class*="bg-emerald"]:hover,
+.liquid-glass button[class*="bg-rose"]:hover,
+.liquid-glass button[class*="bg-red"]:hover,
+.liquid-glass button[class*="bg-slate-950"]:hover,
+.liquid-glass button[class*="bg-black"]:hover,
+.liquid-glass a[class*="bg-emerald"]:hover,
+.liquid-glass a[class*="bg-rose"]:hover,
+.liquid-glass a[class*="bg-red"]:hover,
+.liquid-glass a[class*="bg-slate-950"]:hover,
+.liquid-glass a[class*="bg-black"]:hover {
+  color: #ffffff !important;
+}
+
+main table {
+  border-collapse: separate;
+  border-spacing: 0 0.55rem;
+}
+
+main thead {
+  color: var(--text-secondary);
+}
+
+main tbody tr {
+  background: var(--row-bg) !important;
+  border-radius: 1rem;
+  transition:
+    transform 180ms var(--ease-apple),
+    background-color 180ms var(--ease-apple);
+}
+
+main tbody tr:hover {
+  background: var(--row-hover) !important;
+  transform: translateY(-1px);
+}
+
+main tbody td:first-child {
+  border-radius: 1rem 0 0 1rem;
+}
+
+main tbody td:last-child {
+  border-radius: 0 1rem 1rem 0;
+}
+
+main .bg-emerald-50 {
+  background: rgba(48, 209, 88, 0.13) !important;
+}
+
+main .text-emerald-700,
+main .text-emerald-800,
+main .text-emerald-900 {
+  color: #8ff0a8 !important;
+}
+
+main .bg-rose-50 {
+  background: rgba(255, 69, 58, 0.13) !important;
+}
+
+main .text-rose-600,
+main .text-rose-700,
+main .text-rose-800 {
+  color: #ffb0aa !important;
+}
+
+main .bg-amber-50 {
+  background: rgba(255, 214, 10, 0.13) !important;
+}
+
+main .text-amber-700 {
+  color: #ffe783 !important;
+}
+
+main .bg-indigo-50,
+main .bg-cyan-50,
+main .bg-cyan-100 {
+  background: rgba(255, 255, 255, 0.11) !important;
+}
+
+main .ring-slate-200,
+main .ring-emerald-200,
+main .ring-rose-200,
+main .ring-indigo-200 {
+  --tw-ring-color: var(--border) !important;
+}
+
+.liquid-glass {
+  border: 1px solid var(--border);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(32px);
+}
+
+.liquid-glass-hover:hover {
+  background: var(--glass-hover);
+  transform: translateY(-1px) scale(1.005);
+}
+
+.backoffice-modal-panel {
+  background: var(--modal-bg) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 14%, transparent) !important;
+}
+
+.backoffice-modal-close-button {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--input-border);
+  border-radius: 9999px;
+  background: var(--solid-control);
+  color: var(--text-secondary);
+  transition:
+    background-color 180ms var(--ease-apple),
+    border-color 180ms var(--ease-apple),
+    color 180ms var(--ease-apple);
+}
+
+.backoffice-modal-close-button:hover:not(:disabled) {
+  background: var(--solid-control-hover);
+  border-color: var(--focus-border);
+  color: var(--interactive-hover-text) !important;
+}
+
+.backoffice-modal-close-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.backoffice-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.backoffice-modal-action-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  transition:
+    background-color 180ms var(--ease-apple),
+    border-color 180ms var(--ease-apple),
+    color 180ms var(--ease-apple),
+    opacity 180ms var(--ease-apple);
+}
+
+.backoffice-modal-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.backoffice-modal-action-primary {
+  border: 1px solid rgba(48, 209, 88, 0.36);
+  background: #16a34a;
+  color: #ffffff !important;
+}
+
+.backoffice-modal-action-primary:hover:not(:disabled) {
+  background: #15803d;
+  color: #ffffff !important;
+}
+
+.backoffice-modal-action-danger {
+  border: 1px solid rgba(255, 69, 58, 0.42);
+  background: #dc2626;
+  color: #ffffff !important;
+}
+
+.backoffice-modal-action-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #ffffff !important;
+}
+
+.backoffice-modal-action-secondary {
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--warning) !important;
+}
+
+.backoffice-modal-action-secondary:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.28);
+  color: var(--interactive-hover-text) !important;
+}
+
+.backoffice-modal-action-neutral {
+  border: 1px solid var(--input-border);
+  background: var(--solid-control);
+  color: var(--text-secondary) !important;
+}
+
+.backoffice-modal-action-neutral:hover:not(:disabled) {
+  background: var(--solid-control-hover);
+  color: var(--interactive-hover-text) !important;
+}
+
+@media (min-width: 640px) {
+  .backoffice-modal-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .backoffice-modal-action-button {
+    width: auto;
+    min-height: 2.75rem;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+
+.booking-select-menu {
+  z-index: 180;
+  background: var(--select-menu-bg) !important;
+  background-color: var(--select-menu-bg) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent) !important;
+  box-shadow: var(--select-menu-shadow) !important;
+  backdrop-filter: none !important;
+}
+
+.booking-select-menu button {
+  background: transparent !important;
+  color: var(--select-menu-item-text) !important;
+  box-shadow: none !important;
+}
+
+.booking-select-menu button * {
+  color: inherit !important;
+}
+
+.booking-select-menu button:hover,
+.booking-select-menu .bg-slate-50 {
+  background: var(--select-menu-hover) !important;
+  color: var(--select-menu-item-hover-text) !important;
+}
+
+.booking-select-menu button:hover *,
+.booking-select-menu .bg-slate-50 * {
+  color: inherit !important;
+}
+
+.booking-select-menu input,
+.booking-select-menu [class*="border-b"] {
+  background: var(--select-menu-bg) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 14%, transparent) !important;
+}
+
+.booking-status-menu button {
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+}
+
+.booking-status-menu button:hover,
+.booking-status-menu .bg-slate-50 {
+  border-color: color-mix(in srgb, var(--text-primary) 18%, transparent) !important;
+}
+
+.booking-status-menu span[class*="rounded-full"] {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  --tw-ring-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+.booking-status-menu .text-emerald-100 {
+  background: rgba(48, 209, 88, 0.20) !important;
+  color: #b8ffc7 !important;
+  --tw-ring-color: rgba(48, 209, 88, 0.34) !important;
+}
+
+.booking-status-menu .text-red-100 {
+  background: rgba(255, 69, 58, 0.20) !important;
+  color: #ffd0cc !important;
+  --tw-ring-color: rgba(255, 69, 58, 0.34) !important;
+}
+
+html[data-backoffice-theme="light"] .booking-status-menu span[class*="rounded-full"] {
+  background: rgba(15, 23, 42, 0.08) !important;
+  color: rgba(15, 23, 42, 0.94) !important;
+  --tw-ring-color: rgba(15, 23, 42, 0.16) !important;
+}
+
+html[data-backoffice-theme="light"] .booking-status-menu .text-emerald-100 {
+  background: rgba(36, 138, 61, 0.12) !important;
+  color: #16652c !important;
+  --tw-ring-color: rgba(36, 138, 61, 0.24) !important;
+}
+
+html[data-backoffice-theme="light"] .booking-status-menu .text-red-100 {
+  background: rgba(215, 0, 21, 0.10) !important;
+  color: #a50011 !important;
+  --tw-ring-color: rgba(215, 0, 21, 0.22) !important;
+}
+
+html:not([data-backoffice-theme="light"]) select,
+html:not([data-backoffice-theme="light"]) select option,
+html:not([data-backoffice-theme="light"]) select optgroup {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+  color: #ffffff !important;
+}
+
+html:not([data-backoffice-theme="light"]) .booking-select-menu,
+html:not([data-backoffice-theme="light"]) .booking-select-menu button,
+html:not([data-backoffice-theme="light"]) .booking-select-menu input,
+html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b"] {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+}
+
+.backoffice-shell-surface {
+  background: var(--sidebar-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.backoffice-menu-surface {
+  background: var(--sidebar-menu-bg) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-shell-surface [class*="text-white"],
+html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="text-white"],
+html[data-backoffice-theme="light"] .backoffice-login [class*="text-white"] {
+  color: var(--text-primary) !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-shell-surface [class*="bg-white/"],
+html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="bg-white/"] {
+  background: var(--solid-control) !important;
+}
+
+.backoffice-shell-surface button:hover,
+.backoffice-menu-surface button:hover,
+.backoffice-shell-surface a:hover,
+.backoffice-menu-surface a:hover {
+  background: var(--solid-control-hover) !important;
+}
+
+.theme-toggle-button {
+  color: var(--text-primary) !important;
+}
+
+.backoffice-login input {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--input-shadow) !important;
+}
+
+.backoffice-login input::placeholder {
+  color: var(--input-placeholder) !important;
+}
+
+.backoffice-login .primary-login-button {
+  background: var(--primary-button-bg) !important;
+  color: var(--primary-button-text) !important;
+  border-color: var(--border) !important;
+}
+
+.booking-calendar-grid [class*="bg-black"] {
+  background: var(--calendar-header-bg) !important;
+}
+
+.booking-calendar-grid [class*="bg-white/"] {
+  background: var(--calendar-column-bg) !important;
+}
+
+.booking-calendar-grid [class*="text-white"] {
+  color: var(--text-primary) !important;
+}
+
+.booking-calendar-grid [class*="border-white"] {
+  border-color: var(--border) !important;
+}
+
+html[data-backoffice-theme="light"] main .bg-emerald-400\/12,
+html[data-backoffice-theme="light"] main .bg-emerald-400\/14 {
+  background: rgba(36, 138, 61, 0.12) !important;
+}
+
+html[data-backoffice-theme="light"] main .text-emerald-100 {
+  color: #1f7a36 !important;
+}
+
+html[data-backoffice-theme="light"] main .bg-red-400\/12,
+html[data-backoffice-theme="light"] main .bg-rose-50 {
+  background: rgba(215, 0, 21, 0.10) !important;
+}
+
+html[data-backoffice-theme="light"] main .text-red-100,
+html[data-backoffice-theme="light"] main .text-rose-600,
+html[data-backoffice-theme="light"] main .text-rose-700 {
+  color: #b00012 !important;
 }
 
 @media (max-width: 640px) {

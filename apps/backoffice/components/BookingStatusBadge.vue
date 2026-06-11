@@ -10,19 +10,19 @@ const { formatBookingStatus } = useBookingFormatting()
 const statusClass = (status: BookingStatus | string) => {
   switch (status) {
     case 'confirmed':
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+      return 'bg-emerald-400/12 text-emerald-100 ring-emerald-300/20'
     case 'cancelled':
-      return 'bg-rose-50 text-rose-700 ring-rose-200'
+      return 'bg-red-400/12 text-red-100 ring-red-300/20'
     case 'completed':
-      return 'bg-indigo-50 text-indigo-700 ring-indigo-200'
+      return 'bg-white/10 text-white/80 ring-white/15'
     default:
-      return 'bg-slate-50 text-slate-700 ring-slate-200'
+      return 'bg-white/[0.06] text-white/65 ring-white/12'
   }
 }
 </script>
 
 <template>
-  <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.15em] ring-1" :class="statusClass(status)">
+  <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.15em] ring-1 backdrop-blur" :class="statusClass(status)">
     {{ formatBookingStatus(status) }}
   </span>
 </template>

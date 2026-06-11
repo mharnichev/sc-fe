@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+
 interface ContextItem {
   label: string
   value: string
@@ -34,9 +36,7 @@ const emit = defineEmits<{
           <p class="text-sm uppercase tracking-[0.25em]" :class="destructive ? 'text-rose-700' : 'text-cyan-700'">Підтвердження</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ title }}</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" :disabled="pending" @click="close">
-          Закрити
-        </button>
+        <ModalCloseButton :disabled="pending" @click="close" />
       </div>
     </template>
 
@@ -51,17 +51,19 @@ const emit = defineEmits<{
           </div>
         </dl>
 
-        <div class="flex flex-wrap justify-end gap-3">
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm text-slate-700" :disabled="pending" @click="close">
+        <div class="backoffice-modal-actions">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" :disabled="pending" @click="close">
+            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             {{ cancelLabel }}
           </button>
           <button
             type="button"
             :disabled="pending"
-            class="rounded-full px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
-            :class="destructive ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-950 hover:bg-slate-800'"
+            class="backoffice-modal-action-button"
+            :class="destructive ? 'backoffice-modal-action-danger' : 'backoffice-modal-action-primary'"
             @click="emit('confirm')"
           >
+            <component :is="destructive ? ExclamationTriangleIcon : CheckCircleIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
             {{ pending ? 'Виконується...' : confirmLabel }}
           </button>
         </div>

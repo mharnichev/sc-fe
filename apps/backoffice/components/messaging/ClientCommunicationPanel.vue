@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckCircleIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
 import type { CustomerCommunicationProfile } from '~/types/messaging'
 
 const props = defineProps<{ customerId: number | string }>()
@@ -151,14 +152,17 @@ const copyConnectLink = async () => {
       <template #head="{ close }">
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-2xl font-semibold text-slate-900">Ручне повідомлення</h2>
-          <button class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="close">Закрити</button>
+          <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>
         <textarea v-model="manualMessage" class="min-h-40 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Текст Telegram повідомлення" />
-        <button class="mt-4 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50" :disabled="saving || !manualMessage.trim()" @click="sendMessage">
-          {{ saving ? 'Відправляємо...' : 'Надіслати' }}
-        </button>
+        <div class="backoffice-modal-actions mt-4">
+          <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !manualMessage.trim()" @click="sendMessage">
+            <PaperAirplaneIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
+            {{ saving ? 'Відправляємо...' : 'Надіслати' }}
+          </button>
+        </div>
       </template>
     </BaseModal>
 
@@ -166,7 +170,7 @@ const copyConnectLink = async () => {
       <template #head="{ close }">
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-2xl font-semibold text-slate-900">Налаштування комунікацій</h2>
-          <button class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="close">Закрити</button>
+          <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>
@@ -180,7 +184,12 @@ const copyConnectLink = async () => {
               <option value="en">English</option>
             </select>
           </label>
-          <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" :disabled="saving" @click="savePreferences">Зберегти</button>
+          <div class="backoffice-modal-actions">
+            <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving" @click="savePreferences">
+              <CheckCircleIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
+              Зберегти
+            </button>
+          </div>
         </div>
       </template>
     </BaseModal>

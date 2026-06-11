@@ -535,7 +535,7 @@ const deleteSelectedBlock = async () => {
       </div>
     </div>
 
-    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:space-y-4 md:p-4">
+    <section class="relative z-[140] space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:space-y-4 md:p-4">
       <div class="flex flex-wrap items-center justify-between gap-2 md:gap-3">
         <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
           <button
@@ -601,7 +601,7 @@ const deleteSelectedBlock = async () => {
           </button>
           <div
             v-if="masterFilterOpen"
-            class="absolute z-50 mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
           >
             <button
               type="button"
@@ -648,7 +648,7 @@ const deleteSelectedBlock = async () => {
           </button>
           <div
             v-if="statusFilterOpen"
-            class="absolute z-50 mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu booking-status-menu absolute z-[180] mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
           >
             <button
               type="button"
@@ -689,7 +689,7 @@ const deleteSelectedBlock = async () => {
           </button>
           <div
             v-if="serviceFilterOpen"
-            class="absolute z-50 mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
           >
             <button
               type="button"
@@ -712,7 +712,7 @@ const deleteSelectedBlock = async () => {
           </div>
         </div>
 
-        <div class="col-span-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-1 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
+        <div class="order-last col-span-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2 md:rounded-2xl md:px-4 md:py-3 md:text-sm xl:col-span-5">
           <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
           <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
         </div>
@@ -829,9 +829,7 @@ const deleteSelectedBlock = async () => {
             <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Блокування</p>
             <h2 class="mt-2 text-2xl font-semibold text-slate-900">Недоступний час</h2>
           </div>
-          <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="close">
-            Закрити
-          </button>
+          <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>
@@ -840,15 +838,17 @@ const deleteSelectedBlock = async () => {
             <p class="font-medium text-slate-900">{{ formatDateTime(selectedBlock.start_at) }} - {{ formatDateTime(selectedBlock.end_at) }}</p>
             <p class="mt-1 text-sm text-slate-500">{{ selectedBlock.reason || 'Без причини' }}</p>
           </div>
-          <button
-            type="button"
-            :disabled="deletingBlock"
-            class="inline-flex items-center justify-center gap-2 rounded-full border border-rose-300 px-5 py-3 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-            @click="deleteSelectedBlock"
-          >
-            <TrashIcon class="h-4 w-4" aria-hidden="true" />
-            {{ deletingBlock ? 'Видалення...' : 'Видалити блокування' }}
-          </button>
+          <div class="backoffice-modal-actions">
+            <button
+              type="button"
+              :disabled="deletingBlock"
+              class="backoffice-modal-action-button backoffice-modal-action-danger"
+              @click="deleteSelectedBlock"
+            >
+              <TrashIcon class="h-4 w-4" aria-hidden="true" />
+              {{ deletingBlock ? 'Видалення...' : 'Видалити блокування' }}
+            </button>
+          </div>
         </div>
       </template>
     </BaseModal>

@@ -17,6 +17,8 @@ import {
   Bars3Icon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  MoonIcon,
+  SunIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -31,6 +33,7 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const route = useRoute()
 const api = useBackofficeApi()
+const { isLightTheme, themeLabel, themeToggleLabel, toggleTheme } = useBackofficeTheme()
 const menuOpen = ref(false)
 const bottomNavHidden = ref(false)
 const lastScrollY = ref(0)
@@ -94,13 +97,19 @@ const barberBottomLinks = computed(() =>
     : [],
 )
 
-const menuSections = computed(() =>
-  [
-    { title: 'Барбершоп', links: barberShopLinks.value },
-    { title: 'Онлайн магазин', links: onlineStoreLinks.value },
-    { title: 'Блог', links: blogLinks.value },
-  ].filter((section) => section.links.length > 0),
-)
+const menuSections = computed(() => {
+  const allBarbershopLinks = barberShopLinks.value
+  const findLinks = (labels: string[]) => allBarbershopLinks.filter(link => labels.includes(link.label))
+  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Блокування часу', 'Мої блокування часу', 'Клієнти'])
+  const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && link.label !== 'Повідомлення')
+
+  return [
+    { title: 'General', links: generalLinks },
+    { title: 'Management', links: managementLinks },
+    { title: 'Business', links: [...onlineStoreLinks.value, ...blogLinks.value] },
+    { title: 'System', links: allBarbershopLinks.filter(link => link.label === 'Повідомлення') },
+  ].filter(section => section.links.length > 0)
+})
 
 const isActive = (to: string) => route.path === to || (to !== '/' && route.path.startsWith(`${to}/`))
 const isCollapsed = computed(() => Boolean(props.collapsed))
@@ -144,32 +153,44 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-slate-200 bg-slate-950/95 px-4 py-3 text-white shadow-sm backdrop-blur xl:hidden">
+  <header class="backoffice-shell-surface sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden">
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Backoffice</p>
-        <p v-if="auth.user" class="mt-1 truncate text-xs text-slate-300">{{ auth.user.email }}</p>
+        <p class="text-xs uppercase tracking-[0.3em] text-white/55">Soul Cuts</p>
+        <p v-if="auth.user" class="mt-1 truncate text-xs text-white/45">{{ auth.user.email }}</p>
       </div>
-      <button
-        type="button"
-        class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white"
-        :aria-expanded="menuOpen"
-        aria-controls="backoffice-mobile-menu"
-        @click="menuOpen = !menuOpen"
-      >
-        <XMarkIcon v-if="menuOpen" class="h-6 w-6" aria-hidden="true" />
-        <Bars3Icon v-else class="h-6 w-6" aria-hidden="true" />
-        <span class="sr-only">{{ menuOpen ? 'Закрити меню' : 'Відкрити меню' }}</span>
-      </button>
+      <div class="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          class="theme-toggle-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+          :aria-label="themeToggleLabel"
+          :title="themeToggleLabel"
+          @click="toggleTheme"
+        >
+          <MoonIcon v-if="isLightTheme" class="h-5 w-5" aria-hidden="true" />
+          <SunIcon v-else class="h-5 w-5" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+          :aria-expanded="menuOpen"
+          aria-controls="backoffice-mobile-menu"
+          @click="menuOpen = !menuOpen"
+        >
+          <XMarkIcon v-if="menuOpen" class="h-6 w-6" aria-hidden="true" />
+          <Bars3Icon v-else class="h-6 w-6" aria-hidden="true" />
+          <span class="sr-only">{{ menuOpen ? 'Закрити меню' : 'Відкрити меню' }}</span>
+        </button>
+      </div>
     </div>
 
     <div
       v-if="menuOpen"
       id="backoffice-mobile-menu"
-      class="absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-white/10 bg-slate-950 px-4 pb-5 pt-4 shadow-2xl"
+      class="backoffice-menu-surface absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-white/10 bg-black/90 px-4 pb-5 pt-4 shadow-2xl backdrop-blur-2xl"
     >
       <div v-if="auth.user" class="mb-4 flex flex-wrap items-center gap-2">
-        <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-cyan-100">{{ roleLabel }}</span>
+        <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/75">{{ roleLabel }}</span>
       </div>
       <nav class="grid gap-4">
         <section
@@ -177,7 +198,7 @@ const logout = () => {
           :key="section.title"
           class="border-t border-white/10 pt-4 first:border-t-0 first:pt-0"
         >
-          <p class="mb-2 px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p class="mb-2 px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white/35">
             {{ section.title }}
           </p>
           <div class="grid gap-2">
@@ -186,7 +207,7 @@ const logout = () => {
               :key="link.to"
               :to="link.to"
               class="flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition"
-              :class="isActive(link.to) ? 'bg-cyan-400/15 text-white' : 'text-slate-300 hover:bg-white/5'"
+              :class="isActive(link.to) ? 'bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]' : 'text-white/58 hover:bg-white/7 hover:text-white'"
             >
               <component :is="link.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
               <span>{{ link.label }}</span>
@@ -196,7 +217,7 @@ const logout = () => {
       </nav>
       <button
         v-if="auth.user"
-        class="mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-white/30 hover:text-white"
+        class="mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
         @click="logout"
       >
         <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -206,23 +227,24 @@ const logout = () => {
   </header>
 
   <aside
-    class="hidden border-r border-slate-200 bg-slate-950 py-6 text-white transition-[padding] duration-200 xl:block"
+    class="backoffice-shell-surface hidden border-r border-white/10 bg-black/35 py-5 text-white backdrop-blur-2xl transition-[padding] duration-200 xl:block"
     :class="isCollapsed ? 'px-3' : 'px-5'"
   >
-    <div class="mb-8">
-      <div class="flex items-start gap-3" :class="isCollapsed ? 'justify-center' : 'justify-between'">
+    <div class="mb-7">
+      <div class="liquid-glass flex items-start gap-3 rounded-[1.5rem] p-3" :class="isCollapsed ? 'justify-center' : 'justify-between'">
         <div v-if="!isCollapsed" class="min-w-0">
-          <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Backoffice</p>
-          <p v-if="auth.user" class="mt-4 truncate text-sm text-slate-400">
+          <p class="text-xs uppercase tracking-[0.35em] text-white/45">Soul Cuts</p>
+          <p class="mt-2 text-lg font-semibold leading-tight text-white">Backoffice</p>
+          <p v-if="auth.user" class="mt-4 truncate text-sm text-white/45">
             {{ auth.user.email }}
           </p>
-          <p v-if="auth.user" class="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-cyan-100">
+          <p v-if="auth.user" class="mt-2 inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/70">
             {{ roleLabel }}
           </p>
         </div>
         <button
           type="button"
-          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 text-slate-300 transition hover:border-white/30 hover:text-white"
+          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
           :aria-label="isCollapsed ? 'Розгорнути меню' : 'Згорнути меню'"
           :title="isCollapsed ? 'Розгорнути меню' : 'Згорнути меню'"
           @click="toggleCollapsed"
@@ -232,7 +254,7 @@ const logout = () => {
         </button>
       </div>
     </div>
-    <nav class="space-y-5">
+    <nav class="space-y-6">
       <section
         v-for="section in menuSections"
         :key="section.title"
@@ -240,7 +262,7 @@ const logout = () => {
       >
         <p
           v-if="!isCollapsed"
-          class="mb-2 px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500"
+          class="mb-2 px-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/34"
         >
           {{ section.title }}
         </p>
@@ -249,10 +271,10 @@ const logout = () => {
             v-for="link in section.links"
             :key="link.to"
             :to="link.to"
-            class="flex min-h-10 items-center gap-3 rounded-xl py-2 text-sm transition"
+            class="flex min-h-10 items-center gap-3 rounded-2xl py-2 text-sm transition"
             :class="[
               isCollapsed ? 'justify-center px-2' : 'px-3',
-              isActive(link.to) ? 'bg-cyan-400/15 text-white' : 'text-slate-300 hover:bg-white/5',
+              isActive(link.to) ? 'bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_24px_rgba(0,0,0,0.22)]' : 'text-white/55 hover:bg-white/7 hover:text-white',
             ]"
             :aria-label="isCollapsed ? link.label : undefined"
             :title="isCollapsed ? link.label : undefined"
@@ -265,7 +287,7 @@ const logout = () => {
     </nav>
     <button
       v-if="auth.user"
-      class="mt-8 flex min-h-10 w-full items-center gap-3 rounded-xl border border-white/10 py-2 text-sm text-slate-300 transition hover:border-white/30 hover:text-white"
+      class="mt-8 flex min-h-10 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-2 text-sm text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
       :class="isCollapsed ? 'justify-center px-2' : 'px-3'"
       :aria-label="isCollapsed ? 'Вийти' : undefined"
       :title="isCollapsed ? 'Вийти' : undefined"
@@ -274,11 +296,23 @@ const logout = () => {
       <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span v-if="!isCollapsed">Вийти</span>
     </button>
+    <button
+      type="button"
+      class="theme-toggle-button mt-3 flex min-h-10 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-2 text-sm text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+      :class="isCollapsed ? 'justify-center px-2' : 'px-3'"
+      :aria-label="isCollapsed ? themeToggleLabel : undefined"
+      :title="isCollapsed ? themeToggleLabel : undefined"
+      @click="toggleTheme"
+    >
+      <MoonIcon v-if="isLightTheme" class="h-5 w-5 shrink-0" aria-hidden="true" />
+      <SunIcon v-else class="h-5 w-5 shrink-0" aria-hidden="true" />
+      <span v-if="!isCollapsed">{{ themeLabel }}</span>
+    </button>
   </aside>
 
   <nav
     v-if="barberBottomLinks.length"
-    class="fixed bottom-0 left-2 right-2 z-50 rounded-t-2xl border border-b-0 border-slate-200 bg-white/95 px-1.5 pt-1.5 shadow-[0_-8px_24px_rgb(15_23_42_/_0.12)] backdrop-blur transition-transform duration-300 ease-out xl:hidden"
+    class="backoffice-shell-surface fixed bottom-0 left-2 right-2 z-50 rounded-t-2xl border border-b-0 border-white/10 bg-black/70 px-1.5 pt-1.5 shadow-[0_-18px_44px_rgb(0_0_0_/_0.35)] backdrop-blur-2xl transition-transform duration-300 ease-out xl:hidden"
     :class="bottomNavHidden ? 'translate-y-[calc(100%+env(safe-area-inset-bottom)+0.5rem)]' : 'translate-y-0'"
     style="padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));"
     aria-label="Швидка навігація майстра"
@@ -289,7 +323,7 @@ const logout = () => {
         :key="link.to"
         :to="link.to"
         class="flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center text-[0.62rem] font-medium leading-tight transition"
-        :class="isActive(link.to) ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'"
+        :class="isActive(link.to) ? 'bg-white/14 text-white shadow-sm' : 'text-white/45 hover:bg-white/7 hover:text-white'"
       >
         <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
         <span class="max-w-full truncate">{{ link.label }}</span>

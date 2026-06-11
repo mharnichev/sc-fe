@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import {
+  ArrowPathIcon,
+  BanknotesIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  LanguageIcon,
+  ShieldCheckIcon,
+  TagIcon,
+} from '@heroicons/vue/24/outline'
 import type { BaseService, BaseServicePayload } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
@@ -111,9 +121,7 @@ watch(
           <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Послуги</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ editing ? 'Редагувати базову послугу' : 'Створити базову послугу' }}</h2>
         </div>
-        <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700" @click="closeModal">
-          Закрити
-        </button>
+        <ModalCloseButton @click="closeModal" />
       </div>
     </template>
 
@@ -121,48 +129,89 @@ watch(
       <form class="space-y-5" @submit.prevent="submit">
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Назва українською</span>
-            <input v-model="form.title_uk" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <span class="inline-flex items-center gap-2 font-medium">
+              <TagIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Назва українською
+            </span>
+            <span class="relative block">
+              <TagIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <input v-model="form.title_uk" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+            </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Назва англійською</span>
-            <input v-model="form.title_en" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <span class="inline-flex items-center gap-2 font-medium">
+              <LanguageIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Назва англійською
+            </span>
+            <span class="relative block">
+              <LanguageIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <input v-model="form.title_en" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+            </span>
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Опис українською</span>
-            <textarea v-model="form.description_uk" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <span class="inline-flex items-center gap-2 font-medium">
+              <DocumentTextIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Опис українською
+            </span>
+            <span class="relative block">
+              <DocumentTextIcon class="pointer-events-none absolute left-4 top-4 h-4 w-4 text-current opacity-55" aria-hidden="true" />
+              <textarea v-model="form.description_uk" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
+            </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Опис англійською</span>
-            <textarea v-model="form.description_en" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <span class="inline-flex items-center gap-2 font-medium">
+              <DocumentTextIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Опис англійською
+            </span>
+            <span class="relative block">
+              <DocumentTextIcon class="pointer-events-none absolute left-4 top-4 h-4 w-4 text-current opacity-55" aria-hidden="true" />
+              <textarea v-model="form.description_en" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
+            </span>
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Тривалість, хвилини</span>
-            <input v-model.number="form.duration_minutes" required type="number" min="1" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <span class="inline-flex items-center gap-2 font-medium">
+              <ClockIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Тривалість, хвилини
+            </span>
+            <span class="relative block">
+              <ClockIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <input v-model.number="form.duration_minutes" required type="number" min="1" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+            </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Ціна</span>
-            <input v-model.number="form.price" required type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <span class="inline-flex items-center gap-2 font-medium">
+              <BanknotesIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Ціна
+            </span>
+            <span class="relative block">
+              <BanknotesIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <input v-model.number="form.price" required type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+            </span>
           </label>
         </div>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          Послуга активна
-        </label>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          Послуга для військових
-        </label>
-        <div class="flex flex-wrap gap-3">
-          <button type="submit" :disabled="saving" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
-            <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <span class="min-w-0">Послуга активна</span>
+          </label>
+          <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            <ShieldCheckIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+            <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <span class="min-w-0">Послуга для військових</span>
+          </label>
+        </div>
+        <div class="backoffice-modal-actions">
+          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
+            <CheckIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
           </button>
-          <button type="button" class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="fillForm(editing)">
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
+            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
           </button>
         </div>
