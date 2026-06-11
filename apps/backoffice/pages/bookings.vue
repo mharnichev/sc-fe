@@ -32,6 +32,7 @@ const api = useBackofficeApi()
 const auth = useAuthStore()
 const assetUrl = useAssetUrl()
 const calendar = useBookingCalendar()
+const toastNotification = useBaseToastNotification()
 const {
   statuses,
   todayInput,
@@ -408,6 +409,7 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
     if (payload.action === 'booking') {
       await createManualBooking(payload)
       actionSuccess.value = 'Бронювання створено.'
+      toastNotification.bookingCreated()
     }
     else {
       await createTimeBlock(payload)

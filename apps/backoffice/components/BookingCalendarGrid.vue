@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhoneIcon, UserIcon } from '@heroicons/vue/24/outline'
+import { PhoneIcon, ScissorsIcon, UserIcon } from '@heroicons/vue/24/outline'
 import type {
   CalendarBusyRange,
   CalendarDay,
@@ -111,10 +111,10 @@ const slotClass = (slot: CalendarSlot) => {
 const bookingEntryClass = (entry: CalendarDisplayEntry) => {
   switch (entry.booking?.status) {
     case 'completed':
-      return 'border-white/14 bg-white/13 text-white shadow-black/20 hover:border-white/24'
+      return 'calendar-entry-completed border-slate-100/28 text-white shadow-black/25 hover:border-slate-50/50'
     case 'confirmed':
     default:
-      return 'border-emerald-300/20 bg-emerald-400/14 text-white shadow-black/20 hover:border-emerald-200/35'
+      return 'calendar-entry-confirmed border-emerald-100/42 text-white shadow-black/25 hover:border-emerald-50/65'
   }
 }
 
@@ -364,7 +364,10 @@ watch(
           >
             <span v-if="entry.kind === 'booking'" class="w-full space-y-1">
               <span class="block truncate font-semibold">{{ entry.meta }}</span>
-              <span class="mt-0.5 block truncate">{{ entry.title }}</span>
+              <span class="calendar-service-chip mt-0.5 flex items-center gap-1.5 truncate">
+                <ScissorsIcon class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
+                <span class="min-w-0 truncate">{{ entry.title }}</span>
+              </span>
               <span class="flex items-center gap-1.5 rounded-md bg-black/22 px-1.5 py-0.5 shadow-sm ring-1 ring-white/10">
                 <UserIcon class="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
                 <span class="min-w-0 truncate">{{ entryCustomerName(entry) }}</span>
@@ -400,6 +403,29 @@ watch(
 <style scoped>
 .calendar-scroll {
   overscroll-behavior: contain;
+}
+
+.calendar-entry-confirmed {
+  background:
+    linear-gradient(135deg, rgb(16 185 129 / 0.46), rgb(4 120 87 / 0.34)),
+    rgb(6 78 59 / 0.56);
+}
+
+.calendar-entry-completed {
+  background:
+    linear-gradient(135deg, rgb(148 163 184 / 0.32), rgb(71 85 105 / 0.34)),
+    rgb(15 23 42 / 0.54);
+}
+
+.calendar-service-chip {
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(0 0 0 / 0.34);
+  padding: 0.125rem 0.375rem;
+  color: rgb(255 255 255 / 0.94);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.22);
 }
 
 .blocked-entry {

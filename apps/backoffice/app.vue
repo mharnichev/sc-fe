@@ -6,4 +6,5 @@ useBackofficeTheme()
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  <BaseToastNotification />
 </template>

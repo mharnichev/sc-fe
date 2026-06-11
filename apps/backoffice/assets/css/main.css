@@ -41,6 +41,12 @@
   --focus-ring: rgba(255, 255, 255, 0.08);
   --sidebar-bg: rgba(0, 0, 0, 0.35);
   --sidebar-menu-bg: rgba(0, 0, 0, 0.90);
+  --bottom-nav-bg: rgba(0, 0, 0, 0.88);
+  --bottom-nav-border: rgba(255, 255, 255, 0.16);
+  --bottom-nav-active-bg: #ffffff;
+  --bottom-nav-active-text: #050505;
+  --bottom-nav-active-border: rgba(255, 255, 255, 0.78);
+  --bottom-nav-active-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
   --solid-control: rgba(255, 255, 255, 0.10);
   --solid-control-hover: rgba(255, 255, 255, 0.14);
   --interactive-hover-text: #ffffff;
@@ -55,6 +61,24 @@
   --calendar-time-rail-bg: rgba(0, 0, 0, 0.78);
   --calendar-column-bg: rgba(255, 255, 255, 0.035);
   --calendar-muted-bg: rgba(255, 255, 255, 0.02);
+  --stat-card-tone-dark-bg: rgba(255, 255, 255, 0.085);
+  --stat-card-tone-dark-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-dark-muted: rgba(255, 255, 255, 0.62);
+  --stat-card-tone-cyan-bg: rgba(255, 255, 255, 0.07);
+  --stat-card-tone-cyan-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-cyan-muted: rgba(255, 255, 255, 0.62);
+  --stat-card-tone-emerald-bg: rgba(48, 209, 88, 0.12);
+  --stat-card-tone-emerald-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-emerald-muted: rgba(255, 255, 255, 0.66);
+  --stat-card-tone-amber-bg: rgba(255, 214, 10, 0.12);
+  --stat-card-tone-amber-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-amber-muted: rgba(255, 255, 255, 0.66);
+  --stat-card-tone-rose-bg: rgba(255, 69, 58, 0.12);
+  --stat-card-tone-rose-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-rose-muted: rgba(255, 255, 255, 0.66);
+  --stat-card-tone-slate-bg: rgba(255, 255, 255, 0.06);
+  --stat-card-tone-slate-text: rgba(255, 255, 255, 0.96);
+  --stat-card-tone-slate-muted: rgba(255, 255, 255, 0.62);
   --selection-bg: rgba(255, 255, 255, 0.22);
   --selection-color: #fff;
   --primary-button-bg: #fff;
@@ -104,20 +128,44 @@ html[data-backoffice-theme="light"] {
   --focus-ring: rgba(15, 23, 42, 0.08);
   --sidebar-bg: rgba(255, 255, 255, 0.58);
   --sidebar-menu-bg: rgba(255, 255, 255, 0.94);
+  --bottom-nav-bg: rgba(255, 255, 255, 0.98);
+  --bottom-nav-border: rgba(15, 23, 42, 0.16);
+  --bottom-nav-active-bg: #0f172a;
+  --bottom-nav-active-text: #ffffff;
+  --bottom-nav-active-border: rgba(15, 23, 42, 0.72);
+  --bottom-nav-active-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
   --solid-control: rgba(15, 23, 42, 0.06);
   --solid-control-hover: rgba(15, 23, 42, 0.09);
   --interactive-hover-text: rgba(15, 23, 42, 0.96);
-  --select-menu-bg: #ffffff;
-  --select-menu-hover: rgba(15, 23, 42, 0.07);
+  --select-menu-bg: rgba(255, 255, 255, 0.99);
+  --select-menu-hover: rgba(15, 23, 42, 0.08);
   --select-menu-item-text: rgba(15, 23, 42, 0.78);
   --select-menu-item-hover-text: rgba(15, 23, 42, 0.96);
   --select-menu-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    0 24px 70px rgba(15, 23, 42, 0.18);
+    0 24px 70px rgba(15, 23, 42, 0.24);
   --calendar-header-bg: rgba(255, 255, 255, 0.98);
   --calendar-time-rail-bg: rgba(255, 255, 255, 0.94);
   --calendar-column-bg: rgba(255, 255, 255, 0.56);
   --calendar-muted-bg: rgba(15, 23, 42, 0.035);
+  --stat-card-tone-dark-bg: #0f172a;
+  --stat-card-tone-dark-text: #ffffff;
+  --stat-card-tone-dark-muted: rgba(255, 255, 255, 0.72);
+  --stat-card-tone-cyan-bg: rgba(8, 145, 178, 0.13);
+  --stat-card-tone-cyan-text: #083344;
+  --stat-card-tone-cyan-muted: #155e75;
+  --stat-card-tone-emerald-bg: rgba(22, 163, 74, 0.13);
+  --stat-card-tone-emerald-text: #052e16;
+  --stat-card-tone-emerald-muted: #166534;
+  --stat-card-tone-amber-bg: rgba(217, 119, 6, 0.16);
+  --stat-card-tone-amber-text: #451a03;
+  --stat-card-tone-amber-muted: #92400e;
+  --stat-card-tone-rose-bg: rgba(225, 29, 72, 0.13);
+  --stat-card-tone-rose-text: #4c0519;
+  --stat-card-tone-rose-muted: #9f1239;
+  --stat-card-tone-slate-bg: rgba(15, 23, 42, 0.07);
+  --stat-card-tone-slate-text: #0f172a;
+  --stat-card-tone-slate-muted: #475569;
   --selection-bg: rgba(15, 23, 42, 0.16);
   --selection-color: #0f172a;
   --primary-button-bg: #0f172a;
@@ -251,6 +299,29 @@ main .border-slate-100,
 main .border-slate-200,
 main .border-slate-300 {
   border-color: var(--border) !important;
+}
+
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-300"][class*="text-slate-"],
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-200"][class*="text-slate-"] {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-300"][class*="text-slate-"]:not(:disabled):hover,
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-200"][class*="text-slate-"]:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 24px rgba(0, 0, 0, 0.20) !important;
+}
+
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-300"][class*="text-slate-"]:not(:disabled):hover svg,
+html:not([data-backoffice-theme="light"]) :is(button, a)[class*="border-slate-200"][class*="text-slate-"]:not(:disabled):hover svg {
+  color: #ffffff !important;
+  stroke: currentColor;
 }
 
 main input:not([type="checkbox"]):not([type="radio"]),
@@ -670,6 +741,43 @@ html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b
   border-color: var(--border) !important;
 }
 
+.backoffice-bottom-nav {
+  background: var(--bottom-nav-bg) !important;
+  border-color: var(--bottom-nav-border) !important;
+}
+
+.backoffice-bottom-nav-link {
+  position: relative;
+  border: 1px solid transparent;
+  color: var(--text-secondary) !important;
+}
+
+.backoffice-bottom-nav-link:hover {
+  background: var(--solid-control-hover) !important;
+  color: var(--interactive-hover-text) !important;
+}
+
+.backoffice-bottom-nav-link.is-active {
+  background: var(--bottom-nav-active-bg) !important;
+  border-color: var(--bottom-nav-active-border) !important;
+  color: var(--bottom-nav-active-text) !important;
+  box-shadow: var(--bottom-nav-active-shadow) !important;
+  font-weight: 800;
+}
+
+.backoffice-bottom-nav-link.is-active::before {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  left: 50%;
+  height: 0.1875rem;
+  width: 1.5rem;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.86;
+}
+
 html[data-backoffice-theme="light"] .backoffice-shell-surface [class*="text-white"],
 html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="text-white"],
 html[data-backoffice-theme="light"] .backoffice-login [class*="text-white"] {
@@ -707,6 +815,54 @@ html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="bg-white/"
   background: var(--primary-button-bg) !important;
   color: var(--primary-button-text) !important;
   border-color: var(--border) !important;
+}
+
+.statistics-stat-card {
+  --stat-card-bg: var(--stat-card-tone-slate-bg);
+  --stat-card-text: var(--stat-card-tone-slate-text);
+  --stat-card-muted: var(--stat-card-tone-slate-muted);
+  background: var(--stat-card-bg) !important;
+  color: var(--stat-card-text) !important;
+  border-color: color-mix(in srgb, var(--stat-card-text) 13%, transparent) !important;
+}
+
+.statistics-stat-card--dark {
+  --stat-card-bg: var(--stat-card-tone-dark-bg);
+  --stat-card-text: var(--stat-card-tone-dark-text);
+  --stat-card-muted: var(--stat-card-tone-dark-muted);
+}
+
+.statistics-stat-card--cyan {
+  --stat-card-bg: var(--stat-card-tone-cyan-bg);
+  --stat-card-text: var(--stat-card-tone-cyan-text);
+  --stat-card-muted: var(--stat-card-tone-cyan-muted);
+}
+
+.statistics-stat-card--emerald {
+  --stat-card-bg: var(--stat-card-tone-emerald-bg);
+  --stat-card-text: var(--stat-card-tone-emerald-text);
+  --stat-card-muted: var(--stat-card-tone-emerald-muted);
+}
+
+.statistics-stat-card--amber {
+  --stat-card-bg: var(--stat-card-tone-amber-bg);
+  --stat-card-text: var(--stat-card-tone-amber-text);
+  --stat-card-muted: var(--stat-card-tone-amber-muted);
+}
+
+.statistics-stat-card--rose {
+  --stat-card-bg: var(--stat-card-tone-rose-bg);
+  --stat-card-text: var(--stat-card-tone-rose-text);
+  --stat-card-muted: var(--stat-card-tone-rose-muted);
+}
+
+.statistics-stat-card__label,
+.statistics-stat-card__hint {
+  color: var(--stat-card-muted) !important;
+}
+
+.statistics-stat-card__value {
+  color: var(--stat-card-text) !important;
 }
 
 .booking-calendar-grid [class*="bg-black"] {

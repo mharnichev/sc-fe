@@ -9,13 +9,14 @@
     "lint": "nuxi typecheck"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.1.5",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "@pinia/nuxt": "^0.5.5",
     "@shared-types": "workspace:*",
     "@shared-ui": "workspace:*",
     "@shared-utils": "workspace:*",
-    "@heroicons/vue": "^2.1.5",
     "nuxt": "^3.13.2",
-    "pinia": "^2.2.4"
+    "pinia": "^2.2.4",
+    "vue-sonner": "^2.0.9"
   }
 }

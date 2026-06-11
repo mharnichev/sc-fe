@@ -153,7 +153,7 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="backoffice-shell-surface sticky top-0 z-40 h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden">
+  <header class="backoffice-shell-surface sticky top-0 z-[220] h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden">
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.3em] text-white/55">Soul Cuts</p>
@@ -312,7 +312,7 @@ const logout = () => {
 
   <nav
     v-if="barberBottomLinks.length"
-    class="backoffice-shell-surface fixed bottom-0 left-2 right-2 z-50 rounded-t-2xl border border-b-0 border-white/10 bg-black/70 px-1.5 pt-1.5 shadow-[0_-18px_44px_rgb(0_0_0_/_0.35)] backdrop-blur-2xl transition-transform duration-300 ease-out xl:hidden"
+    class="backoffice-shell-surface backoffice-bottom-nav fixed bottom-0 left-2 right-2 z-50 rounded-t-2xl border border-b-0 border-white/10 bg-black/70 px-1.5 pt-1.5 shadow-[0_-18px_44px_rgb(0_0_0_/_0.35)] backdrop-blur-2xl transition-transform duration-300 ease-out xl:hidden"
     :class="bottomNavHidden ? 'translate-y-[calc(100%+env(safe-area-inset-bottom)+0.5rem)]' : 'translate-y-0'"
     style="padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));"
     aria-label="Швидка навігація майстра"
@@ -322,8 +322,8 @@ const logout = () => {
         v-for="link in barberBottomLinks"
         :key="link.to"
         :to="link.to"
-        class="flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center text-[0.62rem] font-medium leading-tight transition"
-        :class="isActive(link.to) ? 'bg-white/14 text-white shadow-sm' : 'text-white/45 hover:bg-white/7 hover:text-white'"
+        class="backoffice-bottom-nav-link flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center text-[0.62rem] font-medium leading-tight transition"
+        :class="isActive(link.to) ? 'is-active' : ''"
       >
         <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
         <span class="max-w-full truncate">{{ link.label }}</span>
