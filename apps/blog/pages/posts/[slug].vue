@@ -4,6 +4,7 @@ import bgDark1 from '~/assets/images/background/bg-dark-1.png'
 import bgDark2 from '~/assets/images/background/bg-dark-2.png'
 
 const { locale, terms } = useBlogLocale()
+const { trackBlogEvent } = useBlogAnalytics()
 const route = useRoute()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
 const rawPost = getPostBySlug(slug)
@@ -34,6 +35,21 @@ const contentBackgrounds = [
 ]
 const contentBackgroundIndex = [...rawPost.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgrounds.length
 const contentBackground = contentBackgrounds[contentBackgroundIndex]
+
+onMounted(() => {
+  trackBlogEvent('post_view', {
+    post_slug: rawPost.slug,
+    post_title: post.value.title,
+  })
+})
+
+const handlePostBookingClick = () => {
+  trackBlogEvent('navigation_click', {
+    destination: 'barbershop_booking',
+    post_slug: rawPost.slug,
+    source: 'post_share_cta',
+  })
+}
 
 useSeoMeta({
   title: () => post.value.title,
@@ -96,6 +112,23 @@ useSeoMeta({
         </div>
       </div>
       <BlogSocialSharing :title="post.title" />
+      <section class="site-container pb-4 sm:pb-8">
+        <div class="mx-auto max-w-3xl py-8 text-center sm:py-10">
+          <h2 class="text-2xl font-black leading-tight text-white sm:text-3xl">
+            {{ terms.postBookingCtaTitle }}
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-base leading-8 text-white/65">
+            {{ terms.postBookingCtaText }}
+          </p>
+          <a
+            href="/#booking"
+            class="mt-6 inline-flex min-h-14 w-full items-center justify-center bg-white px-8 text-sm font-black uppercase tracking-[0.18em] text-neutral-950 transition hover:bg-white/85 sm:w-auto"
+            @click="handlePostBookingClick"
+          >
+            {{ terms.bookAppointment }}
+          </a>
+        </div>
+      </section>
       <BlogPhotoCarousel :images="post.galleryImages" />
     </div>
   </article>

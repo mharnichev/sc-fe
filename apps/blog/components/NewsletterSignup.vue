@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { terms } = useBlogLocale()
 const { subscribeToBlog } = useBlogSubscription()
+const { trackBlogEvent } = useBlogAnalytics()
 const email = ref('')
 const message = ref('')
 const status = ref<'idle' | 'error' | 'success'>('idle')
@@ -10,22 +11,34 @@ const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.
 
 const handleSubmit = async () => {
   if (!isValidEmail(email.value)) {
+    trackBlogEvent('subscribe_invalid', {
+      source: 'newsletter_block',
+    })
     status.value = 'error'
     message.value = terms.value.enterValidEmail
     return
   }
 
+  trackBlogEvent('subscribe_submit', {
+    source: 'newsletter_block',
+  })
   isSubmitting.value = true
   status.value = 'idle'
   message.value = ''
 
   try {
     await subscribeToBlog(email.value, 'blog_newsletter')
+    trackBlogEvent('subscribe_success', {
+      source: 'newsletter_block',
+    })
     status.value = 'success'
     message.value = terms.value.subscriptionSuccess
     email.value = ''
   }
   catch {
+    trackBlogEvent('subscribe_error', {
+      source: 'newsletter_block',
+    })
     status.value = 'error'
     message.value = terms.value.subscriptionError
   }

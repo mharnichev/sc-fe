@@ -84,6 +84,12 @@ const handleMenuItemClick = async (href: string) => {
 
   const url = new URL(href, window.location.origin)
 
+  if (!url.hash) {
+    closeMenu()
+    window.location.assign(`${url.pathname}${url.search}`)
+    return
+  }
+
   if (url.pathname !== route.path) {
     closeMenu()
     await navigateTo(`${url.pathname}${url.hash}`)

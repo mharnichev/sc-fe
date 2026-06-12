@@ -24,13 +24,11 @@ useSeo(
       >
     </section>
     <BotSection />
-    <!--    <AboutSection />-->
-    <!--    <ImageBreak />-->
     <TeamSection />
-    <!--    <EditorialSection />-->
     <ReviewsSection />
+    <BlogSection />
+    <IdemNaBukviMarquee />
     <FAQSection />
     <FeedbackSection />
-    <IdemNaBukviMarquee />
   </div>
 </template>

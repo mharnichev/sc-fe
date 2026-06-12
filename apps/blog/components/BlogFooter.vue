@@ -3,6 +3,7 @@ const { terms } = useBlogLocale()
 const currentYear = new Date().getFullYear()
 const footerEmail = ref('')
 const { openSubscribeModal } = useSubscribeModal()
+const { trackBlogEvent } = useBlogAnalytics()
 const footerElement = ref<HTMLElement | null>(null)
 const footerRevealOffset = ref(0)
 const footerStyle = computed(() => ({
@@ -12,8 +13,22 @@ const footerStyle = computed(() => ({
 let revealFrame: number | null = null
 
 const handleFooterSubscribe = () => {
-  openSubscribeModal(footerEmail.value)
+  openSubscribeModal(footerEmail.value, 'footer')
   footerEmail.value = ''
+}
+
+const handleFooterNavigationClick = (destination: string) => {
+  trackBlogEvent('navigation_click', {
+    destination,
+    source: 'footer',
+  })
+}
+
+const handleFooterContactClick = (linkType: string) => {
+  trackBlogEvent('contact_click', {
+    link_type: linkType,
+    source: 'footer',
+  })
 }
 
 const syncFooterHeight = () => {
@@ -128,13 +143,16 @@ onBeforeUnmount(() => {
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">{{ terms.footerExplore }}</p>
           <div class="mt-4 grid gap-2 text-sm text-white/70">
-            <NuxtLink class="transition hover:text-white" to="/">
+            <NuxtLink class="transition hover:text-white" to="/" @click="handleFooterNavigationClick('blog_home')">
               {{ terms.home }}
             </NuxtLink>
-            <NuxtLink class="transition hover:text-white" to="/posts">
+            <NuxtLink class="transition hover:text-white" to="/posts" @click="handleFooterNavigationClick('all_posts')">
               {{ terms.allPosts }}
             </NuxtLink>
-            <button class="text-left transition hover:text-white" type="button" @click="openSubscribeModal()">
+            <a class="transition hover:text-white" href="/#booking" @click="handleFooterNavigationClick('barbershop_booking')">
+              {{ terms.bookOnline }}
+            </a>
+            <button class="text-left transition hover:text-white" type="button" @click="openSubscribeModal('', 'footer_nav')">
               {{ terms.newsletter }}
             </button>
           </div>
@@ -149,12 +167,13 @@ onBeforeUnmount(() => {
                 href="https://maps.google.com/?q=Soulcuts"
                 target="_blank"
                 rel="noopener noreferrer"
+                @click="handleFooterContactClick('map')"
               >
                 {{ terms.footerLocation }}
               </a>
             </p>
             <p>
-              <a class="transition hover:text-white" href="mailto:Soulcutsplace@gmail.com">
+              <a class="transition hover:text-white" href="mailto:Soulcutsplace@gmail.com" @click="handleFooterContactClick('email')">
                 Soulcutsplace@gmail.com
               </a>
             </p>

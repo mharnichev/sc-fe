@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { LocaleCode } from '~/data/locale'
 import logoNameDark from '../../barbershop/assets/images/main/sc-logo-name-dark.webp'
 
 const { locale, localeOptions, setLocale, terms } = useBlogLocale()
 const { openSubscribeModal } = useSubscribeModal()
+const { trackBlogEvent } = useBlogAnalytics()
 const isHeaderHidden = ref(false)
 let lastScrollY = 0
 
@@ -25,6 +27,25 @@ const updateHeaderVisibility = () => {
   lastScrollY = currentScrollY
 }
 
+const handleSubscribeClick = () => {
+  openSubscribeModal('', 'header')
+}
+
+const handleBookingClick = () => {
+  trackBlogEvent('navigation_click', {
+    destination: 'barbershop_booking',
+    source: 'header',
+  })
+}
+
+const handleLocaleClick = (localeCode: LocaleCode) => {
+  trackBlogEvent('locale_select', {
+    locale: localeCode,
+    source: 'header',
+  })
+  setLocale(localeCode)
+}
+
 onMounted(() => {
   lastScrollY = window.scrollY
   updateHeaderVisibility()
@@ -42,13 +63,22 @@ onBeforeUnmount(() => {
     :class="isHeaderHidden ? '-translate-y-full' : 'translate-y-0'"
   >
     <div class="site-container relative flex min-h-20 items-center justify-between gap-3 pt-2 sm:min-h-24 sm:pt-3">
-      <button
-        type="button"
-        class="relative z-10 inline-flex min-h-9 items-center justify-center bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-950 transition hover:bg-white/85 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
-        @click="openSubscribeModal()"
-      >
-        {{ terms.subscribe }}
-      </button>
+      <div class="relative z-10 flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex min-h-9 items-center justify-center border border-white/15 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition hover:border-white/35 hover:text-white/80 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+          @click="handleSubscribeClick"
+        >
+          {{ terms.subscribe }}
+        </button>
+        <a
+          href="/#booking"
+          class="inline-flex min-h-9 items-center justify-center bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-950 transition hover:bg-white/85 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+          @click="handleBookingClick"
+        >
+          {{ terms.bookAppointment }}
+        </a>
+      </div>
 
       <div class="relative z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-1 py-1 text-white">
         <button
@@ -59,7 +89,7 @@ onBeforeUnmount(() => {
           class="rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 sm:px-3 sm:text-xs sm:tracking-[0.14em]"
           :class="locale === option.code ? 'bg-white text-neutral-950' : 'text-white/50 hover:text-white'"
           :aria-pressed="locale === option.code"
-          @click="setLocale(option.code)"
+          @click="handleLocaleClick(option.code)"
         >
           <span class="sm:hidden">{{ option.shortLabel }}</span>
           <span class="hidden sm:inline">{{ option.label }}</span>
@@ -68,7 +98,7 @@ onBeforeUnmount(() => {
 
       <NuxtLink
         to="/"
-        class="absolute left-1/2 top-1 flex h-20 w-24 -translate-x-1/2 items-center justify-center overflow-hidden sm:top-2 sm:h-[6.5rem] sm:w-[10.8rem]"
+        class="absolute left-1/2 top-1 hidden h-20 w-24 -translate-x-1/2 items-center justify-center overflow-hidden sm:top-2 sm:flex sm:h-[6.5rem] sm:w-[10.8rem]"
         :aria-label="terms.soulCutsHome"
       >
         <img

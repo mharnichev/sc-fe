@@ -3,12 +3,20 @@ import type { LocalizedBlogPost } from '~/data/posts'
 import { formatPostDate } from '~/data/posts'
 
 const { locale, terms } = useBlogLocale()
+const { trackBlogEvent } = useBlogAnalytics()
 
-defineProps<{
+const props = defineProps<{
   post: LocalizedBlogPost
   compact?: boolean
   recommended?: boolean
 }>()
+
+const handlePostClick = () => {
+  trackBlogEvent('post_click', {
+    post_slug: props.post.slug,
+    source: props.recommended ? 'recommended_posts' : 'post_card',
+  })
+}
 </script>
 
 <template>
@@ -17,6 +25,7 @@ defineProps<{
       class="grid h-full transition"
       :class="recommended ? 'border-0' : 'border border-neutral-800 hover:border-white/45'"
       :to="`/posts/${post.slug}`"
+      @click="handlePostClick"
     >
       <div
         class="aspect-[4/3] overflow-hidden"

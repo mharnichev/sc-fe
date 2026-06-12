@@ -6,6 +6,7 @@ type FaqQuestion = {
   answer: readonly string[]
   list?: readonly { label: string, text: string }[]
   note?: string
+  relatedArticles?: readonly { title: string, href: string }[]
 }
 
 type FaqSection = {
@@ -146,7 +147,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
 
 <template>
   <section id="faq" ref="faqRoot" data-header-theme="light" class="section-y-tight bg-stone-100">
-    <div class="site-container grid gap-8 border-t border-neutral-300 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
+    <div class="site-container grid gap-8 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.faq.label }}</SectionLabel>
         <h2 class="section-title mt-4 md:text-5xl">{{ terms.home.faq.title }}</h2>
@@ -192,6 +193,21 @@ function onAccordionSummaryClick(event: MouseEvent) {
                     <p v-if="question.note" class="text-neutral-500">
                       {{ question.note }}
                     </p>
+                    <div v-if="question.relatedArticles?.length" class="border-t border-neutral-300 pt-4">
+                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                        {{ terms.home.faq.relatedArticlesTitle }}
+                      </p>
+                      <div class="mt-3 flex flex-col gap-2">
+                        <a
+                          v-for="article in question.relatedArticles"
+                          :key="article.href"
+                          :href="article.href"
+                          class="w-fit border-b border-neutral-950/30 pb-1 text-sm font-semibold text-neutral-950 transition hover:border-neutral-950"
+                        >
+                          {{ article.title }}
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </details>

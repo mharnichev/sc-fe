@@ -2,8 +2,16 @@
 import { formatPostDate, formatReadMinutes, getFeaturedPost, getLatestPosts } from '~/data/posts'
 
 const { locale, terms } = useBlogLocale()
+const { trackBlogEvent } = useBlogAnalytics()
 const featuredPost = computed(() => getFeaturedPost(locale.value))
 const homepagePosts = computed(() => getLatestPosts(locale.value).slice(0, 6))
+
+const handleFeaturedPostClick = (source: string) => {
+  trackBlogEvent('post_click', {
+    post_slug: featuredPost.value.slug,
+    source,
+  })
+}
 
 useSeoMeta({
   title: () => terms.value.homeTitle,
@@ -15,7 +23,11 @@ useSeoMeta({
   <div>
     <section class="border-b border-neutral-800 bg-neutral-950">
       <div class="site-container grid gap-8 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:py-10">
-        <NuxtLink class="group min-h-[24rem] overflow-hidden bg-neutral-900 lg:min-h-[36rem]" :to="`/posts/${featuredPost.slug}`">
+        <NuxtLink
+          class="group min-h-[24rem] overflow-hidden bg-neutral-900 lg:min-h-[36rem]"
+          :to="`/posts/${featuredPost.slug}`"
+          @click="handleFeaturedPostClick('featured_cover')"
+        >
           <img
             :src="featuredPost.coverImage"
             :alt="featuredPost.coverImageAlt"
@@ -43,6 +55,7 @@ useSeoMeta({
             <NuxtLink
               :to="`/posts/${featuredPost.slug}`"
               class="mt-6 inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-bold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/90"
+              @click="handleFeaturedPostClick('featured_cta')"
             >
               {{ terms.readFeature }}
             </NuxtLink>

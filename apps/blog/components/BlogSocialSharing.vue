@@ -7,6 +7,7 @@ const props = defineProps<{
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const { terms } = useBlogLocale()
+const { trackBlogEvent } = useBlogAnalytics()
 const copied = ref(false)
 
 const shareUrl = computed(() => new URL(route.path, runtimeConfig.public.siteUrl).toString())
@@ -37,10 +38,21 @@ const copyLink = async () => {
   }
 
   await navigator.clipboard.writeText(shareUrl.value)
+  trackBlogEvent('share_click', {
+    method: 'copy_link',
+    title: props.title,
+  })
   copied.value = true
   window.setTimeout(() => {
     copied.value = false
   }, 1800)
+}
+
+const handleShareClick = (method: string) => {
+  trackBlogEvent('share_click', {
+    method,
+    title: props.title,
+  })
 }
 </script>
 
@@ -66,6 +78,7 @@ const copyLink = async () => {
         :class="isLight ? 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white' : 'border-white text-white hover:bg-white hover:text-neutral-950'"
         target="_blank"
         rel="noopener noreferrer"
+        @click="handleShareClick(link.label)"
       >
         <span class="sr-only">{{ link.label }}</span>
         <span aria-hidden="true">{{ link.shortLabel }}</span>

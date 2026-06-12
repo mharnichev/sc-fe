@@ -46,6 +46,33 @@ const originFromUrl = (value: string) => {
 
 const apiOrigin = originFromUrl(apiBase)
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
+const googleAnalyticsMeasurementId = 'G-YYYXH2R239'
+const googleScriptSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://ssl.google-analytics.com',
+]
+const googleImageSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://ssl.google-analytics.com',
+  'https://stats.g.doubleclick.net',
+]
+const googleConnectSources = [
+  'https://www.googletagmanager.com',
+  'https://googletagmanager.com',
+  'https://tagmanager.google.com',
+  'https://www.google-analytics.com',
+  'https://*.google-analytics.com',
+  'https://ssl.google-analytics.com',
+  'https://analytics.google.com',
+  'https://www.google.com',
+  'https://stats.g.doubleclick.net',
+]
 
 const contentSecurityPolicy = [
   `default-src 'self'`,
@@ -53,13 +80,15 @@ const contentSecurityPolicy = [
   `object-src 'none'`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
-  `script-src 'self' 'unsafe-inline'`,
+  `script-src ${uniqueSources("'self'", "'unsafe-inline'", ...googleScriptSources).join(' ')}`,
+  `script-src-elem ${uniqueSources("'self'", "'unsafe-inline'", ...googleScriptSources).join(' ')}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: https:`,
+  `img-src ${uniqueSources("'self'", 'data:', 'blob:', 'https:', ...googleImageSources).join(' ')}`,
   `font-src 'self' data:`,
   `connect-src ${uniqueSources(
     "'self'",
     apiOrigin,
+    ...googleConnectSources,
     ...(isProduction ? [] : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']),
   ).join(' ')}`,
   `media-src 'self' https:`,
@@ -120,6 +149,24 @@ export default defineNuxtConfig({
       titleTemplate: '%s | Soulcuts Journal',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      ],
+      script: [
+        {
+          key: 'google-analytics-gtag',
+          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
+          async: true,
+        },
+        {
+          key: 'google-analytics-init',
+          innerHTML: `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${googleAnalyticsMeasurementId}', {
+  send_page_view: false
+});
+          `.trim(),
+        },
       ],
     },
   },

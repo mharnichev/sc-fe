@@ -44,6 +44,7 @@ export const termsDictionary = {
       { label: 'Послуги', href: '/#services' },
       { label: 'Запис', href: '/#booking' },
       { label: 'Команда', href: '/#team' },
+      { label: 'Блог', href: '/blog/' },
       { label: 'Відгуки', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
       { label: 'Фідбек', href: '/#feedback' },
@@ -173,6 +174,26 @@ export const termsDictionary = {
           { date: '28 травня', category: 'Догляд', title: 'Короткий гід, як підтримувати стрижку між візитами.' },
         ],
       },
+      blog: {
+        label: 'Блог',
+        title: 'Історії зсередини барберської культури.',
+        description: 'У Soulcuts Journal збираємо репортажі з подій, нотатки про ремесло, комʼюніті та все, що стоїть за роботою в кріслі.',
+        primaryCta: 'Відкрити блог',
+        secondaryCta: 'Читати головний матеріал',
+        points: [
+          { label: 'Події', text: 'Репортажі з майстеркласів і зустрічей комʼюніті.' },
+          { label: 'Ремесло', text: 'Практичні думки про форму, інструменти й роботу майстра.' },
+          { label: 'Культура', text: 'Люди, місця та історії навколо Soul Cuts.' },
+        ],
+        featured: {
+          category: 'Комʼюніті',
+          date: '16 березня 2026 р.',
+          readTime: '7 хв читання',
+          title: 'Барберінг у музеї: перший репортаж Soul Cuts',
+          excerpt: 'Як ми зібрали барберське комʼюніті в Одеському музеї західного та східного мистецтва і навіщо нам такі зустрічі.',
+          coverAlt: 'Учасники барберської події Soul Cuts в музеї',
+        },
+      },
       reviews: {
         label: 'Відгуки',
         loading: 'Завантажуємо відгуки Google.',
@@ -189,6 +210,7 @@ export const termsDictionary = {
       faq: {
         label: 'FAQ',
         title: 'Корисні деталі',
+        relatedArticlesTitle: 'Корисні матеріали з журналу',
         items: [
           {
             title: 'Онлайн-запис',
@@ -197,6 +219,9 @@ export const termsDictionary = {
               {
                 question: 'Як записатися онлайн?',
                 answer: ['Натисніть кнопку запису на сайті, оберіть послугу, майстра, дату та час. Якщо потрібна порада перед першим візитом, залиште заявку через контактну форму або зателефонуйте нам.'],
+                relatedArticles: [
+                  { title: 'Барберінг у музеї: перший репортаж Soul Cuts', href: '/blog/posts/barbering-in-the-museum' },
+                ],
               },
               {
                 question: 'Чи можна обрати конкретного майстра?',
@@ -276,6 +301,9 @@ export const termsDictionary = {
               {
                 question: 'Чи варто приносити референс?',
                 answer: ['Так, особливо під час першого візиту. Фото допомагає швидше зрозуміти бажаний напрям, але майстер адаптує форму під вашу голову, ріст волосся та щоденний стиль.'],
+                relatedArticles: [
+                  { title: 'Барберінг у музеї: перший репортаж Soul Cuts', href: '/blog/posts/barbering-in-the-museum' },
+                ],
               },
             ],
           },
@@ -294,6 +322,9 @@ export const termsDictionary = {
                   { label: 'Стайлінг:', text: 'пасти, помади, глини та засоби для природної або щільної фіксації.' },
                   { label: 'Борода:', text: 'олії, бальзами та щітки для форми, мʼякості й акуратних контурів.' },
                   { label: 'Гоління:', text: 'догляд до та після гоління для спокійної шкіри без подразнення.' },
+                ],
+                relatedArticles: [
+                  { title: 'Барберінг у музеї: перший репортаж Soul Cuts', href: '/blog/posts/barbering-in-the-museum' },
                 ],
               },
               {
@@ -458,6 +489,7 @@ export const termsDictionary = {
       { label: 'Services', href: '/#services' },
       { label: 'Booking', href: '/#booking' },
       { label: 'Team', href: '/#team' },
+      { label: 'Blog', href: '/blog/' },
       { label: 'Reviews', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
       { label: 'Feedback', href: '/#feedback' },
@@ -586,6 +618,26 @@ export const termsDictionary = {
           { date: '28 May', category: 'Care', title: 'A short guide to keeping a cut sharp between visits.' },
         ],
       },
+      blog: {
+        label: 'Blog',
+        title: 'Stories from inside barber culture.',
+        description: 'Soulcuts Journal collects event reports, notes on the craft, community stories and the work behind the chair.',
+        primaryCta: 'Open blog',
+        secondaryCta: 'Read the feature',
+        points: [
+          { label: 'Events', text: 'Reports from masterclasses and community gatherings.' },
+          { label: 'Craft', text: 'Practical notes on shape, tools and the barberʼs work.' },
+          { label: 'Culture', text: 'People, places and stories around Soul Cuts.' },
+        ],
+        featured: {
+          category: 'Community',
+          date: 'March 16, 2026',
+          readTime: '7 min read',
+          title: 'Barbering in a Museum: The First Soul Cuts Report',
+          excerpt: 'How we brought the barbering community into the Odesa Museum of Western and Eastern Art, and why these gatherings matter.',
+          coverAlt: 'Soul Cuts barbering event participants in the museum',
+        },
+      },
       reviews: {
         label: 'Reviews',
         loading: 'Loading Google reviews.',
@@ -602,6 +654,7 @@ export const termsDictionary = {
       faq: {
         label: 'FAQ',
         title: 'Useful details',
+        relatedArticlesTitle: 'Useful reads from the journal',
         items: [
           {
             title: 'Book Online',
@@ -610,6 +663,9 @@ export const termsDictionary = {
               {
                 question: 'How do I book online?',
                 answer: ['Use the booking button on the site, choose a service, barber, date and time. If you need advice before your first visit, send a request through the contact form or call us.'],
+                relatedArticles: [
+                  { title: 'Barbering in a Museum: The First Soul Cuts Report', href: '/blog/posts/barbering-in-the-museum' },
+                ],
               },
               {
                 question: 'Can I choose a specific barber?',
@@ -689,6 +745,9 @@ export const termsDictionary = {
               {
                 question: 'Should I bring a reference photo?',
                 answer: ['Yes, especially for your first visit. A photo helps us understand the direction faster, but the barber will adapt the shape to your head, hair growth and daily style.'],
+                relatedArticles: [
+                  { title: 'Barbering in a Museum: The First Soul Cuts Report', href: '/blog/posts/barbering-in-the-museum' },
+                ],
               },
             ],
           },
@@ -707,6 +766,9 @@ export const termsDictionary = {
                   { label: 'Styling:', text: 'pastes, pomades, clays and products for natural or stronger hold.' },
                   { label: 'Beard:', text: 'oils, balms and brushes for shape, softness and clean contours.' },
                   { label: 'Shaving:', text: 'pre- and post-shave care for calm skin without irritation.' },
+                ],
+                relatedArticles: [
+                  { title: 'Barbering in a Museum: The First Soul Cuts Report', href: '/blog/posts/barbering-in-the-museum' },
                 ],
               },
               {

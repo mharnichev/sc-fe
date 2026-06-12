@@ -12,7 +12,13 @@ const introText = computed(() => {
   return Array.isArray(text) ? text : [text]
 })
 
-const hasIntroAccordion = computed(() => introText.value.length > 2)
+const hasIntroAccordion = computed(() => introText.value.length > 3)
+const visibleIntroText = computed(() =>
+  hasIntroAccordion.value ? introText.value.slice(0, -3) : introText.value,
+)
+const accordionIntroText = computed(() =>
+  hasIntroAccordion.value ? introText.value.slice(-3) : [],
+)
 </script>
 
 <template>
@@ -49,29 +55,34 @@ const hasIntroAccordion = computed(() => introText.value.length > 2)
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-white">
               {{ terms.home.intro.author }}
             </p>
-            <div class="relative">
+            <div>
+              <p
+                v-for="paragraph in visibleIntroText"
+                :key="paragraph"
+                class="mt-3 text-base leading-7 text-white/60 first:mt-0 md:mt-4 md:leading-8"
+              >
+                {{ paragraph }}
+              </p>
+
               <div
+                v-if="hasIntroAccordion"
                 id="intro-philosophy-text"
-                class="overflow-hidden transition-[max-height] duration-500 ease-in-out xl:max-h-none xl:overflow-visible"
-                :class="hasIntroAccordion && !isIntroExpanded ? 'max-h-40' : 'max-h-[72rem]'"
+                class="overflow-hidden transition-[max-height,opacity] duration-500 ease-in-out"
+                :class="isIntroExpanded ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0'"
               >
                 <p
-                  v-for="paragraph in introText"
+                  v-for="paragraph in accordionIntroText"
                   :key="paragraph"
-                  class="mt-3 text-base leading-7 text-white/60 first:mt-0 md:mt-4 md:leading-8"
+                  class="mt-3 text-base leading-7 text-white/60 md:mt-4 md:leading-8"
                 >
                   {{ paragraph }}
                 </p>
               </div>
-              <div
-                v-if="hasIntroAccordion && !isIntroExpanded"
-                class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-neutral-950 to-transparent xl:hidden"
-              />
             </div>
             <button
               v-if="hasIntroAccordion"
               type="button"
-              class="mt-4 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:border-white xl:hidden"
+              class="mt-4 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:border-white"
               :aria-expanded="isIntroExpanded"
               aria-controls="intro-philosophy-text"
               @click="isIntroExpanded = !isIntroExpanded"

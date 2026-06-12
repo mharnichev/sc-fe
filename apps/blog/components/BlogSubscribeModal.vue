@@ -4,6 +4,7 @@ import logoNameDark from '../../barbershop/assets/images/main/sc-logo-name-dark.
 const { initialEmail, isOpen } = useSubscribeModal()
 const { terms } = useBlogLocale()
 const { subscribeToBlog } = useBlogSubscription()
+const { trackBlogEvent } = useBlogAnalytics()
 const isModalVisible = ref(false)
 const email = ref('')
 const message = ref('')
@@ -24,21 +25,33 @@ const closeModal = () => {
 
 const handleSubscribe = async () => {
   if (!isValidEmail(email.value)) {
+    trackBlogEvent('subscribe_invalid', {
+      source: 'modal',
+    })
     status.value = 'error'
     message.value = terms.value.enterValidEmail
     return
   }
 
+  trackBlogEvent('subscribe_submit', {
+    source: 'modal',
+  })
   isSubmitting.value = true
   resetMessage()
 
   try {
     await subscribeToBlog(email.value, 'blog_modal')
+    trackBlogEvent('subscribe_success', {
+      source: 'modal',
+    })
     status.value = 'success'
     message.value = terms.value.subscriptionSuccess
     email.value = ''
   }
   catch {
+    trackBlogEvent('subscribe_error', {
+      source: 'modal',
+    })
     status.value = 'error'
     message.value = terms.value.subscriptionError
   }

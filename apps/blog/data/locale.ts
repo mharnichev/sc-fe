@@ -15,6 +15,11 @@ export interface BlogTerms {
   postsDescription: string
   recommended: string
   home: string
+  barbershopHome: string
+  bookAppointment: string
+  bookOnline: string
+  postMenuBookingCta: string
+  postMenuSubscribeText: string
   newsletter: string
   emailAddress: string
   emailPlaceholder: string
@@ -50,6 +55,8 @@ export interface BlogTerms {
   shareEmailBody: string
   copyLink: string
   copiedLink: string
+  postBookingCtaTitle: string
+  postBookingCtaText: string
   photoGallery: string
   previousPhoto: string
   nextPhoto: string
@@ -84,6 +91,11 @@ export const blogTerms = {
     postsDescription: 'Читайте реальні матеріали Soul Cuts про барберинг, комʼюніті та події навколо нашої культури.',
     recommended: 'Recommended',
     home: 'Головна',
+    barbershopHome: 'До Барбершопу',
+    bookAppointment: 'Записатися',
+    bookOnline: 'Записатися онлайн',
+    postMenuBookingCta: 'ЗАРІС? ЗАПИСАТИСЯ ДО МАСТЕРА',
+    postMenuSubscribeText: 'Хочеш такі історії без пошуку? Кидаємо найцікавіше на пошту.',
     newsletter: 'Розсилка',
     emailAddress: 'Email адреса',
     emailPlaceholder: 'you@example.com',
@@ -119,6 +131,8 @@ export const blogTerms = {
     shareEmailBody: 'Посилання на статтю:',
     copyLink: 'Посилання',
     copiedLink: 'Скопійовано',
+    postBookingCtaTitle: 'Сподобався матеріал?',
+    postBookingCtaText: 'Залітайте до нас у крісло: підберемо стрижку, бороду або гоління під ваш ритм, волосся і настрій.',
     photoGallery: 'Фотогалерея',
     previousPhoto: 'Попереднє фото',
     nextPhoto: 'Наступне фото',
@@ -146,6 +160,11 @@ export const blogTerms = {
     postsDescription: 'Read real Soul Cuts stories about barbering, community, and the events around our culture.',
     recommended: 'Recommended',
     home: 'Home',
+    barbershopHome: 'To Barbershop',
+    bookAppointment: 'Book',
+    bookOnline: 'Book online',
+    postMenuBookingCta: 'GROWN OUT? BOOK A BARBER',
+    postMenuSubscribeText: 'Want these stories without hunting for them? We will drop the good stuff in your inbox.',
     newsletter: 'Newsletter',
     emailAddress: 'Email address',
     emailPlaceholder: 'you@example.com',
@@ -181,6 +200,8 @@ export const blogTerms = {
     shareEmailBody: 'Here is the link to the article:',
     copyLink: 'Link',
     copiedLink: 'Copied',
+    postBookingCtaTitle: 'Enjoyed the story?',
+    postBookingCtaText: 'Drop into the chair: we will shape the haircut, beard or shave around your rhythm, hair and mood.',
     photoGallery: 'Photo gallery',
     previousPhoto: 'Previous photo',
     nextPhoto: 'Next photo',

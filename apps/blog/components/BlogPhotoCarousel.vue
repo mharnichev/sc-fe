@@ -8,6 +8,7 @@ const props = defineProps<{
   images?: GalleryImage[]
 }>()
 
+const { trackBlogEvent } = useBlogAnalytics()
 const originalImageCount = computed(() => props.images?.length ?? 0)
 const carouselImages = computed(() => [...(props.images ?? []), ...(props.images ?? []), ...(props.images ?? [])])
 const carousel = ref<HTMLElement | null>(null)
@@ -17,8 +18,10 @@ const shouldAnimate = ref(true)
 
 let animationFrame = 0
 let lastAnimationTime = 0
+let resumeAnimationTimeout = 0
 let dragStartX = 0
 let dragStartScrollLeft = 0
+let hasTrackedCarouselInteraction = false
 
 const getSegmentWidth = () => {
   if (!carousel.value) {
@@ -48,6 +51,50 @@ const normalizeScroll = () => {
   }
 }
 
+const clearResumeAnimationTimeout = () => {
+  if (!resumeAnimationTimeout) {
+    return
+  }
+
+  window.clearTimeout(resumeAnimationTimeout)
+  resumeAnimationTimeout = 0
+}
+
+const pauseAutoScroll = () => {
+  clearResumeAnimationTimeout()
+  isPaused.value = true
+}
+
+const resumeAutoScroll = () => {
+  clearResumeAnimationTimeout()
+
+  if (!isDragging.value) {
+    isPaused.value = false
+  }
+}
+
+const pauseAutoScrollTemporarily = (delay = 1400) => {
+  isPaused.value = true
+  clearResumeAnimationTimeout()
+  resumeAnimationTimeout = window.setTimeout(() => {
+    if (!isDragging.value) {
+      isPaused.value = false
+    }
+  }, delay)
+}
+
+const trackCarouselInteraction = (method: string) => {
+  if (hasTrackedCarouselInteraction) {
+    return
+  }
+
+  hasTrackedCarouselInteraction = true
+  trackBlogEvent('gallery_interaction', {
+    image_count: originalImageCount.value,
+    method,
+  })
+}
+
 const animateCarousel = (timestamp: number) => {
   if (!lastAnimationTime) {
     lastAnimationTime = timestamp
@@ -69,14 +116,27 @@ const startDrag = (event: PointerEvent) => {
     return
   }
 
+  if (event.pointerType === 'touch') {
+    trackCarouselInteraction('touch')
+    pauseAutoScrollTemporarily()
+    return
+  }
+
+  trackCarouselInteraction('drag')
   isDragging.value = true
-  isPaused.value = true
+  pauseAutoScroll()
   dragStartX = event.clientX
   dragStartScrollLeft = carousel.value.scrollLeft
   carousel.value.setPointerCapture(event.pointerId)
 }
 
 const dragCarousel = (event: PointerEvent) => {
+  if (event.pointerType === 'touch') {
+    trackCarouselInteraction('touch')
+    pauseAutoScrollTemporarily()
+    return
+  }
+
   if (!carousel.value || !isDragging.value) {
     return
   }
@@ -90,8 +150,15 @@ const stopDrag = (event: PointerEvent) => {
     return
   }
 
+  if (event.pointerType === 'touch') {
+    trackCarouselInteraction('touch')
+    pauseAutoScrollTemporarily()
+    normalizeScroll()
+    return
+  }
+
   isDragging.value = false
-  isPaused.value = false
+  pauseAutoScrollTemporarily(700)
   normalizeScroll()
 
   if (carousel.value.hasPointerCapture(event.pointerId)) {
@@ -113,6 +180,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.cancelAnimationFrame(animationFrame)
+  clearResumeAnimationTimeout()
 })
 </script>
 
@@ -123,12 +191,16 @@ onBeforeUnmount(() => {
       class="photo-carousel-viewport"
       :class="{ 'is-dragging': isDragging }"
       tabindex="0"
-      @mouseenter="isPaused = true"
-      @mouseleave="isPaused = false"
+      @mouseenter="pauseAutoScroll"
+      @mouseleave="resumeAutoScroll"
       @pointerdown="startDrag"
       @pointermove="dragCarousel"
       @pointerup="stopDrag"
       @pointercancel="stopDrag"
+      @touchstart.passive="() => pauseAutoScrollTemporarily()"
+      @touchmove.passive="() => pauseAutoScrollTemporarily()"
+      @touchend.passive="() => pauseAutoScrollTemporarily()"
+      @wheel.passive="() => { trackCarouselInteraction('wheel'); pauseAutoScrollTemporarily() }"
       @scroll.passive="normalizeScroll"
     >
       <div class="photo-carousel-track">
@@ -160,8 +232,9 @@ onBeforeUnmount(() => {
   cursor: grab;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
   user-select: none;
   width: 100%;
 }

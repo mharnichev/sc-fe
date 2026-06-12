@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { terms } = useBlogLocale()
 const { openSubscribeModal } = useSubscribeModal()
+const { trackBlogEvent } = useBlogAnalytics()
 const route = useRoute()
 const isOpen = ref(false)
 
@@ -8,9 +9,38 @@ const closeMenu = () => {
   isOpen.value = false
 }
 
+const toggleMenu = () => {
+  isOpen.value = !isOpen.value
+  trackBlogEvent(isOpen.value ? 'post_menu_open' : 'post_menu_close')
+}
+
+const handleHomeClick = () => {
+  trackBlogEvent('navigation_click', {
+    destination: 'blog_home',
+    source: 'post_menu',
+  })
+  closeMenu()
+}
+
+const handleBarbershopClick = () => {
+  trackBlogEvent('navigation_click', {
+    destination: 'barbershop',
+    source: 'post_menu',
+  })
+  closeMenu()
+}
+
+const handleBookingClick = () => {
+  trackBlogEvent('navigation_click', {
+    destination: 'barbershop_booking',
+    source: 'post_menu',
+  })
+  closeMenu()
+}
+
 const handleSubscribeClick = () => {
   closeMenu()
-  openSubscribeModal()
+  openSubscribeModal('', 'post_menu')
 }
 
 watch(() => route.fullPath, closeMenu)
@@ -37,7 +67,7 @@ onBeforeUnmount(() => {
     :aria-expanded="isOpen"
     aria-controls="post-menu-overlay"
     :aria-label="terms.menuOpen"
-    @click="isOpen = !isOpen"
+    @click="toggleMenu"
   >
     <span class="relative h-6 w-8" aria-hidden="true">
       <span
@@ -72,17 +102,36 @@ onBeforeUnmount(() => {
         <NuxtLink
           to="/"
           class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
-          @click="closeMenu"
+          @click="handleHomeClick"
         >
           {{ terms.home }}
         </NuxtLink>
-        <button
-          type="button"
-          class="bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
-          @click="handleSubscribeClick"
+        <a
+          href="/"
+          class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
+          @click="handleBarbershopClick"
         >
-          {{ terms.subscribe }}
-        </button>
+          {{ terms.barbershopHome }}
+        </a>
+        <a
+          href="/#booking"
+          class="max-w-5xl break-words text-3xl font-black uppercase leading-[0.98] tracking-[0.04em] text-white transition hover:text-white/70 sm:text-5xl sm:tracking-[0.08em] lg:text-6xl"
+          @click="handleBookingClick"
+        >
+          {{ terms.postMenuBookingCta }}
+        </a>
+        <div class="flex max-w-sm flex-col items-center gap-3 pt-2 text-white/75">
+          <p class="text-sm font-medium leading-6 tracking-normal sm:text-base">
+            {{ terms.postMenuSubscribeText }}
+          </p>
+          <button
+            type="button"
+            class="bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
+            @click="handleSubscribeClick"
+          >
+            {{ terms.subscribe }}
+          </button>
+        </div>
       </nav>
     </div>
   </Transition>

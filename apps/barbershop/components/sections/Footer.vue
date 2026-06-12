@@ -147,6 +147,11 @@ onBeforeUnmount(() => {
               </a>
             </p>
             <p>
+              <a href="/blog/" class="transition hover:text-white hover:underline" @click="trackEvent('view_blog', { source: 'footer' })">
+                {{ terms.home.journal.label }}
+              </a>
+            </p>
+            <p>
               <NuxtLink to="/barbershop-odesa" class="transition hover:text-white hover:underline">
                 {{ terms.common.localSeoPage }}
               </NuxtLink>
