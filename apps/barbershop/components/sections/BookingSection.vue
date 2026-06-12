@@ -23,12 +23,11 @@ const selectedDate = ref('')
 const selectedSlotStart = ref('')
 const activeStepIndex = ref(0)
 const submitAttempted = ref(false)
+const actionAttemptedStepIndex = ref<number | null>(null)
 const isResettingAfterSubmit = ref(false)
 const bookingStarted = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepIds = ['booking-service', 'booking-master', 'booking-time', 'booking-contact']
-const bookingScrollOffset = 24
-const bookingAutoScrollMediaQuery = '(max-width: 1023px), (hover: none) and (pointer: coarse) and (max-width: 1366px)'
 
 const form = reactive({
   customer_name: '',
@@ -167,24 +166,6 @@ const resolveSelectedServiceForMaster = () => {
   )
 }
 
-const shouldAutoScrollBooking = () =>
-  import.meta.client && window.matchMedia(bookingAutoScrollMediaQuery).matches
-
-const scrollToBookingStart = async () => {
-  if (!shouldAutoScrollBooking()) return
-
-  await nextTick()
-
-  window.requestAnimationFrame(() => {
-    if (!bookingForm.value) return
-
-    window.scrollTo({
-      top: Math.max(0, bookingForm.value.getBoundingClientRect().top + window.scrollY - bookingScrollOffset),
-      behavior: 'smooth',
-    })
-  })
-}
-
 const selectCatalogService = (catalogId: string) => {
   if (!activeServiceCatalog.value.some(service => service.catalog_id === catalogId)) return
 
@@ -250,8 +231,7 @@ const selectMaster = (masterId: number) => {
     master_name: masterName(selectedMaster.value),
     service_count: selectedServiceCount.value,
   })
-  goToStep(2)
-  void scrollToBookingStart()
+  goToStep(selectedServiceIds.value.length || selectedCatalogIds.value.length ? 2 : 0)
 }
 
 const selectSlot = (slotStart: string) => {
@@ -265,7 +245,6 @@ const selectSlot = (slotStart: string) => {
     duration_minutes: selectedDurationMinutes.value,
   })
   goToStep(3)
-  void scrollToBookingStart()
 }
 
 const handleExternalServiceSelect = (event: Event) => {
@@ -363,7 +342,6 @@ const isTimeComplete = computed(() => Boolean(selectedDate.value && !isSelectedD
 const isContactComplete = computed(() =>
   Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
 )
-
 const stepCompletion = computed(() => [
   isServiceComplete.value,
   isMasterComplete.value,
@@ -377,10 +355,56 @@ const firstIncompleteStepIndex = computed(() => {
 })
 
 const lastStepIndex = computed(() => terms.value.home.booking.steps.length - 1)
+const canSubmit = computed(() => stepCompletion.value.every(Boolean))
+const bookingDetailsComplete = computed(() =>
+  stepCompletion.value.slice(0, lastStepIndex.value).every(Boolean),
+)
+const bookingTargetStepIndex = computed(() =>
+  canSubmit.value ? lastStepIndex.value : firstIncompleteStepIndex.value,
+)
+const showChooseMasterAction = computed(() =>
+  activeStepIndex.value !== 1 && bookingTargetStepIndex.value === 1 && isServiceComplete.value,
+)
+const showChooseTimeAction = computed(() =>
+  activeStepIndex.value !== 2 && bookingTargetStepIndex.value === 2 && isServiceComplete.value && isMasterComplete.value,
+)
+const showContactAction = computed(() =>
+  activeStepIndex.value !== lastStepIndex.value
+  && bookingTargetStepIndex.value === lastStepIndex.value
+  && bookingDetailsComplete.value
+  && !canSubmit.value,
+)
+const showGuidedBookingAction = computed(() =>
+  showChooseMasterAction.value || showChooseTimeAction.value || showContactAction.value,
+)
+const showBookAction = computed(() => canSubmit.value && !state.loading)
+const showProminentBookingAction = computed(() =>
+  showGuidedBookingAction.value || showBookAction.value,
+)
+const bookingActionKind = computed(() => {
+  if (state.loading) return 'loading'
+  if (canSubmit.value || activeStepIndex.value === lastStepIndex.value) return 'book'
+  if (showContactAction.value) return 'contact'
+  if (showChooseMasterAction.value) return 'master'
+  if (showChooseTimeAction.value) return 'time'
+  return 'next'
+})
+const bookingActionMobileLabel = computed(() => {
+  if (bookingActionKind.value === 'loading') return terms.value.pages.contacts.sending
+  if (bookingActionKind.value === 'book') return terms.value.home.booking.book
+  if (bookingActionKind.value === 'master') return 'Обрати майстра'
+  if (bookingActionKind.value === 'time') return 'Обрати час'
+  if (bookingActionKind.value === 'contact') return 'До контактів'
+  return 'Далі'
+})
+const bookingActionDesktopLabel = computed(() => {
+  if (bookingActionKind.value === 'next') return terms.value.home.booking.next
+  return bookingActionMobileLabel.value
+})
 const activeStepComplete = computed(() => Boolean(stepCompletion.value[activeStepIndex.value]))
 
 const shouldShowStepIssue = (index: number) =>
-  !stepCompletion.value[index] && (submitAttempted.value || activeStepIndex.value > index)
+  !stepCompletion.value[index] && (submitAttempted.value || activeStepIndex.value > index || actionAttemptedStepIndex.value === index)
 
 const bookingStepState = computed(() =>
   terms.value.home.booking.steps.map((label, index) => ({
@@ -396,8 +420,6 @@ const goToStep = (index: number) => {
 
   activeStepIndex.value = index
 }
-
-const canSubmit = computed(() => stepCompletion.value.every(Boolean))
 
 const handlePhoneInput = (event: Event) => {
   form.customer_phone = formatPhoneInput((event.target as HTMLInputElement).value)
@@ -423,6 +445,7 @@ const resetBookingFlow = async () => {
   form.customer_comment = ''
   activeStepIndex.value = 0
   submitAttempted.value = false
+  actionAttemptedStepIndex.value = null
   bookingStarted.value = false
   await nextTick()
   isResettingAfterSubmit.value = false
@@ -503,11 +526,18 @@ const submit = async () => {
 }
 
 const handleBookingAction = async () => {
-  submitAttempted.value = true
+  if (canSubmit.value) {
+    await submit()
+    return
+  }
 
   if (activeStepIndex.value < lastStepIndex.value) {
-    if (!activeStepComplete.value) return
-    goToStep(activeStepIndex.value + 1)
+    if (!activeStepComplete.value) {
+      actionAttemptedStepIndex.value = activeStepIndex.value
+      return
+    }
+    actionAttemptedStepIndex.value = null
+    goToStep(bookingTargetStepIndex.value)
     return
   }
 
@@ -545,7 +575,7 @@ const closeSuccess = () => {
           </div>
         </div>
 
-        <form ref="bookingForm" class="relative overflow-hidden border border-white/15 bg-white/[0.03]" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+        <form id="booking-stepper" ref="bookingForm" class="relative scroll-mt-24 overflow-hidden border border-white/15 bg-white/[0.03] lg:scroll-mt-28" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
           <div class="grid grid-cols-2 border-b border-white/15 sm:grid-cols-4">
             <button
               v-for="(step, index) in bookingStepState"
@@ -578,79 +608,80 @@ const closeSuccess = () => {
             </button>
           </div>
 
-          <div :id="bookingStepIds[activeStepIndex]" class="scroll-mt-28 p-4 md:p-8">
+          <div :id="bookingStepIds[activeStepIndex]" class="booking-step-panel scroll-mt-28 p-4 md:p-8">
             <div>
-              <AppTransition>
-                <section v-if="activeStepIndex === 0" key="booking-service">
-                  <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                    {{ terms.home.booking.steps[0] }}
-                  </h3>
-                  <div class="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
-                    <button
-                      v-for="service in activeServices"
-                      :key="serviceKey(service)"
-                      type="button"
-                      class="booking-service__item relative isolate flex min-h-28 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-3 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-40 sm:p-4"
-                      :class="[
-                        service.is_army_client ? 'is-army-service dark-bg-army' : '',
-                        serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
-                        serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
-                      ]"
-                      :disabled="serviceSelectionLimitReached && !serviceSelected(service)"
-                      :aria-pressed="serviceSelected(service)"
-                      @click="selectService(service)"
-                    >
-                      <Transition name="booking-service-scribble" :duration="{ enter: 560, leave: 410 }">
-                        <svg
-                          v-if="serviceSelected(service)"
-                          class="booking-service__selected-scribble"
-                          viewBox="0 0 420 170"
-                          preserveAspectRatio="none"
-                          aria-hidden="true"
-                        >
-                          <path
-                            class="booking-service__selected-scribble-path"
-                            d="M20 88 C14 24 94 10 205 13 C330 16 404 35 410 83 C416 133 316 157 198 153 C79 149 12 128 20 88 Z"
-                          />
-                          <path
-                            class="booking-service__selected-scribble-path booking-service__selected-scribble-path--second"
-                            d="M25 93 C8 39 89 18 196 17 C318 15 397 30 407 78 C420 132 321 162 202 157 C80 152 15 132 25 93 Z"
-                          />
-                        </svg>
-                      </Transition>
-                      <span class="relative z-10">
-                        <span class="flex items-center gap-[10px] text-base font-semibold leading-snug sm:text-lg">
-                          <img
-                            v-if="service.is_army_client"
-                            src="~/assets/images/services/army-logo.webp"
-                            alt=""
-                            class="h-7 w-7 shrink-0 object-contain"
+              <div class="booking-step-content">
+                <AppTransition>
+                  <section v-if="activeStepIndex === 0" key="booking-service">
+                    <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
+                      {{ terms.home.booking.steps[0] }}
+                    </h3>
+                    <div class="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+                      <button
+                        v-for="service in activeServices"
+                        :key="serviceKey(service)"
+                        type="button"
+                        class="booking-service__item relative isolate flex min-h-28 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-3 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-40 sm:p-4"
+                        :class="[
+                          service.is_army_client ? 'is-army-service dark-bg-army' : '',
+                          serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
+                          serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
+                        ]"
+                        :disabled="serviceSelectionLimitReached && !serviceSelected(service)"
+                        :aria-pressed="serviceSelected(service)"
+                        @click="selectService(service)"
+                      >
+                        <Transition name="booking-service-scribble" :duration="{ enter: 560, leave: 410 }">
+                          <svg
+                            v-if="serviceSelected(service)"
+                            class="booking-service__selected-scribble"
+                            viewBox="0 0 420 170"
+                            preserveAspectRatio="none"
                             aria-hidden="true"
                           >
-                          <span class="min-w-0">{{ serviceName(service) }}</span>
+                            <path
+                              class="booking-service__selected-scribble-path"
+                              d="M20 88 C14 24 94 10 205 13 C330 16 404 35 410 83 C416 133 316 157 198 153 C79 149 12 128 20 88 Z"
+                            />
+                            <path
+                              class="booking-service__selected-scribble-path booking-service__selected-scribble-path--second"
+                              d="M25 93 C8 39 89 18 196 17 C318 15 397 30 407 78 C420 132 321 162 202 157 C80 152 15 132 25 93 Z"
+                            />
+                          </svg>
+                        </Transition>
+                        <span class="relative z-10">
+                          <span class="flex items-center gap-[10px] text-base font-semibold leading-snug sm:text-lg">
+                            <img
+                              v-if="service.is_army_client"
+                              src="~/assets/images/services/army-logo.webp"
+                              alt=""
+                              class="h-7 w-7 shrink-0 object-contain"
+                              aria-hidden="true"
+                            >
+                            <span class="min-w-0">{{ serviceName(service) }}</span>
+                          </span>
+                          <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
+                          <span
+                            class="mt-1 block line-clamp-2 text-xs leading-5 sm:mt-1.5 sm:text-sm sm:leading-6 md:mt-2"
+                            :class="serviceSelected(service) ? 'text-white/70' : 'text-white/55'"
+                          >
+                            {{ serviceDescription(service) }}
+                          </span>
                         </span>
-                        <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
                         <span
-                          class="mt-1 block line-clamp-2 text-xs leading-5 sm:mt-1.5 sm:text-sm sm:leading-6 md:mt-2"
-                          :class="serviceSelected(service) ? 'text-white/70' : 'text-white/55'"
+                          class="relative z-10 mt-3 flex items-center justify-between gap-3 text-xs sm:mt-5 sm:gap-4 sm:text-sm"
+                          :class="serviceSelected(service) ? 'text-white/80' : 'text-white/75'"
                         >
-                          {{ serviceDescription(service) }}
+                          <span class="block font-semibold text-white">{{ servicePrice(service) }}</span>
+                          <span class="block">{{ serviceDuration(service) }}</span>
                         </span>
-                      </span>
-                      <span
-                        class="relative z-10 mt-3 flex items-center justify-between gap-3 text-xs sm:mt-5 sm:gap-4 sm:text-sm"
-                        :class="serviceSelected(service) ? 'text-white/80' : 'text-white/75'"
-                      >
-                        <span class="block font-semibold text-white">{{ servicePrice(service) }}</span>
-                        <span class="block">{{ serviceDuration(service) }}</span>
-                      </span>
-                    </button>
-                    <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.loading }}</p>
-                    <p v-else-if="!activeServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.empty }}</p>
-                  </div>
-                </section>
+                      </button>
+                      <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.loading }}</p>
+                      <p v-else-if="!activeServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.empty }}</p>
+                    </div>
+                  </section>
 
-                <section v-else-if="activeStepIndex === 1" key="booking-master">
+                  <section v-else-if="activeStepIndex === 1" key="booking-master">
                   <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
                     {{ terms.home.booking.steps[1] }}
                   </h3>
@@ -674,8 +705,8 @@ const closeSuccess = () => {
                   </div>
                 </section>
 
-                <section v-else-if="activeStepIndex === 2" key="booking-time" class="grid gap-4 md:grid-cols-[12rem_1fr] md:gap-5">
-                  <div>
+                <section v-else-if="activeStepIndex === 2" key="booking-time" class="booking-time-step grid gap-4 md:grid-cols-[12rem_1fr] md:gap-5">
+                  <div class="booking-date-control">
                     <label for="booking-date" class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
                       {{ terms.home.booking.steps[2] }}
                     </label>
@@ -690,9 +721,9 @@ const closeSuccess = () => {
                     >
                   </div>
 
-                  <div>
+                  <div class="booking-slots-column">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">Слот</p>
-                    <div v-if="visibleSlots.length" class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div v-if="visibleSlots.length" class="booking-slots-grid mt-4 grid grid-cols-3 gap-2">
                       <button
                         v-for="slot in visibleSlots"
                         :key="slot.start_at"
@@ -756,14 +787,15 @@ const closeSuccess = () => {
                     class="mt-3 w-full border border-white/15 bg-transparent px-4 py-3 text-white outline-none placeholder:text-white/35"
                     @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment, { multiline: true })"
                   />
-                </section>
-              </AppTransition>
+                  </section>
+                </AppTransition>
+              </div>
 
-              <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div class="booking-step-actions mt-8 flex flex-row gap-3 sm:items-center">
                 <button
+                  v-if="activeStepIndex > 0"
                   type="button"
-                  :disabled="activeStepIndex === 0"
-                  class="inline-flex items-center justify-center gap-2 border border-white/15 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/75 transition hover:border-white/45 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto"
+                  class="inline-flex flex-1 items-center justify-center gap-2 border border-white/15 px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/75 transition hover:border-white/45 hover:text-white sm:flex-none sm:px-5"
                   @click="goToStep(activeStepIndex - 1)"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -775,13 +807,35 @@ const closeSuccess = () => {
                 <button
                   type="button"
                   :disabled="state.loading || (activeStepIndex === lastStepIndex && !canSubmit)"
-                  class="inline-flex items-center justify-center gap-2 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+                  class="inline-flex h-11 flex-[1.35] items-center justify-center gap-2 bg-white px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45 sm:h-12 sm:flex-none sm:px-6 sm:text-sm sm:tracking-[0.16em]"
+                  :class="showProminentBookingAction ? 'booking-guided-action' : ''"
                   @click="handleBookingAction"
                 >
-                  {{ state.loading ? terms.pages.contacts.sending : activeStepIndex === lastStepIndex ? terms.home.booking.book : terms.home.booking.next }}
-                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M7.5 4.5 13 10l-5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
+                  <Transition name="booking-action-content" mode="out-in">
+                    <span :key="bookingActionKind" class="inline-flex items-center justify-center gap-2">
+                      <svg v-if="bookingActionKind === 'master'" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M10 10.4a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Z" stroke="currentColor" stroke-width="1.6" />
+                        <path d="M4.5 16.5c.8-2.6 2.8-4.1 5.5-4.1s4.7 1.5 5.5 4.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                      </svg>
+                      <svg v-else-if="bookingActionKind === 'time'" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M10 5.2V10l3.1 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" stroke="currentColor" stroke-width="1.6" />
+                      </svg>
+                      <svg v-else-if="bookingActionKind === 'contact'" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M5.2 4.2h9.6v11.6H5.2V4.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                        <path d="M7.8 7.2h4.4M7.8 10h4.4M7.8 12.8h2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                      </svg>
+                      <svg v-else-if="bookingActionKind === 'book'" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M5 4.5h10a1.5 1.5 0 0 1 1.5 1.5v8.7a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.6" />
+                        <path d="M6.5 3.8v2.4M13.5 3.8v2.4M3.8 8.1h12.4M7.2 12.1l1.8 1.8 3.8-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <span class="sm:hidden">{{ bookingActionMobileLabel }}</span>
+                      <span class="hidden sm:inline">{{ bookingActionDesktopLabel }}</span>
+                      <svg v-if="bookingActionKind !== 'book'" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M7.5 4.5 13 10l-5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </span>
+                  </Transition>
                 </button>
               </div>
               <p v-if="state.error" class="mt-4 text-sm leading-6 text-rose-200">{{ state.error }}</p>
@@ -821,6 +875,111 @@ const closeSuccess = () => {
 </template>
 
 <style scoped>
+@media (max-width: 767px) {
+  #booking-service.booking-step-panel,
+  #booking-time.booking-step-panel {
+    display: flex;
+    max-height: calc(100svh - 16rem);
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  #booking-service.booking-step-panel > div,
+  #booking-time.booking-step-panel > div {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  #booking-service .booking-step-content {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+
+  #booking-time .booking-step-content {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #booking-time .booking-step-content > * {
+    min-height: 0;
+  }
+
+  #booking-time .booking-time-step {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  #booking-time .booking-date-control {
+    flex-shrink: 0;
+  }
+
+  #booking-time .booking-slots-column {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  #booking-time .booking-slots-grid {
+    min-height: 0;
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+
+  #booking-service .booking-step-actions,
+  #booking-time .booking-step-actions {
+    flex-shrink: 0;
+    margin-top: 1rem;
+    border-top: 1px solid rgb(255 255 255 / 0.12);
+    padding-top: 1rem;
+  }
+
+  #booking-service .booking-service__item {
+    overflow: hidden;
+  }
+
+  #booking-service .booking-service__selected-scribble {
+    inset: -6px;
+    width: calc(100% + 12px);
+    height: calc(100% + 12px);
+  }
+}
+
+.booking-guided-action {
+  border: 1px solid rgb(115 115 115 / 0.7);
+  animation: booking-guided-border 2.1s ease-in-out infinite;
+}
+
+.booking-action-content-enter-active,
+.booking-action-content-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.booking-action-content-enter-from {
+  opacity: 0;
+  transform: translateY(0.35rem);
+}
+
+.booking-action-content-leave-to {
+  opacity: 0;
+  transform: translateY(-0.25rem);
+}
+
 .booking-service__item.dark-bg-army {
   background-image:
     linear-gradient(rgb(10 10 10 / 0.28), rgb(10 10 10 / 0.42)),
@@ -898,10 +1057,38 @@ const closeSuccess = () => {
   }
 }
 
+@keyframes booking-guided-border {
+  0%,
+  100% {
+    border-color: rgb(115 115 115 / 0.55);
+    box-shadow:
+      0 0 0 0 rgb(255 255 255 / 0),
+      0 0.45rem 1.25rem rgb(0 0 0 / 0.12);
+  }
+
+  50% {
+    border-color: rgb(64 64 64 / 0.85);
+    box-shadow:
+      0 0 0 0.42rem rgb(255 255 255 / 0.24),
+      0 0 0 0.72rem rgb(255 255 255 / 0.1),
+      0 0.65rem 1.75rem rgb(0 0 0 / 0.2);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .booking-service__selected-scribble-path {
     animation: none;
     stroke-dashoffset: 0;
+  }
+
+  .booking-guided-action {
+    animation: none;
+    transition: none;
+  }
+
+  .booking-action-content-enter-active,
+  .booking-action-content-leave-active {
+    transition: none;
   }
 }
 </style>

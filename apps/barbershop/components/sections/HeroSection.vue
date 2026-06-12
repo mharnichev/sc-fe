@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row" data-reveal="soft" data-reveal-delay="280">
-        <PrimaryButton to="#booking" class="w-full text-center" @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</PrimaryButton>
+        <PrimaryButton to="#booking-stepper" class="w-full text-center" @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</PrimaryButton>
         <NuxtLink to="#services" class="w-full inline-flex justify-center items-center border border-white/35 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-neutral-950 text-center" @click="trackEvent('view_services', { source: 'hero_cta' })">
           {{ terms.home.hero.secondaryCta }}
         </NuxtLink>
