@@ -6,6 +6,7 @@ import type { Master } from '~/composables/useBackofficeApi'
 const api = useBackofficeApi()
 const auth = useAuthStore()
 const assetUrl = useAssetUrl()
+const toast = useBaseToastNotification()
 const { masterName, serviceName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
 
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
@@ -13,8 +14,6 @@ const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
 const editing = ref<Master | null>(null)
-const formError = ref('')
-const successMessage = ref('')
 const masterModalOpen = ref(false)
 const togglingMaster = ref<Master | null>(null)
 const togglePending = ref(false)
@@ -64,21 +63,16 @@ const masterPositionLabel = (master: Master) =>
 
 const openCreateMaster = () => {
   editing.value = null
-  formError.value = ''
-  successMessage.value = ''
   masterModalOpen.value = true
 }
 
 const editMaster = (master: Master) => {
   editing.value = master
-  formError.value = ''
-  successMessage.value = ''
   masterModalOpen.value = true
 }
 
 const handleMasterSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   editing.value = null
   await refresh()
   await refreshRedirectMasters()
@@ -100,8 +94,6 @@ const toggleContextItems = computed(() => {
 
 const openToggleMasterConfirm = (master: Master) => {
   if (!isAdmin.value) return
-  formError.value = ''
-  successMessage.value = ''
   togglingMaster.value = master
 }
 
@@ -113,18 +105,16 @@ const confirmToggleMaster = async () => {
   const master = togglingMaster.value
   if (!master) return
 
-  formError.value = ''
-  successMessage.value = ''
   togglePending.value = true
   try {
     await api.adminUpdateMaster(master.id, { is_active: !isMasterActive(master) })
-    successMessage.value = 'Статус майстра оновлено.'
+    toast.success('Статус майстра оновлено.')
     togglingMaster.value = null
     await refresh()
     await refreshRedirectMasters()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус майстра.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося оновити статус майстра.'))
   }
   finally {
     togglePending.value = false
@@ -159,9 +149,6 @@ const applyFilters = async () => {
     <p v-if="!isAdmin" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
       Для керування майстрами потрібен доступ адміністратора.
     </p>
-
-    <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
-    <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
 
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">

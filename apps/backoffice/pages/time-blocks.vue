@@ -3,6 +3,7 @@ import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
+const toast = useBaseToastNotification()
 const {
   todayInput,
   addDaysInput,
@@ -38,14 +39,10 @@ const blocks = computed(() =>
   }),
 )
 const masterOptions = computed(() => normalizeItems(masters.value))
-const formError = ref('')
-const successMessage = ref('')
 const deletingId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 
 const openCreateBlock = () => {
-  formError.value = ''
-  successMessage.value = ''
   timeBlockModalOpen.value = true
 }
 
@@ -54,8 +51,7 @@ const applyFilters = async () => {
 }
 
 const handleBlockSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   await refresh()
 }
 
@@ -66,15 +62,13 @@ const handleBlockModalUpdate = (value: boolean) => {
 const deleteBlock = async (blockId: number) => {
   if (!confirm(`Видалити time block #${blockId}?`)) return
   deletingId.value = blockId
-  formError.value = ''
-  successMessage.value = ''
   try {
     await api.adminDeleteTimeBlock(blockId)
-    successMessage.value = 'Блокування часу видалено.'
+    toast.success('Блокування часу видалено.')
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося видалити блокування часу.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити блокування часу.'))
   }
   finally {
     deletingId.value = null
@@ -103,9 +97,6 @@ const deleteBlock = async (blockId: number) => {
     <p v-if="!isAdmin" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
       Для керування всіма блокуваннями майстрів потрібен доступ адміністратора.
     </p>
-
-    <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
-    <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
 
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-3 md:grid-cols-4">

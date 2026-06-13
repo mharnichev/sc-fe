@@ -4,8 +4,9 @@ import type { MessagingSettings } from '~/types/messaging'
 const api = useBackofficeApi()
 const { campaignTypes } = useMessagingUi()
 const { canSendMessagingCampaigns } = useBackofficeAccess()
+const { apiErrorMessage } = useBookingFormatting()
+const toast = useBaseToastNotification()
 const saving = ref(false)
-const saved = ref(false)
 
 const { data, pending, error } = await useAsyncData('messaging-settings', () => api.getMessagingSettings())
 
@@ -39,7 +40,10 @@ const save = async () => {
   saving.value = true
   try {
     await api.updateMessagingSettings(form)
-    saved.value = true
+    toast.success('Налаштування збережено.')
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося зберегти налаштування.'))
   }
   finally {
     saving.value = false
@@ -54,7 +58,6 @@ const save = async () => {
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Налаштування повідомлень</h1>
     </div>
 
-    <div v-if="saved" class="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">Налаштування збережено.</div>
     <div v-if="pending" class="rounded-[1.75rem] bg-slate-100 p-8 text-sm text-slate-500">Завантажуємо налаштування...</div>
     <div v-else-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити налаштування.</div>
 

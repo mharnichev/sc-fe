@@ -8,7 +8,6 @@ const props = defineProps<{
   initialValue?: ProductPayload
   submitLabel?: string
   loading?: boolean
-  error?: string
 }>()
 
 const emit = defineEmits<{
@@ -37,6 +36,7 @@ const attributesText = ref(
   form.attributes_json ? JSON.stringify(form.attributes_json, null, 2) : '',
 )
 const parseError = ref('')
+const toast = useBaseToastNotification()
 
 watch(
   () => props.initialValue,
@@ -64,6 +64,7 @@ const submit = () => {
   }
   catch {
     parseError.value = 'Атрибути JSON мають бути валідним JSON.'
+    toast.warning(parseError.value)
     return
   }
 
@@ -184,8 +185,6 @@ const submit = () => {
       <button type="submit" :disabled="loading" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
         {{ submitLabel || 'Зберегти товар' }}
       </button>
-      <p v-if="parseError" class="text-sm text-rose-600">{{ parseError }}</p>
-      <p v-if="error" class="text-sm text-rose-600">{{ error }}</p>
     </div>
   </form>
 </template>

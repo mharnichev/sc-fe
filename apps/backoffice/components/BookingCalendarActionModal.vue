@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, NoSymbolIcon, PlusIcon, PhoneIcon, ScissorsIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
 import type { Service } from '~/composables/useBackofficeApi'
 
@@ -9,7 +9,6 @@ const props = defineProps<{
   services: Service[]
   masterName: string
   pending?: boolean
-  error?: string
 }>()
 
 const emit = defineEmits<{
@@ -21,7 +20,8 @@ const {
   toKyivIso,
 } = useBookingFormatting()
 const calendar = useBookingCalendar()
-const { formatPhone, normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
+const toast = useBaseToastNotification()
+const { normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 
 const form = reactive({
   action: 'booking' as CalendarActionType,
@@ -37,14 +37,6 @@ const form = reactive({
 const localError = ref('')
 const durationEdited = ref(false)
 const syncingEndTime = ref(false)
-const customerPhoneFocused = ref(false)
-
-const maskedCustomerPhone = computed({
-  get: () => formatPhone(form.customer_phone, customerPhoneFocused.value),
-  set: value => {
-    form.customer_phone = formatPhone(value, true)
-  },
-})
 
 const selectedServices = computed(() => {
   const selected = new Set(form.service_ids.map(Number))
@@ -111,16 +103,6 @@ const resetForm = () => {
   localError.value = ''
 }
 
-const focusCustomerPhone = () => {
-  customerPhoneFocused.value = true
-  form.customer_phone = formatPhone(form.customer_phone, true)
-}
-
-const blurCustomerPhone = () => {
-  customerPhoneFocused.value = false
-  form.customer_phone = formatPhone(form.customer_phone)
-}
-
 const close = () => {
   emit('update:modelValue', false)
 }
@@ -144,7 +126,10 @@ const validate = () => {
 
 const submit = () => {
   localError.value = validate()
-  if (localError.value) return
+  if (localError.value) {
+    toast.warning(localError.value)
+    return
+  }
   const serviceIds = form.action === 'booking' ? form.service_ids.map(Number).filter(Number.isFinite) : []
 
   emit('submit', {
@@ -305,24 +290,15 @@ const markDurationEdited = () => {
             </span>
             <input v-model="form.customer_name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
-          <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
-            <span class="inline-flex items-center gap-1.5 font-medium">
-              <PhoneIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
-              Телефон клієнта
-            </span>
-            <input
-              v-model="maskedCustomerPhone"
-              required
-              type="tel"
-              inputmode="tel"
-              autocomplete="tel"
-              placeholder="+380 XX XXX XX XX"
-              maxlength="17"
-              class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
-              @focus="focusCustomerPhone"
-              @blur="blurCustomerPhone"
-            >
-          </label>
+          <BasePhoneInput
+            v-model="form.customer_phone"
+            required
+            label="Телефон клієнта"
+            label-class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm"
+            label-content-class="inline-flex items-center gap-1.5 font-medium"
+            icon-class="h-4 w-4 text-slate-500"
+            input-class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
+          />
         </div>
 
         <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -332,10 +308,6 @@ const markDurationEdited = () => {
           </span>
           <textarea v-model="form.note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
         </label>
-
-        <p v-if="localError || error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-          {{ localError || error }}
-        </p>
 
         <div class="backoffice-modal-actions pt-3 xl:pt-5">
           <button

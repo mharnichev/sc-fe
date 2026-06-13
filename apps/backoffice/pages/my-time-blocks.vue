@@ -2,6 +2,7 @@
 import { ClockIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const {
   todayInput,
   addDaysInput,
@@ -35,14 +36,10 @@ const blocks = computed(() =>
     return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
   }),
 )
-const formError = ref('')
-const successMessage = ref('')
 const deletingId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 
 const openCreateBlock = () => {
-  formError.value = ''
-  successMessage.value = ''
   timeBlockModalOpen.value = true
 }
 
@@ -51,8 +48,7 @@ const applyFilters = async () => {
 }
 
 const handleBlockSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   await refresh()
 }
 
@@ -63,15 +59,13 @@ const handleBlockModalUpdate = (value: boolean) => {
 const deleteBlock = async (blockId: number) => {
   if (!confirm(`Видалити time block #${blockId}?`)) return
   deletingId.value = blockId
-  formError.value = ''
-  successMessage.value = ''
   try {
     await api.deleteMyTimeBlock(blockId)
-    successMessage.value = 'Блокування часу видалено.'
+    toast.success('Блокування часу видалено.')
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося видалити блокування часу.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити блокування часу.'))
   }
   finally {
     deletingId.value = null
@@ -91,11 +85,6 @@ const deleteBlock = async (blockId: number) => {
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити блокування
       </button>
-    </div>
-
-    <div class="space-y-2 xl:space-y-3">
-      <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
-      <p v-if="successMessage" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ successMessage }}</p>
     </div>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">

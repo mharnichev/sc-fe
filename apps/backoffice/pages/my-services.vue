@@ -4,6 +4,7 @@ import type { MasterService, BaseService, Master } from '~/composables/useBackof
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
+const toast = useBaseToastNotification()
 const {
   masterName,
   formatDuration,
@@ -31,8 +32,6 @@ definePageMeta({
 })
 
 const editing = ref<MasterService | null>(null)
-const formError = ref('')
-const successMessage = ref('')
 const deletingId = ref<number | string | null>(null)
 const serviceModalOpen = ref(false)
 const togglingService = ref<MasterService | null>(null)
@@ -60,22 +59,17 @@ const baseServiceOptions = computed(() => normalizeItems(baseServiceData.value).
 const openCreateService = () => {
   if (!barberId.value) return
   editing.value = null
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const editService = (service: MasterService) => {
   if (!barberId.value) return
   editing.value = service
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const handleServiceSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   editing.value = null
   await refresh()
 }
@@ -97,8 +91,6 @@ const toggleContextItems = computed(() => {
 
 const openToggleServiceConfirm = (service: MasterService) => {
   if (!barberId.value) return
-  formError.value = ''
-  successMessage.value = ''
   togglingService.value = service
 }
 
@@ -110,17 +102,15 @@ const confirmToggleService = async () => {
   const service = togglingService.value
   if (!service || !barberId.value) return
 
-  formError.value = ''
-  successMessage.value = ''
   togglePending.value = true
   try {
     await api.updateMyService(service.id, { is_active: !service.is_active })
-    successMessage.value = 'Статус послуги оновлено.'
+    toast.success('Статус послуги оновлено.')
     togglingService.value = null
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус послуги.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося оновити статус послуги.'))
   }
   finally {
     togglePending.value = false
@@ -130,12 +120,10 @@ const confirmToggleService = async () => {
 const deleteService = async (service: MasterService) => {
   if (!barberId.value || !confirm(`Disable service "${serviceName(service)}"? It will be removed from активний lists but kept in history.`)) return
 
-  formError.value = ''
-  successMessage.value = ''
   deletingId.value = service.id
   try {
     await api.deleteMasterService(barberId.value, service.id)
-    successMessage.value = 'Послугу вимкнено.'
+    toast.success('Послугу вимкнено.')
     if (editing.value?.id === service.id) {
       editing.value = null
       serviceModalOpen.value = false
@@ -143,7 +131,7 @@ const deleteService = async (service: MasterService) => {
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося видалити послугу.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити послугу.'))
   }
   finally {
     deletingId.value = null
@@ -168,11 +156,6 @@ const deleteService = async (service: MasterService) => {
     <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       Для керування особистими послугами потрібен доступ до профілю майстра.
     </p>
-
-    <div class="space-y-2 xl:space-y-3">
-      <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
-      <p v-if="successMessage" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ successMessage }}</p>
-    </div>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">

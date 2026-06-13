@@ -6,6 +6,7 @@ import type { ProductPayload } from '~/composables/useBackofficeApi'
 const route = useRoute()
 const router = useRouter()
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 
 const productId = computed(() => route.params.id as string)
 
@@ -71,6 +72,7 @@ const submit = async (payload: ProductPayload) => {
   try {
     await api.updateProduct(productId.value, payload)
     editMode.value = false
+    toast.success('Товар збережено.')
     await refreshProduct()
   }
   catch (error: unknown) {
@@ -78,6 +80,7 @@ const submit = async (payload: ProductPayload) => {
       typeof error === 'object' && error && 'data' in error && typeof error.data === 'object' && error.data && 'detail' in error.data
         ? String(error.data.detail)
         : 'Не вдалося зберегти товар.'
+    toast.error(errorMessage.value)
   }
   finally {
     pending.value = false
@@ -120,7 +123,6 @@ const submit = async (payload: ProductPayload) => {
       :brands="brands?.items || []"
       :initial-value="initialValue"
       :loading="pending"
-      :error="errorMessage"
       submit-label="Зберегти зміни"
       @submit="submit"
     />

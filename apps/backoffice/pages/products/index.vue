@@ -2,6 +2,7 @@
 import { EyeIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const page = ref(1)
 const pageSize = 20
 const filters = reactive({
@@ -32,7 +33,6 @@ const [{ data: categories }, { data: brands }] = await Promise.all([
 ])
 
 const pendingDeleteId = ref<number | null>(null)
-const actionError = ref('')
 
 const applyFilters = async () => {
   page.value = 1
@@ -55,16 +55,17 @@ const clearFilters = async () => {
 const removeProduct = async (productId: number) => {
   if (!confirm(`Видалити product #${productId}?`)) return
   pendingDeleteId.value = productId
-  actionError.value = ''
   try {
     await api.deleteProduct(productId)
+    toast.success('Товар видалено.')
     await refresh()
   }
   catch (error: unknown) {
-    actionError.value =
+    toast.error(
       typeof error === 'object' && error && 'data' in error && typeof error.data === 'object' && error.data && 'detail' in error.data
         ? String(error.data.detail)
-        : 'Не вдалося видалити товар.'
+        : 'Не вдалося видалити товар.',
+    )
   }
   finally {
     pendingDeleteId.value = null
@@ -118,10 +119,6 @@ const prev = async () => {
         <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
       </div>
     </section>
-
-    <p v-if="actionError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
-      {{ actionError }}
-    </p>
 
     <div class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
       Total: {{ data?.total || 0 }}

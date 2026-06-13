@@ -5,10 +5,11 @@ const route = useRoute()
 const api = useBackofficeApi()
 const { campaignTypes, channels } = useMessagingUi()
 const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAccess()
+const { apiErrorMessage } = useBookingFormatting()
+const toast = useBaseToastNotification()
 
 const campaignId = computed(() => route.params.id as string)
 const saving = ref(false)
-const saved = ref(false)
 
 const { data: campaign, pending, error } = await useAsyncData(() => `messaging-campaign-edit-${campaignId.value}`, () => api.getMessagingCampaign(campaignId.value), { watch: [campaignId] })
 
@@ -44,7 +45,10 @@ const save = async () => {
   saving.value = true
   try {
     await api.updateMessagingCampaign(campaignId.value, form)
-    saved.value = true
+    toast.success('Зміни збережено.')
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося зберегти кампанію.'))
   }
   finally {
     saving.value = false
@@ -62,7 +66,6 @@ const save = async () => {
       <NuxtLink :to="`/messaging/campaigns/${campaignId}`" class="rounded-full border border-slate-300 px-5 py-3 text-sm">До деталей</NuxtLink>
     </div>
 
-    <div v-if="saved" class="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">Зміни збережено.</div>
     <div v-if="pending" class="rounded-[1.75rem] bg-slate-100 p-8 text-sm text-slate-500">Завантажуємо кампанію...</div>
     <div v-else-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити кампанію.</div>
     <section v-else class="grid gap-6 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm xl:grid-cols-[1fr_360px]">

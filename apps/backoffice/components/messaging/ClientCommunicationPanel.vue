@@ -6,12 +6,11 @@ const props = defineProps<{ customerId: number | string }>()
 const api = useBackofficeApi()
 const { canCreateMessagingDrafts } = useBackofficeAccess()
 const { apiErrorMessage } = useBookingFormatting()
+const toast = useBaseToastNotification()
 const messageOpen = ref(false)
 const preferencesOpen = ref(false)
 const manualMessage = ref('')
 const saving = ref(false)
-const saved = ref('')
-const connectLinkError = ref('')
 const connectLink = ref('')
 const connectLinkLoading = ref(false)
 
@@ -40,7 +39,7 @@ const sendMessage = async () => {
     await api.sendCustomerManualMessage(props.customerId, manualMessage.value)
     manualMessage.value = ''
     messageOpen.value = false
-    saved.value = 'Повідомлення поставлено в чергу.'
+    toast.success('Повідомлення поставлено в чергу.')
     await refresh()
   }
   finally {
@@ -53,7 +52,7 @@ const savePreferences = async () => {
   try {
     await api.updateCustomerCommunication(props.customerId, preferences)
     preferencesOpen.value = false
-    saved.value = 'Комунікаційні налаштування оновлено.'
+    toast.success('Комунікаційні налаштування оновлено.')
     await refresh()
   }
   finally {
@@ -63,15 +62,14 @@ const savePreferences = async () => {
 
 const loadConnectLink = async () => {
   connectLinkLoading.value = true
-  connectLinkError.value = ''
   try {
     const response = await api.getCustomerTelegramConnectLink(props.customerId)
     connectLink.value = response.connect_link
-    saved.value = 'Telegram посилання створено.'
+    toast.success('Telegram посилання створено.')
   }
   catch (cause) {
     connectLink.value = ''
-    connectLinkError.value = apiErrorMessage(cause, 'Не вдалося створити Telegram посилання.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося створити Telegram посилання.'))
   }
   finally {
     connectLinkLoading.value = false
@@ -81,7 +79,7 @@ const loadConnectLink = async () => {
 const copyConnectLink = async () => {
   if (!connectLink.value || !import.meta.client) return
   await navigator.clipboard.writeText(connectLink.value)
-  saved.value = 'Telegram посилання скопійовано.'
+  toast.success('Telegram посилання скопійовано.')
 }
 </script>
 
@@ -98,8 +96,6 @@ const copyConnectLink = async () => {
       </div>
     </div>
 
-    <p v-if="saved" class="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-700">{{ saved }}</p>
-    <p v-if="connectLinkError" class="mt-4 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{{ connectLinkError }}</p>
     <p v-if="pending" class="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Завантажуємо комунікації...</p>
     <p v-else-if="error" class="mt-5 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">Комунікаційний профіль поки недоступний.</p>
 

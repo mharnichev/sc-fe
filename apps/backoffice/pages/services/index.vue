@@ -12,6 +12,7 @@ definePageMeta({
 })
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const {
   formatDuration,
   formatPrice,
@@ -28,8 +29,6 @@ const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
 const editing = ref<BaseService | null>(null)
-const formError = ref('')
-const successMessage = ref('')
 const deletingId = ref<number | string | null>(null)
 const serviceModalOpen = ref(false)
 const togglingService = ref<BaseService | null>(null)
@@ -49,21 +48,16 @@ const total = computed(() => normalizeTotal(data.value))
 
 const openCreateService = () => {
   editing.value = null
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const editService = (service: BaseService) => {
   editing.value = service
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const handleServiceSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   editing.value = null
   await refresh()
 }
@@ -83,8 +77,6 @@ const toggleContextItems = computed(() => {
 })
 
 const openToggleServiceConfirm = (service: BaseService) => {
-  formError.value = ''
-  successMessage.value = ''
   togglingService.value = service
 }
 
@@ -96,17 +88,15 @@ const confirmToggleService = async () => {
   const service = togglingService.value
   if (!service) return
 
-  formError.value = ''
-  successMessage.value = ''
   togglePending.value = true
   try {
     await api.adminUpdateBaseService(service.id, { is_active: !service.is_active })
-    successMessage.value = 'Статус базової послуги оновлено.'
+    toast.success('Статус базової послуги оновлено.')
     togglingService.value = null
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус базової послуги.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося оновити статус базової послуги.'))
   }
   finally {
     togglePending.value = false
@@ -116,17 +106,15 @@ const confirmToggleService = async () => {
 const deleteService = async (service: BaseService) => {
   if (!confirm(`Деактивувати base service "${serviceName(service)}"? Existing barber services keep their custom values.`)) return
 
-  formError.value = ''
-  successMessage.value = ''
   deletingId.value = service.id
   try {
     await api.adminDeleteBaseService(service.id)
-    successMessage.value = 'Базову послугу деактивовано.'
+    toast.success('Базову послугу деактивовано.')
     if (editing.value?.id === service.id) editing.value = null
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося видалити базову послугу.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити базову послугу.'))
   }
   finally {
     deletingId.value = null
@@ -151,9 +139,6 @@ const applyFilters = async () => {
         Створити базову послугу
       </button>
     </div>
-
-    <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
-    <p v-if="successMessage" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ successMessage }}</p>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">

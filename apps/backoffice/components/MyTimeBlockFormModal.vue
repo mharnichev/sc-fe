@@ -11,6 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const {
   todayInput,
   toKyivIso,
@@ -63,7 +64,10 @@ const validate = () => {
 
 const submit = async () => {
   formError.value = validate()
-  if (formError.value) return
+  if (formError.value) {
+    toast.warning(formError.value)
+    return
+  }
   saving.value = true
 
   try {
@@ -77,6 +81,7 @@ const submit = async () => {
   }
   catch (cause) {
     formError.value = apiErrorMessage(cause, 'Не вдалося створити блокування часу.')
+    toast.error(formError.value)
   }
   finally {
     saving.value = false
@@ -141,7 +146,6 @@ watch(
             Скинути
           </button>
         </div>
-        <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ formError }}</p>
       </form>
     </template>
   </BaseModal>

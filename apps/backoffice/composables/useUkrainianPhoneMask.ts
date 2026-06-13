@@ -3,20 +3,18 @@ const SUBSCRIBER_DIGITS = 9
 const PREFIX_DIGITS = '380'
 
 const extractSubscriberDigits = (value: string | null | undefined) => {
-  const digits = String(value || '').replace(/\D/g, '')
+  let digits = String(value || '').replace(/\D/g, '')
 
   if (PREFIX_DIGITS.startsWith(digits)) {
     return ''
   }
 
-  if (digits.startsWith(PREFIX_DIGITS)) {
-    const subscriberDigits = digits.slice(PREFIX_DIGITS.length, PREFIX_DIGITS.length + SUBSCRIBER_DIGITS)
+  while (digits.startsWith(PREFIX_DIGITS) && digits.length > PREFIX_DIGITS.length) {
+    digits = digits.slice(PREFIX_DIGITS.length)
+  }
 
-    if (subscriberDigits === PREFIX_DIGITS.slice(0, 2)) {
-      return ''
-    }
-
-    return subscriberDigits
+  if (PREFIX_DIGITS.startsWith(digits)) {
+    return ''
   }
 
   if (digits.startsWith('0')) {

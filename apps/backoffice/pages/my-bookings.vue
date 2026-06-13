@@ -3,6 +3,7 @@ import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const {
   statuses,
   todayInput,
@@ -42,7 +43,6 @@ const { data: services } = await useAsyncData('my-booking-service-options', () =
 
 const selected = ref<Booking | null>(null)
 const actionError = ref('')
-const actionSuccess = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingDelete = ref(false)
 
@@ -74,14 +74,15 @@ const updateStatus = async (status: BookingStatus) => {
   if (!selected.value || selected.value.status === 'completed') return
   pendingStatus.value = status
   actionError.value = ''
-  actionSuccess.value = ''
   try {
     const updated = await api.updateMyBookingStatus(selected.value.id, status)
     selected.value = { ...selected.value, ...updated }
+    toast.success('Статус бронювання оновлено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося оновити статус бронювання.')
+    toast.error(actionError.value)
   }
   finally {
     pendingStatus.value = ''
@@ -92,15 +93,15 @@ const deleteSelectedBooking = async () => {
   if (!selected.value || selected.value.status === 'completed') return
   pendingDelete.value = true
   actionError.value = ''
-  actionSuccess.value = ''
   try {
     await api.deleteMyBooking(selected.value.id)
     selected.value = null
-    actionSuccess.value = 'Бронювання видалено.'
+    toast.success('Бронювання видалено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
+    toast.error(actionError.value)
   }
   finally {
     pendingDelete.value = false
@@ -141,9 +142,6 @@ const deleteSelectedBooking = async () => {
     <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити ваші бронювання. TODO: підтвердити підтримку endpoint /masters/me/bookings у бекенді.') }}
     </p>
-    <p v-if="actionError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ actionError }}</p>
-    <p v-if="actionSuccess" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">{{ actionSuccess }}</p>
-
     <div class="grid grid-cols-3 gap-2 xl:gap-4">
       <div class="rounded-xl bg-slate-50 px-2 py-2 text-xs text-slate-600 xl:rounded-[1.25rem] xl:px-4 xl:py-3 xl:text-sm">Total: {{ total }}</div>
       <div class="rounded-xl bg-slate-50 px-2 py-2 text-xs text-slate-600 xl:rounded-[1.25rem] xl:px-4 xl:py-3 xl:text-sm">Сьогодні: {{ todayБронювання.length }}</div>
@@ -232,7 +230,6 @@ const deleteSelectedBooking = async () => {
       :pending-delete="pendingDelete"
       :can-edit="false"
       :can-delete="Boolean(selected && selected.status !== 'completed')"
-      :error="actionError"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"

@@ -70,7 +70,6 @@ const selectedBlock = ref<TimeBlock | null>(null)
 const selectedSelection = ref<CalendarSelection | null>(null)
 const actionModalOpen = ref(false)
 const actionError = ref('')
-const actionSuccess = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
 const pendingDelete = ref(false)
@@ -238,7 +237,6 @@ const goToToday = () => {
 
 const applyFilters = async () => {
   actionError.value = ''
-  actionSuccess.value = ''
   masterFilterOpen.value = false
   serviceFilterOpen.value = false
   statusFilterOpen.value = false
@@ -297,9 +295,9 @@ onBeforeUnmount(() => {
 
 const openActionModal = (selection: CalendarSelection) => {
   actionError.value = ''
-  actionSuccess.value = ''
   if (!canSelectSlots.value) {
     actionError.value = 'Виберіть майстра, щоб створювати бронювання або блокування часу.'
+    toastNotification.warning(actionError.value)
     return
   }
   selectedSelection.value = selection
@@ -401,19 +399,20 @@ const createTimeBlock = async (payload: CalendarActionPayload) => {
 
 const submitCalendarAction = async (payload: CalendarActionPayload) => {
   actionError.value = validateCalendarPayload(payload)
-  actionSuccess.value = ''
-  if (actionError.value) return
+  if (actionError.value) {
+    toastNotification.warning(actionError.value)
+    return
+  }
 
   actionPending.value = true
   try {
     if (payload.action === 'booking') {
       await createManualBooking(payload)
-      actionSuccess.value = 'Бронювання створено.'
       toastNotification.bookingCreated()
     }
     else {
       await createTimeBlock(payload)
-      actionSuccess.value = 'Блокування часу створено.'
+      toastNotification.success('Блокування часу створено.')
     }
     actionModalOpen.value = false
     selectedSelection.value = null
@@ -426,6 +425,7 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
         ? 'Не вдалося створити бронювання.'
         : 'Не вдалося створити блокування часу.',
     )
+    toastNotification.error(actionError.value)
   }
   finally {
     actionPending.value = false
@@ -441,10 +441,12 @@ const updateStatus = async (status: BookingStatus) => {
       ? await api.adminUpdateBookingStatus(selected.value.id, status)
       : await api.updateMyBookingStatus(selected.value.id, status)
     selected.value = { ...selected.value, ...updated }
+    toastNotification.success('Статус бронювання оновлено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося оновити статус бронювання.')
+    toastNotification.error(actionError.value)
   }
   finally {
     pendingStatus.value = ''
@@ -455,19 +457,20 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   if (!selected.value || selected.value.status === 'completed') return
   if (!isAdmin.value) {
     actionError.value = 'Лише адміністратор може редагувати час або послуги бронювання.'
+    toastNotification.warning(actionError.value)
     return
   }
   pendingSchedule.value = true
   actionError.value = ''
-  actionSuccess.value = ''
   try {
     const updated = await api.adminUpdateBookingSchedule(selected.value.id, payload)
     selected.value = { ...selected.value, ...updated }
-    actionSuccess.value = 'Час бронювання оновлено.'
+    toastNotification.success('Час бронювання оновлено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося оновити час бронювання.')
+    toastNotification.error(actionError.value)
   }
   finally {
     pendingSchedule.value = false
@@ -478,7 +481,6 @@ const deleteSelectedBooking = async () => {
   if (!selected.value || selected.value.status === 'completed' || !canManageBooking(selected.value.master_id)) return
   pendingDelete.value = true
   actionError.value = ''
-  actionSuccess.value = ''
   try {
     if (isAdmin.value) {
       await api.adminDeleteBooking(selected.value.id)
@@ -487,11 +489,12 @@ const deleteSelectedBooking = async () => {
       await api.deleteMyBooking(selected.value.id)
     }
     selected.value = null
-    actionSuccess.value = 'Бронювання видалено.'
+    toastNotification.success('Бронювання видалено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
+    toastNotification.error(actionError.value)
   }
   finally {
     pendingDelete.value = false
@@ -502,7 +505,6 @@ const deleteSelectedBlock = async () => {
   if (!selectedBlock.value) return
   deletingBlock.value = true
   actionError.value = ''
-  actionSuccess.value = ''
   try {
     if (isAdmin.value) {
       await api.adminDeleteTimeBlock(selectedBlock.value.id)
@@ -511,11 +513,12 @@ const deleteSelectedBlock = async () => {
       await api.deleteMyTimeBlock(selectedBlock.value.id)
     }
     selectedBlock.value = null
-    actionSuccess.value = 'Блокування часу видалено.'
+    toastNotification.success('Блокування часу видалено.')
     await refresh()
   }
   catch (cause) {
     actionError.value = apiErrorMessage(cause, 'Не вдалося видалити блокування часу.')
+    toastNotification.error(actionError.value)
   }
   finally {
     deletingBlock.value = false
@@ -735,8 +738,6 @@ const deleteSelectedBlock = async () => {
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити календар бронювань.') }}
       </p>
-      <p v-if="actionError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">{{ actionError }}</p>
-      <p v-if="actionSuccess" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700 md:rounded-2xl md:px-4 md:py-3 md:text-sm">{{ actionSuccess }}</p>
       <p v-if="pending" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">Завантаження календаря...</p>
       <p v-else-if="!calendarEntries.length" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
         У вибраному діапазоні немає бронювань або блокувань. Вільні слоти можна вибирати прямо в календарі.
@@ -805,7 +806,6 @@ const deleteSelectedBlock = async () => {
       :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
       :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
-      :error="actionError"
       :masters="masterOptions"
       :services="serviceOptions"
       @close="selected = null"
@@ -820,7 +820,6 @@ const deleteSelectedBlock = async () => {
       :services="bookingServiceOptions"
       :master-name="selectedMasterLabel"
       :pending="actionPending"
-      :error="actionError"
       @submit="submitCalendarAction"
     />
 

@@ -14,7 +14,6 @@ import {
   KeyIcon,
   LanguageIcon,
   PencilSquareIcon,
-  PhoneIcon,
   PhotoIcon,
   PlusIcon,
   UserCircleIcon,
@@ -37,8 +36,9 @@ const emit = defineEmits<{
 
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
+const toast = useBaseToastNotification()
 const { apiErrorMessage, masterName } = useBookingFormatting()
-const { formatPhone, normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
+const { normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 
 const form = reactive<MasterPayload>({
   full_name: '',
@@ -63,7 +63,6 @@ const avatarPreviewUrl = ref('')
 const imagePreviewUrl = ref('')
 const imagePreviewAlt = ref('')
 const fileInputKey = ref(0)
-const phoneFocused = ref(false)
 const positionSelectOpen = ref(false)
 const redirectSelectOpen = ref(false)
 const positionSelectRef = ref<HTMLElement | null>(null)
@@ -76,13 +75,6 @@ const positionOptions: Array<{ value: MasterPosition, label: string }> = [
 ]
 
 const editing = computed(() => props.master || null)
-const maskedPhone = computed({
-  get: () => formatPhone(form.phone, phoneFocused.value),
-  set: value => {
-    form.phone = formatPhone(value, true)
-  },
-})
-
 const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo || editing.value?.photo_url))
 const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar || editing.value?.avatar_url))
 const displayedPhotoUrl = computed(() => {
@@ -270,19 +262,12 @@ const validate = () => {
   return ''
 }
 
-const focusPhone = () => {
-  phoneFocused.value = true
-  form.phone = formatPhone(form.phone, true)
-}
-
-const blurPhone = () => {
-  phoneFocused.value = false
-  form.phone = formatPhone(form.phone) || null
-}
-
 const submit = async () => {
   formError.value = validate()
-  if (formError.value) return
+  if (formError.value) {
+    toast.warning(formError.value)
+    return
+  }
   saving.value = true
   const payload: MasterFormPayload = {
     ...form,
@@ -313,6 +298,7 @@ const submit = async () => {
   }
   catch (cause) {
     formError.value = apiErrorMessage(cause, 'Не вдалося зберегти майстра.')
+    toast.error(formError.value)
   }
   finally {
     saving.value = false
@@ -502,23 +488,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-1.5 text-sm text-slate-700">
-            <span class="flex items-center gap-2 font-medium">
-              <PhoneIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              Телефон
-            </span>
-            <input
-              v-model="maskedPhone"
-              type="tel"
-              inputmode="tel"
-              autocomplete="tel"
-              placeholder="+380 XX XXX XX XX"
-              maxlength="17"
-              class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4"
-              @focus="focusPhone"
-              @blur="blurPhone"
-            >
-          </label>
+          <BasePhoneInput v-model="form.phone" label="Телефон" />
           <label class="space-y-1.5 text-sm text-slate-700">
             <span class="flex items-center gap-2 font-medium">
               <EnvelopeIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
@@ -608,7 +578,6 @@ onBeforeUnmount(() => {
             Скинути
           </button>
         </div>
-        <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600 sm:rounded-2xl sm:px-4 sm:py-3">{{ formError }}</p>
       </form>
     </template>
   </BaseModal>

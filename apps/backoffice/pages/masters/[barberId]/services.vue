@@ -13,6 +13,7 @@ definePageMeta({
 
 const route = useRoute()
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
 const {
   masterName,
   formatDuration,
@@ -31,8 +32,6 @@ const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const selectedMaster = computed(() => masterOptions.value.find(master => String(master.id) === barberId.value) || null)
 
 const editing = ref<MasterService | null>(null)
-const formError = ref('')
-const successMessage = ref('')
 const deletingId = ref<number | string | null>(null)
 const syncPending = ref(false)
 const serviceModalOpen = ref(false)
@@ -53,21 +52,16 @@ const baseServiceOptions = computed<BaseService[]>(() => normalizeItems(baseServ
 
 const openCreateService = () => {
   editing.value = null
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const editService = (service: MasterService) => {
   editing.value = service
-  formError.value = ''
-  successMessage.value = ''
   serviceModalOpen.value = true
 }
 
 const handleServiceSaved = async (message: string) => {
-  successMessage.value = message
-  formError.value = ''
+  toast.success(message)
   editing.value = null
   await refresh()
 }
@@ -88,8 +82,6 @@ const toggleContextItems = computed(() => {
 })
 
 const openToggleServiceConfirm = (service: MasterService) => {
-  formError.value = ''
-  successMessage.value = ''
   togglingService.value = service
 }
 
@@ -101,17 +93,15 @@ const confirmToggleService = async () => {
   const service = togglingService.value
   if (!service) return
 
-  formError.value = ''
-  successMessage.value = ''
   togglePending.value = true
   try {
     await api.updateMasterService(barberId.value, service.id, { is_active: !service.is_active })
-    successMessage.value = 'Статус послуги майстра оновлено.'
+    toast.success('Статус послуги майстра оновлено.')
     togglingService.value = null
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося оновити статус послуги майстра.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося оновити статус послуги майстра.'))
   }
   finally {
     togglePending.value = false
@@ -121,12 +111,10 @@ const confirmToggleService = async () => {
 const deleteService = async (service: MasterService) => {
   if (!confirm(`Disable service "${serviceName(service)}" for this barber? It will be removed from активний lists but kept in history.`)) return
 
-  formError.value = ''
-  successMessage.value = ''
   deletingId.value = service.id
   try {
     await api.deleteMasterService(barberId.value, service.id)
-    successMessage.value = 'Послугу майстра вимкнено.'
+    toast.success('Послугу майстра вимкнено.')
     if (editing.value?.id === service.id) {
       editing.value = null
       serviceModalOpen.value = false
@@ -134,7 +122,7 @@ const deleteService = async (service: MasterService) => {
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося видалити послугу майстра.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити послугу майстра.'))
   }
   finally {
     deletingId.value = null
@@ -142,16 +130,14 @@ const deleteService = async (service: MasterService) => {
 }
 
 const syncDefaults = async () => {
-  formError.value = ''
-  successMessage.value = ''
   syncPending.value = true
   try {
     const result = await api.syncDefaultMasterServices(barberId.value)
-    successMessage.value = `Synced ${result.created_count} missing default service${result.created_count === 1 ? '' : 's'}. Existing custom names and prices were not overwritten.`
+    toast.success(`Synced ${result.created_count} missing default service${result.created_count === 1 ? '' : 's'}. Existing custom names and prices were not overwritten.`)
     await refresh()
   }
   catch (cause) {
-    formError.value = apiErrorMessage(cause, 'Не вдалося синхронізувати типові послуги.')
+    toast.error(apiErrorMessage(cause, 'Не вдалося синхронізувати типові послуги.'))
   }
   finally {
     syncPending.value = false
@@ -183,11 +169,6 @@ const syncDefaults = async () => {
     <p class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
       Синхронізація додає лише відсутні активні базові послуги для цього майстра. Вона не перезаписує власні назви, ціни, тривалість або описи наявних послуг майстра.
     </p>
-
-    <div class="space-y-3">
-      <p v-if="formError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ formError }}</p>
-      <p v-if="successMessage" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ successMessage }}</p>
-    </div>
 
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">

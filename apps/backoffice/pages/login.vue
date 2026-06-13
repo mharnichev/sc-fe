@@ -9,12 +9,11 @@ definePageMeta({ layout: false })
 
 const auth = useAuthStore()
 const { isLightTheme, themeToggleLabel, toggleTheme } = useBackofficeTheme()
+const toast = useBaseToastNotification()
 const form = reactive({ email: '', password: '' })
-const error = ref('')
 const pending = ref(false)
 
 const submit = async () => {
-  error.value = ''
   pending.value = true
   try {
     await auth.login(form.email, form.password)
@@ -24,7 +23,7 @@ const submit = async () => {
       typeof cause === 'object' && cause && 'data' in cause && typeof cause.data === 'object' && cause.data && 'detail' in cause.data
         ? String(cause.data.detail)
         : 'Невірні облікові дані'
-    error.value = message
+    toast.error(message)
   } finally {
     pending.value = false
   }
@@ -86,7 +85,6 @@ const submit = async () => {
         >
           {{ pending ? 'Вхід...' : 'Увійти в backoffice' }}
         </button>
-        <p v-if="error" class="rounded-2xl border border-red-300/15 bg-red-400/12 px-4 py-3 text-sm text-red-100">{{ error }}</p>
       </form>
     </section>
   </div>

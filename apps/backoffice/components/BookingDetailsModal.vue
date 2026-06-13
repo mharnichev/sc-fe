@@ -11,7 +11,6 @@ const props = defineProps<{
   pendingDelete?: boolean
   canEdit?: boolean
   canDelete?: boolean
-  error?: string
   masters?: Master[]
   services?: Service[]
 }>()
@@ -38,6 +37,7 @@ const {
   formatBookingStatus,
   toKyivIso,
 } = useBookingFormatting()
+const toast = useBaseToastNotification()
 
 const allowed = computed(() => props.allowedStatuses || [])
 const scheduleForm = reactive({
@@ -162,10 +162,12 @@ const submitSchedule = () => {
   scheduleError.value = ''
   if (!scheduleForm.date || !scheduleForm.start_time) {
     scheduleError.value = 'Вкажіть дату та час початку.'
+    toast.warning(scheduleError.value)
     return
   }
   if (!Number.isFinite(scheduleForm.duration_minutes) || scheduleForm.duration_minutes < 1) {
     scheduleError.value = 'Тривалість має бути більше 0 хвилин.'
+    toast.warning(scheduleError.value)
     return
   }
 
@@ -179,6 +181,7 @@ const submitServices = () => {
   const serviceIds = serviceForm.service_ids.map(Number).filter(Number.isFinite)
   if (!serviceIds.length) {
     serviceError.value = 'Виберіть хоча б одну послугу.'
+    toast.warning(serviceError.value)
     return
   }
 
@@ -322,7 +325,6 @@ onBeforeUnmount(() => {
                 Скасувати
               </button>
             </div>
-            <p v-if="serviceError" class="mt-2 text-sm text-rose-600">{{ serviceError }}</p>
           </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
@@ -374,7 +376,6 @@ onBeforeUnmount(() => {
                 Скасувати
               </button>
             </div>
-            <p v-if="scheduleError" class="mt-2 text-sm text-rose-600">{{ scheduleError }}</p>
           </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
@@ -425,10 +426,6 @@ onBeforeUnmount(() => {
           </p>
           <p class="mt-1 text-sm leading-5 text-slate-700 sm:mt-2 sm:leading-6">{{ bookingComment(booking) || 'Без коментаря' }}</p>
         </div>
-
-        <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600 sm:rounded-2xl sm:px-4 sm:py-3">
-          {{ error }}
-        </p>
 
         <div v-if="orderedAllowedStatuses.length || canDeleteBooking" class="grid grid-cols-2 gap-2 pt-2 sm:gap-3 sm:pt-3">
           <button

@@ -3,12 +3,13 @@ import type { AudienceEstimate, AudienceRule, CampaignPayload, CampaignType, Mes
 
 const api = useBackofficeApi()
 const router = useRouter()
+const toast = useBaseToastNotification()
 const { campaignTypes, channels, variables, sampleClient } = useMessagingUi()
+const { apiErrorMessage } = useBookingFormatting()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
 const step = ref(1)
 const saving = ref(false)
-const toast = ref('')
 const showSendConfirm = ref(false)
 const showRecipients = ref(false)
 const audienceLoading = ref(false)
@@ -118,8 +119,11 @@ const save = async (activate = false) => {
   try {
     const payload = { ...form, status: activate ? 'active' as const : form.status }
     const campaign = await api.createMessagingCampaign(payload)
-    toast.value = activate ? 'Кампанію активовано.' : 'Чернетку збережено.'
+    toast.success(activate ? 'Кампанію активовано.' : 'Чернетку збережено.')
     await router.push(`/messaging/campaigns/${campaign.id}`)
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, activate ? 'Не вдалося активувати кампанію.' : 'Не вдалося зберегти чернетку.'))
   }
   finally {
     saving.value = false
@@ -150,8 +154,6 @@ const nextStep = () => {
       </div>
       <NuxtLink to="/messaging/campaigns" class="rounded-full border border-slate-300 px-5 py-3 text-sm">До списку</NuxtLink>
     </div>
-
-    <div v-if="toast" class="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{{ toast }}</div>
 
     <div class="grid gap-6 xl:grid-cols-[260px_1fr]">
       <aside class="messaging-wizard-steps rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">

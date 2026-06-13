@@ -29,6 +29,7 @@ const emit = defineEmits<{
 
 const calendar = useBookingCalendar()
 const { bookingPhone, customerName, todayInput } = useBookingFormatting()
+const toast = useBaseToastNotification()
 const isCompactViewport = ref(false)
 const today = computed(() => todayInput())
 const slotHeight = computed(() => isCompactViewport.value ? 54 : 60)
@@ -264,6 +265,10 @@ watch(
   () => [props.days, props.busyRanges, props.selectable],
   () => clearSelection(),
 )
+
+watch(selectionError, value => {
+  if (value) toast.warning(value)
+})
 </script>
 
 <template>
@@ -286,7 +291,6 @@ watch(
           <span class="h-2 w-2 rounded-full bg-white/25" /> Вихідний
         </span>
       </div>
-      <p v-if="selectionError" class="text-sm font-medium text-[var(--danger)]">{{ selectionError }}</p>
     </div>
 
     <div
