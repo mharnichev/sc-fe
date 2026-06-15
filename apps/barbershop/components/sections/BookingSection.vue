@@ -616,7 +616,7 @@ const closeSuccess = () => {
                     <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
                       {{ terms.home.booking.steps[0] }}
                     </h3>
-                    <div class="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+                    <div class="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 sm:gap-3 xl:grid-cols-2">
                       <button
                         v-for="service in activeServices"
                         :key="serviceKey(service)"
