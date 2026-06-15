@@ -3,7 +3,7 @@ import {
   ArrowPathIcon,
   ArrowRightIcon,
 } from '@heroicons/vue/24/outline'
-import type { Booking, Master, MasterService, TimeBlock } from '~/composables/useBackofficeApi'
+import type { Booking, Master, MasterAvailabilityWindow, MasterService, TimeBlock } from '~/composables/useBackofficeApi'
 
 type AvailabilityTone = 'available' | 'partial' | 'blocked' | 'closed'
 
@@ -56,13 +56,17 @@ const barberId = computed(() => linkedMaster.value?.id || auth.user?.master_id |
 const { data, pending, error, refresh } = await useAsyncData(
   'barber-dashboard',
   async () => {
-    const [bookings, timeBlocks, services] = await Promise.all([
+    const [bookings, timeBlocks, services, availability] = await Promise.all([
       api.getMyBookings({ date_from: today, date_to: rangeEnd }),
       api.getMyTimeBlocks(),
       barberId.value ? api.getMasterServices(barberId.value) : Promise.resolve([] as MasterService[]),
+      api.getMyAvailability({
+        date_from: toKyivIso(today, workdayStart),
+        date_to: toKyivIso(addDaysInput(today, availabilityDays - 1), workdayEnd),
+      }),
     ])
 
-    return { bookings, timeBlocks, services }
+    return { bookings, timeBlocks, services, availability }
   },
   { watch: [barberId] },
 )
@@ -70,6 +74,7 @@ const { data, pending, error, refresh } = await useAsyncData(
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
 const services = computed<MasterService[]>(() => normalizeItems(data.value?.services))
+const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => data.value?.availability || [])
 
 const dateInputFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone,
@@ -199,6 +204,21 @@ const timeBlockOverlapMinutes = (block: TimeBlock, dateInput: string) => {
   return Math.round((overlapEnd - overlapStart) / 60000)
 }
 
+const availabilityOverlapMinutes = (window: MasterAvailabilityWindow, dateInput: string) => {
+  const workStart = new Date(toKyivIso(dateInput, workdayStart)).getTime()
+  const workEnd = new Date(toKyivIso(dateInput, workdayEnd)).getTime()
+  const windowStart = new Date(window.start_at).getTime()
+  const windowEnd = new Date(window.end_at).getTime()
+
+  if ([workStart, workEnd, windowStart, windowEnd].some(Number.isNaN)) return 0
+
+  const overlapStart = Math.max(workStart, windowStart)
+  const overlapEnd = Math.min(workEnd, windowEnd)
+  if (overlapEnd <= overlapStart) return 0
+
+  return Math.round((overlapEnd - overlapStart) / 60000)
+}
+
 const availabilityStatusClass = (tone: AvailabilityTone) => ({
   available: 'bg-emerald-50 text-emerald-700',
   partial: 'bg-amber-50 text-amber-700',
@@ -216,23 +236,48 @@ const availabilityRows = computed(() =>
         minutes: timeBlockOverlapMinutes(block, date),
       }))
       .filter(segment => segment.minutes > 0)
+    const openSegments = availabilityWindows.value
+      .map(window => ({
+        window,
+        minutes: availabilityOverlapMinutes(window, date),
+      }))
+      .filter(segment => segment.minutes > 0)
 
     const manualBlockedMinutes = Math.min(
       workdayMinutes,
       blocks.reduce((total, segment) => total + segment.minutes, 0),
     )
-    const blockedMinutes = dayOff ? workdayMinutes : manualBlockedMinutes
-    const availableMinutes = dayOff ? 0 : Math.max(0, workdayMinutes - manualBlockedMinutes)
-    const busyPercent = Math.min(100, Math.round((blockedMinutes / workdayMinutes) * 100))
-    const tone: AvailabilityTone = dayOff ? 'closed' : blockedMinutes >= workdayMinutes ? 'blocked' : blockedMinutes > 0 ? 'partial' : 'available'
-    const status = dayOff ? 'Вихідний' : blockedMinutes >= workdayMinutes ? 'Повністю заблоковано' : blockedMinutes > 0 ? 'Частково заблоковано' : 'Доступний'
+    const openMinutes = dayOff ? 0 : Math.min(
+      workdayMinutes,
+      openSegments.reduce((total, segment) => total + segment.minutes, 0),
+    )
+    const availableMinutes = dayOff ? 0 : Math.max(0, openMinutes - manualBlockedMinutes)
+    const busyPercent = Math.min(100, Math.round((openMinutes / workdayMinutes) * 100))
+    const tone: AvailabilityTone = dayOff || openMinutes <= 0
+      ? 'closed'
+      : manualBlockedMinutes >= openMinutes
+        ? 'blocked'
+        : openMinutes < workdayMinutes || manualBlockedMinutes > 0
+          ? 'partial'
+          : 'available'
+    const status = dayOff
+      ? 'Вихідний'
+      : openMinutes <= 0
+        ? 'Не відкрито'
+        : manualBlockedMinutes >= openMinutes
+          ? 'Повністю заблоковано'
+          : openMinutes < workdayMinutes || manualBlockedMinutes > 0
+            ? 'Частково відкрито'
+            : 'Відкрито'
 
     return {
       date,
       label: formatInputDate(date),
       dayOff,
       blocks,
-      blockedMinutes,
+      blockedMinutes: manualBlockedMinutes,
+      openSegments,
+      openMinutes,
       availableMinutes,
       busyPercent,
       status,
@@ -423,11 +468,11 @@ const availabilityRows = computed(() =>
         <div>
           <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Доступність</h2>
           <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">
-            Місяць вперед за графіком {{ workdayStart }}-{{ workdayEnd }}. Понеділок — вихідний за замовчуванням.
+            Місяць вперед за відкритими інтервалами {{ workdayStart }}-{{ workdayEnd }}. Понеділок — вихідний за замовчуванням.
           </p>
         </div>
         <NuxtLink to="/my-time-blocks" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
-          Блокування
+          Доступність
           <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
         </NuxtLink>
       </div>
@@ -438,7 +483,7 @@ const availabilityRows = computed(() =>
             <tr>
               <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Дата</th>
               <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Статус</th>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Заблоковано</th>
+              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Відкрито</th>
               <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Доступно</th>
               <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Блокування часу</th>
             </tr>
@@ -454,10 +499,10 @@ const availabilityRows = computed(() =>
                   {{ row.status }}
                 </span>
               </td>
-              <td data-label="Заблоковано" class="px-3 py-2 xl:px-4 xl:py-3">
-                <p class="font-medium text-slate-900">{{ formatDuration(row.blockedMinutes) }}</p>
+              <td data-label="Відкрито" class="px-3 py-2 xl:px-4 xl:py-3">
+                <p class="font-medium text-slate-900">{{ formatDuration(row.openMinutes) }}</p>
                 <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div class="h-full rounded-full bg-slate-900" :style="{ width: `${row.busyPercent}%` }" />
+                  <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${row.busyPercent}%` }" />
                 </div>
               </td>
               <td data-label="Доступно" class="px-3 py-2 text-slate-700 xl:px-4 xl:py-3">{{ formatDuration(row.availableMinutes) }}</td>

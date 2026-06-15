@@ -33,6 +33,7 @@ const {
   bookingServiceIds,
   bookingServices,
   bookingServicesLabel,
+  formatPrice,
   formatDateTime,
   formatBookingStatus,
   toKyivIso,
@@ -123,6 +124,15 @@ const redirectSourceName = computed(() =>
 const resolvedServices = computed(() =>
   props.booking ? bookingServices(props.booking, props.services || []) : [],
 )
+
+const resolvedServicesPriceLabel = computed(() => {
+  if (!resolvedServices.value.length) return ''
+  const total = resolvedServices.value.reduce((sum, service) => sum + Number(service.price || 0), 0)
+
+  if (resolvedServices.value.length === 1) return formatPrice(resolvedServices.value[0]?.price)
+
+  return `${resolvedServices.value.map(service => formatPrice(service.price)).join(', ')} · разом ${formatPrice(total)}`
+})
 
 const editableServiceOptions = computed(() => {
   if (!props.booking) return []
@@ -300,7 +310,12 @@ onBeforeUnmount(() => {
           </div>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber && !redirectSourceName ? 'col-span-2' : ''">
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуги</dt>
-            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ bookingServicesLabel(booking, services || []) }}</dd>
+            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">
+              {{ bookingServicesLabel(booking, services || []) }}
+              <span v-if="resolvedServicesPriceLabel" class="mt-0.5 block text-xs font-medium text-slate-500 sm:text-sm">
+                Ціна: {{ resolvedServicesPriceLabel }}
+              </span>
+            </dd>
           </div>
           <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
             <button

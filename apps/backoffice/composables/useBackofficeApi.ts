@@ -351,11 +351,33 @@ export interface TimeBlock {
   master?: Master | null
 }
 
+export interface MasterAvailabilityWindow {
+  id: number
+  master_id: number
+  start_at: string
+  end_at: string
+  created_at?: string
+  updated_at?: string
+  master?: Master | null
+}
+
 export interface TimeBlockPayload {
   start_at: string
   end_at: string
   reason?: string | null
   master_id?: number
+}
+
+export interface AvailabilityWindowPayload {
+  start_at: string
+  end_at: string
+  master_id?: number
+}
+
+export interface AvailabilityFilters {
+  date_from?: string
+  date_to?: string
+  master_id?: number | null
 }
 
 export interface ServicePayload {
@@ -963,6 +985,28 @@ export const useBackofficeApi = () => {
       method: 'DELETE',
     })
 
+  const getMyAvailability = (filters: AvailabilityFilters) =>
+    api<MasterAvailabilityWindow[]>('/backoffice/masters/me/availability', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+    })
+
+  const createMyAvailabilityWindow = (payload: AvailabilityWindowPayload) =>
+    api<MasterAvailabilityWindow>('/backoffice/masters/me/availability/windows', {
+      method: 'POST',
+      body: {
+        start_at: payload.start_at,
+        end_at: payload.end_at,
+      },
+    })
+
+  const deleteMyAvailabilityWindow = (windowId: number | string) =>
+    api(`/backoffice/masters/me/availability/${windowId}`, {
+      method: 'DELETE',
+    })
+
   const getMyMonthlyStatistics = (year: number, month: number) =>
     api<BarberMonthlyStatisticsResponse>('/backoffice/statistics/me/monthly', {
       query: { year, month },
@@ -1167,6 +1211,26 @@ export const useBackofficeApi = () => {
 
   const adminDeleteTimeBlock = (blockId: number | string) =>
     api(`/backoffice/time-blocks/${blockId}`, {
+      method: 'DELETE',
+    })
+
+  const adminGetAvailability = (filters: AvailabilityFilters) =>
+    api<MasterAvailabilityWindow[]>('/backoffice/availability', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        master_id: filters.master_id ?? undefined,
+      },
+    })
+
+  const adminCreateAvailabilityWindow = (payload: AvailabilityWindowPayload) =>
+    api<MasterAvailabilityWindow>('/backoffice/availability/windows', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminDeleteAvailabilityWindow = (windowId: number | string) =>
+    api(`/backoffice/availability/${windowId}`, {
       method: 'DELETE',
     })
 
@@ -1442,6 +1506,9 @@ export const useBackofficeApi = () => {
     getMyTimeBlocks,
     createMyTimeBlock,
     deleteMyTimeBlock,
+    getMyAvailability,
+    createMyAvailabilityWindow,
+    deleteMyAvailabilityWindow,
     getMyMonthlyStatistics,
     getBarberMonthlyStatistics,
     adminGetMonthlyStatistics,
@@ -1469,6 +1536,9 @@ export const useBackofficeApi = () => {
     adminGetTimeBlocks,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,
+    adminGetAvailability,
+    adminCreateAvailabilityWindow,
+    adminDeleteAvailabilityWindow,
     getBlogStatistics,
     getBlogSubscriptions,
     getBlogSubscriptionEvents,

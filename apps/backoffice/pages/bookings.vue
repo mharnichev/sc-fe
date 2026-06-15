@@ -18,11 +18,14 @@ import type {
   BookingStatus,
   ManualBookingPayload,
   Master,
+  MasterAvailabilityWindow,
   Service,
   TimeBlock,
 } from '~/composables/useBackofficeApi'
 import type {
   CalendarActionPayload,
+  CalendarActionType,
+  CalendarDay,
   CalendarDisplayEntry,
   CalendarSelection,
   CalendarViewMode,
@@ -50,6 +53,7 @@ const {
   bookingServicesLabel,
   formatDateTime,
   formatTime,
+  toKyivIso,
   normalizeItems,
   normalizeTotal,
   apiErrorMessage,
@@ -68,6 +72,7 @@ const filters = reactive({
 const selected = ref<Booking | null>(null)
 const selectedBlock = ref<TimeBlock | null>(null)
 const selectedSelection = ref<CalendarSelection | null>(null)
+const selectedDefaultAction = ref<CalendarActionType>('availability')
 const actionModalOpen = ref(false)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
@@ -138,20 +143,26 @@ const { data, pending, error, refresh } = await useAsyncData(
       service_id: filters.service_id ? Number(filters.service_id) : null,
       status: filters.status as BookingStatus | '',
     }
+    const availabilityFilters = {
+      date_from: toKyivIso(anchorDate.value, calendar.workdayStart),
+      date_to: toKyivIso(rangeEnd.value, calendar.workdayEnd),
+      master_id: masterId,
+    }
 
     if (isAdmin.value) {
-      const [bookings, timeBlocks] = await Promise.all([
+      const [bookings, timeBlocks, availability] = await Promise.all([
         api.adminGetBookings(1, pageSize, bookingFilters),
         api.adminGetTimeBlocks(1, pageSize, {
           date_from: anchorDate.value,
           date_to: rangeEnd.value,
           master_id: masterId,
         }),
+        masterId ? api.adminGetAvailability(availabilityFilters) : Promise.resolve([] as MasterAvailabilityWindow[]),
       ])
-      return { bookings, timeBlocks }
+      return { bookings, timeBlocks, availability }
     }
 
-    const [bookings, timeBlocks] = await Promise.all([
+    const [bookings, timeBlocks, availability] = await Promise.all([
       api.getMyBookings({
         date_from: anchorDate.value,
         date_to: rangeEnd.value,
@@ -161,8 +172,9 @@ const { data, pending, error, refresh } = await useAsyncData(
         date_from: anchorDate.value,
         date_to: rangeEnd.value,
       }),
+      api.getMyAvailability(availabilityFilters),
     ])
-    return { bookings, timeBlocks }
+    return { bookings, timeBlocks, availability }
   },
   {
     watch: [
@@ -178,6 +190,7 @@ const { data, pending, error, refresh } = await useAsyncData(
 
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
+const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => data.value?.availability || [])
 
 const visibleBookings = computed(() => {
   const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
@@ -194,6 +207,7 @@ const visibleBlocks = computed(() =>
 
 const activeBookings = computed(() => visibleBookings.value.filter(booking => booking.status !== 'cancelled'))
 const busyRanges = computed(() => calendar.buildBusyRanges(activeBookings.value, visibleBlocks.value, serviceOptions.value))
+const availabilityRanges = computed(() => selectedMasterId.value ? calendar.buildAvailabilityRanges(availabilityWindows.value) : [])
 const calendarEntries = computed(() => calendar.buildDisplayEntries(activeBookings.value, visibleBlocks.value, serviceOptions.value))
 const total = computed(() => normalizeTotal(data.value?.bookings))
 
@@ -219,6 +233,23 @@ const allowedStatusActions = (booking: Booking | null) =>
   !booking || booking.status === 'completed' || !canManageBooking(booking.master_id)
     ? []
     : statuses.filter(status => status !== booking.status)
+
+const addCalendarMonthsInput = (dateInput: string, months: number) => {
+  const [year, month, day] = dateInput.split('-').map(Number)
+  const monthIndex = month - 1 + months
+  const nextYear = year + Math.floor(monthIndex / 12)
+  const nextMonthIndex = ((monthIndex % 12) + 12) % 12
+  const lastDay = new Date(Date.UTC(nextYear, nextMonthIndex + 1, 0, 12)).getUTCDate()
+  return `${nextYear}-${String(nextMonthIndex + 1).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
+}
+
+const availabilityHorizonEnd = computed(() => addCalendarMonthsInput(todayInput(), 2))
+
+const availabilityOverlapsExisting = (startAt: string, endAt: string) =>
+  calendar.rangeOverlapsAvailability(startAt, endAt, availabilityRanges.value)
+
+const selectionDefaultAction = (selection: CalendarSelection): CalendarActionType =>
+  calendar.rangeWithinAvailability(selection.startAt, selection.endAt, availabilityRanges.value) ? 'booking' : 'availability'
 
 const setViewMode = (mode: CalendarViewMode) => {
   viewMode.value = mode
@@ -296,12 +327,47 @@ onBeforeUnmount(() => {
 const openActionModal = (selection: CalendarSelection) => {
   actionError.value = ''
   if (!canSelectSlots.value) {
-    actionError.value = 'Виберіть майстра, щоб створювати бронювання або блокування часу.'
+    actionError.value = 'Виберіть майстра, щоб керувати бронюваннями, блокуваннями або доступністю.'
     toastNotification.warning(actionError.value)
     return
   }
   selectedSelection.value = selection
+  selectedDefaultAction.value = selectionDefaultAction(selection)
   actionModalOpen.value = true
+}
+
+const openDayAvailability = async (day: CalendarDay) => {
+  const payload: CalendarActionPayload = {
+    action: 'availability',
+    service_id: null,
+    service_ids: [],
+    customer_name: '',
+    customer_phone: '',
+    customer_email: '',
+    note: '',
+    start_at: toKyivIso(day.date, calendar.workdayStart),
+    end_at: toKyivIso(day.date, calendar.workdayEnd),
+  }
+
+  actionError.value = validateCalendarPayload(payload)
+  if (actionError.value) {
+    toastNotification.warning(actionError.value)
+    return
+  }
+
+  actionPending.value = true
+  try {
+    await createAvailabilityWindow(payload)
+    toastNotification.success('День відкрито для запису.')
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(cause, 'Не вдалося відкрити день для запису.')
+    toastNotification.error(actionError.value)
+  }
+  finally {
+    actionPending.value = false
+  }
 }
 
 const handleEntryClick = (entry: CalendarDisplayEntry) => {
@@ -330,6 +396,13 @@ const validateCalendarPayload = (payload: CalendarActionPayload) => {
   if (startTime < calendar.workdayStart || endTime > calendar.workdayEnd || startTime >= endTime) {
     return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
   }
+  if (payload.action === 'availability') {
+    if (date < todayInput()) return 'Минулі дні не можна відкривати для запису.'
+    if (date > availabilityHorizonEnd.value) return 'Доступність можна відкривати лише на найближчі 2 місяці.'
+    if (new Date(payload.end_at).getTime() <= Date.now()) return 'Минулий час не можна відкривати для запису.'
+    if (availabilityOverlapsExisting(payload.start_at, payload.end_at)) return 'Цей інтервал уже перетинається з відкритою доступністю.'
+    return ''
+  }
   if (!isAdmin.value && new Date(payload.end_at).getTime() <= Date.now()) return 'Минулі часові слоти недоступні.'
   if (calendar.rangeOverlapsBusy(payload.start_at, payload.end_at, busyRanges.value)) {
     return payload.action === 'booking'
@@ -337,6 +410,9 @@ const validateCalendarPayload = (payload: CalendarActionPayload) => {
       : 'Блокування не може перетинатися з бронюванням або іншим блокуванням.'
   }
   if (payload.action === 'booking' && !payload.service_ids.length) return 'Виберіть хоча б одну послугу.'
+  if (payload.action === 'booking' && !isAdmin.value && !calendar.rangeWithinAvailability(payload.start_at, payload.end_at, availabilityRanges.value)) {
+    return 'Спочатку відкрийте цей інтервал для запису.'
+  }
   return ''
 }
 
@@ -397,6 +473,22 @@ const createTimeBlock = async (payload: CalendarActionPayload) => {
   })
 }
 
+const createAvailabilityWindow = async (payload: CalendarActionPayload) => {
+  if (isAdmin.value) {
+    await api.adminCreateAvailabilityWindow({
+      master_id: selectedMasterId.value as number,
+      start_at: payload.start_at,
+      end_at: payload.end_at,
+    })
+    return
+  }
+
+  await api.createMyAvailabilityWindow({
+    start_at: payload.start_at,
+    end_at: payload.end_at,
+  })
+}
+
 const submitCalendarAction = async (payload: CalendarActionPayload) => {
   actionError.value = validateCalendarPayload(payload)
   if (actionError.value) {
@@ -410,9 +502,13 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
       await createManualBooking(payload)
       toastNotification.bookingCreated()
     }
-    else {
+    else if (payload.action === 'block') {
       await createTimeBlock(payload)
       toastNotification.success('Блокування часу створено.')
+    }
+    else {
+      await createAvailabilityWindow(payload)
+      toastNotification.success('Доступність відкрито для запису.')
     }
     actionModalOpen.value = false
     selectedSelection.value = null
@@ -423,7 +519,9 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
       cause,
       payload.action === 'booking'
         ? 'Не вдалося створити бронювання.'
-        : 'Не вдалося створити блокування часу.',
+        : payload.action === 'block'
+          ? 'Не вдалося створити блокування часу.'
+          : 'Не вдалося відкрити доступність.',
     )
     toastNotification.error(actionError.value)
   }
@@ -719,7 +817,7 @@ const deleteSelectedBlock = async () => {
 
         <div class="order-last col-span-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2 md:rounded-2xl md:px-4 md:py-3 md:text-sm xl:col-span-5">
           <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
-          <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }}</p>
+          <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }} · Відкритих інтервалів: {{ availabilityWindows.length }}</p>
         </div>
         <div class="col-span-2 flex min-w-0 items-end gap-2 md:col-span-1 md:gap-3">
           <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 md:min-h-12 md:px-4 md:py-3 md:text-sm" @click="applyFilters">
@@ -749,10 +847,12 @@ const deleteSelectedBlock = async () => {
       :slots-by-day="slotsByDay"
       :entries="calendarEntries"
       :busy-ranges="busyRanges"
+      :availability-ranges="availabilityRanges"
       :selectable="canSelectSlots"
       :allow-past-selection="canSelectPastSlots"
-      :loading="pending"
+      :loading="pending || actionPending"
       @select="openActionModal"
+      @open-day="openDayAvailability"
       @entry-click="handleEntryClick"
     />
 
@@ -819,6 +919,7 @@ const deleteSelectedBlock = async () => {
       :selection="selectedSelection"
       :services="bookingServiceOptions"
       :master-name="selectedMasterLabel"
+      :default-action="selectedDefaultAction"
       :pending="actionPending"
       @submit="submitCalendarAction"
     />

@@ -1,8 +1,8 @@
-import type { Booking, Service, TimeBlock } from '~/composables/useBackofficeApi'
+import type { Booking, MasterAvailabilityWindow, Service, TimeBlock } from '~/composables/useBackofficeApi'
 
 export type CalendarViewMode = 'today' | 'week' | 'month'
 export type CalendarEntryKind = 'booking' | 'block'
-export type CalendarActionType = 'booking' | 'block'
+export type CalendarActionType = 'booking' | 'block' | 'availability'
 
 export interface CalendarDay {
   date: string
@@ -35,6 +35,16 @@ export interface CalendarBusyRange {
   endAt: string
   startMinutes: number
   endMinutes: number
+}
+
+export interface CalendarAvailabilityRange {
+  id: string
+  date: string
+  startAt: string
+  endAt: string
+  startMinutes: number
+  endMinutes: number
+  window: MasterAvailabilityWindow
 }
 
 export interface CalendarDisplayEntry extends CalendarBusyRange {
@@ -264,10 +274,46 @@ export const useBookingCalendar = () => {
     }
   }
 
+  const availabilityRange = (window: MasterAvailabilityWindow): CalendarAvailabilityRange | null => {
+    const date = dateInputFromDateTime(window.start_at)
+    const startTime = timeInputFromDateTime(window.start_at)
+    const endTime = timeInputFromDateTime(window.end_at)
+    if (!date || !startTime || !endTime) return null
+
+    return {
+      id: `availability-${window.id}`,
+      date,
+      startAt: window.start_at,
+      endAt: window.end_at,
+      startMinutes: toMinutes(startTime),
+      endMinutes: toMinutes(endTime),
+      window,
+    }
+  }
+
   const buildBusyRanges = (bookings: Booking[], blocks: TimeBlock[], services: Service[]) => [
     ...bookings.map(booking => bookingRange(booking, services)).filter(Boolean) as CalendarBusyRange[],
     ...blocks.map(blockRange).filter(Boolean) as CalendarBusyRange[],
   ]
+
+  const buildAvailabilityRanges = (windows: MasterAvailabilityWindow[]) =>
+    windows.map(availabilityRange).filter(Boolean) as CalendarAvailabilityRange[]
+
+  const rangeWithinAvailability = (startAt: string, endAt: string, availabilityRanges: CalendarAvailabilityRange[]) => {
+    const startTime = new Date(startAt).getTime()
+    const endTime = new Date(endAt).getTime()
+    if ([startTime, endTime].some(Number.isNaN)) return false
+
+    return availabilityRanges.some(range => {
+      const rangeStart = new Date(range.startAt).getTime()
+      const rangeEnd = new Date(range.endAt).getTime()
+      if ([rangeStart, rangeEnd].some(Number.isNaN)) return false
+      return rangeStart <= startTime && rangeEnd >= endTime
+    })
+  }
+
+  const rangeOverlapsAvailability = (startAt: string, endAt: string, availabilityRanges: CalendarAvailabilityRange[]) =>
+    availabilityRanges.some(range => rangesOverlap(startAt, endAt, range.startAt, range.endAt))
 
   const buildDisplayEntries = (bookings: Booking[], blocks: TimeBlock[], services: Service[]): CalendarDisplayEntry[] => {
     const bookingEntries = bookings
@@ -326,10 +372,13 @@ export const useBookingCalendar = () => {
     buildDays,
     buildSlotsByDay,
     buildBusyRanges,
+    buildAvailabilityRanges,
     buildDisplayEntries,
     dateInputFromDateTime,
     isMonday,
     rangeOverlapsBusy,
+    rangeWithinAvailability,
+    rangeOverlapsAvailability,
     rangesOverlap,
     selectionFromSlots,
   }
@@ -340,6 +389,7 @@ export const useBookingSlotSelection = (
   busyRanges: Ref<CalendarBusyRange[]>,
   enabled: Ref<boolean>,
   allowPastSelection: Ref<boolean> = ref(false),
+  availabilityRanges: Ref<CalendarAvailabilityRange[]> = ref([]),
 ) => {
   const calendar = useBookingCalendar()
   const anchorSlot = ref<CalendarSlot | null>(null)
@@ -360,6 +410,9 @@ export const useBookingSlotSelection = (
 
   const slotHasConflict = (slot: CalendarSlot) =>
     busyRanges.value.some(range => range.date === slot.date && calendar.rangesOverlap(slot.startAt, slot.endAt, range.startAt, range.endAt))
+
+  const slotIsOpen = (slot: CalendarSlot) =>
+    calendar.rangeWithinAvailability(slot.startAt, slot.endAt, availabilityRanges.value)
 
   const slotIsSelectable = (slot: CalendarSlot) =>
     enabled.value && !slot.isMonday && (allowPastSelection.value || !slot.isPast) && !slotHasConflict(slot)
@@ -440,7 +493,8 @@ export const useBookingSlotSelection = (
     if (slot.isMonday) return 'day-off'
     if (slot.isPast && !allowPastSelection.value) return 'past'
     if (slotHasConflict(slot)) return 'busy'
-    return enabled.value ? 'free' : 'disabled'
+    if (!enabled.value) return 'disabled'
+    return slotIsOpen(slot) ? 'open' : 'closed'
   }
 
   return {
@@ -450,6 +504,7 @@ export const useBookingSlotSelection = (
     isSelecting,
     slotById,
     slotHasConflict,
+    slotIsOpen,
     slotIsSelectable,
     startSelection,
     extendSelection,

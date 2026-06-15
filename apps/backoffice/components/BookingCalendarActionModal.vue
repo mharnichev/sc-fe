@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
 import type { Service } from '~/composables/useBackofficeApi'
 
@@ -8,6 +8,7 @@ const props = defineProps<{
   selection: CalendarSelection | null
   services: Service[]
   masterName: string
+  defaultAction?: CalendarActionType
   pending?: boolean
 }>()
 
@@ -90,7 +91,7 @@ const setDurationFromRange = () => {
 }
 
 const resetForm = () => {
-  form.action = 'booking'
+  form.action = props.defaultAction || 'availability'
   form.service_ids = []
   form.date = props.selection?.date || ''
   form.start_time = props.selection?.startTime || ''
@@ -191,6 +192,24 @@ watch(
 const markDurationEdited = () => {
   durationEdited.value = true
 }
+
+const submitIcon = computed(() => {
+  if (form.action === 'booking') return PlusIcon
+  if (form.action === 'block') return NoSymbolIcon
+  return LockOpenIcon
+})
+
+const submitClass = computed(() => {
+  if (form.action === 'booking') return 'backoffice-modal-action-primary'
+  if (form.action === 'block') return 'backoffice-modal-action-danger'
+  return 'backoffice-modal-action-success'
+})
+
+const submitLabel = computed(() => {
+  if (form.action === 'booking') return 'Створити бронювання'
+  if (form.action === 'block') return 'Заблокувати час'
+  return 'Відкрити для запису'
+})
 </script>
 
 <template>
@@ -212,7 +231,16 @@ const markDurationEdited = () => {
 
     <template #body>
       <form class="space-y-3 xl:space-y-5" @submit.prevent="submit">
-        <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 xl:gap-2 xl:rounded-2xl">
+        <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 xl:gap-2 xl:rounded-2xl">
+          <button
+            type="button"
+            class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
+            :class="form.action === 'availability' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
+            @click="form.action = 'availability'"
+          >
+            <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
+            Відкрити
+          </button>
           <button
             type="button"
             class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
@@ -301,7 +329,7 @@ const markDurationEdited = () => {
           />
         </div>
 
-        <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+        <label v-if="form.action !== 'availability'" class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="inline-flex items-center gap-1.5 font-medium">
             <ChatBubbleLeftEllipsisIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
             {{ form.action === 'booking' ? 'Коментар' : 'Причина' }}
@@ -314,10 +342,10 @@ const markDurationEdited = () => {
             type="submit"
             :disabled="pending"
             class="backoffice-modal-action-button"
-            :class="form.action === 'booking' ? 'backoffice-modal-action-primary' : 'backoffice-modal-action-danger'"
+            :class="submitClass"
           >
-            <component :is="form.action === 'booking' ? PlusIcon : NoSymbolIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
-            {{ pending ? 'Збереження...' : form.action === 'booking' ? 'Створити бронювання' : 'Заблокувати час' }}
+            <component :is="submitIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
+            {{ pending ? 'Збереження...' : submitLabel }}
           </button>
           <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />

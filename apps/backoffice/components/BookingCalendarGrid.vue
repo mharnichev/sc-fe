@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { PhoneIcon, ScissorsIcon, UserIcon } from '@heroicons/vue/24/outline'
+import { CalendarDaysIcon, PhoneIcon, ScissorsIcon, UserIcon } from '@heroicons/vue/24/outline'
 import type {
+  CalendarAvailabilityRange,
   CalendarBusyRange,
   CalendarDay,
   CalendarDisplayEntry,
@@ -13,10 +14,12 @@ const props = withDefaults(defineProps<{
   slotsByDay: Record<string, CalendarSlot[]>
   entries: CalendarDisplayEntry[]
   busyRanges: CalendarBusyRange[]
+  availabilityRanges?: CalendarAvailabilityRange[]
   selectable?: boolean
   allowPastSelection?: boolean
   loading?: boolean
 }>(), {
+  availabilityRanges: () => [],
   selectable: true,
   allowPastSelection: false,
   loading: false,
@@ -25,6 +28,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   select: [selection: CalendarSelection]
   entryClick: [entry: CalendarDisplayEntry]
+  openDay: [day: CalendarDay]
 }>()
 
 const calendar = useBookingCalendar()
@@ -36,6 +40,7 @@ const slotHeight = computed(() => isCompactViewport.value ? 54 : 60)
 const scrollRef = ref<HTMLElement | null>(null)
 const allSlots = computed(() => Object.values(props.slotsByDay).flat())
 const busyRangesRef = computed(() => props.busyRanges)
+const availabilityRangesRef = computed(() => props.availabilityRanges)
 const enabledRef = computed(() => props.selectable && !props.loading)
 const allowPastSelectionRef = computed(() => props.allowPastSelection)
 const entryTapMoveThreshold = 10
@@ -69,7 +74,7 @@ const {
   finishSelection,
   clearSelection,
   slotState,
-} = useBookingSlotSelection(allSlots, busyRangesRef, enabledRef, allowPastSelectionRef)
+} = useBookingSlotSelection(allSlots, busyRangesRef, enabledRef, allowPastSelectionRef, availabilityRangesRef)
 
 const timeSlots = computed(() => props.days[0] ? props.slotsByDay[props.days[0].date] || [] : [])
 const bodyHeight = computed(() => `${timeSlots.value.length * slotHeight.value}px`)
@@ -94,6 +99,28 @@ const entriesByDay = computed(() => {
   return map
 })
 
+const availabilityRangesByDay = computed(() => {
+  const map: Record<string, CalendarAvailabilityRange[]> = {}
+  for (const day of props.days) {
+    map[day.date] = []
+  }
+  for (const range of props.availabilityRanges) {
+    if (map[range.date]) {
+      map[range.date].push(range)
+    }
+  }
+  for (const ranges of Object.values(map)) {
+    ranges.sort((first, second) => first.startMinutes - second.startMinutes)
+  }
+  return map
+})
+
+const dayHasAvailability = (day: CalendarDay) =>
+  Boolean(availabilityRangesByDay.value[day.date]?.length)
+
+const dayCanOpen = (day: CalendarDay) =>
+  props.selectable && !props.loading && !day.isMonday && (props.allowPastSelection || !day.isPast)
+
 const slotClass = (slot: CalendarSlot) => {
   const state = slotState(slot)
   const isPastDay = slot.date < today.value
@@ -104,9 +131,15 @@ const slotClass = (slot: CalendarSlot) => {
       ? 'cursor-not-allowed border-white/8 bg-white/[0.025] opacity-50'
       : 'cursor-not-allowed border-white/8 bg-white/[0.035]',
     busy: 'cursor-not-allowed border-white/10 bg-white/[0.045]',
-    free: 'border-white/[0.055] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.075]',
+    open: 'border-emerald-300/18 bg-emerald-500/[0.145] hover:border-emerald-200/32 hover:bg-emerald-500/[0.22]',
+    closed: 'border-white/[0.055] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.075]',
     disabled: 'cursor-not-allowed border-white/8 bg-white/[0.03] opacity-55',
   }[state]
+}
+
+const slotIsInteractive = (slot: CalendarSlot) => {
+  const state = slotState(slot)
+  return state === 'open' || state === 'closed' || state === 'selected'
 }
 
 const bookingEntryClass = (entry: CalendarDisplayEntry) => {
@@ -275,8 +308,11 @@ watch(selectionError, value => {
   <section class="booking-calendar-grid liquid-glass overflow-hidden rounded-[1.5rem]">
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.025] px-3 py-2">
       <div class="flex flex-wrap items-center gap-2 text-xs text-white/55">
+        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-100">
+          <span class="h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-emerald-100/20" /> Відкрито
+        </span>
         <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-          <span class="h-2 w-2 rounded-full bg-white/70 ring-1 ring-white/20" /> Вільно
+          <span class="h-2 w-2 rounded-full bg-white/30 ring-1 ring-white/20" /> Закрито
         </span>
         <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
           <span class="h-2 w-2 rounded-full bg-[var(--success)]" /> Забукано
@@ -309,10 +345,25 @@ watch(selectionError, value => {
           class="sticky top-0 z-[60] min-w-0 border-b border-r border-white/10 bg-black/64 px-2 py-3 backdrop-blur-2xl"
           :class="day.isMonday ? 'text-white/35' : day.isToday ? 'text-white' : 'text-white/82'"
         >
-          <p class="truncate text-sm font-semibold capitalize">{{ day.weekday }}</p>
-          <p class="mt-0.5 truncate text-xs" :class="day.isToday ? 'text-white/68' : 'text-white/42'">
-            {{ day.label }}<span v-if="day.isMonday"> · вихідний</span>
-          </p>
+          <div class="flex min-w-0 items-start justify-between gap-1.5">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold capitalize">{{ day.weekday }}</p>
+              <p class="mt-0.5 truncate text-xs" :class="day.isToday ? 'text-white/68' : 'text-white/42'">
+                {{ day.label }}<span v-if="day.isMonday"> · вихідний</span>
+              </p>
+            </div>
+            <button
+              v-if="dayCanOpen(day)"
+              type="button"
+              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-white/82 transition hover:text-white"
+              :class="dayHasAvailability(day) ? 'border-emerald-300/30 bg-emerald-400/15 hover:bg-emerald-400/25' : 'border-white/12 bg-white/7 hover:bg-white/12'"
+              aria-label="Відкрити день для запису"
+              title="Відкрити день"
+              @click.stop="emit('openDay', day)"
+            >
+              <CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div class="sticky left-0 z-40 border-r border-white/10 bg-[var(--calendar-time-rail-bg)] backdrop-blur-xl" :style="{ height: bodyHeight }">
@@ -345,7 +396,7 @@ watch(selectionError, value => {
               class="absolute inset-0 h-full w-full touch-auto px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-white/30"
               :class="selectedSlotIds.has(slot.id) ? 'bg-white/14' : ''"
               :data-slot-id="slot.id"
-              :disabled="slotState(slot) !== 'free' && slotState(slot) !== 'selected'"
+              :disabled="!slotIsInteractive(slot)"
               :aria-label="`${slot.startTime}-${slot.endTime}`"
               @pointerdown="beginSlotSelection(slot, $event)"
               @pointerenter="extendSlotSelection(slot)"

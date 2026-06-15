@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ClockIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import type { MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
@@ -7,9 +8,11 @@ const {
   todayInput,
   addDaysInput,
   formatDateTime,
+  toKyivIso,
   normalizeItems,
   apiErrorMessage,
 } = useBookingFormatting()
+const calendar = useBookingCalendar()
 
 definePageMeta({
   middleware: () => {
@@ -27,20 +30,44 @@ const filters = reactive({
 
 const { data, pending, error, refresh } = await useAsyncData(
   'my-time-blocks',
-  () => api.getMyTimeBlocks(),
+  async () => {
+    const [timeBlocks, availability] = await Promise.all([
+      api.getMyTimeBlocks({
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+      }),
+      api.getMyAvailability({
+        date_from: toKyivIso(filters.date_from, calendar.workdayStart),
+        date_to: toKyivIso(filters.date_to, calendar.workdayEnd),
+      }),
+    ])
+    return { timeBlocks, availability }
+  },
 )
 
-const blocks = computed(() =>
-  normalizeItems(data.value).filter(block => {
+const blocks = computed<TimeBlock[]>(() =>
+  normalizeItems(data.value?.timeBlocks).filter(block => {
     const date = block.start_at.slice(0, 10)
     return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
   }),
 )
+const availabilityWindows = computed<MasterAvailabilityWindow[]>(() =>
+  (data.value?.availability || []).filter(window => {
+    const date = window.start_at.slice(0, 10)
+    return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
+  }),
+)
 const deletingId = ref<number | null>(null)
+const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
+const availabilityModalOpen = ref(false)
 
 const openCreateBlock = () => {
   timeBlockModalOpen.value = true
+}
+
+const openCreateAvailability = () => {
+  availabilityModalOpen.value = true
 }
 
 const applyFilters = async () => {
@@ -54,6 +81,10 @@ const handleBlockSaved = async (message: string) => {
 
 const handleBlockModalUpdate = (value: boolean) => {
   timeBlockModalOpen.value = value
+}
+
+const handleAvailabilityModalUpdate = (value: boolean) => {
+  availabilityModalOpen.value = value
 }
 
 const deleteBlock = async (blockId: number) => {
@@ -71,6 +102,22 @@ const deleteBlock = async (blockId: number) => {
     deletingId.value = null
   }
 }
+
+const deleteAvailability = async (windowId: number) => {
+  if (!confirm(`Закрити доступність #${windowId}?`)) return
+  deletingAvailabilityId.value = windowId
+  try {
+    await api.deleteMyAvailabilityWindow(windowId)
+    toast.success('Доступність закрито.')
+    await refresh()
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося закрити доступність.'))
+  }
+  finally {
+    deletingAvailabilityId.value = null
+  }
+}
 </script>
 
 <template>
@@ -78,18 +125,24 @@ const deleteBlock = async (blockId: number) => {
     <div class="flex flex-wrap items-start justify-between gap-3 xl:gap-4">
       <div>
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Доступність</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Мої блокування часу</h1>
-        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Блокуйте недоступні інтервали в межах 09:00-20:00.</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Моя доступність</h1>
+        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Відкривайте час для запису й блокуйте недоступні інтервали в межах 09:00-20:00.</p>
       </div>
-      <button type="button" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white sm:w-auto xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
-        <PlusIcon class="h-4 w-4" aria-hidden="true" />
-        Створити блокування
-      </button>
+      <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateAvailability">
+          <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
+          Відкрити час
+        </button>
+        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
+          <PlusIcon class="h-4 w-4" aria-hidden="true" />
+          Блокування
+        </button>
+      </div>
     </div>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 xl:gap-4">
-        <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Наявні блокування</h2>
+        <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Період</h2>
         <div class="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:w-auto sm:grid-cols-[auto_auto_auto] xl:gap-3">
           <label class="min-w-0 space-y-1 text-xs text-slate-600">
             <span class="inline-flex items-center gap-1.5">
@@ -110,9 +163,50 @@ const deleteBlock = async (blockId: number) => {
       </div>
 
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-        {{ apiErrorMessage(error, 'Не вдалося завантажити блокування часу з /backoffice/masters/me/time-blocks.') }}
+        {{ apiErrorMessage(error, 'Не вдалося завантажити доступність.') }}
       </p>
 
+      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження доступності...</div>
+    </section>
+
+    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Відкрито для запису</h2>
+        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 xl:px-4 xl:py-2 xl:text-sm" @click="openCreateAvailability">
+          <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
+          Додати
+        </button>
+      </div>
+      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження відкритих інтервалів...</div>
+      <div v-else-if="!availabilityWindows.length" class="text-xs text-slate-500 xl:text-sm">У цьому діапазоні немає відкритих інтервалів.</div>
+      <div v-else class="grid gap-2 xl:divide-y xl:divide-slate-100">
+        <article v-for="window in availabilityWindows" :key="window.id" class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 shadow-sm xl:rounded-none xl:border-0 xl:bg-transparent xl:px-0 xl:py-4 xl:shadow-none">
+          <div class="min-w-0">
+            <p class="text-sm font-medium leading-snug text-slate-900 xl:text-base">{{ formatDateTime(window.start_at) }} - {{ formatDateTime(window.end_at) }}</p>
+            <p class="mt-0.5 truncate text-xs text-emerald-700 xl:text-sm">Готовий приймати клієнтів</p>
+          </div>
+          <button
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 xl:h-10 xl:w-10"
+            :disabled="deletingAvailabilityId === window.id"
+            :aria-label="deletingAvailabilityId === window.id ? 'Закриття доступності' : 'Закрити доступність'"
+            :title="deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити'"
+            @click="deleteAvailability(window.id)"
+          >
+            <TrashIcon class="h-4 w-4 xl:h-5 xl:w-5" aria-hidden="true" />
+            <span class="sr-only">{{ deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити' }}</span>
+          </button>
+        </article>
+      </div>
+    </section>
+
+    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Блокування часу</h2>
+        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 xl:px-4 xl:py-2 xl:text-sm" @click="openCreateBlock">
+          <PlusIcon class="h-4 w-4" aria-hidden="true" />
+          Додати
+        </button>
+      </div>
       <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження блокувань часу...</div>
       <div v-else-if="!blocks.length" class="text-xs text-slate-500 xl:text-sm">У цьому діапазоні дат немає блокувань часу.</div>
       <div v-else class="grid gap-2 xl:divide-y xl:divide-slate-100">
@@ -134,6 +228,12 @@ const deleteBlock = async (blockId: number) => {
         </article>
       </div>
     </section>
+
+    <AvailabilityWindowFormModal
+      :model-value="availabilityModalOpen"
+      @saved="handleBlockSaved"
+      @update:model-value="handleAvailabilityModalUpdate"
+    />
     <MyTimeBlockFormModal
       :model-value="timeBlockModalOpen"
       @saved="handleBlockSaved"

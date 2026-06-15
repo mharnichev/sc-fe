@@ -49,7 +49,7 @@ const barberShopLinks = computed(() => [
         { label: 'Статистика', to: '/statistics', icon: ChartBarSquareIcon },
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
-        { label: 'Мої блокування часу', to: '/my-time-blocks', icon: ClockIcon },
+        { label: 'Моя доступність', to: '/my-time-blocks', icon: ClockIcon },
       ]
     : []),
   ...(isAdmin.value
@@ -59,7 +59,7 @@ const barberShopLinks = computed(() => [
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Майстри', to: '/masters', icon: UserGroupIcon },
         { label: 'Базові послуги', to: '/services', icon: SparklesIcon },
-        { label: 'Блокування часу', to: '/time-blocks', icon: ClockIcon },
+        { label: 'Доступність', to: '/time-blocks', icon: ClockIcon },
         { label: 'Клієнти', to: '/customers', icon: UsersIcon },
         { label: 'Повідомлення', to: '/messaging', icon: ChatBubbleLeftRightIcon },
       ]
@@ -100,7 +100,7 @@ const barberBottomLinks = computed(() =>
 const menuSections = computed(() => {
   const allBarbershopLinks = barberShopLinks.value
   const findLinks = (labels: string[]) => allBarbershopLinks.filter(link => labels.includes(link.label))
-  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Блокування часу', 'Мої блокування часу', 'Клієнти'])
+  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Клієнти'])
   const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && link.label !== 'Повідомлення')
 
   return [
