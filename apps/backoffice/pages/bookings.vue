@@ -386,8 +386,20 @@ const isMissingCreateEndpoint = (cause: unknown) => {
   return status === 404 || status === 405
 }
 
-const validateCalendarPayload = (payload: CalendarActionPayload) => {
+const validateCalendarPayload = (payload: CalendarActionPayload): string => {
   if (!selectedMasterId.value) return 'Виберіть майстра.'
+  if (payload.action === 'availability' && payload.availability_windows?.length) {
+    for (const window of payload.availability_windows) {
+      const error: string = validateCalendarPayload({
+        ...payload,
+        start_at: window.start_at,
+        end_at: window.end_at,
+        availability_windows: undefined,
+      })
+      if (error) return error
+    }
+    return ''
+  }
   const date = calendar.dateInputFromDateTime(payload.start_at)
   const startTime = formatTime(payload.start_at)
   const endTime = formatTime(payload.end_at)
@@ -474,6 +486,18 @@ const createTimeBlock = async (payload: CalendarActionPayload) => {
 }
 
 const createAvailabilityWindow = async (payload: CalendarActionPayload) => {
+  if (payload.availability_windows?.length) {
+    for (const window of payload.availability_windows) {
+      await createAvailabilityWindow({
+        ...payload,
+        start_at: window.start_at,
+        end_at: window.end_at,
+        availability_windows: undefined,
+      })
+    }
+    return
+  }
+
   if (isAdmin.value) {
     await api.adminCreateAvailabilityWindow({
       master_id: selectedMasterId.value as number,

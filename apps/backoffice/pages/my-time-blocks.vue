@@ -172,7 +172,7 @@ const deleteAvailability = async (windowId: number) => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Відкрито для запису</h2>
-        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 xl:px-4 xl:py-2 xl:text-sm" @click="openCreateAvailability">
+        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateAvailability">
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Додати
         </button>
@@ -202,7 +202,7 @@ const deleteAvailability = async (windowId: number) => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Блокування часу</h2>
-        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 xl:px-4 xl:py-2 xl:text-sm" @click="openCreateBlock">
+        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-800 hover:bg-slate-800 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateBlock">
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Додати
         </button>

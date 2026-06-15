@@ -75,6 +75,7 @@ export interface CalendarActionPayload {
   note: string
   start_at: string
   end_at: string
+  availability_windows?: Array<{ start_at: string, end_at: string }>
 }
 
 export const calendarViewLabels: Record<CalendarViewMode, string> = {

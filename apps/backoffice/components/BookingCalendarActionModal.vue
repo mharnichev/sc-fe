@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, SunIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
 import type { Service } from '~/composables/useBackofficeApi'
+
+type AvailabilityPreset = 'interval' | 'day' | 'week' | 'month'
 
 const props = defineProps<{
   modelValue: boolean
@@ -26,6 +28,7 @@ const { normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 
 const form = reactive({
   action: 'booking' as CalendarActionType,
+  availability_preset: 'interval' as AvailabilityPreset,
   service_ids: [] as string[],
   date: '',
   start_time: '',
@@ -38,6 +41,13 @@ const form = reactive({
 const localError = ref('')
 const durationEdited = ref(false)
 const syncingEndTime = ref(false)
+
+const availabilityPresetOptions: Array<{ value: AvailabilityPreset, label: string, description: string, icon: typeof ClockIcon }> = [
+  { value: 'interval', label: 'Інтервал', description: 'Вибраний час', icon: ClockIcon },
+  { value: 'day', label: 'День', description: '09:00-20:00', icon: SunIcon },
+  { value: 'week', label: 'Тиждень', description: 'Робочі дні', icon: CalendarDaysIcon },
+  { value: 'month', label: 'Місяць', description: 'До 2 місяців', icon: CalendarDaysIcon },
+]
 
 const selectedServices = computed(() => {
   const selected = new Set(form.service_ids.map(Number))
@@ -69,6 +79,73 @@ const rangeDurationMinutes = (startTime: string, endTime: string) => {
 const selectionDurationMinutes = () =>
   props.selection ? rangeDurationMinutes(props.selection.startTime, props.selection.endTime) : 0
 
+const dateFromInput = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+const inputFromDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const addDaysInput = (value: string, days: number) => {
+  const date = dateFromInput(value)
+  if (!date) return value
+  date.setDate(date.getDate() + days)
+  return inputFromDate(date)
+}
+
+const addCalendarMonthsInput = (value: string, months: number) => {
+  const date = dateFromInput(value)
+  if (!date) return value
+  const day = date.getDate()
+  date.setMonth(date.getMonth() + months)
+  if (date.getDate() !== day) date.setDate(0)
+  return inputFromDate(date)
+}
+
+const availabilityEndDate = computed(() => {
+  if (!form.date) return ''
+  if (form.availability_preset === 'week') return addDaysInput(form.date, 6)
+  if (form.availability_preset === 'month') return addCalendarMonthsInput(form.date, 1)
+  return form.date
+})
+
+const availabilityWindowDates = computed(() => {
+  if (!form.date) return []
+  if (form.availability_preset === 'interval') return [form.date]
+
+  const start = dateFromInput(form.date)
+  const end = dateFromInput(availabilityEndDate.value)
+  if (!start || !end) return []
+
+  const dates: string[] = []
+  const current = new Date(start)
+  while (current <= end) {
+    const input = inputFromDate(current)
+    if (!calendar.isMonday(input)) dates.push(input)
+    current.setDate(current.getDate() + 1)
+  }
+  return dates
+})
+
+const availabilityWindowCount = computed(() =>
+  form.action === 'availability' && form.availability_preset !== 'interval'
+    ? availabilityWindowDates.value.length
+    : 1,
+)
+
+const setAvailabilityPreset = (preset: AvailabilityPreset) => {
+  form.availability_preset = preset
+  if (preset === 'interval') {
+    form.start_time = props.selection?.startTime || form.start_time || calendar.workdayStart
+    form.end_time = props.selection?.endTime || form.end_time || calendar.workdayEnd
+    return
+  }
+  form.start_time = calendar.workdayStart
+  form.end_time = calendar.workdayEnd
+}
+
 const defaultDurationMinutes = () =>
   selectedServicesDuration.value || selectionDurationMinutes() || calendar.slotMinutes
 
@@ -92,6 +169,7 @@ const setDurationFromRange = () => {
 
 const resetForm = () => {
   form.action = props.defaultAction || 'availability'
+  form.availability_preset = 'interval'
   form.service_ids = []
   form.date = props.selection?.date || ''
   form.start_time = props.selection?.startTime || ''
@@ -110,7 +188,12 @@ const close = () => {
 
 const validate = () => {
   if (!form.date || !form.start_time || !form.end_time) return 'Виберіть початок і завершення інтервалу.'
-  if (calendar.isMonday(form.date)) return 'Понеділок — вихідний день.'
+  if (form.action !== 'availability' || form.availability_preset === 'interval') {
+    if (calendar.isMonday(form.date)) return 'Понеділок — вихідний день.'
+  }
+  else if (!availabilityWindowDates.value.length) {
+    return 'У діапазоні немає робочих днів для відкриття.'
+  }
   if (form.start_time >= form.end_time) return 'Час початку має бути раніше часу завершення.'
   if (form.start_time < calendar.workdayStart || form.end_time > calendar.workdayEnd) {
     return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
@@ -132,6 +215,12 @@ const submit = () => {
     return
   }
   const serviceIds = form.action === 'booking' ? form.service_ids.map(Number).filter(Number.isFinite) : []
+  const availabilityWindows = form.action === 'availability' && form.availability_preset !== 'interval'
+    ? availabilityWindowDates.value.map(date => ({
+        start_at: toKyivIso(date, calendar.workdayStart),
+        end_at: toKyivIso(date, calendar.workdayEnd),
+      }))
+    : undefined
 
   emit('submit', {
     action: form.action,
@@ -142,8 +231,9 @@ const submit = () => {
     customer_phone: normalizePhone(form.customer_phone),
     customer_email: '',
     note: form.note.trim(),
-    start_at: toKyivIso(form.date, form.start_time),
-    end_at: toKyivIso(form.date, form.end_time),
+    start_at: availabilityWindows?.[0]?.start_at || toKyivIso(form.date, form.start_time),
+    end_at: availabilityWindows?.[0]?.end_at || toKyivIso(form.date, form.end_time),
+    availability_windows: availabilityWindows,
   })
 }
 
@@ -261,11 +351,37 @@ const submitLabel = computed(() => {
           </button>
         </div>
 
+        <div v-if="form.action === 'availability'" class="availability-preset-panel space-y-2 rounded-xl border p-2.5 xl:rounded-2xl xl:p-4">
+          <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <button
+              v-for="option in availabilityPresetOptions"
+              :key="option.value"
+              type="button"
+              class="availability-preset-option inline-flex min-h-14 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition xl:min-h-16 xl:px-3"
+              :class="form.availability_preset === option.value ? 'is-active' : ''"
+              @click="setAvailabilityPreset(option.value)"
+            >
+              <component :is="option.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold xl:text-sm">{{ option.label }}</span>
+                <span class="availability-preset-description block truncate text-[11px]">{{ option.description }}</span>
+              </span>
+            </button>
+          </div>
+          <p class="availability-preset-summary inline-flex items-center gap-1.5 text-xs xl:text-sm">
+            <LockOpenIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span v-if="form.availability_preset === 'interval'">Буде відкрито вибраний інтервал.</span>
+            <span v-else>
+              Буде відкрито {{ availabilityWindowCount }} робочих {{ availabilityWindowCount === 1 ? 'день' : 'днів' }} з {{ form.date || 'дати старту' }} до {{ availabilityEndDate || 'дати завершення' }}, {{ calendar.workdayStart }}-{{ calendar.workdayEnd }}.
+            </span>
+          </p>
+        </div>
+
         <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid-cols-3 xl:gap-4">
           <label class="col-span-2 min-w-0 space-y-1 text-xs text-slate-700 md:col-span-1 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <CalendarDaysIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
-              Дата
+              {{ form.action === 'availability' && form.availability_preset !== 'interval' ? 'Початок періоду' : 'Дата' }}
             </span>
             <input v-model="form.date" required type="date" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
@@ -274,14 +390,14 @@ const submitLabel = computed(() => {
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Початок
             </span>
-            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
           <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Завершення
             </span>
-            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3">
           </label>
         </div>
 
@@ -360,3 +476,70 @@ const submitLabel = computed(() => {
     </template>
   </BaseModal>
 </template>
+
+<style scoped>
+.availability-preset-panel {
+  background: rgba(48, 209, 88, 0.10);
+  border-color: rgba(48, 209, 88, 0.24);
+}
+
+.availability-preset-option {
+  background: color-mix(in srgb, var(--input-bg) 76%, transparent);
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.availability-preset-option svg {
+  color: color-mix(in srgb, var(--success) 76%, var(--text-primary));
+}
+
+.availability-preset-option:hover {
+  background: color-mix(in srgb, var(--success) 18%, var(--input-bg));
+  border-color: color-mix(in srgb, var(--success) 58%, var(--focus-border));
+  color: var(--interactive-hover-text) !important;
+}
+
+.availability-preset-option.is-active {
+  background: color-mix(in srgb, var(--success) 24%, var(--input-bg));
+  border-color: color-mix(in srgb, var(--success) 72%, var(--focus-border));
+  color: var(--text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent),
+    0 10px 28px color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.availability-preset-description {
+  color: var(--text-secondary);
+}
+
+.availability-preset-option:hover .availability-preset-description,
+.availability-preset-option.is-active .availability-preset-description {
+  color: color-mix(in srgb, var(--text-primary) 72%, transparent);
+}
+
+.availability-preset-summary {
+  color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
+}
+
+html[data-backoffice-theme="light"] .availability-preset-panel {
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.18);
+}
+
+html[data-backoffice-theme="light"] .availability-preset-option {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(22, 163, 74, 0.18);
+  color: rgba(15, 23, 42, 0.92);
+}
+
+html[data-backoffice-theme="light"] .availability-preset-option.is-active {
+  background: #ffffff;
+  border-color: rgba(22, 163, 74, 0.52);
+  color: #166534;
+}
+
+html[data-backoffice-theme="light"] .availability-preset-summary {
+  color: #166534;
+}
+</style>

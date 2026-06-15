@@ -16,9 +16,20 @@ const servicePriceValue = (service: ServiceCatalogItemDto) => {
   return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER
 }
 
+const compareServices = (first: ServiceCatalogItemDto, second: ServiceCatalogItemDto) => {
+  const firstIsArmyClient = Boolean(first.is_army_client)
+  const secondIsArmyClient = Boolean(second.is_army_client)
+
+  if (firstIsArmyClient !== secondIsArmyClient) {
+    return firstIsArmyClient ? 1 : -1
+  }
+
+  return servicePriceValue(first) - servicePriceValue(second)
+}
+
 const baseServices = computed(() =>
   activeBaseCatalogItems(serviceCatalog.value)
-    .sort((first, second) => servicePriceValue(first) - servicePriceValue(second)),
+    .sort(compareServices),
 )
 
 const formatServicePrice = (service: ServiceCatalogItemDto) => localizedService.servicePrice(service.price, { from: true })
@@ -51,7 +62,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 <template>
   <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
-      <div class="mb-8 flex flex-col justify-between gap-4 border-b border-neutral-300 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
+      <div class="mb-8 flex flex-col justify-between gap-4 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
           <SectionLabel>{{ terms.home.services.label }}</SectionLabel>
           <h2 class="section-title mt-4">
