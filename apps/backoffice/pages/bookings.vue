@@ -127,6 +127,8 @@ const selectedStatusFilter = computed(() =>
 )
 
 const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInView(viewMode.value) - 1))
+const queryDateFrom = computed(() => toKyivIso(anchorDate.value, '00:00'))
+const queryDateTo = computed(() => toKyivIso(addDaysInput(rangeEnd.value, 1), '00:00'))
 const calendarDays = computed(() => calendar.buildDays(anchorDate.value, viewMode.value))
 const slotsByDay = computed(() => calendar.buildSlotsByDay(calendarDays.value))
 const canSelectSlots = computed(() => Boolean(selectedMasterId.value && (isAdmin.value || isBarber.value || linkedMaster.value || auth.user?.master_id)))
@@ -137,8 +139,8 @@ const { data, pending, error, refresh } = await useAsyncData(
   async () => {
     const masterId = selectedMasterId.value
     const bookingFilters = {
-      date_from: anchorDate.value,
-      date_to: rangeEnd.value,
+      date_from: queryDateFrom.value,
+      date_to: queryDateTo.value,
       master_id: masterId,
       service_id: filters.service_id ? Number(filters.service_id) : null,
       status: filters.status as BookingStatus | '',
@@ -153,8 +155,8 @@ const { data, pending, error, refresh } = await useAsyncData(
       const [bookings, timeBlocks, availability] = await Promise.all([
         api.adminGetBookings(1, pageSize, bookingFilters),
         api.adminGetTimeBlocks(1, pageSize, {
-          date_from: anchorDate.value,
-          date_to: rangeEnd.value,
+          date_from: queryDateFrom.value,
+          date_to: queryDateTo.value,
           master_id: masterId,
         }),
         masterId ? api.adminGetAvailability(availabilityFilters) : Promise.resolve([] as MasterAvailabilityWindow[]),
@@ -164,13 +166,13 @@ const { data, pending, error, refresh } = await useAsyncData(
 
     const [bookings, timeBlocks, availability] = await Promise.all([
       api.getMyBookings({
-        date_from: anchorDate.value,
-        date_to: rangeEnd.value,
+        date_from: queryDateFrom.value,
+        date_to: queryDateTo.value,
         status: filters.status as BookingStatus | '',
       }),
       api.getMyTimeBlocks({
-        date_from: anchorDate.value,
-        date_to: rangeEnd.value,
+        date_from: queryDateFrom.value,
+        date_to: queryDateTo.value,
       }),
       api.getMyAvailability(availabilityFilters),
     ])
@@ -445,15 +447,15 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
 
   try {
     if (isAdmin.value) {
-      await api.adminCreateBooking(body)
+      return await api.adminCreateBooking(body)
     }
     else {
-      await api.createMyManualBooking(body)
+      return await api.createMyManualBooking(body)
     }
   }
   catch (cause) {
     if (!isMissingCreateEndpoint(cause)) throw cause
-    await api.createPublicBooking({
+    return await api.createPublicBooking({
       master_id: body.master_id,
       service_id: body.service_id,
       service_ids: body.service_ids,
@@ -464,6 +466,15 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
       duration_minutes: payload.duration_minutes,
       start_at: body.start_at,
     })
+  }
+}
+
+const focusCreatedBooking = (booking: Booking | undefined) => {
+  if (!booking) return
+  const bookingDate = calendar.dateInputFromDateTime(bookingStart(booking))
+  if (bookingDate) anchorDate.value = bookingDate
+  if (isAdmin.value && booking.master_id) {
+    filters.master_id = String(booking.master_id)
   }
 }
 
@@ -523,7 +534,8 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
   actionPending.value = true
   try {
     if (payload.action === 'booking') {
-      await createManualBooking(payload)
+      const createdBooking = await createManualBooking(payload)
+      focusCreatedBooking(createdBooking)
       toastNotification.bookingCreated()
     }
     else if (payload.action === 'block') {
