@@ -8,6 +8,7 @@ const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', impo
 const sharedUiPath = new URL('../../packages/shared-ui/src/index.ts', import.meta.url).pathname
 
 export default defineNuxtConfig({
+  ssr: false,
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],

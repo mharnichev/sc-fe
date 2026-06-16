@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, FunnelIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { BaseService } from '~/composables/useBackofficeApi'
 
 definePageMeta({
@@ -134,7 +134,7 @@ const applyFilters = async () => {
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Послуги</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Базові послуги</h1>
       </div>
-      <button type="button" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
+      <button type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити базову послугу
       </button>
@@ -148,7 +148,10 @@ const applyFilters = async () => {
           <option value="true">Активні</option>
           <option value="false">Неактивні</option>
         </select>
-        <button class="rounded-full bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
       </div>
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити базові послуги з /backoffice/admin/services.') }}

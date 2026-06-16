@@ -8,6 +8,10 @@ const props = defineProps<{
 }>()
 
 const maxCount = computed(() => Math.max(...props.items.map(item => item.count), 0))
+const progressWidth = (count: number) => {
+  if (!count || !maxCount.value) return 0
+  return Math.max(6, (count / maxCount.value) * 100)
+}
 </script>
 
 <template>
@@ -29,7 +33,7 @@ const maxCount = computed(() => Math.max(...props.items.map(item => item.count),
           <p class="shrink-0 text-slate-500">{{ item.count }} записів</p>
         </div>
         <div class="h-2 overflow-hidden rounded-full bg-slate-100 xl:h-2.5">
-          <div class="h-full rounded-full bg-cyan-500" :style="{ width: `${maxCount ? Math.max(6, (item.count / maxCount) * 100) : 0}%` }" />
+          <div class="h-full rounded-full bg-cyan-500" :style="{ width: `${progressWidth(item.count)}%` }" />
         </div>
       </div>
     </div>

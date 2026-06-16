@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { initials } from '@shared-utils'
 import type { Master, MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
+const assetUrl = useAssetUrl()
 const auth = useAuthStore()
 const toast = useBaseToastNotification()
 const {
@@ -63,6 +65,26 @@ const deletingId = ref<number | null>(null)
 const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 const availabilityModalOpen = ref(false)
+const masterFilterOpen = ref(false)
+const masterFilterRef = ref<HTMLElement | null>(null)
+const selectedMaster = computed(() => masterOptions.value.find(master => String(master.id) === filters.master_id) || null)
+
+const masterDisplayName = (master?: Master | null) => {
+  if (!master) return 'Усі майстри'
+  const firstName = master.first_name_uk || ''
+  const lastName = master.last_name_uk || master.last_name || ''
+  return [lastName, firstName].filter(Boolean).join(' ') || master.full_name_uk || master.full_name || master.name || masterName(master)
+}
+
+const masterImageUrl = (master?: Master | null) =>
+  master ? assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url) : ''
+
+const masterInitials = (master?: Master | null) => initials(masterDisplayName(master)) || 'SC'
+
+const selectMasterFilter = (masterId: string) => {
+  filters.master_id = masterId
+  masterFilterOpen.value = false
+}
 
 const openCreateBlock = () => {
   timeBlockModalOpen.value = true
@@ -73,6 +95,7 @@ const openCreateAvailability = () => {
 }
 
 const applyFilters = async () => {
+  masterFilterOpen.value = false
   await refresh()
 }
 
@@ -123,6 +146,15 @@ const deleteAvailability = async (windowId: number) => {
     deletingAvailabilityId.value = null
   }
 }
+
+const closeMasterFilterOnOutsideClick = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Node) || masterFilterRef.value?.contains(target)) return
+  masterFilterOpen.value = false
+}
+
+onMounted(() => document.addEventListener('click', closeMasterFilterOnOutsideClick))
+onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnOutsideClick))
 </script>
 
 <template>
@@ -145,7 +177,7 @@ const deleteAvailability = async (windowId: number) => {
         <button
           type="button"
           :disabled="!isAdmin"
-          class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
+          class="time-block-create-button inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60"
           @click="openCreateBlock"
         >
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
@@ -158,15 +190,67 @@ const deleteAvailability = async (windowId: number) => {
       Для керування доступністю майстрів потрібен доступ адміністратора.
     </p>
 
-    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="relative z-30 space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-3 md:grid-cols-4">
         <input v-model="filters.date_from" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <input v-model="filters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <select v-model="filters.master_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-          <option value="">Усі майстри</option>
-          <option v-for="master in masterOptions" :key="master.id" :value="String(master.id)">{{ masterName(master) }}</option>
-        </select>
-        <button class="rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+        <div ref="masterFilterRef" class="relative z-40 min-w-0">
+          <button
+            type="button"
+            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2.5 text-left text-sm transition"
+            :aria-expanded="masterFilterOpen"
+            aria-haspopup="listbox"
+            @click="masterFilterOpen = !masterFilterOpen"
+          >
+            <span class="flex min-w-0 items-center gap-3">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterDisplayName(selectedMaster)" class="h-full w-full object-cover">
+                <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
+                <span v-if="selectedMaster?.position_uk" class="block truncate text-xs text-slate-500">{{ selectedMaster.position_uk }}</span>
+              </span>
+            </span>
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="{ 'rotate-180': masterFilterOpen }" aria-hidden="true" />
+          </button>
+          <div
+            v-if="masterFilterOpen"
+            class="booking-select-menu absolute z-[300] mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            role="listbox"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
+              :class="!filters.master_id ? 'bg-slate-50' : ''"
+              @click="selectMasterFilter('')"
+            >
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">SC</span>
+              <span class="min-w-0 truncate font-medium">Усі майстри</span>
+            </button>
+            <button
+              v-for="master in masterOptions"
+              :key="master.id"
+              type="button"
+              class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
+              :class="filters.master_id === String(master.id) ? 'bg-slate-50' : ''"
+              @click="selectMasterFilter(String(master.id))"
+            >
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterDisplayName(master)" class="h-full w-full object-cover">
+                <span v-else>{{ masterInitials(master) }}</span>
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate font-medium">{{ masterDisplayName(master) }}</span>
+                <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
       </div>
 
       <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowPathIcon } from '@heroicons/vue/24/outline'
+
 const props = defineProps<{
   month: number
   year: number
@@ -57,9 +59,10 @@ const selectedYear = computed({
     <button
       type="button"
       :disabled="loading"
-      class="inline-flex min-h-9 items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-60 xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
+      class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
       @click="emit('refresh')"
     >
+      <ArrowPathIcon class="h-4 w-4 shrink-0" :class="{ 'animate-spin': loading }" aria-hidden="true" />
       {{ loading ? 'Оновлення...' : 'Оновити' }}
     </button>
   </div>

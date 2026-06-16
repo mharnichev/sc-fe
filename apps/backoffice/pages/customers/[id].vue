@@ -1,4 +1,19 @@
 <script setup lang="ts">
+import {
+  ArrowPathIcon,
+  BanknotesIcon,
+  CakeIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  IdentificationIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
+  UserCircleIcon,
+} from '@heroicons/vue/24/outline'
+
 const route = useRoute()
 const api = useBackofficeApi()
 const {
@@ -63,70 +78,114 @@ const { isAdmin } = useBackofficeAccess()
     <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="text-xl font-semibold text-slate-900">Інформація про клієнта</h2>
-        <dl class="mt-5 space-y-4 text-sm">
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Телефон</dt>
-            <dd class="font-medium text-slate-900">{{ customer.phone }}</dd>
+        <dl class="customer-info-grid mt-5 grid gap-3 md:grid-cols-2">
+          <div class="customer-info-item">
+            <PhoneIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Телефон</dt>
+              <dd class="customer-info-value">{{ customer.phone }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Email</dt>
-            <dd class="font-medium text-slate-900">{{ customer.email || '—' }}</dd>
+          <div class="customer-info-item">
+            <EnvelopeIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Email</dt>
+              <dd class="customer-info-value">{{ customer.email || '—' }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Назва</dt>
-            <dd class="font-medium text-slate-900">{{ customer.name || '—' }}</dd>
+          <div class="customer-info-item">
+            <IdentificationIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Назва</dt>
+              <dd class="customer-info-value">{{ customer.name || '—' }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Прізвище</dt>
-            <dd class="font-medium text-slate-900">{{ customer.surname || '—' }}</dd>
+          <div class="customer-info-item">
+            <UserCircleIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Прізвище</dt>
+              <dd class="customer-info-value">{{ customer.surname || '—' }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Дата народження</dt>
-            <dd class="font-medium text-slate-900">{{ formatDate(customer.birthday) }}</dd>
+          <div class="customer-info-item">
+            <CakeIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Дата народження</dt>
+              <dd class="customer-info-value">{{ formatDate(customer.birthday) }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Нотатки</dt>
-            <dd class="whitespace-pre-line font-medium text-slate-900">{{ customer.notes || '—' }}</dd>
+          <div class="customer-info-item">
+            <DocumentTextIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Нотатки</dt>
+              <dd class="customer-info-value whitespace-pre-line">{{ customer.notes || '—' }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Імпортні витрати</dt>
-            <dd class="font-medium text-slate-900">{{ formatMoney(customer.imported_total_spent) }}</dd>
+          <div class="customer-import-grid grid gap-3 md:col-span-2 md:grid-cols-2">
+            <div class="customer-import-stat">
+              <BanknotesIcon class="customer-import-stat-icon" aria-hidden="true" />
+              <div class="min-w-0">
+                <dt class="text-xs text-slate-500">Витрати</dt>
+                <dd class="mt-1 truncate font-semibold text-slate-900">{{ formatMoney(customer.imported_total_spent) }}</dd>
+              </div>
+            </div>
+            <div class="customer-import-stat">
+              <CalendarDaysIcon class="customer-import-stat-icon" aria-hidden="true" />
+              <div class="min-w-0">
+                <dt class="text-xs text-slate-500">Візит</dt>
+                <dd class="mt-1 truncate font-semibold text-slate-900">{{ formatDateTime(customer.imported_last_visit_at) }}</dd>
+              </div>
+            </div>
+            <div class="customer-import-stat sm:col-span-2">
+              <UserCircleIcon class="customer-import-stat-icon" aria-hidden="true" />
+              <div class="min-w-0">
+                <dt class="text-xs text-slate-500">Статус</dt>
+                <dd class="mt-1">
+                  <span class="customer-import-status rounded-full px-3 py-1 text-xs font-medium" :class="customer.imported_is_new_client ? 'customer-import-status-new' : 'customer-import-status-current'">
+                    {{ customer.imported_is_new_client ? 'новий клієнт' : 'поточний клієнт' }}
+                  </span>
+                </dd>
+              </div>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Імпортний візит</dt>
-            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.imported_last_visit_at) }}</dd>
+          <div class="customer-info-item">
+            <CheckCircleIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Статус</dt>
+              <dd class="mt-1">
+                <span class="customer-info-badge rounded-full px-3 py-1 text-xs font-medium" :class="customer.is_active ? 'customer-info-badge-active' : 'customer-info-badge-muted'">
+                  {{ customer.is_active ? 'активний' : 'неактивний' }}
+                </span>
+              </dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Імпортний статус</dt>
-            <dd>
-              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="customer.imported_is_new_client ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-500'">
-                {{ customer.imported_is_new_client ? 'новий клієнт' : 'поточний клієнт' }}
-              </span>
-            </dd>
+          <div class="customer-info-item">
+            <ShieldCheckIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Телефон підтверджено</dt>
+              <dd class="customer-info-value">{{ formatDateTime(customer.phone_verified_at) }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Статус</dt>
-            <dd>
-              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="customer.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
-                {{ customer.is_active ? 'активний' : 'неактивний' }}
-              </span>
-            </dd>
+          <div class="customer-info-item">
+            <ClockIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Останній вхід</dt>
+              <dd class="customer-info-value">{{ formatDateTime(customer.last_login_at) }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Телефон підтверджено</dt>
-            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.phone_verified_at) }}</dd>
+          <div class="customer-info-item">
+            <CalendarDaysIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Створено</dt>
+              <dd class="customer-info-value">{{ formatDateTime(customer.created_at) }}</dd>
+            </div>
           </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Останній вхід</dt>
-            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.last_login_at) }}</dd>
-          </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Створено</dt>
-            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.created_at) }}</dd>
-          </div>
-          <div class="grid grid-cols-[140px_1fr] gap-3">
-            <dt class="text-slate-500">Оновлено</dt>
-            <dd class="font-medium text-slate-900">{{ formatDateTime(customer.updated_at) }}</dd>
+          <div class="customer-info-item">
+            <ArrowPathIcon class="customer-info-icon" aria-hidden="true" />
+            <div class="min-w-0">
+              <dt class="text-xs text-slate-500">Оновлено</dt>
+              <dd class="customer-info-value">{{ formatDateTime(customer.updated_at) }}</dd>
+            </div>
           </div>
         </dl>
       </section>
@@ -160,7 +219,7 @@ const { isAdmin } = useBackofficeAccess()
             <span
               v-for="service in topServices"
               :key="`${service.id}-${service.name}`"
-              class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-800"
+              class="customer-service-chip rounded-full px-3 py-1 text-xs font-medium"
             >
               {{ service.name }} · {{ service.count }}
             </span>

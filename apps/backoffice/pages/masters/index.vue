@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, FunnelIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
 
@@ -138,7 +138,7 @@ const applyFilters = async () => {
       <button
         type="button"
         :disabled="!isAdmin"
-        class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
+        class="backoffice-page-create-button inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60 sm:w-auto"
         @click="openCreateMaster"
       >
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
@@ -158,7 +158,10 @@ const applyFilters = async () => {
           <option value="true">Активні</option>
           <option value="false">Неактивні</option>
         </select>
-        <button class="rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
       </div>
       <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
         {{ apiErrorMessage(error, 'Не вдалося завантажити майстрів.') }}

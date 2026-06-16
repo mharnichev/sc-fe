@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ChevronDownIcon, EyeIcon, UserCircleIcon } from '@heroicons/vue/24/outline'
+import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
 
 definePageMeta({
@@ -18,6 +20,8 @@ const now = new Date()
 const month = ref(now.getMonth() + 1)
 const year = ref(now.getFullYear())
 const selectedBarberId = ref<number | null>(null)
+const masterSelectOpen = ref(false)
+const masterSelectRef = ref<HTMLElement | null>(null)
 
 const [{ data: mastersData }, { data, pending, error, refresh }] = await Promise.all([
   useAsyncData('statistics-admin-master-options', () => api.adminGetMasters(1, 200, { is_active: true })),
@@ -39,9 +43,33 @@ const monthly = computed(() => data.value?.monthly || null)
 const comparison = computed(() => data.value?.comparison || null)
 const topBarbers = computed(() => monthly.value?.top_barbers?.length ? monthly.value.top_barbers : comparison.value?.top_performing_barbers || [])
 const comparisonRows = computed(() => comparison.value?.barbers || monthly.value?.top_barbers || [])
+const selectedMaster = computed(() => masters.value.find(master => master.id === selectedBarberId.value) || null)
 const selectedBarberPath = computed(() => selectedBarberId.value ? `/admin/statistics/barbers/${selectedBarberId.value}` : '')
+const assetUrl = useAssetUrl()
+
+const masterImageUrl = (master?: Master | null) =>
+  master ? assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url) : ''
+const masterInitials = (master?: Master | null) => initials(masterName(master)) || 'SC'
 
 const refreshAll = () => refresh()
+const selectMaster = (master: Master | null) => {
+  selectedBarberId.value = master?.id || null
+  masterSelectOpen.value = false
+}
+
+const handleMasterSelectClickOutside = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Node) || masterSelectRef.value?.contains(target)) return
+  masterSelectOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', handleMasterSelectClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleMasterSelectClickOutside)
+})
 </script>
 
 <template>
@@ -95,18 +123,69 @@ const refreshAll = () => refresh()
     </div>
 
     <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-      <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-        Детальна статистика майстра
-        <select v-model="selectedBarberId" class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900">
-          <option :value="null">Оберіть майстра</option>
-          <option v-for="master in masters" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
-        </select>
-      </label>
+      <div ref="masterSelectRef" class="relative grid gap-1.5 text-sm font-medium text-slate-700">
+        <span class="inline-flex items-center gap-1.5">
+          <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+          Детальна статистика майстра
+        </span>
+        <button
+          type="button"
+          class="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-left text-sm shadow-sm sm:px-4"
+          :aria-expanded="masterSelectOpen"
+          @click="masterSelectOpen = !masterSelectOpen"
+        >
+          <span class="flex min-w-0 items-center gap-2.5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.7rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+              <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterName(selectedMaster)" class="h-full w-full object-cover">
+              <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate" :class="selectedMaster ? 'text-slate-900' : 'text-slate-500'">
+                {{ selectedMaster ? masterName(selectedMaster) : 'Оберіть майстра' }}
+              </span>
+              <span v-if="selectedMaster?.position_uk" class="block truncate text-xs font-normal text-slate-500">{{ selectedMaster.position_uk }}</span>
+            </span>
+          </span>
+          <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="{ 'rotate-180': masterSelectOpen }" aria-hidden="true" />
+        </button>
+        <div
+          v-if="masterSelectOpen"
+          class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+        >
+          <button
+            type="button"
+            class="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            :class="!selectedBarberId ? 'bg-slate-50' : ''"
+            @click="selectMaster(null)"
+          >
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[0.7rem] font-semibold text-slate-600 ring-1 ring-slate-200">SC</span>
+            <span class="min-w-0 truncate font-medium">Оберіть майстра</span>
+          </button>
+          <button
+            v-for="master in masters"
+            :key="master.id"
+            type="button"
+            class="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            :class="selectedBarberId === master.id ? 'bg-slate-50' : ''"
+            @click="selectMaster(master)"
+          >
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.7rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+              <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterName(master)" class="h-full w-full object-cover">
+              <span v-else>{{ masterInitials(master) }}</span>
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate font-medium">{{ masterName(master) }}</span>
+              <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
+            </span>
+          </button>
+        </div>
+      </div>
       <NuxtLink
         :to="selectedBarberPath || '/admin/statistics'"
-        class="inline-flex min-h-11 items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition"
-        :class="selectedBarberPath ? 'hover:bg-slate-800' : 'pointer-events-none opacity-50'"
+        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition"
+        :class="selectedBarberPath ? 'border-cyan-200 bg-cyan-50 text-cyan-800 hover:border-cyan-300 hover:bg-cyan-100' : 'pointer-events-none border-slate-300 bg-slate-100 text-slate-400 opacity-70'"
       >
+        <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
         Переглянути майстра
       </NuxtLink>
     </section>

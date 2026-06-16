@@ -34,6 +34,10 @@ const rows = computed(() => {
 })
 
 const maxAppointments = computed(() => Math.max(...rows.value.map(row => row.appointments), 0))
+const progressWidth = (appointments: number) => {
+  if (!appointments || !maxAppointments.value) return 0
+  return Math.max(5, (appointments / maxAppointments.value) * 100)
+}
 </script>
 
 <template>
@@ -52,7 +56,7 @@ const maxAppointments = computed(() => Math.max(...rows.value.map(row => row.app
       <div v-for="row in rows" :key="row.key" class="grid gap-1.5 sm:grid-cols-[6rem_1fr_auto] sm:items-center xl:grid-cols-[7rem_1fr_auto] xl:gap-2">
         <p class="text-xs font-medium text-slate-700 xl:text-sm">{{ row.label }}</p>
         <div class="h-2.5 overflow-hidden rounded-full bg-slate-100 xl:h-3">
-          <div class="h-full rounded-full bg-slate-950" :style="{ width: `${maxAppointments ? Math.max(5, (row.appointments / maxAppointments) * 100) : 0}%` }" />
+          <div class="h-full rounded-full bg-cyan-500" :style="{ width: `${progressWidth(row.appointments)}%` }" />
         </div>
         <p class="text-xs text-slate-500 sm:text-right xl:text-sm">{{ row.appointments }} · {{ formatMoney(row.revenue) }}</p>
       </div>

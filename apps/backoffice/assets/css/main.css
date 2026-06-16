@@ -516,6 +516,34 @@ main .ring-indigo-200 {
   border-color: color-mix(in srgb, var(--text-primary) 14%, transparent) !important;
 }
 
+.backoffice-booking-redirect-card {
+  border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.backoffice-booking-redirect-label {
+  color: color-mix(in srgb, var(--text-primary) 70%, transparent) !important;
+}
+
+.backoffice-booking-redirect-value {
+  color: var(--text-primary) !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-booking-redirect-card {
+  border-color: rgba(14, 116, 144, 0.18);
+  background: rgba(8, 145, 178, 0.075) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 8px 22px rgba(15, 23, 42, 0.07);
+}
+
+html[data-backoffice-theme="light"] .backoffice-booking-redirect-label {
+  color: #155e75 !important;
+}
+
 .backoffice-modal-close-button {
   display: inline-flex;
   width: 2.5rem;
@@ -607,6 +635,30 @@ main .ring-indigo-200 {
   color: #ffffff !important;
 }
 
+.backoffice-modal-action-danger-outline {
+  border: 1px solid rgba(255, 69, 58, 0.48);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: color-mix(in srgb, var(--danger) 72%, var(--text-primary)) !important;
+}
+
+.backoffice-modal-action-danger-outline:hover:not(:disabled) {
+  border-color: rgba(255, 69, 58, 0.72);
+  background: color-mix(in srgb, var(--danger) 18%, var(--solid-control));
+  color: var(--interactive-hover-text) !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-modal-action-danger-outline {
+  border-color: rgba(215, 0, 21, 0.34);
+  background: rgba(215, 0, 21, 0.055);
+  color: #a50011 !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-modal-action-danger-outline:hover:not(:disabled) {
+  border-color: rgba(215, 0, 21, 0.50);
+  background: rgba(215, 0, 21, 0.10);
+  color: #7f0010 !important;
+}
+
 .backoffice-modal-action-secondary {
   border: 1px solid rgba(245, 158, 11, 0.48);
   background: rgba(245, 158, 11, 0.18);
@@ -627,6 +679,55 @@ main .ring-indigo-200 {
 .backoffice-modal-action-neutral:hover:not(:disabled) {
   background: var(--solid-control-hover);
   color: var(--interactive-hover-text) !important;
+}
+
+.backoffice-booking-status-action {
+  width: 100% !important;
+}
+
+.customers-filter-select-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.customers-filter-select {
+  width: 100%;
+  min-height: 2.75rem;
+  appearance: none;
+  cursor: pointer;
+  border-color: var(--input-border) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--input-bg) 92%, var(--text-primary) 4%), var(--input-bg)) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--input-shadow) !important;
+}
+
+.customers-filter-select:hover {
+  border-color: var(--focus-border) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--solid-control-hover) 76%, var(--input-bg)), var(--input-bg)) !important;
+}
+
+.customers-filter-select-icon {
+  pointer-events: none;
+  position: absolute;
+  right: 0.95rem;
+  top: 50%;
+  height: 1rem;
+  width: 1rem;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+}
+
+html:not([data-backoffice-theme="light"]) .customers-filter-select {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.105)) !important;
+}
+
+html:not([data-backoffice-theme="light"]) .customers-filter-select:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.135)) !important;
 }
 
 @media (min-width: 640px) {
@@ -826,6 +927,178 @@ html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="bg-white/"
   background: var(--primary-button-bg) !important;
   color: var(--primary-button-text) !important;
   border-color: var(--border) !important;
+}
+
+.customer-service-chip {
+  border: 1px solid color-mix(in srgb, var(--accent-text) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 14%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 86%, var(--text-primary)) !important;
+}
+
+html[data-backoffice-theme="light"] .customer-service-chip {
+  border-color: rgba(14, 116, 144, 0.18);
+  background: rgba(8, 145, 178, 0.08);
+  color: #155e75 !important;
+}
+
+.customer-info-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--solid-control) 82%, transparent);
+  padding: 0.75rem;
+}
+
+.customer-info-icon {
+  height: 1.15rem;
+  width: 1.15rem;
+  flex-shrink: 0;
+  color: var(--accent-text);
+}
+
+.customer-info-value {
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+.customer-info-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+}
+
+.customer-info-badge-active {
+  border-color: color-mix(in srgb, var(--success) 34%, transparent);
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: color-mix(in srgb, var(--success) 72%, var(--text-primary)) !important;
+}
+
+.customer-info-badge-muted {
+  border-color: color-mix(in srgb, var(--text-secondary) 24%, transparent);
+  background: color-mix(in srgb, var(--solid-control-hover) 82%, transparent);
+  color: var(--text-secondary) !important;
+}
+
+.customer-import-stat {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--solid-control);
+  padding: 0.75rem;
+}
+
+.customer-import-stat-icon {
+  height: 1.25rem;
+  width: 1.25rem;
+  flex-shrink: 0;
+  color: var(--accent-text);
+}
+
+.customer-import-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+}
+
+.customer-import-status-new {
+  border-color: color-mix(in srgb, var(--accent-text) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 14%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 86%, var(--text-primary)) !important;
+}
+
+.customer-import-status-current {
+  border-color: color-mix(in srgb, var(--text-secondary) 24%, transparent);
+  background: color-mix(in srgb, var(--solid-control-hover) 82%, transparent);
+  color: var(--text-secondary) !important;
+}
+
+html[data-backoffice-theme="light"] .customer-info-item {
+  border-color: rgba(15, 23, 42, 0.10);
+  background: rgba(248, 250, 252, 0.82);
+}
+
+html[data-backoffice-theme="light"] .customer-info-badge-active {
+  border-color: rgba(22, 163, 74, 0.22);
+  background: rgba(22, 163, 74, 0.10);
+  color: #166534 !important;
+}
+
+html[data-backoffice-theme="light"] .customer-info-badge-muted {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569 !important;
+}
+
+.time-block-create-button,
+.backoffice-page-create-button {
+  border-color: color-mix(in srgb, var(--accent-text) 34%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 16%, var(--solid-control));
+  color: color-mix(in srgb, var(--accent-text) 88%, var(--text-primary)) !important;
+}
+
+.time-block-create-button:hover:not(:disabled),
+.backoffice-page-create-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent-text) 52%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 24%, var(--solid-control-hover));
+  color: var(--interactive-hover-text) !important;
+}
+
+html[data-backoffice-theme="light"] .customer-import-stat {
+  border-color: rgba(15, 23, 42, 0.10);
+  background: rgba(248, 250, 252, 0.82);
+}
+
+html[data-backoffice-theme="light"] .customer-import-status-new {
+  border-color: rgba(14, 116, 144, 0.18);
+  background: rgba(8, 145, 178, 0.08);
+  color: #155e75 !important;
+}
+
+html[data-backoffice-theme="light"] .customer-import-status-current {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569 !important;
+}
+
+html[data-backoffice-theme="light"] .time-block-create-button,
+html[data-backoffice-theme="light"] .backoffice-page-create-button {
+  border-color: rgba(8, 145, 178, 0.22);
+  background: rgba(8, 145, 178, 0.09);
+  color: #155e75 !important;
+}
+
+html[data-backoffice-theme="light"] .time-block-create-button:hover:not(:disabled),
+html[data-backoffice-theme="light"] .backoffice-page-create-button:hover:not(:disabled) {
+  border-color: rgba(8, 145, 178, 0.34);
+  background: rgba(8, 145, 178, 0.15);
+  color: #0e7490 !important;
+}
+
+.backoffice-login .primary-login-button:hover:not(:disabled) {
+  background: #e5e7eb !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  color: #000000 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 12px 30px rgba(0, 0, 0, 0.26) !important;
+}
+
+html[data-backoffice-theme="light"] .backoffice-login .primary-login-button:hover:not(:disabled) {
+  background: #1e293b !important;
+  border-color: rgba(15, 23, 42, 0.36) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 12px 28px rgba(15, 23, 42, 0.20) !important;
 }
 
 .statistics-stat-card {
@@ -1062,6 +1335,57 @@ html[data-backoffice-theme="light"] main .text-rose-700 {
 
   main table.service-table tbody > :not([hidden]) ~ :not([hidden]) {
     border-top-width: 0;
+  }
+
+  main .customers-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main table.customers-table {
+    display: table;
+    min-width: 58rem;
+    width: 100%;
+  }
+
+  main table.customers-table thead {
+    display: table-header-group;
+  }
+
+  main table.customers-table tbody {
+    display: table-row-group;
+    padding: 0;
+    background: transparent;
+  }
+
+  main table.customers-table tr {
+    display: table-row;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  main table.customers-table td {
+    display: table-cell;
+    border-top: 0;
+    padding: 0.75rem 1rem !important;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  main table.customers-table td::before {
+    display: none;
+  }
+
+  main table.customers-table td.max-w-xs {
+    max-width: 20rem;
+  }
+
+  main table.customers-table td[data-label="Дії"] {
+    display: table-cell;
+    text-align: left;
   }
 }
 

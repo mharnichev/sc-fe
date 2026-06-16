@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -134,8 +134,14 @@ const deleteSelectedBooking = async () => {
         </select>
       </label>
       <div class="flex items-end gap-2 xl:gap-3">
-        <button class="flex-1 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white xl:px-4 xl:py-3 xl:text-sm" @click="applyFilters">Застосувати</button>
-        <button class="flex-1 rounded-full border border-slate-300 px-3 py-2 text-xs xl:px-4 xl:py-3 xl:text-sm" @click="clearFilters">Очистити</button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Очистити</span>
+        </button>
       </div>
     </section>
 

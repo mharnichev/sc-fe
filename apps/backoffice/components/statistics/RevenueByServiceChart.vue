@@ -10,6 +10,10 @@ const props = defineProps<{
 const { formatMoney } = useBookingFormatting()
 const revenueValue = (item: StatisticsServiceItem) => Number(item.revenue || 0)
 const maxRevenue = computed(() => Math.max(...props.items.map(revenueValue), 0))
+const progressWidth = (revenue: number) => {
+  if (!revenue || !maxRevenue.value) return 0
+  return Math.max(6, (revenue / maxRevenue.value) * 100)
+}
 </script>
 
 <template>
@@ -38,7 +42,7 @@ const maxRevenue = computed(() => Math.max(...props.items.map(revenueValue), 0))
             <td data-label="Послуга" class="px-3 py-2 xl:px-4 xl:py-3">
               <p class="font-medium text-slate-900">{{ item.service_name }}</p>
               <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 xl:mt-2 xl:h-2">
-                <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${maxRevenue ? Math.max(6, (revenueValue(item) / maxRevenue) * 100) : 0}%` }" />
+                <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${progressWidth(revenueValue(item))}%` }" />
               </div>
             </td>
             <td data-label="Записи" class="px-3 py-2 text-slate-700 xl:px-4 xl:py-3">{{ item.count }}</td>

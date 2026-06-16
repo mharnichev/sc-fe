@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { FunnelIcon } from '@heroicons/vue/24/outline'
+
 const api = useBackofficeApi()
 const filters = reactive({
   search: '',
@@ -33,8 +35,9 @@ const applyFilters = async () => {
         <option value="true">Активні</option>
         <option value="false">Неактивні</option>
       </select>
-      <button class="rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">
-        Застосувати
+      <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+        <span>Застосувати</span>
       </button>
     </section>
 

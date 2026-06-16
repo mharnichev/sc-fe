@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ClockIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -158,7 +158,10 @@ const deleteAvailability = async (windowId: number) => {
             </span>
             <input v-model="filters.date_to" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
           </label>
-          <button class="col-span-2 min-h-9 rounded-full border border-slate-300 px-3 py-1.5 text-xs sm:col-span-1 xl:px-4 xl:py-2 xl:text-sm" @click="applyFilters">Застосувати</button>
+          <button class="backoffice-modal-action-button backoffice-modal-action-primary col-span-2 sm:col-span-1" @click="applyFilters">
+            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+            <span>Застосувати</span>
+          </button>
         </div>
       </div>
 

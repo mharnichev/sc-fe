@@ -8,16 +8,21 @@ import logoScUrl from '@/assets/svg/logo_sc.svg?url'
 definePageMeta({ layout: false })
 
 const auth = useAuthStore()
+const route = useRoute()
 const { isLightTheme, themeToggleLabel, toggleTheme } = useBackofficeTheme()
 const toast = useBaseToastNotification()
 const form = reactive({ email: '', password: '' })
 const pending = ref(false)
+const loginRedirectPath = computed(() => {
+  const redirect = route.query.redirect
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+})
 
 const submit = async () => {
   pending.value = true
   try {
     await auth.login(form.email, form.password)
-    await navigateTo('/')
+    await navigateTo(loginRedirectPath.value)
   } catch (cause: unknown) {
     const message =
       typeof cause === 'object' && cause && 'data' in cause && typeof cause.data === 'object' && cause.data && 'detail' in cause.data

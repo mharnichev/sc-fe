@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Service } from '~/composables/useBackofficeApi'
 
@@ -117,6 +117,10 @@ const resetServiceForm = () => {
 const resolvedMaster = computed(() =>
   props.booking?.master || props.booking?.barber || props.masters?.find(master => master.id === props.booking?.master_id) || null,
 )
+const customerProfilePath = computed(() => {
+  const customerId = props.booking?.customer_id || props.booking?.customer?.id
+  return customerId ? `/customers/${customerId}` : ''
+})
 const redirectSourceName = computed(() =>
   props.booking ? redirectedFromMasterName(props.booking) : '',
 )
@@ -155,10 +159,10 @@ const orderedAllowedStatuses = computed(() => {
 })
 
 const statusActionClass = (status: BookingStatus) => {
-  if (status === 'cancelled') return 'border border-rose-300 text-rose-700'
-  if (status === 'completed') return 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+  if (status === 'cancelled') return 'backoffice-modal-action-danger-outline'
+  if (status === 'completed') return 'backoffice-modal-action-success'
 
-  return 'bg-slate-950 text-white'
+  return 'backoffice-modal-action-primary'
 }
 
 const statusActionIcon = (status: BookingStatus) => {
@@ -263,6 +267,15 @@ onBeforeUnmount(() => {
               <h2 class="min-w-0 truncate text-lg font-semibold text-slate-900 sm:text-2xl">
                 #{{ booking.id }} · {{ customerName(booking) }}
               </h2>
+              <NuxtLink
+                v-if="customerProfilePath"
+                :to="customerProfilePath"
+                class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:bg-white hover:text-slate-950"
+                aria-label="Відкрити профіль клієнта"
+                title="Відкрити профіль клієнта"
+              >
+                <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              </NuxtLink>
               <BookingStatusBadge :status="booking.status" />
             </div>
           </div>
@@ -304,9 +317,9 @@ onBeforeUnmount(() => {
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Майстер</dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ masterName(resolvedMaster) }}</dd>
           </div>
-          <div v-if="redirectSourceName" class="rounded-xl bg-cyan-50 px-3 py-2 ring-1 ring-cyan-100 sm:rounded-2xl sm:p-4">
-            <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-cyan-700 sm:text-xs sm:tracking-[0.18em]">Перенаправлено від</dt>
-            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ redirectSourceName }}</dd>
+          <div v-if="redirectSourceName" class="backoffice-booking-redirect-card rounded-xl px-3 py-2 sm:rounded-2xl sm:p-4">
+            <dt class="backoffice-booking-redirect-label text-[11px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]">Перенаправлено від</dt>
+            <dd class="backoffice-booking-redirect-value mt-1 text-sm font-medium sm:mt-2 sm:text-base">{{ redirectSourceName }}</dd>
           </div>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber && !redirectSourceName ? 'col-span-2' : ''">
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуги</dt>
@@ -446,7 +459,7 @@ onBeforeUnmount(() => {
           <button
             v-for="status in orderedAllowedStatuses"
             :key="status"
-            class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium disabled:opacity-60 sm:gap-2"
+            class="backoffice-modal-action-button backoffice-booking-status-action"
             :class="[statusActionClass(status), status === 'completed' ? 'col-span-2' : '']"
             :disabled="pendingStatus === status"
             @click="emit('updateStatus', status)"
@@ -457,7 +470,7 @@ onBeforeUnmount(() => {
           <button
             v-if="canDeleteBooking"
             type="button"
-            class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-full border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 sm:gap-2"
+            class="backoffice-modal-action-button backoffice-modal-action-danger-outline backoffice-booking-status-action"
             :disabled="pendingDelete"
             @click="deleteConfirmOpen = true"
           >

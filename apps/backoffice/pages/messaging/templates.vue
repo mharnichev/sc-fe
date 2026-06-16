@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, DocumentDuplicateIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentDuplicateIcon, FunnelIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { MessageTemplate, MessageTemplatePayload } from '~/types/messaging'
 
 const api = useBackofficeApi()
@@ -110,7 +110,10 @@ const closeDeleteConfirm = (value: boolean) => {
         <option value="uk">Українська</option>
         <option value="en">English</option>
       </select>
-      <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
+      <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+        <span>Застосувати</span>
+      </button>
     </section>
 
     <div v-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити шаблони.</div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
@@ -115,8 +115,14 @@ const prev = async () => {
         <option value="false">Неактивні</option>
       </select>
       <div class="flex gap-3">
-        <button class="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
-        <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Очистити</span>
+        </button>
       </div>
     </section>
 

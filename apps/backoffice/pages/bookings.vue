@@ -3,13 +3,12 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CheckCircleIcon,
   FunnelIcon,
   EyeIcon,
   ScissorsIcon,
   TrashIcon,
   UserCircleIcon,
-  XCircleIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type {
@@ -856,12 +855,12 @@ const deleteSelectedBlock = async () => {
           <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }} · Відкритих інтервалів: {{ availabilityWindows.length }}</p>
         </div>
         <div class="col-span-2 flex min-w-0 items-end gap-2 md:col-span-1 md:gap-3">
-          <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 md:min-h-12 md:px-4 md:py-3 md:text-sm" @click="applyFilters">
-            <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
             <span class="truncate">Застосувати</span>
           </button>
-          <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-rose-300 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-50 md:min-h-12 md:px-4 md:py-3 md:text-sm" @click="clearFilters">
-            <XCircleIcon class="h-4 w-4" aria-hidden="true" />
+          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             <span class="truncate">Очистити</span>
           </button>
         </div>

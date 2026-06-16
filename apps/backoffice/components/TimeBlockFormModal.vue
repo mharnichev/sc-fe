@@ -18,7 +18,6 @@ const toast = useBaseToastNotification()
 const {
   todayInput,
   toKyivIso,
-  masterName,
   apiErrorMessage,
 } = useBookingFormatting()
 
@@ -121,10 +120,7 @@ watch(
       <form class="space-y-5" @submit.prevent="submit">
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Майстер</span>
-          <select v-model="form.master_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-            <option value="">Виберіть майстра</option>
-            <option v-for="master in masters" :key="master.id" :value="String(master.id)">{{ masterName(master) }}</option>
-          </select>
+          <MasterSelect v-model="form.master_id" :masters="masters" placeholder="Виберіть майстра" menu-class="z-[240]" />
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Дата</span>

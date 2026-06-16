@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ArchiveBoxIcon, DocumentDuplicateIcon, EyeIcon, PauseIcon, PencilIcon, PlayIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, DocumentDuplicateIcon, EyeIcon, FunnelIcon, PauseIcon, PencilIcon, PlayIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { MessagingCampaign } from '~/types/messaging'
 
 const route = useRoute()
 const api = useBackofficeApi()
 const { campaignTypes, channels, channelLabel } = useMessagingUi()
-const { masterName } = useBookingFormatting()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
 const page = ref(1)
@@ -105,13 +104,16 @@ const closeConfirm = (value: boolean) => {
       </select>
       <input v-model="filters.date_from" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
       <input v-model="filters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <select v-model="filters.barber_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option :value="null">Усі майстри</option>
-        <option v-for="master in masterItems" :key="master.id" :value="Number(master.id)">{{ masterName(master) }}</option>
-      </select>
+      <MasterSelect v-model="filters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" menu-class="z-[220]" />
       <div class="flex gap-3 md:col-span-3 xl:col-span-6">
-        <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
-        <button class="rounded-full border border-slate-300 px-5 py-3 text-sm" @click="clearFilters">Очистити</button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="clearFilters">
+          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Очистити</span>
+        </button>
       </div>
     </section>
 

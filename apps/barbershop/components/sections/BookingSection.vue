@@ -28,6 +28,7 @@ const isResettingAfterSubmit = ref(false)
 const bookingStarted = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepIds = ['booking-service', 'booking-master', 'booking-time', 'booking-contact']
+const closedWeekdays = [1]
 
 const form = reactive({
   customer_name: '',
@@ -59,9 +60,22 @@ const isMondayDateInput = (value: string) => {
 
 const today = formatDateInput(new Date())
 const maxBookableDate = formatDateInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+const defaultBookableDate = (() => {
+  const date = new Date()
+
+  for (let dayOffset = 0; dayOffset <= 90; dayOffset += 1) {
+    const candidate = new Date(date)
+    candidate.setDate(date.getDate() + dayOffset)
+    const value = formatDateInput(candidate)
+
+    if (!isMondayDateInput(value)) return value
+  }
+
+  return today
+})()
 
 if (!selectedDate.value) {
-  selectedDate.value = today
+  selectedDate.value = defaultBookableDate
 }
 
 const activeServiceCatalog = computed(() => activeBaseCatalogItems(serviceCatalog.value))
@@ -315,15 +329,40 @@ const emptySlotsMessage = computed(() =>
     : terms.value.home.booking.noSlotsDate,
 )
 
+const dateLocale = computed(() => locale.value === 'en' ? 'en-US' : 'uk-UA')
+
+const bookingTimeLabels = computed(() => locale.value === 'en'
+  ? {
+      chooseMaster: 'Choose barber',
+      chooseTime: 'Choose time',
+      contact: 'Contact details',
+      date: 'Date',
+      next: 'Next',
+      slots: 'Time',
+      slotsError: 'Unable to load times.',
+      slotsPending: 'Searching available times...',
+    }
+  : {
+      chooseMaster: 'Обрати майстра',
+      chooseTime: 'Обрати час',
+      contact: 'До контактів',
+      date: 'Дата',
+      next: 'Далі',
+      slots: 'Час',
+      slotsError: 'Не вдалося завантажити слоти.',
+      slotsPending: 'Шукаємо вільні слоти...',
+    },
+)
+
 const formatTime = (value: string) =>
-  new Intl.DateTimeFormat('uk-UA', {
+  new Intl.DateTimeFormat(dateLocale.value, {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'Europe/Kyiv',
   }).format(new Date(value))
 
 const formatBookingDateTime = (value: string) =>
-  new Intl.DateTimeFormat('uk-UA', {
+  new Intl.DateTimeFormat(dateLocale.value, {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -392,10 +431,10 @@ const bookingActionKind = computed(() => {
 const bookingActionMobileLabel = computed(() => {
   if (bookingActionKind.value === 'loading') return terms.value.pages.contacts.sending
   if (bookingActionKind.value === 'book') return terms.value.home.booking.book
-  if (bookingActionKind.value === 'master') return 'Обрати майстра'
-  if (bookingActionKind.value === 'time') return 'Обрати час'
-  if (bookingActionKind.value === 'contact') return 'До контактів'
-  return 'Далі'
+  if (bookingActionKind.value === 'master') return bookingTimeLabels.value.chooseMaster
+  if (bookingActionKind.value === 'time') return bookingTimeLabels.value.chooseTime
+  if (bookingActionKind.value === 'contact') return bookingTimeLabels.value.contact
+  return bookingTimeLabels.value.next
 })
 const bookingActionDesktopLabel = computed(() => {
   if (bookingActionKind.value === 'next') return terms.value.home.booking.next
@@ -438,7 +477,7 @@ const resetBookingFlow = async () => {
   selectedCatalogIds.value = []
   selectedServiceIds.value = []
   selectedMasterId.value = null
-  selectedDate.value = today
+  selectedDate.value = defaultBookableDate
   selectedSlotStart.value = ''
   form.customer_name = ''
   form.customer_phone = ''
@@ -705,24 +744,22 @@ const closeSuccess = () => {
                   </div>
                 </section>
 
-                <section v-else-if="activeStepIndex === 2" key="booking-time" class="booking-time-step grid gap-4 md:grid-cols-[12rem_1fr] md:gap-5">
+                <section v-else-if="activeStepIndex === 2" key="booking-time" class="booking-time-step grid gap-4 md:grid-cols-[18rem_1fr] md:gap-5">
                   <div class="booking-date-control">
-                    <label for="booking-date" class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                      {{ terms.home.booking.steps[2] }}
-                    </label>
-                    <input
-                      id="booking-date"
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
+                      {{ bookingTimeLabels.date }}
+                    </p>
+                    <BookingDatePicker
                       v-model="selectedDate"
-                      type="date"
-                      required
                       :min="today"
                       :max="maxBookableDate"
-                      class="mt-4 w-full border border-white/15 bg-transparent px-4 py-3 text-white outline-none [color-scheme:dark]"
-                    >
+                      :locale="locale"
+                      :disabled-weekdays="closedWeekdays"
+                    />
                   </div>
 
                   <div class="booking-slots-column">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">Слот</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">{{ bookingTimeLabels.slots }}</p>
                     <div v-if="visibleSlots.length" class="booking-slots-grid mt-4 grid grid-cols-3 gap-2">
                       <button
                         v-for="slot in visibleSlots"
@@ -741,8 +778,8 @@ const closeSuccess = () => {
                     <p v-else-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
                       {{ terms.home.booking.closedOnMonday }}
                     </p>
-                    <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">Шукаємо вільні слоти...</p>
-                    <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">Не вдалося завантажити слоти.</p>
+                    <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
+                    <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">{{ bookingTimeLabels.slotsError }}</p>
                     <p v-else-if="!visibleSlots.length" class="mt-4 text-sm text-white/55">
                       {{ emptySlotsMessage }}
                     </p>

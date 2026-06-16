@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const { formatDateTime, formatMoney } = useBookingFormatting()
@@ -62,29 +62,44 @@ const prev = async () => {
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Клієнти</h1>
     </div>
 
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
+    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4">
       <input v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <select v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Будь-який статус</option>
-        <option value="true">Активні</option>
-        <option value="false">Неактивні</option>
-      </select>
-      <select v-model="filters.is_verified" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Будь-яка верифікація</option>
-        <option value="true">Верифіковані</option>
-        <option value="false">Не верифіковані</option>
-      </select>
-      <select v-model="filters.sort_by" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="created_at">Створено</option>
-        <option value="last_login_at">Останній вхід</option>
-        <option value="name">Ім’я</option>
-        <option value="surname">Прізвище</option>
-        <option value="phone">Телефон</option>
-        <option value="id">ID</option>
-      </select>
-      <div class="flex gap-3">
-        <button class="flex-1 rounded-full bg-slate-950 px-4 py-3 text-sm font-medium text-white" @click="applyFilters">Застосувати</button>
-        <button class="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm" @click="clearFilters">Очистити</button>
+      <label class="customers-filter-select-wrap">
+        <select v-model="filters.is_active" aria-label="Статус клієнта" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
+          <option value="">Будь-який статус</option>
+          <option value="true">Активні</option>
+          <option value="false">Неактивні</option>
+        </select>
+        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
+      </label>
+      <label class="customers-filter-select-wrap">
+        <select v-model="filters.is_verified" aria-label="Верифікація клієнта" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
+          <option value="">Будь-яка верифікація</option>
+          <option value="true">Верифіковані</option>
+          <option value="false">Не верифіковані</option>
+        </select>
+        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
+      </label>
+      <label class="customers-filter-select-wrap">
+        <select v-model="filters.sort_by" aria-label="Сортування клієнтів" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
+          <option value="created_at">Створено</option>
+          <option value="last_login_at">Останній вхід</option>
+          <option value="name">Ім’я</option>
+          <option value="surname">Прізвище</option>
+          <option value="phone">Телефон</option>
+          <option value="id">ID</option>
+        </select>
+        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
+      </label>
+      <div class="flex gap-3 md:col-span-2 xl:col-span-4 xl:justify-end">
+        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1 xl:flex-none" @click="applyFilters">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Застосувати</span>
+        </button>
+        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1 xl:flex-none" @click="clearFilters">
+          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+          <span>Очистити</span>
+        </button>
       </div>
     </section>
 
@@ -92,8 +107,8 @@ const prev = async () => {
       Усього клієнтів: {{ data?.total || 0 }}
     </div>
 
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <div class="customers-table-scroll overflow-x-auto rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+      <table class="customers-table min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-medium text-slate-500">ID</th>
