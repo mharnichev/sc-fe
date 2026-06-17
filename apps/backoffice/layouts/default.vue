@@ -1,9 +1,11 @@
 <script setup lang="ts">
+const auth = useAuthStore()
 const sidebarCollapsed = ref(false)
+const shellReady = computed(() => Boolean(auth.initialized && auth.accessToken && auth.user))
 </script>
 
 <template>
-  <div class="min-h-screen overflow-hidden">
+  <div v-if="shellReady" class="min-h-screen overflow-hidden">
     <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_28rem)]" />
     <div
       class="relative grid min-h-screen grid-rows-[auto_1fr] transition-[grid-template-columns] duration-200 xl:grid-rows-[minmax(0,1fr)]"
