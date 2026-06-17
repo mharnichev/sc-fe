@@ -2,6 +2,18 @@
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp'
 
+const props = withDefaults(defineProps<{
+  analyticsSource?: string
+  idPrefix?: string
+  listenForExternalSelect?: boolean
+  mode?: 'section' | 'drawer'
+}>(), {
+  analyticsSource: 'home_booking',
+  idPrefix: 'booking',
+  listenForExternalSelect: true,
+  mode: 'section',
+})
+
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
@@ -10,9 +22,12 @@ const { trackEvent } = useAnalytics()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 
+const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-booking-service-catalog' : `${props.idPrefix}-service-catalog`
+const mastersKey = props.idPrefix === 'booking' ? 'home-booking-masters' : `${props.idPrefix}-masters`
+
 const [{ data: serviceCatalog, pending: servicesPending }, { data: masters, pending: mastersPending }] = await Promise.all([
-  useAsyncData('home-booking-service-catalog', domain.getServiceCatalog),
-  useAsyncData('home-booking-masters', domain.getMasters),
+  useAsyncData(serviceCatalogKey, domain.getServiceCatalog),
+  useAsyncData(mastersKey, domain.getMasters),
 ])
 
 const maxSelectedServices = 3
@@ -27,7 +42,12 @@ const actionAttemptedStepIndex = ref<number | null>(null)
 const isResettingAfterSubmit = ref(false)
 const bookingStarted = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
-const bookingStepIds = ['booking-service', 'booking-master', 'booking-time', 'booking-contact']
+const bookingStepKeys = ['service', 'master', 'time', 'contact']
+const bookingStepIds = computed(() => bookingStepKeys.map(step => `${props.idPrefix}-${step}`))
+const activeStepKey = computed(() => bookingStepKeys[activeStepIndex.value] || bookingStepKeys[0])
+const bookingSectionId = computed(() => props.mode === 'section' ? 'booking' : undefined)
+const bookingStepperId = computed(() => props.idPrefix === 'booking' ? 'booking-stepper' : `${props.idPrefix}-stepper`)
+const isDrawerMode = computed(() => props.mode === 'drawer')
 const closedWeekdays = [1]
 
 const form = reactive({
@@ -221,12 +241,12 @@ const selectService = (service: SelectableService) => {
     if (!bookingStarted.value) {
       bookingStarted.value = true
       trackEvent('booking_start', {
-        source: 'home_booking',
+        source: props.analyticsSource,
       })
     }
 
     trackEvent('select_service', {
-      source: 'home_booking',
+      source: props.analyticsSource,
       service_id: serviceKey(service),
       service_name: serviceName(service),
       service_count: selectedServiceCount.value,
@@ -240,7 +260,7 @@ const selectMaster = (masterId: number) => {
   selectedMasterId.value = masterId
   resolveSelectedServiceForMaster()
   trackEvent('select_master', {
-    source: 'home_booking',
+    source: props.analyticsSource,
     master_id: masterId,
     master_name: masterName(selectedMaster.value),
     service_count: selectedServiceCount.value,
@@ -251,7 +271,7 @@ const selectMaster = (masterId: number) => {
 const selectSlot = (slotStart: string) => {
   selectedSlotStart.value = slotStart
   trackEvent('select_time', {
-    source: 'home_booking',
+    source: props.analyticsSource,
     master_id: selectedMasterId.value,
     appointment_date: selectedDate.value,
     appointment_hour: formatTime(slotStart),
@@ -269,10 +289,14 @@ const handleExternalServiceSelect = (event: Event) => {
 }
 
 onMounted(() => {
+  if (!props.listenForExternalSelect) return
+
   window.addEventListener('barbershop:select-service', handleExternalServiceSelect)
 })
 
 onBeforeUnmount(() => {
+  if (!props.listenForExternalSelect) return
+
   window.removeEventListener('barbershop:select-service', handleExternalServiceSelect)
 })
 
@@ -291,8 +315,8 @@ const canLoadSlots = computed(() => Boolean(selectedMasterId.value && selectedSe
 
 const slotsKey = computed(() =>
   canLoadSlots.value && !isSelectedDateClosed.value
-    ? `home-booking-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
-    : 'home-booking-slots-empty',
+    ? `${props.idPrefix}-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
+    : `${props.idPrefix}-slots-empty`,
 )
 
 const {
@@ -511,7 +535,7 @@ const submit = async () => {
   state.success = ''
   state.error = ''
   trackEvent('booking_submit', {
-    source: 'home_booking',
+    source: props.analyticsSource,
     master_id: selectedMasterId.value,
     appointment_date: selectedDate.value,
     appointment_hour: formatTime(selectedSlotStart.value),
@@ -523,7 +547,7 @@ const submit = async () => {
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
     const bookingEventParams = {
-      source: 'home_booking',
+      source: props.analyticsSource,
       master_id: selectedMasterId.value,
       appointment_date: bookedStartAt.slice(0, 10),
       appointment_hour: formatTime(bookedStartAt),
@@ -552,7 +576,7 @@ const submit = async () => {
   catch (error) {
     state.error = errorMessage(error)
     trackEvent('booking_error', {
-      source: 'home_booking',
+      source: props.analyticsSource,
       master_id: selectedMasterId.value,
       appointment_date: selectedDate.value,
       error_message: state.error,
@@ -591,10 +615,16 @@ const closeSuccess = () => {
 </script>
 
 <template>
-  <section id="booking" data-header-theme="dark" class="bg-neutral-950 py-12 text-white sm:py-14 md:py-24 lg:flex lg:min-h-screen lg:items-center lg:py-20 xl:py-24">
-    <div class="site-container">
-      <div class="grid gap-8 lg:grid-cols-[0.36fr_0.64fr] lg:gap-12">
-        <div class="lg:sticky lg:top-28 lg:self-start" data-reveal="soft">
+  <component
+    :is="isDrawerMode ? 'div' : 'section'"
+    :id="bookingSectionId"
+    :data-header-theme="isDrawerMode ? undefined : 'dark'"
+    class="booking-section text-white"
+    :class="isDrawerMode ? 'booking-section--drawer flex min-h-0 flex-1 flex-col' : 'bg-neutral-950 py-12 sm:py-14 md:py-24 lg:flex lg:min-h-screen lg:items-center lg:py-20 xl:py-24'"
+  >
+    <div :class="isDrawerMode ? 'flex min-h-0 flex-1 flex-col' : 'site-container'">
+      <div :class="isDrawerMode ? 'flex min-h-0 flex-1 flex-col' : 'grid gap-8 lg:grid-cols-[0.36fr_0.64fr] lg:gap-12'">
+        <div v-if="!isDrawerMode" class="lg:sticky lg:top-28 lg:self-start" data-reveal="soft">
           <div class="grid gap-6 min-[560px]:grid-cols-[minmax(0,1fr)_minmax(10rem,18rem)] min-[560px]:items-start lg:block">
             <div>
               <SectionLabel>{{ terms.home.booking.label }}</SectionLabel>
@@ -614,7 +644,15 @@ const closeSuccess = () => {
           </div>
         </div>
 
-        <form id="booking-stepper" ref="bookingForm" class="relative scroll-mt-24 overflow-hidden border border-white/15 bg-white/[0.03] lg:scroll-mt-28" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+        <form
+          :id="bookingStepperId"
+          ref="bookingForm"
+          class="relative scroll-mt-24 overflow-hidden border border-white/15 bg-white/[0.03] lg:scroll-mt-28"
+          :class="isDrawerMode ? 'booking-form--drawer flex min-h-0 flex-1 flex-col' : ''"
+          :data-reveal="isDrawerMode ? undefined : 'soft'"
+          :data-reveal-delay="isDrawerMode ? undefined : '140'"
+          @submit.prevent="submit"
+        >
           <div class="grid grid-cols-2 border-b border-white/15 sm:grid-cols-4">
             <button
               v-for="(step, index) in bookingStepState"
@@ -647,7 +685,11 @@ const closeSuccess = () => {
             </button>
           </div>
 
-          <div :id="bookingStepIds[activeStepIndex]" class="booking-step-panel scroll-mt-28 p-4 md:p-8">
+          <div
+            :id="bookingStepIds[activeStepIndex]"
+            class="booking-step-panel scroll-mt-28 p-4 md:p-8"
+            :class="`booking-step-panel--${activeStepKey}`"
+          >
             <div>
               <div class="booking-step-content">
                 <AppTransition>
@@ -832,7 +874,7 @@ const closeSuccess = () => {
                 <button
                   v-if="activeStepIndex > 0"
                   type="button"
-                  class="inline-flex flex-1 items-center justify-center gap-2 border border-white/15 px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/75 transition hover:border-white/45 hover:text-white sm:flex-none sm:px-5"
+                  class="inline-flex h-11 flex-1 items-center justify-center gap-2 border border-white/15 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/75 transition hover:border-white/45 hover:text-white sm:h-12 sm:flex-none sm:px-5 sm:text-sm sm:tracking-[0.16em]"
                   @click="goToStep(activeStepIndex - 1)"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -844,7 +886,7 @@ const closeSuccess = () => {
                 <button
                   type="button"
                   :disabled="state.loading || (activeStepIndex === lastStepIndex && !canSubmit)"
-                  class="inline-flex h-11 flex-[1.35] items-center justify-center gap-2 bg-white px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45 sm:h-12 sm:flex-none sm:px-6 sm:text-sm sm:tracking-[0.16em]"
+                  class="inline-flex h-11 flex-[1.35] items-center justify-center gap-2 bg-white px-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45 sm:h-12 sm:flex-none sm:px-6 sm:text-sm sm:tracking-[0.16em]"
                   :class="showProminentBookingAction ? 'booking-guided-action' : ''"
                   @click="handleBookingAction"
                 >
@@ -908,28 +950,28 @@ const closeSuccess = () => {
         </form>
       </div>
     </div>
-  </section>
+  </component>
 </template>
 
 <style scoped>
 @media (max-width: 767px) {
-  #booking-service.booking-step-panel,
-  #booking-time.booking-step-panel {
+  .booking-step-panel--service.booking-step-panel,
+  .booking-step-panel--time.booking-step-panel {
     display: flex;
     max-height: calc(100svh - 16rem);
     min-height: 0;
     flex-direction: column;
   }
 
-  #booking-service.booking-step-panel > div,
-  #booking-time.booking-step-panel > div {
+  .booking-step-panel--service.booking-step-panel > div,
+  .booking-step-panel--time.booking-step-panel > div {
     display: flex;
     min-height: 0;
     flex: 1;
     flex-direction: column;
   }
 
-  #booking-service .booking-step-content {
+  .booking-step-panel--service .booking-step-content {
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -937,7 +979,7 @@ const closeSuccess = () => {
     padding-right: 0.25rem;
   }
 
-  #booking-time .booking-step-content {
+  .booking-step-panel--time .booking-step-content {
     display: flex;
     min-height: 0;
     flex: 1;
@@ -945,29 +987,29 @@ const closeSuccess = () => {
     overflow: hidden;
   }
 
-  #booking-time .booking-step-content > * {
+  .booking-step-panel--time .booking-step-content > * {
     min-height: 0;
   }
 
-  #booking-time .booking-time-step {
+  .booking-step-panel--time .booking-time-step {
     display: flex;
     min-height: 0;
     flex: 1;
     flex-direction: column;
   }
 
-  #booking-time .booking-date-control {
+  .booking-step-panel--time .booking-date-control {
     flex-shrink: 0;
   }
 
-  #booking-time .booking-slots-column {
+  .booking-step-panel--time .booking-slots-column {
     display: flex;
     min-height: 0;
     flex: 1;
     flex-direction: column;
   }
 
-  #booking-time .booking-slots-grid {
+  .booking-step-panel--time .booking-slots-grid {
     min-height: 0;
     flex: 1;
     overflow-x: hidden;
@@ -976,23 +1018,76 @@ const closeSuccess = () => {
     padding-right: 0.25rem;
   }
 
-  #booking-service .booking-step-actions,
-  #booking-time .booking-step-actions {
+  .booking-step-panel--service .booking-step-actions,
+  .booking-step-panel--time .booking-step-actions {
     flex-shrink: 0;
     margin-top: 1rem;
     border-top: 1px solid rgb(255 255 255 / 0.12);
     padding-top: 1rem;
   }
 
-  #booking-service .booking-service__item {
+  .booking-step-panel--service .booking-service__item {
     overflow: hidden;
   }
 
-  #booking-service .booking-service__selected-scribble {
+  .booking-step-panel--service .booking-service__selected-scribble {
     inset: -6px;
     width: calc(100% + 12px);
     height: calc(100% + 12px);
   }
+}
+
+.booking-section--drawer,
+.booking-section--drawer > div,
+.booking-section--drawer > div > div {
+  min-height: 0;
+  height: 100%;
+}
+
+.booking-form--drawer {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.booking-form--drawer > :first-child {
+  flex-shrink: 0;
+}
+
+.booking-section--drawer .booking-step-panel {
+  display: flex;
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.booking-section--drawer .booking-step-panel > div {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.booking-section--drawer .booking-step-content {
+  min-height: 0;
+  flex: 1;
+}
+
+.booking-section--drawer .booking-step-panel:not(.booking-step-panel--time) .booking-step-content {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+.booking-section--drawer .booking-step-actions {
+  flex-shrink: 0;
+  margin-top: 1rem;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+  padding-top: 1rem;
 }
 
 .booking-guided-action {

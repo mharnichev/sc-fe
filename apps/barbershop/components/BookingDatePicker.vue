@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
       <Transition name="booking-calendar-overlay">
         <div
           v-if="isOpen"
-          class="booking-calendar-overlay fixed inset-0 z-[80] flex items-end bg-black/65 px-0 md:hidden"
+          class="booking-calendar-overlay fixed inset-0 z-[140] flex items-end bg-black/65 px-0 md:hidden"
           @click.self="closeSheet"
         >
           <Transition name="booking-calendar-sheet" appear>

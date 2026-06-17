@@ -20,6 +20,7 @@ useLocalBusinessStructuredData()
     <Footer />
     <ClientOnly>
       <CookieConsentBanner />
+      <FloatingBookingDrawer />
     </ClientOnly>
   </div>
 </template>
