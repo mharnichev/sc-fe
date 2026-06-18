@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import bookEngImage from '~/assets/images/booking/booking-en.webp'
+import bookUaImage from '~/assets/images/booking/booking-ua.webp'
+
 const { locale, terms } = useTerms()
 const { trackEvent } = useAnalytics()
 
@@ -7,6 +10,8 @@ let previousBodyOverflow = ''
 
 const closeLabel = computed(() => locale.value === 'en' ? 'Close booking' : 'Закрити запис')
 const loadingLabel = computed(() => locale.value === 'en' ? 'Loading booking...' : 'Завантажуємо запис...')
+const triggerImage = computed(() => locale.value === 'en' ? bookEngImage : bookUaImage)
+const triggerImageAlt = computed(() => locale.value === 'en' ? 'Book appointment' : 'Записатися')
 
 const openDrawer = () => {
   if (isOpen.value) return
@@ -56,17 +61,18 @@ onBeforeUnmount(() => {
   <button
     v-show="!isOpen"
     type="button"
-    class="fixed bottom-4 right-4 z-[75] inline-flex h-14 items-center justify-center gap-3 rounded-full border border-white/20 bg-neutral-950 px-4 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_18px_45px_rgb(0_0_0_/_0.28)] transition hover:-translate-y-0.5 hover:bg-white hover:text-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70 sm:bottom-6 sm:right-6 sm:h-16 sm:px-5"
+    class="booking-trigger-button fixed bottom-4 right-4 z-[75] inline-flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70 sm:bottom-6 sm:right-6"
     :aria-expanded="isOpen"
     aria-controls="floating-booking-drawer"
+    :aria-label="triggerImageAlt"
     @click="openDrawer"
   >
-    <svg class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M5 4.5h10a1.5 1.5 0 0 1 1.5 1.5v8.7a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.6" />
-      <path d="M6.5 3.8v2.4M13.5 3.8v2.4M3.8 8.1h12.4M7.2 12.1l1.8 1.8 3.8-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
-    <span class="hidden sm:inline">{{ terms.common.bookAppointment }}</span>
-    <span class="sm:hidden">{{ terms.common.book }}</span>
+    <img
+      :src="triggerImage"
+      :alt="triggerImageAlt"
+      class="booking-trigger-image h-[84px] w-[84px] object-contain"
+      draggable="false"
+    >
   </button>
 
   <Transition name="booking-drawer-overlay">
@@ -126,6 +132,38 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.booking-trigger-button {
+  border: 6px solid rgb(255 202 43 / 0.32);
+
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.08)),
+    rgb(16 16 16 / 0.34);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  filter: drop-shadow(0 18px 28px rgb(0 0 0 / 0.28));
+  transition:
+    border-color 180ms ease,
+    filter 180ms ease,
+    transform 180ms ease;
+}
+
+.booking-trigger-button:hover {
+  border-color: rgb(255 255 255 / 0.58);
+  filter: drop-shadow(0 20px 34px rgb(0 0 0 / 0.34));
+  transform: scale(1.1);
+}
+
+.booking-trigger-image {
+  animation: booking-trigger-spin 13s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes booking-trigger-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .booking-drawer-overlay-enter-active,
 .booking-drawer-overlay-leave-active {
   transition: opacity 220ms ease;
@@ -154,6 +192,14 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .booking-trigger-button {
+    transition: none;
+  }
+
+  .booking-trigger-image {
+    animation: none;
+  }
+
   .booking-drawer-overlay-enter-active,
   .booking-drawer-overlay-leave-active,
   .booking-drawer-panel-enter-active,
