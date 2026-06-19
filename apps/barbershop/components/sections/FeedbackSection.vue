@@ -31,6 +31,12 @@ const handlePhoneInput = (event: Event) => {
   form.phone = formatPhoneInput((event.target as HTMLInputElement).value)
 }
 
+const handlePhonePasteEvent = (event: ClipboardEvent) => {
+  handlePhonePaste(event, value => {
+    form.phone = value
+  })
+}
+
 const handleTextInput = (
   field: 'name' | 'email' | 'message',
   maxLength: number,
@@ -129,6 +135,7 @@ const submit = () => {
               :aria-invalid="Boolean(form.phone && !isValidPhoneNumber(form.phone))"
               class="mt-2 w-full border border-neutral-300 bg-transparent px-4 py-3 text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950"
               @input="handlePhoneInput"
+              @paste="handlePhonePasteEvent"
             >
           </label>
 

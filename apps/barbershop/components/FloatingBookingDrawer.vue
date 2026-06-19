@@ -6,12 +6,47 @@ const { locale, terms } = useTerms()
 const { trackEvent } = useAnalytics()
 
 const isOpen = ref(false)
+const isTriggerOverBooking = ref(false)
+const triggerButton = ref<HTMLButtonElement | null>(null)
 let previousBodyOverflow = ''
+let triggerPositionFrame = 0
 
 const closeLabel = computed(() => locale.value === 'en' ? 'Close booking' : 'Закрити запис')
 const loadingLabel = computed(() => locale.value === 'en' ? 'Loading booking...' : 'Завантажуємо запис...')
 const triggerImage = computed(() => locale.value === 'en' ? bookEngImage : bookUaImage)
 const triggerImageAlt = computed(() => locale.value === 'en' ? 'Book appointment' : 'Записатися')
+
+const rectsIntersect = (first: DOMRect, second: DOMRect) =>
+  first.left < second.right
+  && first.right > second.left
+  && first.top < second.bottom
+  && first.bottom > second.top
+
+const updateTriggerPosition = () => {
+  if (!import.meta.client) return
+
+  const bookingSection = document.getElementById('booking')
+  const trigger = triggerButton.value
+
+  if (!bookingSection || !trigger || isOpen.value) {
+    isTriggerOverBooking.value = false
+    return
+  }
+
+  isTriggerOverBooking.value = rectsIntersect(
+    trigger.getBoundingClientRect(),
+    bookingSection.getBoundingClientRect(),
+  )
+}
+
+const scheduleTriggerPositionUpdate = () => {
+  if (!import.meta.client || triggerPositionFrame) return
+
+  triggerPositionFrame = window.requestAnimationFrame(() => {
+    triggerPositionFrame = 0
+    updateTriggerPosition()
+  })
+}
 
 const openDrawer = () => {
   if (isOpen.value) return
@@ -38,18 +73,29 @@ watch(isOpen, (open) => {
   if (open) {
     previousBodyOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    isTriggerOverBooking.value = false
     return
   }
 
   document.body.style.overflow = previousBodyOverflow
+  nextTick(scheduleTriggerPositionUpdate)
 })
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('scroll', scheduleTriggerPositionUpdate, { passive: true })
+  window.addEventListener('resize', scheduleTriggerPositionUpdate)
+  nextTick(scheduleTriggerPositionUpdate)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('scroll', scheduleTriggerPositionUpdate)
+  window.removeEventListener('resize', scheduleTriggerPositionUpdate)
+
+  if (triggerPositionFrame) {
+    window.cancelAnimationFrame(triggerPositionFrame)
+  }
 
   if (import.meta.client) {
     document.body.style.overflow = previousBodyOverflow
@@ -60,8 +106,11 @@ onBeforeUnmount(() => {
 <template>
   <button
     v-show="!isOpen"
+    ref="triggerButton"
     type="button"
     class="booking-trigger-button fixed bottom-4 right-4 z-[75] inline-flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70 sm:bottom-6 sm:right-6"
+    :class="{ 'booking-trigger-button--booking-overlap': isTriggerOverBooking }"
+    :style="isTriggerOverBooking ? { right: '-48px' } : undefined"
     :aria-expanded="isOpen"
     aria-controls="floating-booking-drawer"
     :aria-label="triggerImageAlt"
@@ -93,16 +142,16 @@ onBeforeUnmount(() => {
       aria-labelledby="floating-booking-drawer-title"
       class="fixed inset-x-0 bottom-0 z-[100] flex h-[88svh] max-h-[88svh] flex-col rounded-t-lg border border-white/15 bg-neutral-950 text-white shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-none md:w-[min(45rem,92vw)] md:rounded-none md:border-y-0 md:border-r-0"
     >
-      <div class="flex shrink-0 items-start justify-between gap-4 border-b border-white/15 px-4 py-4 sm:px-5 md:px-6">
+      <div class="flex shrink-0 items-start justify-between gap-3 border-b border-white/15 px-3 py-2.5 sm:px-4 sm:py-3 md:px-5">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">{{ terms.home.booking.label }}</p>
-          <h2 id="floating-booking-drawer-title" class="mt-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
+          <p class="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-white/45 sm:text-xs sm:tracking-[0.22em]">{{ terms.home.booking.label }}</p>
+          <h2 id="floating-booking-drawer-title" class="mt-0.5 text-xl font-semibold leading-tight text-white sm:mt-1 sm:text-2xl md:text-3xl">
             {{ terms.common.bookAppointment }}
           </h2>
         </div>
         <button
           type="button"
-          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-white/45 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-white/45 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:h-10 sm:w-10"
           :aria-label="closeLabel"
           @click="closeDrawer"
         >
@@ -112,7 +161,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-5 md:p-6">
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Suspense>
           <BookingSection
             analytics-source="floating_booking"
@@ -144,6 +193,7 @@ onBeforeUnmount(() => {
   transition:
     border-color 180ms ease,
     filter 180ms ease,
+    right 260ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 180ms ease;
 }
 

@@ -8,7 +8,7 @@ const botLink = 'https://t.me/SoulcutsBot'
 <template>
   <section id="bot" data-header-theme="dark" class="scroll-mt-24 bg-neutral-950 pb-12 text-white sm:pb-14 md:pb-24 xl:pb-28">
     <div class="site-container">
-      <div class="grid gap-6 border border-white/15 bg-white/[0.03] p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_15rem] md:p-8 lg:grid-cols-[minmax(0,1fr)_16rem]" data-reveal="soft">
+      <div class="grid gap-6 p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_15rem] md:p-8 lg:grid-cols-[minmax(0,1fr)_16rem]" data-reveal="soft">
         <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem] md:contents">
           <div class="md:col-start-1">
             <p class="inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">

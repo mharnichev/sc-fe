@@ -4,9 +4,19 @@ const PHONE_DIGIT_LIMIT = 12
 const getPhoneDigits = (value: string) => value.replace(/\D/g, '')
 
 export const normalizePhoneDigits = (value: string) => {
-  const digits = getPhoneDigits(value)
+  let digits = getPhoneDigits(value)
 
   if (!digits) return ''
+
+  if (digits.startsWith(PHONE_COUNTRY_CODE)) {
+    let subscriberDigits = digits.slice(PHONE_COUNTRY_CODE.length)
+
+    while (subscriberDigits.startsWith(PHONE_COUNTRY_CODE)) {
+      subscriberDigits = subscriberDigits.slice(PHONE_COUNTRY_CODE.length)
+    }
+
+    digits = `${PHONE_COUNTRY_CODE}${subscriberDigits}`
+  }
 
   if (digits.startsWith(`${PHONE_COUNTRY_CODE}0`)) {
     return `${PHONE_COUNTRY_CODE}${digits.slice(4)}`.slice(0, PHONE_DIGIT_LIMIT)
@@ -54,4 +64,18 @@ export const formatPhoneForSubmit = (value: string) => {
   const digits = normalizePhoneDigits(value)
 
   return digits.length === PHONE_DIGIT_LIMIT ? `+${digits}` : ''
+}
+
+export const handlePhonePaste = (event: ClipboardEvent, setValue: (value: string) => void) => {
+  const pastedText = event.clipboardData?.getData('text') || ''
+  const pastedDigits = getPhoneDigits(pastedText)
+  const isFullPhone =
+    pastedDigits.startsWith(PHONE_COUNTRY_CODE)
+    || /^0\d{9,}$/.test(pastedDigits)
+    || /^80\d{9,}$/.test(pastedDigits)
+
+  if (!isFullPhone) return
+
+  event.preventDefault()
+  setValue(formatPhoneInput(pastedText))
 }

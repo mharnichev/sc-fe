@@ -112,6 +112,12 @@ const handlePhoneInput = (event: Event) => {
   form.phone = formatPhoneInput((event.target as HTMLInputElement).value)
 }
 
+const handlePhonePasteEvent = (event: ClipboardEvent) => {
+  handlePhonePaste(event, value => {
+    form.phone = value
+  })
+}
+
 const handleTextInput = (
   field: 'first_name' | 'last_name' | 'email' | 'note',
   maxLength: number,
@@ -278,6 +284,7 @@ const submit = async () => {
           :placeholder="terms.pages.contacts.placeholders.phone"
           class="rounded-2xl border border-stone-300 px-4 py-3"
           @input="handlePhoneInput"
+          @paste="handlePhonePasteEvent"
         >
       </div>
       <div class="grid gap-4 md:grid-cols-2">
