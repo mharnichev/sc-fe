@@ -73,12 +73,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex flex-wrap items-start justify-between gap-3">
+  <div class="space-y-3 xl:space-y-4">
+    <div class="flex flex-wrap items-start justify-between gap-2 xl:gap-3">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Статистика</p>
-        <h1 class="mt-1 text-3xl font-semibold text-slate-900">Статистика барбершопу</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Статистика</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:text-3xl">Статистика барбершопу</h1>
+        <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500 xl:mt-2 xl:text-sm xl:leading-6">
           Загальний дохід, клієнти, записи та порівняння майстрів за місяць.
         </p>
       </div>
@@ -91,11 +91,11 @@ onBeforeUnmount(() => {
       @refresh="refreshAll"
     />
 
-    <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+    <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ statisticsErrorMessage(error, 'Не вдалося завантажити статистику адміністратора. Перевірте, що backend запущений з monthly statistics API.') }}
     </p>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
       <StatisticsStatCard
         label="Глобальний дохід"
         :value="formatMoney(monthly?.total_barbershop_monthly_revenue)"
@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
       />
     </div>
 
-    <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+    <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end xl:gap-3 xl:rounded-[1.75rem] xl:p-4">
       <div ref="masterSelectRef" class="relative grid gap-1.5 text-sm font-medium text-slate-700">
         <span class="inline-flex items-center gap-1.5">
           <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
@@ -130,12 +130,12 @@ onBeforeUnmount(() => {
         </span>
         <button
           type="button"
-          class="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-left text-sm shadow-sm sm:px-4"
+          class="flex min-h-10 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-left text-sm shadow-sm sm:px-4 xl:min-h-11 xl:rounded-2xl xl:py-2"
           :aria-expanded="masterSelectOpen"
           @click="masterSelectOpen = !masterSelectOpen"
         >
           <span class="flex min-w-0 items-center gap-2.5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.7rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200 xl:h-8 xl:w-8 xl:text-[0.7rem]">
               <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterName(selectedMaster)" class="h-full w-full object-cover">
               <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
             </span>
@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
       </div>
       <NuxtLink
         :to="selectedBarberPath || '/admin/statistics'"
-        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition"
+        class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
         :class="selectedBarberPath ? 'border-cyan-200 bg-cyan-50 text-cyan-800 hover:border-cyan-300 hover:bg-cyan-100' : 'pointer-events-none border-slate-300 bg-slate-100 text-slate-400 opacity-70'"
       >
         <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -190,36 +190,36 @@ onBeforeUnmount(() => {
       </NuxtLink>
     </section>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
       <StatisticsPopularServicesChart
         :items="monthly?.most_popular_services || []"
         :loading="pending"
         title="Популярні послуги барбершопу"
       />
 
-      <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 class="text-lg font-semibold text-slate-900">Топ майстрів</h2>
-        <div v-if="pending" class="mt-4 space-y-3">
-          <div v-for="index in 4" :key="index" class="h-14 animate-pulse rounded-2xl bg-slate-100" />
+      <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+        <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Топ майстрів</h2>
+        <div v-if="pending" class="mt-3 space-y-2 xl:mt-4 xl:space-y-3">
+          <div v-for="index in 4" :key="index" class="h-12 animate-pulse rounded-xl bg-slate-100 xl:h-14 xl:rounded-2xl" />
         </div>
         <StatisticsEmptyState
           v-else-if="!topBarbers.length"
-          class="mt-4"
+          class="mt-3 xl:mt-4"
           title="Немає рейтингу"
           description="Рейтинг зʼявиться після завершених записів."
         />
-        <div v-else class="mt-4 space-y-3">
+        <div v-else class="mt-3 space-y-2 xl:mt-4 xl:space-y-3">
           <NuxtLink
             v-for="(row, index) in topBarbers.slice(0, 5)"
             :key="row.barber.id"
             :to="`/admin/statistics/barbers/${row.barber.id}`"
-            class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 transition hover:border-cyan-300 hover:bg-cyan-50"
+            class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2.5 transition hover:border-cyan-300 hover:bg-cyan-50 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3"
           >
             <span class="min-w-0">
-              <span class="block font-medium text-slate-900">#{{ index + 1 }} {{ barberName(row.barber) }}</span>
-              <span class="mt-1 block text-sm text-slate-500">{{ row.completed_appointments }} записів · {{ row.unique_clients }} клієнтів</span>
+              <span class="block truncate text-sm font-medium text-slate-900 xl:text-base">#{{ index + 1 }} {{ barberName(row.barber) }}</span>
+              <span class="mt-0.5 block text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ row.completed_appointments }} записів · {{ row.unique_clients }} клієнтів</span>
             </span>
-            <span class="shrink-0 text-sm font-semibold text-slate-900">{{ formatMoney(row.revenue) }}</span>
+            <span class="shrink-0 text-xs font-semibold text-slate-900 xl:text-sm">{{ formatMoney(row.revenue) }}</span>
           </NuxtLink>
         </div>
       </section>
@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
       :selected-barber-id="selectedBarberId"
     />
 
-    <div class="grid gap-4 xl:grid-cols-2">
+    <div class="grid gap-3 xl:grid-cols-2 xl:gap-4">
       <StatisticsRevenueByServiceChart
         :items="monthly?.aggregate.revenue_by_service || []"
         :loading="pending"

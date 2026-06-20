@@ -7,6 +7,7 @@
     "dev:blog": "pnpm --filter @apps/blog dev",
     "dev:shop": "pnpm --filter @apps/shop dev",
     "dev:backoffice": "pnpm --filter @apps/backoffice dev",
+    "dev:backoffice:network": "pnpm --filter @apps/backoffice dev:network",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },

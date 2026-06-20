@@ -338,6 +338,25 @@ main textarea,
   outline: none;
 }
 
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+}
+
 main input::placeholder,
 main textarea::placeholder,
 .liquid-glass input::placeholder,

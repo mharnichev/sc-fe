@@ -2,6 +2,9 @@ import type { CampaignStatus, CampaignType, MessagingChannel } from '~/types/mes
 
 export const useMessagingUi = () => {
   const variables = [
+    '#client',
+    '#service',
+    '#date',
     '{{client_name}}',
     '{{barber_name}}',
     '{{appointment_date}}',
@@ -61,11 +64,14 @@ export const useMessagingUi = () => {
 
   const interpolateMessage = (body: string, sample: Record<string, string>) =>
     variables.reduce((value, variable) => {
-      const key = variable.replace(/[{}]/g, '')
+      const key = variable.startsWith('#') ? variable.slice(1) : variable.replace(/[{}]/g, '')
       return value.replaceAll(variable, sample[key] || variable)
     }, body)
 
   const sampleClient = {
+    client: 'Олена',
+    service: 'Стрижка та борода',
+    date: '31.05.2026 15:30',
     client_name: 'Олена',
     barber_name: 'Андрій',
     appointment_date: '31.05.2026',

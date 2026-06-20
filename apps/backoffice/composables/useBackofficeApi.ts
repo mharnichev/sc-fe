@@ -1442,6 +1442,27 @@ export const useBackofficeApi = () => {
       })),
     }))
 
+  const processPendingMessages = (limit?: number | null) =>
+    api<{ processed: number }>('/backoffice/messaging/jobs/process-pending', {
+      method: 'POST',
+      query: { limit: limit ?? undefined },
+    })
+
+  const createReviewRequests = () =>
+    api<{ created: number }>('/backoffice/messaging/jobs/create-review-requests', {
+      method: 'POST',
+    })
+
+  const createAppointmentReminders = () =>
+    api<{ created: number }>('/backoffice/messaging/jobs/create-appointment-reminders', {
+      method: 'POST',
+    })
+
+  const sendBookingSmsReminders = () =>
+    api<{ sent: number }>('/backoffice/messaging/jobs/send-booking-sms-reminders', {
+      method: 'POST',
+    })
+
   const getCustomerCommunication = (customerId: number | string) =>
     api<CustomerCommunicationProfile>(`/backoffice/messaging/customers/${customerId}/preferences`)
 
@@ -1561,6 +1582,10 @@ export const useBackofficeApi = () => {
     duplicateMessageTemplate,
     deleteMessageTemplate,
     getMessagingCampaignLogs,
+    processPendingMessages,
+    createReviewRequests,
+    createAppointmentReminders,
+    sendBookingSmsReminders,
     getCustomerCommunication,
     getCustomerTelegramConnectLink,
     sendCustomerManualMessage,

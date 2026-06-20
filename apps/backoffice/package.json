@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 4040",
+    "dev:network": "nuxt dev --host 0.0.0.0 --port 4040",
     "build": "nuxt build",
     "start": "nuxt start",
     "lint": "nuxi typecheck"
