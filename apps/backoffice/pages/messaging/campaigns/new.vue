@@ -152,7 +152,7 @@ const nextStep = () => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Messaging</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Нова кампанія</h1>
       </div>
-      <NuxtLink to="/messaging/campaigns" class="rounded-full border border-slate-300 px-5 py-3 text-sm">До списку</NuxtLink>
+      <NuxtLink to="/messaging/campaigns" class="messaging-secondary-action rounded-full px-5 py-3 text-sm">До списку</NuxtLink>
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[260px_1fr]">
@@ -162,10 +162,10 @@ const nextStep = () => {
           :key="item"
           type="button"
           class="mb-2 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm"
-          :class="step === item ? 'bg-cyan-50 font-semibold text-cyan-800' : 'text-slate-600 hover:bg-slate-50'"
+          :class="step === item ? 'messaging-choice-active font-semibold' : 'messaging-choice-idle'"
           @click="step = item"
         >
-          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs ring-1 ring-slate-200">{{ item }}</span>
+          <span class="messaging-step-number flex h-7 w-7 items-center justify-center rounded-full text-xs">{{ item }}</span>
           <span class="messaging-step-label">{{ ['Основи', 'Аудиторія', 'Повідомлення', 'Відгук / промо', 'Розклад', 'Фінальна перевірка'][item - 1] }}</span>
         </button>
       </aside>
@@ -178,7 +178,7 @@ const nextStep = () => {
             <input v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Наприклад: Відгук після візиту">
           </label>
           <div class="grid gap-3 md:grid-cols-2">
-            <label v-for="type in campaignTypes" :key="type.value" class="cursor-pointer rounded-[1.25rem] border p-4" :class="form.type === type.value ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200'">
+            <label v-for="type in campaignTypes" :key="type.value" class="cursor-pointer rounded-[1.25rem] border p-4" :class="form.type === type.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
               <input v-model="form.type" class="sr-only" type="radio" :value="type.value">
               <span class="block text-sm font-semibold text-slate-900">{{ type.label }}</span>
               <span class="mt-1 block text-xs leading-5 text-slate-500">{{ type.helper }}</span>
@@ -187,7 +187,7 @@ const nextStep = () => {
           <div>
             <p class="text-sm font-medium text-slate-700">Канал</p>
             <div class="mt-2 grid gap-3 sm:grid-cols-4">
-              <label v-for="channel in channels" :key="channel.value" class="rounded-2xl border p-4 text-sm" :class="form.channel === channel.value ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200'">
+              <label v-for="channel in channels" :key="channel.value" class="rounded-2xl border p-4 text-sm" :class="form.channel === channel.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
                 <input v-model="form.channel" class="sr-only" type="radio" :value="channel.value" :disabled="!channel.enabled">
                 <span class="font-semibold text-slate-900">{{ channel.label }}</span>
                 <span v-if="!channel.enabled" class="mt-1 block text-xs text-slate-500">Скоро</span>
@@ -206,7 +206,7 @@ const nextStep = () => {
         <div v-else-if="step === 2" class="space-y-5">
           <h2 class="text-xl font-semibold text-slate-900">Аудиторія</h2>
           <AudienceFilterBuilder v-model="form.audience_rules" :masters="masterItems" :services="serviceItems" :estimate="estimate" :loading="audienceLoading" @preview="previewRecipients" />
-          <p v-if="estimate?.excluded" class="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">
+          <p v-if="estimate?.excluded" class="messaging-tone-warning rounded-2xl p-4 text-sm">
             {{ estimate.excluded }} клієнтів буде виключено через відсутній Telegram chat_id або відмову від маркетингу.
           </p>
         </div>
@@ -278,9 +278,9 @@ const nextStep = () => {
         <div v-else-if="step === 5" class="space-y-5">
           <h2 class="text-xl font-semibold text-slate-900">Розклад та правила</h2>
           <div class="grid gap-3 sm:grid-cols-3">
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'now' ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200'"><input v-model="form.schedule_mode" type="radio" value="now"> Надіслати зараз</label>
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'later' ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200'"><input v-model="form.schedule_mode" type="radio" value="later"> Запланувати</label>
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'automated' ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200'"><input v-model="form.schedule_mode" type="radio" value="automated"> Автоматично</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'now' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="now"> Надіслати зараз</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'later' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="later"> Запланувати</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'automated' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="automated"> Автоматично</label>
           </div>
           <div class="grid gap-4 md:grid-cols-2">
             <label v-if="form.schedule_mode === 'later'" class="grid gap-2 text-sm">
@@ -335,9 +335,9 @@ const nextStep = () => {
               <p v-for="item in validationErrors" :key="item">{{ item }}</p>
             </div>
             <div class="flex flex-wrap gap-3">
-              <button class="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium" :disabled="saving || !canCreateMessagingDrafts" @click="save(false)">Зберегти чернетку</button>
-              <button class="rounded-full border border-cyan-300 px-5 py-3 text-sm font-medium text-cyan-800" :disabled="saving || validationErrors.length > 0">Надіслати тест</button>
-              <button class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50" :disabled="saving || validationErrors.length > 0 || !canSendMessagingCampaigns" @click="showSendConfirm = true">
+              <button class="messaging-secondary-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || !canCreateMessagingDrafts" @click="save(false)">Зберегти чернетку</button>
+              <button class="messaging-accent-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || validationErrors.length > 0">Надіслати тест</button>
+              <button class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="saving || validationErrors.length > 0 || !canSendMessagingCampaigns" @click="showSendConfirm = true">
                 {{ form.schedule_mode === 'later' ? 'Запланувати кампанію' : 'Активувати кампанію' }}
               </button>
             </div>
@@ -346,8 +346,8 @@ const nextStep = () => {
         </div>
 
         <div class="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5">
-          <button class="rounded-full border border-slate-300 px-5 py-3 text-sm" :disabled="step === 1" @click="step -= 1">Назад</button>
-          <button v-if="step < 6" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50" :disabled="!stepValid[step as keyof typeof stepValid]" @click="nextStep">Далі</button>
+          <button class="messaging-secondary-action rounded-full px-5 py-3 text-sm" :disabled="step === 1" @click="step -= 1">Назад</button>
+          <button v-if="step < 6" class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="!stepValid[step as keyof typeof stepValid]" @click="nextStep">Далі</button>
         </div>
       </section>
     </div>

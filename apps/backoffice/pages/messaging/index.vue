@@ -39,21 +39,21 @@ const scenarioDefinitions: Array<{
     recipient: 'Клієнт',
     trigger: 'Після завершеного візиту',
     icon: StarIcon,
-    accentClass: 'bg-amber-50 text-amber-700',
+    accentClass: 'messaging-tone-warning',
   },
   {
     name: 'Сповіщення в момент запису',
     recipient: 'Майстер',
     trigger: 'Одразу після нового запису',
     icon: UserIcon,
-    accentClass: 'bg-cyan-50 text-cyan-700',
+    accentClass: 'messaging-tone-accent',
   },
   {
     name: 'Нагадування про візит',
     recipient: 'Клієнт',
     trigger: 'За 24 години до візиту',
     icon: BellAlertIcon,
-    accentClass: 'bg-emerald-50 text-emerald-700',
+    accentClass: 'messaging-tone-success',
   },
 ]
 
@@ -117,7 +117,7 @@ const runScenarioJob = async (job: ScenarioJob) => {
           Telegram кампанії, автоматичні запити відгуків, шаблони та контроль відправок.
         </p>
       </div>
-      <NuxtLink to="/messaging/campaigns/new" class="inline-flex items-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white">
+      <NuxtLink to="/messaging/campaigns/new" class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium">
         <PlusIcon class="h-5 w-5" />
         Створити кампанію
       </NuxtLink>
@@ -145,7 +145,7 @@ const runScenarioJob = async (job: ScenarioJob) => {
         <div class="flex flex-wrap gap-2">
           <button
             v-if="canSendMessagingCampaigns"
-            class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-50"
+            class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="Boolean(runningJob)"
             @click="runScenarioJob('review')"
           >
@@ -154,7 +154,7 @@ const runScenarioJob = async (job: ScenarioJob) => {
           </button>
           <button
             v-if="canSendMessagingCampaigns"
-            class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-50"
+            class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="Boolean(runningJob)"
             @click="runScenarioJob('reminders')"
           >
@@ -163,7 +163,7 @@ const runScenarioJob = async (job: ScenarioJob) => {
           </button>
           <button
             v-if="canSendMessagingCampaigns"
-            class="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="Boolean(runningJob)"
             @click="runScenarioJob('pending')"
           >

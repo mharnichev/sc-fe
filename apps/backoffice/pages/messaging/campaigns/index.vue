@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArchiveBoxIcon, DocumentDuplicateIcon, EyeIcon, FunnelIcon, PauseIcon, PencilIcon, PlayIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, DocumentDuplicateIcon, EyeIcon, FunnelIcon, PauseIcon, PencilIcon, PlayIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { MessagingCampaign } from '~/types/messaging'
 
 const route = useRoute()
@@ -9,6 +9,15 @@ const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAcc
 
 const page = ref(1)
 const pageSize = 20
+const statusOptions = [
+  { value: '', label: 'Усі статуси' },
+  { value: 'draft', label: 'Чернетка' },
+  { value: 'active', label: 'Активна' },
+  { value: 'scheduled', label: 'Запланована' },
+  { value: 'paused', label: 'На паузі' },
+  { value: 'completed', label: 'Завершена' },
+  { value: 'failed', label: 'Помилка' },
+]
 const filters = reactive({
   status: String(route.query.status || ''),
   type: '',
@@ -24,6 +33,14 @@ const [{ data, pending, error, refresh }, { data: masters }] = await Promise.all
 ])
 
 const masterItems = computed(() => Array.isArray(masters.value) ? masters.value : masters.value?.items || [])
+const typeOptions = computed(() => [
+  { value: '', label: 'Усі типи' },
+  ...campaignTypes.map(type => ({ value: type.value, label: type.label })),
+])
+const channelOptions = computed(() => [
+  { value: '', label: 'Усі канали' },
+  ...channels.map(channel => ({ value: channel.value, label: channel.label })),
+])
 const confirmAction = ref<{ campaign: MessagingCampaign, action: 'archived' | 'delete' | 'paused' | 'active' } | null>(null)
 const actionPending = ref(false)
 
@@ -78,30 +95,17 @@ const closeConfirm = (value: boolean) => {
       <NuxtLink
         v-if="canCreateMessagingDrafts"
         to="/messaging/campaigns/new"
-        class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
+        class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium"
       >
+        <PlusIcon class="h-5 w-5" aria-hidden="true" />
         Нова кампанія
       </NuxtLink>
     </div>
 
     <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3 xl:grid-cols-6">
-      <select v-model="filters.status" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі статуси</option>
-        <option value="draft">Чернетка</option>
-        <option value="active">Активна</option>
-        <option value="scheduled">Запланована</option>
-        <option value="paused">На паузі</option>
-        <option value="completed">Завершена</option>
-        <option value="failed">Помилка</option>
-      </select>
-      <select v-model="filters.type" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі типи</option>
-        <option v-for="type in campaignTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-      </select>
-      <select v-model="filters.channel" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі канали</option>
-        <option v-for="channel in channels" :key="channel.value" :value="channel.value">{{ channel.label }}</option>
-      </select>
+      <BackofficeSelect v-model="filters.status" :options="statusOptions" menu-class="z-[220]" />
+      <BackofficeSelect v-model="filters.type" :options="typeOptions" menu-class="z-[220]" />
+      <BackofficeSelect v-model="filters.channel" :options="channelOptions" menu-class="z-[220]" />
       <input v-model="filters.date_from" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
       <input v-model="filters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
       <MasterSelect v-model="filters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" menu-class="z-[220]" />

@@ -9,7 +9,7 @@ const { variables } = useMessagingUi()
       v-for="variable in variables"
       :key="variable"
       type="button"
-      class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-800 transition hover:bg-cyan-100"
+      class="messaging-accent-action rounded-full px-3 py-1.5 text-xs font-medium transition"
       @click="emit('select', variable)"
     >
       {{ variable }}

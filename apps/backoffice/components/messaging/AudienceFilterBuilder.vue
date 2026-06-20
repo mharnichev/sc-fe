@@ -54,7 +54,7 @@ const clientIdsText = computed({
         v-for="option in options"
         :key="option.value"
         class="cursor-pointer rounded-[1.25rem] border p-4 transition"
-        :class="rule.type === option.value ? 'border-cyan-400 bg-cyan-50' : 'border-slate-200 bg-white hover:bg-slate-50'"
+        :class="rule.type === option.value ? 'messaging-choice-active' : 'messaging-choice-idle'"
       >
         <input class="sr-only" type="radio" :checked="rule.type === option.value" @change="updateRule({ type: option.value })">
         <span class="block text-sm font-semibold text-slate-900">{{ option.label }}</span>
@@ -122,7 +122,7 @@ const clientIdsText = computed({
         <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Opt-out</p>
         <p class="mt-1 text-lg font-semibold text-rose-700">{{ estimate?.opted_out || 0 }}</p>
       </div>
-      <button type="button" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700" @click="emit('preview')">
+      <button type="button" class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" @click="emit('preview')">
         Переглянути список
       </button>
     </div>
