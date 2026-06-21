@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon, EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const { formatDateTime, formatMoney } = useBookingFormatting()
@@ -9,9 +9,37 @@ const filters = reactive({
   search: '',
   is_active: '',
   is_verified: '',
+  telegram_connected: '',
   sort_by: 'created_at',
   sort_order: 'desc',
 })
+
+const activeStatusOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Активні' },
+  { value: 'false', label: 'Неактивні' },
+]
+
+const verificationOptions = [
+  { value: '', label: 'Будь-яка верифікація' },
+  { value: 'true', label: 'Верифіковані' },
+  { value: 'false', label: 'Не верифіковані' },
+]
+
+const telegramOptions = [
+  { value: '', label: 'Будь-який TG' },
+  { value: 'true', label: 'TG підключено' },
+  { value: 'false', label: 'TG не підключено' },
+]
+
+const sortOptions = [
+  { value: 'created_at', label: 'Створено' },
+  { value: 'last_login_at', label: 'Останній вхід' },
+  { value: 'name', label: 'Ім’я' },
+  { value: 'surname', label: 'Прізвище' },
+  { value: 'phone', label: 'Телефон' },
+  { value: 'id', label: 'ID' },
+]
 
 const { data, refresh } = await useAsyncData(
   'backoffice-customers',
@@ -20,6 +48,7 @@ const { data, refresh } = await useAsyncData(
       search: filters.search || undefined,
       is_active: filters.is_active || null,
       is_verified: filters.is_verified || null,
+      telegram_connected: filters.telegram_connected || null,
       sort_by: filters.sort_by,
       sort_order: filters.sort_order,
     }),
@@ -37,6 +66,7 @@ const clearFilters = async () => {
   filters.search = ''
   filters.is_active = ''
   filters.is_verified = ''
+  filters.telegram_connected = ''
   filters.sort_by = 'created_at'
   filters.sort_order = 'desc'
   page.value = 1
@@ -62,36 +92,13 @@ const prev = async () => {
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Клієнти</h1>
     </div>
 
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4">
+    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
       <input v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <label class="customers-filter-select-wrap">
-        <select v-model="filters.is_active" aria-label="Статус клієнта" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
-          <option value="">Будь-який статус</option>
-          <option value="true">Активні</option>
-          <option value="false">Неактивні</option>
-        </select>
-        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
-      </label>
-      <label class="customers-filter-select-wrap">
-        <select v-model="filters.is_verified" aria-label="Верифікація клієнта" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
-          <option value="">Будь-яка верифікація</option>
-          <option value="true">Верифіковані</option>
-          <option value="false">Не верифіковані</option>
-        </select>
-        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
-      </label>
-      <label class="customers-filter-select-wrap">
-        <select v-model="filters.sort_by" aria-label="Сортування клієнтів" class="customers-filter-select rounded-2xl border border-slate-300 px-4 py-3 pr-11 text-sm">
-          <option value="created_at">Створено</option>
-          <option value="last_login_at">Останній вхід</option>
-          <option value="name">Ім’я</option>
-          <option value="surname">Прізвище</option>
-          <option value="phone">Телефон</option>
-          <option value="id">ID</option>
-        </select>
-        <ChevronDownIcon class="customers-filter-select-icon" aria-hidden="true" />
-      </label>
-      <div class="flex gap-3 md:col-span-2 xl:col-span-4 xl:justify-end">
+      <BackofficeSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус клієнта" menu-class="z-[220]" />
+      <BackofficeSelect v-model="filters.is_verified" :options="verificationOptions" aria-label="Верифікація клієнта" menu-class="z-[220]" />
+      <BackofficeSelect v-model="filters.telegram_connected" :options="telegramOptions" aria-label="Telegram клієнта" menu-class="z-[220]" />
+      <BackofficeSelect v-model="filters.sort_by" :options="sortOptions" aria-label="Сортування клієнтів" menu-class="z-[220]" />
+      <div class="flex gap-3 md:col-span-2 xl:col-span-5 xl:justify-end">
         <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1 xl:flex-none" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
@@ -117,6 +124,7 @@ const prev = async () => {
             <th class="px-4 py-3 text-left font-medium text-slate-500">Прізвище</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Імпорт</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Нотатки</th>
+            <th class="px-4 py-3 text-left font-medium text-slate-500">Telegram</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Верифікація</th>
             <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
           </tr>
@@ -140,6 +148,11 @@ const prev = async () => {
             </td>
             <td data-label="Нотатки" class="max-w-xs px-4 py-3 text-slate-700">
               <p class="line-clamp-2">{{ item.notes || '—' }}</p>
+            </td>
+            <td data-label="Telegram" class="px-4 py-3">
+              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.telegram_connected ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-500'">
+                {{ item.telegram_connected ? 'TG підключено' : 'немає TG' }}
+              </span>
             </td>
             <td data-label="Верифікація" class="px-4 py-3">
               <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_verified ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">

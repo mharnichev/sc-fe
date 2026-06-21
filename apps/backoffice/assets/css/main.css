@@ -801,17 +801,7 @@ html[data-backoffice-theme="light"] .backoffice-modal-action-danger-outline:hove
   width: 100% !important;
 }
 
-.customers-filter-select-wrap {
-  position: relative;
-  display: block;
-  min-width: 0;
-}
-
-.customers-filter-select {
-  width: 100%;
-  min-height: 2.75rem;
-  appearance: none;
-  cursor: pointer;
+.backoffice-select-trigger {
   border-color: var(--input-border) !important;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--input-bg) 92%, var(--text-primary) 4%), var(--input-bg)) !important;
@@ -819,31 +809,26 @@ html[data-backoffice-theme="light"] .backoffice-modal-action-danger-outline:hove
   box-shadow: var(--input-shadow) !important;
 }
 
-.customers-filter-select:hover {
+.backoffice-select-trigger:hover:not(:disabled) {
   border-color: var(--focus-border) !important;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--solid-control-hover) 76%, var(--input-bg)), var(--input-bg)) !important;
+  color: var(--text-primary) !important;
 }
 
-.customers-filter-select-icon {
-  pointer-events: none;
-  position: absolute;
-  right: 0.95rem;
-  top: 50%;
-  height: 1rem;
-  width: 1rem;
-  transform: translateY(-50%);
-  color: var(--text-secondary);
+.backoffice-select-label--selected {
+  color: var(--text-primary) !important;
 }
 
-html:not([data-backoffice-theme="light"]) .customers-filter-select {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.105)) !important;
+.backoffice-select-label--placeholder,
+.backoffice-select-chevron {
+  color: var(--text-secondary) !important;
 }
 
-html:not([data-backoffice-theme="light"]) .customers-filter-select:hover {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.135)) !important;
+.relative:has(> .booking-select-menu),
+main :is(section, article, form):has(.booking-select-menu) {
+  position: relative;
+  z-index: 10000;
 }
 
 @media (min-width: 640px) {
@@ -863,7 +848,7 @@ html:not([data-backoffice-theme="light"]) .customers-filter-select:hover {
 }
 
 .booking-select-menu {
-  z-index: 180;
+  z-index: 10000 !important;
   background: var(--select-menu-bg) !important;
   background-color: var(--select-menu-bg) !important;
   border-color: color-mix(in srgb, var(--text-primary) 16%, transparent) !important;
@@ -890,6 +875,10 @@ html:not([data-backoffice-theme="light"]) .customers-filter-select:hover {
 .booking-select-menu button:hover *,
 .booking-select-menu .bg-slate-50 * {
   color: inherit !important;
+}
+
+.booking-select-menu .backoffice-select-check {
+  color: var(--accent-text) !important;
 }
 
 .booking-select-menu input,

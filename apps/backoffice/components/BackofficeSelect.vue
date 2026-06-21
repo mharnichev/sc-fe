@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
 
 type SelectValue = string | number | null
 
@@ -9,10 +9,12 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   placeholder?: string
   menuClass?: string
+  ariaLabel?: string
 }>(), {
   modelValue: '',
   placeholder: 'Оберіть значення',
   menuClass: 'z-[220]',
+  ariaLabel: undefined,
 })
 
 const emit = defineEmits<{
@@ -47,21 +49,22 @@ onBeforeUnmount(() => document.removeEventListener('click', closeOnOutsideClick)
   <div ref="rootRef" class="relative min-w-0">
     <button
       type="button"
-      class="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60"
+      class="backoffice-select-trigger flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2.5 text-left text-sm transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       :aria-expanded="open"
+      :aria-label="ariaLabel"
       aria-haspopup="listbox"
       :disabled="disabled"
       @click="open = !open"
     >
-      <span class="min-w-0 truncate font-medium" :class="selectedOption ? 'text-slate-900' : 'text-slate-500'">
+      <span class="backoffice-select-label min-w-0 truncate font-medium" :class="selectedOption ? 'backoffice-select-label--selected' : 'backoffice-select-label--placeholder'">
         {{ selectedLabel }}
       </span>
-      <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="{ 'rotate-180': open }" aria-hidden="true" />
+      <ChevronDownIcon class="backoffice-select-chevron h-4 w-4 shrink-0 transition" :class="{ 'rotate-180': open }" aria-hidden="true" />
     </button>
 
     <div
       v-if="open"
-      class="booking-select-menu absolute mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+      class="booking-select-menu absolute mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 md:rounded-2xl"
       :class="menuClass"
       role="listbox"
     >
@@ -69,13 +72,18 @@ onBeforeUnmount(() => document.removeEventListener('click', closeOnOutsideClick)
         v-for="option in options"
         :key="String(option.value ?? '')"
         type="button"
-        class="flex w-full min-w-0 items-center rounded-xl px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+        class="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-slate-50"
         :class="String(modelValue ?? '') === String(option.value ?? '') ? 'bg-slate-50 text-slate-900' : 'text-slate-700'"
         role="option"
         :aria-selected="String(modelValue ?? '') === String(option.value ?? '')"
         @click="selectOption(option.value)"
       >
         <span class="min-w-0 truncate font-medium">{{ option.label }}</span>
+        <CheckIcon
+          v-if="String(modelValue ?? '') === String(option.value ?? '')"
+          class="backoffice-select-check h-4 w-4 shrink-0 text-cyan-600"
+          aria-hidden="true"
+        />
       </button>
     </div>
   </div>

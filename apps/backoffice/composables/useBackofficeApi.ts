@@ -131,6 +131,7 @@ export interface CustomerSummary {
   imported_last_visit_at: string | null
   imported_is_new_client: boolean
   is_verified: boolean
+  telegram_connected?: boolean
 }
 
 export interface Customer {
@@ -871,6 +872,7 @@ export const useBackofficeApi = () => {
       search?: string
       is_active?: string | null
       is_verified?: string | null
+      telegram_connected?: string | null
       sort_by?: string
       sort_order?: string
     } = {},
@@ -882,6 +884,7 @@ export const useBackofficeApi = () => {
         search: filters.search || undefined,
         is_active: filters.is_active || undefined,
         is_verified: filters.is_verified || undefined,
+        telegram_connected: filters.telegram_connected || undefined,
         sort_by: filters.sort_by || 'created_at',
         sort_order: filters.sort_order || 'desc',
       },
