@@ -7,19 +7,28 @@ const { campaignTypeLabel, channelLabel } = useMessagingUi()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
 const campaignId = computed(() => route.params.id as string)
-const [{ data: campaign, pending, error, refresh }, { data: logs, pending: logsPending, refresh: refreshLogs }] = await Promise.all([
+const [
+  { data: campaign, pending, error, refresh },
+  { data: logs, pending: logsPending, refresh: refreshLogs },
+  { data: recipients, pending: recipientsPending, refresh: refreshRecipients },
+  { data: calculatedRecipients, pending: calculatedRecipientsPending, refresh: refreshCalculatedRecipients },
+] = await Promise.all([
   useAsyncData(() => `messaging-campaign-${campaignId.value}`, () => api.getMessagingCampaign(campaignId.value), { watch: [campaignId] }),
   useAsyncData(() => `messaging-campaign-${campaignId.value}-logs`, () => api.getMessagingCampaignLogs(campaignId.value, 1, 50), { watch: [campaignId] }),
+  useAsyncData(() => `messaging-campaign-${campaignId.value}-recipients`, () => api.getMessagingCampaignRecipients(campaignId.value, 1, 50), { watch: [campaignId] }),
+  useAsyncData(() => `messaging-campaign-${campaignId.value}-calculated-recipients`, () => api.getMessagingCampaignRecipients(campaignId.value, 1, 50, true), { watch: [campaignId] }),
 ])
 
 const actionPending = ref(false)
 const confirmRetry = ref(false)
 
+const refreshRecipientViews = () => Promise.all([refreshRecipients(), refreshCalculatedRecipients()])
+
 const setStatus = async (status: string) => {
   actionPending.value = true
   try {
     await api.updateMessagingCampaignStatus(campaignId.value, status)
-    await refresh()
+    await Promise.all([refresh(), refreshRecipientViews()])
   }
   finally {
     actionPending.value = false
@@ -36,7 +45,7 @@ const retryFailed = async () => {
   try {
     await api.retryMessagingCampaignFailed(campaignId.value)
     confirmRetry.value = false
-    await refreshLogs()
+    await Promise.all([refreshLogs(), refreshRecipients()])
   }
   finally {
     actionPending.value = false
@@ -110,6 +119,50 @@ const retryFailed = async () => {
       <section class="space-y-4">
         <h2 class="text-xl font-semibold text-slate-900">Журнал відправок</h2>
         <SendLogsTable :logs="logs?.items || []" :pending="logsPending" />
+      </section>
+
+      <section id="recipients" class="space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-900">Отримувачі кампанії</h2>
+            <p class="mt-1 text-sm text-slate-500">
+              Фактична черга показує створені повідомлення, розрахована аудиторія показує клієнтів, які підпадають під правила кампанії.
+            </p>
+          </div>
+          <button class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="recipientsPending || calculatedRecipientsPending" @click="refreshRecipientViews">
+            Оновити
+          </button>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">У черзі / історії</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ recipients?.total || 0 }}</p>
+          </div>
+          <div class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Розрахована аудиторія</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ calculatedRecipients?.total || 0 }}</p>
+          </div>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-2">
+          <div>
+            <h3 class="mb-3 font-semibold text-slate-900">Фактична черга та статуси</h3>
+            <CampaignRecipientsTable
+              :recipients="recipients?.items || []"
+              :pending="recipientsPending"
+              empty-label="Повідомлення для цієї кампанії ще не створені."
+            />
+          </div>
+          <div>
+            <h3 class="mb-3 font-semibold text-slate-900">Хто підпадає під правила</h3>
+            <CampaignRecipientsTable
+              :recipients="calculatedRecipients?.items || []"
+              :pending="calculatedRecipientsPending"
+              empty-label="За правилами кампанії отримувачів не знайдено."
+            />
+          </div>
+        </div>
       </section>
     </template>
 

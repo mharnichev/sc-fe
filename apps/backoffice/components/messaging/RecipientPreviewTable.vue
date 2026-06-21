@@ -5,6 +5,7 @@ defineProps<{
   recipients: RecipientPreview[]
   pending?: boolean
   error?: string | null
+  emptyLabel?: string
 }>()
 </script>
 
@@ -42,6 +43,6 @@ defineProps<{
         </tr>
       </tbody>
     </table>
-    <div v-else class="p-6 text-sm text-slate-500">Отримувачів за цими правилами не знайдено.</div>
+    <div v-else class="p-6 text-sm text-slate-500">{{ emptyLabel || 'Отримувачів за цими правилами не знайдено.' }}</div>
   </div>
 </template>

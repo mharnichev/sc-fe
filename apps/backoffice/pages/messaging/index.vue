@@ -11,7 +11,7 @@ import {
   StarIcon,
   UserIcon,
 } from '@heroicons/vue/24/outline'
-import type { MessagingCampaign } from '~/types/messaging'
+import type { AudienceRule, MessagingCampaign } from '~/types/messaging'
 
 const api = useBackofficeApi()
 const { statusLabel, statusClass, campaignTypeLabel } = useMessagingUi()
@@ -23,6 +23,18 @@ const { data, pending, error, refresh } = await useAsyncData('messaging-dashboar
 const { data: scenarioCampaigns, pending: scenariosPending, refresh: refreshScenarios } = await useAsyncData(
   'messaging-telegram-scenarios',
   () => api.getMessagingCampaigns(1, 100),
+)
+const telegramAudienceRules: AudienceRule[] = [{ type: 'all_clients' }]
+const telegramAudiencePreviewLimit = 1000
+const { data: telegramAudience, pending: telegramAudiencePending, error: telegramAudienceError, refresh: refreshTelegramAudience } = await useAsyncData(
+  'messaging-telegram-audience',
+  async () => {
+    const [estimate, recipients] = await Promise.all([
+      api.estimateMessagingAudience(telegramAudienceRules),
+      api.previewMessagingRecipients(telegramAudienceRules, telegramAudiencePreviewLimit),
+    ])
+    return { estimate, recipients }
+  },
 )
 
 type ScenarioJob = 'review' | 'reminders' | 'pending'
@@ -78,6 +90,13 @@ const cards = computed(() => [
   { label: 'Запити відгуків', value: data.value?.review_requests_sent || 0 },
 ])
 
+const telegramConnectedTotal = computed(() =>
+  Math.max((telegramAudience.value?.estimate.total || 0) - (telegramAudience.value?.estimate.missing_chat_id || 0), 0),
+)
+const telegramConnectedRecipients = computed(() =>
+  (telegramAudience.value?.recipients || []).filter(recipient => Boolean(recipient.telegram_chat_id)),
+)
+
 const runningJob = ref<ScenarioJob | null>(null)
 
 const runScenarioJob = async (job: ScenarioJob) => {
@@ -96,7 +115,7 @@ const runScenarioJob = async (job: ScenarioJob) => {
       const result = await api.processPendingMessages()
       toast.success(`Оброблено повідомлень: ${result.processed}.`)
     }
-    await Promise.all([refresh(), refreshScenarios()])
+    await Promise.all([refresh(), refreshScenarios(), refreshTelegramAudience()])
   }
   catch (cause) {
     toast.error(apiErrorMessage(cause, 'Не вдалося виконати дію.'))
@@ -135,6 +154,60 @@ const runScenarioJob = async (job: ScenarioJob) => {
         <p class="mt-2 text-2xl font-semibold text-slate-900">{{ card.value }}</p>
       </div>
     </div>
+
+    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-900">Telegram підключення клієнтів</h2>
+          <p class="mt-1 text-sm text-slate-500">Актуальний зріз клієнтів, які мають chat_id, маркетингову згоду або відписку.</p>
+        </div>
+        <button class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="telegramAudiencePending" @click="refreshTelegramAudience()">
+          Оновити
+        </button>
+      </div>
+
+      <div v-if="telegramAudiencePending" class="mt-5 grid gap-3 md:grid-cols-4">
+        <div v-for="index in 4" :key="index" class="h-24 animate-pulse rounded-[1.25rem] bg-slate-100" />
+      </div>
+      <div v-else-if="telegramAudienceError" class="mt-5 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+        Не вдалося завантажити Telegram статистику.
+      </div>
+      <template v-else>
+        <div class="mt-5 grid gap-3 md:grid-cols-4">
+          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Усього клієнтів</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramAudience?.estimate.total || 0 }}</p>
+          </div>
+          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">TG підключено</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramConnectedTotal }}</p>
+          </div>
+          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Готові до маркетингу</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramAudience?.estimate.eligible || 0 }}</p>
+          </div>
+          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Без TG / opt-out</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">
+              {{ telegramAudience?.estimate.missing_chat_id || 0 }} / {{ telegramAudience?.estimate.opted_out || 0 }}
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h3 class="font-semibold text-slate-900">Підключені TG-акаунти</h3>
+            <p class="text-xs text-slate-500">
+              Показано {{ telegramConnectedRecipients.length }} із {{ telegramConnectedTotal }} підключених.
+            </p>
+          </div>
+          <RecipientPreviewTable
+            :recipients="telegramConnectedRecipients"
+            empty-label="Підключених Telegram акаунтів у поточному зрізі немає."
+          />
+        </div>
+      </template>
+    </section>
 
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -205,6 +278,14 @@ const runScenarioJob = async (job: ScenarioJob) => {
               <span class="text-slate-500">Тип</span>
               <span class="font-medium text-slate-900">{{ scenario.campaign ? campaignTypeLabel(scenario.campaign.type) : '—' }}</span>
             </div>
+            <div v-if="scenario.campaign" class="flex justify-between gap-3">
+              <span class="text-slate-500">Отримувачі</span>
+              <span class="font-medium text-slate-900">{{ scenario.campaign.audience_size }}</span>
+            </div>
+            <div v-if="scenario.campaign" class="flex justify-between gap-3">
+              <span class="text-slate-500">Sent / failed</span>
+              <span class="font-medium text-slate-900">{{ scenario.campaign.sent_count }} / {{ scenario.campaign.failed_count }}</span>
+            </div>
             <div>
               <p class="text-slate-500">Повідомлення</p>
               <p class="mt-1 min-h-16 rounded-2xl bg-white p-3 leading-6 text-slate-800">
@@ -214,6 +295,13 @@ const runScenarioJob = async (job: ScenarioJob) => {
           </div>
 
           <div class="mt-4 flex flex-wrap gap-2">
+            <NuxtLink
+              v-if="scenario.campaign"
+              :to="`/messaging/campaigns/${scenario.campaign.id}#recipients`"
+              class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900"
+            >
+              Отримувачі
+            </NuxtLink>
             <NuxtLink
               v-if="scenario.campaign"
               :to="`/messaging/campaigns/${scenario.campaign.id}`"

@@ -144,6 +144,25 @@ export interface RecipientPreview {
   exclusion_reason?: string | null
 }
 
+export interface MessageRecipient {
+  id: number | string
+  campaign_id: number | string
+  customer_id: number | string
+  appointment_id?: number | string | null
+  channel: MessagingChannel
+  status: 'pending' | 'queued' | 'sent' | 'delivered' | 'failed' | 'skipped'
+  idempotency_key?: string | null
+  scheduled_at?: string | null
+  sent_at?: string | null
+  rendered_message?: string | null
+  attempts: number
+  next_retry_at?: string | null
+  last_error?: string | null
+  provider_message_id?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 export interface SendLog {
   id: number | string
   client_id: number | string

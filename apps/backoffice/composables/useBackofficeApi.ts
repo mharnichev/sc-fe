@@ -3,6 +3,7 @@ import type {
   AudienceRule,
   CampaignPayload,
   CustomerCommunicationProfile,
+  MessageRecipient,
   MessageTemplate,
   MessageTemplatePayload,
   MessagingCampaign,
@@ -1442,6 +1443,11 @@ export const useBackofficeApi = () => {
       })),
     }))
 
+  const getMessagingCampaignRecipients = (campaignId: number | string, page = 1, pageSize = 50, calculate = false) =>
+    api<PaginatedResponse<MessageRecipient>>(`/backoffice/messaging/campaigns/${campaignId}/recipients`, {
+      query: { page, page_size: normalizePageSize(pageSize), calculate: calculate || undefined },
+    })
+
   const processPendingMessages = (limit?: number | null) =>
     api<{ processed: number }>('/backoffice/messaging/jobs/process-pending', {
       method: 'POST',
@@ -1582,6 +1588,7 @@ export const useBackofficeApi = () => {
     duplicateMessageTemplate,
     deleteMessageTemplate,
     getMessagingCampaignLogs,
+    getMessagingCampaignRecipients,
     processPendingMessages,
     createReviewRequests,
     createAppointmentReminders,
