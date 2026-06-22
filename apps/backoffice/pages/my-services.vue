@@ -147,7 +147,7 @@ const deleteService = async (service: MasterService) => {
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Мої послуги</h1>
         <p v-if="linkedMaster" class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">{{ masterName(linkedMaster) }}</p>
       </div>
-      <button type="button" :disabled="!isBarber || !barberId" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white disabled:opacity-60 sm:w-auto xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateService">
+      <button type="button" :disabled="!isBarber || !barberId" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium disabled:opacity-60 sm:w-auto xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити послугу
       </button>

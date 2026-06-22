@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleLeftRightIcon, ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -61,6 +61,8 @@ const deletingId = ref<number | null>(null)
 const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 const availabilityModalOpen = ref(false)
+const telegramConnectLoading = ref(false)
+const telegramConnectLink = ref<string | null>(null)
 
 const openCreateBlock = () => {
   timeBlockModalOpen.value = true
@@ -68,6 +70,35 @@ const openCreateBlock = () => {
 
 const openCreateAvailability = () => {
   availabilityModalOpen.value = true
+}
+
+const openTelegramConnect = async () => {
+  telegramConnectLoading.value = true
+  try {
+    const response = await api.getMyMasterTelegramConnectLink()
+    telegramConnectLink.value = response.connect_link
+    if (import.meta.client) {
+      window.open(response.connect_link, '_blank', 'noopener,noreferrer')
+    }
+    toast.success(response.telegram_connected ? 'Telegram вже підключено. Посилання оновлено.' : 'Посилання для Telegram створено.')
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося створити посилання для Telegram.'))
+  }
+  finally {
+    telegramConnectLoading.value = false
+  }
+}
+
+const copyTelegramConnectLink = async () => {
+  if (!telegramConnectLink.value || !import.meta.client) return
+  try {
+    await navigator.clipboard.writeText(telegramConnectLink.value)
+    toast.success('Посилання скопійовано.')
+  }
+  catch {
+    toast.error('Не вдалося скопіювати посилання.')
+  }
 }
 
 const applyFilters = async () => {
@@ -129,16 +160,31 @@ const deleteAvailability = async (windowId: number) => {
         <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Відкривайте час для запису й блокуйте недоступні інтервали в межах 09:00-20:00.</p>
       </div>
       <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300 px-3 py-2 text-xs font-medium text-cyan-700 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" :disabled="telegramConnectLoading" @click="openTelegramConnect">
+          <ChatBubbleLeftRightIcon class="h-4 w-4" aria-hidden="true" />
+          {{ telegramConnectLoading ? 'Створення...' : 'Підключити TG' }}
+        </button>
         <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateAvailability">
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Відкрити час
         </button>
-        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 py-2 text-xs font-medium text-white sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
+        <button type="button" class="time-block-create-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Блокування
         </button>
       </div>
     </div>
+
+    <section v-if="telegramConnectLink" class="rounded-[1.25rem] border border-cyan-200 bg-cyan-50 p-3 xl:rounded-[1.75rem] xl:p-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <a :href="telegramConnectLink" target="_blank" rel="noopener noreferrer" class="min-w-0 flex-1 truncate text-xs font-medium text-cyan-800 underline decoration-cyan-300 underline-offset-4 xl:text-sm">
+          {{ telegramConnectLink }}
+        </a>
+        <button type="button" class="inline-flex min-h-8 items-center justify-center rounded-full border border-cyan-300 px-3 py-1.5 text-xs font-medium text-cyan-800 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="copyTelegramConnectLink">
+          Копіювати
+        </button>
+      </div>
+    </section>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 xl:gap-4">
@@ -149,14 +195,20 @@ const deleteAvailability = async (windowId: number) => {
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Від
             </span>
-            <input v-model="filters.date_from" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
+            <span class="relative block">
+              <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
+              <input v-model="filters.date_from" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm">
+            </span>
           </label>
           <label class="min-w-0 space-y-1 text-xs text-slate-600">
             <span class="inline-flex items-center gap-1.5">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               До
             </span>
-            <input v-model="filters.date_to" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs xl:rounded-2xl xl:px-3 xl:py-2 xl:text-sm">
+            <span class="relative block">
+              <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
+              <input v-model="filters.date_to" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm">
+            </span>
           </label>
           <button class="backoffice-modal-action-button backoffice-modal-action-primary col-span-2 sm:col-span-1" @click="applyFilters">
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />

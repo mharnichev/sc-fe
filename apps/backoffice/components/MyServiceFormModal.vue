@@ -2,6 +2,7 @@
 import {
   ArrowPathIcon,
   BanknotesIcon,
+  ChevronDownIcon,
   CheckCircleIcon,
   ClockIcon,
   DocumentTextIcon,
@@ -245,12 +246,16 @@ watch(
             <ScissorsIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
             Базова послуга
           </span>
-          <select v-model="form.base_service_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
-            <option value="">Виберіть базову послугу</option>
-            <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
-              {{ serviceName(service) }} / {{ service.title_en || 'без англ. назви' }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
-            </option>
-          </select>
+          <span class="relative block">
+            <ScissorsIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
+            <select v-model="form.base_service_id" required class="w-full appearance-none rounded-xl border border-slate-300 py-2 pl-10 pr-10 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-12">
+              <option value="">Виберіть базову послугу</option>
+              <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
+                {{ serviceName(service) }} / {{ service.title_en || 'без англ. назви' }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
+              </option>
+            </select>
+            <ChevronDownIcon class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:right-4" aria-hidden="true" />
+          </span>
         </label>
         <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">

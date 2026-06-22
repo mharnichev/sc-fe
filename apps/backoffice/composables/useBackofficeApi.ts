@@ -1480,6 +1480,11 @@ export const useBackofficeApi = () => {
       `/backoffice/messaging/customers/${customerId}/telegram-connect-link`,
     )
 
+  const getMyMasterTelegramConnectLink = () =>
+    api<{ master_id: number, bot_username: string, connect_link: string, expires_in_days: number, telegram_connected: boolean }>(
+      '/backoffice/messaging/masters/me/telegram-connect-link',
+    )
+
   const sendCustomerManualMessage = (customerId: number | string, body: string) =>
     api(`/backoffice/messaging/customers/${customerId}/messages`, {
       method: 'POST',
@@ -1598,6 +1603,7 @@ export const useBackofficeApi = () => {
     sendBookingSmsReminders,
     getCustomerCommunication,
     getCustomerTelegramConnectLink,
+    getMyMasterTelegramConnectLink,
     sendCustomerManualMessage,
     updateCustomerCommunication,
     getMessagingSettings,

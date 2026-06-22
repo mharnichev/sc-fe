@@ -1174,6 +1174,23 @@ html[data-backoffice-theme="light"] .customer-import-status-current {
   color: #475569 !important;
 }
 
+.time-block-create-button,
+.backoffice-page-create-button {
+  border: 1px solid color-mix(in srgb, var(--accent-text) 32%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 18%, var(--solid-control));
+  color: color-mix(in srgb, var(--accent-text) 86%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 12px 28px color-mix(in srgb, var(--accent-text) 12%, transparent);
+}
+
+.time-block-create-button:hover:not(:disabled),
+.backoffice-page-create-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent-text) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 26%, var(--solid-control-hover));
+  color: var(--text-primary) !important;
+}
+
 html[data-backoffice-theme="light"] .time-block-create-button,
 html[data-backoffice-theme="light"] .backoffice-page-create-button {
   border-color: rgba(8, 145, 178, 0.22);
