@@ -3,7 +3,7 @@ import { CheckCircleIcon, DocumentDuplicateIcon, FunnelIcon, PencilIcon, TrashIc
 import type { MessageTemplate, MessageTemplatePayload } from '~/types/messaging'
 
 const api = useBackofficeApi()
-const { campaignTypes, channels, campaignTypeLabel, channelLabel } = useMessagingUi()
+const { campaignTypes, channels, campaignTypeLabel } = useMessagingUi()
 const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAccess()
 
 const page = ref(1)
@@ -137,7 +137,7 @@ const closeDeleteConfirm = (value: boolean) => {
               <p v-if="template.is_default" class="mt-1 text-xs text-cyan-700">За замовчуванням</p>
             </td>
             <td data-label="Тип" class="px-4 py-3 text-slate-700">{{ campaignTypeLabel(template.campaign_type) }}</td>
-            <td data-label="Канал" class="px-4 py-3 text-slate-700">{{ channelLabel(template.channel) }}</td>
+            <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="template.channel" /></td>
             <td data-label="Мова" class="px-4 py-3 text-slate-700">{{ template.language }}</td>
             <td data-label="Статус" class="px-4 py-3">
               <span class="rounded-full px-3 py-1 text-xs font-medium" :class="template.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">{{ template.is_active ? 'активний' : 'неактивний' }}</span>

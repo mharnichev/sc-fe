@@ -13,10 +13,17 @@ export const useMessagingUi = () => {
     '{{barbershop_name}}',
     '{{review_link}}',
     '{{discount_code}}',
+    '{master_name}',
+    '{customer_name}',
+    '{appointment_date}',
+    '{appointment_time}',
+    '{appointment_end_time}',
+    '{barbershop_name}',
   ]
 
   const campaignTypes: Array<{ value: CampaignType, label: string, helper: string }> = [
     { value: 'manual', label: 'Ручна кампанія', helper: 'Разова розсилка вибраній аудиторії.' },
+    { value: 'booking_confirmation', label: 'Підтвердження запису', helper: 'Транзакційне SMS одразу після створення запису.' },
     { value: 'post_visit_review_request', label: 'Запит відгуку після візиту', helper: 'Автоматично після завершення бронювання.' },
     { value: 'appointment_reminder', label: 'Нагадування про запис', helper: 'Перед майбутнім візитом клієнта.' },
     { value: 'birthday_greeting', label: 'Привітання з днем народження', helper: 'Для клієнтів з днем народження цього місяця.' },
@@ -27,7 +34,7 @@ export const useMessagingUi = () => {
 
   const channels: Array<{ value: MessagingChannel, label: string, enabled: boolean }> = [
     { value: 'telegram', label: 'Telegram', enabled: true },
-    { value: 'sms', label: 'SMS', enabled: false },
+    { value: 'sms', label: 'SMS', enabled: true },
     { value: 'whatsapp', label: 'WhatsApp', enabled: false },
     { value: 'email', label: 'Email', enabled: false },
   ]
@@ -62,20 +69,28 @@ export const useMessagingUi = () => {
     retrying: 'bg-amber-50 text-amber-700',
   }[status || ''] || 'bg-slate-100 text-slate-600')
 
-  const interpolateMessage = (body: string, sample: Record<string, string>) =>
-    variables.reduce((value, variable) => {
+  const interpolateMessage = (body: string, sample: Record<string, string>) => {
+    const withKnownVariables = variables.reduce((value, variable) => {
       const key = variable.startsWith('#') ? variable.slice(1) : variable.replace(/[{}]/g, '')
       return value.replaceAll(variable, sample[key] || variable)
     }, body)
+    return withKnownVariables
+      .replace(/{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}/g, (match, key) => sample[key] || match)
+      .replace(/(?<![\w/])#([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (match, key) => sample[key] || match)
+      .replace(/{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}/g, (match, key) => sample[key] || match)
+  }
 
   const sampleClient = {
     client: 'Олена',
     service: 'Стрижка та борода',
     date: '31.05.2026 15:30',
     client_name: 'Олена',
+    customer_name: 'Олена',
     barber_name: 'Андрій',
+    master_name: 'Андрій',
     appointment_date: '31.05.2026',
     appointment_time: '15:30',
+    appointment_end_time: '16:30',
     service_name: 'Стрижка та борода',
     barbershop_name: 'Soul Cuts',
     review_link: 'https://g.page/r/example',

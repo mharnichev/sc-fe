@@ -4,6 +4,7 @@ export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed' | 'arch
 
 export type CampaignType =
   | 'manual'
+  | 'booking_confirmation'
   | 'post_visit_review_request'
   | 'appointment_reminder'
   | 'birthday_greeting'
@@ -63,6 +64,7 @@ export interface MessagingDashboard {
 export interface CampaignActivity {
   id: number | string
   campaign_id?: number | string | null
+  channel?: MessagingChannel | string | null
   title: string
   description: string
   status: CampaignStatus | 'sent' | 'retrying'
@@ -75,6 +77,8 @@ export interface MessagingCampaign {
   type: CampaignType
   channel: MessagingChannel
   status: CampaignStatus
+  purpose?: 'marketing' | 'transactional' | 'review_request' | string | null
+  template_id?: number | string | null
   audience_size: number
   sent_count: number
   failed_count: number
@@ -88,13 +92,16 @@ export interface MessagingCampaign {
   metrics?: CampaignMetrics | null
   review_link?: string | null
   timezone?: string | null
+  location_key?: string | null
+  metadata_json?: Record<string, unknown>
 }
 
 export interface CampaignPayload {
   name: string
   type: CampaignType
   channel: MessagingChannel
-  status: 'draft' | 'active'
+  status: CampaignStatus
+  purpose?: 'marketing' | 'transactional' | 'review_request' | string | null
   template_id?: number | string | null
   message_body: string
   language_versions?: Record<string, string>
@@ -113,6 +120,8 @@ export interface CampaignPayload {
   quiet_hours_from?: string | null
   quiet_hours_to?: string | null
   duplicate_protection_days: number
+  location_key?: string | null
+  metadata_json?: Record<string, unknown>
 }
 
 export interface MessageTemplate {

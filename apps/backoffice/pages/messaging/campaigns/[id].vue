@@ -3,7 +3,7 @@ import { ArchiveBoxIcon, DocumentDuplicateIcon, PauseIcon, PlayIcon, ArrowPathIc
 
 const route = useRoute()
 const api = useBackofficeApi()
-const { campaignTypeLabel, channelLabel } = useMessagingUi()
+const { campaignTypeLabel } = useMessagingUi()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
 const campaignId = computed(() => route.params.id as string)
@@ -37,7 +37,7 @@ const setStatus = async (status: string) => {
 
 const duplicate = async () => {
   await api.duplicateMessagingCampaign(campaignId.value)
-  await navigateTo('/messaging/campaigns')
+  await navigateTo('/messaging#campaigns')
 }
 
 const retryFailed = async () => {
@@ -60,7 +60,7 @@ const retryFailed = async () => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Messaging</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ campaign?.name || 'Кампанія' }}</h1>
       </div>
-      <NuxtLink to="/messaging/campaigns" class="rounded-full border border-slate-300 px-5 py-3 text-sm">До кампаній</NuxtLink>
+      <NuxtLink to="/messaging#campaigns" class="rounded-full border border-slate-300 px-5 py-3 text-sm">До кампаній</NuxtLink>
     </div>
 
     <div v-if="pending" class="rounded-[1.75rem] bg-slate-100 p-8 text-sm text-slate-500">Завантажуємо кампанію...</div>
@@ -72,7 +72,7 @@ const retryFailed = async () => {
             <div class="flex flex-wrap gap-2">
               <CampaignStatusBadge :status="campaign.status" />
               <CampaignTypeBadge :type="campaign.type" />
-              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ channelLabel(campaign.channel) }}</span>
+              <MessagingChannelBadge :channel="campaign.channel" />
             </div>
             <div class="flex flex-wrap gap-2">
               <button v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">

@@ -101,13 +101,14 @@ const menuSections = computed(() => {
   const allBarbershopLinks = barberShopLinks.value
   const findLinks = (labels: string[]) => allBarbershopLinks.filter(link => labels.includes(link.label))
   const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Клієнти'])
-  const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && link.label !== 'Повідомлення')
+  const systemLabels = ['Повідомлення']
+  const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && !systemLabels.includes(link.label))
 
   return [
     { title: 'General', links: generalLinks },
     { title: 'Management', links: managementLinks },
     { title: 'Business', links: [...onlineStoreLinks.value, ...blogLinks.value] },
-    { title: 'System', links: allBarbershopLinks.filter(link => link.label === 'Повідомлення') },
+    { title: 'System', links: allBarbershopLinks.filter(link => systemLabels.includes(link.label)) },
   ].filter(section => section.links.length > 0)
 })
 

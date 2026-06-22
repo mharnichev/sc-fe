@@ -544,6 +544,40 @@ main a[class*="bg-black"]:hover,
   color: inherit !important;
 }
 
+.messaging-channel-badge {
+  border-width: 1px !important;
+  background: var(--hint-bg) !important;
+  color: var(--text-secondary) !important;
+}
+
+.messaging-channel-badge * {
+  color: inherit !important;
+}
+
+.messaging-channel-badge.is-telegram {
+  border-color: color-mix(in srgb, #0ea5e9 28%, transparent) !important;
+  background: color-mix(in srgb, #0ea5e9 12%, var(--glass)) !important;
+  color: color-mix(in srgb, #0284c7 84%, var(--text-primary)) !important;
+}
+
+.messaging-channel-badge.is-sms {
+  border-color: color-mix(in srgb, var(--success) 32%, transparent) !important;
+  background: color-mix(in srgb, var(--success) 13%, var(--glass)) !important;
+  color: color-mix(in srgb, var(--success) 82%, var(--text-primary)) !important;
+}
+
+.messaging-channel-badge.is-whatsapp {
+  border-color: color-mix(in srgb, #65a30d 30%, transparent) !important;
+  background: color-mix(in srgb, #65a30d 12%, var(--glass)) !important;
+  color: color-mix(in srgb, #4d7c0f 82%, var(--text-primary)) !important;
+}
+
+.messaging-channel-badge.is-email {
+  border-color: color-mix(in srgb, #7c3aed 28%, transparent) !important;
+  background: color-mix(in srgb, #7c3aed 12%, var(--glass)) !important;
+  color: color-mix(in srgb, #6d28d9 82%, var(--text-primary)) !important;
+}
+
 main table {
   border-collapse: separate;
   border-spacing: 0 0.55rem;

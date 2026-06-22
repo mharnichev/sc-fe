@@ -15,6 +15,7 @@ const form = reactive<Partial<MessagingSettings>>({
   default_review_links: { google: '', instagram: '', internal: '', custom: '' },
   default_template_ids: {
     manual: null,
+    booking_confirmation: null,
     post_visit_review_request: null,
     appointment_reminder: null,
     birthday_greeting: null,

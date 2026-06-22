@@ -629,7 +629,11 @@ export const useBackofficeApi = () => {
     const rate = Number(value || 0)
     return rate > 0 && rate <= 1 ? Math.round(rate * 100) : Math.round(rate)
   }
-  const campaignPurpose = (type?: string) => type === 'post_visit_review_request' ? 'review_request' : 'marketing'
+  const campaignPurpose = (type?: string) => {
+    if (type === 'post_visit_review_request') return 'review_request'
+    if (['booking_confirmation', 'appointment_reminder'].includes(type || '')) return 'transactional'
+    return 'marketing'
+  }
 
   const toBackendAudience = (rules: AudienceRule[] = []) => {
     const audience: Record<string, unknown> = {
@@ -715,6 +719,8 @@ export const useBackofficeApi = () => {
       type: campaign.type,
       channel: campaign.channel || 'telegram',
       status: campaign.status,
+      purpose: campaign.purpose || null,
+      template_id: campaign.template_id || null,
       audience_size: audienceSize,
       sent_count: sent,
       failed_count: failed,
@@ -734,6 +740,8 @@ export const useBackofficeApi = () => {
       },
       review_link: campaign.review_link || campaign.review_url || null,
       timezone: campaign.timezone || 'Europe/Kyiv',
+      location_key: campaign.location_key || null,
+      metadata_json: metadata,
     }
   }
 
@@ -752,7 +760,7 @@ export const useBackofficeApi = () => {
     type: payload.type,
     status: payload.status || 'draft',
     channel: payload.channel || 'telegram',
-    purpose: campaignPurpose(payload.type),
+    purpose: payload.purpose || campaignPurpose(payload.type),
     template_id: templateId ?? payload.template_id ?? null,
     scheduled_at: payload.schedule_mode === 'later' ? payload.scheduled_at || null : null,
     timezone: payload.timezone || 'Europe/Kyiv',
@@ -761,7 +769,9 @@ export const useBackofficeApi = () => {
     review_platform: payload.review_platform || null,
     review_url: payload.review_link || null,
     discount_code: payload.promo_code || null,
+    location_key: payload.location_key || null,
     metadata_json: {
+      ...(payload.metadata_json || {}),
       message_body: payload.message_body,
       language_versions: payload.language_versions,
       audience_rules: payload.audience_rules || [],
@@ -1321,6 +1331,22 @@ export const useBackofficeApi = () => {
   const getMessagingCampaign = (campaignId: number | string) =>
     api<any>(`/backoffice/messaging/campaigns/${campaignId}`).then(normalizeCampaign)
 
+  const getSmsCampaigns = (
+    page = 1,
+    pageSize = 20,
+    filters: { status?: string } = {},
+  ) =>
+    api<PaginatedResponse<any>>('/backoffice/messaging/sms-campaigns', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        status: filters.status || undefined,
+      },
+    }).then(normalizeCampaignPage)
+
+  const getSmsCampaign = (campaignId: number | string) =>
+    api<any>(`/backoffice/messaging/sms-campaigns/${campaignId}`).then(normalizeCampaign)
+
   const ensureCampaignTemplate = async (payload: Partial<CampaignPayload>) => {
     if (payload.template_id || !payload.message_body) return payload.template_id || null
     const template = await createMessageTemplate({
@@ -1351,6 +1377,18 @@ export const useBackofficeApi = () => {
       body: campaignPayload(payload, templateId),
     }).then(normalizeCampaign)
   }
+
+  const createSmsCampaign = (payload: CampaignPayload) =>
+    api<any>('/backoffice/messaging/sms-campaigns', {
+      method: 'POST',
+      body: campaignPayload({ ...payload, channel: 'sms' }, payload.template_id),
+    }).then(normalizeCampaign)
+
+  const updateSmsCampaign = (campaignId: number | string, payload: Partial<CampaignPayload>) =>
+    api<any>(`/backoffice/messaging/sms-campaigns/${campaignId}`, {
+      method: 'PUT',
+      body: campaignPayload({ ...payload, channel: 'sms' }, payload.template_id),
+    }).then(normalizeCampaign)
 
   const duplicateMessagingCampaign = (campaignId: number | string) =>
     api<any>(`/backoffice/messaging/campaigns/${campaignId}/duplicate`, {
@@ -1389,6 +1427,19 @@ export const useBackofficeApi = () => {
     api<RecipientPreview[]>('/backoffice/messaging/audience/preview', {
       method: 'POST',
       body: { rules, limit },
+    })
+
+  const previewMessagingMessage = (payload: {
+    template_id?: number | string | null
+    campaign_id?: number | string | null
+    body?: string | null
+    customer_id: number | string
+    appointment_id?: number | string | null
+    extra_variables?: Record<string, string>
+  }) =>
+    api<{ rendered_message: string, variables: Record<string, string> }>('/backoffice/messaging/preview', {
+      method: 'POST',
+      body: payload,
     })
 
   const getMessageTemplates = (
@@ -1581,8 +1632,12 @@ export const useBackofficeApi = () => {
     getMessagingDashboard,
     getMessagingCampaigns,
     getMessagingCampaign,
+    getSmsCampaigns,
+    getSmsCampaign,
     createMessagingCampaign,
     updateMessagingCampaign,
+    createSmsCampaign,
+    updateSmsCampaign,
     duplicateMessagingCampaign,
     updateMessagingCampaignStatus,
     deleteMessagingCampaign,
@@ -1590,6 +1645,7 @@ export const useBackofficeApi = () => {
     retryMessagingCampaignFailed,
     estimateMessagingAudience,
     previewMessagingRecipients,
+    previewMessagingMessage,
     getMessageTemplates,
     createMessageTemplate,
     updateMessageTemplate,

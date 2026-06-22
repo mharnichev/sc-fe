@@ -152,7 +152,7 @@ const nextStep = () => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Messaging</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Нова кампанія</h1>
       </div>
-      <NuxtLink to="/messaging/campaigns" class="messaging-secondary-action rounded-full px-5 py-3 text-sm">До списку</NuxtLink>
+      <NuxtLink to="/messaging#campaigns" class="messaging-secondary-action rounded-full px-5 py-3 text-sm">До списку</NuxtLink>
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[260px_1fr]">
@@ -189,7 +189,7 @@ const nextStep = () => {
             <div class="mt-2 grid gap-3 sm:grid-cols-4">
               <label v-for="channel in channels" :key="channel.value" class="rounded-2xl border p-4 text-sm" :class="form.channel === channel.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
                 <input v-model="form.channel" class="sr-only" type="radio" :value="channel.value" :disabled="!channel.enabled">
-                <span class="font-semibold text-slate-900">{{ channel.label }}</span>
+                <MessagingChannelBadge :channel="channel.value" />
                 <span v-if="!channel.enabled" class="mt-1 block text-xs text-slate-500">Скоро</span>
               </label>
             </div>
@@ -328,7 +328,7 @@ const nextStep = () => {
             <dl class="grid gap-3 rounded-[1.25rem] bg-slate-50 p-4 text-sm md:grid-cols-2">
               <div><dt class="text-slate-500">Назва</dt><dd class="font-medium text-slate-900">{{ form.name || '—' }}</dd></div>
               <div><dt class="text-slate-500">Аудиторія</dt><dd class="font-medium text-slate-900">{{ estimate?.eligible || 0 }} доступних, {{ estimate?.excluded || 0 }} виключено</dd></div>
-              <div><dt class="text-slate-500">Канал</dt><dd class="font-medium text-slate-900">{{ form.channel }}</dd></div>
+              <div><dt class="text-slate-500">Канал</dt><dd class="mt-1"><MessagingChannelBadge :channel="form.channel" /></dd></div>
               <div><dt class="text-slate-500">Розклад</dt><dd class="font-medium text-slate-900">{{ form.schedule_mode }}</dd></div>
             </dl>
             <div v-if="validationErrors.length" class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
