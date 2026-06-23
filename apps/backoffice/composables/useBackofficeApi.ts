@@ -299,6 +299,14 @@ export interface Booking {
   redirected_from_master?: BookingRedirectMaster | null
   service?: Service | null
   services?: Service[]
+  subtotal_amount?: string | number | null
+  discount_amount?: string | number | null
+  total_amount?: string | number | null
+  promotion_id?: number | null
+  promotion_code?: string | null
+  promotion_name_uk?: string | null
+  promotion_name_en?: string | null
+  promotion_discount_percent?: number | null
   customer?: {
     id?: number
     name?: string | null
@@ -336,6 +344,7 @@ export interface ManualBookingPayload extends PublicBookingPayload {
   end_at: string
   note?: string | null
   status?: BookingStatus
+  promotion_code?: string | null
 }
 
 export interface BookingSchedulePayload {
@@ -397,6 +406,43 @@ export interface ServicePayload {
 }
 
 export type BaseServicePayload = ServicePayload
+
+export type PromotionDiscountType = 'percent'
+export type PromotionEligibilityType = 'all_customers' | 'inactive_customers'
+
+export interface Promotion {
+  id: number
+  created_at?: string
+  updated_at?: string
+  code: string
+  name_uk: string
+  name_en: string
+  description_uk: string | null
+  description_en: string | null
+  discount_type: PromotionDiscountType
+  discount_percent: number
+  eligibility_type: PromotionEligibilityType
+  inactive_days: number | null
+  starts_at: string | null
+  ends_at: string | null
+  is_active: boolean
+}
+
+export interface PromotionPayload {
+  code: string
+  name_uk: string
+  name_en: string
+  description_uk: string | null
+  description_en: string | null
+  discount_type: PromotionDiscountType
+  discount_percent: number
+  eligibility_type: PromotionEligibilityType
+  inactive_days: number | null
+  starts_at: string | null
+  ends_at: string | null
+  is_active: boolean
+}
+
 export interface MasterServicePayload {
   base_service_id?: number | null
   name?: string
@@ -1146,6 +1192,33 @@ export const useBackofficeApi = () => {
       method: 'DELETE',
     })
 
+  const adminGetPromotions = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
+    api<PaginatedResponse<Promotion>>('/backoffice/promotions', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search || undefined,
+        is_active: filters.is_active ?? undefined,
+      },
+    })
+
+  const adminCreatePromotion = (payload: PromotionPayload) =>
+    api<Promotion>('/backoffice/promotions', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminUpdatePromotion = (promotionId: number | string, payload: Partial<PromotionPayload>) =>
+    api<Promotion>(`/backoffice/promotions/${promotionId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
+  const adminDeletePromotion = (promotionId: number | string) =>
+    api(`/backoffice/promotions/${promotionId}`, {
+      method: 'DELETE',
+    })
+
   const getMasterServices = (barberId: number | string) =>
     api<MasterService[] | PaginatedResponse<MasterService>>(`/backoffice/barbers/${barberId}/services`)
 
@@ -1610,6 +1683,10 @@ export const useBackofficeApi = () => {
     adminCreateBaseService,
     adminUpdateBaseService,
     adminDeleteBaseService,
+    adminGetPromotions,
+    adminCreatePromotion,
+    adminUpdatePromotion,
+    adminDeletePromotion,
     getMasterServices,
     createMasterService,
     updateMasterService,

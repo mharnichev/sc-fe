@@ -72,6 +72,7 @@ export interface CalendarActionPayload {
   customer_name: string
   customer_phone: string
   customer_email: string
+  promotion_code?: string | null
   note: string
   start_at: string
   end_at: string

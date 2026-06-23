@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { BanknotesIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, ReceiptPercentIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Service } from '~/composables/useBackofficeApi'
 
@@ -36,6 +36,7 @@ const {
   formatPrice,
   formatDateTime,
   formatBookingStatus,
+  formatMoney,
   toKyivIso,
 } = useBookingFormatting()
 const toast = useBaseToastNotification()
@@ -136,6 +137,22 @@ const resolvedServicesPriceLabel = computed(() => {
   if (resolvedServices.value.length === 1) return formatPrice(resolvedServices.value[0]?.price)
 
   return `${resolvedServices.value.map(service => formatPrice(service.price)).join(', ')} · разом ${formatPrice(total)}`
+})
+
+const bookingSubtotal = computed(() =>
+  props.booking?.subtotal_amount ?? resolvedServices.value.reduce((sum, service) => sum + Number(service.price || 0), 0),
+)
+const bookingDiscount = computed(() => Number(props.booking?.discount_amount || 0))
+const bookingTotal = computed(() =>
+  props.booking?.total_amount ?? Math.max(Number(bookingSubtotal.value || 0) - bookingDiscount.value, 0),
+)
+const hasPromotion = computed(() => Boolean(props.booking?.promotion_code || props.booking?.promotion_id || bookingDiscount.value > 0))
+const promotionLabel = computed(() => {
+  if (!props.booking) return ''
+  const name = props.booking.promotion_name_uk || props.booking.promotion_name_en || 'Акція'
+  const code = props.booking.promotion_code ? ` (${props.booking.promotion_code})` : ''
+  const percent = props.booking.promotion_discount_percent ? ` · ${props.booking.promotion_discount_percent}%` : ''
+  return `${name}${code}${percent}`
 })
 
 const editableServiceOptions = computed(() => {
@@ -329,6 +346,30 @@ onBeforeUnmount(() => {
                 Ціна: {{ resolvedServicesPriceLabel }}
               </span>
             </dd>
+          </div>
+          <div class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+            <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
+              <BanknotesIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Оплата
+            </dt>
+            <dd class="mt-2 grid gap-2 text-sm sm:grid-cols-3">
+              <span class="booking-money-card rounded-lg px-3 py-2">
+                <span class="block text-xs text-slate-500">Послуги</span>
+                <span class="font-semibold text-slate-900">{{ formatMoney(bookingSubtotal) }}</span>
+              </span>
+              <span class="booking-money-card rounded-lg px-3 py-2">
+                <span class="block text-xs text-slate-500">Знижка</span>
+                <span class="font-semibold" :class="bookingDiscount > 0 ? 'text-emerald-700' : 'text-slate-900'">-{{ formatMoney(bookingDiscount) }}</span>
+              </span>
+              <span class="booking-money-card rounded-lg px-3 py-2">
+                <span class="block text-xs text-slate-500">До сплати</span>
+                <span class="font-semibold text-slate-900">{{ formatMoney(bookingTotal) }}</span>
+              </span>
+            </dd>
+            <p v-if="hasPromotion" class="booking-promotion-chip mt-3 inline-flex max-w-full items-start gap-2 rounded-full px-3 py-1.5 text-xs font-semibold">
+              <ReceiptPercentIcon class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span class="min-w-0 break-words">Стрижка за акцією: {{ promotionLabel }}</span>
+            </p>
           </div>
           <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
             <button

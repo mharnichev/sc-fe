@@ -18,6 +18,7 @@ import type {
   ManualBookingPayload,
   Master,
   MasterAvailabilityWindow,
+  Promotion,
   Service,
   TimeBlock,
 } from '~/composables/useBackofficeApi'
@@ -96,6 +97,16 @@ const [{ data: masters }, { data: services }] = await Promise.all([
 const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
 const { isAdmin, isBarber, linkedMaster, roleLabel, canManageBooking } = useBackofficeAccess(masterOptions)
+
+const { data: promotionData } = await useAsyncData(
+  'booking-calendar-active-promotions',
+  () => isAdmin.value
+    ? api.adminGetPromotions(1, 100, { is_active: true })
+    : Promise.resolve({ total: 0, page: 1, page_size: 100, items: [] as Promotion[] }),
+  { watch: [isAdmin] },
+)
+
+const activePromotions = computed<Promotion[]>(() => normalizeItems(promotionData.value))
 
 watch(
   linkedMaster,
@@ -439,6 +450,7 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
     customer_email: payload.customer_email || null,
     customer_comment: payload.note || null,
     note: payload.note || null,
+    promotion_code: isAdmin.value ? payload.promotion_code || null : null,
     start_at: payload.start_at,
     end_at: payload.end_at,
     status: 'confirmed',
@@ -953,6 +965,8 @@ const deleteSelectedBlock = async () => {
       v-model="actionModalOpen"
       :selection="selectedSelection"
       :services="bookingServiceOptions"
+      :promotions="activePromotions"
+      :can-use-promotions="isAdmin"
       :master-name="selectedMasterLabel"
       :default-action="selectedDefaultAction"
       :pending="actionPending"

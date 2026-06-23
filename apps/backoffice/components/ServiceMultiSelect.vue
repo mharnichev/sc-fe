@@ -141,12 +141,12 @@ onBeforeUnmount(() => {
       <span
         v-for="service in selectedServices"
         :key="service.id"
-        class="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-medium text-cyan-800 ring-1 ring-cyan-100"
+        class="service-selection-chip inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
       >
         <span class="min-w-0 truncate">{{ serviceName(service) }}</span>
         <button
           type="button"
-          class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-cyan-700 transition hover:bg-cyan-100"
+          class="service-selection-chip-remove inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition"
           :aria-label="`Прибрати ${serviceName(service)}`"
           @click="removeService(service)"
         >
@@ -184,13 +184,13 @@ onBeforeUnmount(() => {
           type="button"
           class="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-slate-50"
           :class="[
-            serviceIsSelected(service) ? 'bg-cyan-50/70' : '',
+            serviceIsSelected(service) ? 'service-option-selected' : '',
             limitReached && !serviceIsSelected(service) ? 'cursor-not-allowed opacity-50' : '',
           ]"
           :disabled="limitReached && !serviceIsSelected(service)"
           @click="toggleService(service)"
         >
-          <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border" :class="serviceIsSelected(service) ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 text-transparent'">
+          <span class="service-option-check mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border" :class="serviceIsSelected(service) ? 'is-selected' : 'text-transparent'">
             <CheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           <span class="min-w-0 flex-1">

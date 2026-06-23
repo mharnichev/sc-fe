@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ScissorsIcon, SunIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ReceiptPercentIcon, ScissorsIcon, SunIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
-import type { Service } from '~/composables/useBackofficeApi'
+import type { Promotion, Service } from '~/composables/useBackofficeApi'
 
 type AvailabilityPreset = 'interval' | 'day' | 'week' | 'month'
 
@@ -9,6 +9,8 @@ const props = defineProps<{
   modelValue: boolean
   selection: CalendarSelection | null
   services: Service[]
+  promotions?: Promotion[]
+  canUsePromotions?: boolean
   masterName: string
   defaultAction?: CalendarActionType
   pending?: boolean
@@ -30,6 +32,7 @@ const form = reactive({
   action: 'booking' as CalendarActionType,
   availability_preset: 'interval' as AvailabilityPreset,
   service_ids: [] as string[],
+  promotion_code: '',
   date: '',
   start_time: '',
   end_time: '',
@@ -48,6 +51,14 @@ const availabilityPresetOptions: Array<{ value: AvailabilityPreset, label: strin
   { value: 'week', label: 'Тиждень', description: 'Робочі дні', icon: CalendarDaysIcon },
   { value: 'month', label: 'Місяць', description: 'До 2 місяців', icon: CalendarDaysIcon },
 ]
+
+const promotionOptions = computed(() => [
+  { value: '', label: 'Без акції' },
+  ...(props.promotions || []).map(promotion => ({
+    value: promotion.code,
+    label: `${promotion.code} · ${promotion.discount_percent}%`,
+  })),
+])
 
 const selectedServices = computed(() => {
   const selected = new Set(form.service_ids.map(Number))
@@ -171,6 +182,7 @@ const resetForm = () => {
   form.action = props.defaultAction || 'availability'
   form.availability_preset = 'interval'
   form.service_ids = []
+  form.promotion_code = ''
   form.date = props.selection?.date || ''
   form.start_time = props.selection?.startTime || ''
   form.end_time = props.selection?.endTime || ''
@@ -230,6 +242,7 @@ const submit = () => {
     customer_name: form.customer_name.trim(),
     customer_phone: normalizePhone(form.customer_phone),
     customer_email: '',
+    promotion_code: form.action === 'booking' && props.canUsePromotions ? form.promotion_code || null : null,
     note: form.note.trim(),
     start_at: availabilityWindows?.[0]?.start_at || toKyivIso(form.date, form.start_time),
     end_at: availabilityWindows?.[0]?.end_at || toKyivIso(form.date, form.end_time),
@@ -401,7 +414,11 @@ const submitLabel = computed(() => {
           </label>
         </div>
 
-        <div v-if="form.action === 'booking'" class="grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem] xl:gap-4">
+        <div
+          v-if="form.action === 'booking'"
+          class="grid gap-2 xl:gap-4"
+          :class="canUsePromotions ? 'md:grid-cols-[minmax(0,1fr)_9rem_minmax(12rem,0.75fr)]' : 'md:grid-cols-[minmax(0,1fr)_9rem]'"
+        >
           <div class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ScissorsIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
@@ -423,6 +440,20 @@ const submitLabel = computed(() => {
               class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
               @input="markDurationEdited"
             >
+          </label>
+          <label v-if="canUsePromotions" class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+            <span class="inline-flex items-center gap-1.5 font-medium">
+              <ReceiptPercentIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+              Акція
+            </span>
+            <BackofficeSelect
+              :model-value="form.promotion_code"
+              :options="promotionOptions"
+              placeholder="Без акції"
+              menu-class="z-[260]"
+              aria-label="Акція"
+              @update:model-value="form.promotion_code = String($event || '')"
+            />
           </label>
         </div>
 

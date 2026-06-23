@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   ArchiveBoxIcon,
-  BellAlertIcon,
   ChatBubbleLeftRightIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -16,28 +15,19 @@ import {
   PencilIcon,
   PlusIcon,
   PlayIcon,
-  PlayCircleIcon,
-  StarIcon,
   TagIcon,
   TrashIcon,
-  UserGroupIcon,
-  UserIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
-import type { Component } from 'vue'
 import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign, MessagingChannel } from '~/types/messaging'
 
 const api = useBackofficeApi()
-const { statusLabel, statusClass, campaignTypeLabel, campaignTypes, channels, variables, sampleClient } = useMessagingUi()
+const { campaignTypes, channels, variables, sampleClient } = useMessagingUi()
 const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAccess()
 const { apiErrorMessage } = useBookingFormatting()
 const toast = useBaseToastNotification()
 
 const { data, pending, error, refresh } = await useAsyncData('messaging-dashboard', () => api.getMessagingDashboard())
-const { data: scenarioCampaigns, pending: scenariosPending, refresh: refreshScenarios } = await useAsyncData(
-  'messaging-telegram-scenarios',
-  () => api.getMessagingCampaigns(1, 100),
-)
 const route = useRoute()
 const campaignsPage = ref(1)
 const campaignsPageSize = 20
@@ -78,16 +68,6 @@ const { data: telegramAudience, pending: telegramAudiencePending, error: telegra
   },
 )
 
-type ScenarioJob = 'review' | 'reminders' | 'pending'
-type TelegramScenarioEditor = {
-  name: string
-  type: CampaignType
-  status: CampaignStatus
-  message_body: string
-  review_link: string
-  lead_hours: number
-  window_minutes: number
-}
 type CampaignMessageEditor = {
   name: string
   type: CampaignType
@@ -99,48 +79,6 @@ type CampaignMessageEditor = {
   window_minutes: number
   location_key: string
 }
-
-const scenarioDefinitions: Array<{
-  name: string
-  recipient: string
-  trigger: string
-  icon: Component
-  accentClass: string
-}> = [
-  {
-    name: 'Подяка за візит',
-    recipient: 'Клієнт',
-    trigger: 'Після завершеного візиту',
-    icon: StarIcon,
-    accentClass: 'messaging-tone-warning',
-  },
-  {
-    name: 'Сповіщення в момент запису',
-    recipient: 'Майстер',
-    trigger: 'Одразу після нового запису',
-    icon: UserIcon,
-    accentClass: 'messaging-tone-accent',
-  },
-  {
-    name: 'Нагадування про візит',
-    recipient: 'Клієнт',
-    trigger: 'За 24 години до візиту',
-    icon: BellAlertIcon,
-    accentClass: 'messaging-tone-success',
-  },
-]
-
-const scenarioByName = computed<Record<string, MessagingCampaign>>(() => {
-  const items = scenarioCampaigns.value?.items || []
-  return Object.fromEntries(items.map(campaign => [campaign.name, campaign]))
-})
-
-const telegramScenarios = computed(() =>
-  scenarioDefinitions.map(definition => ({
-    ...definition,
-    campaign: scenarioByName.value[definition.name] || null,
-  })),
-)
 
 const cards = computed(() => [
   { label: 'Активні кампанії', value: data.value?.active_campaigns || 0 },
@@ -173,7 +111,6 @@ const campaignEditorStatusOptions = [
   { value: 'paused', label: 'На паузі' },
 ]
 
-const runningJob = ref<ScenarioJob | null>(null)
 const campaignActionPending = ref(false)
 const confirmCampaignAction = ref<{ campaign: MessagingCampaign, action: 'archived' | 'delete' | 'paused' | 'active' } | null>(null)
 const campaignEditing = ref<MessagingCampaign | null>(null)
@@ -189,31 +126,6 @@ const campaignEditor = reactive<CampaignMessageEditor>({
   window_minutes: 60,
   location_key: '',
 })
-const telegramSaving = ref(false)
-const telegramPreviewLoading = ref(false)
-const telegramRenderedPreview = ref('')
-const telegramPreviewError = ref('')
-const telegramEditing = ref<{ scenario: typeof scenarioDefinitions[number], campaign: MessagingCampaign } | null>(null)
-const telegramEditor = reactive<TelegramScenarioEditor>({
-  name: '',
-  type: 'manual',
-  status: 'active',
-  message_body: '',
-  review_link: '',
-  lead_hours: 24,
-  window_minutes: 60,
-})
-const telegramTypeOptions = [
-  { value: 'manual', label: 'Ручна кампанія' },
-  { value: 'post_visit_review_request', label: 'Запит відгуку після візиту' },
-  { value: 'appointment_reminder', label: 'Нагадування про запис' },
-]
-const telegramStatusOptions = [
-  { value: 'draft', label: 'Чернетка' },
-  { value: 'active', label: 'Активна' },
-  { value: 'paused', label: 'На паузі' },
-]
-
 const metadataNumber = (campaign: MessagingCampaign, key: 'lead_hours' | 'window_minutes', fallback: number) => {
   const raw = campaign.metadata_json?.[key]
   const value = typeof raw === 'number' ? raw : Number(raw)
@@ -225,16 +137,6 @@ const metadataText = (campaign: MessagingCampaign | null | undefined, key: strin
   return typeof value === 'string' && value.trim() ? value : ''
 }
 
-const telegramScenarioBody = (campaign?: MessagingCampaign | null) =>
-  campaign?.message_body
-  || metadataText(campaign, 'message_body')
-  || metadataText(campaign, 'body')
-
-const telegramScenarioBodyLabel = (campaign?: MessagingCampaign | null) =>
-  telegramScenarioBody(campaign) || 'Сценарій ще не синхронізовано з бекендом.'
-
-const telegramPreviewBody = computed(() => telegramRenderedPreview.value || telegramEditor.message_body)
-const telegramPreviewRecipient = computed(() => telegramConnectedRecipients.value[0] || telegramAudience.value?.recipients?.[0] || null)
 const campaignMessageBody = (campaign?: MessagingCampaign | null) =>
   campaign?.message_body
   || metadataText(campaign, 'message_body')
@@ -308,136 +210,8 @@ const saveCampaignEditor = async () => {
   }
 }
 
-const openTelegramEditor = (scenario: typeof scenarioDefinitions[number], campaign: MessagingCampaign) => {
-  telegramEditing.value = { scenario, campaign }
-  telegramEditor.name = campaign.name
-  telegramEditor.type = campaign.type
-  telegramEditor.status = campaign.status
-  telegramEditor.message_body = telegramScenarioBody(campaign)
-  telegramEditor.review_link = campaign.review_link || ''
-  telegramEditor.lead_hours = metadataNumber(campaign, 'lead_hours', 24)
-  telegramEditor.window_minutes = metadataNumber(campaign, 'window_minutes', 60)
-  telegramRenderedPreview.value = ''
-  telegramPreviewError.value = ''
-}
-
-const closeTelegramEditor = () => {
-  telegramEditing.value = null
-  telegramRenderedPreview.value = ''
-  telegramPreviewError.value = ''
-}
-
-const handleTelegramEditorModelUpdate = (value: boolean) => {
-  if (!value) closeTelegramEditor()
-}
-
-const saveTelegramScenario = async () => {
-  if (!telegramEditing.value || !canCreateMessagingDrafts.value) return
-  telegramSaving.value = true
-  try {
-    const campaign = telegramEditing.value.campaign
-    const metadata: Record<string, unknown> = {
-      ...(campaign.metadata_json || {}),
-      message_body: telegramEditor.message_body,
-      audience_rules: campaign.audience_rules || [{ type: 'all_clients' }],
-    }
-    if (telegramEditor.type === 'appointment_reminder') {
-      metadata.lead_hours = Math.max(1, Number(telegramEditor.lead_hours) || 24)
-      metadata.window_minutes = Math.max(1, Number(telegramEditor.window_minutes) || 60)
-    }
-    const payload: Partial<CampaignPayload> = {
-      name: telegramEditor.name,
-      type: telegramEditor.type,
-      channel: 'telegram',
-      status: telegramEditor.status,
-      purpose: campaign.purpose || undefined,
-      template_id: campaign.template_id || null,
-      message_body: telegramEditor.message_body,
-      audience_rules: campaign.audience_rules || [{ type: 'all_clients' }],
-      review_link: telegramEditor.review_link || null,
-      schedule_mode: 'automated',
-      timezone: campaign.timezone || 'Europe/Kyiv',
-      max_messages_per_minute: 20,
-      quiet_hours_enabled: true,
-      duplicate_protection_days: 30,
-      metadata_json: metadata,
-    }
-    await api.updateMessagingCampaign(campaign.id, payload)
-    toast.success('Telegram сценарій оновлено.')
-    closeTelegramEditor()
-    await Promise.all([refresh(), refreshScenarios(), refreshTelegramAudience()])
-  }
-  catch (cause) {
-    toast.error(apiErrorMessage(cause, 'Не вдалося зберегти Telegram сценарій.'))
-  }
-  finally {
-    telegramSaving.value = false
-  }
-}
-
-const refreshTelegramPreview = async () => {
-  if (!telegramEditing.value || !telegramEditor.message_body.trim()) return
-  const recipient = telegramPreviewRecipient.value
-  if (!recipient?.id) {
-    telegramPreviewError.value = 'Немає клієнта для backend preview. Показано локальний приклад.'
-    telegramRenderedPreview.value = ''
-    return
-  }
-  telegramPreviewLoading.value = true
-  telegramPreviewError.value = ''
-  try {
-    const result = await api.previewMessagingMessage({
-      campaign_id: telegramEditing.value.campaign.id,
-      body: telegramEditor.message_body,
-      customer_id: recipient.id,
-      extra_variables: {
-        review_link: telegramEditor.review_link || sampleClient.review_link,
-      },
-    })
-    telegramRenderedPreview.value = result.rendered_message
-  }
-  catch (cause) {
-    telegramRenderedPreview.value = ''
-    telegramPreviewError.value = apiErrorMessage(cause, 'Не вдалося згенерувати backend preview.')
-  }
-  finally {
-    telegramPreviewLoading.value = false
-  }
-}
-
-watch(() => telegramEditor.message_body, () => {
-  telegramRenderedPreview.value = ''
-  telegramPreviewError.value = ''
-})
-
-const runScenarioJob = async (job: ScenarioJob) => {
-  if (!canSendMessagingCampaigns.value) return
-  runningJob.value = job
-  try {
-    if (job === 'review') {
-      const result = await api.createReviewRequests()
-      toast.success(`Запити відгуків створено: ${result.created}.`)
-    }
-    else if (job === 'reminders') {
-      const result = await api.createAppointmentReminders()
-      toast.success(`Нагадування поставлено в чергу: ${result.created}.`)
-    }
-    else {
-      const result = await api.processPendingMessages()
-      toast.success(`Оброблено повідомлень: ${result.processed}.`)
-    }
-    await Promise.all([refresh(), refreshScenarios(), refreshTelegramAudience()])
-  }
-  catch (cause) {
-    toast.error(apiErrorMessage(cause, 'Не вдалося виконати дію.'))
-  }
-  finally {
-    runningJob.value = null
-  }
-}
-
 const refreshMessagingData = async () => {
-  await Promise.all([refresh(), refreshCampaigns(), refreshScenarios(), refreshTelegramAudience()])
+  await Promise.all([refresh(), refreshCampaigns(), refreshTelegramAudience()])
 }
 
 const applyCampaignFilters = async () => {
@@ -655,130 +429,6 @@ const insertCampaignVariable = (variable: string) => {
     </section>
 
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-semibold text-slate-900">Telegram сценарії</h2>
-          <p class="mt-1 text-sm text-slate-500">Системні сценарії бота, повідомлення майстрам та автоматичні клієнтські нагадування.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-if="canSendMessagingCampaigns"
-            class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-            :disabled="Boolean(runningJob)"
-            @click="runScenarioJob('review')"
-          >
-            <StarIcon class="h-4 w-4" />
-            {{ runningJob === 'review' ? 'Створюємо...' : 'Запити відгуків' }}
-          </button>
-          <button
-            v-if="canSendMessagingCampaigns"
-            class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-            :disabled="Boolean(runningJob)"
-            @click="runScenarioJob('reminders')"
-          >
-            <ClockIcon class="h-4 w-4" />
-            {{ runningJob === 'reminders' ? 'Створюємо...' : 'Нагадування 24г' }}
-          </button>
-          <button
-            v-if="canSendMessagingCampaigns"
-            class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-            :disabled="Boolean(runningJob)"
-            @click="runScenarioJob('pending')"
-          >
-            <PlayCircleIcon class="h-4 w-4" />
-            {{ runningJob === 'pending' ? 'Обробляємо...' : 'Обробити чергу' }}
-          </button>
-        </div>
-      </div>
-
-      <div v-if="scenariosPending" class="mt-5 grid gap-4 lg:grid-cols-3">
-        <div v-for="index in 3" :key="index" class="h-56 animate-pulse rounded-[1.25rem] bg-slate-100" />
-      </div>
-      <div v-else class="mt-5 grid gap-4 lg:grid-cols-3">
-        <article
-          v-for="scenario in telegramScenarios"
-          :key="scenario.name"
-          class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <span class="flex h-10 w-10 items-center justify-center rounded-full" :class="scenario.accentClass">
-                <component :is="scenario.icon" class="h-5 w-5" />
-              </span>
-              <div>
-                <h3 class="font-semibold text-slate-900">{{ scenario.name }}</h3>
-                <p class="mt-1 text-xs text-slate-500">{{ scenario.recipient }} · {{ scenario.trigger }}</p>
-              </div>
-            </div>
-            <span
-              class="rounded-full px-3 py-1 text-xs font-medium"
-              :class="scenario.campaign ? statusClass(scenario.campaign.status) : 'bg-rose-50 text-rose-700'"
-            >
-              {{ scenario.campaign ? statusLabel(scenario.campaign.status) : 'Не знайдено' }}
-            </span>
-          </div>
-
-          <div class="mt-4 space-y-3 text-sm">
-            <div class="flex justify-between gap-3">
-              <span class="text-slate-500">Тип</span>
-              <span class="font-medium text-slate-900">{{ scenario.campaign ? campaignTypeLabel(scenario.campaign.type) : '—' }}</span>
-            </div>
-            <div v-if="scenario.campaign" class="flex justify-between gap-3">
-              <span class="text-slate-500">Отримувачі</span>
-              <span class="font-medium text-slate-900">{{ scenario.campaign.audience_size }}</span>
-            </div>
-            <div v-if="scenario.campaign" class="flex justify-between gap-3">
-              <span class="text-slate-500">Sent / failed</span>
-              <span class="font-medium text-slate-900">{{ scenario.campaign.sent_count }} / {{ scenario.campaign.failed_count }}</span>
-            </div>
-            <div>
-              <p class="text-slate-500">Повідомлення</p>
-              <p class="mt-1 min-h-16 rounded-2xl bg-white p-3 leading-6 text-slate-800">
-                {{ telegramScenarioBodyLabel(scenario.campaign) }}
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            <NuxtLink
-              v-if="scenario.campaign"
-              :to="`/messaging/campaigns/${scenario.campaign.id}#recipients`"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900"
-            >
-              <UserGroupIcon class="h-4 w-4" />
-              Отримувачі
-            </NuxtLink>
-            <NuxtLink
-              v-if="scenario.campaign"
-              :to="`/messaging/campaigns/${scenario.campaign.id}`"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-900"
-              aria-label="Деталі кампанії"
-              title="Деталі"
-            >
-              <EyeIcon class="h-4 w-4" />
-            </NuxtLink>
-            <button
-              v-if="scenario.campaign && canCreateMessagingDrafts"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-900"
-              aria-label="Редагувати кампанію"
-              title="Редагувати"
-              @click="openTelegramEditor(scenario, scenario.campaign)"
-            >
-              <PencilIcon class="h-4 w-4" />
-            </button>
-            <NuxtLink
-              v-if="!scenario.campaign"
-              to="#campaigns"
-              class="rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700"
-            >
-              Перевірити кампанії
-            </NuxtLink>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-xl font-semibold text-slate-900">Швидкі дії</h2>
         <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <NuxtLink to="/messaging/campaigns/new" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-900">
@@ -939,121 +589,5 @@ const insertCampaignVariable = (variable: string) => {
       @confirm="runCampaignAction"
     />
 
-    <BaseModal :model-value="Boolean(telegramEditing)" max-width-class="max-w-5xl" @update:model-value="handleTelegramEditorModelUpdate">
-      <template #head="{ close }">
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <div class="flex flex-wrap items-center gap-3">
-              <MessagingChannelBadge channel="telegram" />
-            </div>
-            <h2 class="mt-1 text-2xl font-semibold text-slate-900">Редагувати сценарій</h2>
-          </div>
-          <ModalCloseButton @click="close" />
-        </div>
-      </template>
-      <template #body>
-        <div v-if="telegramEditing" class="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div class="space-y-5">
-            <label class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <PencilIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                Назва
-              </span>
-              <input v-model="telegramEditor.name" class="rounded-2xl border border-slate-300 px-4 py-3">
-            </label>
-
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,180px)]">
-              <label class="grid min-w-0 gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                  Тип
-                </span>
-                <BackofficeSelect v-model="telegramEditor.type" :options="telegramTypeOptions" menu-class="z-[260]" />
-              </label>
-              <label class="grid min-w-0 gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <CheckCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                  Статус
-                </span>
-                <BackofficeSelect v-model="telegramEditor.status" :options="telegramStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
-              </label>
-            </div>
-
-            <div v-if="telegramEditor.type === 'appointment_reminder'" class="grid gap-4 md:grid-cols-2">
-              <label class="grid gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                  За скільки годин до запису
-                </span>
-                <input v-model.number="telegramEditor.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
-              </label>
-              <label class="grid gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                  Вікно пошуку, хв
-                </span>
-                <input v-model.number="telegramEditor.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
-              </label>
-            </div>
-
-            <label class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                Повідомлення
-              </span>
-              <textarea v-model="telegramEditor.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
-              <span class="text-xs text-slate-500">{{ telegramEditor.message_body.length }} символів</span>
-            </label>
-
-            <label v-if="telegramEditor.type === 'post_visit_review_request'" class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <LinkIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-                Review link
-              </span>
-              <input v-model="telegramEditor.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://...">
-            </label>
-
-            <div class="flex flex-wrap gap-3">
-              <button
-                class="backoffice-modal-action-button backoffice-modal-action-success"
-                :disabled="telegramSaving || !telegramEditor.name.trim() || !telegramEditor.message_body.trim() || !canCreateMessagingDrafts"
-                @click="saveTelegramScenario"
-              >
-                <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
-                {{ telegramSaving ? 'Збереження...' : 'Зберегти сценарій' }}
-              </button>
-              <button class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="telegramSaving" @click="closeTelegramEditor">
-                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-                Скасувати
-              </button>
-            </div>
-          </div>
-
-          <div class="space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-900">
-              <span class="inline-flex items-center gap-2">
-                <PaperAirplaneIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
-                Telegram preview
-              </span>
-              <button
-                class="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-800 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="telegramPreviewLoading || !telegramEditor.message_body.trim()"
-                @click="refreshTelegramPreview"
-              >
-                <PlayCircleIcon class="h-4 w-4" aria-hidden="true" />
-                {{ telegramPreviewLoading ? 'Генеруємо...' : 'Оновити preview' }}
-              </button>
-            </div>
-            <MessagePreview :body="telegramPreviewBody" :sample="sampleClient" />
-            <p v-if="telegramRenderedPreview" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-800">
-              Preview згенеровано бекендом для {{ telegramPreviewRecipient?.name || 'клієнта' }}.
-            </p>
-            <p v-else-if="telegramPreviewError" class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-              {{ telegramPreviewError }}
-            </p>
-          </div>
-        </div>
-      </template>
-    </BaseModal>
   </div>
 </template>

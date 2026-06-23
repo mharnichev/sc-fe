@@ -1080,6 +1080,127 @@ html[data-backoffice-theme="light"] .customer-service-chip {
   color: #155e75 !important;
 }
 
+.service-selection-chip {
+  border: 1px solid color-mix(in srgb, var(--accent-text) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 16%, var(--solid-control));
+  color: color-mix(in srgb, var(--accent-text) 88%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.service-selection-chip * {
+  color: inherit !important;
+}
+
+.service-selection-chip-remove {
+  background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+  color: inherit !important;
+}
+
+.service-selection-chip-remove:hover {
+  background: color-mix(in srgb, var(--accent-text) 24%, var(--solid-control-hover)) !important;
+  color: var(--interactive-hover-text) !important;
+}
+
+.service-option-selected {
+  background: color-mix(in srgb, var(--accent-text) 14%, var(--solid-control)) !important;
+}
+
+.service-option-check {
+  border-color: var(--input-border);
+  background: color-mix(in srgb, var(--input-bg) 72%, transparent);
+}
+
+.service-option-check.is-selected {
+  border-color: color-mix(in srgb, var(--accent-text) 58%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 48%, var(--solid-control));
+  color: var(--text-primary) !important;
+}
+
+html[data-backoffice-theme="light"] .service-selection-chip {
+  border-color: rgba(14, 116, 144, 0.20);
+  background: rgba(8, 145, 178, 0.09);
+  color: #155e75 !important;
+  box-shadow: none;
+}
+
+html[data-backoffice-theme="light"] .service-selection-chip-remove {
+  background: rgba(8, 145, 178, 0.08);
+}
+
+html[data-backoffice-theme="light"] .service-selection-chip-remove:hover {
+  background: rgba(8, 145, 178, 0.15) !important;
+  color: #164e63 !important;
+}
+
+html[data-backoffice-theme="light"] .service-option-selected {
+  background: rgba(8, 145, 178, 0.08) !important;
+}
+
+html[data-backoffice-theme="light"] .service-option-check.is-selected {
+  border-color: #0891b2;
+  background: #0891b2;
+  color: #ffffff !important;
+}
+
+.booking-money-card {
+  border: 1px solid var(--hint-border) !important;
+  background: var(--hint-bg) !important;
+  color: var(--hint-text) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent),
+    0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.booking-money-card * {
+  color: inherit;
+}
+
+.booking-money-card .text-slate-900,
+.booking-money-card strong,
+.booking-money-card .font-semibold,
+.booking-money-card .font-medium {
+  color: var(--text-primary) !important;
+}
+
+.booking-money-card .text-slate-700,
+.booking-money-card .text-slate-600,
+.booking-money-card .text-slate-500 {
+  color: var(--text-secondary) !important;
+}
+
+.booking-money-card .text-emerald-700 {
+  color: color-mix(in srgb, var(--success) 78%, var(--text-primary)) !important;
+}
+
+.booking-promotion-chip {
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent) !important;
+  background: color-mix(in srgb, var(--success) 14%, var(--solid-control)) !important;
+  color: color-mix(in srgb, var(--success) 80%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.booking-promotion-chip * {
+  color: inherit !important;
+}
+
+html[data-backoffice-theme="light"] .booking-money-card {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  color: rgba(51, 65, 85, 0.74) !important;
+  box-shadow: none !important;
+}
+
+html[data-backoffice-theme="light"] .booking-promotion-chip {
+  border-color: rgba(22, 163, 74, 0.22) !important;
+  background: rgba(22, 163, 74, 0.09) !important;
+  color: #166534 !important;
+  box-shadow: none;
+}
+
 .customer-info-item {
   display: flex;
   min-width: 0;
