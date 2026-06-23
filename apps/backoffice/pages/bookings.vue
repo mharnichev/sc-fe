@@ -480,12 +480,18 @@ const createManualBooking = async (payload: CalendarActionPayload) => {
   }
 }
 
-const focusCreatedBooking = (booking: Booking | undefined) => {
+const focusCreatedBooking = (booking: Booking | undefined, requestedMasterId: number | null = selectedMasterId.value) => {
   if (!booking) return
   const bookingDate = calendar.dateInputFromDateTime(bookingStart(booking))
   if (bookingDate) anchorDate.value = bookingDate
-  if (isAdmin.value && booking.master_id) {
-    filters.master_id = String(booking.master_id)
+  if (isAdmin.value) {
+    const nextMasterId = requestedMasterId || booking.master_id
+    if (nextMasterId) filters.master_id = String(nextMasterId)
+  }
+
+  const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
+  if (selectedServiceId && !bookingServiceIds(booking).includes(selectedServiceId)) {
+    filters.service_id = ''
   }
 }
 
@@ -545,8 +551,9 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
   actionPending.value = true
   try {
     if (payload.action === 'booking') {
+      const requestedMasterId = selectedMasterId.value
       const createdBooking = await createManualBooking(payload)
-      focusCreatedBooking(createdBooking)
+      focusCreatedBooking(createdBooking, requestedMasterId)
       toastNotification.bookingCreated()
     }
     else if (payload.action === 'block') {
