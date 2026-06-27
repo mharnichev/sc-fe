@@ -64,7 +64,7 @@ const mergeBarberServices = (first: ServiceCatalogBarberServiceDto[], second: Se
     .sort((firstService, secondService) => firstService.id - secondService.id)
 
 const baseCatalogKey = (service: ServiceCatalogItemDto) =>
-  `base:${service.base_service_id}:${service.is_army_client ? 'army' : 'regular'}`
+  `base:${service.base_service_id}`
 
 const mergeBaseCatalogItems = (first: ServiceCatalogItemDto, second: ServiceCatalogItemDto): ServiceCatalogItemDto => {
   const primary = preferredCatalogItem(first, second)

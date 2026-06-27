@@ -1103,6 +1103,87 @@ html[data-backoffice-theme="light"] .customer-service-chip {
   color: var(--interactive-hover-text) !important;
 }
 
+.multi-select-option {
+  border: 1px solid transparent;
+  background: transparent !important;
+  color: var(--select-menu-item-text) !important;
+}
+
+.multi-select-option * {
+  color: inherit !important;
+}
+
+.multi-select-option:hover {
+  border-color: color-mix(in srgb, var(--accent-text) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 8%, var(--select-menu-bg)) !important;
+  color: var(--select-menu-item-hover-text) !important;
+}
+
+.multi-select-option.is-selected {
+  border-color: color-mix(in srgb, var(--accent-text) 24%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 13%, var(--select-menu-bg)) !important;
+  color: var(--select-menu-item-hover-text) !important;
+}
+
+.multi-select-option.is-selected:hover {
+  border-color: color-mix(in srgb, var(--accent-text) 34%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 18%, var(--select-menu-bg)) !important;
+}
+
+.booking-select-menu .multi-select-search-input {
+  background: color-mix(in srgb, var(--input-bg) 82%, transparent) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+}
+
+.booking-select-menu .multi-select-action-button {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  color: #ffffff !important;
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.booking-select-menu .multi-select-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.booking-select-menu .multi-select-action-button--select {
+  border-color: rgba(16, 185, 129, 0.36) !important;
+  background: #059669 !important;
+}
+
+.booking-select-menu .multi-select-action-button--select:hover:not(:disabled) {
+  background: #047857 !important;
+}
+
+.booking-select-menu .multi-select-action-button--clear {
+  border-color: rgba(244, 63, 94, 0.36) !important;
+  background: #e11d48 !important;
+}
+
+.booking-select-menu .multi-select-action-button--clear:hover:not(:disabled) {
+  background: #be123c !important;
+}
+
+.booking-select-menu .multi-select-checkbox {
+  accent-color: var(--accent-text);
+  color: var(--accent-text) !important;
+  background-color: color-mix(in srgb, var(--input-bg) 92%, transparent) !important;
+  border-color: color-mix(in srgb, var(--text-primary) 24%, transparent) !important;
+}
+
+.booking-select-menu .multi-select-checkbox:checked {
+  background-color: var(--accent-text) !important;
+  border-color: var(--accent-text) !important;
+}
+
 .service-option-selected {
   background: color-mix(in srgb, var(--accent-text) 14%, var(--solid-control)) !important;
 }
@@ -1136,6 +1217,31 @@ html[data-backoffice-theme="light"] .service-selection-chip-remove:hover {
 
 html[data-backoffice-theme="light"] .service-option-selected {
   background: rgba(8, 145, 178, 0.08) !important;
+}
+
+html[data-backoffice-theme="light"] .multi-select-option:hover {
+  border-color: rgba(8, 145, 178, 0.16);
+  background: rgba(8, 145, 178, 0.06) !important;
+}
+
+html[data-backoffice-theme="light"] .multi-select-option.is-selected {
+  border-color: rgba(8, 145, 178, 0.26);
+  background: rgba(8, 145, 178, 0.10) !important;
+}
+
+html[data-backoffice-theme="light"] .multi-select-option.is-selected:hover {
+  border-color: rgba(8, 145, 178, 0.36);
+  background: rgba(8, 145, 178, 0.14) !important;
+}
+
+html[data-backoffice-theme="light"] .booking-select-menu .multi-select-checkbox {
+  background-color: #ffffff !important;
+  border-color: rgba(100, 116, 139, 0.45) !important;
+}
+
+html[data-backoffice-theme="light"] .booking-select-menu .multi-select-checkbox:checked {
+  background-color: #0891b2 !important;
+  border-color: #0891b2 !important;
 }
 
 html[data-backoffice-theme="light"] .service-option-check.is-selected {

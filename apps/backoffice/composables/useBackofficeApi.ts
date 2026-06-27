@@ -202,6 +202,16 @@ export interface Master {
   services?: Service[]
 }
 
+export interface ServicePromotion {
+  id: number
+  code: string
+  name_uk: string
+  name_en: string
+  discount_percent: number
+  discount_amount: number | string
+  promotional_price: number | string
+}
+
 export interface Service {
   id: number
   barber_id?: number | string
@@ -216,7 +226,7 @@ export interface Service {
   duration_minutes: number
   price: string | number
   is_active?: boolean
-  is_army_client?: boolean
+  active_promotion?: ServicePromotion | null
   status?: string | null
   base_service?: BaseServiceSummary | null
 }
@@ -232,7 +242,6 @@ export interface BaseServiceSummary {
   duration_minutes: number
   price: string | number
   is_active: boolean
-  is_army_client: boolean
 }
 
 export interface BaseService {
@@ -246,7 +255,6 @@ export interface BaseService {
   description_uk?: string | null
   description_en?: string | null
   is_active: boolean
-  is_army_client: boolean
   created_at?: string
   updated_at?: string
 }
@@ -265,7 +273,7 @@ export interface MasterService {
   description_uk?: string | null
   description_en?: string | null
   is_active: boolean
-  is_army_client: boolean
+  active_promotion?: ServicePromotion | null
   base_service?: BaseServiceSummary | null
   created_at?: string
   updated_at?: string
@@ -337,6 +345,7 @@ export interface PublicBookingPayload {
   customer_phone: string
   customer_email?: string | null
   customer_comment?: string | null
+  promotion_code?: string | null
   start_at: string
 }
 
@@ -402,13 +411,12 @@ export interface ServicePayload {
   duration_minutes: number
   price: number
   is_active: boolean
-  is_army_client: boolean
 }
 
 export type BaseServicePayload = ServicePayload
 
 export type PromotionDiscountType = 'percent'
-export type PromotionEligibilityType = 'all_customers' | 'inactive_customers'
+export type PromotionEligibilityType = 'all_customers' | 'inactive_customers' | 'military_customers'
 
 export interface Promotion {
   id: number
@@ -425,6 +433,10 @@ export interface Promotion {
   inactive_days: number | null
   starts_at: string | null
   ends_at: string | null
+  applies_to_all_masters: boolean
+  master_ids: number[]
+  applies_to_all_services: boolean
+  base_service_ids: number[]
   is_active: boolean
 }
 
@@ -440,6 +452,10 @@ export interface PromotionPayload {
   inactive_days: number | null
   starts_at: string | null
   ends_at: string | null
+  applies_to_all_masters: boolean
+  master_ids: number[]
+  applies_to_all_services: boolean
+  base_service_ids: number[]
   is_active: boolean
 }
 
@@ -454,7 +470,6 @@ export interface MasterServicePayload {
   duration_minutes?: number
   price?: number
   is_active?: boolean
-  is_army_client?: boolean
 }
 
 export interface SyncDefaultServicesResponse {

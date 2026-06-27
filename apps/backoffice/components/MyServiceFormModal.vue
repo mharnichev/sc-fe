@@ -10,7 +10,6 @@ import {
   PencilSquareIcon,
   PlusIcon,
   ScissorsIcon,
-  ShieldCheckIcon,
   TagIcon,
 } from '@heroicons/vue/24/outline'
 import type { BaseService, MasterService, MasterServicePayload } from '~/composables/useBackofficeApi'
@@ -29,7 +28,6 @@ interface MyServiceForm {
   duration_minutes: number | string | null
   price: number | string | null
   is_active: boolean
-  is_army_client: boolean
 }
 
 const props = defineProps<{
@@ -61,16 +59,12 @@ const form = reactive<MyServiceForm>({
   duration_minutes: 30,
   price: 0,
   is_active: true,
-  is_army_client: false,
 })
 const formError = ref('')
 const saving = ref(false)
 
 const editing = computed(() => props.service || null)
 const canCreateFromBase = computed(() => props.baseServiceOptions.length > 0)
-const selectedBaseService = computed(() =>
-  props.baseServiceOptions.find(service => String(service.id) === form.base_service_id) || null,
-)
 
 const fillForm = (service?: MasterService | null) => {
   const mode = service
@@ -88,7 +82,6 @@ const fillForm = (service?: MasterService | null) => {
   form.duration_minutes = service ? service.duration_minutes : mode === 'custom' ? 30 : null
   form.price = service ? Number(service.price) : mode === 'custom' ? 0 : null
   form.is_active = service?.is_active ?? true
-  form.is_army_client = service?.is_army_client ?? service?.base_service?.is_army_client ?? false
   formError.value = ''
 }
 
@@ -123,7 +116,6 @@ const servicePayload = () => ({
   duration_minutes: form.duration_minutes === null || form.duration_minutes === '' ? undefined : Number(form.duration_minutes),
   price: form.price === null || form.price === '' ? undefined : Number(form.price),
   is_active: form.is_active,
-  is_army_client: form.is_army_client,
 })
 
 const submitPayload = (): MasterServicePayload => {
@@ -186,15 +178,6 @@ watch(
     form.description = null
     form.description_uk = null
     form.description_en = null
-    form.is_army_client = false
-  },
-)
-
-watch(
-  () => form.base_service_id,
-  () => {
-    if (editing.value || form.mode !== 'base') return
-    form.is_army_client = selectedBaseService.value?.is_army_client ?? false
   },
 )
 
@@ -323,18 +306,11 @@ watch(
             </span>
           </label>
         </div>
-        <div class="grid gap-2 sm:grid-cols-2 xl:gap-3">
-          <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-            <CheckCircleIcon class="h-4 w-4 shrink-0 text-cyan-700 xl:h-5 xl:w-5" aria-hidden="true" />
-            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-            <span class="min-w-0">Послуга активна</span>
-          </label>
-          <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-            <ShieldCheckIcon class="h-4 w-4 shrink-0 text-cyan-700 xl:h-5 xl:w-5" aria-hidden="true" />
-            <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-            <span class="min-w-0">Послуга для військових</span>
-          </label>
-        </div>
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
+          <CheckCircleIcon class="h-4 w-4 shrink-0 text-cyan-700 xl:h-5 xl:w-5" aria-hidden="true" />
+          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <span class="min-w-0">Послуга активна</span>
+        </label>
         <p v-if="editing?.base_service" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           Зміни цієї послуги впливають лише на вашу особисту копію. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>

@@ -1,16 +1,31 @@
 <script setup lang="ts">
 import { CheckIcon, ChevronDownIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import type { Service } from '~/composables/useBackofficeApi'
+
+interface ServiceMultiSelectOption {
+  id: number | string
+  name: string
+  title_uk?: string | null
+  title_en?: string | null
+  description?: string | null
+  description_uk?: string | null
+  description_en?: string | null
+  duration_minutes: number
+  price: string | number
+}
 
 const props = withDefaults(defineProps<{
   modelValue: string[]
-  services: Service[]
+  services: ServiceMultiSelectOption[]
   placeholder?: string
   maxSelected?: number
+  showLimit?: boolean
+  showSelectedChips?: boolean
   disabled?: boolean
 }>(), {
   placeholder: 'Пошук послуг',
   maxSelected: 5,
+  showLimit: true,
+  showSelectedChips: true,
   disabled: false,
 })
 
@@ -57,9 +72,9 @@ const selectedPrice = computed(() =>
   selectedServices.value.reduce((total, service) => total + Number(service.price || 0), 0),
 )
 
-const limitReached = computed(() => selectedServices.value.length >= props.maxSelected)
+const limitReached = computed(() => props.showLimit && selectedServices.value.length >= props.maxSelected)
 
-const serviceIsSelected = (service: Service) => selectedSet.value.has(Number(service.id))
+const serviceIsSelected = (service: ServiceMultiSelectOption) => selectedSet.value.has(Number(service.id))
 
 const focusSearch = async () => {
   await nextTick()
@@ -81,7 +96,7 @@ const setValue = (value: string[]) => {
   emit('update:modelValue', [...new Set(value)])
 }
 
-const toggleService = (service: Service) => {
+const toggleService = (service: ServiceMultiSelectOption) => {
   const id = String(service.id)
   if (props.modelValue.includes(id)) {
     setValue(props.modelValue.filter(item => item !== id))
@@ -92,12 +107,25 @@ const toggleService = (service: Service) => {
   setValue([...props.modelValue, id])
 }
 
-const removeService = (service: Service) => {
+const removeService = (service: ServiceMultiSelectOption) => {
   setValue(props.modelValue.filter(item => item !== String(service.id)))
 }
 
 const clearAll = () => {
   setValue([])
+  openMenu()
+}
+
+const selectAllFiltered = () => {
+  const availableIds = filteredServices.value
+    .map(service => String(service.id))
+    .filter(id => !props.modelValue.includes(id))
+
+  const nextValue = props.showLimit
+    ? [...props.modelValue, ...availableIds].slice(0, props.maxSelected)
+    : [...props.modelValue, ...availableIds]
+
+  setValue(nextValue)
   openMenu()
 }
 
@@ -130,14 +158,14 @@ onBeforeUnmount(() => {
     >
       <span class="min-w-0 flex-1">
         <span v-if="selectedServices.length" class="block truncate font-medium text-slate-900">
-          {{ selectedServices.length }}/{{ maxSelected }} посл. · {{ formatDuration(selectedDuration) }} · {{ formatPrice(selectedPrice) }}
+          {{ selectedServices.length }}<template v-if="showLimit">/{{ maxSelected }}</template> посл. · {{ formatDuration(selectedDuration) }} · {{ formatPrice(selectedPrice) }}
         </span>
         <span v-else class="block truncate text-slate-500">Виберіть послуги</span>
       </span>
       <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-500 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
     </button>
 
-    <div v-if="selectedServices.length" class="mt-2 flex flex-wrap gap-2">
+    <div v-if="showSelectedChips && selectedServices.length" class="mt-2 flex flex-wrap gap-2">
       <span
         v-for="service in selectedServices"
         :key="service.id"
@@ -156,43 +184,66 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="open" class="booking-select-menu absolute z-[180] mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-      <div class="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
-        <MagnifyingGlassIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-        <input
-          ref="searchInputRef"
-          v-model="query"
-          type="search"
-          :placeholder="placeholder"
-          class="min-h-9 flex-1 border-0 p-0 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 focus:ring-0"
-          @keydown.enter.prevent="selectFirstFiltered"
-          @keydown.esc.prevent="closeMenu"
-        >
-        <button
-          v-if="selectedServices.length"
-          type="button"
-          class="rounded-full px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-          @click="clearAll"
-        >
-          Очистити
-        </button>
+      <div class="border-b border-slate-100 p-2">
+        <div class="flex items-center gap-2">
+          <div class="relative min-w-0 flex-1">
+            <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              ref="searchInputRef"
+              v-model="query"
+              type="search"
+              :placeholder="placeholder"
+              class="multi-select-search-input min-h-9 w-full rounded-xl border-0 bg-slate-50 py-1.5 pl-9 pr-3 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 focus:ring-2 focus:ring-cyan-500"
+              @keydown.enter.prevent="selectFirstFiltered"
+              @keydown.esc.prevent="closeMenu"
+            >
+          </div>
+          <button
+            type="button"
+            class="multi-select-action-button multi-select-action-button--select"
+            title="Вибрати всі"
+            aria-label="Вибрати всі"
+            :disabled="!filteredServices.length || (showLimit && limitReached)"
+            @click="selectAllFiltered"
+          >
+            <CheckIcon class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="multi-select-action-button multi-select-action-button--clear"
+            title="Очистити"
+            aria-label="Очистити"
+            :disabled="!selectedServices.length"
+            @click="clearAll"
+          >
+            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      <div class="max-h-72 overflow-y-auto p-1">
+      <div class="max-h-72 space-y-1 overflow-y-auto p-1.5">
         <button
           v-for="service in filteredServices"
           :key="service.id"
           type="button"
-          class="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+          class="multi-select-option flex w-full cursor-pointer items-start gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition"
           :class="[
-            serviceIsSelected(service) ? 'service-option-selected' : '',
+            serviceIsSelected(service) ? 'is-selected' : '',
             limitReached && !serviceIsSelected(service) ? 'cursor-not-allowed opacity-50' : '',
           ]"
+          role="checkbox"
+          :aria-checked="serviceIsSelected(service)"
           :disabled="limitReached && !serviceIsSelected(service)"
           @click="toggleService(service)"
         >
-          <span class="service-option-check mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border" :class="serviceIsSelected(service) ? 'is-selected' : 'text-transparent'">
-            <CheckIcon class="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
+          <input
+            type="checkbox"
+            class="multi-select-checkbox pointer-events-none mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 disabled:cursor-not-allowed"
+            :checked="serviceIsSelected(service)"
+            :disabled="limitReached && !serviceIsSelected(service)"
+            tabindex="-1"
+            aria-hidden="true"
+          >
           <span class="min-w-0 flex-1">
             <span class="block font-medium text-slate-900">{{ serviceName(service) }}</span>
             <span class="block text-xs text-slate-500">{{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}</span>
@@ -202,7 +253,7 @@ onBeforeUnmount(() => {
         <p v-if="!filteredServices.length" class="px-3 py-6 text-center text-sm text-slate-500">
           Послуг не знайдено.
         </p>
-        <p v-else-if="limitReached" class="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
+        <p v-else-if="showLimit && limitReached" class="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
           Можна вибрати максимум {{ maxSelected }} послуг.
         </p>
       </div>

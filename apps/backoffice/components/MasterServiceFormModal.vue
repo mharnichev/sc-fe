@@ -16,7 +16,6 @@ interface MasterServiceForm {
   duration_minutes: number | string | null
   price: number | string | null
   is_active: boolean
-  is_army_client: boolean
 }
 
 const props = defineProps<{
@@ -47,15 +46,11 @@ const form = reactive<MasterServiceForm>({
   duration_minutes: null,
   price: null,
   is_active: true,
-  is_army_client: false,
 })
 const formError = ref('')
 const saving = ref(false)
 
 const editing = computed(() => props.service || null)
-const selectedBaseService = computed(() =>
-  props.baseServiceOptions.find(service => String(service.id) === form.base_service_id) || null,
-)
 
 const fillForm = (service?: MasterService | null) => {
   form.mode = service ? (service.source_type || (service.base_service_id ? 'base' : 'custom')) : 'base'
@@ -69,7 +64,6 @@ const fillForm = (service?: MasterService | null) => {
   form.duration_minutes = service?.duration_minutes || null
   form.price = service ? Number(service.price) : null
   form.is_active = service?.is_active ?? true
-  form.is_army_client = service?.is_army_client ?? service?.base_service?.is_army_client ?? false
   formError.value = ''
 }
 
@@ -103,7 +97,6 @@ const servicePayload = () => ({
   duration_minutes: form.duration_minutes === null || form.duration_minutes === '' ? undefined : Number(form.duration_minutes),
   price: form.price === null || form.price === '' ? undefined : Number(form.price),
   is_active: form.is_active,
-  is_army_client: form.is_army_client,
 })
 
 const submitPayload = (): MasterServicePayload => {
@@ -160,15 +153,6 @@ watch(
     form.description = null
     form.description_uk = null
     form.description_en = null
-    form.is_army_client = false
-  },
-)
-
-watch(
-  () => form.base_service_id,
-  () => {
-    if (editing.value || form.mode !== 'base') return
-    form.is_army_client = selectedBaseService.value?.is_army_client ?? false
   },
 )
 
@@ -250,10 +234,6 @@ watch(
         <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
           <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
           Послуга активна
-        </label>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-          Послуга для військових
         </label>
         <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
           Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ serviceName(editing.base_service) }}.

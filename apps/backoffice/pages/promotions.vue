@@ -50,6 +50,11 @@ const promotions = computed(() => normalizeItems(data.value))
 const total = computed(() => normalizeTotal(data.value))
 const activeCount = computed(() => promotions.value.filter(promotion => promotion.is_active).length)
 const inactiveCount = computed(() => promotions.value.length - activeCount.value)
+const activeStatusOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Активні' },
+  { value: 'false', label: 'Неактивні' },
+]
 
 const promotionName = (promotion: Promotion) =>
   promotion.name_uk || promotion.name_en || promotion.code
@@ -58,7 +63,20 @@ const eligibilityLabel = (promotion: Promotion) => {
   if (promotion.eligibility_type === 'inactive_customers') {
     return `Неактивні ${promotion.inactive_days || 90}+ днів`
   }
+  if (promotion.eligibility_type === 'military_customers') {
+    return 'Військові клієнти'
+  }
   return 'Усі клієнти'
+}
+
+const promotionScopeLabel = (promotion: Promotion) => {
+  const masters = promotion.applies_to_all_masters
+    ? 'усі майстри'
+    : `${promotion.master_ids?.length || 0} майстр.`
+  const services = promotion.applies_to_all_services
+    ? 'усі послуги'
+    : `${promotion.base_service_ids?.length || 0} посл.`
+  return `${masters} · ${services}`
 }
 
 const promotionPeriod = (promotion: Promotion) => {
@@ -199,11 +217,7 @@ const confirmDeletePromotion = async () => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
         <input v-model="filters.search" placeholder="Пошук за кодом або назвою" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
-        <select v-model="filters.is_active" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
-          <option value="">Будь-який статус</option>
-          <option value="true">Активні</option>
-          <option value="false">Неактивні</option>
-        </select>
+        <BackofficeSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус акції" menu-class="z-[220]" />
         <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
@@ -223,6 +237,7 @@ const confirmDeletePromotion = async () => {
               <th class="px-3 py-2.5 font-medium">Акція</th>
               <th class="px-3 py-2.5 font-medium">Знижка</th>
               <th class="px-3 py-2.5 font-medium">Аудиторія</th>
+              <th class="px-3 py-2.5 font-medium">Область</th>
               <th class="px-3 py-2.5 font-medium">Період</th>
               <th class="px-3 py-2.5 font-medium">Статус</th>
               <th class="px-3 py-2.5 font-medium"><span class="sr-only">Дії</span></th>
@@ -256,6 +271,12 @@ const confirmDeletePromotion = async () => {
                 <span class="inline-flex items-center gap-1.5 text-sm">
                   <UserGroupIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
                   {{ eligibilityLabel(promotion) }}
+                </span>
+              </td>
+              <td data-label="Область" class="px-3 py-2.5 text-slate-700">
+                <span class="inline-flex max-w-xs items-start gap-1.5 text-sm leading-5">
+                  <FunnelIcon class="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <span class="break-words">{{ promotionScopeLabel(promotion) }}</span>
                 </span>
               </td>
               <td data-label="Період" class="px-3 py-2.5 text-slate-700">

@@ -8,6 +8,7 @@ export interface PublicBookingPayload {
   customer_name: string
   customer_phone: string
   customer_comment?: string | null
+  promotion_code?: string | null
   start_at: string
 }
 

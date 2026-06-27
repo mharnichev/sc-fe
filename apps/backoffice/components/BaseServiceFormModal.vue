@@ -7,7 +7,6 @@ import {
   ClockIcon,
   DocumentTextIcon,
   LanguageIcon,
-  ShieldCheckIcon,
   TagIcon,
 } from '@heroicons/vue/24/outline'
 import type { BaseService, BaseServicePayload } from '~/composables/useBackofficeApi'
@@ -36,7 +35,6 @@ const form = reactive<BaseServicePayload>({
   duration_minutes: 30,
   price: 0,
   is_active: true,
-  is_army_client: false,
 })
 const formError = ref('')
 const saving = ref(false)
@@ -53,7 +51,6 @@ const fillForm = (service?: BaseService | null) => {
   form.duration_minutes = service?.duration_minutes || 30
   form.price = service ? Number(service.price) : 0
   form.is_active = service?.is_active ?? true
-  form.is_army_client = service?.is_army_client ?? false
   formError.value = ''
 }
 
@@ -198,18 +195,11 @@ watch(
             </span>
           </label>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-            <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-            <span class="min-w-0">Послуга активна</span>
-          </label>
-          <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-            <ShieldCheckIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-            <input v-model="form.is_army_client" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-            <span class="min-w-0">Послуга для військових</span>
-          </label>
-        </div>
+        <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+          <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <span class="min-w-0">Послуга активна</span>
+        </label>
         <div class="backoffice-modal-actions">
           <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <CheckIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />

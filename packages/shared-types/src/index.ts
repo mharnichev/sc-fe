@@ -55,6 +55,16 @@ export interface UploadAssetDto {
   created_at: string
 }
 
+export interface ServicePromotionDto {
+  id: number
+  code: string
+  name_uk: string
+  name_en: string
+  discount_percent: number
+  discount_amount: number | string
+  promotional_price: number | string
+}
+
 export interface ServiceDto {
   id: number
   name: string
@@ -68,7 +78,7 @@ export interface ServiceDto {
   duration_minutes: number
   status?: string
   is_active?: boolean
-  is_army_client?: boolean
+  active_promotion?: ServicePromotionDto | null
 }
 
 export interface ServiceCatalogBarberServiceDto {
@@ -83,7 +93,7 @@ export interface ServiceCatalogBarberServiceDto {
   price: string | number
   duration_minutes: number
   is_active?: boolean
-  is_army_client?: boolean
+  active_promotion?: ServicePromotionDto | null
 }
 
 export interface ServiceCatalogItemDto {
@@ -98,7 +108,7 @@ export interface ServiceCatalogItemDto {
   description_en?: string | null
   price: string | number
   duration_minutes: number
-  is_army_client?: boolean
+  active_promotion?: ServicePromotionDto | null
   barber_ids: number[]
   barber_service_ids: number[]
   barber_services: ServiceCatalogBarberServiceDto[]
@@ -158,6 +168,15 @@ export interface BookingDto {
   customer_name?: string
   customer_phone?: string
   customer_comment?: string | null
+  promotion_code?: string | null
+  promotionCode?: string | null
+  subtotal_amount?: number | string | null
+  discount_amount?: number | string | null
+  total_amount?: number | string | null
+  promotion_id?: number | null
+  promotion_name_uk?: string | null
+  promotion_name_en?: string | null
+  promotion_discount_percent?: number | null
   customer?: CustomerDto
   master?: MasterDto
   service?: ServiceDto

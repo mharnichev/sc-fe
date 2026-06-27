@@ -21,6 +21,10 @@ const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
+type BarberServiceOption = {
+  id: number
+  master: MasterDto
+}
 
 const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-booking-service-catalog' : `${props.idPrefix}-service-catalog`
 const mastersKey = props.idPrefix === 'booking' ? 'home-booking-masters' : `${props.idPrefix}-masters`
@@ -43,6 +47,7 @@ const submitAttempted = ref(false)
 const actionAttemptedStepIndex = ref<number | null>(null)
 const isResettingAfterSubmit = ref(false)
 const bookingStarted = ref(false)
+const promotionConfirmed = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepKeys = ['service', 'master', 'time', 'contact']
 const bookingStepIds = computed(() => bookingStepKeys.map(step => `${props.idPrefix}-${step}`))
@@ -57,6 +62,7 @@ const form = reactive({
   customer_name: '',
   customer_phone: '',
   customer_comment: '',
+  promotion_code: '',
 })
 
 const state = reactive({
@@ -102,6 +108,12 @@ if (!selectedDate.value) {
 }
 
 const activeServiceCatalog = computed(() => activeBaseCatalogItems(serviceCatalog.value))
+const publicMasters = computed(() =>
+  (masters.value || []).filter(master => master.is_active ?? master.status !== 'inactive'),
+)
+const mastersById = computed(() =>
+  new Map(publicMasters.value.map(master => [master.id, master])),
+)
 
 const selectedMasterServices = computed(() => {
   if (!selectedMasterId.value) return []
@@ -115,9 +127,25 @@ const activeServices = computed<SelectableService[]>(() =>
     : activeServiceCatalog.value,
 )
 
+const isCatalogService = (service?: SelectableService | null): service is ServiceCatalogItemDto =>
+  Boolean(service && 'catalog_id' in service)
+
 const serviceName = (service?: SelectableService | null) => localizedService.serviceName(service)
 const serviceDescription = (service?: SelectableService | null) => localizedService.serviceDescription(service)
-const servicePrice = (service?: SelectableService | null) => localizedService.servicePrice(service?.price)
+const serviceHasMultiplePrices = (service?: SelectableService | null) =>
+  isCatalogService(service)
+  && new Set(service.barber_services.map(item => String(item.price))).size > 1
+const servicePromotion = (service?: SelectableService | null) => service?.active_promotion || null
+const servicePromotionApplied = (service?: SelectableService | null) =>
+  Boolean(servicePromotion(service) && promotionConfirmed.value)
+const serviceRegularPrice = (service?: SelectableService | null) =>
+  localizedService.servicePrice(service?.price, { from: serviceHasMultiplePrices(service) })
+const servicePrice = (service?: SelectableService | null) => {
+  const promotion = servicePromotion(service)
+  if (!servicePromotionApplied(service) || !promotion) return serviceRegularPrice(service)
+
+  return localizedService.servicePrice(promotion.promotional_price, { from: serviceHasMultiplePrices(service) })
+}
 const serviceDuration = (service?: SelectableService | null) =>
   localizedService.serviceDuration(service?.duration_minutes)
 
@@ -132,6 +160,21 @@ const serviceSearchLabels = computed(() => locale.value === 'en'
   : {
       placeholder: 'Пошук послуг',
       noResults: 'Послуги не знайдено.',
+    },
+)
+const serviceBarbersLabel = computed(() => locale.value === 'en' ? 'Barbers and prices' : 'Барбери та ціни')
+const promotionDiscountLabels = computed(() => locale.value === 'en'
+  ? {
+      title: 'I am a defender of Ukraine',
+      description: 'Apply the active discount to eligible services. Confirmation may be requested during the visit.',
+      badge: 'Gratitude discount',
+      bookingNote: 'Confirmed defender discount in booking form.',
+    }
+  : {
+      title: 'Я захисник України',
+      description: 'Застосувати активну знижку до доступних послуг. Підтвердження може знадобитися під час візиту.',
+      badge: 'Активувати знижку',
+      bookingNote: 'Підтверджено знижку для захисників у формі запису.',
     },
 )
 
@@ -181,6 +224,20 @@ const selectedServiceCount = computed(() =>
 const selectedDurationMinutes = computed(() =>
   selectedServices.value.reduce((total, service) => total + Number(service.duration_minutes || 0), 0),
 )
+const selectedPromotionCodes = computed(() =>
+  Array.from(new Set(selectedServices.value.flatMap((service) => {
+    const promotion = servicePromotion(service)
+    return promotion?.code ? [promotion.code] : []
+  }))),
+)
+const selectedPromotionCode = computed(() => selectedPromotionCodes.value[0] || '')
+const selectedServicesHavePromotion = computed(() => Boolean(selectedPromotionCode.value))
+const promotionActiveForBooking = computed(() =>
+  promotionConfirmed.value && selectedServicesHavePromotion.value,
+)
+const effectivePromotionCode = computed(() =>
+  sanitizeFormText(form.promotion_code, 50) || (promotionActiveForBooking.value ? selectedPromotionCode.value : ''),
+)
 
 const serviceSelected = (service: SelectableService) =>
   'catalog_id' in service
@@ -189,6 +246,20 @@ const serviceSelected = (service: SelectableService) =>
 
 const serviceSelectionLimitReached = computed(() => selectedServiceCount.value >= maxSelectedServices)
 const { masterName } = useMasterDisplay()
+
+const serviceBarberOptions = (service: SelectableService): BarberServiceOption[] => {
+  if (!isCatalogService(service)) return []
+
+  return service.barber_services.flatMap((barberService) => {
+    const master = mastersById.value.get(barberService.barber_id)
+    if (!master) return []
+
+    return [{
+      id: barberService.id,
+      master,
+    }]
+  })
+}
 
 const masterPosition = (master?: MasterDto | null) => {
   if (!master) return terms.value.home.team.defaultRole
@@ -201,8 +272,11 @@ const masterPosition = (master?: MasterDto | null) => {
 const masterPhoto = (master?: MasterDto | null) =>
   assetUrl(master?.photo || master?.photo_url) || 'https://placehold.co/640x480'
 
+const masterAvatar = (master?: MasterDto | null) =>
+  assetUrl(master?.avatar || master?.avatar_url || master?.photo || master?.photo_url) || 'https://placehold.co/96x96'
+
 const availableMasters = computed(() => {
-  const list = (masters.value || []).filter(master => master.is_active ?? master.status !== 'inactive')
+  const list = publicMasters.value
   if (!selectedCatalogItems.value.length) return list
 
   return list.filter((master) => {
@@ -363,6 +437,12 @@ watch([selectedServiceIds, selectedCatalogIds, selectedMasterId, selectedDate], 
   if (!isResettingAfterSubmit.value) {
     state.success = ''
     state.error = ''
+  }
+})
+
+watch(selectedPromotionCodes, (codes) => {
+  if (!codes.length) {
+    promotionConfirmed.value = false
   }
 })
 
@@ -552,11 +632,12 @@ const handlePhonePasteEvent = (event: ClipboardEvent) => {
 }
 
 const handleTextInput = (
-  field: 'customer_name' | 'customer_comment',
+  field: 'customer_name' | 'customer_comment' | 'promotion_code',
   maxLength: number,
   options: { multiline?: boolean } = {},
 ) => {
-  form[field] = constrainFormInput(form[field], maxLength, options)
+  const value = constrainFormInput(form[field], maxLength, options)
+  form[field] = field === 'promotion_code' ? value.toUpperCase().replace(/\s+/g, '') : value
 }
 
 const resetBookingFlow = async () => {
@@ -569,6 +650,8 @@ const resetBookingFlow = async () => {
   form.customer_name = ''
   form.customer_phone = ''
   form.customer_comment = ''
+  form.promotion_code = ''
+  promotionConfirmed.value = false
   activeStepIndex.value = 0
   submitAttempted.value = false
   actionAttemptedStepIndex.value = null
@@ -609,6 +692,11 @@ const submit = async () => {
   try {
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
+    const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment, { multiline: true })
+    const bookingComment = [
+      customerComment,
+      promotionActiveForBooking.value ? promotionDiscountLabels.value.bookingNote : '',
+    ].filter(Boolean).join('\n') || null
     const bookingEventParams = {
       source: props.analyticsSource,
       master_id: selectedMasterId.value,
@@ -625,7 +713,8 @@ const submit = async () => {
       duration_minutes: selectedDurationMinutes.value,
       customer_name: sanitizeFormText(form.customer_name, FORM_FIELD_LIMITS.fullName),
       customer_phone: formatPhoneForSubmit(form.customer_phone),
-      customer_comment: sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment, { multiline: true }) || null,
+      customer_comment: bookingComment,
+      promotion_code: effectivePromotionCode.value || null,
       start_at: selectedSlotStart.value,
     })
 
@@ -716,7 +805,7 @@ const closeSuccess = () => {
           :data-reveal-delay="isDrawerMode ? undefined : '140'"
           @submit.prevent="submit"
         >
-          <div class="booking-stepper grid grid-cols-4 gap-1.5 p-2 sm:gap-2 sm:p-3">
+          <div class="booking-stepper flex gap-1.5 p-2 sm:grid sm:grid-cols-4 sm:gap-2 sm:p-3">
             <button
               v-for="(step, index) in bookingStepState"
               :key="step.label"
@@ -734,6 +823,7 @@ const closeSuccess = () => {
                     : step.complete
                       ? 'bg-emerald-400/30 text-emerald-50 shadow-[inset_0_-3px_0_rgb(52_211_153_/_0.82)] hover:bg-emerald-400/40 hover:text-white'
                       : 'bg-white/[0.035] text-white/55 hover:bg-white/[0.07] hover:text-white',
+                step.active ? 'booking-step-tab--active' : 'booking-step-tab--inactive',
               ]"
               :aria-current="step.active ? 'step' : undefined"
               :aria-invalid="step.invalid ? 'true' : undefined"
@@ -758,7 +848,7 @@ const closeSuccess = () => {
                   <path d="M7.7 7.3h4.6M7.7 10h4.6M7.7 12.7h2.7" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" />
                 </svg>
               </span>
-              <span class="min-w-0 truncate transition-colors duration-300 ease-out" :class="step.active ? 'inline' : 'hidden min-[480px]:inline'">{{ step.label }}</span>
+              <span class="min-w-0 truncate transition-colors duration-300 ease-out" :class="step.active ? 'inline' : 'hidden min-[481px]:inline'">{{ step.label }}</span>
             </button>
           </div>
 
@@ -799,7 +889,7 @@ const closeSuccess = () => {
                             type="button"
                             class="booking-service__item relative isolate flex min-h-24 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-2 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-32 sm:p-2.5"
                             :class="[
-                              service.is_army_client ? 'is-army-service dark-bg-army' : '',
+                              servicePromotion(service) ? 'is-army-service' : '',
                               serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
                               serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
                             ]"
@@ -827,13 +917,6 @@ const closeSuccess = () => {
                             </Transition>
                             <span class="relative z-10">
                               <span class="flex items-center gap-2 text-sm font-semibold leading-snug sm:text-base">
-                                <img
-                                  v-if="service.is_army_client"
-                                  src="~/assets/images/services/army-logo.webp"
-                                  alt=""
-                                  class="h-6 w-6 shrink-0 object-contain"
-                                  aria-hidden="true"
-                                >
                                 <span class="min-w-0">{{ serviceName(service) }}</span>
                               </span>
                               <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
@@ -845,11 +928,57 @@ const closeSuccess = () => {
                               </span>
                             </span>
                             <span
-                              class="relative z-10 mt-2 flex items-center justify-between gap-3 text-xs sm:mt-3 sm:gap-4"
+                              class="relative z-10 mt-2 flex items-end justify-between gap-3 text-xs sm:mt-3 sm:gap-4"
                               :class="serviceSelected(service) ? 'text-white/80' : 'text-white/75'"
                             >
-                              <span class="block font-semibold text-white">{{ servicePrice(service) }}</span>
-                              <span class="block">{{ serviceDuration(service) }}</span>
+                              <span
+                                v-if="serviceBarberOptions(service).length"
+                                class="booking-service-barbers flex min-w-0 flex-wrap gap-1"
+                                :aria-label="serviceBarbersLabel"
+                              >
+                                <span
+                                  v-for="option in serviceBarberOptions(service)"
+                                  :key="option.id"
+                                  class="inline-flex"
+                                  :title="masterName(option.master)"
+                                >
+                                  <img
+                                    :src="masterAvatar(option.master)"
+                                    alt=""
+                                    class="h-6 w-6 shrink-0 rounded-full object-cover object-top sm:h-7 sm:w-7"
+                                    aria-hidden="true"
+                                  >
+                                  <span class="sr-only">{{ masterName(option.master) }}</span>
+                                </span>
+                              </span>
+                              <span v-else aria-hidden="true" />
+                              <span class="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold text-white">
+                                <span v-if="servicePromotionApplied(service)" class="text-white/45 line-through">{{ serviceRegularPrice(service) }}</span>
+                                <span>{{ servicePrice(service) }}</span>
+                                <span class="text-white/45">/</span>
+                                <span class="inline-flex items-center gap-1 text-white/75">
+                                  <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                    <path d="M10 5.5V10l3 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" stroke="currentColor" stroke-width="1.6" />
+                                  </svg>
+                                  <span>{{ serviceDuration(service) }}</span>
+                                </span>
+                              </span>
+                            </span>
+                            <span
+                              v-if="servicePromotion(service)"
+                              class="booking-service-army-strip z-10 flex items-center justify-between gap-2 overflow-hidden px-2 py-1.5 text-white"
+                            >
+                              <span class="flex min-w-0 items-center gap-1.5">
+                                <img
+                                  src="~/assets/images/services/army-logo.webp"
+                                  alt=""
+                                  class="h-5 w-5 shrink-0 object-contain"
+                                  aria-hidden="true"
+                                >
+                                <span class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.08em]">{{ servicePromotion(service)?.name_uk }}</span>
+                              </span>
+                              <span class="booking-service-army-discount shrink-0 text-xs font-bold leading-none">-{{ servicePromotion(service)?.discount_percent }}%</span>
                             </span>
                           </button>
                           <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.loading }}</p>
@@ -965,6 +1094,50 @@ const closeSuccess = () => {
                     class="mt-3 w-full border border-white/15 bg-transparent px-3 py-2.5 text-white outline-none placeholder:text-white/35"
                     @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment, { multiline: true })"
                   />
+                  <input
+                    v-model="form.promotion_code"
+                    autocomplete="off"
+                    inputmode="text"
+                    placeholder="Промокод"
+                    maxlength="50"
+                    class="mt-3 w-full border border-white/15 bg-transparent px-3 py-2.5 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
+                    @input="handleTextInput('promotion_code', 50)"
+                  >
+                  <label
+                    v-if="selectedServicesHavePromotion"
+                    class="booking-army-toggle mt-3 flex cursor-pointer items-center justify-between gap-3 overflow-hidden px-3 py-2.5 text-white"
+                    :class="promotionConfirmed ? 'is-confirmed' : ''"
+                  >
+                    <span class="flex min-w-0 items-center gap-2.5">
+                      <img
+                        src="~/assets/images/services/army-logo.webp"
+                        alt=""
+                        class="h-7 w-7 shrink-0 object-contain"
+                        aria-hidden="true"
+                      >
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold leading-tight">{{ promotionDiscountLabels.title }}</span>
+                        <span class="mt-0.5 block line-clamp-2 text-[0.68rem] leading-4 text-white/68">{{ promotionDiscountLabels.description }}</span>
+                      </span>
+                    </span>
+                    <span class="flex shrink-0 items-center gap-2">
+                      <span class="hidden text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-white/70 min-[380px]:inline">{{ promotionDiscountLabels.badge }}</span>
+                      <input
+                        v-model="promotionConfirmed"
+                        type="checkbox"
+                        class="sr-only"
+                      >
+                      <span
+                        class="relative h-6 w-11 shrink-0 transition"
+                        :class="promotionConfirmed ? 'bg-[#0045a9]' : 'bg-white/20'"
+                      >
+                        <span
+                          class="absolute left-1 top-1 h-4 w-4 bg-white transition-transform"
+                          :class="promotionConfirmed ? 'translate-x-5' : ''"
+                        />
+                      </span>
+                    </span>
+                  </label>
                   </section>
                 </AppTransition>
               </div>
@@ -1058,7 +1231,11 @@ const closeSuccess = () => {
     background-color,
     box-shadow,
     color,
+    flex-basis,
+    flex-grow,
+    max-width,
     opacity,
+    padding,
     transform;
   transition-duration: 340ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
@@ -1081,6 +1258,31 @@ const closeSuccess = () => {
 
 .booking-stepper {
   flex-shrink: 0;
+}
+
+@media (min-width: 320px) and (max-width: 480px) {
+  .booking-step-tab--active {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .booking-step-tab--inactive {
+    flex: 0 0 2.1rem;
+    max-width: 2.1rem;
+    padding-inline: 0.5rem;
+  }
+}
+
+@media (max-width: 319.98px) {
+  .booking-step-tab {
+    flex: 1 1 0;
+  }
+}
+
+@media (min-width: 480.01px) and (max-width: 639.98px) {
+  .booking-step-tab {
+    flex: 1 1 0;
+  }
 }
 
 .booking-form .booking-step-panel {
@@ -1380,20 +1582,82 @@ const closeSuccess = () => {
   transform: translateY(0.25rem);
 }
 
-.booking-service__item.dark-bg-army {
+.booking-army-toggle {
   background-image:
-    linear-gradient(rgb(10 10 10 / 0.28), rgb(10 10 10 / 0.42)),
+    linear-gradient(90deg, rgb(0 69 169 / 0.18), rgb(242 191 11 / 0.14)),
     url('~/assets/images/services/dark-bg-army.webp');
   background-position: center;
   background-size: cover;
-  border-color: rgb(255 255 255 / 0.24);
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.booking-army-toggle:hover,
+.booking-army-toggle.is-confirmed {
+  background-color: rgb(255 255 255 / 0.04);
+}
+
+.booking-service__item.is-army-service {
+  padding-bottom: 2.5rem;
+}
+
+.booking-service-army-strip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-image:
+    linear-gradient(90deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.01)),
+    url('~/assets/images/services/dark-bg-army.webp');
+  background-position: center;
+  background-size: cover;
+}
+
+.booking-service-army-discount {
+  position: relative;
+  isolation: isolate;
+  padding: 0.2rem 0.35rem;
+  padding-right: 22px;
+  font-weight: 800;
+}
+
+.booking-service-army-discount::before {
+  content: "";
+  position: absolute;
+  inset: -0.8rem -1.65rem;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.08), rgb(0 0 0 / 0.1)),
+    repeating-linear-gradient(179deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-40deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 5px),
+    #0045a9;
+  border-top: 2px solid #f2bf0b;
+  border-bottom: 2px solid #f2bf0b;
+  transform: rotate(-45deg) translateY(-6px);
+  transform-origin: center;
+}
+
+.booking-service-army-discount::after {
+  content: "";
+  position: absolute;
+  inset: -0.45rem;
+  z-index: -2;
+  border-radius: 30px;
+  background: rgb(255 255 255 / 0.14);
+  top: 50%;
+  left: 50%;
+  transform: translate(-74%, -50%);
+  width: 30px;
+  height: 30px;
+  z-index: 100;
 }
 
 .booking-service__selected-scribble {
   pointer-events: none;
   position: absolute;
   inset: -8px -12px;
-  z-index: 2;
+  z-index: 12;
   width: calc(100% + 24px);
   height: calc(100% + 16px);
   overflow: visible;
