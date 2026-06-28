@@ -183,71 +183,71 @@ watch(
           <legend class="px-1 text-sm font-medium text-slate-700">Тип створення</legend>
           <div class="flex flex-wrap gap-3">
             <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-              <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
+              <BaseRadioButton v-model="form.mode" value="base" class="h-4 w-4" />
               З базової послуги
             </label>
             <label class="flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-              <input v-model="form.mode" type="radio" value="custom" class="h-4 w-4">
+              <BaseRadioButton v-model="form.mode" value="custom" class="h-4 w-4" />
               Власна
             </label>
           </div>
         </fieldset>
         <label v-if="!editing && form.mode === 'base'" class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Базова послуга</span>
-          <select v-model="form.base_service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseSelect native v-model="form.base_service_id" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
             <option value="">Виберіть базову послугу</option>
             <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
               {{ serviceName(service) }} / {{ service.title_en || 'без англ. назви' }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
             </option>
-          </select>
+          </BaseSelect>
         </label>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Назва українською</span>
-            <input v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Назва англійською</span>
-            <input v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Опис українською</span>
-            <textarea v-model="form.description_uk" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <BaseTextarea v-model="form.description_uk" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Опис англійською</span>
-            <textarea v-model="form.description_en" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            <BaseTextarea v-model="form.description_en" rows="4" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Тривалість, хвилини</span>
-            <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Ціна</span>
-            <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
         </div>
         <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
           Послуга активна
         </label>
         <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
           Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

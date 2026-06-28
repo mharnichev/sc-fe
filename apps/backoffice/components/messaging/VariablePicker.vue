@@ -5,7 +5,7 @@ const { variables } = useMessagingUi()
 
 <template>
   <div class="flex flex-wrap gap-2">
-    <button
+    <BaseButton
       v-for="variable in variables"
       :key="variable"
       type="button"
@@ -13,6 +13,6 @@ const { variables } = useMessagingUi()
       @click="emit('select', variable)"
     >
       {{ variable }}
-    </button>
+    </BaseButton>
   </div>
 </template>

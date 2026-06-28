@@ -118,30 +118,31 @@ const deleteSelectedBooking = async () => {
     </div>
 
     <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-2 xl:grid-cols-4 xl:gap-4 xl:rounded-[1.75rem] xl:p-5">
-      <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
-        <span class="font-medium">Від</span>
-        <input v-model="filters.date_from" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
-      </label>
-      <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
-        <span class="font-medium">До</span>
-        <input v-model="filters.date_to" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
-      </label>
+      <BaseDateRange
+        v-model:date-from="filters.date_from"
+        v-model:date-to="filters.date_to"
+        from-label="Від"
+        to-label="До"
+        field-class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm"
+        input-class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
+        class="md:col-span-2"
+      />
       <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
         <span class="font-medium">Статус</span>
-        <select v-model="filters.status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+        <BaseSelect native v-model="filters.status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
           <option value="">Будь-який статус</option>
           <option v-for="status in statuses" :key="status" :value="status">{{ formatBookingStatus(status) }}</option>
-        </select>
+        </BaseSelect>
       </label>
       <div class="flex items-end gap-2 xl:gap-3">
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
-        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+        </BaseButton>
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
           <XMarkIcon class="h-4 w-4" aria-hidden="true" />
           <span>Очистити</span>
-        </button>
+        </BaseButton>
       </div>
     </section>
 
@@ -178,7 +179,7 @@ const deleteSelectedBooking = async () => {
             >
               Редирект
             </span>
-            <button
+            <BaseButton
               class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 xl:h-8 xl:w-8"
               aria-label="Переглянути бронювання"
               title="Переглянути"
@@ -186,7 +187,7 @@ const deleteSelectedBooking = async () => {
             >
               <EyeIcon class="h-3.5 w-3.5 xl:h-4 xl:w-4" aria-hidden="true" />
               <span class="sr-only">Переглянути</span>
-            </button>
+            </BaseButton>
           </div>
         </article>
       </div>
@@ -215,7 +216,7 @@ const deleteSelectedBooking = async () => {
             >
               Редирект
             </span>
-            <button
+            <BaseButton
               class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 xl:h-8 xl:w-8"
               aria-label="Переглянути бронювання"
               title="Переглянути"
@@ -223,7 +224,7 @@ const deleteSelectedBooking = async () => {
             >
               <EyeIcon class="h-3.5 w-3.5 xl:h-4 xl:w-4" aria-hidden="true" />
               <span class="sr-only">Переглянути</span>
-            </button>
+            </BaseButton>
           </div>
         </article>
       </div>

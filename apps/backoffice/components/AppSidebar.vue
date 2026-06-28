@@ -163,7 +163,7 @@ const logout = () => {
         <p v-if="auth.user" class="mt-1 truncate text-xs text-white/45">{{ auth.user.email }}</p>
       </div>
       <div class="flex shrink-0 items-center gap-2">
-        <button
+        <BaseButton
           type="button"
           class="theme-toggle-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
           :aria-label="themeToggleLabel"
@@ -172,8 +172,8 @@ const logout = () => {
         >
           <MoonIcon v-if="isLightTheme" class="h-5 w-5" aria-hidden="true" />
           <SunIcon v-else class="h-5 w-5" aria-hidden="true" />
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           type="button"
           class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
           :aria-expanded="menuOpen"
@@ -183,7 +183,7 @@ const logout = () => {
           <XMarkIcon v-if="menuOpen" class="h-6 w-6" aria-hidden="true" />
           <Bars3Icon v-else class="h-6 w-6" aria-hidden="true" />
           <span class="sr-only">{{ menuOpen ? 'Закрити меню' : 'Відкрити меню' }}</span>
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -218,14 +218,14 @@ const logout = () => {
           </div>
         </section>
       </nav>
-      <button
+      <BaseButton
         v-if="auth.user"
         class="mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
         @click="logout"
       >
         <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         <span>Вийти</span>
-      </button>
+      </BaseButton>
     </div>
   </header>
 
@@ -245,7 +245,7 @@ const logout = () => {
             {{ roleLabel }}
           </p>
         </div>
-        <button
+        <BaseButton
           type="button"
           class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
           :aria-label="isCollapsed ? 'Розгорнути меню' : 'Згорнути меню'"
@@ -254,7 +254,7 @@ const logout = () => {
         >
           <ChevronRightIcon v-if="isCollapsed" class="h-5 w-5" aria-hidden="true" />
           <ChevronLeftIcon v-else class="h-5 w-5" aria-hidden="true" />
-        </button>
+        </BaseButton>
       </div>
     </div>
     <nav class="space-y-6">
@@ -288,7 +288,7 @@ const logout = () => {
         </div>
       </section>
     </nav>
-    <button
+    <BaseButton
       v-if="auth.user"
       class="mt-8 flex min-h-10 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-2 text-sm text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
       :class="isCollapsed ? 'justify-center px-2' : 'px-3'"
@@ -298,8 +298,8 @@ const logout = () => {
     >
       <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span v-if="!isCollapsed">Вийти</span>
-    </button>
-    <button
+    </BaseButton>
+    <BaseButton
       type="button"
       class="theme-toggle-button mt-3 flex min-h-10 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-2 text-sm text-white/55 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
       :class="isCollapsed ? 'justify-center px-2' : 'px-3'"
@@ -310,7 +310,7 @@ const logout = () => {
       <MoonIcon v-if="isLightTheme" class="h-5 w-5 shrink-0" aria-hidden="true" />
       <SunIcon v-else class="h-5 w-5 shrink-0" aria-hidden="true" />
       <span v-if="!isCollapsed">{{ themeLabel }}</span>
-    </button>
+    </BaseButton>
   </aside>
 
   <nav

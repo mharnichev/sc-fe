@@ -56,7 +56,7 @@ const clientIdsText = computed({
         class="cursor-pointer rounded-[1.25rem] border p-4 transition"
         :class="rule.type === option.value ? 'messaging-choice-active' : 'messaging-choice-idle'"
       >
-        <input class="sr-only" type="radio" :checked="rule.type === option.value" @change="updateRule({ type: option.value })">
+        <BaseRadioButton class="sr-only" :checked="rule.type === option.value" @change="updateRule({ type: option.value })" />
         <span class="block text-sm font-semibold text-slate-900">{{ option.label }}</span>
         <span class="mt-1 block text-xs leading-5 text-slate-500">{{ option.helper }}</span>
       </label>
@@ -77,31 +77,31 @@ const clientIdsText = computed({
 
       <label v-if="['selected_service'].includes(rule.type)" class="grid gap-2 text-sm">
         <span class="font-medium text-slate-700">Послуга</span>
-        <select class="rounded-2xl border border-slate-300 px-4 py-3" :value="rule.service_id || ''" @change="updateRule({ service_id: Number(($event.target as HTMLSelectElement).value) || null })">
+        <BaseSelect native class="rounded-2xl border border-slate-300 px-4 py-3" :value="rule.service_id || ''" @change="updateRule({ service_id: Number(($event.target as HTMLSelectElement).value) || null })">
           <option value="">Оберіть послугу</option>
           <option v-for="service in services || []" :key="service.id" :value="service.id">{{ service.name }}</option>
-        </select>
+        </BaseSelect>
       </label>
 
       <template v-if="rule.type === 'visited_date_range'">
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Дата від</span>
-          <input class="rounded-2xl border border-slate-300 px-4 py-3" type="date" :value="rule.date_from || ''" @input="updateRule({ date_from: ($event.target as HTMLInputElement).value })">
+          <BaseCalendar class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_from || ''" @update:model-value="updateRule({ date_from: $event })" />
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Дата до</span>
-          <input class="rounded-2xl border border-slate-300 px-4 py-3" type="date" :value="rule.date_to || ''" @input="updateRule({ date_to: ($event.target as HTMLInputElement).value })">
+          <BaseCalendar class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_to || ''" @update:model-value="updateRule({ date_to: $event })" />
         </label>
       </template>
 
       <label v-if="rule.type === 'inactive_clients'" class="grid gap-2 text-sm">
         <span class="font-medium text-slate-700">Днів без візиту</span>
-        <input class="rounded-2xl border border-slate-300 px-4 py-3" min="1" type="number" :value="rule.inactive_days || 60" @input="updateRule({ inactive_days: Number(($event.target as HTMLInputElement).value) || 60 })">
+        <BaseInput class="rounded-2xl border border-slate-300 px-4 py-3" min="1" type="number" :value="rule.inactive_days || 60" @input="updateRule({ inactive_days: Number(($event.target as HTMLInputElement).value) || 60 })" />
       </label>
 
       <label v-if="rule.type === 'specific_clients'" class="grid gap-2 text-sm md:col-span-2">
         <span class="font-medium text-slate-700">ID клієнтів</span>
-        <input v-model="clientIdsText" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="12, 48, 103">
+        <BaseInput v-model="clientIdsText" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="12, 48, 103" />
       </label>
     </div>
 
@@ -122,9 +122,9 @@ const clientIdsText = computed({
         <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Opt-out</p>
         <p class="mt-1 text-lg font-semibold text-rose-700">{{ estimate?.opted_out || 0 }}</p>
       </div>
-      <button type="button" class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" @click="emit('preview')">
+      <BaseButton type="button" class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" @click="emit('preview')">
         Переглянути список
-      </button>
+      </BaseButton>
     </div>
   </div>
 </template>

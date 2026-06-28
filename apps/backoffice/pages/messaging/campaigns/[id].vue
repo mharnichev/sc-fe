@@ -75,18 +75,18 @@ const retryFailed = async () => {
               <MessagingChannelBadge :channel="campaign.channel" />
             </div>
             <div class="flex flex-wrap gap-2">
-              <button v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">
+              <BaseButton v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">
                 <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" /> {{ campaign.status === 'paused' ? 'Resume' : 'Pause' }}
-              </button>
-              <button v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="confirmRetry = true">
+              </BaseButton>
+              <BaseButton v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="confirmRetry = true">
                 <ArrowPathIcon class="h-4 w-4" /> Retry failed
-              </button>
-              <button v-if="canCreateMessagingDrafts" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" @click="duplicate">
+              </BaseButton>
+              <BaseButton v-if="canCreateMessagingDrafts" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" @click="duplicate">
                 <DocumentDuplicateIcon class="h-4 w-4" /> Duplicate
-              </button>
-              <button v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus('archived')">
+              </BaseButton>
+              <BaseButton v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus('archived')">
                 <ArchiveBoxIcon class="h-4 w-4" /> Archive
-              </button>
+              </BaseButton>
             </div>
           </div>
 
@@ -129,9 +129,9 @@ const retryFailed = async () => {
               Фактична черга показує створені повідомлення, розрахована аудиторія показує клієнтів, які підпадають під правила кампанії.
             </p>
           </div>
-          <button class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="recipientsPending || calculatedRecipientsPending" @click="refreshRecipientViews">
+          <BaseButton class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="recipientsPending || calculatedRecipientsPending" @click="refreshRecipientViews">
             Оновити
-          </button>
+          </BaseButton>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2">

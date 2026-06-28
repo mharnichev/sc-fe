@@ -121,7 +121,7 @@ const refreshAll = () => refresh()
           Аналітика підписок, джерела, мови, причини відписок і останні події з blog API.
         </p>
       </div>
-      <button
+      <BaseButton
         type="button"
         :disabled="pending"
         class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
@@ -129,18 +129,19 @@ const refreshAll = () => refresh()
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         {{ pending ? 'Оновлення...' : 'Оновити' }}
-      </button>
+      </BaseButton>
     </div>
 
     <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-      <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-        Початок періоду
-        <input v-model="periodStartInput" type="date" class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900">
-      </label>
-      <label class="grid gap-1.5 text-sm font-medium text-slate-700">
-        Кінець періоду
-        <input v-model="periodEndInput" type="date" class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900">
-      </label>
+      <BaseDateRange
+        v-model:date-from="periodStartInput"
+        v-model:date-to="periodEndInput"
+        from-label="Початок періоду"
+        to-label="Кінець періоду"
+        field-class="grid gap-1.5 text-sm font-medium text-slate-700"
+        input-class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900"
+        class="md:col-span-2"
+      />
       <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
         <span class="block text-xs uppercase tracking-[0.16em] text-slate-400">Поточний період</span>
         <span class="mt-1 block font-medium text-slate-900">{{ formatDate(statistics?.period_start) }} - {{ formatDate(statistics?.period_end) }}</span>

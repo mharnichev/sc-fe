@@ -58,26 +58,27 @@ const handlePaste = (event: ClipboardEvent) => {
 </script>
 
 <template>
-  <label :class="labelClass">
-    <span :class="labelContentClass">
+  <BaseInput
+    :id="id"
+    v-model="inputValue"
+    :name="name"
+    :label="label"
+    :required="required"
+    :disabled="disabled"
+    type="tel"
+    inputmode="tel"
+    :autocomplete="autocomplete"
+    placeholder="+380 XX XXX XX XX"
+    maxlength="17"
+    :field-class="labelClass"
+    :label-content-class="labelContentClass"
+    :input-class="inputClass"
+    @focus="handleFocus"
+    @blur="handleBlur"
+    @paste="handlePaste"
+  >
+    <template #icon>
       <PhoneIcon :class="iconClass" aria-hidden="true" />
-      {{ label }}
-    </span>
-    <input
-      :id="id"
-      v-model="inputValue"
-      :name="name"
-      :required="required"
-      :disabled="disabled"
-      type="tel"
-      inputmode="tel"
-      :autocomplete="autocomplete"
-      placeholder="+380 XX XXX XX XX"
-      maxlength="17"
-      :class="inputClass"
-      @focus="handleFocus"
-      @blur="handleBlur"
-      @paste="handlePaste"
-    >
-  </label>
+    </template>
+  </BaseInput>
 </template>

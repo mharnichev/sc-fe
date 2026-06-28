@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
             </dt>
             <dd class="mt-1 flex items-center justify-between gap-2 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">
               <span class="min-w-0 truncate">{{ bookingPhone(booking) || '-' }}</span>
-              <button
+              <BaseButton
                 v-if="bookingPhone(booking)"
                 type="button"
                 class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:bg-white"
@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
                 @click="copyPhone"
               >
                 <ClipboardDocumentIcon class="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
+              </BaseButton>
             </dd>
           </div>
           <div v-if="!isBarber" class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
             </p>
           </div>
           <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
-            <button
+            <BaseButton
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
               aria-label="Редагувати послуги бронювання"
@@ -380,19 +380,19 @@ onBeforeUnmount(() => {
             >
               <PencilIcon class="h-4 w-4" aria-hidden="true" />
               Редагувати послуги
-            </button>
+            </BaseButton>
           </div>
           <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitServices">
             <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
             <div class="backoffice-modal-actions mt-3">
-              <button type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
+              <BaseButton type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
-              </button>
-              <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelServiceEditing">
+              </BaseButton>
+              <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelServiceEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
-              </button>
+              </BaseButton>
             </div>
           </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ formatDateTime(bookingEnd(booking)) }}</dd>
           </div>
           <div v-if="canEditBooking && !scheduleEditing" class="col-span-2">
-            <button
+            <BaseButton
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
               aria-label="Редагувати час бронювання"
@@ -418,32 +418,32 @@ onBeforeUnmount(() => {
             >
               <PencilIcon class="h-4 w-4" aria-hidden="true" />
               Редагувати час
-            </button>
+            </BaseButton>
           </div>
           <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitSchedule">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem] sm:items-end">
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Дата</span>
-                <input v-model="scheduleForm.date" required type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <BaseCalendar v-model="scheduleForm.date" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
               </label>
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Початок</span>
-                <input v-model="scheduleForm.start_time" required type="time" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <BaseInput v-model="scheduleForm.start_time" required type="time" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
               </label>
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Тривалість, хв</span>
-                <input v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                <BaseInput v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
               </label>
             </div>
             <div class="backoffice-modal-actions mt-3">
-              <button type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
+              <BaseButton type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
-              </button>
-              <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelScheduleEditing">
+              </BaseButton>
+              <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelScheduleEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
-              </button>
+              </BaseButton>
             </div>
           </form>
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
@@ -497,7 +497,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="orderedAllowedStatuses.length || canDeleteBooking" class="grid grid-cols-2 gap-2 pt-2 sm:gap-3 sm:pt-3">
-          <button
+          <BaseButton
             v-for="status in orderedAllowedStatuses"
             :key="status"
             class="backoffice-modal-action-button backoffice-booking-status-action"
@@ -507,8 +507,8 @@ onBeforeUnmount(() => {
           >
             <component :is="statusActionIcon(status)" class="h-4 w-4 shrink-0" aria-hidden="true" />
             {{ pendingStatus === status ? 'Оновлення...' : formatBookingStatus(status) }}
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             v-if="canDeleteBooking"
             type="button"
             class="backoffice-modal-action-button backoffice-modal-action-danger-outline backoffice-booking-status-action"
@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
           >
             <TrashIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
             {{ pendingDelete ? 'Видалення...' : 'Видалити' }}
-          </button>
+          </BaseButton>
         </div>
       </div>
 

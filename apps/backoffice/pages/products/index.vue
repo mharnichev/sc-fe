@@ -96,33 +96,33 @@ const prev = async () => {
     </div>
 
     <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-      <input v-model="filters.search" placeholder="Пошук за назвою" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <select v-model="filters.category_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      <BaseInput v-model="filters.search" placeholder="Пошук за назвою" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+      <BaseSelect native v-model="filters.category_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Усі категорії</option>
         <option v-for="category in categories?.items || []" :key="category.id" :value="String(category.id)">
           {{ category.name }}
         </option>
-      </select>
-      <select v-model="filters.brand_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      </BaseSelect>
+      <BaseSelect native v-model="filters.brand_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Усі бренди</option>
         <option v-for="brand in brands?.items || []" :key="brand.id" :value="String(brand.id)">
           {{ brand.name }}
         </option>
-      </select>
-      <select v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      </BaseSelect>
+      <BaseSelect native v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Будь-який статус</option>
         <option value="true">Активні</option>
         <option value="false">Неактивні</option>
-      </select>
+      </BaseSelect>
       <div class="flex gap-3">
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
-        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+        </BaseButton>
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
           <XMarkIcon class="h-4 w-4" aria-hidden="true" />
           <span>Очистити</span>
-        </button>
+        </BaseButton>
       </div>
     </section>
 
@@ -181,7 +181,7 @@ const prev = async () => {
                   <PencilIcon class="h-4 w-4" aria-hidden="true" />
                   <span class="sr-only">Редагувати</span>
                 </NuxtLink>
-                <button
+                <BaseButton
                   class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                   :disabled="pendingDeleteId === item.id"
                   :aria-label="pendingDeleteId === item.id ? 'Видалення товару' : 'Видалити товар'"
@@ -190,7 +190,7 @@ const prev = async () => {
                 >
                   <TrashIcon class="h-4 w-4" aria-hidden="true" />
                   <span class="sr-only">{{ pendingDeleteId === item.id ? 'Видалення...' : 'Видалити' }}</span>
-                </button>
+                </BaseButton>
               </div>
             </td>
           </tr>
@@ -198,8 +198,8 @@ const prev = async () => {
       </table>
     </div>
     <div class="flex flex-wrap gap-3">
-      <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
-      <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
+      <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</BaseButton>
+      <BaseButton :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</BaseButton>
     </div>
   </div>
 </template>

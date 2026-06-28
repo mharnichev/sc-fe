@@ -11,7 +11,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <button
+  <BaseButton
     type="button"
     class="backoffice-modal-close-button"
     :disabled="disabled"
@@ -20,5 +20,5 @@ const emit = defineEmits<{
     @click="emit('click')"
   >
     <XMarkIcon class="h-5 w-5" aria-hidden="true" />
-  </button>
+  </BaseButton>
 </template>

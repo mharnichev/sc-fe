@@ -118,7 +118,7 @@ watch(
           </span>
           <span class="relative block">
             <CalendarDaysIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-            <input v-model="form.date" required type="date" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+            <BaseCalendar v-model="form.date" required class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
           </span>
         </label>
         <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -131,7 +131,7 @@ watch(
               class="flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition xl:rounded-2xl xl:px-4 xl:py-3"
               :class="form.block_type === 'full_day' ? 'border-cyan-400 bg-cyan-500/15 text-cyan-700' : 'border-slate-300 text-slate-700 hover:border-cyan-300'"
             >
-              <input v-model="form.block_type" required type="radio" value="full_day" class="sr-only">
+              <BaseRadioButton v-model="form.block_type" required value="full_day" class="sr-only" />
               <CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Повний день</span>
             </label>
@@ -139,7 +139,7 @@ watch(
               class="flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition xl:rounded-2xl xl:px-4 xl:py-3"
               :class="form.block_type === 'custom' ? 'border-cyan-400 bg-cyan-500/15 text-cyan-700' : 'border-slate-300 text-slate-700 hover:border-cyan-300'"
             >
-              <input v-model="form.block_type" required type="radio" value="custom" class="sr-only">
+              <BaseRadioButton v-model="form.block_type" required value="custom" class="sr-only" />
               <ClockIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>Власний інтервал</span>
             </label>
@@ -153,7 +153,7 @@ watch(
             </span>
             <span class="relative block">
               <ClockIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -163,7 +163,7 @@ watch(
             </span>
             <span class="relative block">
               <ClockIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm disabled:bg-slate-100 xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
         </div>
@@ -174,18 +174,18 @@ watch(
           </span>
           <span class="relative block">
             <DocumentTextIcon class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-current opacity-55 xl:left-4 xl:top-4" aria-hidden="true" />
-            <textarea v-model="form.reason" rows="3" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
+            <BaseTextarea v-model="form.reason" rows="3" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
           </span>
         </label>
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Створення...' : 'Створити блокування' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

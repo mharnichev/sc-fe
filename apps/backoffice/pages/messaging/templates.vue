@@ -92,28 +92,28 @@ const closeDeleteConfirm = (value: boolean) => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Messaging</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Шаблони повідомлень</h1>
       </div>
-      <button v-if="canCreateMessagingDrafts" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreate">Новий шаблон</button>
+      <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreate">Новий шаблон</BaseButton>
     </div>
 
     <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-5">
-      <input v-model="filters.search" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Пошук шаблону">
-      <select v-model="filters.campaign_type" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      <BaseInput v-model="filters.search" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Пошук шаблону" />
+      <BaseSelect native v-model="filters.campaign_type" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Усі типи</option>
         <option v-for="type in campaignTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-      </select>
-      <select v-model="filters.channel" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      </BaseSelect>
+      <BaseSelect native v-model="filters.channel" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Усі канали</option>
         <option v-for="channel in channels" :key="channel.value" :value="channel.value">{{ channel.label }}</option>
-      </select>
-      <select v-model="filters.language" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      </BaseSelect>
+      <BaseSelect native v-model="filters.language" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Усі мови</option>
         <option value="uk">Українська</option>
         <option value="en">English</option>
-      </select>
-      <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+      </BaseSelect>
+      <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
         <FunnelIcon class="h-4 w-4" aria-hidden="true" />
         <span>Застосувати</span>
-      </button>
+      </BaseButton>
     </section>
 
     <div v-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити шаблони.</div>
@@ -144,9 +144,9 @@ const closeDeleteConfirm = (value: boolean) => {
             </td>
             <td data-label="Дії" class="px-4 py-3">
               <div class="flex gap-2">
-                <button v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="openEdit(template)"><PencilIcon class="h-4 w-4" /></button>
-                <button v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="duplicate(template)"><DocumentDuplicateIcon class="h-4 w-4" /></button>
-                <button v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" @click="deleting = template"><TrashIcon class="h-4 w-4" /></button>
+                <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="openEdit(template)"><PencilIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="duplicate(template)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" @click="deleting = template"><TrashIcon class="h-4 w-4" /></BaseButton>
               </div>
             </td>
           </tr>
@@ -168,10 +168,10 @@ const closeDeleteConfirm = (value: boolean) => {
       <template #body>
         <MessageTemplateEditor v-model="templateForm" />
         <div class="backoffice-modal-actions mt-6 border-t border-slate-200 pt-5">
-          <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !templateForm.name || !templateForm.message_body" @click="saveTemplate">
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !templateForm.name || !templateForm.message_body" @click="saveTemplate">
             <CheckCircleIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти' }}
-          </button>
+          </BaseButton>
         </div>
       </template>
     </BaseModal>

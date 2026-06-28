@@ -31,14 +31,14 @@ const emit = defineEmits<{ retry: [log: SendLog] }>()
           <td data-label="Час" class="px-4 py-3 text-slate-700">{{ log.sent_at ? new Date(log.sent_at).toLocaleString('uk-UA') : '—' }}</td>
           <td data-label="Причина" class="px-4 py-3 text-slate-700">{{ log.failure_reason || '—' }}</td>
           <td data-label="Дії" class="px-4 py-3">
-            <button
+            <BaseButton
               type="button"
               class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
               :disabled="log.telegram_status !== 'failed'"
               @click="emit('retry', log)"
             >
               Повторити
-            </button>
+            </BaseButton>
           </td>
         </tr>
       </tbody>

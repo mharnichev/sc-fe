@@ -1105,7 +1105,7 @@ const closeSuccess = () => {
                   >
                   <label
                     v-if="selectedServicesHavePromotion"
-                    class="booking-army-toggle mt-3 flex cursor-pointer items-center justify-between gap-3 overflow-hidden px-3 py-2.5 text-white"
+                    class="booking-army-toggle mt-3 flex cursor-pointer flex-col items-start justify-between gap-3 overflow-hidden px-3 py-2.5 text-white sm:flex-row sm:items-center"
                     :class="promotionConfirmed ? 'is-confirmed' : ''"
                   >
                     <span class="flex min-w-0 items-center gap-2.5">
@@ -1120,7 +1120,7 @@ const closeSuccess = () => {
                         <span class="mt-0.5 block line-clamp-2 text-[0.68rem] leading-4 text-white/68">{{ promotionDiscountLabels.description }}</span>
                       </span>
                     </span>
-                    <span class="flex shrink-0 items-center gap-2">
+                    <span class="flex w-full shrink-0 items-center justify-between gap-2 sm:w-auto sm:justify-start">
                       <span class="hidden text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-white/70 min-[380px]:inline">{{ promotionDiscountLabels.badge }}</span>
                       <input
                         v-model="promotionConfirmed"

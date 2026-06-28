@@ -91,8 +91,8 @@ const copyConnectLink = async () => {
         <p class="mt-1 text-sm text-slate-500">Telegram, маркетингова згода, історія повідомлень і запити відгуків.</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="messageOpen = true">Надіслати повідомлення</button>
-        <button class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="preferencesOpen = true">Оновити налаштування</button>
+        <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="messageOpen = true">Надіслати повідомлення</BaseButton>
+        <BaseButton class="rounded-full border border-slate-300 px-4 py-2 text-sm" @click="preferencesOpen = true">Оновити налаштування</BaseButton>
       </div>
     </div>
 
@@ -105,9 +105,9 @@ const copyConnectLink = async () => {
           <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Telegram</p>
           <p class="mt-2 font-semibold text-slate-900">{{ data.telegram_chat_id || 'Немає chat_id' }}</p>
           <span class="mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium" :class="data.telegram_status === 'connected' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ data.telegram_status }}</span>
-          <button v-if="data.telegram_status !== 'connected'" class="mt-3 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50" :disabled="connectLinkLoading" @click="loadConnectLink">
+          <BaseButton v-if="data.telegram_status !== 'connected'" class="mt-3 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50" :disabled="connectLinkLoading" @click="loadConnectLink">
             {{ connectLinkLoading ? 'Створюємо...' : 'Створити Telegram лінк' }}
-          </button>
+          </BaseButton>
         </div>
         <div class="rounded-2xl bg-slate-50 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Маркетинг</p>
@@ -127,7 +127,7 @@ const copyConnectLink = async () => {
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Telegram connect link</p>
         <p class="mt-2 break-all text-sm text-slate-700">{{ connectLink }}</p>
         <div class="mt-3 flex flex-wrap gap-2">
-          <button class="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white" @click="copyConnectLink">Скопіювати</button>
+          <BaseButton class="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white" @click="copyConnectLink">Скопіювати</BaseButton>
           <NuxtLink :to="connectLink" target="_blank" rel="noopener noreferrer" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Відкрити</NuxtLink>
         </div>
       </div>
@@ -152,12 +152,12 @@ const copyConnectLink = async () => {
         </div>
       </template>
       <template #body>
-        <textarea v-model="manualMessage" class="min-h-40 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Текст Telegram повідомлення" />
+        <BaseTextarea v-model="manualMessage" class="min-h-40 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Текст Telegram повідомлення" />
         <div class="backoffice-modal-actions mt-4">
-          <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !manualMessage.trim()" @click="sendMessage">
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !manualMessage.trim()" @click="sendMessage">
             <PaperAirplaneIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Відправляємо...' : 'Надіслати' }}
-          </button>
+          </BaseButton>
         </div>
       </template>
     </BaseModal>
@@ -171,20 +171,20 @@ const copyConnectLink = async () => {
       </template>
       <template #body>
         <div class="space-y-4">
-          <label class="inline-flex items-center gap-2 text-sm"><input v-model="preferences.marketing_consent" type="checkbox"> Є маркетингова згода</label>
-          <label class="inline-flex items-center gap-2 text-sm"><input v-model="preferences.opt_out" type="checkbox"> Opt-out</label>
+          <label class="inline-flex items-center gap-2 text-sm"><BaseCheckbox v-model="preferences.marketing_consent" /> Є маркетингова згода</label>
+          <label class="inline-flex items-center gap-2 text-sm"><BaseCheckbox v-model="preferences.opt_out" /> Opt-out</label>
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Мова</span>
-            <select v-model="preferences.preferred_language" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseSelect native v-model="preferences.preferred_language" class="rounded-2xl border border-slate-300 px-4 py-3">
               <option value="uk">Українська</option>
               <option value="en">English</option>
-            </select>
+            </BaseSelect>
           </label>
           <div class="backoffice-modal-actions">
-            <button class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving" @click="savePreferences">
+            <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving" @click="savePreferences">
               <CheckCircleIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
               Зберегти
-            </button>
+            </BaseButton>
           </div>
         </div>
       </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowPathIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CalendarDaysIcon, ClockIcon, DocumentTextIcon, NoSymbolIcon, PlusIcon, UserCircleIcon } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
@@ -31,6 +31,10 @@ const form = reactive({
 })
 const formError = ref('')
 const saving = ref(false)
+const blockTypeOptions = [
+  { value: 'full_day', label: 'Повний день' },
+  { value: 'custom', label: 'Власний інтервал' },
+]
 
 const fillForm = () => {
   form.master_id = ''
@@ -118,44 +122,114 @@ watch(
 
     <template #body>
       <form class="space-y-5" @submit.prevent="submit">
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Майстер</span>
-          <MasterSelect v-model="form.master_id" :masters="masters" placeholder="Виберіть майстра" menu-class="z-[240]" />
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Дата</span>
-          <input v-model="form.date" required type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Тип блокування</span>
-          <select v-model="form.block_type" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
-            <option value="full_day">Повний день</option>
-            <option value="custom">Власний інтервал</option>
-          </select>
-        </label>
+        <MasterSelect
+          v-model="form.master_id"
+          :masters="masters"
+          label="Майстер"
+          placeholder="Виберіть майстра"
+          required
+          compact
+          menu-class="z-[250]"
+        >
+          <template #icon>
+            <UserCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+          </template>
+        </MasterSelect>
+
+        <BaseCalendar
+          v-model="form.date"
+          label="Дата"
+          required
+          class="w-full rounded-2xl border border-slate-300 px-4 py-3"
+          menu-class="z-[250]"
+        >
+          <template #icon>
+            <CalendarDaysIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+          </template>
+        </BaseCalendar>
+
+        <BaseSelect
+          v-model="form.block_type"
+          :options="blockTypeOptions"
+          label="Тип блокування"
+          required
+          menu-class="z-[250]"
+        >
+          <template #icon>
+            <NoSymbolIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+          </template>
+          <template #selected="{ option, label }">
+            <span class="flex min-w-0 items-center gap-2">
+              <CalendarDaysIcon v-if="option?.value === 'full_day'" class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+              <ClockIcon v-else class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+              <span class="min-w-0 truncate">{{ label }}</span>
+            </span>
+          </template>
+          <template #option="{ option }">
+            <span class="flex min-w-0 items-center gap-2">
+              <CalendarDaysIcon v-if="option.value === 'full_day'" class="h-4 w-4 shrink-0" aria-hidden="true" />
+              <ClockIcon v-else class="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span class="min-w-0 truncate font-medium">{{ option.label }}</span>
+            </span>
+          </template>
+        </BaseSelect>
+
         <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Час початку</span>
-            <input v-model="form.start_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Час завершення</span>
-            <input v-model="form.end_time" :disabled="form.block_type === 'full_day'" type="time" min="09:00" max="20:00" class="w-full rounded-2xl border border-slate-300 px-4 py-3 disabled:bg-slate-100">
-          </label>
+          <BaseField label="Час початку" :disabled="form.block_type === 'full_day'">
+            <template #icon>
+              <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            </template>
+            <span class="relative block">
+              <ClockIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <BaseInput
+                v-model="form.start_time"
+                :disabled="form.block_type === 'full_day'"
+                type="time"
+                min="09:00"
+                max="20:00"
+                input-class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 text-sm disabled:bg-slate-100"
+              />
+            </span>
+          </BaseField>
+          <BaseField label="Час завершення" :disabled="form.block_type === 'full_day'">
+            <template #icon>
+              <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            </template>
+            <span class="relative block">
+              <ClockIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
+              <BaseInput
+                v-model="form.end_time"
+                :disabled="form.block_type === 'full_day'"
+                type="time"
+                min="09:00"
+                max="20:00"
+                input-class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 text-sm disabled:bg-slate-100"
+              />
+            </span>
+          </BaseField>
         </div>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Причина</span>
-          <textarea v-model="form.reason" rows="4" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
+        <BaseField label="Причина">
+          <template #icon>
+            <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+          </template>
+          <span class="relative block">
+            <DocumentTextIcon class="pointer-events-none absolute left-4 top-4 h-4 w-4 text-current opacity-55" aria-hidden="true" />
+            <BaseTextarea
+              v-model="form.reason"
+              rows="4"
+              textarea-class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 text-sm"
+            />
+          </span>
+        </BaseField>
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Створення...' : 'Створити блокування' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

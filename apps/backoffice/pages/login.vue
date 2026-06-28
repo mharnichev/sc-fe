@@ -37,7 +37,7 @@ const submit = async () => {
 
 <template>
   <div class="backoffice-login flex min-h-screen flex-col items-center justify-center px-6">
-    <button
+    <BaseButton
       type="button"
       class="theme-toggle-button fixed right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-lg backdrop-blur-2xl transition hover:bg-white/15"
       :aria-label="themeToggleLabel"
@@ -46,7 +46,7 @@ const submit = async () => {
     >
       <MoonIcon v-if="isLightTheme" class="h-5 w-5" aria-hidden="true" />
       <SunIcon v-else class="h-5 w-5" aria-hidden="true" />
-    </button>
+    </BaseButton>
     <section class="flex w-full max-w-md items-center justify-center">
       <form
         class="liquid-glass w-full space-y-5 rounded-[1.75rem] p-5 shadow-2xl md:p-8"
@@ -66,30 +66,26 @@ const submit = async () => {
         </div>
         <div class="space-y-2">
           <label class="text-sm font-medium text-white/68">Email</label>
-          <input
-            v-model="form.email"
+          <BaseInput v-model="form.email"
             placeholder="Введіть email"
             autocomplete="username"
-            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30"
-          >
+            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30" />
         </div>
         <div class="space-y-2">
           <label class="text-sm font-medium text-white/68">Пароль</label>
-          <input
-            v-model="form.password"
+          <BaseInput v-model="form.password"
             type="password"
             placeholder="Введіть пароль"
             autocomplete="current-password"
-            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30"
-          >
+            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30" />
         </div>
-        <button
+        <BaseButton
           type="submit"
           :disabled="pending"
           class="primary-login-button w-full rounded-full border border-white/12 bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/88 disabled:opacity-60"
         >
           {{ pending ? 'Вхід...' : 'Увійти в backoffice' }}
-        </button>
+        </BaseButton>
       </form>
     </section>
   </div>

@@ -1,21 +1,30 @@
 <script setup lang="ts">
-import { ChevronDownIcon, UserCircleIcon } from '@heroicons/vue/24/outline'
+import { UserCircleIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
+import type { BaseSelectValue } from './BaseSelect.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string | number | null
   masters?: Master[]
+  label?: string
+  hint?: string
+  error?: string
   placeholder?: string
   allLabel?: string
   valueType?: 'string' | 'number'
+  required?: boolean
   disabled?: boolean
+  compact?: boolean
+  fieldClass?: string
+  triggerClass?: string
   menuClass?: string
 }>(), {
   masters: () => [],
   placeholder: 'Оберіть майстра',
   allLabel: '',
   valueType: 'string',
+  compact: false,
   menuClass: 'z-[220]',
 })
 
@@ -25,16 +34,12 @@ const emit = defineEmits<{
 
 const assetUrl = useAssetUrl()
 const { masterName } = useBookingFormatting()
-const open = ref(false)
-const rootRef = ref<HTMLElement | null>(null)
-
-const selectedMaster = computed(() =>
-  props.masters.find(master => String(master.id) === String(props.modelValue ?? '')) || null,
-)
 
 const emptyLabel = computed(() => props.allLabel || props.placeholder)
+const asMaster = (value: unknown) => (value && typeof value === 'object' ? value as Master : null)
 
-const masterDisplayName = (master?: Master | null) => {
+const masterDisplayName = (value?: unknown) => {
+  const master = asMaster(value)
   if (!master) return emptyLabel.value
   const firstName = master.first_name_uk || master.name || ''
   const lastName = master.last_name_uk || master.last_name || ''
@@ -42,90 +47,88 @@ const masterDisplayName = (master?: Master | null) => {
   return explicitName || master.full_name_uk || master.full_name || masterName(master)
 }
 
-const masterImageUrl = (master?: Master | null) =>
-  master ? assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url) : ''
-
-const masterInitials = (master?: Master | null) => initials(masterDisplayName(master)) || 'SC'
-
-const emitMasterValue = (master: Master | null) => {
-  if (!master) {
-    emit('update:modelValue', props.valueType === 'number' ? null : '')
-    open.value = false
-    return
-  }
-  emit('update:modelValue', props.valueType === 'number' ? Number(master.id) : String(master.id))
-  open.value = false
+const masterImageUrl = (value?: unknown) => {
+  const master = asMaster(value)
+  return master ? assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url) : ''
 }
 
-const closeOnOutsideClick = (event: MouseEvent) => {
-  const target = event.target
-  if (!(target instanceof Node) || rootRef.value?.contains(target)) return
-  open.value = false
-}
+const masterInitials = (value?: unknown) => initials(masterDisplayName(value)) || 'SC'
 
-onMounted(() => document.addEventListener('click', closeOnOutsideClick))
-onBeforeUnmount(() => document.removeEventListener('click', closeOnOutsideClick))
+const optionValue = (master: Master): BaseSelectValue =>
+  props.valueType === 'number' ? Number(master.id) : String(master.id)
+
+const masterOptions = computed(() => [
+  ...(props.allLabel
+    ? [{ value: props.valueType === 'number' ? null : '', label: props.allLabel, meta: null }]
+    : []),
+  ...props.masters.map(master => ({
+    value: optionValue(master),
+    label: masterDisplayName(master),
+    meta: master,
+  })),
+])
+
+const selectedMaster = computed(() =>
+  props.masters.find(master => String(master.id) === String(props.modelValue ?? '')) || null,
+)
+
+const emitValue = (value: BaseSelectValue) => {
+  emit('update:modelValue', props.valueType === 'number' ? (value === '' || value === null ? null : Number(value)) : String(value ?? ''))
+}
 </script>
 
 <template>
-  <div ref="rootRef" class="relative min-w-0">
-    <button
-      type="button"
-      class="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60"
-      :aria-expanded="open"
-      aria-haspopup="listbox"
-      :disabled="disabled"
-      @click="open = !open"
-    >
-      <span class="flex min-w-0 items-center gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+  <BaseSelect
+    :model-value="modelValue"
+    :options="masterOptions"
+    :label="label"
+    :hint="hint"
+    :error="error"
+    :placeholder="placeholder"
+    :required="required"
+    :disabled="disabled"
+    :field-class="fieldClass"
+    :trigger-class="triggerClass"
+    :menu-class="menuClass"
+    @update:model-value="emitValue"
+  >
+    <template v-if="$slots.icon" #icon>
+      <slot name="icon" />
+    </template>
+    <template v-if="$slots.label" #label>
+      <slot name="label" />
+    </template>
+
+    <template #selected>
+      <span class="flex min-w-0 items-center" :class="compact ? 'gap-2' : 'gap-3'">
+        <span
+          class="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 font-semibold text-slate-600"
+          :class="compact ? 'h-6 w-6 text-[0.65rem] ring-1 ring-slate-200' : 'h-8 w-8 text-xs'"
+        >
           <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterDisplayName(selectedMaster)" class="h-full w-full object-cover">
           <span v-else-if="selectedMaster">{{ masterInitials(selectedMaster) }}</span>
           <UserCircleIcon v-else class="h-4 w-4" aria-hidden="true" />
         </span>
-        <span class="min-w-0">
+        <span v-if="compact" class="min-w-0 truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
+        <span v-else class="min-w-0">
           <span class="block truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
           <span v-if="selectedMaster?.position_uk" class="block truncate text-xs text-slate-500">{{ selectedMaster.position_uk }}</span>
         </span>
       </span>
-      <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="{ 'rotate-180': open }" aria-hidden="true" />
-    </button>
+    </template>
 
-    <div
-      v-if="open"
-      class="booking-select-menu absolute mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
-      :class="menuClass"
-      role="listbox"
-    >
-      <button
-        v-if="allLabel"
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
-        :class="!modelValue ? 'bg-slate-50' : ''"
-        @click="emitMasterValue(null)"
-      >
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-          <UserCircleIcon class="h-4 w-4" aria-hidden="true" />
-        </span>
-        <span class="min-w-0 truncate font-medium">{{ allLabel }}</span>
-      </button>
-      <button
-        v-for="master in masters"
-        :key="master.id"
-        type="button"
-        class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
-        :class="String(modelValue ?? '') === String(master.id) ? 'bg-slate-50' : ''"
-        @click="emitMasterValue(master)"
-      >
+    <template #option="{ option }">
+      <span class="flex min-w-0 items-center gap-3">
         <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-          <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterDisplayName(master)" class="h-full w-full object-cover">
-          <span v-else>{{ masterInitials(master) }}</span>
+          <img v-if="masterImageUrl(option.meta)" :src="masterImageUrl(option.meta)" :alt="masterDisplayName(option.meta)" class="h-full w-full object-cover">
+          <span v-else-if="option.meta">{{ masterInitials(option.meta) }}</span>
+          <UserCircleIcon v-else class="h-4 w-4" aria-hidden="true" />
         </span>
         <span class="min-w-0">
-          <span class="block truncate font-medium">{{ masterDisplayName(master) }}</span>
-          <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
+          <span class="block truncate font-medium">{{ option.label }}</span>
+          <span v-if="option.meta?.position_uk" class="block truncate text-xs text-slate-500">{{ option.meta.position_uk }}</span>
         </span>
-      </button>
-    </div>
-  </div>
+      </span>
+    </template>
+  </BaseSelect>
 </template>

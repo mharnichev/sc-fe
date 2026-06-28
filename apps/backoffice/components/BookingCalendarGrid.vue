@@ -352,7 +352,7 @@ watch(selectionError, value => {
                 {{ day.label }}<span v-if="day.isMonday"> · вихідний</span>
               </p>
             </div>
-            <button
+            <BaseButton
               v-if="dayCanOpen(day)"
               type="button"
               class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-white/82 transition hover:text-white"
@@ -362,7 +362,7 @@ watch(selectionError, value => {
               @click.stop="emit('openDay', day)"
             >
               <CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -391,7 +391,7 @@ watch(selectionError, value => {
             :class="slotClass(slot)"
             :style="{ height: `${slotHeight}px` }"
           >
-            <button
+            <BaseButton
               type="button"
               class="absolute inset-0 h-full w-full touch-auto px-2 py-1 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-white/30"
               :class="selectedSlotIds.has(slot.id) ? 'bg-white/14' : ''"
@@ -402,10 +402,10 @@ watch(selectionError, value => {
               @pointerenter="extendSlotSelection(slot)"
             >
               <span v-if="selectedSlotIds.has(slot.id)" class="sr-only">Вибрано</span>
-            </button>
+            </BaseButton>
           </div>
 
-          <button
+          <BaseButton
             v-for="entry in entriesByDay[day.date]"
             :key="entry.id"
             type="button"
@@ -437,7 +437,7 @@ watch(selectionError, value => {
               <span class="mt-0.5 block truncate">{{ entry.title }}</span>
               <span class="mt-0.5 block truncate opacity-80">{{ entry.subtitle }}</span>
             </span>
-          </button>
+          </BaseButton>
 
           <div v-if="day.isMonday" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/12 px-4 text-center">
             <span class="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/48 backdrop-blur-xl">

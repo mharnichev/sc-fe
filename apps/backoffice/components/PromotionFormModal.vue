@@ -257,7 +257,7 @@ watch(
             </span>
             <span class="relative block">
               <TicketIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
-              <input v-model="form.code" required placeholder="COMEBACK15" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 uppercase">
+              <BaseInput v-model="form.code" required placeholder="COMEBACK15" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 uppercase" />
             </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
@@ -267,7 +267,7 @@ watch(
             </span>
             <span class="relative block">
               <TagIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
-              <input v-model="form.name_uk" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+              <BaseInput v-model="form.name_uk" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
@@ -277,7 +277,7 @@ watch(
             </span>
             <span class="relative block">
               <LanguageIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
-              <input v-model="form.name_en" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+              <BaseInput v-model="form.name_en" required class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
         </div>
@@ -290,7 +290,7 @@ watch(
             </span>
             <span class="relative block">
               <DocumentTextIcon class="pointer-events-none absolute left-4 top-4 h-4 w-4 text-current opacity-55" aria-hidden="true" />
-              <textarea v-model="form.description_uk" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
+              <BaseTextarea v-model="form.description_uk" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
@@ -300,7 +300,7 @@ watch(
             </span>
             <span class="relative block">
               <DocumentTextIcon class="pointer-events-none absolute left-4 top-4 h-4 w-4 text-current opacity-55" aria-hidden="true" />
-              <textarea v-model="form.description_en" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
+              <BaseTextarea v-model="form.description_en" rows="4" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
         </div>
@@ -313,7 +313,7 @@ watch(
             </span>
             <span class="relative block">
               <ReceiptPercentIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
-              <input v-model.number="form.discount_percent" required type="number" min="1" max="100" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4">
+              <BaseInput v-model.number="form.discount_percent" required type="number" min="1" max="100" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
@@ -321,21 +321,19 @@ watch(
               <UserGroupIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               Аудиторія
             </span>
-            <BackofficeSelect v-model="form.eligibility_type" :options="eligibilityOptions" aria-label="Аудиторія акції" menu-class="z-[260]" />
+            <BaseSelect v-model="form.eligibility_type" :options="eligibilityOptions" aria-label="Аудиторія акції" menu-class="z-[260]" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="inline-flex items-center gap-2 font-medium">
               <CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               Днів без візиту
             </span>
-            <input
-              v-model.number="form.inactive_days"
+            <BaseInput v-model.number="form.inactive_days"
               type="number"
               min="1"
               max="3650"
               :disabled="form.eligibility_type !== 'inactive_customers'"
-              class="w-full rounded-2xl border border-slate-300 px-4 py-3"
-            >
+              class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
         </div>
 
@@ -345,14 +343,14 @@ watch(
               <CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               Початок дії
             </span>
-            <input v-model="form.starts_at" type="datetime-local" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseCalendar v-model="form.starts_at" class="w-full rounded-2xl border border-slate-300 px-4 py-3" mode="datetime" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="inline-flex items-center gap-2 font-medium">
               <CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
               Завершення дії
             </span>
-            <input v-model="form.ends_at" type="datetime-local" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseCalendar v-model="form.ends_at" class="w-full rounded-2xl border border-slate-300 px-4 py-3" mode="datetime" />
           </label>
         </div>
 
@@ -365,7 +363,7 @@ watch(
               </span>
             </legend>
             <label class="flex items-center gap-3 text-sm font-medium text-slate-700">
-              <input v-model="form.applies_to_all_masters" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+              <BaseCheckbox v-model="form.applies_to_all_masters" class="h-4 w-4 rounded border-slate-300" />
               Усі майстри
             </label>
             <MasterMultiSelect
@@ -388,7 +386,7 @@ watch(
               </span>
             </legend>
             <label class="flex items-center gap-3 text-sm font-medium text-slate-700">
-              <input v-model="form.applies_to_all_services" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+              <BaseCheckbox v-model="form.applies_to_all_services" class="h-4 w-4 rounded border-slate-300" />
               Усі базові послуги
             </label>
             <ServiceMultiSelect
@@ -408,19 +406,19 @@ watch(
 
         <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
           <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
           <span class="min-w-0">Акція активна</span>
         </label>
 
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <CheckIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти акцію' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

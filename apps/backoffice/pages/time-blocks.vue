@@ -165,7 +165,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Доступність майстрів</h1>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button
+        <BaseButton
           type="button"
           :disabled="!isAdmin"
           class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
@@ -173,8 +173,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         >
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Відкрити час
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           type="button"
           :disabled="!isAdmin"
           class="time-block-create-button inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60"
@@ -182,7 +182,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         >
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Блокування
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -192,34 +192,31 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
 
     <section class="relative z-30 space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-3 md:grid-cols-4">
-        <input v-model="filters.date_from" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <input v-model="filters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+        <BaseCalendar v-model="filters.date_from" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+        <BaseCalendar v-model="filters.date_to" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
         <div ref="masterFilterRef" class="relative z-40 min-w-0">
-          <button
+          <BaseButton
             type="button"
-            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2.5 text-left text-sm transition"
+            class="backoffice-select-trigger flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2 text-left text-sm transition focus:outline-none"
             :aria-expanded="masterFilterOpen"
             aria-haspopup="listbox"
             @click="masterFilterOpen = !masterFilterOpen"
           >
-            <span class="flex min-w-0 items-center gap-3">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+            <span class="flex min-w-0 items-center gap-2">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
                 <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterDisplayName(selectedMaster)" class="h-full w-full object-cover">
                 <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
               </span>
-              <span class="min-w-0">
-                <span class="block truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
-                <span v-if="selectedMaster?.position_uk" class="block truncate text-xs text-slate-500">{{ selectedMaster.position_uk }}</span>
-              </span>
+              <span class="min-w-0 truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
             </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="{ 'rotate-180': masterFilterOpen }" aria-hidden="true" />
-          </button>
+            <ChevronDownIcon class="backoffice-select-chevron h-4 w-4 shrink-0 transition" :class="{ 'rotate-180': masterFilterOpen }" aria-hidden="true" />
+          </BaseButton>
           <div
             v-if="masterFilterOpen"
             class="booking-select-menu absolute z-[300] mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
             role="listbox"
           >
-            <button
+            <BaseButton
               type="button"
               class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
               :class="!filters.master_id ? 'bg-slate-50' : ''"
@@ -227,8 +224,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
             >
               <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">SC</span>
               <span class="min-w-0 truncate font-medium">Усі майстри</span>
-            </button>
-            <button
+            </BaseButton>
+            <BaseButton
               v-for="master in masterOptions"
               :key="master.id"
               type="button"
@@ -244,13 +241,13 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
                 <span class="block truncate font-medium">{{ masterDisplayName(master) }}</span>
                 <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
               </span>
-            </button>
+            </BaseButton>
           </div>
         </div>
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
+        </BaseButton>
       </div>
 
       <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
@@ -262,7 +259,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-xl font-semibold text-slate-900">Відкрито для запису</h2>
-        <button
+        <BaseButton
           type="button"
           :disabled="!isAdmin"
           class="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
@@ -270,7 +267,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         >
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Додати
-        </button>
+        </BaseButton>
       </div>
       <div v-if="pending" class="text-sm text-slate-500">Завантаження відкритих інтервалів...</div>
       <div v-else-if="!availabilityWindows.length" class="text-sm text-slate-500">У цьому діапазоні дат немає відкритих інтервалів.</div>
@@ -281,7 +278,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
             <p class="text-sm text-slate-500">{{ formatDateTime(window.start_at) }} - {{ formatDateTime(window.end_at) }}</p>
             <p class="text-xs text-emerald-700">Готовий приймати клієнтів</p>
           </div>
-          <button
+          <BaseButton
             class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
             :disabled="deletingAvailabilityId === window.id || !isAdmin"
             :aria-label="deletingAvailabilityId === window.id ? 'Закриття доступності' : 'Закрити доступність'"
@@ -290,7 +287,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
           >
             <TrashIcon class="h-5 w-5" aria-hidden="true" />
             <span class="sr-only">{{ deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити' }}</span>
-          </button>
+          </BaseButton>
         </article>
       </div>
     </section>
@@ -298,7 +295,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-xl font-semibold text-slate-900">Блокування часу</h2>
-        <button
+        <BaseButton
           type="button"
           :disabled="!isAdmin"
           class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
@@ -306,7 +303,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         >
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Додати
-        </button>
+        </BaseButton>
       </div>
       <div v-if="pending" class="text-sm text-slate-500">Завантаження блокувань часу...</div>
       <div v-else-if="!blocks.length" class="text-sm text-slate-500">У цьому діапазоні дат немає блокувань часу.</div>
@@ -317,7 +314,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
             <p class="text-sm text-slate-500">{{ formatDateTime(block.start_at) }} - {{ formatDateTime(block.end_at) }}</p>
             <p class="text-xs text-slate-500">{{ block.reason || 'Без причини' }}</p>
           </div>
-          <button
+          <BaseButton
             class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
             :disabled="deletingId === block.id || !isAdmin"
             :aria-label="deletingId === block.id ? 'Видалення блокування часу' : 'Видалити блокування часу'"
@@ -326,7 +323,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
           >
             <TrashIcon class="h-5 w-5" aria-hidden="true" />
             <span class="sr-only">{{ deletingId === block.id ? 'Видалення...' : 'Видалити' }}</span>
-          </button>
+          </BaseButton>
         </article>
       </div>
     </section>

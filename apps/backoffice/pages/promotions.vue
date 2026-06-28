@@ -193,10 +193,10 @@ const confirmDeletePromotion = async () => {
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Барбершоп</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Акції</h1>
       </div>
-      <button type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreatePromotion">
+      <BaseButton type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreatePromotion">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити акцію
-      </button>
+      </BaseButton>
     </div>
 
     <section class="grid gap-3 sm:grid-cols-3">
@@ -216,12 +216,12 @@ const confirmDeletePromotion = async () => {
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <input v-model="filters.search" placeholder="Пошук за кодом або назвою" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
-        <BackofficeSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус акції" menu-class="z-[220]" />
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseInput v-model="filters.search" placeholder="Пошук за кодом або назвою" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4" />
+        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус акції" menu-class="z-[220]" />
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
+        </BaseButton>
       </div>
 
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
@@ -292,7 +292,7 @@ const confirmDeletePromotion = async () => {
               </td>
               <td class="service-actions px-3 py-2.5">
                 <div class="flex flex-wrap gap-1.5">
-                  <button
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     aria-label="Редагувати акцію"
                     title="Редагувати"
@@ -300,8 +300,8 @@ const confirmDeletePromotion = async () => {
                   >
                     <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">Редагувати</span>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     :aria-label="promotion.is_active ? 'Деактивувати акцію' : 'Активувати акцію'"
                     :title="promotion.is_active ? 'Деактивувати' : 'Активувати'"
@@ -315,8 +315,8 @@ const confirmDeletePromotion = async () => {
                       <CheckCircleIcon class="h-3.5 w-3.5" aria-hidden="true" />
                       <span class="sr-only">Активувати</span>
                     </template>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                     :disabled="!promotion.is_active"
                     aria-label="Видалити акцію"
@@ -325,7 +325,7 @@ const confirmDeletePromotion = async () => {
                   >
                     <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">Видалити</span>
-                  </button>
+                  </BaseButton>
                 </div>
               </td>
             </tr>

@@ -13,6 +13,11 @@ const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.rol
 const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
+const activeStatusOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Активні' },
+  { value: 'false', label: 'Неактивні' },
+]
 const editing = ref<Master | null>(null)
 const masterModalOpen = ref(false)
 const togglingMaster = ref<Master | null>(null)
@@ -135,7 +140,7 @@ const applyFilters = async () => {
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Адмін</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Майстри</h1>
       </div>
-      <button
+      <BaseButton
         type="button"
         :disabled="!isAdmin"
         class="backoffice-page-create-button inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60 sm:w-auto"
@@ -143,7 +148,7 @@ const applyFilters = async () => {
       >
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити майстра
-      </button>
+      </BaseButton>
     </div>
 
     <p v-if="!isAdmin" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -152,16 +157,12 @@ const applyFilters = async () => {
 
     <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <input v-model="filters.search" placeholder="Пошук майстрів" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <select v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-          <option value="">Будь-який статус</option>
-          <option value="true">Активні</option>
-          <option value="false">Неактивні</option>
-        </select>
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseInput v-model="filters.search" placeholder="Пошук майстрів" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
+        </BaseButton>
       </div>
       <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
         {{ apiErrorMessage(error, 'Не вдалося завантажити майстрів.') }}
@@ -195,7 +196,7 @@ const applyFilters = async () => {
               {{ isMasterActive(master) ? 'активний' : 'неактивний' }}
             </span>
             <NuxtLink class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" :to="`/masters/${master.id}/services`">Послуги</NuxtLink>
-            <button
+            <BaseButton
               class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
               aria-label="Редагувати майстра"
               title="Редагувати"
@@ -203,8 +204,8 @@ const applyFilters = async () => {
             >
               <PencilIcon class="h-4 w-4" aria-hidden="true" />
               <span class="sr-only">Редагувати</span>
-            </button>
-            <button
+            </BaseButton>
+            <BaseButton
               class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               :disabled="!isAdmin"
               :aria-label="isMasterActive(master) ? 'Деактивувати майстра' : 'Активувати майстра'"
@@ -219,7 +220,7 @@ const applyFilters = async () => {
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
                 <span class="sr-only">Активувати</span>
               </template>
-            </button>
+            </BaseButton>
           </div>
         </article>
       </div>

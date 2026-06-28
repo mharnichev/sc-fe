@@ -94,55 +94,55 @@ const submit = () => {
       <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 class="text-xl font-semibold text-slate-900">Основна інформація</h2>
-          <button
+          <BaseButton
             type="button"
             class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 sm:self-auto"
             @click="form.slug = slugify(form.name)"
           >
             Згенерувати slug
-          </button>
+          </BaseButton>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Назва</span>
-            <input v-model="form.name" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.name" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Slug</span>
-            <input v-model="form.slug" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.slug" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">SKU</span>
-            <input v-model="form.sku" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.sku" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Статус доступності</span>
-            <input v-model="form.availability_status" placeholder="in_stock" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.availability_status" placeholder="in_stock" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Ціна</span>
-            <input v-model.number="form.price" type="number" min="0.01" step="0.01" required class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.price" type="number" min="0.01" step="0.01" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Рекомендована роздрібна ціна</span>
-            <input v-model.number="form.recommended_retail_price" type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.recommended_retail_price" type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Кількість на складі</span>
-            <input v-model.number="form.stock_quantity" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.stock_quantity" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
             Товар активний
           </label>
         </div>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Короткий опис</span>
-          <textarea v-model="form.short_description" rows="3" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          <BaseTextarea v-model="form.short_description" rows="3" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Опис</span>
-          <textarea v-model="form.description" rows="7" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          <BaseTextarea v-model="form.description" rows="7" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
       </section>
 
@@ -150,41 +150,41 @@ const submit = () => {
         <h2 class="text-xl font-semibold text-slate-900">Зв’язки та медіа</h2>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Категорія</span>
-          <select v-model="form.category_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseSelect native v-model="form.category_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
             <option :value="null">Без категорії</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">
               {{ category.name }}
             </option>
-          </select>
+          </BaseSelect>
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Бренд</span>
-          <select v-model="form.brand_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseSelect native v-model="form.brand_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
             <option :value="null">Без бренду</option>
             <option v-for="brand in brands" :key="brand.id" :value="brand.id">
               {{ brand.name }}
             </option>
-          </select>
+          </BaseSelect>
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">URL зображення</span>
-          <input v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Зовнішній URL</span>
-          <input v-model="form.external_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.external_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Атрибути JSON</span>
-          <textarea v-model="attributesText" rows="10" class="w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs" />
+          <BaseTextarea v-model="attributesText" rows="10" class="w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs" />
         </label>
       </section>
     </div>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-      <button type="submit" :disabled="loading" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+      <BaseButton type="submit" :disabled="loading" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
         {{ submitLabel || 'Зберегти товар' }}
-      </button>
+      </BaseButton>
     </div>
   </form>
 </template>

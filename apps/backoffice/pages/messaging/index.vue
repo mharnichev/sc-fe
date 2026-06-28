@@ -31,6 +31,7 @@ const { data, pending, error, refresh } = await useAsyncData('messaging-dashboar
 const route = useRoute()
 const campaignsPage = ref(1)
 const campaignsPageSize = 20
+const campaignsSectionRef = ref<HTMLElement | null>(null)
 const campaignStatusOptions = [
   { value: '', label: 'Усі статуси' },
   { value: 'draft', label: 'Чернетка' },
@@ -230,6 +231,19 @@ const clearCampaignFilters = async () => {
   await refreshCampaigns()
 }
 
+const viewFailedCampaigns = async () => {
+  campaignFilters.status = 'failed'
+  campaignFilters.type = ''
+  campaignFilters.channel = ''
+  campaignFilters.date_from = ''
+  campaignFilters.date_to = ''
+  campaignFilters.barber_id = null
+  campaignsPage.value = 1
+  await refreshCampaigns()
+  await nextTick()
+  campaignsSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 const duplicateCampaign = async (campaign: MessagingCampaign) => {
   await api.duplicateMessagingCampaign(campaign.id)
   await refreshMessagingData()
@@ -282,7 +296,7 @@ const insertCampaignVariable = (variable: string) => {
       <div v-for="index in 6" :key="index" class="h-28 animate-pulse rounded-[1.25rem] bg-slate-100" />
     </div>
     <div v-else-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-      Не вдалося завантажити dashboard. <button class="font-semibold underline" @click="refresh()">Спробувати ще раз</button>
+      Не вдалося завантажити dashboard. <BaseButton class="font-semibold underline" @click="refresh()">Спробувати ще раз</BaseButton>
     </div>
     <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
       <div v-for="card in cards" :key="card.label" class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
@@ -293,7 +307,7 @@ const insertCampaignVariable = (variable: string) => {
 
     <SmsCampaignsPanel @changed="refreshMessagingData" />
 
-    <section id="campaigns" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <section id="campaigns" ref="campaignsSectionRef" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 class="text-xl font-semibold text-slate-900">Кампанії</h2>
@@ -302,21 +316,29 @@ const insertCampaignVariable = (variable: string) => {
       </div>
 
       <div class="mt-5 grid gap-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 md:grid-cols-3 xl:grid-cols-6">
-        <BackofficeSelect v-model="campaignFilters.status" :options="campaignStatusOptions" menu-class="z-[220]" />
-        <BackofficeSelect v-model="campaignFilters.type" :options="campaignTypeOptions" menu-class="z-[220]" />
-        <BackofficeSelect v-model="campaignFilters.channel" :options="campaignChannelOptions" menu-class="z-[220]" />
-        <input v-model="campaignFilters.date_from" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <input v-model="campaignFilters.date_to" type="date" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <MasterSelect v-model="campaignFilters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" menu-class="z-[220]" />
+        <BaseSelect v-model="campaignFilters.status" :options="campaignStatusOptions" menu-class="z-[220]" />
+        <BaseSelect v-model="campaignFilters.type" :options="campaignTypeOptions" menu-class="z-[220]" />
+        <BaseSelect v-model="campaignFilters.channel" :options="campaignChannelOptions" menu-class="z-[220]" />
+        <BaseDateRange
+          v-model:date-from="campaignFilters.date_from"
+          v-model:date-to="campaignFilters.date_to"
+          from-label=""
+          to-label=""
+          from-placeholder="Початок дати"
+          to-placeholder="Кінець дати"
+          input-class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm"
+          class="md:col-span-2 xl:col-span-2"
+        />
+        <MasterSelect v-model="campaignFilters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" compact menu-class="z-[220]" />
         <div class="flex flex-wrap gap-3 md:col-span-3 xl:col-span-6">
-          <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyCampaignFilters">
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyCampaignFilters">
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />
             <span>Застосувати</span>
-          </button>
-          <button class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="clearCampaignFilters">
+          </BaseButton>
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="clearCampaignFilters">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             <span>Очистити</span>
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -352,13 +374,13 @@ const insertCampaignVariable = (variable: string) => {
               <td data-label="Дії" class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
                   <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="rounded-full border border-slate-300 p-2" title="Деталі"><EyeIcon class="h-4 w-4" /></NuxtLink>
-                  <button v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Редагувати повідомлення" @click="openCampaignEditor(campaign)"><PencilIcon class="h-4 w-4" /></button>
-                  <button v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Дублювати" @click="duplicateCampaign(campaign)"><DocumentDuplicateIcon class="h-4 w-4" /></button>
-                  <button v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" :title="campaign.status === 'paused' ? 'Активувати' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
+                  <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Редагувати повідомлення" @click="openCampaignEditor(campaign)"><PencilIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Дублювати" @click="duplicateCampaign(campaign)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" :title="campaign.status === 'paused' ? 'Активувати' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
                     <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" />
-                  </button>
-                  <button v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></button>
-                  <button v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></button>
+                  </BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></BaseButton>
                 </div>
               </td>
             </tr>
@@ -368,9 +390,9 @@ const insertCampaignVariable = (variable: string) => {
       </div>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
-        <button :disabled="campaignsPage === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage = Math.max(1, campaignsPage - 1)">Попередня</button>
+        <BaseButton :disabled="campaignsPage === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage = Math.max(1, campaignsPage - 1)">Попередня</BaseButton>
         <span class="text-sm text-slate-500">Сторінка {{ campaignsPage }}</span>
-        <button :disabled="!campaignsData || campaignsPage * campaignsPageSize >= campaignsData.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage += 1">Наступна</button>
+        <BaseButton :disabled="!campaignsData || campaignsPage * campaignsPageSize >= campaignsData.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage += 1">Наступна</BaseButton>
       </div>
     </section>
 
@@ -380,9 +402,9 @@ const insertCampaignVariable = (variable: string) => {
           <h2 class="text-xl font-semibold text-slate-900">Telegram підключення клієнтів</h2>
           <p class="mt-1 text-sm text-slate-500">Актуальний зріз клієнтів, які мають chat_id, маркетингову згоду або відписку.</p>
         </div>
-        <button class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="telegramAudiencePending" @click="refreshTelegramAudience()">
+        <BaseButton class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="telegramAudiencePending" @click="refreshTelegramAudience()">
           Оновити
-        </button>
+        </BaseButton>
       </div>
 
       <div v-if="telegramAudiencePending" class="mt-5 grid gap-3 md:grid-cols-4">
@@ -440,13 +462,13 @@ const insertCampaignVariable = (variable: string) => {
           <NuxtLink to="/messaging/settings" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-900">
             <ChatBubbleLeftRightIcon class="h-5 w-5 text-cyan-700" /> Тестовий отримувач
           </NuxtLink>
-          <button
+          <BaseButton
             type="button"
             class="flex items-center gap-3 rounded-2xl bg-rose-50 p-4 text-left text-sm font-medium text-rose-800"
-            @click="campaignFilters.status = 'failed'; applyCampaignFilters()"
+            @click="viewFailedCampaigns"
           >
             <ExclamationTriangleIcon class="h-5 w-5" /> Переглянути помилки
-          </button>
+          </BaseButton>
         </div>
     </section>
 
@@ -470,7 +492,7 @@ const insertCampaignVariable = (variable: string) => {
                 <PencilIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Назва
               </span>
-              <input v-model="campaignEditor.name" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model="campaignEditor.name" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
 
             <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,180px)]">
@@ -479,14 +501,14 @@ const insertCampaignVariable = (variable: string) => {
                   <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Тип
                 </span>
-                <BackofficeSelect v-model="campaignEditor.type" :options="campaignEditorTypeOptions" menu-class="z-[260]" />
+                <BaseSelect v-model="campaignEditor.type" :options="campaignEditorTypeOptions" menu-class="z-[260]" />
               </label>
               <label class="grid min-w-0 gap-2 text-sm">
                 <span class="inline-flex items-center gap-2 font-medium text-slate-700">
                   <CheckCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Статус
                 </span>
-                <BackofficeSelect v-model="campaignEditor.status" :options="campaignEditorStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
+                <BaseSelect v-model="campaignEditor.status" :options="campaignEditorStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
               </label>
             </div>
 
@@ -496,14 +518,14 @@ const insertCampaignVariable = (variable: string) => {
                   <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   За скільки годин до запису
                 </span>
-                <input v-model.number="campaignEditor.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+                <BaseInput v-model.number="campaignEditor.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label class="grid gap-2 text-sm">
                 <span class="inline-flex items-center gap-2 font-medium text-slate-700">
                   <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Вікно пошуку, хв
                 </span>
-                <input v-model.number="campaignEditor.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+                <BaseInput v-model.number="campaignEditor.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
 
@@ -512,7 +534,7 @@ const insertCampaignVariable = (variable: string) => {
                 <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Location key
               </span>
-              <input v-model="campaignEditor.location_key" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model="campaignEditor.location_key" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
 
             <label class="grid gap-2 text-sm">
@@ -520,7 +542,7 @@ const insertCampaignVariable = (variable: string) => {
                 <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Повідомлення
               </span>
-              <textarea v-model="campaignEditor.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
+              <BaseTextarea v-model="campaignEditor.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
               <span class="text-xs text-slate-500">{{ campaignEditor.message_body.length }} символів</span>
             </label>
 
@@ -530,7 +552,7 @@ const insertCampaignVariable = (variable: string) => {
                 Доступні теги
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
-                <button
+                <BaseButton
                   v-for="variable in variables"
                   :key="variable"
                   type="button"
@@ -538,7 +560,7 @@ const insertCampaignVariable = (variable: string) => {
                   @click="insertCampaignVariable(variable)"
                 >
                   {{ variable }}
-                </button>
+                </BaseButton>
               </div>
             </div>
 
@@ -547,22 +569,22 @@ const insertCampaignVariable = (variable: string) => {
                 <LinkIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Review link
               </span>
-              <input v-model="campaignEditor.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://...">
+              <BaseInput v-model="campaignEditor.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://..." />
             </label>
 
             <div class="flex flex-wrap gap-3">
-              <button
+              <BaseButton
                 class="backoffice-modal-action-button backoffice-modal-action-success"
                 :disabled="campaignEditorSaving || !campaignEditor.name.trim() || !campaignEditor.message_body.trim() || !canCreateMessagingDrafts"
                 @click="saveCampaignEditor"
               >
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
                 {{ campaignEditorSaving ? 'Збереження...' : 'Зберегти повідомлення' }}
-              </button>
-              <button class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="campaignEditorSaving" @click="closeCampaignEditor">
+              </BaseButton>
+              <BaseButton class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="campaignEditorSaving" @click="closeCampaignEditor">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
-              </button>
+              </BaseButton>
             </div>
           </div>
 

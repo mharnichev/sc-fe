@@ -100,7 +100,7 @@ const submit = async (payload: ProductPayload) => {
         <NuxtLink to="/products" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
           Назад до списку
         </NuxtLink>
-        <button
+        <BaseButton
           class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
           :aria-label="editMode ? 'Закрити редагування' : 'Редагувати товар'"
           :title="editMode ? 'Закрити редагування' : 'Редагувати'"
@@ -113,7 +113,7 @@ const submit = async (payload: ProductPayload) => {
             <PencilIcon class="h-4 w-4" aria-hidden="true" />
             <span class="sr-only">Редагувати товар</span>
           </template>
-        </button>
+        </BaseButton>
       </div>
     </div>
 

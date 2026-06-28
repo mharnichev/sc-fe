@@ -71,15 +71,15 @@ const save = async () => {
         </div>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Google Reviews</span>
-          <input v-model="form.default_review_links!.google" class="rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.default_review_links!.google" class="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Instagram</span>
-          <input v-model="form.default_review_links!.instagram" class="rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.default_review_links!.instagram" class="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Внутрішня сторінка відгуків</span>
-          <input v-model="form.default_review_links!.internal" class="rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.default_review_links!.internal" class="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
       </div>
 
@@ -88,35 +88,35 @@ const save = async () => {
         <div class="grid gap-4 md:grid-cols-2">
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Quiet hours від</span>
-            <input v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Quiet hours до</span>
-            <input v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Rate limit</span>
-            <input v-model.number="form.default_rate_limit" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model.number="form.default_rate_limit" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Timezone</span>
-            <select v-model="form.default_timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseSelect native v-model="form.default_timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
               <option value="Europe/Kyiv">Europe/Kyiv</option>
               <option value="Europe/Warsaw">Europe/Warsaw</option>
               <option value="UTC">UTC</option>
-            </select>
+            </BaseSelect>
           </label>
         </div>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Opt-out текст</span>
-          <textarea v-model="form.opt_out_text" class="min-h-24 rounded-2xl border border-slate-300 px-4 py-3" />
+          <BaseTextarea v-model="form.opt_out_text" class="min-h-24 rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Admin test recipient chat_id</span>
-          <input v-model="form.test_recipient_chat_id" class="rounded-2xl border border-slate-300 px-4 py-3">
+          <BaseInput v-model="form.test_recipient_chat_id" class="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <input v-model="form.multi_location_enabled" type="checkbox"> Multi-location режим
+          <BaseCheckbox v-model="form.multi_location_enabled" /> Multi-location режим
         </label>
       </div>
 
@@ -125,19 +125,19 @@ const save = async () => {
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <label v-for="type in campaignTypes" :key="type.value" class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">{{ type.label }}</span>
-            <input v-model="form.default_template_ids![type.value]" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Template ID">
+            <BaseInput v-model="form.default_template_ids![type.value]" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Template ID" />
           </label>
         </div>
       </div>
     </section>
 
-    <button
+    <BaseButton
       v-if="!pending"
       class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
       :disabled="saving || !canSendMessagingCampaigns"
       @click="save"
     >
       {{ saving ? 'Збереження...' : 'Зберегти налаштування' }}
-    </button>
+    </BaseButton>
   </div>
 </template>

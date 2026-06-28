@@ -160,18 +160,18 @@ const deleteAvailability = async (windowId: number) => {
         <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Відкривайте час для запису й блокуйте недоступні інтервали в межах 09:00-20:00.</p>
       </div>
       <div class="flex w-full flex-wrap gap-2 sm:w-auto">
-        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300 px-3 py-2 text-xs font-medium text-cyan-700 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" :disabled="telegramConnectLoading" @click="openTelegramConnect">
+        <BaseButton type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300 px-3 py-2 text-xs font-medium text-cyan-700 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" :disabled="telegramConnectLoading" @click="openTelegramConnect">
           <ChatBubbleLeftRightIcon class="h-4 w-4" aria-hidden="true" />
           {{ telegramConnectLoading ? 'Створення...' : 'Підключити TG' }}
-        </button>
-        <button type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateAvailability">
+        </BaseButton>
+        <BaseButton type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateAvailability">
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Відкрити час
-        </button>
-        <button type="button" class="time-block-create-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
+        </BaseButton>
+        <BaseButton type="button" class="time-block-create-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateBlock">
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Блокування
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -180,9 +180,9 @@ const deleteAvailability = async (windowId: number) => {
         <a :href="telegramConnectLink" target="_blank" rel="noopener noreferrer" class="min-w-0 flex-1 truncate text-xs font-medium text-cyan-800 underline decoration-cyan-300 underline-offset-4 xl:text-sm">
           {{ telegramConnectLink }}
         </a>
-        <button type="button" class="inline-flex min-h-8 items-center justify-center rounded-full border border-cyan-300 px-3 py-1.5 text-xs font-medium text-cyan-800 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="copyTelegramConnectLink">
+        <BaseButton type="button" class="inline-flex min-h-8 items-center justify-center rounded-full border border-cyan-300 px-3 py-1.5 text-xs font-medium text-cyan-800 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="copyTelegramConnectLink">
           Копіювати
-        </button>
+        </BaseButton>
       </div>
     </section>
 
@@ -197,7 +197,7 @@ const deleteAvailability = async (windowId: number) => {
             </span>
             <span class="relative block">
               <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
-              <input v-model="filters.date_from" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm">
+              <BaseCalendar v-model="filters.date_from" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm" />
             </span>
           </label>
           <label class="min-w-0 space-y-1 text-xs text-slate-600">
@@ -207,13 +207,13 @@ const deleteAvailability = async (windowId: number) => {
             </span>
             <span class="relative block">
               <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
-              <input v-model="filters.date_to" type="date" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm">
+              <BaseCalendar v-model="filters.date_to" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm" />
             </span>
           </label>
-          <button class="backoffice-modal-action-button backoffice-modal-action-primary col-span-2 sm:col-span-1" @click="applyFilters">
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary col-span-2 sm:col-span-1" @click="applyFilters">
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />
             <span>Застосувати</span>
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -227,10 +227,10 @@ const deleteAvailability = async (windowId: number) => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Відкрито для запису</h2>
-        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateAvailability">
+        <BaseButton type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateAvailability">
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
           Додати
-        </button>
+        </BaseButton>
       </div>
       <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження відкритих інтервалів...</div>
       <div v-else-if="!availabilityWindows.length" class="text-xs text-slate-500 xl:text-sm">У цьому діапазоні немає відкритих інтервалів.</div>
@@ -240,7 +240,7 @@ const deleteAvailability = async (windowId: number) => {
             <p class="text-sm font-medium leading-snug text-slate-900 xl:text-base">{{ formatDateTime(window.start_at) }} - {{ formatDateTime(window.end_at) }}</p>
             <p class="mt-0.5 truncate text-xs text-emerald-700 xl:text-sm">Готовий приймати клієнтів</p>
           </div>
-          <button
+          <BaseButton
             class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 xl:h-10 xl:w-10"
             :disabled="deletingAvailabilityId === window.id"
             :aria-label="deletingAvailabilityId === window.id ? 'Закриття доступності' : 'Закрити доступність'"
@@ -249,7 +249,7 @@ const deleteAvailability = async (windowId: number) => {
           >
             <TrashIcon class="h-4 w-4 xl:h-5 xl:w-5" aria-hidden="true" />
             <span class="sr-only">{{ deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити' }}</span>
-          </button>
+          </BaseButton>
         </article>
       </div>
     </section>
@@ -257,10 +257,10 @@ const deleteAvailability = async (windowId: number) => {
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Блокування часу</h2>
-        <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-800 hover:bg-slate-800 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateBlock">
+        <BaseButton type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-800 hover:bg-slate-800 hover:text-white xl:px-4 xl:py-2 xl:text-sm" @click="openCreateBlock">
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Додати
-        </button>
+        </BaseButton>
       </div>
       <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження блокувань часу...</div>
       <div v-else-if="!blocks.length" class="text-xs text-slate-500 xl:text-sm">У цьому діапазоні дат немає блокувань часу.</div>
@@ -270,7 +270,7 @@ const deleteAvailability = async (windowId: number) => {
             <p class="text-sm font-medium leading-snug text-slate-900 xl:text-base">{{ formatDateTime(block.start_at) }} - {{ formatDateTime(block.end_at) }}</p>
             <p class="mt-0.5 truncate text-xs text-slate-500 xl:text-sm">{{ block.reason || 'Без причини' }}</p>
           </div>
-          <button
+          <BaseButton
             class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 xl:h-10 xl:w-10"
             :disabled="deletingId === block.id"
             :aria-label="deletingId === block.id ? 'Видалення блокування часу' : 'Видалити блокування часу'"
@@ -279,7 +279,7 @@ const deleteAvailability = async (windowId: number) => {
           >
             <TrashIcon class="h-4 w-4 xl:h-5 xl:w-5" aria-hidden="true" />
             <span class="sr-only">{{ deletingId === block.id ? 'Видалення...' : 'Видалити' }}</span>
-          </button>
+          </BaseButton>
         </article>
       </div>
     </section>

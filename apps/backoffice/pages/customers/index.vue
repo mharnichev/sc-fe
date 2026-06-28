@@ -93,20 +93,20 @@ const prev = async () => {
     </div>
 
     <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-      <input v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <BackofficeSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус клієнта" menu-class="z-[220]" />
-      <BackofficeSelect v-model="filters.is_verified" :options="verificationOptions" aria-label="Верифікація клієнта" menu-class="z-[220]" />
-      <BackofficeSelect v-model="filters.telegram_connected" :options="telegramOptions" aria-label="Telegram клієнта" menu-class="z-[220]" />
-      <BackofficeSelect v-model="filters.sort_by" :options="sortOptions" aria-label="Сортування клієнтів" menu-class="z-[220]" />
+      <BaseInput v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+      <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус клієнта" menu-class="z-[220]" />
+      <BaseSelect v-model="filters.is_verified" :options="verificationOptions" aria-label="Верифікація клієнта" menu-class="z-[220]" />
+      <BaseSelect v-model="filters.telegram_connected" :options="telegramOptions" aria-label="Telegram клієнта" menu-class="z-[220]" />
+      <BaseSelect v-model="filters.sort_by" :options="sortOptions" aria-label="Сортування клієнтів" menu-class="z-[220]" />
       <div class="flex gap-3 md:col-span-2 xl:col-span-5 xl:justify-end">
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary flex-1 xl:flex-none" @click="applyFilters">
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary flex-1 xl:flex-none" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
-        <button class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1 xl:flex-none" @click="clearFilters">
+        </BaseButton>
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1 xl:flex-none" @click="clearFilters">
           <XMarkIcon class="h-4 w-4" aria-hidden="true" />
           <span>Очистити</span>
-        </button>
+        </BaseButton>
       </div>
     </section>
 
@@ -179,9 +179,9 @@ const prev = async () => {
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
-      <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</button>
+      <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</BaseButton>
       <span class="text-sm text-slate-500">Сторінка {{ page }}</span>
-      <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</button>
+      <BaseButton :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</BaseButton>
     </div>
   </div>
 </template>

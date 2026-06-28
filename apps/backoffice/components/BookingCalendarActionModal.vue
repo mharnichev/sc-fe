@@ -52,6 +52,12 @@ const availabilityPresetOptions: Array<{ value: AvailabilityPreset, label: strin
   { value: 'month', label: 'Місяць', description: 'До 2 місяців', icon: CalendarDaysIcon },
 ]
 
+const calendarActionOptions: Array<{ value: CalendarActionType, label: string, icon: typeof LockOpenIcon }> = [
+  { value: 'availability', label: 'Відкрити', icon: LockOpenIcon },
+  { value: 'booking', label: 'Ручне бронювання', icon: PlusIcon },
+  { value: 'block', label: 'Блокування часу', icon: NoSymbolIcon },
+]
+
 const promotionOptions = computed(() => [
   { value: '', label: 'Без акції' },
   ...(props.promotions || []).map(promotion => ({
@@ -155,6 +161,14 @@ const setAvailabilityPreset = (preset: AvailabilityPreset) => {
   }
   form.start_time = calendar.workdayStart
   form.end_time = calendar.workdayEnd
+}
+
+const setCalendarAction = (value: string | number | boolean) => {
+  form.action = value as CalendarActionType
+}
+
+const handleAvailabilityPresetUpdate = (value: string | number | boolean) => {
+  setAvailabilityPreset(value as AvailabilityPreset)
 }
 
 const defaultDurationMinutes = () =>
@@ -334,53 +348,37 @@ const submitLabel = computed(() => {
 
     <template #body>
       <form class="space-y-3 xl:space-y-5" @submit.prevent="submit">
-        <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 xl:gap-2 xl:rounded-2xl">
-          <button
-            type="button"
-            class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
-            :class="form.action === 'availability' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="form.action = 'availability'"
-          >
-            <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
-            Відкрити
-          </button>
-          <button
-            type="button"
-            class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
-            :class="form.action === 'booking' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="form.action = 'booking'"
-          >
-            <PlusIcon class="h-4 w-4" aria-hidden="true" />
-            Ручне бронювання
-          </button>
-          <button
-            type="button"
-            class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
-            :class="form.action === 'block' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="form.action = 'block'"
-          >
-            <NoSymbolIcon class="h-4 w-4" aria-hidden="true" />
-            Блокування часу
-          </button>
-        </div>
+        <BaseSegmentedControl
+          :model-value="form.action"
+          :options="calendarActionOptions"
+          container-class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 xl:gap-2 xl:rounded-2xl"
+          option-class="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-tight transition xl:min-h-11 xl:gap-2 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm"
+          active-class="bg-white text-slate-950 shadow-sm"
+          inactive-class="text-slate-600 hover:text-slate-950"
+          @update:model-value="setCalendarAction"
+        />
 
         <div v-if="form.action === 'availability'" class="availability-preset-panel space-y-2 rounded-xl border p-2.5 xl:rounded-2xl xl:p-4">
-          <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <button
-              v-for="option in availabilityPresetOptions"
-              :key="option.value"
-              type="button"
-              class="availability-preset-option inline-flex min-h-14 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition xl:min-h-16 xl:px-3"
-              :class="form.availability_preset === option.value ? 'is-active' : ''"
-              @click="setAvailabilityPreset(option.value)"
-            >
-              <component :is="option.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          <BaseSegmentedControl
+            :model-value="form.availability_preset"
+            :options="availabilityPresetOptions"
+            container-class="grid grid-cols-2 gap-2 md:grid-cols-4"
+            option-class="availability-preset-option relative inline-flex min-h-14 items-center gap-2 rounded-xl border px-2.5 py-2 pr-8 text-left transition xl:min-h-16 xl:px-3 xl:pr-9"
+            active-class="is-active"
+            inactive-class=""
+            @update:model-value="handleAvailabilityPresetUpdate"
+          >
+            <template #option="{ option, active }">
+              <span class="availability-preset-icon">
+                <component :is="option.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+              </span>
               <span class="min-w-0">
                 <span class="block truncate text-xs font-semibold xl:text-sm">{{ option.label }}</span>
                 <span class="availability-preset-description block truncate text-[11px]">{{ option.description }}</span>
               </span>
-            </button>
-          </div>
+              <span v-if="active" class="availability-preset-check" aria-hidden="true" />
+            </template>
+          </BaseSegmentedControl>
           <p class="availability-preset-summary inline-flex items-center gap-1.5 text-xs xl:text-sm">
             <LockOpenIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
             <span v-if="form.availability_preset === 'interval'">Буде відкрито вибраний інтервал.</span>
@@ -396,21 +394,21 @@ const submitLabel = computed(() => {
               <CalendarDaysIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               {{ form.action === 'availability' && form.availability_preset !== 'interval' ? 'Початок періоду' : 'Дата' }}
             </span>
-            <input v-model="form.date" required type="date" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <BaseCalendar v-model="form.date" required class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
           <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Початок
             </span>
-            <input v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3">
+            <BaseInput v-model="form.start_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
           <label class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Завершення
             </span>
-            <input v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3">
+            <BaseInput v-model="form.end_time" required type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" :disabled="form.action === 'availability' && form.availability_preset !== 'interval'" class="min-w-0 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
         </div>
 
@@ -431,22 +429,20 @@ const submitLabel = computed(() => {
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Тривалість, хв
             </span>
-            <input
-              v-model.number="form.duration_minutes"
+            <BaseInput v-model.number="form.duration_minutes"
               required
               type="number"
               min="1"
               step="1"
               class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
-              @input="markDurationEdited"
-            >
+              @input="markDurationEdited" />
           </label>
           <label v-if="canUsePromotions" class="min-w-0 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <ReceiptPercentIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Акція
             </span>
-            <BackofficeSelect
+            <BaseSelect
               :model-value="form.promotion_code"
               :options="promotionOptions"
               placeholder="Без акції"
@@ -463,7 +459,7 @@ const submitLabel = computed(() => {
               <UserIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Ім’я клієнта
             </span>
-            <input v-model="form.customer_name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
+            <BaseInput v-model="form.customer_name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
           <BasePhoneInput
             v-model="form.customer_phone"
@@ -481,11 +477,11 @@ const submitLabel = computed(() => {
             <ChatBubbleLeftEllipsisIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
             {{ form.action === 'booking' ? 'Коментар' : 'Причина' }}
           </span>
-          <textarea v-model="form.note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
+          <BaseTextarea v-model="form.note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
         </label>
 
         <div class="backoffice-modal-actions pt-3 xl:pt-5">
-          <button
+          <BaseButton
             type="submit"
             :disabled="pending"
             class="backoffice-modal-action-button"
@@ -493,15 +489,15 @@ const submitLabel = computed(() => {
           >
             <component :is="submitIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
             {{ pending ? 'Збереження...' : submitLabel }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="close">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="close">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             Скасувати
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>
@@ -516,12 +512,23 @@ const submitLabel = computed(() => {
 
 .availability-preset-option {
   background: color-mix(in srgb, var(--input-bg) 76%, transparent);
-  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
+  border-color: color-mix(in srgb, var(--success) 22%, var(--border));
   color: var(--text-primary);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
 }
 
-.availability-preset-option svg {
+.availability-preset-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.availability-preset-icon svg {
   color: color-mix(in srgb, var(--success) 76%, var(--text-primary));
 }
 
@@ -532,12 +539,46 @@ const submitLabel = computed(() => {
 }
 
 .availability-preset-option.is-active {
-  background: color-mix(in srgb, var(--success) 24%, var(--input-bg));
-  border-color: color-mix(in srgb, var(--success) 72%, var(--focus-border));
-  color: var(--text-primary);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--success) 30%, var(--input-bg)), color-mix(in srgb, var(--success) 20%, var(--input-bg)));
+  border-color: var(--success);
+  color: var(--interactive-hover-text);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent),
-    0 10px 28px color-mix(in srgb, var(--success) 14%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 16%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--success) 38%, transparent),
+    0 12px 30px color-mix(in srgb, var(--success) 18%, transparent);
+}
+
+.availability-preset-option.is-active .availability-preset-icon {
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 52%, transparent);
+}
+
+.availability-preset-option.is-active .availability-preset-icon svg {
+  color: var(--success);
+}
+
+.availability-preset-check {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.55rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 34%, transparent);
+}
+
+.availability-preset-check::after {
+  content: "";
+  position: absolute;
+  left: 0.34rem;
+  top: 0.2rem;
+  width: 0.28rem;
+  height: 0.52rem;
+  border-right: 2px solid #0a0a0a;
+  border-bottom: 2px solid #0a0a0a;
+  transform: rotate(45deg);
 }
 
 .availability-preset-description {
@@ -553,24 +594,63 @@ const submitLabel = computed(() => {
   color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
 }
 
-html[data-backoffice-theme="light"] .availability-preset-panel {
+:global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active {
+  background:
+    linear-gradient(180deg, rgba(48, 209, 88, 0.18), rgba(48, 209, 88, 0.10)) !important;
+  border-color: #30d158 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px rgba(48, 209, 88, 0.72),
+    0 0 0 4px rgba(48, 209, 88, 0.10),
+    0 14px 32px rgba(48, 209, 88, 0.16) !important;
+}
+
+:global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active .availability-preset-icon {
+  background: rgba(48, 209, 88, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(48, 209, 88, 0.48);
+}
+
+:global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active .availability-preset-icon svg {
+  color: #30d158 !important;
+  stroke: currentColor;
+}
+
+:global(html[data-backoffice-theme="light"]) .availability-preset-panel {
   background: rgba(22, 163, 74, 0.08);
   border-color: rgba(22, 163, 74, 0.18);
 }
 
-html[data-backoffice-theme="light"] .availability-preset-option {
+:global(html[data-backoffice-theme="light"]) .availability-preset-option {
   background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(22, 163, 74, 0.18);
+  border-color: rgba(22, 163, 74, 0.20);
   color: rgba(15, 23, 42, 0.92);
 }
 
-html[data-backoffice-theme="light"] .availability-preset-option.is-active {
-  background: #ffffff;
-  border-color: rgba(22, 163, 74, 0.52);
+:global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active {
+  background: linear-gradient(180deg, #f0fdf4, #ffffff);
+  border-color: rgba(22, 163, 74, 0.76);
   color: #166534;
 }
 
-html[data-backoffice-theme="light"] .availability-preset-summary {
+:global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active .availability-preset-icon {
+  background: rgba(22, 163, 74, 0.13);
+  box-shadow: none;
+}
+
+:global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active .availability-preset-icon svg {
+  color: #166534;
+}
+
+:global(html[data-backoffice-theme="light"]) .availability-preset-check {
+  background: #166534;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+}
+
+:global(html[data-backoffice-theme="light"]) .availability-preset-check::after {
+  border-color: #ffffff;
+}
+
+:global(html[data-backoffice-theme="light"]) .availability-preset-summary {
   color: #166534;
 }
 </style>

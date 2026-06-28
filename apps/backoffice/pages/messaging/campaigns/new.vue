@@ -157,7 +157,7 @@ const nextStep = () => {
 
     <div class="grid gap-6 xl:grid-cols-[260px_1fr]">
       <aside class="messaging-wizard-steps rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <button
+        <BaseButton
           v-for="item in 6"
           :key="item"
           type="button"
@@ -167,7 +167,7 @@ const nextStep = () => {
         >
           <span class="messaging-step-number flex h-7 w-7 items-center justify-center rounded-full text-xs">{{ item }}</span>
           <span class="messaging-step-label">{{ ['Основи', 'Аудиторія', 'Повідомлення', 'Відгук / промо', 'Розклад', 'Фінальна перевірка'][item - 1] }}</span>
-        </button>
+        </BaseButton>
       </aside>
 
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
@@ -175,11 +175,11 @@ const nextStep = () => {
           <h2 class="text-xl font-semibold text-slate-900">Основи кампанії</h2>
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Назва кампанії</span>
-            <input v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Наприклад: Відгук після візиту">
+            <BaseInput v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Наприклад: Відгук після візиту" />
           </label>
           <div class="grid gap-3 md:grid-cols-2">
             <label v-for="type in campaignTypes" :key="type.value" class="cursor-pointer rounded-[1.25rem] border p-4" :class="form.type === type.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
-              <input v-model="form.type" class="sr-only" type="radio" :value="type.value">
+              <BaseRadioButton v-model="form.type" class="sr-only" :value="type.value" />
               <span class="block text-sm font-semibold text-slate-900">{{ type.label }}</span>
               <span class="mt-1 block text-xs leading-5 text-slate-500">{{ type.helper }}</span>
             </label>
@@ -188,7 +188,7 @@ const nextStep = () => {
             <p class="text-sm font-medium text-slate-700">Канал</p>
             <div class="mt-2 grid gap-3 sm:grid-cols-4">
               <label v-for="channel in channels" :key="channel.value" class="rounded-2xl border p-4 text-sm" :class="form.channel === channel.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
-                <input v-model="form.channel" class="sr-only" type="radio" :value="channel.value" :disabled="!channel.enabled">
+                <BaseRadioButton v-model="form.channel" class="sr-only" :value="channel.value" :disabled="!channel.enabled" />
                 <MessagingChannelBadge :channel="channel.value" />
                 <span v-if="!channel.enabled" class="mt-1 block text-xs text-slate-500">Скоро</span>
               </label>
@@ -196,10 +196,10 @@ const nextStep = () => {
           </div>
           <label class="grid max-w-xs gap-2 text-sm">
             <span class="font-medium text-slate-700">Початковий статус</span>
-            <select v-model="form.status" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseSelect native v-model="form.status" class="rounded-2xl border border-slate-300 px-4 py-3">
               <option value="draft">Чернетка</option>
               <option value="active" :disabled="!canSendMessagingCampaigns">Активна</option>
-            </select>
+            </BaseSelect>
           </label>
         </div>
 
@@ -216,14 +216,14 @@ const nextStep = () => {
             <h2 class="text-xl font-semibold text-slate-900">Повідомлення</h2>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Шаблон</span>
-              <select v-model="form.template_id" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseSelect native v-model="form.template_id" class="rounded-2xl border border-slate-300 px-4 py-3">
                 <option :value="null">Кастомне повідомлення</option>
                 <option v-for="template in templateItems" :key="template.id" :value="template.id">{{ template.name }}</option>
-              </select>
+              </BaseSelect>
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Текст</span>
-              <textarea v-model="form.message_body" class="min-h-52 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
+              <BaseTextarea v-model="form.message_body" class="min-h-52 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
               <span class="text-xs text-slate-500">{{ form.message_body.length }} символів</span>
             </label>
             <VariablePicker @select="insertVariable" />
@@ -233,11 +233,11 @@ const nextStep = () => {
             <div class="grid gap-3 md:grid-cols-2">
               <label class="grid gap-2 text-sm">
                 <span class="font-medium text-slate-700">Українська версія</span>
-                <textarea v-model="form.language_versions!.uk" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" />
+                <BaseTextarea v-model="form.language_versions!.uk" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label class="grid gap-2 text-sm">
                 <span class="font-medium text-slate-700">English version</span>
-                <textarea v-model="form.language_versions!.en" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" />
+                <BaseTextarea v-model="form.language_versions!.en" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
           </div>
@@ -249,28 +249,28 @@ const nextStep = () => {
           <div class="grid gap-4 md:grid-cols-2">
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Платформа відгуку</span>
-              <select v-model="form.review_platform" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseSelect native v-model="form.review_platform" class="rounded-2xl border border-slate-300 px-4 py-3">
                 <option value="google">Google Reviews</option>
                 <option value="instagram">Instagram</option>
                 <option value="internal">Внутрішня сторінка</option>
                 <option value="custom">Custom URL</option>
-              </select>
+              </BaseSelect>
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Посилання</span>
-              <input v-model="form.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://...">
+              <BaseInput v-model="form.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://..." />
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Промокод</span>
-              <input v-model="form.promo_code" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="SOUL10">
+              <BaseInput v-model="form.promo_code" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="SOUL10" />
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Текст кнопки Telegram</span>
-              <input v-model="form.inline_button_text" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model="form.inline_button_text" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Follow-up через N днів</span>
-              <input v-model.number="form.follow_up_after_days" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model.number="form.follow_up_after_days" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
           </div>
         </div>
@@ -278,47 +278,47 @@ const nextStep = () => {
         <div v-else-if="step === 5" class="space-y-5">
           <h2 class="text-xl font-semibold text-slate-900">Розклад та правила</h2>
           <div class="grid gap-3 sm:grid-cols-3">
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'now' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="now"> Надіслати зараз</label>
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'later' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="later"> Запланувати</label>
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'automated' ? 'messaging-choice-active' : 'messaging-choice-idle'"><input v-model="form.schedule_mode" type="radio" value="automated"> Автоматично</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'now' ? 'messaging-choice-active' : 'messaging-choice-idle'"><BaseRadioButton v-model="form.schedule_mode" value="now" /> Надіслати зараз</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'later' ? 'messaging-choice-active' : 'messaging-choice-idle'"><BaseRadioButton v-model="form.schedule_mode" value="later" /> Запланувати</label>
+            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'automated' ? 'messaging-choice-active' : 'messaging-choice-idle'"><BaseRadioButton v-model="form.schedule_mode" value="automated" /> Автоматично</label>
           </div>
           <div class="grid gap-4 md:grid-cols-2">
             <label v-if="form.schedule_mode === 'later'" class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Дата і час</span>
-              <input v-model="form.scheduled_at" type="datetime-local" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseCalendar v-model="form.scheduled_at" class="rounded-2xl border border-slate-300 px-4 py-3" mode="datetime" />
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Timezone</span>
-              <select v-model="form.timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseSelect native v-model="form.timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
                 <option value="Europe/Kyiv">Europe/Kyiv</option>
                 <option value="Europe/Warsaw">Europe/Warsaw</option>
                 <option value="UTC">UTC</option>
-              </select>
+              </BaseSelect>
             </label>
             <label v-if="form.schedule_mode === 'automated'" class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Після завершення візиту</span>
-              <select v-model="form.automation_delay" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseSelect native v-model="form.automation_delay" class="rounded-2xl border border-slate-300 px-4 py-3">
                 <option value="immediate">Одразу</option>
                 <option value="1h">1 година</option>
                 <option value="24h">24 години</option>
                 <option value="custom">Custom</option>
-              </select>
+              </BaseSelect>
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Макс. повідомлень за хвилину</span>
-              <input v-model.number="form.max_messages_per_minute" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model.number="form.max_messages_per_minute" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <label class="grid gap-2 text-sm">
               <span class="font-medium text-slate-700">Не дублювати протягом днів</span>
-              <input v-model.number="form.duplicate_protection_days" min="0" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model.number="form.duplicate_protection_days" min="0" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
           </div>
           <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-            <input v-model="form.quiet_hours_enabled" type="checkbox"> Не надсилати вночі
+            <BaseCheckbox v-model="form.quiet_hours_enabled" /> Не надсилати вночі
           </label>
           <div v-if="form.quiet_hours_enabled" class="grid max-w-md gap-4 sm:grid-cols-2">
-            <input v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3">
-            <input v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3">
+            <BaseInput v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
+            <BaseInput v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
           </div>
         </div>
 
@@ -335,19 +335,19 @@ const nextStep = () => {
               <p v-for="item in validationErrors" :key="item">{{ item }}</p>
             </div>
             <div class="flex flex-wrap gap-3">
-              <button class="messaging-secondary-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || !canCreateMessagingDrafts" @click="save(false)">Зберегти чернетку</button>
-              <button class="messaging-accent-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || validationErrors.length > 0">Надіслати тест</button>
-              <button class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="saving || validationErrors.length > 0 || !canSendMessagingCampaigns" @click="showSendConfirm = true">
+              <BaseButton class="messaging-secondary-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || !canCreateMessagingDrafts" @click="save(false)">Зберегти чернетку</BaseButton>
+              <BaseButton class="messaging-accent-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || validationErrors.length > 0">Надіслати тест</BaseButton>
+              <BaseButton class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="saving || validationErrors.length > 0 || !canSendMessagingCampaigns" @click="showSendConfirm = true">
                 {{ form.schedule_mode === 'later' ? 'Запланувати кампанію' : 'Активувати кампанію' }}
-              </button>
+              </BaseButton>
             </div>
           </div>
           <MessagePreview :body="form.message_body" :button-text="form.inline_button_text" />
         </div>
 
         <div class="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5">
-          <button class="messaging-secondary-action rounded-full px-5 py-3 text-sm" :disabled="step === 1" @click="step -= 1">Назад</button>
-          <button v-if="step < 6" class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="!stepValid[step as keyof typeof stepValid]" @click="nextStep">Далі</button>
+          <BaseButton class="messaging-secondary-action rounded-full px-5 py-3 text-sm" :disabled="step === 1" @click="step -= 1">Назад</BaseButton>
+          <BaseButton v-if="step < 6" class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="!stepValid[step as keyof typeof stepValid]" @click="nextStep">Далі</BaseButton>
         </div>
       </section>
     </div>

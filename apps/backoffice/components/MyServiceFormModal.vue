@@ -214,12 +214,12 @@ watch(
           <div class="flex flex-wrap gap-2 xl:gap-3">
             <label v-if="canCreateFromBase" class="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm">
               <ScissorsIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              <input v-model="form.mode" type="radio" value="base" class="h-4 w-4">
+              <BaseRadioButton v-model="form.mode" value="base" class="h-4 w-4" />
               З базової послуги
             </label>
             <label class="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-700 xl:px-4 xl:py-2 xl:text-sm">
               <PencilSquareIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              <input v-model="form.mode" type="radio" value="custom" class="h-4 w-4">
+              <BaseRadioButton v-model="form.mode" value="custom" class="h-4 w-4" />
               Власна
             </label>
           </div>
@@ -231,12 +231,12 @@ watch(
           </span>
           <span class="relative block">
             <ScissorsIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-            <select v-model="form.base_service_id" required class="w-full appearance-none rounded-xl border border-slate-300 py-2 pl-10 pr-10 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-12">
+            <BaseSelect native v-model="form.base_service_id" required class="w-full appearance-none rounded-xl border border-slate-300 py-2 pl-10 pr-10 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-12">
               <option value="">Виберіть базову послугу</option>
               <option v-for="service in baseServiceOptions" :key="service.id" :value="String(service.id)">
                 {{ serviceName(service) }} / {{ service.title_en || 'без англ. назви' }} · {{ formatDuration(service.duration_minutes) }} · {{ formatPrice(service.price) }}
               </option>
-            </select>
+            </BaseSelect>
             <ChevronDownIcon class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:right-4" aria-hidden="true" />
           </span>
         </label>
@@ -248,7 +248,7 @@ watch(
             </span>
             <span class="relative block">
               <TagIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model="form.title_uk" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -258,7 +258,7 @@ watch(
             </span>
             <span class="relative block">
               <LanguageIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model="form.title_en" :required="form.mode === 'custom'" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
         </div>
@@ -270,7 +270,7 @@ watch(
             </span>
             <span class="relative block">
               <DocumentTextIcon class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-current opacity-55 xl:left-4 xl:top-4" aria-hidden="true" />
-              <textarea v-model="form.description_uk" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
+              <BaseTextarea v-model="form.description_uk" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -280,7 +280,7 @@ watch(
             </span>
             <span class="relative block">
               <DocumentTextIcon class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-current opacity-55 xl:left-4 xl:top-4" aria-hidden="true" />
-              <textarea v-model="form.description_en" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
+              <BaseTextarea v-model="form.description_en" rows="3" :placeholder="form.mode === 'base' && !editing ? 'Необов’язкове перевизначення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
         </div>
@@ -292,7 +292,7 @@ watch(
             </span>
             <span class="relative block">
               <ClockIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model.number="form.duration_minutes" :required="form.mode === 'custom'" type="number" min="1" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
@@ -302,28 +302,28 @@ watch(
             </span>
             <span class="relative block">
               <BanknotesIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-4" aria-hidden="true" />
-              <input v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4">
+              <BaseInput v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3 text-sm xl:rounded-2xl xl:py-3 xl:pl-11 xl:pr-4" />
             </span>
           </label>
         </div>
         <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           <CheckCircleIcon class="h-4 w-4 shrink-0 text-cyan-700 xl:h-5 xl:w-5" aria-hidden="true" />
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
           <span class="min-w-0">Послуга активна</span>
         </label>
         <p v-if="editing?.base_service" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           Зміни цієї послуги впливають лише на вашу особисту копію. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving || !barberId" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving || !barberId" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти послугу' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="resetForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

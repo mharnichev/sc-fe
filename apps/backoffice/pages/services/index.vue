@@ -28,6 +28,11 @@ const {
 const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
+const activeStatusOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Активні' },
+  { value: 'false', label: 'Неактивні' },
+]
 const editing = ref<BaseService | null>(null)
 const deletingId = ref<number | string | null>(null)
 const serviceModalOpen = ref(false)
@@ -134,24 +139,20 @@ const applyFilters = async () => {
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Послуги</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Базові послуги</h1>
       </div>
-      <button type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
+      <BaseButton type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити базову послугу
-      </button>
+      </BaseButton>
     </div>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <input v-model="filters.search" placeholder="Пошук базових послуг" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
-        <select v-model="filters.is_active" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4">
-          <option value="">Будь-який статус</option>
-          <option value="true">Активні</option>
-          <option value="false">Неактивні</option>
-        </select>
-        <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseInput v-model="filters.search" placeholder="Пошук базових послуг" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4" />
+        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
+        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
-        </button>
+        </BaseButton>
       </div>
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити базові послуги з /backoffice/admin/services.') }}
@@ -195,7 +196,7 @@ const applyFilters = async () => {
               </td>
               <td class="service-actions px-3 py-2.5">
                 <div class="flex flex-wrap gap-1.5">
-                  <button
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     aria-label="Редагувати базову послугу"
                     title="Редагувати"
@@ -203,8 +204,8 @@ const applyFilters = async () => {
                   >
                     <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">Редагувати</span>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     :aria-label="service.is_active ? 'Деактивувати базову послугу' : 'Активувати базову послугу'"
                     :title="service.is_active ? 'Деактивувати' : 'Активувати'"
@@ -218,8 +219,8 @@ const applyFilters = async () => {
                       <CheckCircleIcon class="h-3.5 w-3.5" aria-hidden="true" />
                       <span class="sr-only">Активувати</span>
                     </template>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Деактивація базової послуги' : 'Видалити базову послугу'"
@@ -228,7 +229,7 @@ const applyFilters = async () => {
                   >
                     <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">{{ deletingId === service.id ? 'Деактивація...' : 'Видалити' }}</span>
-                  </button>
+                  </BaseButton>
                 </div>
               </td>
             </tr>

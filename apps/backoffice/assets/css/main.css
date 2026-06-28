@@ -137,7 +137,7 @@ html[data-backoffice-theme="light"] {
   --solid-control: rgba(15, 23, 42, 0.06);
   --solid-control-hover: rgba(15, 23, 42, 0.09);
   --interactive-hover-text: rgba(15, 23, 42, 0.96);
-  --select-menu-bg: rgba(255, 255, 255, 0.99);
+  --select-menu-bg: #ffffff;
   --select-menu-hover: rgba(15, 23, 42, 0.08);
   --select-menu-item-text: rgba(15, 23, 42, 0.78);
   --select-menu-item-hover-text: rgba(15, 23, 42, 0.96);
@@ -506,6 +506,32 @@ main a[class*="bg-black"]:hover,
     0 10px 24px rgba(0, 0, 0, 0.12) !important;
 }
 
+html:not([data-backoffice-theme="light"]) .base-segmented-option.is-active,
+html:not([data-backoffice-theme="light"]) .messaging-choice-active {
+  border: 1px solid color-mix(in srgb, var(--success) 82%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--success) 18%, var(--input-bg)), color-mix(in srgb, var(--success) 10%, var(--glass))) !important;
+  color: color-mix(in srgb, var(--success) 78%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 0 1px color-mix(in srgb, var(--success) 42%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--success) 9%, transparent),
+    0 14px 32px color-mix(in srgb, var(--success) 13%, transparent) !important;
+}
+
+html:not([data-backoffice-theme="light"]) .base-segmented-option.is-inactive,
+html:not([data-backoffice-theme="light"]) .messaging-choice-idle {
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border)) !important;
+}
+
+html:not([data-backoffice-theme="light"]) .base-segmented-option.is-active:hover,
+html:not([data-backoffice-theme="light"]) .messaging-choice-active:hover {
+  border-color: var(--success) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--success) 24%, var(--input-bg)), color-mix(in srgb, var(--success) 14%, var(--glass))) !important;
+  color: var(--interactive-hover-text) !important;
+}
+
 .messaging-step-number,
 .messaging-preview-bubble {
   border: 1px solid var(--border) !important;
@@ -862,7 +888,7 @@ html[data-backoffice-theme="light"] .backoffice-modal-action-danger-outline:hove
 .relative:has(> .booking-select-menu),
 main :is(section, article, form):has(.booking-select-menu) {
   position: relative;
-  z-index: 10000;
+  z-index: 50000;
 }
 
 @media (min-width: 640px) {
@@ -882,12 +908,14 @@ main :is(section, article, form):has(.booking-select-menu) {
 }
 
 .booking-select-menu {
-  z-index: 10000 !important;
+  z-index: 50010 !important;
   background: var(--select-menu-bg) !important;
   background-color: var(--select-menu-bg) !important;
   border-color: color-mix(in srgb, var(--text-primary) 16%, transparent) !important;
   box-shadow: var(--select-menu-shadow) !important;
   backdrop-filter: none !important;
+  opacity: 1 !important;
+  isolation: isolate;
 }
 
 .booking-select-menu button {
@@ -978,7 +1006,7 @@ html:not([data-backoffice-theme="light"]) .booking-select-menu,
 html:not([data-backoffice-theme="light"]) .booking-select-menu button,
 html:not([data-backoffice-theme="light"]) .booking-select-menu input,
 html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b"] {
-  background-color: rgba(0, 0, 0, 0.9) !important;
+  background-color: #000000 !important;
 }
 
 .backoffice-shell-surface {

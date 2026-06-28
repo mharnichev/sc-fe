@@ -52,11 +52,11 @@ const emit = defineEmits<{
         </dl>
 
         <div class="backoffice-modal-actions">
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" :disabled="pending" @click="close">
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" :disabled="pending" @click="close">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             {{ cancelLabel }}
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             type="button"
             :disabled="pending"
             class="backoffice-modal-action-button"
@@ -65,7 +65,7 @@ const emit = defineEmits<{
           >
             <component :is="destructive ? ExclamationTriangleIcon : CheckCircleIcon" v-if="!pending" class="h-4 w-4" aria-hidden="true" />
             {{ pending ? 'Виконується...' : confirmLabel }}
-          </button>
+          </BaseButton>
         </div>
       </div>
     </template>

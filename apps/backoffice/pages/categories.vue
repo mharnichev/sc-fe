@@ -29,16 +29,16 @@ const applyFilters = async () => {
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Категорії</h1>
     </div>
     <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_220px_160px]">
-      <input v-model="filters.search" placeholder="Пошук категорій" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-      <select v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      <BaseInput v-model="filters.search" placeholder="Пошук категорій" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+      <BaseSelect native v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
         <option value="">Будь-який статус</option>
         <option value="true">Активні</option>
         <option value="false">Неактивні</option>
-      </select>
-      <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+      </BaseSelect>
+      <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
         <FunnelIcon class="h-4 w-4" aria-hidden="true" />
         <span>Застосувати</span>
-      </button>
+      </BaseButton>
     </section>
 
     <div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

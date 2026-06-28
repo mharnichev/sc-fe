@@ -260,11 +260,11 @@ const runJob = async (job: SmsJob) => {
           <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Транзакційні SMS для підтверджень запису та нагадувань перед візитом.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium" :disabled="pending" @click="refresh()">
+          <BaseButton class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium" :disabled="pending" @click="refresh()">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Оновити
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             v-if="canSendMessagingCampaigns"
             class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="Boolean(runningJob)"
@@ -272,8 +272,8 @@ const runJob = async (job: SmsJob) => {
           >
             <ClockIcon class="h-4 w-4" aria-hidden="true" />
             {{ runningJob === 'reminders' ? 'Відправляємо...' : 'Нагадування 2г' }}
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             v-if="canSendMessagingCampaigns"
             class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="Boolean(runningJob)"
@@ -281,7 +281,7 @@ const runJob = async (job: SmsJob) => {
           >
             <PlayCircleIcon class="h-4 w-4" aria-hidden="true" />
             {{ runningJob === 'pending' ? 'Обробляємо...' : 'Обробити чергу' }}
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -289,7 +289,7 @@ const runJob = async (job: SmsJob) => {
         <div v-for="index in 2" :key="index" class="h-56 animate-pulse rounded-[1.25rem] bg-slate-100" />
       </div>
       <div v-else-if="error" class="mt-5 rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-        Не вдалося завантажити SMS кампанії. <button class="font-semibold underline" @click="refresh()">Спробувати ще раз</button>
+        Не вдалося завантажити SMS кампанії. <BaseButton class="font-semibold underline" @click="refresh()">Спробувати ще раз</BaseButton>
       </div>
       <div v-else class="mt-5 grid gap-4 lg:grid-cols-2">
         <article
@@ -336,7 +336,7 @@ const runJob = async (job: SmsJob) => {
           </div>
 
           <div class="mt-4 flex flex-wrap gap-2">
-            <button
+            <BaseButton
               v-if="canCreateMessagingDrafts"
               class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-900"
               :aria-label="item.campaign ? 'Редагувати SMS сценарій' : 'Створити SMS сценарій'"
@@ -345,7 +345,7 @@ const runJob = async (job: SmsJob) => {
             >
               <PencilIcon v-if="item.campaign" class="h-4 w-4" aria-hidden="true" />
               <PlusIcon v-else class="h-4 w-4" aria-hidden="true" />
-            </button>
+            </BaseButton>
             <NuxtLink
               v-if="item.campaign"
               :to="`/messaging/campaigns/${item.campaign.id}`"
@@ -367,10 +367,10 @@ const runJob = async (job: SmsJob) => {
           <p class="mt-1 text-sm text-slate-500">SMS кампанії з загального списку повідомлень.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <BackofficeSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
-          <button class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+          <BaseSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
+          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
             Застосувати
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -400,14 +400,14 @@ const runJob = async (job: SmsJob) => {
               <td data-label="Оновлено" class="px-4 py-3 text-slate-700">{{ campaign.updated_at ? new Date(campaign.updated_at).toLocaleString('uk-UA') : '—' }}</td>
               <td data-label="Дії" class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
-                  <button
+                  <BaseButton
                     v-if="canCreateMessagingDrafts && campaignScenarioDefinition(campaign)"
                     class="rounded-full border border-slate-300 p-2"
                     title="Редагувати"
                     @click="openCampaignEditor(campaign)"
                   >
                     <PencilIcon class="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  </BaseButton>
                   <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="rounded-full border border-slate-300 p-2" title="Деталі">
                     <EyeIcon class="h-4 w-4" aria-hidden="true" />
                   </NuxtLink>
@@ -420,9 +420,9 @@ const runJob = async (job: SmsJob) => {
       </div>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
-        <button :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page = Math.max(1, page - 1)">Попередня</button>
+        <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page = Math.max(1, page - 1)">Попередня</BaseButton>
         <span class="text-sm text-slate-500">Сторінка {{ page }}</span>
-        <button :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page += 1">Наступна</button>
+        <BaseButton :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page += 1">Наступна</BaseButton>
       </div>
     </section>
 
@@ -444,7 +444,7 @@ const runJob = async (job: SmsJob) => {
                 <PencilIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Назва
               </span>
-              <input v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3">
+              <BaseInput v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
             <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,180px)]">
               <label class="grid gap-2 text-sm">
@@ -452,21 +452,21 @@ const runJob = async (job: SmsJob) => {
                   <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Тип
                 </span>
-                <BackofficeSelect v-model="form.type" :options="smsTypeOptions" menu-class="z-[260]" />
+                <BaseSelect v-model="form.type" :options="smsTypeOptions" menu-class="z-[260]" />
               </label>
               <label class="grid gap-2 text-sm">
                 <span class="inline-flex items-center gap-2 font-medium text-slate-700">
                   <CheckCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Статус
                 </span>
-                <BackofficeSelect v-model="form.status" :options="editorStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
+                <BaseSelect v-model="form.status" :options="editorStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
               </label>
               <label class="grid gap-2 text-sm lg:col-span-2">
                 <span class="inline-flex items-center gap-2 font-medium text-slate-700">
                   <MapPinIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Location key
                 </span>
-                <input v-model="form.location_key" class="rounded-2xl border border-slate-300 px-4 py-3">
+                <BaseInput v-model="form.location_key" class="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
 
@@ -476,14 +476,14 @@ const runJob = async (job: SmsJob) => {
                   <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   За скільки годин до запису
                 </span>
-                <input v-model.number="form.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+                <BaseInput v-model.number="form.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
               <label class="grid gap-2 text-sm">
                 <span class="inline-flex items-center gap-2 font-medium text-slate-700">
                   <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                   Вікно пошуку, хв
                 </span>
-                <input v-model.number="form.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3">
+                <BaseInput v-model.number="form.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
               </label>
             </div>
 
@@ -492,7 +492,7 @@ const runJob = async (job: SmsJob) => {
                 <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
                 Текст SMS
               </span>
-              <textarea v-model="form.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
+              <BaseTextarea v-model="form.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
               <span class="text-xs text-slate-500">{{ form.message_body.length }} символів</span>
             </label>
 
@@ -506,18 +506,18 @@ const runJob = async (job: SmsJob) => {
             </div>
 
             <div class="flex flex-wrap gap-3">
-              <button
+              <BaseButton
                 class="backoffice-modal-action-button backoffice-modal-action-success"
                 :disabled="saving || !form.name.trim() || !form.message_body.trim() || !canCreateMessagingDrafts"
                 @click="saveScenario"
               >
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
                 {{ saving ? 'Збереження...' : 'Зберегти сценарій' }}
-              </button>
-              <button class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="saving" @click="closeEditor">
+              </BaseButton>
+              <BaseButton class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="saving" @click="closeEditor">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
-              </button>
+              </BaseButton>
             </div>
           </div>
           <div class="space-y-4">

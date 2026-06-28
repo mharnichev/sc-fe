@@ -157,13 +157,13 @@ const syncDefaults = async () => {
         </h1>
       </div>
       <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-        <button type="button" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateService">
+        <BaseButton type="button" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreateService">
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
           Створити послугу майстра
-        </button>
-        <button :disabled="syncPending" class="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 disabled:opacity-60" @click="syncDefaults">
+        </BaseButton>
+        <BaseButton :disabled="syncPending" class="rounded-full border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 disabled:opacity-60" @click="syncDefaults">
           {{ syncPending ? 'Синхронізація...' : 'Синхронізувати відсутні типові послуги' }}
-        </button>
+        </BaseButton>
       </div>
     </div>
     <p class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
@@ -214,7 +214,7 @@ const syncDefaults = async () => {
                 </td>
                 <td data-label="Дії" class="px-4 py-3">
                   <div class="flex flex-wrap gap-2">
-                    <button
+                    <BaseButton
                       class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                       aria-label="Редагувати послугу майстра"
                       title="Редагувати"
@@ -222,8 +222,8 @@ const syncDefaults = async () => {
                     >
                       <PencilIcon class="h-4 w-4" aria-hidden="true" />
                       <span class="sr-only">Редагувати</span>
-                    </button>
-                    <button
+                    </BaseButton>
+                    <BaseButton
                       class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                       :aria-label="service.is_active ? 'Деактивувати послугу майстра' : 'Активувати послугу майстра'"
                       :title="service.is_active ? 'Деактивувати' : 'Активувати'"
@@ -237,8 +237,8 @@ const syncDefaults = async () => {
                         <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
                         <span class="sr-only">Активувати</span>
                       </template>
-                    </button>
-                    <button
+                    </BaseButton>
+                    <BaseButton
                       class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                       :disabled="deletingId === service.id || !service.is_active"
                       :aria-label="deletingId === service.id ? 'Вимкнення послуги майстра' : 'Видалити послугу майстра'"
@@ -247,7 +247,7 @@ const syncDefaults = async () => {
                     >
                       <TrashIcon class="h-4 w-4" aria-hidden="true" />
                       <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
-                    </button>
+                    </BaseButton>
                   </div>
                 </td>
               </tr>

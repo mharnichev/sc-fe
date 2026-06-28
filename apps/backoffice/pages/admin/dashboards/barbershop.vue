@@ -135,7 +135,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
           Операційний день, записи, команда та місячна ефективність майстрів.
         </p>
       </div>
-      <button
+      <BaseButton
         type="button"
         :disabled="pending"
         class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
@@ -143,7 +143,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         {{ pending ? 'Оновлення...' : 'Оновити' }}
-      </button>
+      </BaseButton>
     </div>
 
     <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">

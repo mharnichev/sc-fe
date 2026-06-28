@@ -31,32 +31,32 @@ const insertVariable = (variable: string) => {
       <div class="grid gap-4 md:grid-cols-2">
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Назва шаблону</span>
-          <input class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.name" @input="update({ name: ($event.target as HTMLInputElement).value })">
+          <BaseInput class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.name" @input="update({ name: ($event.target as HTMLInputElement).value })" />
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Тип кампанії</span>
-          <select class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.campaign_type" @change="update({ campaign_type: ($event.target as HTMLSelectElement).value as CampaignType })">
+          <BaseSelect native class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.campaign_type" @change="update({ campaign_type: ($event.target as HTMLSelectElement).value as CampaignType })">
             <option v-for="type in campaignTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-          </select>
+          </BaseSelect>
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Канал</span>
-          <select class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.channel" @change="update({ channel: ($event.target as HTMLSelectElement).value as MessagingChannel })">
+          <BaseSelect native class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.channel" @change="update({ channel: ($event.target as HTMLSelectElement).value as MessagingChannel })">
             <option v-for="channel in channels" :key="channel.value" :value="channel.value" :disabled="!channel.enabled">{{ channel.label }}</option>
-          </select>
+          </BaseSelect>
         </label>
         <label class="grid gap-2 text-sm">
           <span class="font-medium text-slate-700">Мова</span>
-          <select class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.language" @change="update({ language: ($event.target as HTMLSelectElement).value })">
+          <BaseSelect native class="rounded-2xl border border-slate-300 px-4 py-3" :value="form.language" @change="update({ language: ($event.target as HTMLSelectElement).value })">
             <option value="uk">Українська</option>
             <option value="en">English</option>
-          </select>
+          </BaseSelect>
         </label>
       </div>
 
       <label class="grid gap-2 text-sm">
         <span class="font-medium text-slate-700">Текст повідомлення</span>
-        <textarea class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" :value="form.message_body" @input="update({ message_body: ($event.target as HTMLTextAreaElement).value })" />
+        <BaseTextarea class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" :value="form.message_body" @input="update({ message_body: ($event.target as HTMLTextAreaElement).value })" />
         <span class="text-xs text-slate-500">{{ form.message_body.length }} символів</span>
       </label>
 
@@ -67,11 +67,11 @@ const insertVariable = (variable: string) => {
 
       <div class="flex flex-wrap gap-3">
         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" :checked="form.is_active" @change="update({ is_active: ($event.target as HTMLInputElement).checked })">
+          <BaseCheckbox  :checked="form.is_active" @change="update({ is_active: ($event.target as HTMLInputElement).checked })" />
           Активний
         </label>
         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" :checked="form.is_default" @change="update({ is_default: ($event.target as HTMLInputElement).checked })">
+          <BaseCheckbox  :checked="form.is_default" @change="update({ is_default: ($event.target as HTMLInputElement).checked })" />
           Шаблон за замовчуванням
         </label>
       </div>

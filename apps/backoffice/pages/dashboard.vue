@@ -298,7 +298,7 @@ const availabilityRows = computed(() =>
           {{ roleLabel }}<span v-if="linkedMaster"> · {{ masterName(linkedMaster) }}</span>
         </p>
       </div>
-      <button
+      <BaseButton
         type="button"
         :disabled="pending"
         class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm"
@@ -306,7 +306,7 @@ const availabilityRows = computed(() =>
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         {{ pending ? 'Оновлення...' : 'Оновити' }}
-      </button>
+      </BaseButton>
     </div>
 
     <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">

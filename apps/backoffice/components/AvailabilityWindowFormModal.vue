@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
             <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
             Майстер
           </span>
-          <button
+          <BaseButton
             type="button"
             class="flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-left text-sm"
             :aria-expanded="openMenu === 'master'"
@@ -314,12 +314,12 @@ onBeforeUnmount(() => {
               </span>
             </span>
             <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="openMenu === 'master' ? 'rotate-180' : ''" aria-hidden="true" />
-          </button>
+          </BaseButton>
           <div
             v-if="openMenu === 'master'"
             class="booking-select-menu absolute z-[220] mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
           >
-            <button
+            <BaseButton
               v-for="master in masters"
               :key="master.id"
               type="button"
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
                 <span class="block truncate font-medium">{{ masterName(master) }}</span>
                 <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
               </span>
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -345,7 +345,7 @@ onBeforeUnmount(() => {
               <CalendarDaysIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Період
             </span>
-            <button
+            <BaseButton
               type="button"
               class="flex min-h-10 w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-left text-sm"
               :aria-expanded="openMenu === 'period'"
@@ -359,9 +359,9 @@ onBeforeUnmount(() => {
                 </span>
               </span>
               <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="openMenu === 'period' ? 'rotate-180' : ''" aria-hidden="true" />
-            </button>
+            </BaseButton>
             <div v-if="openMenu === 'period'" class="booking-select-menu absolute z-[210] mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-              <button
+              <BaseButton
                 v-for="option in periodOptions"
                 :key="option.value"
                 type="button"
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
                   <span class="block truncate font-medium text-slate-900">{{ option.label }}</span>
                   <span class="block truncate text-xs text-slate-500">{{ option.description }}</span>
                 </span>
-              </button>
+              </BaseButton>
             </div>
           </div>
 
@@ -384,14 +384,14 @@ onBeforeUnmount(() => {
                 <CalendarIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
                 Від
               </span>
-              <input v-model="form.date_from" required type="date" :min="todayInput()" :max="horizonEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm">
+              <BaseCalendar v-model="form.date_from" required :min="todayInput()" :max="horizonEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm" />
             </label>
             <label class="space-y-1 text-xs text-slate-700">
               <span class="inline-flex items-center gap-1.5 font-medium">
                 <CalendarIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
                 До
               </span>
-              <input v-model="form.date_to" required type="date" :disabled="!selectableEndDate" :min="form.date_from || todayInput()" :max="horizonEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100">
+              <BaseCalendar v-model="form.date_to" required :disabled="!selectableEndDate" :min="form.date_from || todayInput()" :max="horizonEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100" />
             </label>
           </div>
         </div>
@@ -402,7 +402,7 @@ onBeforeUnmount(() => {
               <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
               Час
             </span>
-            <button
+            <BaseButton
               type="button"
               class="flex min-h-10 w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-left text-sm"
               :aria-expanded="openMenu === 'window'"
@@ -416,9 +416,9 @@ onBeforeUnmount(() => {
                 </span>
               </span>
               <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="openMenu === 'window' ? 'rotate-180' : ''" aria-hidden="true" />
-            </button>
+            </BaseButton>
             <div v-if="openMenu === 'window'" class="booking-select-menu absolute z-[200] mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-              <button
+              <BaseButton
                 v-for="option in windowTypeOptions"
                 :key="option.value"
                 type="button"
@@ -431,7 +431,7 @@ onBeforeUnmount(() => {
                   <span class="block truncate font-medium text-slate-900">{{ option.label }}</span>
                   <span class="block truncate text-xs text-slate-500">{{ option.description }}</span>
                 </span>
-              </button>
+              </BaseButton>
             </div>
           </div>
 
@@ -441,14 +441,14 @@ onBeforeUnmount(() => {
                 <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
                 Початок
               </span>
-              <input v-model="form.start_time" :disabled="form.window_type === 'full_day'" type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100">
+              <BaseInput v-model="form.start_time" :disabled="form.window_type === 'full_day'" type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100" />
             </label>
             <label class="space-y-1 text-xs text-slate-700">
               <span class="inline-flex items-center gap-1.5 font-medium">
                 <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
                 Завершення
               </span>
-              <input v-model="form.end_time" :disabled="form.window_type === 'full_day'" type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100">
+              <BaseInput v-model="form.end_time" :disabled="form.window_type === 'full_day'" type="time" :min="calendar.workdayStart" :max="calendar.workdayEnd" class="min-h-10 w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-100" />
             </label>
           </div>
         </div>
@@ -459,14 +459,14 @@ onBeforeUnmount(() => {
         <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{{ formError }}</p>
 
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-success">
+          <BaseButton type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-success">
             <LockOpenIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Відкриття...' : 'Відкрити для запису' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>

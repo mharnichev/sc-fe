@@ -147,10 +147,10 @@ const deleteService = async (service: MasterService) => {
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Мої послуги</h1>
         <p v-if="linkedMaster" class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">{{ masterName(linkedMaster) }}</p>
       </div>
-      <button type="button" :disabled="!isBarber || !barberId" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium disabled:opacity-60 sm:w-auto xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateService">
+      <BaseButton type="button" :disabled="!isBarber || !barberId" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium disabled:opacity-60 sm:w-auto xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити послугу
-      </button>
+      </BaseButton>
     </div>
 
     <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
@@ -199,7 +199,7 @@ const deleteService = async (service: MasterService) => {
                 {{ service.source_type === 'base' ? 'Базова' : service.source_type }}
               </span>
               <div class="flex shrink-0 gap-1.5">
-                <button
+                <BaseButton
                   class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                   aria-label="Редагувати послугу"
                   title="Редагувати"
@@ -207,8 +207,8 @@ const deleteService = async (service: MasterService) => {
                 >
                   <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
                   <span class="sr-only">Редагувати</span>
-                </button>
-                <button
+                </BaseButton>
+                <BaseButton
                   class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                   :aria-label="service.is_active ? 'Деактивувати послугу' : 'Активувати послугу'"
                   :title="service.is_active ? 'Деактивувати' : 'Активувати'"
@@ -217,8 +217,8 @@ const deleteService = async (service: MasterService) => {
                   <NoSymbolIcon v-if="service.is_active" class="h-3.5 w-3.5" aria-hidden="true" />
                   <CheckCircleIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
                   <span class="sr-only">{{ service.is_active ? 'Деактивувати' : 'Активувати' }}</span>
-                </button>
-                <button
+                </BaseButton>
+                <BaseButton
                   class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                   :disabled="deletingId === service.id || !service.is_active"
                   :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"
@@ -227,7 +227,7 @@ const deleteService = async (service: MasterService) => {
                 >
                   <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
                   <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
-                </button>
+                </BaseButton>
               </div>
             </div>
           </article>
@@ -278,7 +278,7 @@ const deleteService = async (service: MasterService) => {
               </td>
               <td class="service-actions px-3 py-2.5">
                 <div class="flex flex-wrap gap-1.5">
-                  <button
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     aria-label="Редагувати послугу"
                     title="Редагувати"
@@ -286,8 +286,8 @@ const deleteService = async (service: MasterService) => {
                   >
                     <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">Редагувати</span>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
                     :aria-label="service.is_active ? 'Деактивувати послугу' : 'Активувати послугу'"
                     :title="service.is_active ? 'Деактивувати' : 'Активувати'"
@@ -301,8 +301,8 @@ const deleteService = async (service: MasterService) => {
                       <CheckCircleIcon class="h-3.5 w-3.5" aria-hidden="true" />
                       <span class="sr-only">Активувати</span>
                     </template>
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"
@@ -311,7 +311,7 @@ const deleteService = async (service: MasterService) => {
                   >
                     <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
                     <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
-                  </button>
+                  </BaseButton>
                 </div>
               </td>
             </tr>

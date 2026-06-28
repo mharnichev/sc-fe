@@ -355,14 +355,14 @@ onBeforeUnmount(() => {
               <IdentificationIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Ім’я українською
             </span>
-            <input v-model="form.full_name" required autocomplete="given-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <BaseInput v-model="form.full_name" required autocomplete="given-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
           </label>
           <label class="space-y-1.5 text-sm text-slate-700">
             <span class="flex items-center gap-2 font-medium">
               <IdentificationIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Прізвище українською
             </span>
-            <input v-model="form.last_name" required autocomplete="family-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <BaseInput v-model="form.last_name" required autocomplete="family-name" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
@@ -371,14 +371,14 @@ onBeforeUnmount(() => {
               <LanguageIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               First name англійською
             </span>
-            <input v-model="form.first_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <BaseInput v-model="form.first_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
           </label>
           <label class="space-y-1.5 text-sm text-slate-700">
             <span class="flex items-center gap-2 font-medium">
               <LanguageIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Last name англійською
             </span>
-            <input v-model="form.last_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <BaseInput v-model="form.last_name_en" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
           </label>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
               <BriefcaseIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Позиція
             </span>
-            <button
+            <BaseButton
               type="button"
               class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-900 shadow-sm sm:px-4"
               :aria-expanded="positionSelectOpen"
@@ -395,9 +395,9 @@ onBeforeUnmount(() => {
             >
               <span class="min-w-0 truncate">{{ selectedPositionOption.label }}</span>
               <ChevronDownIcon class="h-4 w-4 shrink-0 text-cyan-700 transition" :class="{ 'rotate-180': positionSelectOpen }" aria-hidden="true" />
-            </button>
+            </BaseButton>
             <div v-if="positionSelectOpen" class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl">
-              <button
+              <BaseButton
                 v-for="option in positionOptions"
                 :key="option.value"
                 type="button"
@@ -407,7 +407,7 @@ onBeforeUnmount(() => {
               >
                 <span>{{ option.label }}</span>
                 <CheckCircleIcon v-if="form.position === option.value" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              </button>
+              </BaseButton>
             </div>
           </div>
           <div ref="redirectSelectRef" class="relative min-w-0 space-y-1.5 text-sm text-slate-700">
@@ -415,7 +415,7 @@ onBeforeUnmount(() => {
               <ArrowRightIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Перенаправляти онлайн-записи до
             </span>
-            <button
+            <BaseButton
               type="button"
               class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 shadow-sm sm:px-4"
               :aria-expanded="redirectSelectOpen"
@@ -430,9 +430,9 @@ onBeforeUnmount(() => {
                 <span class="min-w-0 truncate">{{ selectedRedirectLabel }}</span>
               </span>
               <ChevronDownIcon class="h-4 w-4 shrink-0 text-cyan-700 transition" :class="{ 'rotate-180': redirectSelectOpen }" aria-hidden="true" />
-            </button>
+            </BaseButton>
             <div v-if="redirectSelectOpen" class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl">
-              <button
+              <BaseButton
                 type="button"
                 class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 :class="!formBookingRedirectMasterId ? 'bg-slate-50 text-slate-950' : ''"
@@ -445,8 +445,8 @@ onBeforeUnmount(() => {
                   <span class="min-w-0 truncate">Не перенаправляти</span>
                 </span>
                 <CheckCircleIcon v-if="!formBookingRedirectMasterId" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              </button>
-              <button
+              </BaseButton>
+              <BaseButton
                 v-if="selectedRedirectMasterMissing"
                 type="button"
                 disabled
@@ -454,8 +454,8 @@ onBeforeUnmount(() => {
               >
                 <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-cyan-700">#</span>
                 <span class="min-w-0 truncate">Майстер #{{ formBookingRedirectMasterId }}</span>
-              </button>
-              <button
+              </BaseButton>
+              <BaseButton
                 v-if="selectedRedirectMasterUnavailable && selectedRedirectMaster"
                 type="button"
                 disabled
@@ -466,8 +466,8 @@ onBeforeUnmount(() => {
                   <span v-else>{{ masterInitials(selectedRedirectMaster) }}</span>
                 </span>
                 <span class="min-w-0 truncate">{{ masterName(selectedRedirectMaster) }}</span>
-              </button>
-              <button
+              </BaseButton>
+              <BaseButton
                 v-for="master in availableRedirectMasterOptions"
                 :key="master.id"
                 type="button"
@@ -483,7 +483,7 @@ onBeforeUnmount(() => {
                   <span class="min-w-0 truncate">{{ masterName(master) }}</span>
                 </span>
                 <CheckCircleIcon v-if="formBookingRedirectMasterId === master.id" class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              </button>
+              </BaseButton>
             </div>
           </div>
         </div>
@@ -494,7 +494,7 @@ onBeforeUnmount(() => {
               <EnvelopeIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Email для входу
             </span>
-            <input v-model="form.email" type="email" :required="!editing" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+            <BaseInput v-model="form.email" type="email" :required="!editing" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
           </label>
         </div>
         <label v-if="!editing" class="space-y-1.5 text-sm text-slate-700">
@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
             <KeyIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
             Пароль для входу
           </span>
-          <input v-model="form.password" required type="password" minlength="6" autocomplete="new-password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4">
+          <BaseInput v-model="form.password" required type="password" minlength="6" autocomplete="new-password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
         </label>
         <p v-else class="flex gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:px-4">
           <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-cyan-700" aria-hidden="true" />
@@ -514,34 +514,34 @@ onBeforeUnmount(() => {
               <PhotoIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Фото
             </span>
-            <input :key="`photo-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'photo')">
+            <BaseInput :key="`photo-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'photo')" />
           </label>
           <label class="space-y-1.5 text-sm text-slate-700">
             <span class="flex items-center gap-2 font-medium">
               <UserCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
               Avatar
             </span>
-            <input :key="`avatar-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'avatar')">
+            <BaseInput :key="`avatar-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'avatar')" />
           </label>
         </div>
         <div v-if="displayedPhotoUrl || displayedAvatarUrl" class="grid gap-4 rounded-xl bg-slate-50 p-3 sm:p-4 md:grid-cols-2">
           <div v-if="displayedPhotoUrl" class="space-y-1.5">
             <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото' : 'Попередній перегляд фото' }}</p>
-            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
+            <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
               <img :src="displayedPhotoUrl" alt="Фото майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
-            </button>
+            </BaseButton>
           </div>
           <div v-if="displayedAvatarUrl" class="space-y-1.5">
             <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточний avatar' : 'Попередній перегляд avatar' }}</p>
-            <button type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedAvatarUrl, 'Avatar майстра')">
+            <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedAvatarUrl, 'Avatar майстра')">
               <img :src="displayedAvatarUrl" alt="Avatar майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
-            </button>
+            </BaseButton>
           </div>
         </div>
         <label class="mt-2 space-y-1.5 text-sm text-slate-700">
@@ -549,7 +549,7 @@ onBeforeUnmount(() => {
             <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
             Опис
           </span>
-          <textarea v-model="form.description" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
+          <BaseTextarea v-model="form.description" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4" />
         </label>
         <p class="flex gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-500 sm:px-4">
           <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-cyan-700" aria-hidden="true" />
@@ -557,26 +557,26 @@ onBeforeUnmount(() => {
         </p>
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-            <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
             <CheckCircleIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
             <span>Майстер активний</span>
           </label>
           <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-            <input v-model="form.showOnMasterBlock" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+            <BaseCheckbox v-model="form.showOnMasterBlock" class="h-4 w-4 rounded border-slate-300" />
             <EyeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
             <span>Показувати у блоці майстрів</span>
           </label>
         </div>
         <div class="backoffice-modal-actions">
-          <button type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти майстра' }}
-          </button>
-          <button type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
+          </BaseButton>
+          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-secondary" @click="fillForm(editing)">
             <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
             Скинути
-          </button>
+          </BaseButton>
         </div>
       </form>
     </template>
@@ -590,9 +590,9 @@ onBeforeUnmount(() => {
       aria-modal="true"
       @click.self="closeImagePreview"
     >
-      <button type="button" class="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-5 sm:top-5" aria-label="Закрити перегляд" @click="closeImagePreview">
+      <BaseButton type="button" class="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-5 sm:top-5" aria-label="Закрити перегляд" @click="closeImagePreview">
         <XMarkIcon class="h-6 w-6" aria-hidden="true" />
-      </button>
+      </BaseButton>
       <img :src="imagePreviewUrl" :alt="imagePreviewAlt" class="max-h-[92dvh] max-w-full rounded-xl object-contain">
     </div>
   </Teleport>
