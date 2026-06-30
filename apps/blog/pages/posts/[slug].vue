@@ -18,17 +18,23 @@ if (!rawPost) {
 
 const post = computed(() => localizePost(rawPost, locale.value))
 const relatedPosts = computed(() => getRelatedPosts(rawPost.slug, locale.value))
-const articleImagesByParagraphIndex = computed(() => new Map(
-  post.value.articleImages?.map((image, imageIndex) => [
-    image.afterParagraphIndex,
-    {
+const articleImagesByParagraphIndex = computed(() => {
+  const imagesByParagraph = new Map<number, Array<NonNullable<typeof post.value.articleImages>[number] & { placement: 'left' | 'right' }>>()
+
+  post.value.articleImages?.forEach((image, imageIndex) => {
+    const paragraphImages = imagesByParagraph.get(image.afterParagraphIndex) ?? []
+
+    paragraphImages.push({
       ...image,
       placement: imageIndex % 2 === 0 ? 'right' : 'left',
-    },
-  ]) ?? [],
-))
+    })
+    imagesByParagraph.set(image.afterParagraphIndex, paragraphImages)
+  })
 
-const getArticleImageAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.value.get(paragraphIndex)
+  return imagesByParagraph
+})
+
+const getArticleImagesAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.value.get(paragraphIndex) ?? []
 const contentBackgrounds = [
   bgDark1,
   bgDark2,
@@ -90,21 +96,22 @@ useSeoMeta({
                 {{ paragraph }}
               </p>
               <figure
-                v-if="getArticleImageAfter(paragraphIndex)"
+                v-for="image in getArticleImagesAfter(paragraphIndex)"
+                :key="`${paragraphIndex}-${image.src}`"
                 class="article-float-image my-16 overflow-hidden sm:my-20"
-                :class="getArticleImageAfter(paragraphIndex)?.placement === 'left' ? 'article-float-image--left' : 'article-float-image--right'"
+                :class="image.placement === 'left' ? 'article-float-image--left' : 'article-float-image--right'"
               >
                 <img
-                  :src="getArticleImageAfter(paragraphIndex)?.src"
-                  :alt="getArticleImageAfter(paragraphIndex)?.alt"
+                  :src="image.src"
+                  :alt="image.alt"
                   class="aspect-[4/3] w-full object-cover"
                   loading="lazy"
                 >
                 <figcaption
-                  v-if="getArticleImageAfter(paragraphIndex)?.caption"
+                  v-if="image.caption"
                   class="mt-3 text-sm leading-6 text-neutral-500"
                 >
-                  {{ getArticleImageAfter(paragraphIndex)?.caption }}
+                  {{ image.caption }}
                 </figcaption>
               </figure>
             </template>

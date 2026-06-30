@@ -31,7 +31,7 @@ const emit = defineEmits<{
         <p v-if="label" class="text-xs font-semibold uppercase tracking-[0.24em]" :class="tone === 'dark' ? 'text-white/45' : 'text-neutral-500'">
           {{ label }}
         </p>
-        <h3 class="mt-3 text-3xl font-semibold leading-tight md:text-5xl">
+        <h3 class="mt-3 text-2xl font-semibold uppercase leading-tight md:text-4xl">
           {{ title }}
         </h3>
         <slot>

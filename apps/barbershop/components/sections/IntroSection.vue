@@ -47,7 +47,7 @@ const accordionIntroText = computed(() =>
         <div class="flex w-full flex-col gap-8 min-[560px]:flex-1 md:gap-12" data-reveal="soft" data-reveal-delay="220">
           <div class="flex w-full flex-col">
             <SectionLabel>{{ terms.home.intro.label }}</SectionLabel>
-            <p class="mt-4 max-w-5xl text-2xl font-semibold leading-tight text-white lg:mt-6 lg:text-3xl">
+            <p class="mt-4 max-w-5xl text-2xl font-semibold uppercase leading-tight text-white lg:mt-6 lg:text-3xl">
               {{ terms.home.intro.quote }}
             </p>
           </div>

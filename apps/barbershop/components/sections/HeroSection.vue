@@ -62,7 +62,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="flex flex-col" data-reveal="soft" data-reveal-delay="140">
-        <h1 class="max-w-5xl text-xl text-center font-semibold leading-[0.95] tracking-normal sm:text-3xl lg:text-3xl">
+        <h1 class="max-w-5xl text-center text-2xl font-semibold uppercase leading-[0.95] tracking-normal sm:text-2xl md:text-3xl">
           {{ terms.home.hero.title }}
         </h1>
 

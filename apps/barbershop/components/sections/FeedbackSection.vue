@@ -100,7 +100,7 @@ const submit = () => {
     <div class="site-container grid gap-8 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.feedback.label }}</SectionLabel>
-        <h2 class="section-title mt-4 md:text-5xl">{{ terms.home.feedback.title }}</h2>
+        <h2 class="section-title mt-4 uppercase md:text-4xl">{{ terms.home.feedback.title }}</h2>
         <p class="mt-5 max-w-md text-base leading-7 text-neutral-600 md:leading-8">
           {{ terms.home.feedback.description }}
         </p>

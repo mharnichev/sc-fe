@@ -150,7 +150,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
     <div class="site-container grid gap-8 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.faq.label }}</SectionLabel>
-        <h2 class="section-title mt-4 md:text-5xl">{{ terms.home.faq.title }}</h2>
+        <h2 class="section-title mt-4 md:text-4xl">{{ terms.home.faq.title }}</h2>
       </div>
       <div class="faq-accordions" data-reveal="soft" data-reveal-delay="140">
         <details v-for="section in faqItems" :key="section.title" class="faq-accordion" aria-expanded="false">

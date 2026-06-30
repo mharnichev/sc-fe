@@ -21,14 +21,10 @@ const { terms } = useTerms()
             <img :src="logoNameDark" alt="Soul Cuts" class="relative z-10 w-full object-contain">
           </div>
         </div>
-
-        <!--        <h2 class="mt-4 max-w-4xl text-4xl font-semibold leading-tight md:mt-6 md:text-[52px]">-->
-<!--          {{ terms.home.cta.title }}-->
-<!--        </h2>-->
       </div>
       <div class="order-1 w-full space-y-4 md:space-y-6 lg:order-1" data-reveal="soft" data-reveal-delay="140">
         <SectionLabel>{{ terms.home.cta.label }}</SectionLabel>
-        <h2 class="mt-4 w-full text-4xl font-semibold leading-tight md:mt-6 md:text-[52px]">
+        <h2 class="mt-4 w-full text-2xl font-semibold uppercase leading-tight md:mt-6 md:text-4xl">
           {{ terms.home.cta.title }}
         </h2>
         <p class="text-base leading-7 text-white/65 md:leading-8">

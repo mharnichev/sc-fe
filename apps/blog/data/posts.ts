@@ -10,6 +10,8 @@ import galleryImage8920 from '../assets/images/posts/barbering-museum-gallery-89
 import galleryImage9149 from '../assets/images/posts/barbering-museum-gallery-9149.webp'
 import galleryImage9153 from '../assets/images/posts/barbering-museum-gallery-9153.webp'
 import articleImageHighFive from '../assets/images/posts/barbering-museum-high-five.webp'
+import articleImageBeforeMasterclassOne from '../assets/images/posts/barbering-museum-before-masterclass-01.webp'
+import articleImageBeforeMasterclassTwo from '../assets/images/posts/barbering-museum-before-masterclass-02.webp'
 import articleImageOne from '../assets/images/posts/barbering-museum-masterclass.webp'
 import articleImagePortrait from '../assets/images/posts/barbering-museum-portrait.webp'
 
@@ -137,6 +139,22 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 3,
+        src: articleImageBeforeMasterclassOne,
+        alt: {
+          uk: 'Учасник барберської події в музейній залі перед майстеркласом',
+          en: 'A participant of the barbering event inside the museum hall before the masterclass',
+        },
+      },
+      {
+        afterParagraphIndex: 3,
+        src: articleImageBeforeMasterclassTwo,
+        alt: {
+          uk: 'Гості барберської події спілкуються в музейній залі перед майстеркласом',
+          en: 'Guests of the barbering event talk inside the museum hall before the masterclass',
+        },
+      },
+      {
+        afterParagraphIndex: 3,
         src: articleImageOne,
         alt: {
           uk: 'Володимир Мєдвєдєв показує техніку стрижки під час майстеркласу',
@@ -166,6 +184,20 @@ export const posts: BlogPost[] = [
         alt: {
           uk: 'Учасники барберської події збираються біля входу до музею',
           en: 'Participants of the barbering event gather near the museum entrance',
+        },
+      },
+      {
+        src: articleImageBeforeMasterclassOne,
+        alt: {
+          uk: 'Учасник барберської події в музейній залі перед майстеркласом',
+          en: 'A participant of the barbering event inside the museum hall before the masterclass',
+        },
+      },
+      {
+        src: articleImageBeforeMasterclassTwo,
+        alt: {
+          uk: 'Гості барберської події спілкуються в музейній залі перед майстеркласом',
+          en: 'Guests of the barbering event talk inside the museum hall before the masterclass',
         },
       },
       {

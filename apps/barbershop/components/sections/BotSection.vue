@@ -14,7 +14,7 @@ const botLink = 'https://t.me/SoulcutsBot'
             <p class="inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
               {{ terms.home.bot.badge }}
             </p>
-            <h2 class="mt-5 text-4xl font-semibold leading-none tracking-normal text-white sm:text-5xl md:text-[52px]">
+            <h2 class="mt-5 text-2xl font-semibold uppercase leading-none tracking-normal text-white sm:text-2xl md:text-4xl">
               {{ terms.home.bot.title }}
             </h2>
             <p class="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg md:leading-8">

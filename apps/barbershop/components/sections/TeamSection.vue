@@ -161,7 +161,7 @@ watch(teamMembers, (members) => {
         <div class="absolute inset-x-0 top-0 z-20 pb-14 pt-5" data-reveal="soft">
           <div class="site-container">
             <SectionLabel class="text-white/75">{{ terms.home.team.label }}</SectionLabel>
-            <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-white">
+            <h2 class="mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-white">
               {{ terms.home.team.title }}
             </h2>
           </div>
@@ -206,7 +206,7 @@ watch(teamMembers, (members) => {
                 <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
                   {{ activeMember.role }}
                 </p>
-                <h3 class="mt-3 text-4xl font-black uppercase leading-none text-white">
+                <h3 class="mt-3 text-2xl font-black uppercase leading-none text-white">
                   {{ activeMember.name }}
                 </h3>
                 <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
@@ -241,7 +241,7 @@ watch(teamMembers, (members) => {
               <div class="flex w-fit max-w-full items-start justify-start border-b border-neutral-950/15 pb-4">
                 <div>
                   <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
-                  <h2 class="mt-2 text-4xl font-semibold leading-none tracking-normal text-neutral-950 sm:text-5xl lg:text-[52px]">
+                  <h2 class="mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-neutral-950 sm:text-2xl md:text-4xl lg:text-4xl">
                     {{ terms.home.team.title }}
                   </h2>
                 </div>
@@ -254,7 +254,7 @@ watch(teamMembers, (members) => {
                 v-for="(member, index) in teamMembers"
                 :key="member.name"
                 type="button"
-                class="shrink-0 border px-3 py-2 text-left text-4xl font-black uppercase leading-none tracking-normal transition duration-300 sm:text-5xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-4xl xl:text-[42px]"
+                class="shrink-0 border px-3 py-2 text-left text-2xl font-black uppercase leading-none tracking-normal transition duration-300 sm:text-2xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-4xl xl:text-[42px]"
                 :class="activeMemberIndex === index ? 'border-neutral-950 bg-stone-100 text-neutral-950 md:bg-transparent md:text-neutral-950' : 'border-transparent text-neutral-950/35 hover:text-neutral-950/70'"
                 :aria-current="activeMemberIndex === index ? 'true' : undefined"
                 @click="selectMember(index)"
@@ -287,7 +287,7 @@ watch(teamMembers, (members) => {
                 <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
                   {{ activeMember.role }}
                 </p>
-                <h3 class="mt-3 text-3xl font-black uppercase leading-none text-white md:hidden">
+                <h3 class="mt-3 text-2xl font-black uppercase leading-none text-white md:hidden">
                   {{ activeMember.name }}
                 </h3>
                 <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">

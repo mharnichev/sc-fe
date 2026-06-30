@@ -39,11 +39,11 @@ a {
   }
 
   .section-title {
-    @apply text-4xl font-semibold leading-tight tracking-normal text-neutral-950 md:text-[52px];
+    @apply text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950 md:text-4xl;
   }
 
   .section-title-inverse {
-    @apply text-4xl font-semibold leading-tight tracking-normal text-white md:text-[52px];
+    @apply text-2xl font-semibold uppercase leading-tight tracking-normal text-white md:text-4xl;
   }
 }
 
