@@ -1143,22 +1143,26 @@ const closeSuccess = () => {
               </div>
 
               <div class="booking-step-actions mt-8 flex flex-row gap-3 sm:items-center">
-                <button
+                <BaseButton
                   v-if="activeStepIndex > 0"
                   type="button"
-                  class="inline-flex h-11 flex-1 items-center justify-center gap-2 border border-white/15 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/75 transition hover:border-white/45 hover:text-white sm:h-12 sm:flex-none sm:px-5 sm:text-sm sm:tracking-[0.16em]"
+                  variant="light"
+                  size="sm"
+                  class="h-11 flex-1 sm:h-12 sm:flex-none"
                   @click="goToStep(activeStepIndex - 1)"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                   {{ terms.home.booking.back }}
-                </button>
+                </BaseButton>
 
-                <button
+                <BaseButton
                   type="button"
                   :disabled="state.loading || (activeStepIndex === lastStepIndex && !canSubmit)"
-                  class="inline-flex h-11 flex-[1.35] items-center justify-center gap-2 bg-white px-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-45 sm:h-12 sm:flex-none sm:px-6 sm:text-sm sm:tracking-[0.16em]"
+                  variant="light"
+                  size="sm"
+                  class="h-11 flex-[1.35] sm:h-12 sm:flex-none"
                   :class="showProminentBookingAction ? 'booking-guided-action' : ''"
                   @click="handleBookingAction"
                 >
@@ -1187,7 +1191,7 @@ const closeSuccess = () => {
                       </svg>
                     </span>
                   </Transition>
-                </button>
+                </BaseButton>
               </div>
               <p v-if="state.error" class="mt-4 text-sm leading-6 text-rose-200">{{ state.error }}</p>
             </div>
@@ -1313,7 +1317,6 @@ const closeSuccess = () => {
 .booking-form .booking-step-actions {
   flex-shrink: 0;
   margin-top: 1rem;
-  border-top: 1px solid rgb(255 255 255 / 0.12);
   padding-top: 1rem;
 }
 
@@ -1401,7 +1404,6 @@ const closeSuccess = () => {
   .booking-step-panel--time .booking-step-actions {
     flex-shrink: 0;
     margin-top: 1rem;
-    border-top: 1px solid rgb(255 255 255 / 0.12);
     padding-top: 1rem;
   }
 
@@ -1444,7 +1446,6 @@ const closeSuccess = () => {
   .booking-section:not(.booking-section--drawer) .booking-step-actions {
     flex-shrink: 0;
     margin-top: 1rem;
-    border-top: 1px solid rgb(255 255 255 / 0.12);
     padding-top: 1rem;
   }
 }
@@ -1543,7 +1544,6 @@ const closeSuccess = () => {
 .booking-section--drawer .booking-step-actions {
   flex-shrink: 0;
   margin-top: 1rem;
-  border-top: 1px solid rgb(255 255 255 / 0.12);
   padding-top: 1rem;
 }
 

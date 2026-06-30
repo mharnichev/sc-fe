@@ -34,12 +34,9 @@ const featuredPostHref = '/blog/posts/barbering-in-the-museum'
           </div>
 
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <a
-              :href="blogHref"
-              class="inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-black uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/86"
-            >
+            <BaseButton :href="blogHref" variant="light">
               {{ terms.home.blog.primaryCta }}
-            </a>
+            </BaseButton>
             <a
               :href="featuredPostHref"
               class="inline-flex w-fit border-b border-white/50 pb-2 text-sm font-black uppercase tracking-[0.16em] text-white/72 transition hover:border-white hover:text-white"

@@ -340,9 +340,9 @@ const submit = async () => {
         class="w-full rounded-2xl border border-stone-300 px-4 py-3"
         @input="handleTextInput('note', FORM_FIELD_LIMITS.comment, { multiline: true })"
       />
-      <button type="submit" :disabled="state.loading" class="rounded-full bg-stone-900 px-6 py-3 text-sm font-medium text-white disabled:opacity-50">
+      <BaseButton type="submit" :disabled="state.loading">
         {{ state.loading ? terms.pages.contacts.sending : terms.pages.contacts.sendRequest }}
-      </button>
+      </BaseButton>
       <p v-if="state.success" class="text-sm text-emerald-700">{{ state.success }}</p>
       <p v-if="state.error" class="text-sm text-rose-700">{{ state.error }}</p>
     </form>

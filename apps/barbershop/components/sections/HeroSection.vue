@@ -71,10 +71,10 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row" data-reveal="soft" data-reveal-delay="280">
-        <PrimaryButton to="#booking-stepper" class="w-full text-center" @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</PrimaryButton>
-        <NuxtLink to="#services" class="w-full inline-flex justify-center items-center border border-white/35 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-neutral-950 text-center" @click="trackEvent('view_services', { source: 'hero_cta' })">
+        <BaseButton to="#booking-stepper" variant="light" effect="waves" block @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</BaseButton>
+        <BaseButton to="#services" variant="dark" block @click="trackEvent('view_services', { source: 'hero_cta' })">
           {{ terms.home.hero.secondaryCta }}
-        </NuxtLink>
+        </BaseButton>
       </div>
 
       <div class="mt-5 flex flex-col items-center gap-1 text-white/65" data-reveal="soft" data-reveal-delay="420" aria-hidden="true">

@@ -30,7 +30,7 @@ const { terms } = useTerms()
         <p class="text-base leading-7 text-white/65 md:leading-8">
           {{ terms.home.cta.text }}
         </p>
-        <PrimaryButton to="#booking">{{ terms.home.cta.button }}</PrimaryButton>
+        <BaseButton to="#booking" variant="light" effect="waves">{{ terms.home.cta.button }}</BaseButton>
       </div>
     </div>
   </section>

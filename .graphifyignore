@@ -1,0 +1,15 @@
+graphify-out/
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+.pnpm-store/
+.pnpm-home/
+*.env
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg

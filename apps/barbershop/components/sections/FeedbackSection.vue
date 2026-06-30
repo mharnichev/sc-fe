@@ -168,12 +168,9 @@ const submit = () => {
         </div>
 
         <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center bg-neutral-950 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
-          >
+          <BaseButton type="submit">
             {{ terms.home.feedback.submit }}
-          </button>
+          </BaseButton>
           <p class="text-sm leading-6 text-neutral-500">
             {{ terms.home.feedback.note }}
           </p>

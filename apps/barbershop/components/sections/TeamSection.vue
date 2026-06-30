@@ -264,9 +264,9 @@ watch(teamMembers, (members) => {
               </button>
             </nav>
 
-            <NuxtLink to="#booking" class="inline-flex w-fit border-b border-neutral-950 pb-2 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-950 transition hover:opacity-60">
+            <BaseButton to="#booking">
               {{ terms.home.team.cta }}
-            </NuxtLink>
+            </BaseButton>
 
           </div>
         </div>

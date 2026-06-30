@@ -1,0 +1,12 @@
+.git
+.DS_Store
+.idea
+node_modules
+.nuxt
+.output
+dist
+coverage
+.pnpm-store
+.pnpm-home
+.env
+graphify-out/

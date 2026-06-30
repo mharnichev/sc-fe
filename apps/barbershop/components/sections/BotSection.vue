@@ -30,11 +30,12 @@ const botLink = 'https://t.me/SoulcutsBot'
           </div>
 
           <div class="col-span-2 flex flex-col gap-4 sm:flex-row sm:items-center md:col-span-1 md:col-start-1 md:row-start-2 md:self-end">
-            <NuxtLink
-              :to="botLink"
+            <BaseButton
+              :href="botLink"
+              variant="light"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex w-full items-center justify-center gap-2 bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-white/90 sm:w-auto sm:text-sm sm:tracking-[0.16em]"
+              class="w-full sm:w-auto"
               @click="trackEvent('click_telegram_bot', { source: 'bot_section' })"
             >
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -42,7 +43,7 @@ const botLink = 'https://t.me/SoulcutsBot'
                 <path d="m8.5 14 9.8-6.1-7.7 8.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
               {{ terms.home.bot.cta }}
-            </NuxtLink>
+            </BaseButton>
             <p class="max-w-sm text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
               {{ terms.home.bot.features }}
             </p>

@@ -39,15 +39,15 @@ const emit = defineEmits<{
             {{ message }}
           </p>
         </slot>
-        <button
+        <BaseButton
           v-if="actionLabel"
           type="button"
-          class="mt-6 inline-flex items-center justify-center px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition"
-          :class="tone === 'dark' ? 'bg-white text-neutral-950 hover:bg-white/90' : 'bg-neutral-950 text-white hover:bg-neutral-800'"
+          :variant="tone === 'dark' ? 'light' : 'dark'"
+          class="mt-6"
           @click="emit('action')"
         >
           {{ actionLabel }}
-        </button>
+        </BaseButton>
       </div>
     </div>
   </Transition>

@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
           <p class="max-w-2xl text-sm leading-6 text-white/65 md:text-base md:leading-8">
             {{ terms.home.cta.text }}
           </p>
-          <PrimaryButton to="#booking" @click="trackEvent('booking_start', { source: 'footer_cta' })">{{ terms.home.cta.button }}</PrimaryButton>
+          <BaseButton to="#booking" variant="light" effect="waves" @click="trackEvent('booking_start', { source: 'footer_cta' })">{{ terms.home.cta.button }}</BaseButton>
         </div>
       </div>
 

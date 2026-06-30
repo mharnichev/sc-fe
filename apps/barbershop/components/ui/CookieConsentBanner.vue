@@ -35,20 +35,19 @@ const {
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row md:shrink-0">
-          <button
+          <BaseButton
             type="button"
-            class="inline-flex min-h-12 items-center justify-center border border-neutral-950 px-5 text-sm font-semibold uppercase tracking-[0.14em] text-neutral-950 transition hover:bg-neutral-100"
+            variant="light"
             @click="acceptNecessaryCookies"
           >
             {{ terms.cookieConsent.necessaryOnly }}
-          </button>
-          <button
+          </BaseButton>
+          <BaseButton
             type="button"
-            class="inline-flex min-h-12 items-center justify-center bg-neutral-950 px-5 text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800"
             @click="acceptAllCookies"
           >
             {{ terms.cookieConsent.acceptAll }}
-          </button>
+          </BaseButton>
         </div>
       </div>
     </aside>

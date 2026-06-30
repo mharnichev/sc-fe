@@ -1,13 +1,14 @@
 <template>
-  <NuxtLink
-    :to="to"
-    class="inline-flex items-center justify-center rounded-none bg-neutral-950 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800"
-  >
+  <BaseButton :to="to" v-bind="$attrs">
     <slot />
-  </NuxtLink>
+  </BaseButton>
 </template>
 
 <script setup lang="ts">
+defineOptions({
+  inheritAttrs: false,
+})
+
 defineProps<{
   to: string
 }>()

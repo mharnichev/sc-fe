@@ -108,13 +108,10 @@ useFaqStructuredData(() =>
             {{ page.intro }}
           </p>
           <div class="flex flex-col gap-3 sm:flex-row">
-            <PrimaryButton to="/#booking">{{ page.bookingCta }}</PrimaryButton>
-            <NuxtLink
-              to="/services"
-              class="inline-flex items-center justify-center border border-stone-900 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-stone-950 transition hover:bg-stone-950 hover:text-white"
-            >
+            <BaseButton to="/#booking">{{ page.bookingCta }}</BaseButton>
+            <BaseButton to="/services" variant="light">
               {{ page.servicesCta }}
-            </NuxtLink>
+            </BaseButton>
           </div>
         </div>
 
