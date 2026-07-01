@@ -245,14 +245,17 @@ onBeforeUnmount(() => {
       leave-to-class="opacity-0"
     >
       <div v-if="isOpen" class="fixed inset-0 z-[60] bg-neutral-950 text-white lg:hidden">
-        <button
+        <BaseButton
           type="button"
-          class="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center bg-white/80 text-xl font-semibold text-neutral-950"
+          class="absolute right-4 top-4 z-10"
+          variant="light"
+          shape="circle"
+          size="sm"
           :aria-label="terms.common.close"
           @click="closeMenu"
         >
           ×
-        </button>
+        </BaseButton>
 
         <nav class="flex min-h-screen flex-col justify-center overflow-y-auto px-8 py-20" :aria-label="terms.common.menu">
           <NuxtLink

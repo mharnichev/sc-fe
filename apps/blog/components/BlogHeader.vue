@@ -59,25 +59,27 @@ onBeforeUnmount(() => {
 
 <template>
   <header
-    class="sticky top-0 z-40 overflow-hidden border-b border-neutral-800 bg-neutral-950/90 backdrop-blur transition-transform duration-300 ease-out"
+    class="sticky top-0 z-40 overflow-hidden bg-neutral-950/90 backdrop-blur transition-transform duration-300 ease-out"
     :class="isHeaderHidden ? '-translate-y-full' : 'translate-y-0'"
   >
     <div class="site-container relative flex min-h-20 items-center justify-between gap-3 pt-2 sm:min-h-24 sm:pt-3">
       <div class="relative z-10 flex items-center gap-2">
-        <button
+        <BaseButton
           type="button"
-          class="inline-flex min-h-9 items-center justify-center border border-white/15 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition hover:border-white/35 hover:text-white/80 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+          size="sm"
           @click="handleSubscribeClick"
         >
           {{ terms.subscribe }}
-        </button>
-        <a
+        </BaseButton>
+        <BaseButton
           href="/#booking"
-          class="inline-flex min-h-9 items-center justify-center bg-white px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-950 transition hover:bg-white/85 sm:min-h-10 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+          variant="light"
+          size="sm"
+          effect="waves"
           @click="handleBookingClick"
         >
           {{ terms.bookAppointment }}
-        </a>
+        </BaseButton>
       </div>
 
       <div class="relative z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-1 py-1 text-white">

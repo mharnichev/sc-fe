@@ -45,6 +45,48 @@ a {
   .section-title-inverse {
     @apply text-2xl font-semibold uppercase leading-tight tracking-normal text-white md:text-4xl;
   }
+
+  .glass-control {
+    border: 0;
+    background: var(--glass-control-bg);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(1.45);
+    backdrop-filter: blur(18px) saturate(1.45);
+    transition: background-color 180ms ease;
+  }
+
+  .glass-control:focus,
+  .glass-control:focus-visible,
+  .glass-control:focus-within {
+    background: var(--glass-control-focus-bg);
+    box-shadow: none;
+  }
+
+  .glass-control--dark {
+    --glass-control-bg: rgb(255 255 255 / 0.16);
+    --glass-control-focus-bg: rgb(255 255 255 / 0.24);
+  }
+
+  .glass-control--light {
+    --glass-control-bg: rgb(34 34 34 / 0.1);
+    --glass-control-focus-bg: rgb(34 34 34 / 0.14);
+  }
+
+  .glass-control--invalid {
+    background: rgb(253 164 175 / 0.18);
+    box-shadow: none;
+  }
+
+  .glass-toggle {
+    background: rgb(255 255 255 / 0.16);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(1.45);
+    backdrop-filter: blur(18px) saturate(1.45);
+  }
+
+  .glass-toggle--active {
+    background: rgb(0 69 169 / 0.58);
+  }
 }
 
 .reveal-ready [data-reveal] {

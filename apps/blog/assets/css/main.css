@@ -33,4 +33,30 @@ a {
   .section-heading {
     @apply text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl;
   }
+
+  .glass-control {
+    border: 0;
+    background: var(--glass-control-bg);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(1.45);
+    backdrop-filter: blur(18px) saturate(1.45);
+    transition: background-color 180ms ease;
+  }
+
+  .glass-control:focus,
+  .glass-control:focus-visible,
+  .glass-control:focus-within {
+    background: var(--glass-control-focus-bg);
+    box-shadow: none;
+  }
+
+  .glass-control--dark {
+    --glass-control-bg: rgb(255 255 255 / 0.16);
+    --glass-control-focus-bg: rgb(255 255 255 / 0.24);
+  }
+
+  .glass-control--light {
+    --glass-control-bg: rgb(34 34 34 / 0.1);
+    --glass-control-focus-bg: rgb(34 34 34 / 0.14);
+  }
 }

@@ -310,14 +310,24 @@ export const localizePost = (post: BlogPost, locale: LocaleCode): LocalizedBlogP
 
 export const getLocalizedPosts = (locale: LocaleCode) => sortedPosts.map(post => localizePost(post, locale))
 
+const getPrimaryPost = () => {
+  const post = posts.find(candidate => candidate.featured) ?? sortedPosts[0]
+
+  if (!post) {
+    throw new Error('Blog posts are not configured')
+  }
+
+  return post
+}
+
 export const getFeaturedPost = (locale: LocaleCode) => {
-  const featuredPost = posts.find(post => post.featured) ?? sortedPosts[0]
+  const featuredPost = getPrimaryPost()
 
   return localizePost(featuredPost, locale)
 }
 
 export const getLatestPosts = (locale: LocaleCode) => {
-  const featuredPost = posts.find(post => post.featured) ?? sortedPosts[0]
+  const featuredPost = getPrimaryPost()
 
   return sortedPosts
     .filter(post => post.slug !== featuredPost.slug)

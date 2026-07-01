@@ -94,7 +94,7 @@ export const blogTerms = {
     barbershopHome: 'До Барбершопу',
     bookAppointment: 'Записатися',
     bookOnline: 'Записатися онлайн',
-    postMenuBookingCta: 'ЗАРІС? ЗАПИСАТИСЯ ДО МАСТЕРА',
+    postMenuBookingCta: 'ЗАРІС? ЗАПИСАТИСЯ ДО МАЙСТРА',
     postMenuSubscribeText: 'Хочеш такі історії без пошуку? Кидаємо найцікавіше на пошту.',
     newsletter: 'Розсилка',
     emailAddress: 'Email адреса',

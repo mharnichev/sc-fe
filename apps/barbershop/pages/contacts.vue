@@ -248,7 +248,7 @@ const submit = async () => {
           minlength="2"
           :maxlength="FORM_FIELD_LIMITS.name"
           :placeholder="terms.pages.contacts.placeholders.firstName"
-          class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0"
+          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('first_name', FORM_FIELD_LIMITS.name)"
         >
         <input
@@ -258,7 +258,7 @@ const submit = async () => {
           minlength="2"
           :maxlength="FORM_FIELD_LIMITS.name"
           :placeholder="terms.pages.contacts.placeholders.lastName"
-          class="rounded-2xl border border-stone-300 px-4 py-3 outline-none ring-0"
+          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('last_name', FORM_FIELD_LIMITS.name)"
         >
       </div>
@@ -270,7 +270,7 @@ const submit = async () => {
           autocomplete="email"
           :maxlength="FORM_FIELD_LIMITS.email"
           :placeholder="terms.pages.contacts.placeholders.email"
-          class="rounded-2xl border border-stone-300 px-4 py-3"
+          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('email', FORM_FIELD_LIMITS.email)"
         >
         <input
@@ -282,13 +282,13 @@ const submit = async () => {
           maxlength="17"
           pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
           :placeholder="terms.pages.contacts.placeholders.phone"
-          class="rounded-2xl border border-stone-300 px-4 py-3"
+          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
           @input="handlePhoneInput"
           @paste="handlePhonePasteEvent"
         >
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        <select v-model="form.master_id" required class="rounded-2xl border border-stone-300 px-4 py-3">
+        <select v-model="form.master_id" required class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none">
           <option value="">{{ terms.pages.contacts.placeholders.master }}</option>
           <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
         </select>
@@ -329,7 +329,7 @@ const submit = async () => {
         required
         :min="minScheduledAt"
         :max="maxScheduledAt"
-        class="w-full rounded-2xl border border-stone-300 px-4 py-3"
+        class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
         @change="trackEvent('select_time', { source: 'contacts_page', appointment_date: form.scheduled_at.slice(0, 10) })"
       >
       <textarea
@@ -337,7 +337,7 @@ const submit = async () => {
         rows="4"
         :maxlength="FORM_FIELD_LIMITS.comment"
         :placeholder="terms.pages.contacts.placeholders.notes"
-        class="w-full rounded-2xl border border-stone-300 px-4 py-3"
+        class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
         @input="handleTextInput('note', FORM_FIELD_LIMITS.comment, { multiline: true })"
       />
       <BaseButton type="submit" :disabled="state.loading">

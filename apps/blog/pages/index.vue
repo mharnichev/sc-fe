@@ -21,7 +21,7 @@ useSeoMeta({
 
 <template>
   <div>
-    <section class="border-b border-neutral-800 bg-neutral-950">
+    <section class="bg-neutral-950">
       <div class="site-container grid gap-8 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:py-10">
         <NuxtLink
           class="group min-h-[24rem] overflow-hidden bg-neutral-900 lg:min-h-[36rem]"
@@ -35,7 +35,7 @@ useSeoMeta({
           >
         </NuxtLink>
 
-        <div class="flex flex-col justify-between border-y border-neutral-700 py-6 lg:py-8">
+        <div class="flex flex-col justify-between border-neutral-700 py-6 lg:py-8">
           <div>
             <p class="eyebrow">{{ terms.featuredPost }}</p>
             <h1 class="mt-5 text-4xl font-black leading-[0.98] text-white sm:text-6xl lg:text-7xl">
@@ -52,13 +52,14 @@ useSeoMeta({
               <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt, locale) }}</time>
               <span>{{ formatReadMinutes(featuredPost.readMinutes, locale) }}</span>
             </div>
-            <NuxtLink
+            <BaseButton
               :to="`/posts/${featuredPost.slug}`"
-              class="mt-6 inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-bold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/90"
+              class="mt-6"
+              variant="light"
               @click="handleFeaturedPostClick('featured_cta')"
             >
               {{ terms.readFeature }}
-            </NuxtLink>
+            </BaseButton>
           </div>
         </div>
       </div>

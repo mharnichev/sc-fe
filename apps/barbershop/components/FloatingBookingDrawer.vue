@@ -149,16 +149,19 @@ onBeforeUnmount(() => {
             {{ terms.common.bookAppointment }}
           </h2>
         </div>
-        <button
+        <BaseButton
           type="button"
-          class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-white/45 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:h-10 sm:w-10"
+          class="shrink-0"
+          variant="outline-light"
+          shape="circle"
+          size="xs"
           :aria-label="closeLabel"
           @click="closeDrawer"
         >
           <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="m5.5 5.5 9 9M14.5 5.5l-9 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
           </svg>
-        </button>
+        </BaseButton>
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">

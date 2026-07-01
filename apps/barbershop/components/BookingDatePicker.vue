@@ -252,9 +252,11 @@ onBeforeUnmount(() => {
 
     <div class="hidden border border-white/15 bg-white/[0.04] p-3 md:block">
       <div class="flex items-center justify-between gap-3">
-        <button
+        <BaseButton
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center border border-white/15 text-white/75 transition hover:border-white/45 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          variant="outline-light"
+          shape="circle"
+          size="xs"
           :disabled="!canGoPrevious"
           :aria-label="copy.previous"
           @click="goToPreviousMonth"
@@ -262,11 +264,13 @@ onBeforeUnmount(() => {
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-        </button>
+        </BaseButton>
         <p class="text-sm font-semibold capitalize text-white">{{ monthTitle }}</p>
-        <button
+        <BaseButton
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center border border-white/15 text-white/75 transition hover:border-white/45 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          variant="outline-light"
+          shape="circle"
+          size="xs"
           :disabled="!canGoNext"
           :aria-label="copy.next"
           @click="goToNextMonth"
@@ -274,7 +278,7 @@ onBeforeUnmount(() => {
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M7.5 4.5 13 10l-5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-        </button>
+        </BaseButton>
       </div>
 
       <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-white/40">
@@ -328,22 +332,27 @@ onBeforeUnmount(() => {
                   <p class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-white/45">{{ copy.selected }}</p>
                   <h3 id="booking-calendar-title" class="mt-1 text-xl font-semibold leading-tight">{{ selectedDateLabel }}</h3>
                 </div>
-                <button
+                <BaseButton
                   type="button"
-                  class="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-white/15 text-white/75 transition hover:border-white/45 hover:text-white"
+                  class="shrink-0"
+                  variant="outline-light"
+                  shape="circle"
+                  size="sm"
                   :aria-label="copy.close"
                   @click="closeSheet"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                   </svg>
-                </button>
+                </BaseButton>
               </div>
 
               <div class="mt-5 flex items-center justify-between gap-3">
-                <button
+                <BaseButton
                   type="button"
-                  class="inline-flex h-10 w-10 items-center justify-center border border-white/15 text-white/75 transition hover:border-white/45 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  variant="outline-light"
+                  shape="circle"
+                  size="sm"
                   :disabled="!canGoPrevious"
                   :aria-label="copy.previous"
                   @click="goToPreviousMonth"
@@ -351,11 +360,13 @@ onBeforeUnmount(() => {
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
-                </button>
+                </BaseButton>
                 <p class="text-base font-semibold capitalize">{{ monthTitle }}</p>
-                <button
+                <BaseButton
                   type="button"
-                  class="inline-flex h-10 w-10 items-center justify-center border border-white/15 text-white/75 transition hover:border-white/45 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  variant="outline-light"
+                  shape="circle"
+                  size="sm"
                   :disabled="!canGoNext"
                   :aria-label="copy.next"
                   @click="goToNextMonth"
@@ -363,7 +374,7 @@ onBeforeUnmount(() => {
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M7.5 4.5 13 10l-5.5 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
-                </button>
+                </BaseButton>
               </div>
 
               <div class="mt-5 grid grid-cols-7 gap-1 text-center text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-white/40">

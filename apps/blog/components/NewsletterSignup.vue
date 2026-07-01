@@ -67,21 +67,20 @@ const handleSubmit = async () => {
           <input
             id="newsletter-email"
             v-model="email"
-            class="min-h-12 w-full border border-white/15 bg-neutral-900 px-4 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-white"
+            class="glass-control glass-control--dark min-h-12 w-full px-4 text-sm text-white outline-none placeholder:text-neutral-500"
             type="email"
             inputmode="email"
             autocomplete="email"
             :placeholder="terms.emailPlaceholder"
             aria-describedby="newsletter-message"
           >
-          <button
-            class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
+          <BaseButton
+            variant="light"
             type="submit"
             :disabled="isSubmitting"
-            :class="isSubmitting ? 'cursor-wait opacity-70' : ''"
           >
             {{ terms.subscribe }}
-          </button>
+          </BaseButton>
           <p
             id="newsletter-message"
             class="sm:col-span-2 text-sm"

@@ -124,13 +124,14 @@ onBeforeUnmount(() => {
           <p class="text-sm font-medium leading-6 tracking-normal sm:text-base">
             {{ terms.postMenuSubscribeText }}
           </p>
-          <button
+          <BaseButton
             type="button"
-            class="bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
+            variant="light"
+            size="sm"
             @click="handleSubscribeClick"
           >
             {{ terms.subscribe }}
-          </button>
+          </BaseButton>
         </div>
       </nav>
     </div>

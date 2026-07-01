@@ -864,7 +864,7 @@ const closeSuccess = () => {
                     <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
                       {{ terms.home.booking.steps[0] }}
                     </h3>
-                    <label class="mt-3 flex items-center gap-2 bg-white/[0.045] px-3 py-2.5 text-white/70 transition focus-within:bg-white/[0.075] focus-within:text-white sm:mt-4">
+                    <label class="glass-control glass-control--dark mt-3 flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white sm:mt-4">
                       <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="m14.2 14.2 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                         <path d="M8.8 15.1a6.3 6.3 0 1 0 0-12.6 6.3 6.3 0 0 0 0 12.6Z" stroke="currentColor" stroke-width="1.6" />
@@ -1067,8 +1067,8 @@ const closeSuccess = () => {
                       placeholder="Ім'я"
                       minlength="2"
                       :maxlength="FORM_FIELD_LIMITS.fullName"
-                      class="border bg-transparent px-3 py-2.5 text-white outline-none placeholder:text-white/35"
-                      :class="shouldShowStepIssue(3) && !form.customer_name.trim() ? 'border-rose-300/70' : 'border-white/15'"
+                        class="glass-control glass-control--dark px-3 py-2.5 text-white outline-none placeholder:text-white/35"
+                        :class="shouldShowStepIssue(3) && !form.customer_name.trim() ? 'glass-control--invalid' : ''"
                       @input="handleTextInput('customer_name', FORM_FIELD_LIMITS.fullName)"
                     >
                     <input
@@ -1080,8 +1080,8 @@ const closeSuccess = () => {
                       placeholder="Телефон"
                       maxlength="17"
                       pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
-                      class="border bg-transparent px-3 py-2.5 text-white outline-none placeholder:text-white/35"
-                      :class="shouldShowStepIssue(3) && !isValidPhoneNumber(form.customer_phone) ? 'border-rose-300/70' : 'border-white/15'"
+                      class="glass-control glass-control--dark px-3 py-2.5 text-white outline-none placeholder:text-white/35"
+                      :class="shouldShowStepIssue(3) && !isValidPhoneNumber(form.customer_phone) ? 'glass-control--invalid' : ''"
                       @input="handlePhoneInput"
                       @paste="handlePhonePasteEvent"
                     >
@@ -1091,7 +1091,7 @@ const closeSuccess = () => {
                     rows="3"
                     placeholder="Коментар"
                     :maxlength="FORM_FIELD_LIMITS.comment"
-                    class="mt-3 w-full border border-white/15 bg-transparent px-3 py-2.5 text-white outline-none placeholder:text-white/35"
+                    class="glass-control glass-control--dark mt-3 w-full px-3 py-2.5 text-white outline-none placeholder:text-white/35"
                     @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment, { multiline: true })"
                   />
                   <input
@@ -1100,12 +1100,12 @@ const closeSuccess = () => {
                     inputmode="text"
                     placeholder="Промокод"
                     maxlength="50"
-                    class="mt-3 w-full border border-white/15 bg-transparent px-3 py-2.5 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
+                    class="glass-control glass-control--dark mt-3 w-full px-3 py-2.5 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
                     @input="handleTextInput('promotion_code', 50)"
                   >
                   <label
                     v-if="selectedServicesHavePromotion"
-                    class="booking-army-toggle mt-3 flex cursor-pointer flex-col items-start justify-between gap-3 overflow-hidden px-3 py-2.5 text-white sm:flex-row sm:items-center"
+                    class="glass-control glass-control--dark booking-army-toggle mt-3 flex cursor-pointer flex-col items-start justify-between gap-3 overflow-hidden px-3 py-2.5 text-white sm:flex-row sm:items-center"
                     :class="promotionConfirmed ? 'is-confirmed' : ''"
                   >
                     <span class="flex min-w-0 items-center gap-2.5">
@@ -1128,8 +1128,8 @@ const closeSuccess = () => {
                         class="sr-only"
                       >
                       <span
-                        class="relative h-6 w-11 shrink-0 transition"
-                        :class="promotionConfirmed ? 'bg-[#0045a9]' : 'bg-white/20'"
+                        class="glass-toggle relative h-6 w-11 shrink-0 transition"
+                        :class="promotionConfirmed ? 'glass-toggle--active' : ''"
                       >
                         <span
                           class="absolute left-1 top-1 h-4 w-4 bg-white transition-transform"

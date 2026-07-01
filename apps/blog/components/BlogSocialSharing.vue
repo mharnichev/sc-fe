@@ -69,24 +69,24 @@ const handleShareClick = (method: string) => {
       {{ terms.shareStory }}
     </h5>
     <div class="mt-5 flex items-center justify-center gap-3">
-      <a
+      <BaseButton
         v-for="link in shareLinks"
         :key="link.label"
         :href="link.href"
         :title="`${terms.shareTo} ${link.label}`"
-        class="flex h-11 w-11 items-center justify-center rounded-full border text-sm font-black uppercase transition"
-        :class="isLight ? 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white' : 'border-white text-white hover:bg-white hover:text-neutral-950'"
+        :variant="isLight ? 'outline-dark' : 'outline-light'"
+        shape="circle"
         target="_blank"
         rel="noopener noreferrer"
         @click="handleShareClick(link.label)"
       >
         <span class="sr-only">{{ link.label }}</span>
         <span aria-hidden="true">{{ link.shortLabel }}</span>
-      </a>
-      <button
+      </BaseButton>
+      <BaseButton
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-full border transition"
-        :class="isLight ? 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white' : 'border-white text-white hover:bg-white hover:text-neutral-950'"
+        :variant="isLight ? 'outline-dark' : 'outline-light'"
+        shape="circle"
         :aria-label="copied ? terms.copiedLink : terms.copyLink"
         :title="copied ? terms.copiedLink : terms.copyLink"
         @click="copyLink"
@@ -129,7 +129,7 @@ const handleShareClick = (method: string) => {
             stroke-linejoin="round"
           />
         </svg>
-      </button>
+      </BaseButton>
     </div>
   </section>
 </template>

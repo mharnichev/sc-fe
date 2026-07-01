@@ -238,7 +238,7 @@ watch(teamMembers, (members) => {
         <div class="relative z-10 flex h-full min-h-0 py-5 pl-3 sm:py-8 md:pb-10 md:pt-24 lg:pt-28" data-reveal="soft">
           <div class="flex h-full min-w-0 max-w-[17rem] flex-col items-start justify-between gap-8 text-left">
             <div class="flex flex-col items-start gap-3">
-              <div class="flex w-fit max-w-full items-start justify-start border-b border-neutral-950/15 pb-4">
+              <div class="flex w-fit max-w-full items-start justify-start pb-4">
                 <div>
                   <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
                   <h2 class="mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-neutral-950 sm:text-2xl md:text-4xl lg:text-4xl">

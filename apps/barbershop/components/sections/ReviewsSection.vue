@@ -278,22 +278,26 @@ onBeforeUnmount(() => {
 
         <div class="mt-7 flex justify-end">
           <div class="flex gap-2">
-            <button
+            <BaseButton
               type="button"
-              class="flex size-10 items-center justify-center border border-neutral-300 text-lg leading-none text-neutral-950 transition hover:border-neutral-950 md:size-11 md:text-xl"
+              variant="outline-dark"
+              shape="circle"
+              size="sm"
               :aria-label="terms.home.reviews.previous"
               @click="goToReview(activeIndex - 1)"
             >
               ‹
-            </button>
-            <button
+            </BaseButton>
+            <BaseButton
               type="button"
-              class="flex size-10 items-center justify-center border border-neutral-300 text-lg leading-none text-neutral-950 transition hover:border-neutral-950 md:size-11 md:text-xl"
+              variant="outline-dark"
+              shape="circle"
+              size="sm"
               :aria-label="terms.home.reviews.next"
               @click="goToReview(activeIndex + 1)"
             >
               ›
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>

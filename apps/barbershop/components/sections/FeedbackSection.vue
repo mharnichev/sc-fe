@@ -106,7 +106,7 @@ const submit = () => {
         </p>
       </div>
 
-      <form class="relative overflow-hidden border border-neutral-300 bg-white p-4 md:p-8" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+      <form class="relative overflow-hidden border-neutral-300 bg-white p-4 md:p-8" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
         <div class="grid gap-3 md:grid-cols-2">
           <label class="block">
             <span class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.home.feedback.fields.name }}</span>
@@ -117,7 +117,7 @@ const submit = () => {
               minlength="2"
               :maxlength="FORM_FIELD_LIMITS.name"
               :placeholder="terms.home.feedback.placeholders.name"
-              class="mt-2 w-full border border-neutral-300 bg-transparent px-4 py-3 text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950"
+              class="glass-control glass-control--light mt-2 w-full px-4 py-3 text-neutral-950 outline-none placeholder:text-neutral-400"
               @input="handleTextInput('name', FORM_FIELD_LIMITS.name)"
             >
           </label>
@@ -133,7 +133,7 @@ const submit = () => {
               pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
               :placeholder="terms.home.feedback.placeholders.phone"
               :aria-invalid="Boolean(form.phone && !isValidPhoneNumber(form.phone))"
-              class="mt-2 w-full border border-neutral-300 bg-transparent px-4 py-3 text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950"
+              class="glass-control glass-control--light mt-2 w-full px-4 py-3 text-neutral-950 outline-none placeholder:text-neutral-400"
               @input="handlePhoneInput"
               @paste="handlePhonePasteEvent"
             >
@@ -147,7 +147,7 @@ const submit = () => {
               autocomplete="email"
               :maxlength="FORM_FIELD_LIMITS.email"
               :placeholder="terms.home.feedback.placeholders.email"
-              class="mt-2 w-full border border-neutral-300 bg-transparent px-4 py-3 text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950"
+              class="glass-control glass-control--light mt-2 w-full px-4 py-3 text-neutral-950 outline-none placeholder:text-neutral-400"
               @input="handleTextInput('email', FORM_FIELD_LIMITS.email)"
             >
           </label>
@@ -161,7 +161,7 @@ const submit = () => {
               minlength="3"
               :maxlength="FORM_FIELD_LIMITS.message"
               :placeholder="terms.home.feedback.placeholders.message"
-              class="mt-2 w-full resize-none border border-neutral-300 bg-transparent px-4 py-3 text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950"
+              class="glass-control glass-control--light mt-2 w-full resize-none px-4 py-3 text-neutral-950 outline-none placeholder:text-neutral-400"
               @input="handleTextInput('message', FORM_FIELD_LIMITS.message, { multiline: true })"
             />
           </label>

@@ -7,6 +7,14 @@ const { locale, terms } = useBlogLocale()
 const { trackBlogEvent } = useBlogAnalytics()
 const route = useRoute()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
+
+if (typeof slug !== 'string' || !slug) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Post not found',
+  })
+}
+
 const rawPost = getPostBySlug(slug)
 
 if (!rawPost) {
@@ -127,13 +135,15 @@ useSeoMeta({
           <p class="mx-auto mt-4 max-w-2xl text-base leading-8 text-white/65">
             {{ terms.postBookingCtaText }}
           </p>
-          <a
+          <BaseButton
             href="/#booking"
-            class="mt-6 inline-flex min-h-14 w-full items-center justify-center bg-white px-8 text-sm font-black uppercase tracking-[0.18em] text-neutral-950 transition hover:bg-white/85 sm:w-auto"
+            class="mt-6 w-full sm:w-auto"
+            variant="light"
+            effect="waves"
             @click="handlePostBookingClick"
           >
             {{ terms.bookAppointment }}
-          </a>
+          </BaseButton>
         </div>
       </section>
       <BlogPhotoCarousel :images="post.galleryImages" />

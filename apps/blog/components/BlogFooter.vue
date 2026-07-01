@@ -117,18 +117,18 @@ onBeforeUnmount(() => {
           <input
             id="footer-newsletter-email"
             v-model="footerEmail"
-            class="min-h-12 w-full border border-white/15 bg-neutral-900 px-4 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-white"
+            class="glass-control glass-control--dark min-h-12 w-full px-4 text-sm text-white outline-none placeholder:text-neutral-500"
             type="email"
             inputmode="email"
             autocomplete="email"
             :placeholder="terms.emailPlaceholder"
           >
-          <button
-            class="min-h-12 bg-white px-6 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-950 transition hover:bg-white/85"
+          <BaseButton
+            variant="light"
             type="submit"
           >
             {{ terms.subscribe }}
-          </button>
+          </BaseButton>
         </form>
       </div>
 
