@@ -79,11 +79,11 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         </p>
       </div>
 
-      <div v-if="servicesPending" class="border-y border-neutral-300 py-8 text-sm text-neutral-500">
+      <div v-if="servicesPending" class="bg-white/55 px-4 py-8 text-sm text-neutral-500">
         {{ terms.home.services.loading }}
       </div>
 
-      <div v-else-if="!baseServices.length" class="border-y border-neutral-300 py-8 text-sm text-neutral-500">
+      <div v-else-if="!baseServices.length" class="bg-white/55 px-4 py-8 text-sm text-neutral-500">
         {{ terms.home.services.empty }}
       </div>
 
@@ -91,14 +91,14 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         <article
           v-for="(service, index) in baseServices"
           :key="service.catalog_id"
-          class="border-t border-neutral-950 pt-5"
+          class="pt-0"
           :class="service.active_promotion ? 'is-promoted-service' : ''"
           data-reveal="soft"
           :data-reveal-delay="Math.min(index, 5) * 70"
         >
           <button
             type="button"
-            class="service-card grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-sm md:gap-5 md:py-5"
+            class="service-card grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
             :class="service.active_promotion ? 'service-card--promotion' : ''"
             @click="selectService(service)"
           >
@@ -114,7 +114,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             <p class="text-sm leading-6 text-neutral-600 md:leading-7">
               {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
             </p>
-            <span class="flex items-center justify-between gap-4 border-t border-neutral-300 pt-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            <span class="service-card__meta flex items-center justify-between gap-4 px-3 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
               <span>{{ formatServiceDuration(service) }}</span>
               <span>{{ terms.home.services.choose }}</span>
             </span>
@@ -144,6 +144,16 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 .service-card {
   position: relative;
   isolation: isolate;
+  background: rgb(255 255 255 / 0.62);
+}
+
+.service-card:hover,
+.service-card:focus-visible {
+  background: rgb(255 255 255 / 0.74);
+}
+
+.service-card__meta {
+  background: rgb(23 23 23 / 0.035);
 }
 
 .service-card--promotion {
@@ -180,8 +190,6 @@ const selectService = async (service: ServiceCatalogItemDto) => {
     repeating-linear-gradient(179deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 5px),
     repeating-linear-gradient(-40deg, rgb(0 0 0 / 0.08) 0 1px, transparent 1px 5px),
     #0045a9;
-  border-top: 2px solid #f2bf0b;
-  border-bottom: 2px solid #f2bf0b;
   transform: rotate(-45deg) translateY(-6px);
   transform-origin: center;
 }

@@ -97,7 +97,7 @@ const submit = () => {
 
 <template>
   <section id="feedback" data-header-theme="light" class="section-y-tight bg-stone-100">
-    <div class="site-container grid gap-8 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
+    <div class="site-container flex flex-col gap-8 md:gap-12">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.feedback.label }}</SectionLabel>
         <h2 class="section-title mt-4 uppercase md:text-4xl">{{ terms.home.feedback.title }}</h2>

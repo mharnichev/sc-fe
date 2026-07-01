@@ -147,10 +147,13 @@ function onAccordionSummaryClick(event: MouseEvent) {
 
 <template>
   <section id="faq" ref="faqRoot" data-header-theme="light" class="section-y-tight bg-stone-100">
-    <div class="site-container grid gap-8 pt-10 md:gap-12 md:pt-24 lg:grid-cols-[0.35fr_0.65fr]">
+    <div class="site-container flex flex-col gap-8 pt-10 md:gap-12 md:pt-24">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.faq.label }}</SectionLabel>
         <h2 class="section-title mt-4 md:text-4xl">{{ terms.home.faq.title }}</h2>
+        <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7">
+          {{ terms.home.faq.description }}
+        </p>
       </div>
       <div class="faq-accordions" data-reveal="soft" data-reveal-delay="140">
         <details v-for="section in faqItems" :key="section.title" class="faq-accordion" aria-expanded="false">
@@ -180,7 +183,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
                   </svg>
                 </summary>
                 <div class="faq-accordion__content faq-accordion__content--nested">
-                  <div class="max-w-2xl space-y-3 text-sm leading-7 text-neutral-600 md:text-base md:leading-8">
+                  <div class="faq-accordion__answer space-y-3 text-sm leading-7 text-neutral-600 md:text-base md:leading-8">
                     <p v-for="paragraph in question.answer" :key="paragraph">
                       {{ paragraph }}
                     </p>
@@ -193,7 +196,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
                     <p v-if="question.note" class="text-neutral-500">
                       {{ question.note }}
                     </p>
-                    <div v-if="question.relatedArticles?.length" class="border-t border-neutral-300 pt-4">
+                    <div v-if="question.relatedArticles?.length" class="pt-4">
                       <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
                         {{ terms.home.faq.relatedArticlesTitle }}
                       </p>
@@ -202,7 +205,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
                           v-for="article in question.relatedArticles"
                           :key="article.href"
                           :href="article.href"
-                          class="w-fit border-b border-neutral-950/30 pb-1 text-sm font-semibold text-neutral-950 transition hover:border-neutral-950"
+                          class="w-fit pb-1 text-sm font-semibold text-neutral-950 transition hover:text-neutral-600"
                         >
                           {{ article.title }}
                         </a>
@@ -221,16 +224,25 @@ function onAccordionSummaryClick(event: MouseEvent) {
 
 <style scoped>
 .faq-accordions {
-  border-block: 1px solid rgb(212 212 212);
+  display: grid;
+  gap: 0.85rem;
 }
 
 .faq-accordion {
   box-sizing: border-box;
-  border-block-end: 1px solid rgb(212 212 212);
+  border: 0;
 }
 
-.faq-accordion:last-child {
-  border-block-end: 0;
+.faq-accordions > .faq-accordion {
+  background: rgb(23 23 23 / 0.025);
+}
+
+.faq-accordions > .faq-accordion:nth-child(2n) {
+  background: rgb(23 23 23 / 0.04);
+}
+
+.faq-accordions > .faq-accordion:nth-child(3n) {
+  background: rgb(23 23 23 / 0.032);
 }
 
 .faq-accordion__summary {
@@ -239,6 +251,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
   list-style: none;
   justify-content: space-between;
   gap: 1rem;
+  padding-inline: 1rem;
   padding-block: 1.75rem;
 }
 
@@ -268,11 +281,16 @@ function onAccordionSummaryClick(event: MouseEvent) {
 
 .faq-accordion__content {
   margin-block-start: -0.625rem;
+  padding-inline: 1rem;
   padding-block-end: 2rem;
 }
 
 .faq-accordion--nested:first-child {
-  border-block-start: 1px solid rgb(212 212 212);
+  border-block-start: 0;
+}
+
+.faq-accordion--nested {
+  background: transparent;
 }
 
 .faq-accordion--nested .faq-accordion__summary {
@@ -291,18 +309,28 @@ function onAccordionSummaryClick(event: MouseEvent) {
   padding-block-end: 1.5rem;
 }
 
+.faq-accordion__answer {
+  background: rgb(23 23 23 / 0.06);
+  padding: 1rem;
+}
+
 @media (min-width: 768px) {
   .faq-accordion__summary {
     gap: 1.5rem;
+    padding-inline: 1.25rem;
     padding-block: 2rem;
   }
 
   .faq-accordion__content {
-    max-width: 80%;
+    padding-inline: 1.25rem;
   }
 
   .faq-accordion--nested .faq-accordion__summary {
     padding-block: 1.5rem;
+  }
+
+  .faq-accordion__answer {
+    padding: 1.25rem;
   }
 }
 

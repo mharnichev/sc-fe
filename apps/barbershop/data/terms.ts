@@ -209,6 +209,7 @@ export const termsDictionary = {
       faq: {
         label: 'FAQ',
         title: 'Корисні деталі',
+        description: 'Зібрали тут відповіді на головні питання. Якщо щось лишилось незрозумілим, просто напишіть через контактну форму, подзвоніть за номером у футері або киньте нам email.',
         relatedArticlesTitle: 'Корисні матеріали з журналу',
         items: [
           {
@@ -652,6 +653,7 @@ export const termsDictionary = {
       faq: {
         label: 'FAQ',
         title: 'Useful details',
+        description: 'We gathered the main answers here. If anything still feels unclear, just send a note through the contact form, call the number in the footer, or email us.',
         relatedArticlesTitle: 'Useful reads from the journal',
         items: [
           {

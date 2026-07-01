@@ -311,6 +311,16 @@ watch(serviceSearchQuery, (query) => {
   }, 320)
 })
 
+const clearServiceSearch = () => {
+  if (serviceSearchDebounceTimer) {
+    clearTimeout(serviceSearchDebounceTimer)
+    serviceSearchDebounceTimer = null
+  }
+
+  serviceSearchQuery.value = ''
+  debouncedServiceSearchQuery.value = ''
+}
+
 const resolveSelectedServiceForMaster = () => {
   if (!selectedMasterId.value) return
 
@@ -864,7 +874,7 @@ const closeSuccess = () => {
                     <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
                       {{ terms.home.booking.steps[0] }}
                     </h3>
-                    <label class="glass-control glass-control--dark mt-3 flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white sm:mt-4">
+                    <label class="booking-service-search-field glass-control glass-control--dark mt-3 flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white sm:mt-4">
                       <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="m14.2 14.2 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                         <path d="M8.8 15.1a6.3 6.3 0 1 0 0-12.6 6.3 6.3 0 0 0 0 12.6Z" stroke="currentColor" stroke-width="1.6" />
@@ -876,6 +886,18 @@ const closeSuccess = () => {
                         class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
                         autocomplete="off"
                       >
+                      <button
+                        v-if="serviceSearchQuery"
+                        type="button"
+                        class="booking-service-search-clear"
+                        :aria-label="locale === 'en' ? 'Clear service search' : 'Очистити пошук послуг'"
+                        @click.prevent="clearServiceSearch"
+                      >
+                        <span class="booking-service-search-clear__surface" aria-hidden="true">
+                          <span class="booking-service-search-clear__fill" />
+                        </span>
+                        <span class="booking-service-search-clear__icon" aria-hidden="true" />
+                      </button>
                     </label>
                     <div class="booking-service-results-scroll">
                       <Transition name="booking-service-results" mode="out-in">
@@ -1580,6 +1602,108 @@ const closeSuccess = () => {
 .booking-service-results-leave-to {
   opacity: 0;
   transform: translateY(0.25rem);
+}
+
+.booking-service-step input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
+.booking-service-search-field {
+  position: relative;
+  padding-inline-end: 2.45rem;
+}
+
+.booking-service-search-clear {
+  --booking-search-clear-fill-y: -76%;
+
+  position: absolute;
+  top: 50%;
+  right: 0.625rem;
+  isolation: isolate;
+  display: inline-flex;
+  width: 1.45rem;
+  min-width: 1.45rem;
+  height: 1.45rem;
+  min-height: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  background: rgb(255 255 255 / 0.92);
+  color: rgb(10 10 10);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    background-color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    transform 180ms ease;
+}
+
+.booking-service-search-clear:hover,
+.booking-service-search-clear:focus-visible {
+  --booking-search-clear-fill-y: 0%;
+
+  color: rgb(255 255 255);
+}
+
+.booking-service-search-clear:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.booking-service-search-clear:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 0.75);
+  outline-offset: 2px;
+}
+
+.booking-service-search-clear__surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.booking-service-search-clear__fill {
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  display: block;
+  width: 150%;
+  height: 200%;
+  border-radius: 50%;
+  background: rgb(10 10 10);
+  transform: translate3d(0, var(--booking-search-clear-fill-y), 0);
+  transition: transform 540ms cubic-bezier(0.3, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.booking-service-search-clear__icon {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 0.65rem;
+  height: 0.65rem;
+  pointer-events: none;
+}
+
+.booking-service-search-clear__icon::before,
+.booking-service-search-clear__icon::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.68rem;
+  height: 0.1rem;
+  background: currentColor;
+  transform-origin: center;
+}
+
+.booking-service-search-clear__icon::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.booking-service-search-clear__icon::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .booking-army-toggle {
