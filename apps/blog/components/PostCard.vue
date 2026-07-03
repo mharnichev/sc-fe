@@ -35,7 +35,10 @@ const handlePostClick = () => {
           :src="post.coverImage"
           :alt="post.coverImageAlt"
           class="h-full w-full object-cover filter transition-[filter] duration-1000 ease-in-out"
+          width="1600"
+          height="1060"
           loading="lazy"
+          decoding="async"
         >
       </div>
       <div class="flex h-full flex-col" :class="recommended ? 'pt-5' : 'p-5'">

@@ -19,7 +19,7 @@ useHead({
       <slot />
     </main>
     <BlogFooter />
-    <BlogSubscribeModal />
+    <LazyBlogSubscribeModal />
     <div
       data-testid="page-transition-overlay"
       class="pointer-events-none fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"

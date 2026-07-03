@@ -6,7 +6,10 @@ const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
 
-const { data: serviceCatalog, pending: servicesPending } = await useAsyncData('home-services-catalog', domain.getServiceCatalog)
+const { data: serviceCatalog, pending: servicesPending } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
+  server: false,
+  default: () => [],
+})
 
 const servicePriceValue = (service: ServiceCatalogItemDto) => {
   const value = typeof service.price === 'number'

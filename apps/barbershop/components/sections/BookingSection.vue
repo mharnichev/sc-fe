@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
-import bookingSectionPhotos from '~/assets/images/main/sc-open-img.webp'
+
+type AssetModule = { default: string }
 
 const props = withDefaults(defineProps<{
   analyticsSource?: string
@@ -26,12 +27,18 @@ type BarberServiceOption = {
   master: MasterDto
 }
 
-const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-booking-service-catalog' : `${props.idPrefix}-service-catalog`
-const mastersKey = props.idPrefix === 'booking' ? 'home-booking-masters' : `${props.idPrefix}-masters`
+const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-services-catalog' : `${props.idPrefix}-service-catalog`
+const mastersKey = props.idPrefix === 'booking' ? 'home-team-masters' : `${props.idPrefix}-masters`
 
 const [{ data: serviceCatalog, pending: servicesPending }, { data: masters, pending: mastersPending }] = await Promise.all([
-  useAsyncData(serviceCatalogKey, domain.getServiceCatalog),
-  useAsyncData(mastersKey, domain.getMasters),
+  useAsyncData(serviceCatalogKey, domain.getServiceCatalog, {
+    server: false,
+    default: () => [],
+  }),
+  useAsyncData(mastersKey, domain.getMasters, {
+    server: false,
+    default: () => [],
+  }),
 ])
 
 const maxSelectedServices = 3
@@ -72,6 +79,9 @@ const state = reactive({
   successMasterName: '',
   successStartAt: '',
 })
+const bookingSectionPhotos = ref('')
+const bookingSectionRoot = ref<HTMLElement | null>(null)
+let bookingPhotoObserver: IntersectionObserver | null = null
 
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear()
@@ -774,10 +784,47 @@ const closeSuccess = () => {
   state.successMasterName = ''
   state.successStartAt = ''
 }
+
+const loadBookingSectionPhoto = async () => {
+  if (bookingSectionPhotos.value) return
+
+  const image = await import('~/assets/images/main/sc-open-img.webp') as AssetModule
+  bookingSectionPhotos.value = image.default
+}
+
+const observeBookingSectionPhoto = () => {
+  if (isDrawerMode.value) return
+
+  const target = bookingSectionRoot.value
+
+  if (!target || typeof window.IntersectionObserver !== 'function') {
+    window.setTimeout(loadBookingSectionPhoto, 2800)
+    return
+  }
+
+  bookingPhotoObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    bookingPhotoObserver?.disconnect()
+    bookingPhotoObserver = null
+    loadBookingSectionPhoto()
+  }, {
+    rootMargin: '240px 0px',
+  })
+
+  bookingPhotoObserver.observe(target)
+}
+
+onMounted(observeBookingSectionPhoto)
+
+onBeforeUnmount(() => {
+  bookingPhotoObserver?.disconnect()
+})
 </script>
 
 <template>
   <component
+    ref="bookingSectionRoot"
     :is="isDrawerMode ? 'div' : 'section'"
     :id="bookingSectionId"
     :data-header-theme="isDrawerMode ? undefined : 'dark'"
@@ -799,9 +846,13 @@ const closeSuccess = () => {
             </div>
 
             <img
+              v-if="bookingSectionPhotos"
               :src="bookingSectionPhotos"
               alt="photo booking"
               class="hidden w-full object-contain min-[560px]:mx-0 min-[560px]:block min-[560px]:max-w-[18rem] min-[560px]:justify-self-end lg:mt-8 lg:max-w-md"
+              width="790"
+              height="992"
+              loading="lazy"
             >
           </div>
         </div>

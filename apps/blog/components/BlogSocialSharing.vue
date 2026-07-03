@@ -62,12 +62,12 @@ const handleShareClick = (method: string) => {
     :class="isLight ? 'text-neutral-950' : 'text-white'"
     :aria-label="terms.shareStory"
   >
-    <h5
+    <h2
       class="sharing-title text-xs font-black uppercase tracking-[0.24em]"
       :class="isLight ? 'text-neutral-600' : 'text-white/55'"
     >
       {{ terms.shareStory }}
-    </h5>
+    </h2>
     <div class="mt-5 flex items-center justify-center gap-3">
       <BaseButton
         v-for="link in shareLinks"

@@ -1,30 +1,42 @@
 import type { LocaleCode } from './locale'
-import coverImage from '../assets/images/posts/barbering-museum-cover.jpg'
-import articleImageAudience from '../assets/images/posts/barbering-museum-audience.webp'
-import articleImageCuttingDetail from '../assets/images/posts/barbering-museum-cutting-detail.webp'
-import articleImageEntrance from '../assets/images/posts/barbering-museum-entrance.webp'
-import galleryImage9053 from '../assets/images/posts/barbering-museum-gallery-9053.webp'
-import galleryImage9058 from '../assets/images/posts/barbering-museum-gallery-9058.webp'
-import galleryImage9064 from '../assets/images/posts/barbering-museum-gallery-9064.webp'
-import galleryImage8920 from '../assets/images/posts/barbering-museum-gallery-8920.webp'
-import galleryImage9149 from '../assets/images/posts/barbering-museum-gallery-9149.webp'
-import galleryImage9153 from '../assets/images/posts/barbering-museum-gallery-9153.webp'
-import articleImageHighFive from '../assets/images/posts/barbering-museum-high-five.webp'
-import articleImageBeforeMasterclassOne from '../assets/images/posts/barbering-museum-before-masterclass-01.webp'
-import articleImageBeforeMasterclassTwo from '../assets/images/posts/barbering-museum-before-masterclass-02.webp'
-import articleImageOne from '../assets/images/posts/barbering-museum-masterclass.webp'
-import articleImagePortrait from '../assets/images/posts/barbering-museum-portrait.webp'
+import coverImage from '../assets/images/posts/barbering-museum-cover-1600.jpg'
+import coverImageMobile from '../assets/images/posts/barbering-museum-cover-mobile.jpg'
 
 type LocalizedText = Record<LocaleCode, string>
+type AssetModule = { default: string }
+
+const blogPostImageLoaders = {
+  audience: () => import('../assets/images/posts/barbering-museum-audience.webp') as Promise<AssetModule>,
+  cuttingDetail: () => import('../assets/images/posts/barbering-museum-cutting-detail.webp') as Promise<AssetModule>,
+  entrance: () => import('../assets/images/posts/barbering-museum-entrance.webp') as Promise<AssetModule>,
+  gallery9053: () => import('../assets/images/posts/barbering-museum-gallery-9053.webp') as Promise<AssetModule>,
+  gallery9058: () => import('../assets/images/posts/barbering-museum-gallery-9058.webp') as Promise<AssetModule>,
+  gallery9064: () => import('../assets/images/posts/barbering-museum-gallery-9064.webp') as Promise<AssetModule>,
+  gallery8920: () => import('../assets/images/posts/barbering-museum-gallery-8920.webp') as Promise<AssetModule>,
+  gallery9149: () => import('../assets/images/posts/barbering-museum-gallery-9149.webp') as Promise<AssetModule>,
+  gallery9153: () => import('../assets/images/posts/barbering-museum-gallery-9153.webp') as Promise<AssetModule>,
+  highFive: () => import('../assets/images/posts/barbering-museum-high-five.webp') as Promise<AssetModule>,
+  beforeMasterclassOne: () => import('../assets/images/posts/barbering-museum-before-masterclass-01.webp') as Promise<AssetModule>,
+  beforeMasterclassTwo: () => import('../assets/images/posts/barbering-museum-before-masterclass-02.webp') as Promise<AssetModule>,
+  masterclass: () => import('../assets/images/posts/barbering-museum-masterclass.webp') as Promise<AssetModule>,
+  portrait: () => import('../assets/images/posts/barbering-museum-portrait.webp') as Promise<AssetModule>,
+} as const
+
+export type BlogPostImageKey = keyof typeof blogPostImageLoaders
+
+export const loadBlogPostImage = async (key: BlogPostImageKey) => {
+  const image = await blogPostImageLoaders[key]()
+  return image.default
+}
 
 interface BlogGalleryImage {
-  src: string
+  imageKey: BlogPostImageKey
   alt: LocalizedText
 }
 
 interface BlogArticleImage {
   afterParagraphIndex: number
-  src: string
+  imageKey: BlogPostImageKey
   alt: LocalizedText
   caption?: LocalizedText
 }
@@ -38,6 +50,7 @@ export interface BlogPost {
   author: LocalizedText
   readMinutes: number
   coverImage: string
+  coverImageMobile: string
   coverImageAlt: LocalizedText
   featured?: boolean
   articleImages?: BlogArticleImage[]
@@ -54,16 +67,19 @@ export interface LocalizedBlogPost {
   author: string
   readMinutes: number
   coverImage: string
+  coverImageMobile: string
   coverImageAlt: string
   featured?: boolean
   articleImages?: Array<{
     afterParagraphIndex: number
-    src: string
+    imageKey: BlogPostImageKey
+    src?: string
     alt: string
     caption?: string
   }>
   galleryImages?: Array<{
-    src: string
+    imageKey: BlogPostImageKey
+    src?: string
     alt: string
   }>
   content: string[]
@@ -123,6 +139,7 @@ export const posts: BlogPost[] = [
     },
     readMinutes: 7,
     coverImage,
+    coverImageMobile,
     coverImageAlt: {
       uk: 'Учасники барберської події Soul Cuts в музеї',
       en: 'Soul Cuts barbering event participants in the museum',
@@ -131,7 +148,7 @@ export const posts: BlogPost[] = [
     articleImages: [
       {
         afterParagraphIndex: 1,
-        src: articleImageEntrance,
+        imageKey: 'entrance',
         alt: {
           uk: 'Учасники барберської події збираються біля входу до музею',
           en: 'Participants of the barbering event gather near the museum entrance',
@@ -139,7 +156,7 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 3,
-        src: articleImageBeforeMasterclassOne,
+        imageKey: 'beforeMasterclassOne',
         alt: {
           uk: 'Учасник барберської події в музейній залі перед майстеркласом',
           en: 'A participant of the barbering event inside the museum hall before the masterclass',
@@ -147,7 +164,7 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 3,
-        src: articleImageBeforeMasterclassTwo,
+        imageKey: 'beforeMasterclassTwo',
         alt: {
           uk: 'Гості барберської події спілкуються в музейній залі перед майстеркласом',
           en: 'Guests of the barbering event talk inside the museum hall before the masterclass',
@@ -155,7 +172,7 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 3,
-        src: articleImageOne,
+        imageKey: 'masterclass',
         alt: {
           uk: 'Володимир Мєдвєдєв показує техніку стрижки під час майстеркласу',
           en: 'Volodymyr Medvediev demonstrates a haircut technique during the masterclass',
@@ -163,7 +180,7 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 4,
-        src: articleImageAudience,
+        imageKey: 'audience',
         alt: {
           uk: 'Майстерклас проходить у музейній залі серед учасників комʼюніті',
           en: 'The masterclass takes place in the museum hall among community members',
@@ -171,7 +188,7 @@ export const posts: BlogPost[] = [
       },
       {
         afterParagraphIndex: 6,
-        src: articleImageCuttingDetail,
+        imageKey: 'cuttingDetail',
         alt: {
           uk: 'Деталь роботи Володимира Мєдвєдєва з ножицями під час показу',
           en: 'A close view of Volodymyr Medvediev working with scissors during the demonstration',
@@ -180,98 +197,98 @@ export const posts: BlogPost[] = [
     ],
     galleryImages: [
       {
-        src: articleImageEntrance,
+        imageKey: 'entrance',
         alt: {
           uk: 'Учасники барберської події збираються біля входу до музею',
           en: 'Participants of the barbering event gather near the museum entrance',
         },
       },
       {
-        src: articleImageBeforeMasterclassOne,
+        imageKey: 'beforeMasterclassOne',
         alt: {
           uk: 'Учасник барберської події в музейній залі перед майстеркласом',
           en: 'A participant of the barbering event inside the museum hall before the masterclass',
         },
       },
       {
-        src: articleImageBeforeMasterclassTwo,
+        imageKey: 'beforeMasterclassTwo',
         alt: {
           uk: 'Гості барберської події спілкуються в музейній залі перед майстеркласом',
           en: 'Guests of the barbering event talk inside the museum hall before the masterclass',
         },
       },
       {
-        src: articleImageOne,
+        imageKey: 'masterclass',
         alt: {
           uk: 'Володимир Мєдвєдєв показує техніку стрижки під час майстеркласу',
           en: 'Volodymyr Medvediev demonstrates a haircut technique during the masterclass',
         },
       },
       {
-        src: articleImageAudience,
+        imageKey: 'audience',
         alt: {
           uk: 'Майстерклас у музейній залі серед учасників комʼюніті',
           en: 'The masterclass inside the museum hall among community members',
         },
       },
       {
-        src: articleImageCuttingDetail,
+        imageKey: 'cuttingDetail',
         alt: {
           uk: 'Деталь роботи Володимира Мєдвєдєва з ножицями під час показу',
           en: 'A close view of Volodymyr Medvediev working with scissors during the demonstration',
         },
       },
       {
-        src: articleImageHighFive,
+        imageKey: 'highFive',
         alt: {
           uk: 'Момент підтримки після барберського майстеркласу в музеї',
           en: 'A supportive moment after the barbering masterclass in the museum',
         },
       },
       {
-        src: articleImagePortrait,
+        imageKey: 'portrait',
         alt: {
           uk: 'Портрет учасників події Soul Cuts у музейній залі',
           en: 'A portrait of Soul Cuts event participants inside the museum hall',
         },
       },
       {
-        src: galleryImage9053,
+        imageKey: 'gallery9053',
         alt: {
           uk: 'Портрет учасника події в музейній залі',
           en: 'A portrait of an event participant inside the museum hall',
         },
       },
       {
-        src: galleryImage9058,
+        imageKey: 'gallery9058',
         alt: {
           uk: 'Володимир Мєдвєдєв працює під час майстеркласу',
           en: 'Volodymyr Medvediev works during the masterclass',
         },
       },
       {
-        src: galleryImage9149,
+        imageKey: 'gallery9149',
         alt: {
           uk: 'Учасник отримує сертифікат після майстеркласу',
           en: 'A participant receives a certificate after the masterclass',
         },
       },
       {
-        src: galleryImage8920,
+        imageKey: 'gallery8920',
         alt: {
           uk: 'Груповий портрет гостей події Soul Cuts',
           en: 'A group portrait of Soul Cuts event guests',
         },
       },
       {
-        src: galleryImage9153,
+        imageKey: 'gallery9153',
         alt: {
           uk: 'Гості спілкуються після події в музейній залі',
           en: 'Guests talk after the event inside the museum hall',
         },
       },
       {
-        src: galleryImage9064,
+        imageKey: 'gallery9064',
         alt: {
           uk: 'Учасники спостерігають за демонстрацією стрижки',
           en: 'Participants watch the haircut demonstration',

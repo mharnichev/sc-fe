@@ -5,6 +5,7 @@ const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
 
 const { data: reviewsResponse, pending, error } = await useAsyncData('home-google-business-reviews', domain.getReviews, {
+  server: false,
   default: () => ({
     average_rating: null,
     total_review_count: 0,
@@ -204,7 +205,7 @@ onBeforeUnmount(() => {
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
         </div>
-        <p v-if="reviewsResponse?.total_review_count" class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+        <p v-if="reviewsResponse?.total_review_count" class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
           Google Maps / {{ reviewsResponse.total_review_count }}
         </p>
       </div>
@@ -239,8 +240,8 @@ onBeforeUnmount(() => {
                 >
                 <div>
                   <p class="text-sm font-semibold text-neutral-950">{{ reviewerName(review) }}</p>
-                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                    <span class="flex items-center gap-0.5 text-amber-500" :aria-label="`${review.star_rating || 0}/5`">
+                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">
+                    <span class="flex items-center gap-0.5 text-amber-500" role="img" :aria-label="`${review.star_rating || 0}/5`">
                       <span
                         v-for="(filled, index) in starIcons(review.star_rating)"
                         :key="index"
@@ -256,7 +257,7 @@ onBeforeUnmount(() => {
               <button
                 v-if="isReviewTruncated(review)"
                 type="button"
-                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 underline underline-offset-8 transition hover:text-neutral-950"
+                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
                 @click="toggleReviewText(review)"
               >
                 {{ isReviewExpanded(review) ? terms.home.reviews.showLess : terms.home.reviews.seeFull }}
@@ -264,7 +265,7 @@ onBeforeUnmount(() => {
               <button
                 v-if="hasOriginalReviewText(review)"
                 type="button"
-                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 underline underline-offset-8 transition hover:text-neutral-950"
+                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
                 @click="toggleOriginalReview(review)"
               >
                 {{ isOriginalExpanded(review) ? terms.home.reviews.hideOriginal : terms.home.reviews.readOriginal }}
@@ -306,7 +307,7 @@ onBeforeUnmount(() => {
         <p class="text-2xl font-semibold leading-snug text-neutral-950">
           {{ terms.home.reviews.ratingOnly }}
         </p>
-        <p class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+        <p class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
           Google Maps
         </p>
       </div>
@@ -315,7 +316,7 @@ onBeforeUnmount(() => {
         <p class="text-2xl font-semibold leading-snug text-neutral-950">
           {{ pending ? terms.home.reviews.loading : terms.home.reviews.unavailable }}
         </p>
-        <p v-if="error" class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+        <p v-if="error" class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
           Google Maps
         </p>
       </div>

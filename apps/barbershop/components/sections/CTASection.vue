@@ -14,11 +14,13 @@ const { terms } = useTerms()
             :src="logoVinylDark"
             alt=""
             class="footer-vinyl-spin h-full w-full object-contain"
+            width="712"
+            height="712"
             aria-hidden="true"
           >
           <div class="pointer-events-none absolute left-1/2 top-1/2 flex aspect-square w-[70%] -translate-x-1/2 -translate-y-1/2 items-center justify-center p-[6%]">
             <span class="absolute left-1/2 top-1/2 aspect-square w-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 shadow-[0_0_2rem_rgba(255,255,255,0.12)]" aria-hidden="true" />
-            <img :src="logoNameDark" alt="Soul Cuts" class="relative z-10 w-full object-contain">
+            <img :src="logoNameDark" alt="Soul Cuts" class="relative z-10 w-full object-contain" width="360" height="102">
           </div>
         </div>
       </div>

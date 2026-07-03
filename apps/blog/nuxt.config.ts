@@ -46,7 +46,6 @@ const originFromUrl = (value: string) => {
 
 const apiOrigin = originFromUrl(apiBase)
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
-const googleAnalyticsMeasurementId = 'G-YYYXH2R239'
 const googleScriptSources = [
   'https://www.googletagmanager.com',
   'https://googletagmanager.com',
@@ -117,6 +116,11 @@ const securityHeaders = {
   ].join(', '),
 }
 
+const immutableAssetHeaders = {
+  ...securityHeaders,
+  'Cache-Control': 'public, max-age=31536000, immutable',
+}
+
 export default defineNuxtConfig({
   devtools: { enabled: false },
   compatibilityDate: '2026-05-08',
@@ -139,6 +143,9 @@ export default defineNuxtConfig({
     '/**': {
       headers: securityHeaders,
     },
+    '/_nuxt/**': {
+      headers: immutableAssetHeaders,
+    },
   },
   typescript: {
     strict: true,
@@ -149,24 +156,6 @@ export default defineNuxtConfig({
       titleTemplate: '%s | Soulcuts Journal',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      ],
-      script: [
-        {
-          key: 'google-analytics-gtag',
-          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
-          async: true,
-        },
-        {
-          key: 'google-analytics-init',
-          innerHTML: `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${googleAnalyticsMeasurementId}', {
-  send_page_view: false
-});
-          `.trim(),
-        },
       ],
     },
   },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { getPostBySlug, getRelatedPosts, localizePost } from '~/data/posts'
-import bgDark1 from '~/assets/images/background/bg-dark-1.png'
-import bgDark2 from '~/assets/images/background/bg-dark-2.png'
+import { getPostBySlug, getRelatedPosts, loadBlogPostImage, localizePost, type BlogPostImageKey } from '~/data/posts'
+
+type AssetModule = { default: string }
 
 const { locale, terms } = useBlogLocale()
 const { trackBlogEvent } = useBlogAnalytics()
@@ -26,14 +26,24 @@ if (!rawPost) {
 
 const post = computed(() => localizePost(rawPost, locale.value))
 const relatedPosts = computed(() => getRelatedPosts(rawPost.slug, locale.value))
+const postContent = ref<HTMLElement | null>(null)
+const contentBackground = ref('')
+const resolvedImageSources = ref<Partial<Record<BlogPostImageKey, string>>>({})
+let mediaObserver: IntersectionObserver | null = null
+let hasRequestedPostMedia = false
+
 const articleImagesByParagraphIndex = computed(() => {
-  const imagesByParagraph = new Map<number, Array<NonNullable<typeof post.value.articleImages>[number] & { placement: 'left' | 'right' }>>()
+  const imagesByParagraph = new Map<number, Array<NonNullable<typeof post.value.articleImages>[number] & { placement: 'left' | 'right', src: string }>>()
 
   post.value.articleImages?.forEach((image, imageIndex) => {
+    const src = resolvedImageSources.value[image.imageKey]
+    if (!src) return
+
     const paragraphImages = imagesByParagraph.get(image.afterParagraphIndex) ?? []
 
     paragraphImages.push({
       ...image,
+      src,
       placement: imageIndex % 2 === 0 ? 'right' : 'left',
     })
     imagesByParagraph.set(image.afterParagraphIndex, paragraphImages)
@@ -42,19 +52,69 @@ const articleImagesByParagraphIndex = computed(() => {
   return imagesByParagraph
 })
 
+const resolvedGalleryImages = computed(() =>
+  post.value.galleryImages?.flatMap((image) => {
+    const src = resolvedImageSources.value[image.imageKey]
+    return src ? [{ ...image, src }] : []
+  }) ?? [],
+)
+
 const getArticleImagesAfter = (paragraphIndex: number) => articleImagesByParagraphIndex.value.get(paragraphIndex) ?? []
-const contentBackgrounds = [
-  bgDark1,
-  bgDark2,
+const contentBackgroundLoaders = [
+  () => import('~/assets/images/background/bg-dark-1.png') as Promise<AssetModule>,
+  () => import('~/assets/images/background/bg-dark-2.png') as Promise<AssetModule>,
 ]
-const contentBackgroundIndex = [...rawPost.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgrounds.length
-const contentBackground = contentBackgrounds[contentBackgroundIndex]
+const contentBackgroundIndex = [...rawPost.slug].reduce((sum, character) => sum + character.charCodeAt(0), 0) % contentBackgroundLoaders.length
+const contentBackgroundStyle = computed(() =>
+  contentBackground.value ? { backgroundImage: `url(${contentBackground.value})` } : undefined,
+)
+
+const loadPostMedia = async () => {
+  if (hasRequestedPostMedia) return
+  hasRequestedPostMedia = true
+
+  const imageKeys = new Set<BlogPostImageKey>()
+  post.value.articleImages?.forEach(image => imageKeys.add(image.imageKey))
+  post.value.galleryImages?.forEach(image => imageKeys.add(image.imageKey))
+
+  const [background, imageEntries] = await Promise.all([
+    contentBackgroundLoaders[contentBackgroundIndex]?.(),
+    Promise.all([...imageKeys].map(async key => [key, await loadBlogPostImage(key)] as const)),
+  ])
+
+  contentBackground.value = background?.default || ''
+  resolvedImageSources.value = Object.fromEntries(imageEntries)
+}
+
+const observePostMedia = () => {
+  const target = postContent.value
+
+  if (!target || typeof window.IntersectionObserver !== 'function') {
+    window.setTimeout(loadPostMedia, 3200)
+    return
+  }
+
+  mediaObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    mediaObserver?.disconnect()
+    mediaObserver = null
+    loadPostMedia()
+  })
+
+  mediaObserver.observe(target)
+}
 
 onMounted(() => {
   trackBlogEvent('post_view', {
     post_slug: rawPost.slug,
     post_title: post.value.title,
   })
+  observePostMedia()
+})
+
+onBeforeUnmount(() => {
+  mediaObserver?.disconnect()
 })
 
 const handlePostBookingClick = () => {
@@ -72,13 +132,44 @@ useSeoMeta({
   ogDescription: () => post.value.excerpt,
   ogImage: () => post.value.coverImage,
 })
+
+useHead(() => ({
+  link: [
+    {
+      rel: 'preload',
+      as: 'image',
+      href: post.value.coverImageMobile,
+      media: '(max-width: 767px)',
+      fetchpriority: 'high',
+    },
+    {
+      rel: 'preload',
+      as: 'image',
+      href: post.value.coverImage,
+      media: '(min-width: 768px)',
+      fetchpriority: 'high',
+    },
+  ],
+}))
 </script>
 
 <template>
   <article class="bg-neutral-950">
     <header class="relative min-h-[calc(100svh+8rem)] sm:min-h-[calc(100svh+10rem)]">
       <div class="sticky top-0 h-[100svh] overflow-hidden bg-neutral-950">
-        <img :src="post.coverImage" :alt="post.coverImageAlt" class="absolute inset-0 h-full w-full object-cover">
+        <picture class="absolute inset-0 h-full w-full">
+          <source :srcset="post.coverImageMobile" media="(max-width: 767px)" type="image/jpeg">
+          <img
+            :src="post.coverImage"
+            :alt="post.coverImageAlt"
+            class="h-full w-full object-cover"
+            width="1600"
+            height="1060"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          >
+        </picture>
         <div class="absolute inset-0 bg-black/45" aria-hidden="true" />
 
         <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-4 pb-12 pt-24 text-left sm:px-6 sm:pb-16 lg:px-8">
@@ -90,8 +181,9 @@ useSeoMeta({
     </header>
 
     <div
+      ref="postContent"
       class="post-content-reveal relative z-10 -mt-10 bg-repeat text-neutral-100 shadow-none sm:-mt-12"
-      :style="{ backgroundImage: `url(${contentBackground})` }"
+      :style="contentBackgroundStyle"
     >
       <div class="site-container py-12 sm:py-16">
         <div class="mx-auto max-w-3xl">
@@ -146,7 +238,9 @@ useSeoMeta({
           </BaseButton>
         </div>
       </section>
-      <BlogPhotoCarousel :images="post.galleryImages" />
+      <ClientOnly v-if="resolvedGalleryImages.length">
+        <LazyBlogPhotoCarousel :images="resolvedGalleryImages" />
+      </ClientOnly>
     </div>
   </article>
 

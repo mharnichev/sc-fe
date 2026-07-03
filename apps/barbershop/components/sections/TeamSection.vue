@@ -13,7 +13,10 @@ type LocalizedMasterDto = MasterDto & {
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
-const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters)
+const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters, {
+  server: false,
+  default: () => [],
+})
 
 const activeMemberIndex = ref(0)
 const teamSection = ref<HTMLElement | null>(null)

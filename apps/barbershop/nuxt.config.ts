@@ -3,7 +3,8 @@ declare const process: {
 }
 
 const developmentApiBase = 'http://localhost:8000/api/v1'
-const productionApiBase = 'https://api.soulcuts.com.ua/api/v1'
+const productionApiUpstreamBase = 'https://api.soulcuts.com.ua/api/v1'
+const productionApiBase = '/api/v1'
 const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || 'https://soulcuts.com.ua'
 const isProduction = process.env.NODE_ENV === 'production'
 const defaultApiBase = isProduction ? productionApiBase : developmentApiBase
@@ -48,7 +49,6 @@ const originFromUrl = (value: string) => {
 const apiOrigin = originFromUrl(apiBase)
 const siteOrigin = originFromUrl(siteUrl)
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
-const googleAnalyticsMeasurementId = 'G-YYYXH2R239'
 const googleScriptSources = [
   'https://www.googletagmanager.com',
   'https://googletagmanager.com',
@@ -128,6 +128,16 @@ const securityHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
 }
 
+const immutableAssetHeaders = {
+  ...securityHeaders,
+  'Cache-Control': 'public, max-age=31536000, immutable',
+}
+
+const staticAssetHeaders = {
+  ...securityHeaders,
+  'Cache-Control': 'public, max-age=604800, stale-while-revalidate=86400',
+}
+
 export default defineNuxtConfig({
   devtools: { enabled: false },
   compatibilityDate: '2026-05-08',
@@ -141,6 +151,7 @@ export default defineNuxtConfig({
     },
   ],
   runtimeConfig: {
+    apiUpstreamBase: normalizeApiBase(process.env.NUXT_API_UPSTREAM_BASE || productionApiUpstreamBase),
     public: {
       apiBase,
       siteUrl,
@@ -149,6 +160,12 @@ export default defineNuxtConfig({
   routeRules: {
     '/**': {
       headers: securityHeaders,
+    },
+    '/_nuxt/**': {
+      headers: immutableAssetHeaders,
+    },
+    '/soulcuts-bot-qr.svg': {
+      headers: staticAssetHeaders,
     },
   },
   typescript: {
@@ -180,31 +197,6 @@ export default defineNuxtConfig({
       link: [
         { rel: 'preconnect', href: apiOrigin || 'https://api.soulcuts.com.ua', crossorigin: '' },
         { rel: 'dns-prefetch', href: apiOrigin || 'https://api.soulcuts.com.ua' },
-      ],
-      script: [
-        {
-          key: 'google-analytics-gtag',
-          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsMeasurementId}`,
-          async: true,
-        },
-        {
-          key: 'google-analytics-init',
-          innerHTML: `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('consent', 'default', {
-  ad_personalization: 'denied',
-  ad_storage: 'denied',
-  ad_user_data: 'denied',
-  analytics_storage: 'denied',
-  wait_for_update: 500
-});
-gtag('js', new Date());
-gtag('config', '${googleAnalyticsMeasurementId}', {
-  send_page_view: false
-});
-          `.trim(),
-        },
       ],
     },
   },

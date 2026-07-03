@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Suspense>
-          <BookingSection
+          <LazyBookingSection
             analytics-source="floating_booking"
             id-prefix="floating-booking"
             :listen-for-external-select="false"

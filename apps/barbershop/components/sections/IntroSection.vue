@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import introSectionPhotos from '~/assets/images/intro/intro-section-photos.webp'
 import logoNameDark from '~/assets/images/main/sc-logo-name-dark.webp'
+
+type AssetModule = { default: string }
 
 const { terms } = useTerms()
 
 const isIntroExpanded = ref(false)
+const introSectionPhotos = ref('')
+const introPhotoFrame = ref<HTMLElement | null>(null)
+let introPhotoObserver: IntersectionObserver | null = null
 
 const introText = computed(() => {
   const text = terms.value.home.intro.text
@@ -19,6 +23,38 @@ const visibleIntroText = computed(() =>
 const accordionIntroText = computed(() =>
   hasIntroAccordion.value ? introText.value.slice(-3) : [],
 )
+
+const loadIntroPhoto = async () => {
+  if (introSectionPhotos.value) return
+
+  const image = await import('~/assets/images/intro/intro-section-photos.webp') as AssetModule
+  introSectionPhotos.value = image.default
+}
+
+onMounted(() => {
+  const target = introPhotoFrame.value
+
+  if (!target || typeof window.IntersectionObserver !== 'function') {
+    window.setTimeout(loadIntroPhoto, 2200)
+    return
+  }
+
+  introPhotoObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    introPhotoObserver?.disconnect()
+    introPhotoObserver = null
+    loadIntroPhoto()
+  }, {
+    rootMargin: '200px 0px',
+  })
+
+  introPhotoObserver.observe(target)
+})
+
+onBeforeUnmount(() => {
+  introPhotoObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -33,8 +69,9 @@ const accordionIntroText = computed(() =>
       >
 
       <div class="flex w-full flex-col gap-8 min-[560px]:flex-row min-[560px]:items-stretch md:gap-12">
-        <div class="order-last mx-auto w-full max-w-md overflow-hidden rounded-lg min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
+        <div ref="introPhotoFrame" class="order-last mx-auto w-full max-w-md overflow-hidden rounded-lg min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
           <img
+            v-if="introSectionPhotos"
             :src="introSectionPhotos"
             :alt="terms.home.intro.imageAlt"
             class="aspect-[4/5] h-full w-full object-contain"
