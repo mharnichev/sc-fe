@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import logoNameDark from '~/assets/images/main/sc-logo-name-dark.webp'
-import logoVinylDark from '~/assets/logo-vinyl-dark.webp'
+type AssetModule = { default: string }
 
 const { terms } = useTerms()
 const { resetCookieConsent } = useCookieConsent()
@@ -8,13 +7,49 @@ const { trackContactClick, trackEvent } = useAnalytics()
 
 const footerElement = ref<HTMLElement | null>(null)
 const footerRevealOffset = ref(0)
+const logoNameDark = ref('')
+const logoVinylDark = ref('')
+const shouldShowFooterEmail = ref(false)
 const phoneHref = computed(() => `tel:${terms.value.home.contact.phone.replace(/[^\d+]/g, '')}`)
-const emailHref = computed(() => `mailto:${terms.value.home.contact.email}`)
+const footerMediaReady = computed(() => Boolean(logoNameDark.value && logoVinylDark.value))
 const footerStyle = computed(() => ({
   transform: `translate3d(0, ${footerRevealOffset.value}px, 0)`,
 }))
 
 let revealFrame: number | null = null
+let footerMediaPromise: Promise<void> | null = null
+
+const loadFooterMedia = () => {
+  if (footerMediaReady.value) return Promise.resolve()
+
+  footerMediaPromise ??= Promise.all([
+    import('~/assets/logo-vinyl-dark.webp') as Promise<AssetModule>,
+    import('~/assets/images/main/sc-logo-name-dark.webp') as Promise<AssetModule>,
+  ])
+    .then(([vinyl, logo]) => {
+      logoVinylDark.value = vinyl.default
+      logoNameDark.value = logo.default
+    })
+    .finally(() => {
+      footerMediaPromise = null
+    })
+
+  return footerMediaPromise
+}
+
+const maybeLoadFooterMedia = (mainBottom: number, viewportHeight: number) => {
+  if (mainBottom > viewportHeight * 1.5) return
+
+  void loadFooterMedia()
+}
+
+const openFooterEmail = () => {
+  trackContactClick('email', 'footer')
+
+  if (!import.meta.client || !terms.value.home.contact.email) return
+
+  window.location.href = `mailto:${terms.value.home.contact.email}`
+}
 
 const syncFooterHeight = () => {
   if (!import.meta.client) return 0
@@ -34,16 +69,18 @@ const updateFooterReveal = () => {
   revealFrame = null
 
   const footerHeight = syncFooterHeight()
+  const main = document.querySelector('main')
+  const mainBottom = main?.getBoundingClientRect().bottom ?? window.innerHeight
+  const viewportHeight = window.innerHeight || 1
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  maybeLoadFooterMedia(mainBottom, viewportHeight)
 
   if (reduceMotion || footerHeight <= 0) {
     footerRevealOffset.value = 0
     return
   }
 
-  const main = document.querySelector('main')
-  const mainBottom = main?.getBoundingClientRect().bottom ?? window.innerHeight
-  const viewportHeight = window.innerHeight || 1
   const revealRange = Math.min(footerHeight, viewportHeight)
   const revealDistance = Math.min(footerHeight * 0.35, viewportHeight * 0.24)
   const progress = Math.min(1, Math.max(0, (viewportHeight - mainBottom) / revealRange))
@@ -64,6 +101,7 @@ onMounted(() => {
 
   window.addEventListener('scroll', requestFooterRevealUpdate, { passive: true })
   window.addEventListener('resize', requestFooterRevealUpdate)
+  shouldShowFooterEmail.value = true
   requestFooterRevealUpdate()
 })
 
@@ -90,17 +128,32 @@ onBeforeUnmount(() => {
       <div class="grid gap-4 md:gap-8 lg:grid-cols-[minmax(0,1fr)_18.7rem] lg:items-end lg:gap-12">
         <div class="order-2 lg:order-2">
           <div class="relative mx-auto aspect-square w-full max-w-[min(44vw,8.75rem)] md:max-w-[min(56vw,13.5rem)] lg:mx-0 lg:max-w-[18.7rem]" aria-label="Soul Cuts">
-            <img
-              :src="logoVinylDark"
-              alt=""
-              class="footer-vinyl-spin h-full w-full object-contain"
-              width="712"
-              height="712"
-              aria-hidden="true"
-            >
-            <div class="pointer-events-none absolute left-1/2 top-1/2 flex aspect-square w-[70%] -translate-x-1/2 -translate-y-1/2 items-center justify-center p-[6%]">
+            <template v-if="footerMediaReady">
+              <img
+                :src="logoVinylDark"
+                alt=""
+                class="footer-vinyl-spin h-full w-full object-contain"
+                width="712"
+                height="712"
+                loading="lazy"
+                fetchpriority="low"
+                decoding="async"
+                aria-hidden="true"
+              >
+            </template>
+            <span v-else class="absolute inset-0 rounded-full border border-white/10 bg-white/5" aria-hidden="true" />
+            <div v-if="footerMediaReady" class="pointer-events-none absolute left-1/2 top-1/2 flex aspect-square w-[70%] -translate-x-1/2 -translate-y-1/2 items-center justify-center p-[6%]">
               <span class="absolute left-1/2 top-1/2 aspect-square w-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 shadow-[0_0_2rem_rgba(255,255,255,0.12)]" aria-hidden="true" />
-              <img :src="logoNameDark" alt="Soul Cuts" class="relative z-10 w-full object-contain" width="360" height="102">
+              <img
+                :src="logoNameDark"
+                alt="Soul Cuts"
+                class="relative z-10 w-full object-contain"
+                width="360"
+                height="102"
+                loading="lazy"
+                fetchpriority="low"
+                decoding="async"
+              >
             </div>
           </div>
         </div>
@@ -144,9 +197,9 @@ onBeforeUnmount(() => {
               </a>
             </p>
             <p v-if="terms.home.contact.email">
-              <a :href="emailHref" class="transition hover:text-white hover:underline" @click="trackContactClick('email', 'footer')">
-                {{ terms.home.contact.email }}
-              </a>
+              <button type="button" class="transition hover:text-white hover:underline" @click="openFooterEmail">
+                {{ shouldShowFooterEmail ? terms.home.contact.email : 'Email' }}
+              </button>
             </p>
             <p>
               <a href="/blog/" class="transition hover:text-white hover:underline" @click="trackEvent('view_blog', { source: 'footer' })">
@@ -180,25 +233,3 @@ onBeforeUnmount(() => {
     </div>
   </footer>
 </template>
-
-<style scoped>
-.footer-vinyl-spin {
-  animation: footer-vinyl-spin 18s linear infinite;
-}
-
-@keyframes footer-vinyl-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .footer-vinyl-spin {
-    animation: none;
-  }
-}
-</style>

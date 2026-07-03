@@ -6,6 +6,8 @@ const { openSubscribeModal } = useSubscribeModal()
 const { trackBlogEvent } = useBlogAnalytics()
 const footerElement = ref<HTMLElement | null>(null)
 const footerRevealOffset = ref(0)
+const shouldShowFooterEmail = ref(false)
+const contactEmail = 'Soulcutsplace@gmail.com'
 const footerStyle = computed(() => ({
   transform: `translate3d(0, ${footerRevealOffset.value}px, 0)`,
 }))
@@ -29,6 +31,14 @@ const handleFooterContactClick = (linkType: string) => {
     link_type: linkType,
     source: 'footer',
   })
+}
+
+const openFooterEmail = () => {
+  handleFooterContactClick('email')
+
+  if (!import.meta.client) return
+
+  window.location.href = `mailto:${contactEmail}`
 }
 
 const syncFooterHeight = () => {
@@ -79,6 +89,7 @@ onMounted(() => {
 
   window.addEventListener('scroll', requestFooterRevealUpdate, { passive: true })
   window.addEventListener('resize', requestFooterRevealUpdate)
+  shouldShowFooterEmail.value = true
   requestFooterRevealUpdate()
 })
 
@@ -104,7 +115,7 @@ onBeforeUnmount(() => {
       <div class="grid gap-7 md:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.65fr)] lg:items-end lg:gap-12">
         <div class="w-full space-y-3 md:space-y-5">
           <p class="text-xs font-bold uppercase tracking-[0.28em] text-white/50">{{ terms.footerEyebrow }}</p>
-          <h2 class="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl">
+          <h2 class="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl uppercase">
             {{ terms.footerHeadline }}
           </h2>
           <p class="max-w-2xl text-sm leading-7 text-white/60 md:text-base md:leading-8">
@@ -173,9 +184,9 @@ onBeforeUnmount(() => {
               </a>
             </p>
             <p>
-              <a class="transition hover:text-white" href="mailto:Soulcutsplace@gmail.com" @click="handleFooterContactClick('email')">
-                Soulcutsplace@gmail.com
-              </a>
+              <button type="button" class="transition hover:text-white" @click="openFooterEmail">
+                {{ shouldShowFooterEmail ? contactEmail : terms.emailAddress }}
+              </button>
             </p>
           </div>
         </div>

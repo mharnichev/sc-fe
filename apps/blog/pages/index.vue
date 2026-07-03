@@ -65,7 +65,7 @@ useHead(() => ({
         <div class="flex flex-col justify-between border-neutral-700 py-6 lg:py-8">
           <div>
             <p class="eyebrow">{{ terms.featuredPost }}</p>
-            <h1 class="mt-5 text-4xl font-black leading-[0.98] text-white sm:text-6xl lg:text-7xl">
+            <h1 class="mt-5 text-4xl font-black leading-[0.98] text-white sm:text-5xl lg:text-6xl">
               {{ featuredPost.title }}
             </h1>
             <p class="mt-6 max-w-xl text-base leading-8 text-neutral-300 sm:text-lg">

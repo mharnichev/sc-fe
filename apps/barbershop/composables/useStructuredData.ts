@@ -59,7 +59,6 @@ export const useLocalBusinessStructuredData = () => {
     logo: absoluteUrl(defaultBusinessImage),
     description: terms.value.seo.homeDescription,
     telephone: terms.value.home.contact.phone,
-    email: terms.value.home.contact.email,
     priceRange: '₴₴',
     currenciesAccepted: 'UAH',
     paymentAccepted: 'Cash, Card',
@@ -98,7 +97,6 @@ export const useLocalBusinessStructuredData = () => {
     contactPoint: {
       '@type': 'ContactPoint',
       telephone: terms.value.home.contact.phone,
-      email: terms.value.home.contact.email,
       contactType: 'booking',
       areaServed: 'UA',
       availableLanguage: ['uk', 'en'],

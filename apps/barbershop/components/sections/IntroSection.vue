@@ -66,6 +66,9 @@ onBeforeUnmount(() => {
         class="m-auto h-auto w-56 sm:w-72 lg:w-80"
         width="320"
         height="120"
+        loading="lazy"
+        fetchpriority="low"
+        decoding="async"
       >
 
       <div class="flex w-full flex-col gap-8 min-[560px]:flex-row min-[560px]:items-stretch md:gap-12">

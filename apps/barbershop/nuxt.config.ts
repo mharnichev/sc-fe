@@ -48,6 +48,12 @@ const originFromUrl = (value: string) => {
 
 const apiOrigin = originFromUrl(apiBase)
 const siteOrigin = originFromUrl(siteUrl)
+const apiResourceHints = apiOrigin
+  ? [
+      { rel: 'preconnect' as const, href: apiOrigin, crossorigin: '' as const },
+      { rel: 'dns-prefetch' as const, href: apiOrigin },
+    ]
+  : []
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
 const googleScriptSources = [
   'https://www.googletagmanager.com',
@@ -164,6 +170,9 @@ export default defineNuxtConfig({
     '/_nuxt/**': {
       headers: immutableAssetHeaders,
     },
+    '/fonts/**': {
+      headers: immutableAssetHeaders,
+    },
     '/soulcuts-bot-qr.svg': {
       headers: staticAssetHeaders,
     },
@@ -194,10 +203,7 @@ export default defineNuxtConfig({
         { name: 'geo.region', content: 'UA-51' },
         { name: 'geo.placename', content: 'Odesa' },
       ],
-      link: [
-        { rel: 'preconnect', href: apiOrigin || 'https://api.soulcuts.com.ua', crossorigin: '' },
-        { rel: 'dns-prefetch', href: apiOrigin || 'https://api.soulcuts.com.ua' },
-      ],
+      link: apiResourceHints,
     },
   },
 })

@@ -146,6 +146,9 @@ export default defineNuxtConfig({
     '/_nuxt/**': {
       headers: immutableAssetHeaders,
     },
+    '/fonts/**': {
+      headers: immutableAssetHeaders,
+    },
   },
   typescript: {
     strict: true,

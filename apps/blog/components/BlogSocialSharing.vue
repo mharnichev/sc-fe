@@ -17,17 +17,17 @@ const encodedTitle = computed(() => encodeURIComponent(props.title))
 const shareLinks = computed(() => [
   {
     label: 'Facebook',
-    shortLabel: 'F',
+    icon: 'facebook',
     href: `https://www.facebook.com/sharer.php?u=${encodedShareUrl.value}`,
   },
   {
     label: 'X',
-    shortLabel: 'X',
+    icon: 'x',
     href: `https://twitter.com/intent/tweet?text=${encodedTitle.value}&url=${encodedShareUrl.value}`,
   },
   {
     label: terms.value.shareEmail,
-    shortLabel: '@',
+    icon: 'email',
     href: `mailto:?subject=${encodedTitle.value}&body=${encodeURIComponent(`${terms.value.shareEmailBody} ${shareUrl.value}`)}`,
   },
 ])
@@ -81,7 +81,45 @@ const handleShareClick = (method: string) => {
         @click="handleShareClick(link.label)"
       >
         <span class="sr-only">{{ link.label }}</span>
-        <span aria-hidden="true">{{ link.shortLabel }}</span>
+        <svg
+          v-if="link.icon === 'facebook'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M14.25 8.25V6.9c0-.66.54-1.2 1.2-1.2h1.8V2.25h-2.7a4.05 4.05 0 0 0-4.05 4.05v1.95H7.8v3.6h2.7v9.9h3.75v-9.9h2.7l.45-3.6z" />
+        </svg>
+        <svg
+          v-else-if="link.icon === 'x'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M17.53 3h3.13l-6.84 7.82L21.88 21h-6.31l-4.94-6.46L4.97 21H1.84l7.31-8.36L1.42 3h6.47l4.47 5.91zm-1.1 16.21h1.73L6.95 4.7H5.09z" />
+        </svg>
+        <svg
+          v-else
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M4.75 6.75h14.5v10.5H4.75z"
+            stroke="currentColor"
+            stroke-width="2.1"
+            stroke-linejoin="round"
+          />
+          <path
+            d="m5.25 7.25 6.75 5.5 6.75-5.5"
+            stroke="currentColor"
+            stroke-width="2.1"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </BaseButton>
       <BaseButton
         type="button"

@@ -49,6 +49,7 @@ export default defineNuxtPlugin(() => {
   let hasTrackedInitialPageView = false
   let isGtagInitialized = false
   let isGtagLoadScheduled = false
+  const pendingCallbacks: (() => void)[] = []
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -84,24 +85,38 @@ export default defineNuxtPlugin(() => {
     loadGtagScript()
   }
 
-  const scheduleGtagLoad = () => {
+  const scheduleGtagLoad = (callback?: () => void) => {
+    if (callback) {
+      pendingCallbacks.push(callback)
+    }
+
     if (isGtagLoadScheduled) return
     isGtagLoadScheduled = true
 
     runAfterInitialLoad(() => {
       isGtagLoadScheduled = false
-      if (canUseAnalytics.value) initializeGtag()
+
+      if (!canUseAnalytics.value) {
+        pendingCallbacks.length = 0
+        return
+      }
+
+      initializeGtag()
+
+      const callbacks = pendingCallbacks.splice(0)
+      callbacks.forEach(queuedCallback => queuedCallback())
     })
   }
 
   const trackPageView = () => {
     if (!canUseAnalytics.value) return
 
-    initializeGtag()
-    window.gtag?.('event', 'page_view', {
-      page_path: route.fullPath,
-      page_location: window.location.href,
-      page_title: document.title,
+    scheduleGtagLoad(() => {
+      window.gtag?.('event', 'page_view', {
+        page_path: route.fullPath,
+        page_location: window.location.href,
+        page_title: document.title,
+      })
     })
   }
 
@@ -116,8 +131,7 @@ export default defineNuxtPlugin(() => {
 
       if (allowed && !hasTrackedInitialPageView) {
         hasTrackedInitialPageView = true
-        scheduleGtagLoad()
-        window.requestAnimationFrame(trackPageView)
+        trackPageView()
       }
     },
     { immediate: true },
@@ -126,7 +140,6 @@ export default defineNuxtPlugin(() => {
   router.afterEach(() => {
     if (!canUseAnalytics.value) return
 
-    scheduleGtagLoad()
-    window.requestAnimationFrame(trackPageView)
+    trackPageView()
   })
 })

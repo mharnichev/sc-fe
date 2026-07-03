@@ -18,6 +18,16 @@ declare global {
 export default defineNuxtPlugin(() => {
   const { canUseAnalytics } = useCookieConsent()
   let isLoaded = false
+  let isLoadScheduled = false
+
+  const runWhenIdle = (callback: () => void) => {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(callback, { timeout: 3000 })
+      return
+    }
+
+    window.setTimeout(callback, 1200)
+  }
 
   const loadHotjar = () => {
     if (isLoaded || document.getElementById(HOTJAR_SCRIPT_ID)) return
@@ -39,10 +49,44 @@ export default defineNuxtPlugin(() => {
     isLoaded = true
   }
 
+  const scheduleHotjarLoad = () => {
+    if (isLoadScheduled || isLoaded) return
+    isLoadScheduled = true
+
+    const loadAfterIdle = () => {
+      window.setTimeout(() => {
+        runWhenIdle(() => {
+          isLoadScheduled = false
+          if (canUseAnalytics.value) loadHotjar()
+        })
+      }, 2200)
+    }
+
+    const loadAfterPageSettles = () => {
+      window.setTimeout(() => {
+        runWhenIdle(() => {
+          isLoadScheduled = false
+          if (canUseAnalytics.value) loadHotjar()
+        })
+      }, 12000)
+    }
+
+    window.addEventListener('pointerdown', loadAfterIdle, { once: true, passive: true })
+    window.addEventListener('keydown', loadAfterIdle, { once: true })
+    window.addEventListener('scroll', loadAfterIdle, { once: true, passive: true })
+
+    if (document.readyState === 'complete') {
+      loadAfterPageSettles()
+      return
+    }
+
+    window.addEventListener('load', loadAfterPageSettles, { once: true })
+  }
+
   watch(
     canUseAnalytics,
     (allowed) => {
-      if (allowed) loadHotjar()
+      if (allowed) scheduleHotjarLoad()
     },
     { immediate: true },
   )

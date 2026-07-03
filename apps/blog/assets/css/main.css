@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Cy Grotesk";
+  src: url("/fonts/cy-grotesk/cy-grotesk-key-400.c28dc18eed.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
+}
+
+@font-face {
+  font-family: "Cy Grotesk";
+  src: url("/fonts/cy-grotesk/cy-grotesk-key-500.f52df205ab.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
+}
+
+@font-face {
+  font-family: "Cy Grotesk";
+  src: url("/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
+}
+
+@font-face {
+  font-family: "Cy Grotesk";
+  src: url("/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
+}
+
+@font-face {
+  font-family: "Cy Grotesk";
+  src: url("/fonts/cy-grotesk/cy-grotesk-key-900.8c05da4989.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
+}
+
 :root {
   color-scheme: dark;
   scroll-behavior: smooth;
@@ -9,12 +54,220 @@
 
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Cy Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+.sc-button {
+  --sc-button-bg: #0a0a0a;
+  --sc-button-text: #ffffff;
+  --sc-button-fill: #ffffff;
+  --sc-button-hover-text: #0a0a0a;
+  --sc-button-border: #0a0a0a;
+  --sc-button-fill-y: -76%;
+  --sc-button-shadow: none;
+  --sc-button-backdrop-filter: none;
+
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-width: 0;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  border: 1px solid var(--sc-button-border);
+  border-radius: 0;
+  background: var(--sc-button-bg);
+  box-shadow: var(--sc-button-shadow);
+  -webkit-backdrop-filter: var(--sc-button-backdrop-filter);
+  backdrop-filter: var(--sc-button-backdrop-filter);
+  color: var(--sc-button-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    border-color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    background-color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    box-shadow 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    opacity 200ms ease;
+}
+
+.sc-button--md {
+  padding: 0.85rem 1.5rem;
+}
+
+.sc-button--xs {
+  min-height: 2.25rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.6875rem;
+}
+
+.sc-button--sm {
+  min-height: 2.5rem;
+  padding: 0.65rem 1.05rem;
+  font-size: 0.75rem;
+}
+
+.sc-button--block {
+  width: 100%;
+}
+
+.sc-button--light {
+  --sc-button-bg: #ffffff;
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
+  --sc-button-border: #0a0a0a;
+}
+
+.sc-button--outline-dark {
+  --sc-button-bg: rgb(255 255 255 / 0.46);
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
+  --sc-button-border: rgb(10 10 10 / 0.28);
+  --sc-button-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.68),
+    inset 0 -1px 0 rgb(10 10 10 / 0.08),
+    0 0.65rem 1.85rem rgb(10 10 10 / 0.12);
+  --sc-button-backdrop-filter: blur(18px) saturate(1.45);
+}
+
+.sc-button--outline-light {
+  --sc-button-bg: rgb(255 255 255 / 0.12);
+  --sc-button-text: #ffffff;
+  --sc-button-fill: #ffffff;
+  --sc-button-hover-text: #0a0a0a;
+  --sc-button-border: rgb(255 255 255 / 0.34);
+  --sc-button-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    inset 0 -1px 0 rgb(255 255 255 / 0.08),
+    0 0.65rem 1.85rem rgb(0 0 0 / 0.2);
+  --sc-button-backdrop-filter: blur(18px) saturate(1.45);
+}
+
+.sc-button--circle {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: 9999px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.sc-button--circle.sc-button--xs {
+  width: 2.25rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  min-height: 2.25rem;
+}
+
+.sc-button--circle.sc-button--sm {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
+}
+
+.sc-button--disabled,
+.sc-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.sc-button--effect-waves:not(:disabled, .sc-button--disabled) {
+  border: 1px solid rgb(115 115 115 / 0.7);
+  animation: sc-button-waves 2.1s ease-in-out infinite;
+}
+
+.sc-button__surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.sc-button__fill {
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  display: block;
+  width: 150%;
+  height: 200%;
+  border-radius: 50%;
+  background: var(--sc-button-fill);
+  transform: translate3d(0, var(--sc-button-fill-y), 0);
+  transition: transform 540ms cubic-bezier(0.3, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.sc-button__text {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.sc-button__text svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.sc-button:not(:disabled, .sc-button--disabled):hover,
+.sc-button:not(:disabled, .sc-button--disabled):focus-visible {
+  --sc-button-fill-y: 0%;
+
+  color: var(--sc-button-hover-text);
+}
+
+.sc-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-button,
+  .sc-button__fill {
+    animation: none;
+    transition: none;
+  }
+}
+
+@keyframes sc-button-waves {
+  0%,
+  100% {
+    border-color: rgb(115 115 115 / 0.55);
+    box-shadow:
+      0 0 0 0 rgb(255 255 255 / 0),
+      0 0.45rem 1.25rem rgb(0 0 0 / 0.12);
+  }
+
+  50% {
+    border-color: rgb(64 64 64 / 0.85);
+    box-shadow:
+      0 0 0 0.42rem rgb(255 255 255 / 0.24),
+      0 0 0 0.72rem rgb(255 255 255 / 0.1),
+      0 0.65rem 1.75rem rgb(0 0 0 / 0.2);
+  }
 }
 
 @layer components {

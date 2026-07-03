@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
                   <time datetime="2026-03-16">{{ terms.home.blog.featured.date }}</time>
                   <span>{{ terms.home.blog.featured.readTime }}</span>
                 </div>
-                <h3 class="mt-4 max-w-2xl text-2xl font-black uppercase leading-[0.98] text-white sm:text-2xl md:text-4xl lg:text-6xl">
+                <h3 class="mt-4 max-w-2xl text-2xl font-black uppercase leading-[0.98] text-white sm:text-2xl md:text-4xl lg:text-5xl">
                   {{ terms.home.blog.featured.title }}
                 </h3>
                 <p class="mt-4 max-w-xl text-sm font-semibold leading-7 text-white/72 sm:text-base sm:leading-8">
