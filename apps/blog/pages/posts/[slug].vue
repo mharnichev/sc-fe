@@ -156,17 +156,17 @@ useHead(() => ({
 <template>
   <article class="bg-neutral-950">
     <header class="relative min-h-[calc(100svh+8rem)] sm:min-h-[calc(100svh+10rem)]">
-      <div class="sticky top-0 h-[100svh] overflow-hidden bg-neutral-950">
-        <picture class="absolute inset-0 h-full w-full">
-          <source :srcset="post.coverImageMobile" media="(max-width: 767px)" type="image/jpeg">
-          <img
-            :src="post.coverImage"
-            :alt="post.coverImageAlt"
-            class="h-full w-full object-cover"
-            width="1600"
-            height="1060"
-            loading="eager"
-            fetchpriority="high"
+        <div class="sticky top-0 h-[100svh] overflow-hidden bg-neutral-950">
+          <picture class="absolute inset-0 h-full w-full">
+            <source :srcset="post.coverImage" media="(min-width: 768px)" type="image/jpeg">
+            <img
+              :src="post.coverImageMobile"
+              :alt="post.coverImageAlt"
+              class="h-full w-full object-cover"
+              width="680"
+              height="1060"
+              loading="eager"
+              fetchpriority="high"
             decoding="async"
           >
         </picture>
@@ -228,7 +228,7 @@ useHead(() => ({
             {{ terms.postBookingCtaText }}
           </p>
           <BaseButton
-            href="/#booking"
+            href="/#booking-stepper"
             class="mt-6 w-full sm:w-auto"
             variant="light"
             effect="waves"

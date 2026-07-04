@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import logoNameDark from '~/assets/images/main/sc-logo-name-dark.webp'
-
 type AssetModule = { default: string }
 
 const { terms } = useTerms()
 
 const isIntroExpanded = ref(false)
+const introLogo = ref('')
 const introSectionPhotos = ref('')
+const introSection = ref<HTMLElement | null>(null)
 const introPhotoFrame = ref<HTMLElement | null>(null)
+let introLogoObserver: IntersectionObserver | null = null
 let introPhotoObserver: IntersectionObserver | null = null
 
 const introText = computed(() => {
@@ -31,13 +32,33 @@ const loadIntroPhoto = async () => {
   introSectionPhotos.value = image.default
 }
 
+const loadIntroLogo = async () => {
+  if (introLogo.value) return
+
+  const image = await import('~/assets/images/main/sc-logo-name-dark.webp') as AssetModule
+  introLogo.value = image.default
+}
+
 onMounted(() => {
+  const section = introSection.value
   const target = introPhotoFrame.value
 
-  if (!target || typeof window.IntersectionObserver !== 'function') {
+  if (!section || !target || typeof window.IntersectionObserver !== 'function') {
+    window.setTimeout(loadIntroLogo, 1800)
     window.setTimeout(loadIntroPhoto, 2200)
     return
   }
+
+  introLogoObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    introLogoObserver?.disconnect()
+    introLogoObserver = null
+    loadIntroLogo()
+  }, {
+    rootMargin: '0px 0px -12% 0px',
+    threshold: 0.01,
+  })
 
   introPhotoObserver = new IntersectionObserver((entries) => {
     if (!entries.some(entry => entry.isIntersecting)) return
@@ -46,33 +67,38 @@ onMounted(() => {
     introPhotoObserver = null
     loadIntroPhoto()
   }, {
-    rootMargin: '200px 0px',
+    rootMargin: '0px 0px -12% 0px',
+    threshold: 0.01,
   })
 
+  introLogoObserver.observe(section)
   introPhotoObserver.observe(target)
 })
 
 onBeforeUnmount(() => {
+  introLogoObserver?.disconnect()
   introPhotoObserver?.disconnect()
 })
 </script>
 
 <template>
-  <section id="approach" data-header-theme="dark" class="section-y bg-neutral-950 text-white">
+  <section id="approach" ref="introSection" data-header-theme="dark" class="section-y bg-neutral-950 text-white">
     <div class="site-container flex flex-col items-center gap-8 md:gap-12" data-reveal="soft">
       <img
-        :src="logoNameDark"
+        v-if="introLogo"
+        :src="introLogo"
         alt="Soul Cuts"
-        class="m-auto h-auto w-56 sm:w-72 lg:w-80"
-        width="320"
-        height="120"
+        class="m-auto aspect-[360/102] h-auto w-56 sm:w-72 lg:w-80"
+        width="360"
+        height="102"
         loading="lazy"
         fetchpriority="low"
         decoding="async"
       >
+      <span v-else class="m-auto block aspect-[360/102] w-56 sm:w-72 lg:w-80" aria-hidden="true" />
 
       <div class="flex w-full flex-col gap-8 min-[560px]:flex-row min-[560px]:items-stretch md:gap-12">
-        <div ref="introPhotoFrame" class="order-last mx-auto w-full max-w-md overflow-hidden rounded-lg min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
+        <div ref="introPhotoFrame" class="order-last mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-lg bg-white/5 min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
           <img
             v-if="introSectionPhotos"
             :src="introSectionPhotos"
@@ -81,6 +107,7 @@ onBeforeUnmount(() => {
             width="760"
             height="950"
             loading="lazy"
+            decoding="async"
           >
         </div>
 

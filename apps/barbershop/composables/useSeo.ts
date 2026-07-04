@@ -50,6 +50,8 @@ export const useSeo = (
     ],
   })
 
-  useWebPageStructuredData(title, description, pagePath)
-  useBreadcrumbStructuredData(title, pagePath)
+  if (import.meta.server) {
+    useWebPageStructuredData(title, description, pagePath)
+    useBreadcrumbStructuredData(title, pagePath)
+  }
 }

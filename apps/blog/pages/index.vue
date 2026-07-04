@@ -41,20 +41,20 @@ useHead(() => ({
 <template>
   <div>
     <section class="bg-neutral-950">
-      <div class="site-container grid gap-8 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:py-10">
+      <div class="site-container grid gap-6 py-6 md:gap-8 md:py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:py-10">
         <NuxtLink
-          class="group min-h-[24rem] overflow-hidden bg-neutral-900 lg:min-h-[36rem]"
+          class="group order-2 min-h-[15rem] overflow-hidden bg-neutral-900 md:min-h-[24rem] lg:order-1 lg:min-h-[36rem]"
           :to="`/posts/${featuredPost.slug}`"
           @click="handleFeaturedPostClick('featured_cover')"
         >
           <picture class="block h-full w-full">
-            <source :srcset="featuredPost.coverImageMobile" media="(max-width: 767px)" type="image/jpeg">
+            <source :srcset="featuredPost.coverImage" media="(min-width: 768px)" type="image/jpeg">
             <img
-              :src="featuredPost.coverImage"
+              :src="featuredPost.coverImageMobile"
               :alt="featuredPost.coverImageAlt"
               class="h-full w-full object-cover"
-              width="1600"
-              height="1060"
+              width="680"
+              height="907"
               loading="eager"
               fetchpriority="high"
               decoding="async"
@@ -62,18 +62,18 @@ useHead(() => ({
           </picture>
         </NuxtLink>
 
-        <div class="flex flex-col justify-between border-neutral-700 py-6 lg:py-8">
+        <div class="order-1 flex flex-col justify-between border-neutral-700 py-2 md:py-6 lg:order-2 lg:py-8">
           <div>
             <p class="eyebrow">{{ terms.featuredPost }}</p>
-            <h1 class="mt-5 text-4xl font-black leading-[0.98] text-white sm:text-5xl lg:text-6xl">
+            <h1 class="mt-4 text-3xl font-bold leading-[0.98] text-white sm:mt-5 sm:text-5xl sm:font-black lg:text-6xl">
               {{ featuredPost.title }}
             </h1>
-            <p class="mt-6 max-w-xl text-base leading-8 text-neutral-300 sm:text-lg">
+            <p class="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:mt-6 sm:text-lg sm:leading-8">
               {{ featuredPost.excerpt }}
             </p>
           </div>
 
-          <div class="mt-8">
+          <div class="mt-5 sm:mt-8">
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
               <span class="text-white/65">{{ featuredPost.category }}</span>
               <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt, locale) }}</time>

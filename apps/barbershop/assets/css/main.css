@@ -7,7 +7,7 @@
   src: url("/fonts/cy-grotesk/cy-grotesk-key-400.c28dc18eed.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 
@@ -16,7 +16,7 @@
   src: url("/fonts/cy-grotesk/cy-grotesk-key-500.f52df205ab.woff2") format("woff2");
   font-style: normal;
   font-weight: 500;
-  font-display: swap;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 
@@ -24,8 +24,8 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
   font-style: normal;
-  font-weight: 600;
-  font-display: swap;
+  font-weight: 700;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 
@@ -33,8 +33,8 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
   font-style: normal;
-  font-weight: 700;
-  font-display: swap;
+  font-weight: 600;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 
@@ -43,7 +43,7 @@
   src: url("/fonts/cy-grotesk/cy-grotesk-key-800.1940c8e3bc.woff2") format("woff2");
   font-style: normal;
   font-weight: 800;
-  font-display: swap;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 
@@ -52,7 +52,7 @@
   src: url("/fonts/cy-grotesk/cy-grotesk-key-900.8c05da4989.woff2") format("woff2");
   font-style: normal;
   font-weight: 900;
-  font-display: swap;
+  font-display: optional;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
 

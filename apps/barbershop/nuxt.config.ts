@@ -48,12 +48,6 @@ const originFromUrl = (value: string) => {
 
 const apiOrigin = originFromUrl(apiBase)
 const siteOrigin = originFromUrl(siteUrl)
-const apiResourceHints = apiOrigin
-  ? [
-      { rel: 'preconnect' as const, href: apiOrigin, crossorigin: '' as const },
-      { rel: 'dns-prefetch' as const, href: apiOrigin },
-    ]
-  : []
 const uniqueSources = (...sources: string[]) => [...new Set(sources.filter(Boolean))]
 const googleScriptSources = [
   'https://www.googletagmanager.com',
@@ -203,7 +197,6 @@ export default defineNuxtConfig({
         { name: 'geo.region', content: 'UA-51' },
         { name: 'geo.placename', content: 'Odesa' },
       ],
-      link: apiResourceHints,
     },
   },
 })

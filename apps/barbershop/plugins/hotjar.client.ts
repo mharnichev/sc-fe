@@ -73,7 +73,6 @@ export default defineNuxtPlugin(() => {
 
     window.addEventListener('pointerdown', loadAfterIdle, { once: true, passive: true })
     window.addEventListener('keydown', loadAfterIdle, { once: true })
-    window.addEventListener('scroll', loadAfterIdle, { once: true, passive: true })
 
     if (document.readyState === 'complete') {
       loadAfterPageSettles()

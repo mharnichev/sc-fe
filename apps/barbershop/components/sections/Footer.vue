@@ -6,14 +6,19 @@ const { resetCookieConsent } = useCookieConsent()
 const { trackContactClick, trackEvent } = useAnalytics()
 
 const footerElement = ref<HTMLElement | null>(null)
-const footerRevealOffset = ref(0)
+const footerRevealOffset = ref<number | null>(null)
 const logoNameDark = ref('')
 const logoVinylDark = ref('')
+const shouldRevealFooter = ref(false)
 const shouldShowFooterEmail = ref(false)
 const phoneHref = computed(() => `tel:${terms.value.home.contact.phone.replace(/[^\d+]/g, '')}`)
 const footerMediaReady = computed(() => Boolean(logoNameDark.value && logoVinylDark.value))
+const initialFooterRevealOffset = 'var(--barbershop-footer-height, 620px)'
 const footerStyle = computed(() => ({
-  transform: `translate3d(0, ${footerRevealOffset.value}px, 0)`,
+  transform: footerRevealOffset.value === null
+    ? `translate3d(0, ${initialFooterRevealOffset}, 0)`
+    : `translate3d(0, ${footerRevealOffset.value}px, 0)`,
+  visibility: shouldRevealFooter.value ? 'visible' as const : 'hidden' as const,
 }))
 
 let revealFrame: number | null = null
@@ -76,16 +81,19 @@ const updateFooterReveal = () => {
 
   maybeLoadFooterMedia(mainBottom, viewportHeight)
 
-  if (reduceMotion || footerHeight <= 0) {
+  if (footerHeight <= 0) {
     footerRevealOffset.value = 0
     return
   }
 
   const revealRange = Math.min(footerHeight, viewportHeight)
-  const revealDistance = Math.min(footerHeight * 0.35, viewportHeight * 0.24)
+  const revealDistance = footerHeight
   const progress = Math.min(1, Math.max(0, (viewportHeight - mainBottom) / revealRange))
+  shouldRevealFooter.value = progress > 0
 
-  footerRevealOffset.value = Number(((1 - progress) * revealDistance).toFixed(2))
+  footerRevealOffset.value = reduceMotion
+    ? progress >= 1 ? 0 : revealDistance
+    : Number(((1 - progress) * revealDistance).toFixed(2))
 }
 
 const requestFooterRevealUpdate = () => {

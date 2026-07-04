@@ -5,10 +5,48 @@ const { terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
+const servicesSection = ref<HTMLElement | null>(null)
+const hasRequestedServices = ref(false)
+let serviceCatalogObserver: IntersectionObserver | null = null
 
-const { data: serviceCatalog, pending: servicesPending } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
+const { data: serviceCatalog, pending: servicesPending, execute: loadServicesCatalog } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
   server: false,
+  immediate: false,
   default: () => [],
+})
+
+const requestServicesCatalog = () => {
+  if (hasRequestedServices.value) return
+
+  hasRequestedServices.value = true
+  serviceCatalogObserver?.disconnect()
+  serviceCatalogObserver = null
+  void loadServicesCatalog()
+}
+
+const showServicesSkeleton = computed(() => !hasRequestedServices.value || servicesPending.value)
+
+onMounted(() => {
+  const target = servicesSection.value
+
+  if (!target || typeof window.IntersectionObserver !== 'function') {
+    window.setTimeout(requestServicesCatalog, 2500)
+    return
+  }
+
+  serviceCatalogObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    requestServicesCatalog()
+  }, {
+    rootMargin: '360px 0px',
+  })
+
+  serviceCatalogObserver.observe(target)
+})
+
+onBeforeUnmount(() => {
+  serviceCatalogObserver?.disconnect()
 })
 
 const servicePriceValue = (service: ServiceCatalogItemDto) => {
@@ -68,7 +106,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 </script>
 
 <template>
-  <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
+  <section id="services" ref="servicesSection" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
       <div class="mb-8 flex flex-col justify-between gap-4 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
@@ -82,8 +120,27 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         </p>
       </div>
 
-      <div v-if="servicesPending" class="bg-white/55 px-4 py-8 text-sm text-neutral-500">
-        {{ terms.home.services.loading }}
+      <div
+        v-if="showServicesSkeleton"
+        class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <div
+          v-for="index in 6"
+          :key="index"
+          class="service-card service-card--skeleton grid min-h-[11rem] gap-4 px-4 py-4 md:min-h-[12rem] md:gap-5 md:py-5"
+          aria-hidden="true"
+        >
+          <span class="h-6 w-3/4 bg-neutral-950/10" />
+          <span class="h-4 w-full bg-neutral-950/10" />
+          <span class="h-4 w-5/6 bg-neutral-950/10" />
+          <span class="service-card__meta mt-auto flex items-center justify-between gap-4 px-3 py-3">
+            <span class="h-3 w-16 bg-neutral-950/10" />
+            <span class="h-3 w-20 bg-neutral-950/10" />
+          </span>
+        </div>
+        <span class="sr-only">{{ terms.home.services.loading }}</span>
       </div>
 
       <div v-else-if="!baseServices.length" class="bg-white/55 px-4 py-8 text-sm text-neutral-500">

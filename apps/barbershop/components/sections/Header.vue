@@ -1,11 +1,14 @@
 <script setup lang="ts">
 type HeaderTheme = 'dark' | 'light'
+const DESKTOP_NAV_QUERY = '(min-width: 1024px)'
 
 const headerElement = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const headerTheme = ref<HeaderTheme>('dark')
+const shouldRenderDesktopNav = ref(false)
 const { locale, localeOptions, setLocale, terms } = useTerms()
 const route = useRoute()
+let desktopNavMediaQuery: MediaQueryList | null = null
 
 const menuItems = computed(() => terms.value.nav)
 const menuButtonClass = computed(() =>
@@ -19,7 +22,16 @@ const menuLinkClass = computed(() =>
     : 'text-neutral-950/45 hover:text-neutral-950/80',
 )
 
-const isDesktopViewport = () => import.meta.client && window.matchMedia('(min-width: 1024px)').matches
+const isDesktopViewport = () => import.meta.client ? window.matchMedia(DESKTOP_NAV_QUERY).matches : false
+
+const syncDesktopNavRender = () => {
+  if (!import.meta.client) return
+
+  shouldRenderDesktopNav.value = isDesktopViewport()
+  if (!shouldRenderDesktopNav.value) {
+    isOpen.value = false
+  }
+}
 
 const openDesktopMenu = () => {
   if (isDesktopViewport()) {
@@ -147,6 +159,9 @@ const requestHeaderThemeUpdate = () => {
 
 onMounted(() => {
   if (import.meta.client) {
+    desktopNavMediaQuery = window.matchMedia(DESKTOP_NAV_QUERY)
+    shouldRenderDesktopNav.value = desktopNavMediaQuery.matches
+    desktopNavMediaQuery.addEventListener('change', syncDesktopNavRender)
     window.addEventListener('resize', syncBodyOverflow)
     window.addEventListener('scroll', requestHeaderThemeUpdate, { passive: true })
     window.addEventListener('resize', requestHeaderThemeUpdate)
@@ -156,6 +171,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (import.meta.client) {
+    desktopNavMediaQuery?.removeEventListener('change', syncDesktopNavRender)
     window.removeEventListener('resize', syncBodyOverflow)
     window.removeEventListener('scroll', requestHeaderThemeUpdate)
     window.removeEventListener('resize', requestHeaderThemeUpdate)
@@ -194,6 +210,7 @@ onBeforeUnmount(() => {
     </div>
 
     <nav
+      v-if="shouldRenderDesktopNav"
       id="desktop-nav"
       class="pointer-events-none fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start overflow-y-auto pr-3 lg:flex"
       :aria-label="terms.common.menu"

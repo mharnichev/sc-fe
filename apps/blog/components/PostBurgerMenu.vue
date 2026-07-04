@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
           {{ terms.barbershopHome }}
         </a>
         <a
-          href="/#booking"
+          href="/#booking-stepper"
           class="max-w-5xl break-words text-3xl font-black uppercase leading-[0.98] tracking-[0.04em] text-white transition hover:text-white/70 sm:text-5xl sm:tracking-[0.08em] lg:text-6xl"
           @click="handleBookingClick"
         >

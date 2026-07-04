@@ -125,6 +125,22 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   compatibilityDate: '2026-05-08',
   ssr: true,
+  nitro: {
+    externals: {
+      inline: [
+        'vue',
+        '@vue/compiler-core',
+        '@vue/compiler-dom',
+        '@vue/compiler-ssr',
+        '@vue/reactivity',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/server-renderer',
+        '@vue/shared',
+        'unhead',
+      ],
+    },
+  },
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
   components: [

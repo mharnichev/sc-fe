@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
           {{ terms.subscribe }}
         </BaseButton>
         <BaseButton
-          href="/#booking"
+          href="/#booking-stepper"
           variant="light"
           size="sm"
           effect="waves"

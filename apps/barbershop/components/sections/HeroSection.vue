@@ -14,13 +14,139 @@ const secondaryHeroImageLoaders = [
   () => import('~/assets/images/hero/sc-hero-barber-2.webp') as Promise<AssetModule>,
 ]
 
+const HERO_BLACKOUT_DURATION = 1000
+const HERO_IMAGE_PRELOAD_TIMEOUT = 1500
 const heroImages = ref([heroImageOne])
 const activeImageIndex = ref(0)
+const isHeroBlackoutOpaque = ref(false)
+const isHeroTransitioning = ref(false)
+const heroMobileImageFor = (image: string) => image === heroImageOne ? heroImageOneMobile : image
+const heroImageTypeFor = (image: string) => image === heroImageOneMobile ? 'image/jpeg' : 'image/webp'
 const activeHeroImage = computed(() => heroImages.value[activeImageIndex.value] || heroImageOne)
-const activeHeroMobileImage = computed(() =>
-  activeHeroImage.value === heroImageOne ? heroImageOneMobile : activeHeroImage.value,
-)
+const activeHeroMobileImage = computed(() => heroMobileImageFor(activeHeroImage.value))
 let sliderInterval: ReturnType<typeof setInterval> | undefined
+let heroTransitionFrame: number | undefined
+let heroTransitionTimers: number[] = []
+let isHeroUnmounted = false
+
+const clearHeroTransitionTimers = () => {
+  if (heroTransitionFrame !== undefined) {
+    window.cancelAnimationFrame(heroTransitionFrame)
+    heroTransitionFrame = undefined
+  }
+
+  heroTransitionTimers.forEach(timer => window.clearTimeout(timer))
+  heroTransitionTimers = []
+}
+
+const requestHeroTransitionFrame = (callback: () => void, frameCount = 1) => {
+  if (heroTransitionFrame !== undefined) {
+    window.cancelAnimationFrame(heroTransitionFrame)
+  }
+
+  const requestNextFrame = (remainingFrames: number) => {
+    heroTransitionFrame = window.requestAnimationFrame(() => {
+      heroTransitionFrame = undefined
+
+      if (remainingFrames <= 1) {
+        callback()
+        return
+      }
+
+      requestNextFrame(remainingFrames - 1)
+    })
+  }
+
+  requestNextFrame(frameCount)
+}
+
+const scheduleHeroTransitionTimer = (callback: () => void, delay: number) => {
+  const timer = window.setTimeout(() => {
+    heroTransitionTimers = heroTransitionTimers.filter(item => item !== timer)
+    callback()
+  }, delay)
+
+  heroTransitionTimers.push(timer)
+}
+
+const preloadHeroImageForIndex = async (imageIndex: number) => {
+  const image = heroImages.value[imageIndex]
+
+  if (!image) return
+
+  const imageSource = window.matchMedia('(max-width: 767px)').matches
+    ? heroMobileImageFor(image)
+    : image
+
+  await new Promise<void>((resolve) => {
+    let isResolved = false
+    const imageElement = new Image()
+    const timeout = window.setTimeout(() => {
+      done()
+    }, HERO_IMAGE_PRELOAD_TIMEOUT)
+
+    const done = () => {
+      if (isResolved) return
+
+      isResolved = true
+      window.clearTimeout(timeout)
+      resolve()
+    }
+
+    imageElement.decoding = 'async'
+    imageElement.onload = () => {
+      if (typeof imageElement.decode !== 'function') {
+        done()
+        return
+      }
+
+      imageElement.decode().then(done).catch(done)
+    }
+    imageElement.onerror = done
+    imageElement.src = imageSource
+
+    if (imageElement.complete) done()
+  })
+}
+
+const transitionToHeroImage = (nextImageIndex: number) => {
+  if (
+    isHeroTransitioning.value
+    || nextImageIndex === activeImageIndex.value
+    || !heroImages.value[nextImageIndex]
+  ) {
+    return
+  }
+
+  clearHeroTransitionTimers()
+  isHeroTransitioning.value = true
+  isHeroBlackoutOpaque.value = false
+
+  void nextTick().then(() => {
+    if (isHeroUnmounted) return
+
+    requestHeroTransitionFrame(() => {
+      isHeroBlackoutOpaque.value = true
+
+      scheduleHeroTransitionTimer(() => {
+        void preloadHeroImageForIndex(nextImageIndex).then(() => {
+          if (isHeroUnmounted) return
+
+          activeImageIndex.value = nextImageIndex
+          requestHeroTransitionFrame(() => {
+            isHeroBlackoutOpaque.value = false
+
+            scheduleHeroTransitionTimer(() => {
+              if (isHeroUnmounted) return
+
+              isHeroTransitioning.value = false
+            }, HERO_BLACKOUT_DURATION)
+          })
+        })
+      }, HERO_BLACKOUT_DURATION)
+    }, 2)
+  })
+}
 
 const scheduleSliderStart = (callback: () => void) => {
   const schedule = () => {
@@ -69,26 +195,27 @@ onMounted(() => {
     heroImages.value = [heroImageOne, ...secondaryImages]
 
     sliderInterval = setInterval(() => {
-      activeImageIndex.value = (activeImageIndex.value + 1) % heroImages.value.length
+      transitionToHeroImage((activeImageIndex.value + 1) % heroImages.value.length)
     }, 5000)
   })
 })
 
 onBeforeUnmount(() => {
+  isHeroUnmounted = true
   if (sliderInterval) clearInterval(sliderInterval)
+  clearHeroTransitionTimers()
 })
 </script>
 
 <template>
   <section data-header-theme="dark" class="relative flex min-h-screen items-end overflow-hidden bg-neutral-950 text-white">
     <picture
-      :key="activeHeroImage"
-      class="absolute inset-0 h-full w-full"
+      class="absolute inset-0 z-0 h-full w-full"
     >
       <source
         :srcset="activeHeroMobileImage"
         media="(max-width: 767px)"
-        :type="activeHeroMobileImage === heroImageOneMobile ? 'image/jpeg' : 'image/webp'"
+        :type="heroImageTypeFor(activeHeroMobileImage)"
       >
       <img
         :src="activeHeroImage"
@@ -101,9 +228,14 @@ onBeforeUnmount(() => {
         decoding="async"
       >
     </picture>
-    <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/45 to-neutral-950/20" />
+    <div class="absolute inset-0 z-10 bg-gradient-to-t from-neutral-950 via-neutral-950/45 to-neutral-950/20" />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 z-20 bg-neutral-950 transition-opacity duration-1000 ease-in-out"
+      :class="isHeroBlackoutOpaque ? 'opacity-100' : 'opacity-0'"
+    />
 
-    <div class="site-container justify-end relative flex flex-col min-h-screen items-center text-center gap-3 pb-6 pt-36 md:pb-10">
+    <div class="site-container justify-end relative z-30 flex flex-col min-h-screen items-center text-center gap-3 pb-6 pt-36 md:pb-10">
       <div>
         <SectionLabel>
           {{ terms.home.hero.eyebrowPrefix }}
@@ -119,12 +251,12 @@ onBeforeUnmount(() => {
         </SectionLabel>
       </div>
 
-      <div class="flex flex-col">
+      <div class="flex max-w-[22rem] flex-col gap-1 sm:max-w-none sm:gap-0">
         <h1 class="max-w-5xl text-center text-2xl font-semibold uppercase leading-[0.95] tracking-normal sm:text-2xl md:text-3xl">
           {{ terms.home.hero.title }}
         </h1>
 
-        <p class="text-base leading-8 text-white/60">
+        <p class="text-sm leading-6 text-white/65 sm:text-base sm:leading-8 sm:text-white/60">
           {{ terms.home.hero.text }}
         </p>
       </div>

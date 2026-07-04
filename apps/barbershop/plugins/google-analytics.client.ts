@@ -31,7 +31,7 @@ const runAfterInitialLoad = (callback: () => void) => {
       }
 
       callback()
-    }, 1800)
+    }, 10000)
   }
 
   if (document.readyState === 'complete') {
