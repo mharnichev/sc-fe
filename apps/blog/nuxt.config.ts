@@ -137,6 +137,7 @@ export default defineNuxtConfig({
         '@vue/runtime-dom',
         '@vue/server-renderer',
         '@vue/shared',
+        'estree-walker',
         'unhead',
       ],
     },
