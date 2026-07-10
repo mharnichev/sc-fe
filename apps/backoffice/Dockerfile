@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
 WORKDIR /repo
 
@@ -11,6 +11,14 @@ COPY apps/backoffice ./apps/backoffice
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @apps/backoffice build
 
-EXPOSE 3000
+FROM node:20-alpine AS runtime
 
-CMD ["pnpm", "--filter", "@apps/backoffice", "start"]
+ENV NODE_ENV=production
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=3000
+
+WORKDIR /app
+COPY --from=build /repo/apps/backoffice/.output ./.output
+
+EXPOSE 3000
+CMD ["node", ".output/server/index.mjs"]
