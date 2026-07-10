@@ -1,7 +1,87 @@
 export type LocaleCode = 'uk' | 'en'
 
+export interface BlogMenuLink {
+  label: string
+  href: string
+  external?: boolean
+  action?: 'subscribe'
+}
+
+export interface BlogAboutTerms {
+  seoTitle: string
+  seoDescription: string
+  eyebrow: string
+  title: string
+  lede: string
+  groupImageAlt: string
+  identityEyebrow: string
+  identityTitle: string
+  identityParagraphs: string[]
+  pillars: Array<{
+    number: string
+    title: string
+    text: string
+  }>
+  cultureEyebrow: string
+  cultureTitle: string
+  cultureParagraphs: string[]
+  cultureImageAlt: string
+  cultureQuote: string
+  journalEyebrow: string
+  journalTitle: string
+  journalDescription: string
+  journalPoints: string[]
+  ctaEyebrow: string
+  ctaTitle: string
+  ctaDescription: string
+  storiesCta: string
+  bookingCta: string
+}
+
+export interface BlogContactTerms {
+  seoTitle: string
+  seoDescription: string
+  eyebrow: string
+  title: string
+  description: string
+  detailsTitle: string
+  addressLabel: string
+  address: string
+  phoneLabel: string
+  phone: string
+  emailLabel: string
+  email: string
+  hoursLabel: string
+  hours: Array<[string, string]>
+  mapLabel: string
+  formEyebrow: string
+  formTitle: string
+  formDescription: string
+  fields: {
+    name: string
+    phone: string
+    email: string
+    message: string
+  }
+  placeholders: {
+    name: string
+    phone: string
+    email: string
+    message: string
+  }
+  note: string
+  submit: string
+  sending: string
+  requiredMessage: string
+  phoneInvalid: string
+  successMessage: string
+  errorMessage: string
+}
+
 export interface BlogTerms {
   subscribe: string
+  menu: string
+  close: string
   homeTitle: string
   homeDescription: string
   featuredPost: string
@@ -68,6 +148,9 @@ export interface BlogTerms {
   unsubscribeMissingIdentifier: string
   newsletterHeadline: string
   newsletterDescription: string
+  about: BlogAboutTerms
+  contacts: BlogContactTerms
+  links: BlogMenuLink[]
 }
 
 export const localeOptions: Array<{ code: LocaleCode, label: string, shortLabel: string }> = [
@@ -78,6 +161,8 @@ export const localeOptions: Array<{ code: LocaleCode, label: string, shortLabel:
 export const blogTerms = {
   uk: {
     subscribe: 'Підписка',
+    menu: 'Меню',
+    close: 'Закрити',
     homeTitle: 'Головна',
     homeDescription: 'Soulcuts Journal - публічний блог про барберинг, комʼюніті та культуру навколо Soul Cuts.',
     featuredPost: 'Головний матеріал',
@@ -144,9 +229,113 @@ export const blogTerms = {
     unsubscribeMissingIdentifier: 'Потрібен token із листа або email адреса.',
     newsletterHeadline: 'Отримуйте наступну історію на пошту.',
     newsletterDescription: 'Проста форма підписки для першої версії. Інтеграцію з провайдером можна додати пізніше.',
+    about: {
+      seoTitle: 'Про нас',
+      seoDescription: 'Soul Cuts — барбершоп в Одесі, незалежний журнал і спільнота навколо сучасної української барберської культури.',
+      eyebrow: 'Про нас',
+      title: 'Ми стрижемо. Знімаємо. Збираємо людей.',
+      lede: 'Soul Cuts — барбершоп на Канатній, 6 в Одесі. Але крісло для нас — лише початок розмови про ремесло, стиль, місто й людей, які рухають українську барберську культуру вперед.',
+      groupImageAlt: 'Учасники зустрічі української барберської спільноти в Одесі',
+      identityEyebrow: 'Soul Cuts — це',
+      identityTitle: 'Місце, де ремесло стає приводом бути разом.',
+      identityParagraphs: [
+        'Щодня ми працюємо з формою, деталлю та характером: стрижемо, оформлюємо бороди, робимо fade і класичне гоління. Для нас хороший результат не маскує людину, а точніше проявляє її.',
+        'Поза студією ми продовжуємо ту саму роботу іншими засобами — знайомимо майстрів, документуємо події, обмінюємося досвідом і створюємо простір для чесної професійної розмови.',
+      ],
+      pillars: [
+        {
+          number: '01',
+          title: 'Ремесло',
+          text: 'Точна робота руками, увага до деталей і сервіс, до якого хочеться повертатися.',
+        },
+        {
+          number: '02',
+          title: 'Спільнота',
+          text: 'Зустрічі, майстер-класи й «Ідем на Букви» — середовище, де барбери вчаться одне в одного.',
+        },
+        {
+          number: '03',
+          title: 'Журнал',
+          text: 'Репортажі, інтервʼю та нотатки про людей і події, які формують культуру навколо нас.',
+        },
+      ],
+      cultureEyebrow: 'Своя сцена',
+      cultureTitle: 'Барберинг стає культурою, коли ним діляться.',
+      cultureParagraphs: [
+        'Ми бачимо Soul Cuts частиною більшої української сцени. Тому створили «Ідем на Букви» — професійну спільноту й медійний проєкт, у якому майстри можуть говорити своїм голосом, показувати процес і передавати досвід далі.',
+        'Нас цікавлять не лише техніка й тренди. Нас цікавлять люди за інструментами: їхній шлях, сумніви, знахідки та власний погляд на професію.',
+      ],
+      cultureImageAlt: 'Майстер-клас українського барбера перед аудиторією в Одеському музеї',
+      cultureQuote: 'Нам важливо не лише, як виглядає стрижка, а й що відбувається навколо крісла.',
+      journalEyebrow: 'Soulcuts Journal',
+      journalTitle: 'Цей журнал — наш відкритий архів.',
+      journalDescription: 'Тут ми збираємо те, що не вміщується у короткий допис: живі розмови, репортажі з подій, практичні спостереження й історії людей. Пишемо українською та англійською, щоб локальний досвід був видимим ширше.',
+      journalPoints: [
+        'Документуємо українську барберську сцену.',
+        'Показуємо роботу без зайвого глянцю.',
+        'Залишаємо місце для різних голосів і поглядів.',
+      ],
+      ctaEyebrow: 'Продовжимо розмову',
+      ctaTitle: 'Читайте історії. Або заходьте у крісло.',
+      ctaDescription: 'Знайомство із Soul Cuts може початися зі статті, події чи стрижки. Обирайте свій маршрут — далі побачимося.',
+      storiesCta: 'Читати матеріали',
+      bookingCta: 'Записатися',
+    },
+    contacts: {
+      seoTitle: 'Контакти',
+      seoDescription: 'Адреса, телефон, email, графік роботи та форма звʼязку Soul Cuts в Одесі.',
+      eyebrow: 'Контакти',
+      title: 'Напишіть або завітайте до Soul Cuts.',
+      description: 'Усі способи звʼязатися з командою — в одному місці. Для питань, партнерств і будь-яких пропозицій скористайтеся формою нижче.',
+      detailsTitle: 'Барбершоп Soul Cuts, Одеса',
+      addressLabel: 'Адреса',
+      address: 'вулиця Канатна, 6, Одеса',
+      phoneLabel: 'Телефон',
+      phone: '+380636995730',
+      emailLabel: 'Email',
+      email: 'Soulcutsplace@gmail.com',
+      hoursLabel: 'Графік',
+      hours: [
+        ['Вт-Нд', '09:00 - 20:00'],
+        ['Понеділок', 'Зачинено'],
+      ],
+      mapLabel: 'Відкрити на мапі',
+      formEyebrow: 'Зворотний звʼязок',
+      formTitle: 'Є питання або пропозиція?',
+      formDescription: 'Залиште повідомлення — воно потрапить до тієї самої команди, незалежно від того, з якого сайту ви пишете.',
+      fields: {
+        name: 'Імʼя',
+        phone: 'Телефон (необовʼязково)',
+        email: 'Email',
+        message: 'Повідомлення',
+      },
+      placeholders: {
+        name: 'Ваше імʼя',
+        phone: '+380',
+        email: 'name@example.com',
+        message: 'Розкажіть, чим можемо допомогти',
+      },
+      note: 'Імʼя, email і повідомлення обовʼязкові.',
+      submit: 'Надіслати',
+      sending: 'Надсилаємо...',
+      requiredMessage: 'Заповніть імʼя, email і повідомлення.',
+      phoneInvalid: 'Введіть номер у форматі +380 XX XXX XX XX.',
+      successMessage: 'Дякуємо. Повідомлення надіслано команді Soul Cuts.',
+      errorMessage: 'Не вдалося надіслати повідомлення. Спробуйте ще раз.',
+    },
+    links: [
+      { label: 'На головну', href: '/' },
+      { label: 'Усі пости', href: '/posts' },
+      { label: 'Барбершоп', href: '/', external: true },
+      { label: 'Про нас', href: '/about' },
+      { label: 'Контакти', href: '/contacts' },
+      { label: 'Підписка', href: '#subscribe', action: 'subscribe' },
+    ],
   },
   en: {
     subscribe: 'Subscribe',
+    menu: 'Menu',
+    close: 'Close',
     homeTitle: 'Home',
     homeDescription: 'Soulcuts Journal is a public blog about barbering, community, and the culture around Soul Cuts.',
     featuredPost: 'Featured Post',
@@ -213,5 +402,107 @@ export const blogTerms = {
     unsubscribeMissingIdentifier: 'A token from the email or an email address is required.',
     newsletterHeadline: 'Get the next story in your inbox.',
     newsletterDescription: 'A simple subscription block for the first version. Provider integration can be added later.',
+    about: {
+      seoTitle: 'About us',
+      seoDescription: 'Soul Cuts is an Odesa barbershop, independent journal, and community built around contemporary Ukrainian barbering culture.',
+      eyebrow: 'About us',
+      title: 'We cut. We document. We bring people together.',
+      lede: 'Soul Cuts is a barbershop at 6 Kanatna Street in Odesa. But the chair is only the beginning of a conversation about craft, style, the city, and the people moving Ukrainian barbering culture forward.',
+      groupImageAlt: 'Members of the Ukrainian barbering community gathered in Odesa',
+      identityEyebrow: 'Soul Cuts is',
+      identityTitle: 'A place where craft becomes a reason to come together.',
+      identityParagraphs: [
+        'Every day we work with shape, detail, and character: haircuts, beard grooming, fades, and classic shaves. A good result should not disguise a person. It should bring them into sharper focus.',
+        'Outside the studio, we continue the same work through other formats — introducing barbers, documenting events, sharing experience, and making room for honest professional conversation.',
+      ],
+      pillars: [
+        {
+          number: '01',
+          title: 'Craft',
+          text: 'Precise hands, close attention to detail, and a service worth returning to.',
+        },
+        {
+          number: '02',
+          title: 'Community',
+          text: 'Gatherings, masterclasses, and Idem na Bukvy — a space where barbers learn from one another.',
+        },
+        {
+          number: '03',
+          title: 'Journal',
+          text: 'Reports, interviews, and field notes about the people and events shaping the culture around us.',
+        },
+      ],
+      cultureEyebrow: 'Our own scene',
+      cultureTitle: 'Barbering becomes culture when it is shared.',
+      cultureParagraphs: [
+        'We see Soul Cuts as part of a wider Ukrainian scene. That is why we created Idem na Bukvy — a professional community and media project where barbers can speak in their own voice, show the process, and pass experience forward.',
+        'We care about more than technique and trends. We care about the people behind the tools: their path, doubts, discoveries, and individual view of the profession.',
+      ],
+      cultureImageAlt: 'A Ukrainian barber leading a masterclass before an audience at an Odesa museum',
+      cultureQuote: 'What matters to us is not only how a haircut looks, but also what happens around the chair.',
+      journalEyebrow: 'Soulcuts Journal',
+      journalTitle: 'This journal is our open archive.',
+      journalDescription: 'Here we collect what cannot fit into a short post: living conversations, event reports, practical observations, and peopleʼs stories. We publish in Ukrainian and English so local experience can travel further.',
+      journalPoints: [
+        'Documenting the Ukrainian barbering scene.',
+        'Showing the work without unnecessary gloss.',
+        'Making room for different voices and perspectives.',
+      ],
+      ctaEyebrow: 'Continue the conversation',
+      ctaTitle: 'Read the stories. Or take a seat in the chair.',
+      ctaDescription: 'Your introduction to Soul Cuts can begin with an article, an event, or a haircut. Choose your route — we will see you there.',
+      storiesCta: 'Read the journal',
+      bookingCta: 'Book a visit',
+    },
+    contacts: {
+      seoTitle: 'Contact',
+      seoDescription: 'Soul Cuts address, phone, email, opening hours, and contact form in Odesa.',
+      eyebrow: 'Contact',
+      title: 'Write to us or visit Soul Cuts.',
+      description: 'Every way to reach the team is collected here. Use the form below for questions, partnerships, or any other proposal.',
+      detailsTitle: 'Soul Cuts Barbershop, Odesa',
+      addressLabel: 'Address',
+      address: '6 Kanatna Street, Odesa',
+      phoneLabel: 'Phone',
+      phone: '+380636995730',
+      emailLabel: 'Email',
+      email: 'Soulcutsplace@gmail.com',
+      hoursLabel: 'Hours',
+      hours: [
+        ['Tue-Sun', '09:00 - 20:00'],
+        ['Monday', 'Closed'],
+      ],
+      mapLabel: 'Open in maps',
+      formEyebrow: 'Get in touch',
+      formTitle: 'Have a question or proposal?',
+      formDescription: 'Leave a message and it will reach the same team, no matter which Soul Cuts site you use.',
+      fields: {
+        name: 'Name',
+        phone: 'Phone (optional)',
+        email: 'Email',
+        message: 'Message',
+      },
+      placeholders: {
+        name: 'Your name',
+        phone: '+380',
+        email: 'name@example.com',
+        message: 'Tell us how we can help',
+      },
+      note: 'Name, email, and message are required.',
+      submit: 'Send message',
+      sending: 'Sending...',
+      requiredMessage: 'Enter your name, email, and message.',
+      phoneInvalid: 'Enter the phone number as +380 XX XXX XX XX.',
+      successMessage: 'Thank you. Your message has been sent to the Soul Cuts team.',
+      errorMessage: 'Unable to send your message. Please try again.',
+    },
+    links: [
+      { label: 'Home', href: '/' },
+      { label: 'All Posts', href: '/posts' },
+      { label: 'Barbershop', href: '/', external: true },
+      { label: 'About', href: '/about' },
+      { label: 'Contact', href: '/contacts' },
+      { label: 'Subscribe', href: '#subscribe', action: 'subscribe' },
+    ],
   },
 } satisfies Record<LocaleCode, BlogTerms>

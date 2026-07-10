@@ -8,11 +8,23 @@ export interface CategoryDto {
   status: string
 }
 
+export interface CategoryPathItemDto {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface CategoryTreeNodeDto extends CategoryDto {
+  parent_id?: number | null
+  children: CategoryTreeNodeDto[]
+}
+
 export interface BrandDto {
   id: number
   name: string
   slug: string
   description: string | null
+  logo_url?: string | null
   website?: string | null
   status: string
 }
@@ -20,6 +32,7 @@ export interface BrandDto {
 export interface ProductImageDto {
   id?: number
   image: string
+  image_url?: string | null
   alt: string | null
   sort_order: number
 }
@@ -43,6 +56,125 @@ export interface ProductDto {
   category: CategoryDto
   brand: BrandDto
   images: ProductImageDto[]
+  category_tree: CategoryPathItemDto[]
+  average_rating: string | null
+  reviews_count: number
+  discount_percent?: string | null
+  is_new?: boolean | null
+  is_top?: boolean | null
+  is_popular?: boolean | null
+  parameters: Record<string, string>
+}
+
+export interface ProductSearchResponseDto {
+  suggestions: string[]
+  products: ProductDto[]
+  categories: CategoryDto[]
+}
+
+export interface CategoryFilterValueDto {
+  slug: string
+  name: string
+  count: number
+}
+
+export interface CategoryFilterGroupDto {
+  slug: string
+  name: string
+  values: CategoryFilterValueDto[]
+}
+
+export interface CategoryFiltersDto {
+  price: {
+    min: string | null
+    max: string | null
+  }
+  filters: Record<string, CategoryFilterGroupDto>
+}
+
+export interface ProductReviewCommentDto {
+  id: number
+  review_id: number
+  customer_id: number
+  customer_name: string | null
+  comment: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProductReviewDto {
+  id: number
+  product_id: number
+  customer_id: number
+  customer_name: string | null
+  rating: number
+  comment: string | null
+  comments_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProductReviewListDto {
+  total: number
+  average_rating: string | null
+  items: ProductReviewDto[]
+}
+
+export interface ShopCustomerDto {
+  id: number
+  phone: string
+  email: string | null
+  name: string | null
+  surname: string | null
+  birthday: string | null
+  notes: string | null
+  imported_total_spent: string
+  imported_last_visit_at: string | null
+  imported_is_new_client: boolean
+  is_active: boolean
+  phone_verified_at: string | null
+  last_login_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerOtpRequestResponseDto {
+  message: string
+  expires_in_seconds: number
+  retry_after_seconds: number
+  sends_left_today: number
+  debug_otp_code: string | null
+}
+
+export interface CustomerAuthResponseDto {
+  access_token: string
+  token_type: 'bearer' | string
+  customer: ShopCustomerDto
+  is_new_customer: boolean
+  attempts_left_today: number
+}
+
+export interface CustomerCartItemDto {
+  id: number
+  product_id: number
+  quantity: number
+  product: ProductDto
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerWishlistItemDto {
+  id: number
+  product_id: number
+  product: ProductDto
+  created_at: string
+  updated_at: string
+}
+
+export interface DeliveryListResponseDto {
+  items: Array<Record<string, unknown>>
+  cached: boolean
+  updated_at: string | null
 }
 
 export interface UploadAssetDto {
@@ -275,6 +407,8 @@ export interface BannerDto {
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
+  page: number
+  page_size: number
 }
 
 export interface AuthTokens {

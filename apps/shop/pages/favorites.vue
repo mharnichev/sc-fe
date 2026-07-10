@@ -1,22 +1,38 @@
 <script setup lang="ts">
-import { ProductCard } from '@shared-ui'
+import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 const domain = useCatalogDomain()
 const favorites = useFavoritesStore()
+const auth = useCustomerAuthStore()
+const { terms } = useShopLocale()
 const { data: products } = await useAsyncData('favorite-products', () => domain.getProducts({ limit: 100 }))
-const favoriteProducts = computed(() => (products.value || []).filter(product => favorites.items.includes(product.id)))
+const favoriteProducts = computed(() => {
+  if (auth.isAuthenticated && favorites.products.length) return favorites.products
 
-useSeo('Favorites', 'Saved grooming products.')
+  return (products.value || []).filter(product => favorites.items.includes(product.id))
+})
+
+useSeo(
+  () => terms.value.seo.favoritesTitle,
+  () => terms.value.seo.favoritesDescription,
+)
 </script>
 
 <template>
   <div class="space-y-6">
     <div>
-      <p class="text-sm uppercase tracking-[0.3em] text-emerald-700">Saved</p>
-      <h1 class="mt-2 text-4xl font-semibold text-neutral-900">Favorites</h1>
+      <p class="text-sm uppercase tracking-[0.3em] text-emerald-700">{{ terms.favorites.saved }}</p>
+      <h1 class="mt-2 text-4xl font-semibold text-neutral-900">{{ terms.common.favorites }}</h1>
     </div>
-    <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-      <ProductCard v-for="product in favoriteProducts" :key="product.id" :product="product" :to="`/products/${product.slug}`" />
-    </div>
+    <CatalogProductGrid v-if="favoriteProducts.length" :products="favoriteProducts" />
+    <FeedbackState
+      v-else
+      class="border border-neutral-200 bg-white"
+      face="sad-droopy-face"
+      :title="terms.favorites.noFavorites"
+      :description="terms.favorites.saveFromCatalog"
+    >
+      <BaseButton to="/catalog">{{ terms.cabinet.toGoods }}</BaseButton>
+    </FeedbackState>
   </div>
 </template>

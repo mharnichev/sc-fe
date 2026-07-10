@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { terms } = useTerms()
+import FeedbackState from '~/components/ui/FeedbackState.vue'
+
+const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackContactClick, trackEvent } = useAnalytics()
@@ -319,7 +321,15 @@ const submit = async () => {
               </span>
             </button>
             <p v-if="!selectedMaster" class="py-2 text-sm text-white/45">{{ terms.pages.contacts.placeholders.master }}</p>
-            <p v-else-if="!availableServices.length" class="py-2 text-sm text-white/45">Немає доступних послуг.</p>
+            <FeedbackState
+              v-else-if="!availableServices.length"
+              compact
+              kind="unavailable"
+              face="sad-droopy-face"
+              :title="locale === 'uk' ? 'Немає доступних послуг' : 'No services available'"
+              class="text-white"
+              style="--feedback-state-surface: #0a0a0a"
+            />
           </div>
         </div>
       </div>

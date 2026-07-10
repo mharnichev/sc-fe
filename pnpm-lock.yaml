@@ -32,9 +32,6 @@ importers:
       '@shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@shared-ui':
-        specifier: workspace:*
-        version: link:../../packages/shared-ui
       '@shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
@@ -59,9 +56,6 @@ importers:
       '@shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@shared-ui':
-        specifier: workspace:*
-        version: link:../../packages/shared-ui
       '@shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
@@ -92,9 +86,6 @@ importers:
       '@shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@shared-ui':
-        specifier: workspace:*
-        version: link:../../packages/shared-ui
       '@shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
@@ -106,12 +97,6 @@ importers:
         version: 2.3.1(typescript@6.0.2)(vue@3.5.32(typescript@6.0.2))
 
   packages/shared-types: {}
-
-  packages/shared-ui:
-    dependencies:
-      vue:
-        specifier: ^3.5.0
-        version: 3.5.32(typescript@6.0.2)
 
   packages/shared-utils: {}
 

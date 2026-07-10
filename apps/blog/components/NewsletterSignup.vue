@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import FeedbackFace from '~/components/ui/FeedbackFace.vue'
+
 const { terms } = useBlogLocale()
 const { subscribeToBlog } = useBlogSubscription()
 const { trackBlogEvent } = useBlogAnalytics()
@@ -53,8 +55,8 @@ const handleSubmit = async () => {
     <div class="site-container">
       <div class="grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:items-end">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/50">{{ terms.newsletter }}</p>
-          <h2 class="mt-3 text-3xl font-black leading-tight sm:text-4xl">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{{ terms.newsletter }}</p>
+          <h2 class="blog-section-title mt-3 text-white">
             {{ terms.newsletterHeadline }}
           </h2>
           <p class="mt-4 max-w-xl text-sm leading-7 text-white/65">
@@ -81,14 +83,15 @@ const handleSubmit = async () => {
           >
             {{ terms.subscribe }}
           </BaseButton>
-          <p
+          <div
             id="newsletter-message"
-            class="sm:col-span-2 text-sm"
+            class="flex min-h-6 items-center gap-2 text-sm sm:col-span-2"
             :class="status === 'error' ? 'text-white/70' : 'text-white/65'"
             aria-live="polite"
           >
-            {{ message }}
-          </p>
+            <FeedbackFace v-if="status === 'error'" name="sad-droopy-face" class="w-7 shrink-0" />
+            <span>{{ message }}</span>
+          </div>
         </form>
       </div>
     </div>

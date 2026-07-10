@@ -101,21 +101,21 @@ onBeforeUnmount(() => {
       <nav class="flex flex-col items-center gap-7" :aria-label="terms.postMenu">
         <NuxtLink
           to="/"
-          class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
+          class="text-3xl font-semibold uppercase leading-tight tracking-[0.04em] text-white transition hover:text-white/70 sm:text-4xl"
           @click="handleHomeClick"
         >
           {{ terms.home }}
         </NuxtLink>
         <a
           href="/"
-          class="text-4xl font-black uppercase leading-none tracking-[0.08em] text-white transition hover:text-white/70 sm:text-6xl"
+          class="text-3xl font-semibold uppercase leading-tight tracking-[0.04em] text-white transition hover:text-white/70 sm:text-4xl"
           @click="handleBarbershopClick"
         >
           {{ terms.barbershopHome }}
         </a>
         <a
           href="/#booking-stepper"
-          class="max-w-5xl break-words text-3xl font-black uppercase leading-[0.98] tracking-[0.04em] text-white transition hover:text-white/70 sm:text-5xl sm:tracking-[0.08em] lg:text-6xl"
+          class="max-w-4xl break-words text-2xl font-semibold uppercase leading-tight tracking-[0.03em] text-white transition hover:text-white/70 sm:text-3xl lg:text-4xl"
           @click="handleBookingClick"
         >
           {{ terms.postMenuBookingCta }}

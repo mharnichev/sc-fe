@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 import logoNameDark from '../../barbershop/assets/images/main/sc-logo-name-dark.webp'
 
 const { initialEmail, isOpen } = useSubscribeModal()
@@ -160,14 +161,15 @@ onMounted(() => {
           >
             {{ terms.subscribe }}
           </BaseButton>
-          <p
+          <div
             id="subscribe-modal-message"
-            class="min-h-6 text-sm sm:col-span-2"
+            class="flex min-h-6 items-center justify-center gap-2 text-sm sm:col-span-2"
             :class="status === 'error' ? 'text-white/70' : 'text-white/60'"
             aria-live="polite"
           >
-            {{ message }}
-          </p>
+            <FeedbackFace v-if="status === 'error'" name="sad-droopy-face" class="w-8 shrink-0" />
+            <span>{{ message }}</span>
+          </div>
         </form>
 
         <p class="mt-7 max-w-lg text-xs leading-6 text-white/55">

@@ -5,7 +5,6 @@ const apiBase =
   || 'http://127.0.0.1:8000/api/v1'
 const sharedTypesPath = new URL('../../packages/shared-types/src/index.ts', import.meta.url).pathname
 const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
-const sharedUiPath = new URL('../../packages/shared-ui/src/index.ts', import.meta.url).pathname
 
 export default defineNuxtConfig({
   ssr: false,
@@ -27,10 +26,6 @@ export default defineNuxtConfig({
   alias: {
     '@shared-types': sharedTypesPath,
     '@shared-utils': sharedUtilsPath,
-    '@shared-ui': sharedUiPath,
-  },
-  build: {
-    transpile: ['@shared-ui'],
   },
   vite: {
     plugins: [svgLoader()],

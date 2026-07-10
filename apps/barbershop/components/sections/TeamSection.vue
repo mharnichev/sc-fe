@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MasterDto } from '@shared-types'
+import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 type LocalizedMasterDto = MasterDto & {
   title_uk?: string | null
@@ -220,12 +221,14 @@ watch(teamMembers, (members) => {
           </div>
         </template>
 
-        <div v-else class="flex h-full items-end pb-24 text-neutral-950">
-          <div class="site-container">
-            <p class="max-w-sm text-lg leading-8">
-              {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
-            </p>
-          </div>
+        <div v-else class="site-container flex h-full items-end pb-20 text-neutral-950">
+          <FeedbackState
+            compact
+            :kind="mastersPending ? 'empty' : 'unavailable'"
+            :face="mastersPending ? 'wide-eyed-smile' : 'sad-droopy-face'"
+            :title="mastersPending ? terms.home.team.loading : terms.home.team.empty"
+            style="--feedback-state-surface: #fff"
+          />
         </div>
 
         <div v-if="hasMultipleTeamMembers" class="pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-white">
@@ -301,13 +304,14 @@ watch(teamMembers, (members) => {
           </div>
         </article>
 
-        <div v-else class="-mr-6 flex min-h-0 items-end bg-white text-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]">
-          <div class="py-12">
-            <p class="max-w-sm text-lg leading-8">
-              {{ mastersPending ? terms.home.team.loading : terms.home.team.empty }}
-            </p>
-          </div>
-        </div>
+        <FeedbackState
+          v-else
+          class="-mr-6 min-h-0 bg-white text-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]"
+          :kind="mastersPending ? 'empty' : 'unavailable'"
+          :face="mastersPending ? 'wide-eyed-smile' : 'sad-droopy-face'"
+          :title="mastersPending ? terms.home.team.loading : terms.home.team.empty"
+          style="--feedback-state-surface: #fff"
+        />
         </div>
       </div>
     </div>

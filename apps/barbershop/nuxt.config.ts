@@ -181,10 +181,6 @@ export default defineNuxtConfig({
   alias: {
     '@shared-types': '../../packages/shared-types/src',
     '@shared-utils': '../../packages/shared-utils/src',
-    '@shared-ui': '../../packages/shared-ui/src/index.ts',
-  },
-  build: {
-    transpile: ['@shared-ui'],
   },
   app: {
     head: {

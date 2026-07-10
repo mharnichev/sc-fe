@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ServiceCatalogItemDto } from '@shared-types'
+import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 const { terms } = useTerms()
 const domain = useBarbershopDomain()
@@ -143,9 +144,14 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         <span class="sr-only">{{ terms.home.services.loading }}</span>
       </div>
 
-      <div v-else-if="!baseServices.length" class="bg-white/55 px-4 py-8 text-sm text-neutral-500">
-        {{ terms.home.services.empty }}
-      </div>
+      <FeedbackState
+        v-else-if="!baseServices.length"
+        class="bg-white/55 text-neutral-950"
+        kind="unavailable"
+        face="sad-droopy-face"
+        :title="terms.home.services.empty"
+        style="--feedback-state-surface: #f5f5f4"
+      />
 
       <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
         <article

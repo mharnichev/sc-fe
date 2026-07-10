@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GoogleBusinessReviewDto } from '@shared-types'
+import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
@@ -312,14 +313,16 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div v-else class="mt-8 border-l border-neutral-300 pl-4 md:mt-12 md:pl-6">
-        <p class="text-2xl font-semibold leading-snug text-neutral-950">
-          {{ pending ? terms.home.reviews.loading : terms.home.reviews.unavailable }}
-        </p>
-        <p v-if="error" class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
-          Google Maps
-        </p>
-      </div>
+      <FeedbackState
+        v-else
+        class="mt-8 border-l border-neutral-300 text-neutral-950 md:mt-12"
+        :kind="error ? 'error' : 'unavailable'"
+        :face="pending ? 'wide-eyed-smile' : 'sad-droopy-face'"
+        :title="pending ? terms.home.reviews.loading : terms.home.reviews.unavailable"
+        seed="google-reviews"
+        compact
+        style="--feedback-state-surface: #f5f5f4"
+      />
     </div>
   </section>
 </template>

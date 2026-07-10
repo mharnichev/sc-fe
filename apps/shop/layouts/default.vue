@@ -1,24 +1,29 @@
 <script setup lang="ts">
-const cart = useCartStore()
-const favorites = useFavoritesStore()
+const { locale } = useShopLocale()
+const isPageTransitionVisible = usePageTransitionOverlay()
+
+useHead({
+  htmlAttrs: {
+    lang: () => locale.value,
+  },
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(22,163,74,0.12),_transparent_28%),linear-gradient(180deg,_#f7f7f4,_#ffffff)]">
-    <header class="border-b border-neutral-200 bg-white/80 backdrop-blur">
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <NuxtLink to="/" class="text-lg font-semibold tracking-[0.18em] text-neutral-900">
-          ATELIER SUPPLY
-        </NuxtLink>
-        <nav class="hidden items-center gap-6 text-sm text-neutral-700 md:flex">
-          <NuxtLink to="/catalog">Catalog</NuxtLink>
-          <NuxtLink to="/favorites">Favorites ({{ favorites.items.length }})</NuxtLink>
-          <NuxtLink to="/checkout">Cart ({{ cart.count }})</NuxtLink>
-        </nav>
+  <div class="min-h-screen pb-[var(--shop-footer-height,620px)]">
+    <BaseHeader />
+    <main class="relative z-10 min-h-screen">
+      <div class="site-container">
+        <slot />
       </div>
-    </header>
-    <main class="mx-auto max-w-6xl px-6 py-10">
-      <slot />
     </main>
+    <BaseFooter />
+    <BaseBottomBar />
+    <div
+      data-testid="page-transition-overlay"
+      class="pointer-events-none fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
+      :class="isPageTransitionVisible ? 'opacity-100' : 'opacity-0'"
+      aria-hidden="true"
+    />
   </div>
 </template>

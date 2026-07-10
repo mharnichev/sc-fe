@@ -1,8 +1,6 @@
 <script setup lang="ts">
 const { locale } = useBlogLocale()
 const isPageTransitionVisible = usePageTransitionOverlay()
-const route = useRoute()
-const isPostsRoute = computed(() => route.path === '/posts' || route.path.startsWith('/posts/'))
 const shouldMountFooter = ref(false)
 let footerIdleHandle: number | undefined
 
@@ -56,8 +54,7 @@ useHead({
 
 <template>
   <div class="min-h-screen bg-neutral-950 pb-[var(--blog-footer-height,620px)] text-neutral-100">
-    <BlogHeader v-if="!isPostsRoute" />
-    <PostBurgerMenu v-else />
+    <BlogHeader />
     <main class="relative z-10 bg-neutral-950">
       <slot />
     </main>
@@ -67,8 +64,9 @@ useHead({
     <LazyBlogSubscribeModal />
     <div
       data-testid="page-transition-overlay"
-      class="pointer-events-none fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
-      :class="isPageTransitionVisible ? 'opacity-100' : 'opacity-0'"
+      class="fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
+      :class="isPageTransitionVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
+      :data-state="isPageTransitionVisible ? 'visible' : 'hidden'"
       aria-hidden="true"
     />
   </div>

@@ -122,8 +122,8 @@ onBeforeUnmount(() => {
     <div class="site-container">
       <div class="grid gap-7 md:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.65fr)] lg:items-end lg:gap-12">
         <div class="w-full space-y-3 md:space-y-5">
-          <p class="text-xs font-bold uppercase tracking-[0.28em] text-white/50">{{ terms.footerEyebrow }}</p>
-          <h2 class="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl uppercase">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-white/50">{{ terms.footerEyebrow }}</p>
+          <h2 class="blog-section-title max-w-3xl text-white">
             {{ terms.footerHeadline }}
           </h2>
           <p class="max-w-2xl text-sm leading-7 text-white/60 md:text-base md:leading-8">
@@ -153,20 +153,23 @@ onBeforeUnmount(() => {
 
       <div class="mt-8 grid gap-7 border-t border-white/10 pt-8 md:mt-12 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:gap-8">
         <div>
-          <p class="text-sm font-black uppercase tracking-[0.28em]">Soulcuts</p>
+          <p class="text-sm font-semibold uppercase tracking-[0.22em]">Soulcuts</p>
           <p class="mt-4 max-w-sm text-sm leading-7 text-white/55">
             {{ terms.footerBrandDescription }}
           </p>
         </div>
 
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">{{ terms.footerExplore }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">{{ terms.footerExplore }}</p>
           <div class="mt-4 grid gap-2 text-sm text-white/70">
             <NuxtLink class="transition hover:text-white" to="/" @click="handleFooterNavigationClick('blog_home')">
               {{ terms.home }}
             </NuxtLink>
             <NuxtLink class="transition hover:text-white" to="/posts" @click="handleFooterNavigationClick('all_posts')">
               {{ terms.allPosts }}
+            </NuxtLink>
+            <NuxtLink class="transition hover:text-white" to="/about" @click="handleFooterNavigationClick('about')">
+              {{ terms.about.eyebrow }}
             </NuxtLink>
             <a class="transition hover:text-white" href="/#booking-stepper" @click="handleFooterNavigationClick('barbershop_booking')">
               {{ terms.bookOnline }}
@@ -178,7 +181,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/45">{{ terms.footerVisit }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">{{ terms.footerVisit }}</p>
           <div class="mt-4 space-y-2 text-sm text-white/70">
             <p>
               <a

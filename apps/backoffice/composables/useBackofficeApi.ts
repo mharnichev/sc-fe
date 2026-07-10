@@ -115,9 +115,54 @@ export interface OrderSummary {
   customer_name: string
   customer_phone: string | null
   customer_email: string | null
+  shipping_company?: string | null
+  shipping_method?: string | null
+  shipping_city?: string | null
+  payment_method?: string | null
+  external_sync_status?: string | null
   total_amount: string
   created_at: string
   updated_at: string
+}
+
+export interface OrderItemResponse {
+  id: number
+  product_id: number
+  quantity: number
+  price: string
+  product_name: string | null
+  product_sku: string | null
+  total_price: string | null
+}
+
+export interface OrderResponse {
+  id: number
+  customer_name: string
+  customer_phone: string
+  customer_email: string | null
+  comment: string | null
+  first_name: string | null
+  last_name: string | null
+  shipping_company: string | null
+  shipping_method: string | null
+  shipping_area: string | null
+  shipping_city: string | null
+  shipping_warehouse_number: string | null
+  shipping_street: string | null
+  building_number: string | null
+  shipping_apartment: string | null
+  delivery_address: string | null
+  shipping_payload_json: Record<string, unknown> | null
+  payment_method: string | null
+  tracking_number: string | null
+  external_id: string | null
+  external_sync_status: string | null
+  external_sync_error: string | null
+  total_amount: string
+  status: string
+  items: OrderItemResponse[]
+  created_at?: string
+  updated_at?: string
 }
 
 export interface CustomerSummary {
@@ -936,6 +981,15 @@ export const useBackofficeApi = () => {
       query: { page, page_size: normalizePageSize(pageSize) },
     })
 
+  const getOrder = (orderId: number | string) =>
+    api<OrderResponse>(`/backoffice/orders/${orderId}`)
+
+  const updateOrderStatus = (orderId: number | string, status: string) =>
+    api<OrderResponse>(`/backoffice/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    })
+
   const getCustomers = (
     page = 1,
     pageSize = 10,
@@ -1662,6 +1716,8 @@ export const useBackofficeApi = () => {
     getCategoryTree,
     getBrands,
     getOrders,
+    getOrder,
+    updateOrderStatus,
     getCustomers,
     getCustomer,
     getCustomerOrders,

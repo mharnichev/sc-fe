@@ -1,6 +1,15 @@
 <script setup lang="ts">
+import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { slugify } from '@shared-utils'
 import type { Brand, Category, ProductPayload } from '~/composables/useBackofficeApi'
+
+interface FilterRow {
+  id: string
+  group_slug: string
+  group_name: string
+  value_slug: string
+  value_name: string
+}
 
 const props = defineProps<{
   categories: Category[]
@@ -35,8 +44,188 @@ const form = reactive<ProductPayload>({
 const attributesText = ref(
   form.attributes_json ? JSON.stringify(form.attributes_json, null, 2) : '',
 )
+const galleryUrls = ref<string[]>([])
+const filterRows = ref<FilterRow[]>([])
 const parseError = ref('')
 const toast = useBaseToastNotification()
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const labelFromSlug = (value: string) =>
+  value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+
+const filterRowId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+const emptyFilterRow = (): FilterRow => ({
+  id: filterRowId(),
+  group_slug: '',
+  group_name: '',
+  value_slug: '',
+  value_name: '',
+})
+
+const normalizedGalleryUrls = () =>
+  galleryUrls.value.map(url => url.trim()).filter(Boolean)
+
+const parseAttributeText = () => {
+  const trimmed = attributesText.value.trim()
+  if (!trimmed) return {}
+
+  const parsed = JSON.parse(trimmed) as unknown
+  if (!isRecord(parsed)) {
+    throw new Error('Атрибути JSON мають бути обʼєктом.')
+  }
+  return parsed
+}
+
+const filterValueRows = (groupSlug: string, groupName: string, value: unknown): FilterRow[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap(item => filterValueRows(groupSlug, groupName, item))
+  }
+
+  if (isRecord(value)) {
+    const slug = typeof value.slug === 'string' ? value.slug : ''
+    const name = typeof value.name === 'string' ? value.name : slug
+    return [{
+      id: filterRowId(),
+      group_slug: groupSlug,
+      group_name: groupName,
+      value_slug: slug || slugify(name),
+      value_name: name || slug,
+    }]
+  }
+
+  if (['string', 'number', 'boolean'].includes(typeof value)) {
+    const label = String(value)
+    return [{
+      id: filterRowId(),
+      group_slug: groupSlug,
+      group_name: groupName,
+      value_slug: slugify(label),
+      value_name: label,
+    }]
+  }
+
+  return []
+}
+
+const rowsFromFilters = (filters: unknown): FilterRow[] => {
+  if (!isRecord(filters)) return []
+
+  return Object.entries(filters).flatMap(([groupSlug, value]) =>
+    filterValueRows(groupSlug, labelFromSlug(groupSlug), value),
+  )
+}
+
+const buildFilters = () => {
+  const groups = new Map<string, { groupName: string, values: Array<{ slug: string, name: string }> }>()
+
+  for (const row of filterRows.value) {
+    const groupName = row.group_name.trim()
+    const groupSlug = row.group_slug.trim() || (groupName ? slugify(groupName) : '')
+    const valueName = row.value_name.trim()
+    const valueSlug = row.value_slug.trim() || (valueName ? slugify(valueName) : '')
+
+    if (!groupSlug || !valueSlug) continue
+
+    const group = groups.get(groupSlug) || { groupName, values: [] }
+    group.groupName = groupName || group.groupName
+    group.values.push({ slug: valueSlug, name: valueName || valueSlug })
+    groups.set(groupSlug, group)
+  }
+
+  return Object.fromEntries(
+    [...groups.entries()].map(([groupSlug, group]) => {
+      const values = group.values.map(value => ({ slug: value.slug, name: value.name }))
+      return [groupSlug, values.length === 1 ? values[0] : values]
+    }),
+  )
+}
+
+const mergeStructuredAttributes = (attributes: Record<string, unknown>) => {
+  const next = { ...attributes }
+  const imageUrls = normalizedGalleryUrls()
+  const filters = buildFilters()
+
+  if (imageUrls.length) next.image_urls = imageUrls
+  else delete next.image_urls
+
+  if (Object.keys(filters).length) next.filters = filters
+  else delete next.filters
+
+  return next
+}
+
+const syncAttributesTextFromStructured = () => {
+  try {
+    const attributes = parseAttributeText()
+    const merged = mergeStructuredAttributes(attributes)
+    attributesText.value = Object.keys(merged).length ? JSON.stringify(merged, null, 2) : ''
+    parseError.value = ''
+  }
+  catch (error: unknown) {
+    parseError.value = error instanceof Error ? error.message : 'Атрибути JSON мають бути валідним JSON.'
+  }
+}
+
+const syncStructuredFromAttributes = (attributes: Record<string, unknown> | null) => {
+  const normalizedAttributes = attributes || {}
+  galleryUrls.value = Array.isArray(normalizedAttributes.image_urls)
+    ? normalizedAttributes.image_urls.filter((image): image is string => typeof image === 'string')
+    : []
+  filterRows.value = rowsFromFilters(normalizedAttributes.filters)
+}
+
+const syncStructuredFromAttributesText = () => {
+  try {
+    const attributes = parseAttributeText()
+    syncStructuredFromAttributes(attributes)
+    parseError.value = ''
+  }
+  catch (error: unknown) {
+    parseError.value = error instanceof Error ? error.message : 'Атрибути JSON мають бути валідним JSON.'
+  }
+}
+
+const addGalleryUrl = () => {
+  galleryUrls.value.push('')
+}
+
+const removeGalleryUrl = (index: number) => {
+  galleryUrls.value.splice(index, 1)
+}
+
+const addFilterRow = () => {
+  filterRows.value.push(emptyFilterRow())
+}
+
+const removeFilterRow = (rowId: string) => {
+  filterRows.value = filterRows.value.filter(row => row.id !== rowId)
+}
+
+const normalizeFilterRowSlugs = (row: FilterRow) => {
+  if (!row.group_slug.trim() && row.group_name.trim()) row.group_slug = slugify(row.group_name)
+  if (!row.value_slug.trim() && row.value_name.trim()) row.value_slug = slugify(row.value_name)
+}
+
+const galleryPreviewUrls = computed(() => {
+  const images = new Set<string>()
+  if (form.image_url?.trim()) images.add(form.image_url.trim())
+  for (const image of normalizedGalleryUrls()) images.add(image)
+  return [...images]
+})
+
+syncStructuredFromAttributes(form.attributes_json)
+
+watch([galleryUrls, filterRows], syncAttributesTextFromStructured, { deep: true })
 
 watch(
   () => props.initialValue,
@@ -44,6 +233,7 @@ watch(
     if (!value) return
     Object.assign(form, value)
     attributesText.value = value.attributes_json ? JSON.stringify(value.attributes_json, null, 2) : ''
+    syncStructuredFromAttributes(value.attributes_json)
   },
   { deep: true },
 )
@@ -58,12 +248,11 @@ const submit = () => {
   let attributesJson: Record<string, unknown> | null = null
 
   try {
-    if (attributesText.value.trim()) {
-      attributesJson = JSON.parse(attributesText.value) as Record<string, unknown>
-    }
+    const mergedAttributes = mergeStructuredAttributes(parseAttributeText())
+    attributesJson = Object.keys(mergedAttributes).length ? mergedAttributes : null
   }
-  catch {
-    parseError.value = 'Атрибути JSON мають бути валідним JSON.'
+  catch (error: unknown) {
+    parseError.value = error instanceof Error ? error.message : 'Атрибути JSON мають бути валідним JSON.'
     toast.warning(parseError.value)
     return
   }
@@ -170,13 +359,113 @@ const submit = () => {
           <span class="font-medium">URL зображення</span>
           <BaseInput v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold text-slate-900">Галерея</h3>
+            <BaseButton
+              type="button"
+              class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              @click="addGalleryUrl"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+              Додати
+            </BaseButton>
+          </div>
+          <div v-if="galleryUrls.length" class="space-y-3">
+            <div v-for="(_, index) in galleryUrls" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <BaseInput
+                v-model="galleryUrls[index]"
+                type="url"
+                placeholder="https://cdn.example.com/product.webp"
+                class="w-full rounded-2xl border border-slate-300 px-4 py-3"
+              />
+              <BaseButton
+                type="button"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50"
+                aria-label="Видалити зображення з галереї"
+                title="Видалити"
+                @click="removeGalleryUrl(index)"
+              >
+                <TrashIcon class="h-4 w-4" aria-hidden="true" />
+              </BaseButton>
+            </div>
+          </div>
+          <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            Додаткові зображення не задані.
+          </p>
+          <div v-if="galleryPreviewUrls.length" class="grid grid-cols-2 gap-3">
+            <a
+              v-for="image in galleryPreviewUrls"
+              :key="image"
+              :href="image"
+              target="_blank"
+              rel="noreferrer"
+              class="group overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+            >
+              <img :src="image" alt="" class="h-28 w-full object-cover transition group-hover:scale-[1.02]">
+            </a>
+          </div>
+        </div>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Зовнішній URL</span>
           <BaseInput v-model="form.external_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold text-slate-900">Фільтри каталогу</h3>
+            <BaseButton
+              type="button"
+              class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              @click="addFilterRow"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+              Додати
+            </BaseButton>
+          </div>
+          <div v-if="filterRows.length" class="space-y-4">
+            <div v-for="row in filterRows" :key="row.id" class="space-y-3 border-t border-slate-100 pt-4 first:border-t-0 first:pt-0">
+              <div class="grid gap-3 md:grid-cols-2">
+                <label class="space-y-2 text-sm text-slate-700">
+                  <span class="font-medium">Group slug</span>
+                  <BaseInput v-model="row.group_slug" placeholder="color" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+                </label>
+                <label class="space-y-2 text-sm text-slate-700">
+                  <span class="font-medium">Group name</span>
+                  <BaseInput v-model="row.group_name" placeholder="Color" class="w-full rounded-2xl border border-slate-300 px-4 py-3" @blur="normalizeFilterRowSlugs(row)" />
+                </label>
+                <label class="space-y-2 text-sm text-slate-700">
+                  <span class="font-medium">Value slug</span>
+                  <BaseInput v-model="row.value_slug" placeholder="black" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+                </label>
+                <label class="space-y-2 text-sm text-slate-700">
+                  <span class="font-medium">Value name</span>
+                  <BaseInput v-model="row.value_name" placeholder="Black" class="w-full rounded-2xl border border-slate-300 px-4 py-3" @blur="normalizeFilterRowSlugs(row)" />
+                </label>
+              </div>
+              <BaseButton
+                type="button"
+                class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-rose-300 px-3 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+                @click="removeFilterRow(row.id)"
+              >
+                <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                Видалити фільтр
+              </BaseButton>
+            </div>
+          </div>
+          <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            Фільтри каталогу не задані.
+          </p>
+        </div>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Атрибути JSON</span>
-          <BaseTextarea v-model="attributesText" rows="10" class="w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs" />
+          <BaseTextarea
+            v-model="attributesText"
+            rows="10"
+            class="w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs"
+            @blur="syncStructuredFromAttributesText"
+            @change="syncStructuredFromAttributesText"
+          />
+          <span v-if="parseError" class="block text-xs font-medium text-rose-600">{{ parseError }}</span>
         </label>
       </section>
     </div>

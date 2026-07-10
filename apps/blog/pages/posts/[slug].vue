@@ -247,7 +247,7 @@ useHead(() => ({
   <section v-if="relatedPosts.length" class="section-y bg-neutral-950">
     <div class="site-container">
       <div class="text-center">
-        <h2 class="section-heading">{{ terms.recommended }}</h2>
+        <h2 class="text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">{{ terms.recommended }}</h2>
       </div>
 
       <div class="recommended-posts-list mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">

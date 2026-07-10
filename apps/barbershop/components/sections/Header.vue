@@ -21,6 +21,16 @@ const menuLinkClass = computed(() =>
     ? 'text-white/60 hover:text-white/85'
     : 'text-neutral-950/45 hover:text-neutral-950/80',
 )
+const desktopMenuSurfaceClass = computed(() =>
+  headerTheme.value === 'dark'
+    ? 'border-white/10 bg-neutral-950/20'
+    : 'border-neutral-950/10 bg-stone-100/35',
+)
+const raggedMenuSurfaceStyle = {
+  clipPath: 'polygon(0 4%, 6% 0, 18% 2%, 31% 0, 47% 3%, 64% 1%, 80% 3%, 100% 0, 97% 15%, 100% 32%, 97% 49%, 100% 67%, 98% 84%, 100% 100%, 84% 98%, 67% 100%, 50% 97%, 32% 100%, 15% 98%, 0 100%, 3% 84%, 0 67%, 3% 50%, 0 33%, 3% 16%)',
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
+}
 
 const isDesktopViewport = () => import.meta.client ? window.matchMedia(DESKTOP_NAV_QUERY).matches : false
 
@@ -232,11 +242,17 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="pointer-events-none flex flex-col items-start">
+      <div class="pointer-events-none relative -ml-3 mt-1 flex flex-col items-start px-3 py-2">
+        <div
+          class="absolute -inset-x-2 -inset-y-1 border transition-opacity duration-200"
+          :class="[desktopMenuSurfaceClass, isOpen ? 'opacity-100' : 'opacity-0']"
+          :style="raggedMenuSurfaceStyle"
+          aria-hidden="true"
+        />
         <div
           v-for="(item, index) in menuItems"
           :key="item.href"
-          class="transition-[opacity,transform] duration-200 ease-out"
+          class="relative z-10 transition-[opacity,transform] duration-200 ease-out"
           :class="isOpen ? 'pointer-events-auto opacity-100 translate-y-0' : 'pointer-events-none -translate-y-2.5 opacity-0'"
           :style="{ transitionDelay: isOpen ? `${index * 50}ms` : '0ms' }"
         >
@@ -262,29 +278,38 @@ onBeforeUnmount(() => {
       leave-to-class="opacity-0"
     >
       <div v-if="isOpen" class="fixed inset-0 z-[60] bg-neutral-950 text-white lg:hidden">
-        <BaseButton
-          type="button"
-          class="absolute right-4 top-4 z-10"
-          variant="light"
-          shape="circle"
-          size="sm"
-          :aria-label="terms.common.close"
-          @click="closeMenu"
-        >
-          ×
-        </BaseButton>
+        <div class="absolute right-[calc(env(safe-area-inset-right)+1rem)] top-[calc(env(safe-area-inset-top)+1rem)] z-10">
+          <BaseButton
+            type="button"
+            class="[--sc-button-fill:#facc15] [--sc-button-hover-text:#0a0a0a]"
+            variant="light"
+            shape="circle"
+            size="sm"
+            :aria-label="terms.common.close"
+            @click="closeMenu"
+          >
+            ×
+          </BaseButton>
+        </div>
 
         <nav class="flex min-h-screen flex-col justify-center overflow-y-auto px-8 py-20" :aria-label="terms.common.menu">
-          <NuxtLink
-            v-for="(item, index) in menuItems"
-            :key="item.href"
-            :to="item.href"
-            class="group block text-left text-[42px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
-            :style="{ transitionDelay: `${index * 45}ms` }"
-            @click.prevent="handleMenuItemClick(item.href)"
-          >
-            <AnimatedMenuText :text="item.label" />
-          </NuxtLink>
+          <div class="relative w-full max-w-[44rem] px-3 py-4">
+            <div
+              class="absolute -inset-x-2 -inset-y-1 border border-white/10 bg-white/5"
+              :style="raggedMenuSurfaceStyle"
+              aria-hidden="true"
+            />
+            <NuxtLink
+              v-for="(item, index) in menuItems"
+              :key="item.href"
+              :to="item.href"
+              class="group relative z-10 block text-left text-[42px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
+              :style="{ transitionDelay: `${index * 45}ms` }"
+              @click.prevent="handleMenuItemClick(item.href)"
+            >
+              <AnimatedMenuText :text="item.label" />
+            </NuxtLink>
+          </div>
         </nav>
       </div>
     </Transition>

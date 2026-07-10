@@ -40,9 +40,17 @@ const products = computed(() => data.value?.products.items || [])
 const recentOrders = computed(() => data.value?.orders.items || [])
 const lowStockProducts = computed(() => data.value?.lowStockProducts.items || [])
 const outOfStockProducts = computed(() => data.value?.outOfStockProducts.items || [])
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+const productHasImage = (product: Product) =>
+  Boolean(product.image_url)
+  || (Array.isArray(product.attributes_json?.image_urls) && product.attributes_json.image_urls.length > 0)
+const productHasFilters = (product: Product) =>
+  isRecord(product.attributes_json?.filters) && Object.keys(product.attributes_json.filters).length > 0
 const productsWithoutCategory = computed(() => products.value.filter(product => !product.category_id && !product.category).length)
 const productsWithoutBrand = computed(() => products.value.filter(product => !product.brand_id && !product.brand).length)
-const productsWithoutImage = computed(() => products.value.filter(product => !product.image_url).length)
+const productsWithoutImage = computed(() => products.value.filter(product => !productHasImage(product)).length)
+const productsWithoutFilters = computed(() => products.value.filter(product => !productHasFilters(product)).length)
 const productsWithoutSku = computed(() => products.value.filter(product => !product.sku).length)
 const totalStock = computed(() => products.value.reduce((total, product) => total + Number(product.stock_quantity || 0), 0))
 const catalogValue = computed(() =>
@@ -83,7 +91,7 @@ const productsNeedingAttention = computed<Product[]>(() => {
     byId.set(product.id, product)
   }
   for (const product of products.value) {
-    if (!product.image_url || !product.sku || !product.category_id || !product.brand_id) {
+    if (!productHasImage(product) || !productHasFilters(product) || !product.sku || !product.category_id || !product.brand_id) {
       byId.set(product.id, product)
     }
   }
@@ -94,7 +102,8 @@ const productIssueLabels = (product: Product) => {
   const labels: string[] = []
   if (Number(product.stock_quantity || 0) <= 0) labels.push('немає на складі')
   else if (product.availability_status === 'low_stock' || Number(product.stock_quantity || 0) <= 3) labels.push('низький залишок')
-  if (!product.image_url) labels.push('без фото')
+  if (!productHasImage(product)) labels.push('без фото')
+  if (!productHasFilters(product)) labels.push('без фільтрів')
   if (!product.sku) labels.push('без SKU')
   if (!product.category_id && !product.category) labels.push('без категорії')
   if (!product.brand_id && !product.brand) labels.push('без бренду')
@@ -238,6 +247,12 @@ const quickActions = [
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm text-slate-500">Без SKU</p>
               <p class="text-xl font-semibold text-slate-900">{{ productsWithoutSku }}</p>
+            </div>
+          </div>
+          <div class="rounded-2xl bg-slate-50 px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm text-slate-500">Без фільтрів</p>
+              <p class="text-xl font-semibold text-slate-900">{{ productsWithoutFilters }}</p>
             </div>
           </div>
           <div class="rounded-2xl bg-slate-50 px-4 py-3">

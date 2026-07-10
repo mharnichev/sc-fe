@@ -41,9 +41,9 @@ useHead(() => ({
 <template>
   <div>
     <section class="bg-neutral-950">
-      <div class="site-container grid gap-6 py-6 md:gap-8 md:py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:py-10">
+      <div class="site-container grid gap-6 pb-6 pt-[90px] md:gap-8 md:pb-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch lg:pb-10">
         <NuxtLink
-          class="group order-2 min-h-[15rem] overflow-hidden bg-neutral-900 md:min-h-[24rem] lg:order-1 lg:min-h-[36rem]"
+          class="group h-[200px] overflow-hidden bg-neutral-900 md:h-auto md:min-h-[24rem] lg:min-h-[36rem]"
           :to="`/posts/${featuredPost.slug}`"
           @click="handleFeaturedPostClick('featured_cover')"
         >
@@ -62,19 +62,19 @@ useHead(() => ({
           </picture>
         </NuxtLink>
 
-        <div class="order-1 flex flex-col justify-between border-neutral-700 py-2 md:py-6 lg:order-2 lg:py-8">
+        <div class="flex flex-col justify-between border-neutral-700 py-2 md:py-6 lg:py-8">
           <div>
             <p class="eyebrow">{{ terms.featuredPost }}</p>
-            <h1 class="mt-4 text-3xl font-bold leading-[0.98] text-white sm:mt-5 sm:text-5xl sm:font-black lg:text-6xl">
+            <h1 class="mt-4 text-2xl font-semibold leading-tight text-white sm:mt-5 sm:text-3xl lg:text-4xl">
               {{ featuredPost.title }}
             </h1>
-            <p class="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:mt-6 sm:text-lg sm:leading-8">
+            <p class="mt-4 max-w-xl text-sm leading-6 text-neutral-300 sm:mt-6 sm:text-base sm:leading-7">
               {{ featuredPost.excerpt }}
             </p>
           </div>
 
           <div class="mt-5 sm:mt-8">
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
               <span class="text-white/65">{{ featuredPost.category }}</span>
               <time :datetime="featuredPost.publishedAt">{{ formatPostDate(featuredPost.publishedAt, locale) }}</time>
               <span>{{ formatReadMinutes(featuredPost.readMinutes, locale) }}</span>
@@ -99,7 +99,7 @@ useHead(() => ({
             <p class="eyebrow">{{ terms.latest }}</p>
             <h2 class="section-heading mt-3">{{ terms.newStories }}</h2>
           </div>
-          <NuxtLink class="text-sm font-bold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-white" to="/posts">
+          <NuxtLink class="text-sm font-semibold uppercase tracking-[0.16em] text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-white" to="/posts">
             {{ terms.viewAllPosts }}
           </NuxtLink>
         </div>

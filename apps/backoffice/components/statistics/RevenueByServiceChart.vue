@@ -28,28 +28,96 @@ const progressWidth = (revenue: number) => {
       title="Немає доходу за послугами"
       description="Дані будуть доступні після завершених записів у вибраному місяці."
     />
-    <div v-else class="mt-3 overflow-hidden rounded-xl border border-slate-200 xl:mt-4 xl:rounded-2xl">
-      <table class="w-full divide-y divide-slate-200 text-xs xl:text-sm">
-        <thead class="bg-slate-50">
+    <div v-else class="statistics-revenue-table-wrap mt-3 overflow-hidden rounded-xl border xl:mt-4 xl:rounded-2xl">
+      <table class="statistics-revenue-table w-full divide-y text-xs xl:text-sm">
+        <thead>
           <tr>
-            <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Послуга</th>
-            <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Записи</th>
-            <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Дохід</th>
+            <th class="px-3 py-2 text-left font-medium xl:px-4 xl:py-3">Послуга</th>
+            <th class="px-3 py-2 text-left font-medium xl:px-4 xl:py-3">Записи</th>
+            <th class="px-3 py-2 text-left font-medium xl:px-4 xl:py-3">Дохід</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           <tr v-for="item in items" :key="item.service_id">
-            <td data-label="Послуга" class="px-3 py-2 xl:px-4 xl:py-3">
-              <p class="font-medium text-slate-900">{{ item.service_name }}</p>
-              <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 xl:mt-2 xl:h-2">
+            <td data-label="Послуга" class="statistics-revenue-service-cell px-3 py-2 xl:px-4 xl:py-3">
+              <p class="statistics-revenue-service-name font-medium">{{ item.service_name }}</p>
+              <div class="statistics-revenue-progress mt-1.5 h-1.5 overflow-hidden rounded-full xl:mt-2 xl:h-2">
                 <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${progressWidth(revenueValue(item))}%` }" />
               </div>
             </td>
-            <td data-label="Записи" class="px-3 py-2 text-slate-700 xl:px-4 xl:py-3">{{ item.count }}</td>
-            <td data-label="Дохід" class="px-3 py-2 font-medium text-slate-900 xl:px-4 xl:py-3">{{ formatMoney(item.revenue) }}</td>
+            <td data-label="Записи" class="statistics-revenue-muted px-3 py-2 xl:px-4 xl:py-3">{{ item.count }}</td>
+            <td data-label="Дохід" class="statistics-revenue-total px-3 py-2 font-medium xl:px-4 xl:py-3">{{ formatMoney(item.revenue) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
   </section>
 </template>
+
+<style scoped>
+.statistics-revenue-table-wrap {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.statistics-revenue-table {
+  border-color: var(--border);
+}
+
+.statistics-revenue-table thead {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-secondary);
+}
+
+.statistics-revenue-table tbody {
+  color: var(--text-primary);
+}
+
+.statistics-revenue-table tbody > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border);
+}
+
+.statistics-revenue-service-name,
+.statistics-revenue-total {
+  color: var(--text-primary);
+}
+
+.statistics-revenue-muted {
+  color: var(--text-secondary);
+}
+
+.statistics-revenue-progress {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+@media (max-width: 767px) {
+  .statistics-revenue-table tbody {
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  }
+
+  .statistics-revenue-table tr {
+    border-color: var(--border);
+    background: var(--row-bg);
+    box-shadow: var(--surface-shadow);
+  }
+
+  .statistics-revenue-table td {
+    border-color: var(--border);
+  }
+
+  .statistics-revenue-table td::before {
+    color: var(--text-secondary);
+  }
+
+  .statistics-revenue-service-cell {
+    display: block;
+    text-align: left;
+  }
+
+  .statistics-revenue-service-cell::before {
+    display: block;
+    max-width: none;
+    margin-bottom: 0.375rem;
+  }
+}
+</style>
