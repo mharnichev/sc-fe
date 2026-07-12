@@ -3,18 +3,6 @@ const auth = useCustomerAuthStore()
 const modal = useModalStore()
 const { terms } = useShopLocale()
 const currentYear = new Date().getFullYear()
-const footerElement = ref<HTMLElement | null>(null)
-const footerRevealOffset = ref<number | null>(null)
-const shouldRevealFooter = ref(false)
-const initialFooterRevealOffset = 'var(--shop-footer-height, 620px)'
-const footerStyle = computed(() => ({
-  transform: footerRevealOffset.value === null
-    ? `translate3d(0, ${initialFooterRevealOffset}, 0)`
-    : `translate3d(0, ${footerRevealOffset.value}px, 0)`,
-  visibility: shouldRevealFooter.value ? 'visible' as const : 'hidden' as const,
-}))
-let revealFrame: number | null = null
-let layoutResizeObserver: ResizeObserver | null = null
 
 const shopLinks = computed(() => [
   { label: terms.value.common.catalog, to: '/catalog' },
@@ -56,79 +44,10 @@ const hours = computed(() => [
 
 const openAccount = () => modal.openModal(auth.isAuthenticated ? 'CabinetModal' : 'UserAuthModal')
 
-const syncFooterHeight = () => {
-  if (!import.meta.client) return 0
-
-  const footerHeight = Math.ceil(footerElement.value?.offsetHeight ?? 0)
-  if (footerHeight > 0) {
-    document.documentElement.style.setProperty('--shop-footer-height', `${footerHeight}px`)
-  }
-
-  return footerHeight
-}
-
-const updateFooterReveal = () => {
-  if (!import.meta.client) return
-
-  revealFrame = null
-
-  const footerHeight = syncFooterHeight()
-  const main = document.querySelector('main')
-  const mainBottom = main?.getBoundingClientRect().bottom ?? window.innerHeight
-  const viewportHeight = window.innerHeight || 1
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-  if (footerHeight <= 0) {
-    footerRevealOffset.value = 0
-    return
-  }
-
-  const revealRange = Math.min(footerHeight, viewportHeight)
-  const progress = Math.min(1, Math.max(0, (viewportHeight - mainBottom) / revealRange))
-  shouldRevealFooter.value = progress > 0
-
-  footerRevealOffset.value = reduceMotion
-    ? progress >= 1 ? 0 : footerHeight
-    : Number(((1 - progress) * footerHeight).toFixed(2))
-}
-
-const requestFooterRevealUpdate = () => {
-  if (!import.meta.client || revealFrame !== null) return
-  revealFrame = window.requestAnimationFrame(updateFooterReveal)
-}
-
-const observeFooterLayout = () => {
-  if (!import.meta.client || !('ResizeObserver' in window)) return
-
-  layoutResizeObserver = new ResizeObserver(() => {
-    requestFooterRevealUpdate()
-  })
-
-  const main = document.querySelector('main')
-  if (main) layoutResizeObserver.observe(main)
-  if (footerElement.value) layoutResizeObserver.observe(footerElement.value)
-}
-
-onMounted(() => {
-  if (!import.meta.client) return
-  window.addEventListener('scroll', requestFooterRevealUpdate, { passive: true })
-  window.addEventListener('resize', requestFooterRevealUpdate)
-  observeFooterLayout()
-  requestFooterRevealUpdate()
-})
-
-onBeforeUnmount(() => {
-  if (!import.meta.client) return
-  window.removeEventListener('scroll', requestFooterRevealUpdate)
-  window.removeEventListener('resize', requestFooterRevealUpdate)
-  layoutResizeObserver?.disconnect()
-  layoutResizeObserver = null
-  if (revealFrame !== null) window.cancelAnimationFrame(revealFrame)
-})
 </script>
 
 <template>
-  <footer ref="footerElement" class="shop-footer" data-header-theme="dark" :style="footerStyle">
+  <footer class="shop-footer" data-header-theme="dark">
     <div class="shop-footer__inner">
       <section class="shop-footer__cta" aria-labelledby="shop-footer-title">
         <div class="shop-footer__cta-copy">
@@ -218,17 +137,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .shop-footer {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 0;
   overflow: hidden;
   background:
     radial-gradient(circle at 12% 18%, rgb(255 255 255 / 0.12), transparent 18rem),
     linear-gradient(180deg, #111111 0%, #050505 100%);
   color: #ffffff;
-  will-change: transform;
 }
 
 .shop-footer__inner {

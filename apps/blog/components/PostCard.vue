@@ -42,20 +42,20 @@ const handlePostClick = () => {
         >
       </div>
       <div class="flex h-full flex-col" :class="recommended ? 'pt-5' : 'p-5'">
-        <div v-if="!recommended" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
+        <div v-if="!recommended" class="type-meta flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
           <span class="text-white/50">{{ post.category }}</span>
           <time :datetime="post.publishedAt">{{ formatPostDate(post.publishedAt, locale) }}</time>
         </div>
-        <h2 class="font-black leading-tight text-white" :class="[compact ? 'text-xl' : 'text-2xl', recommended ? '' : 'mt-3']">
+        <h2 class="type-section-title leading-tight text-white" :class="[compact ? 'text-xl' : 'text-2xl', recommended ? '' : 'mt-3']">
           {{ post.title }}
         </h2>
         <p class="mt-3 line-clamp-3 text-sm leading-7 text-neutral-400">
           {{ post.excerpt }}
         </p>
-        <time v-if="recommended" class="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500" :datetime="post.publishedAt">
+        <time v-if="recommended" class="type-meta mt-5 text-xs text-neutral-500" :datetime="post.publishedAt">
           {{ formatPostDate(post.publishedAt, locale) }}
         </time>
-        <p v-else class="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-white/70">
+        <p v-else class="type-meta mt-5 text-xs text-white/70">
           {{ terms.readArticle }}
         </p>
       </div>

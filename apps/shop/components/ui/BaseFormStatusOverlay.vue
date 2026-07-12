@@ -28,10 +28,10 @@ const emit = defineEmits<{
       aria-live="polite"
     >
       <div class="max-w-xl text-center">
-        <p v-if="label" class="text-xs font-semibold uppercase tracking-[0.24em]" :class="tone === 'dark' ? 'text-white/45' : 'text-neutral-500'">
+        <p v-if="label" class="type-eyebrow text-xs" :class="tone === 'dark' ? 'text-white/45' : 'text-neutral-500'">
           {{ label }}
         </p>
-        <h3 class="mt-3 text-2xl font-semibold uppercase leading-tight md:text-4xl">
+        <h3 class="type-page-title mt-3 text-2xl uppercase leading-tight md:text-4xl">
           {{ title }}
         </h3>
         <slot>

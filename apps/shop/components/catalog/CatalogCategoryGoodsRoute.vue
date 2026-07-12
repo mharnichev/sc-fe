@@ -233,7 +233,9 @@ useSeo(
       <CatalogBreadcrumbs :items="breadcrumbs" />
 
       <div class="category__title-wrapper">
-        <h1 class="category__title">{{ currentCategory?.name || categorySlug }}</h1>
+        <h1 class="category__title">
+          <BaseScribbleOutline>{{ currentCategory?.name || categorySlug }}</BaseScribbleOutline>
+        </h1>
       </div>
 
       <div class="category__head-side-bar">

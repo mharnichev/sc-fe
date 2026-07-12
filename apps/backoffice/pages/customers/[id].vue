@@ -9,10 +9,10 @@ import {
   DocumentTextIcon,
   EnvelopeIcon,
   IdentificationIcon,
+  PencilSquareIcon,
   PhoneIcon,
   ReceiptPercentIcon,
   ScissorsIcon,
-  ShieldCheckIcon,
   UserCircleIcon,
 } from '@heroicons/vue/24/outline'
 import type { Booking } from '~/composables/useBackofficeApi'
@@ -35,7 +35,7 @@ const {
 
 const customerId = computed(() => route.params.id as string)
 
-const [{ data: customer }, { data: orders }, { data: bookings }, { data: stats }] = await Promise.all([
+const [{ data: customer, refresh: refreshCustomer }, { data: orders }, { data: bookings }, { data: stats }] = await Promise.all([
   useAsyncData(
     () => `customer-${customerId.value}`,
     () => api.getCustomer(customerId.value),
@@ -66,6 +66,11 @@ const fullName = computed(() => {
 const topServices = computed(() => stats.value?.most_used_services || [])
 const customerBookings = computed<Booking[]>(() => bookings.value?.items || [])
 const { isAdmin } = useBackofficeAccess()
+const editModalOpen = ref(false)
+
+const handleCustomerSaved = async () => {
+  await refreshCustomer()
+}
 
 const bookingSubtotal = (booking: Booking) =>
   booking.subtotal_amount ?? bookingServices(booking).reduce((sum, service) => sum + Number(service.price || 0), 0)
@@ -103,9 +108,15 @@ const bookingServiceLines = (booking: Booking) => {
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ fullName }}</h1>
         <p class="mt-2 text-sm text-slate-500">Customer #{{ customer.id }}</p>
       </div>
-      <NuxtLink to="/customers" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
-        Назад до списку
-      </NuxtLink>
+      <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+        <NuxtLink to="/customers" class="rounded-full border border-slate-300 px-5 py-3 text-center text-sm">
+          Назад до списку
+        </NuxtLink>
+        <BaseButton v-if="isAdmin" variant="primary" size="lg" @click="editModalOpen = true">
+          <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
+          Редагувати
+        </BaseButton>
+      </div>
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -129,7 +140,7 @@ const bookingServiceLines = (booking: Booking) => {
           <div class="customer-info-item">
             <IdentificationIcon class="customer-info-icon" aria-hidden="true" />
             <div class="min-w-0">
-              <dt class="text-xs text-slate-500">Назва</dt>
+              <dt class="text-xs text-slate-500">Імʼя</dt>
               <dd class="customer-info-value">{{ customer.name || '—' }}</dd>
             </div>
           </div>
@@ -169,17 +180,6 @@ const bookingServiceLines = (booking: Booking) => {
                 <dd class="mt-1 truncate font-semibold text-slate-900">{{ formatDateTime(customer.imported_last_visit_at) }}</dd>
               </div>
             </div>
-            <div class="customer-import-stat sm:col-span-2">
-              <UserCircleIcon class="customer-import-stat-icon" aria-hidden="true" />
-              <div class="min-w-0">
-                <dt class="text-xs text-slate-500">Статус</dt>
-                <dd class="mt-1">
-                  <span class="customer-import-status rounded-full px-3 py-1 text-xs font-medium" :class="customer.imported_is_new_client ? 'customer-import-status-new' : 'customer-import-status-current'">
-                    {{ customer.imported_is_new_client ? 'новий клієнт' : 'поточний клієнт' }}
-                  </span>
-                </dd>
-              </div>
-            </div>
           </div>
           <div class="customer-info-item">
             <CheckCircleIcon class="customer-info-icon" aria-hidden="true" />
@@ -190,13 +190,6 @@ const bookingServiceLines = (booking: Booking) => {
                   {{ customer.is_active ? 'активний' : 'неактивний' }}
                 </span>
               </dd>
-            </div>
-          </div>
-          <div class="customer-info-item">
-            <ShieldCheckIcon class="customer-info-icon" aria-hidden="true" />
-            <div class="min-w-0">
-              <dt class="text-xs text-slate-500">Телефон підтверджено</dt>
-              <dd class="customer-info-value">{{ formatDateTime(customer.phone_verified_at) }}</dd>
             </div>
           </div>
           <div class="customer-info-item">
@@ -301,6 +294,13 @@ const bookingServiceLines = (booking: Booking) => {
     </div>
 
     <ClientCommunicationPanel v-if="isAdmin" :customer-id="customer.id" />
+
+    <CustomerEditModal
+      v-if="isAdmin"
+      v-model="editModalOpen"
+      :customer="customer"
+      @saved="handleCustomerSaved"
+    />
 
     <div class="grid gap-6 xl:grid-cols-2">
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">

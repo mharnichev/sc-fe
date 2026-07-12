@@ -180,7 +180,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             <p class="text-sm leading-6 text-neutral-600 md:leading-7">
               {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
             </p>
-            <span class="service-card__meta flex items-center justify-between gap-4 px-3 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            <span class="service-card__meta type-eyebrow flex items-center justify-between gap-4 px-3 py-3 text-xs text-neutral-500">
               <span>{{ formatServiceDuration(service) }}</span>
               <span>{{ terms.home.services.choose }}</span>
             </span>

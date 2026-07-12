@@ -26,6 +26,7 @@ export interface BlogAboutTerms {
   cultureTitle: string
   cultureParagraphs: string[]
   cultureImageAlt: string
+  cultureSecondaryImageAlt: string
   cultureQuote: string
   journalEyebrow: string
   journalTitle: string
@@ -251,7 +252,7 @@ export const blogTerms = {
         {
           number: '02',
           title: 'Спільнота',
-          text: 'Зустрічі, майстер-класи й «Ідем на Букви» — середовище, де барбери вчаться одне в одного.',
+          text: 'Зустрічі, майстер-класи та «Ідем на Букви» - середовище, де барбери навчаються один від одного.',
         },
         {
           number: '03',
@@ -262,21 +263,22 @@ export const blogTerms = {
       cultureEyebrow: 'Своя сцена',
       cultureTitle: 'Барберинг стає культурою, коли ним діляться.',
       cultureParagraphs: [
-        'Ми бачимо Soul Cuts частиною більшої української сцени. Тому створили «Ідем на Букви» — професійну спільноту й медійний проєкт, у якому майстри можуть говорити своїм голосом, показувати процес і передавати досвід далі.',
-        'Нас цікавлять не лише техніка й тренди. Нас цікавлять люди за інструментами: їхній шлях, сумніви, знахідки та власний погляд на професію.',
+        'Ми бачимо простір Soul Cuts частиною українського комʼюніті «Ідем на Букви» - професійну спільноту й медійний проєкт, у якому майстри можуть говорити своїм голосом, показувати процес свого росту та передавати досвід далі.',
+        'Нас цікавлять не лише техніка майстра та тренди. Нас цікавлять в першу чергу люди: їхній шлях, сумніви, знахідки та власний погляд на професію.',
       ],
-      cultureImageAlt: 'Майстер-клас українського барбера перед аудиторією в Одеському музеї',
+      cultureImageAlt: 'Учасники професійної барберської події під час нагородження',
+      cultureSecondaryImageAlt: 'Гості барберської події підписують памʼятні матеріали',
       cultureQuote: 'Нам важливо не лише, як виглядає стрижка, а й що відбувається навколо крісла.',
       journalEyebrow: 'Soulcuts Journal',
       journalTitle: 'Цей журнал — наш відкритий архів.',
-      journalDescription: 'Тут ми збираємо те, що не вміщується у короткий допис: живі розмови, репортажі з подій, практичні спостереження й історії людей. Пишемо українською та англійською, щоб локальний досвід був видимим ширше.',
+      journalDescription: 'Тут ми збираємо те, що не вміщується у короткий допис: живі розмови, репортажі з подій, спостереження за змінами в індустрії та історії людей. Пишемо українською та англійською, щоб локальний досвід був видимим ширше.',
       journalPoints: [
-        'Документуємо українську барберську сцену.',
+        'Документуємо українську барбер спільноту',
         'Показуємо роботу без зайвого глянцю.',
         'Залишаємо місце для різних голосів і поглядів.',
       ],
       ctaEyebrow: 'Продовжимо розмову',
-      ctaTitle: 'Читайте історії. Або заходьте у крісло.',
+      ctaTitle: 'ЧИТАЙТЕ ІСТОРІЇ. АБО ЗАХОДЬТЕ НА СТРИЖКУ ДО ПРОСТОРУ.',
       ctaDescription: 'Знайомство із Soul Cuts може початися зі статті, події чи стрижки. Обирайте свій маршрут — далі побачимося.',
       storiesCta: 'Читати матеріали',
       bookingCta: 'Записатися',
@@ -424,7 +426,7 @@ export const blogTerms = {
         {
           number: '02',
           title: 'Community',
-          text: 'Gatherings, masterclasses, and Idem na Bukvy — a space where barbers learn from one another.',
+          text: 'Meetups, masterclasses, and Idem na Bukvy - an environment where barbers learn from one another.',
         },
         {
           number: '03',
@@ -435,21 +437,22 @@ export const blogTerms = {
       cultureEyebrow: 'Our own scene',
       cultureTitle: 'Barbering becomes culture when it is shared.',
       cultureParagraphs: [
-        'We see Soul Cuts as part of a wider Ukrainian scene. That is why we created Idem na Bukvy — a professional community and media project where barbers can speak in their own voice, show the process, and pass experience forward.',
-        'We care about more than technique and trends. We care about the people behind the tools: their path, doubts, discoveries, and individual view of the profession.',
+        'We see the Soul Cuts space as part of the Ukrainian Idem na Bukvy community - a professional community and media project where barbers can speak in their own voices, show their growth process, and pass experience forward.',
+        'We are interested not only in a barberʼs technique and trends. First and foremost, we are interested in people: their journey, doubts, discoveries, and their own view of the profession.',
       ],
-      cultureImageAlt: 'A Ukrainian barber leading a masterclass before an audience at an Odesa museum',
+      cultureImageAlt: 'Participants at a professional barbering event during an award presentation',
+      cultureSecondaryImageAlt: 'Guests at a barbering event signing commemorative materials',
       cultureQuote: 'What matters to us is not only how a haircut looks, but also what happens around the chair.',
       journalEyebrow: 'Soulcuts Journal',
       journalTitle: 'This journal is our open archive.',
-      journalDescription: 'Here we collect what cannot fit into a short post: living conversations, event reports, practical observations, and peopleʼs stories. We publish in Ukrainian and English so local experience can travel further.',
+      journalDescription: 'Here we collect what cannot fit into a short post: living conversations, event reports, observations on changes in the industry, and peopleʼs stories. We publish in Ukrainian and English so local experience can travel further.',
       journalPoints: [
-        'Documenting the Ukrainian barbering scene.',
+        'Documenting the Ukrainian barber community',
         'Showing the work without unnecessary gloss.',
         'Making room for different voices and perspectives.',
       ],
       ctaEyebrow: 'Continue the conversation',
-      ctaTitle: 'Read the stories. Or take a seat in the chair.',
+      ctaTitle: 'READ THE STORIES. OR COME TO THE SPACE FOR A HAIRCUT.',
       ctaDescription: 'Your introduction to Soul Cuts can begin with an article, an event, or a haircut. Choose your route — we will see you there.',
       storiesCta: 'Read the journal',
       bookingCta: 'Book a visit',

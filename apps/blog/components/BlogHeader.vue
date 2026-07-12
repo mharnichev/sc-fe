@@ -34,7 +34,7 @@ const desktopMenuSurfaceClass = computed(() =>
     ? 'border-white/10 bg-neutral-950/20'
     : 'border-neutral-950/10 bg-stone-100/35',
 )
-const mobileMenuLinkClass = 'group block text-left text-[42px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl'
+const mobileMenuLinkClass = 'type-display group block text-left text-[42px] leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl'
 const mobileMenuLinkStyle = (index: number) => ({
   transitionDelay: `${index * 45}ms`,
 })
@@ -252,8 +252,8 @@ onBeforeUnmount(() => {
     <nav
       v-if="shouldRenderDesktopNav"
       id="blog-desktop-nav"
-      class="fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start overflow-y-auto pr-3 lg:flex"
-      :class="isOpen ? 'pointer-events-auto' : 'pointer-events-none'"
+      class="fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start pr-3 lg:flex"
+      :class="isOpen ? 'pointer-events-auto overflow-y-auto' : 'pointer-events-none overflow-hidden'"
       :aria-label="terms.menu"
       @mouseenter="openDesktopMenu"
       @mouseleave="scheduleDesktopMenuClose"
@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
       <div class="pointer-events-auto">
         <button
           type="button"
-          class="group relative block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+          class="type-display group relative block text-left leading-[1.05] transition-colors duration-300"
           :class="menuButtonClass"
           style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
           :aria-expanded="isOpen"
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
           <button
             v-if="item.action"
             type="button"
-            class="group block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+            class="type-display group block text-left leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
             style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
             @click="navigateToMenuLink(item)"
@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
           <a
             v-else-if="item.external"
             :href="item.href"
-            class="group block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+            class="type-display group block text-left leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
             style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
             @click.prevent="navigateToMenuLink(item)"
@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
           <NuxtLink
             v-else
             :to="item.href"
-            class="group block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+            class="type-display group block text-left leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
             style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
             @click.prevent="navigateToMenuLink(item)"

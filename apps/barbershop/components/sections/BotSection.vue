@@ -11,7 +11,7 @@ const botLink = 'https://t.me/SoulcutsBot'
       <div class="grid gap-6 p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_15rem] md:p-8 lg:grid-cols-[minmax(0,1fr)_16rem]" data-reveal="soft">
         <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem] md:contents">
           <div class="md:col-start-1">
-            <p class="inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
+            <p class="type-eyebrow inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs text-sky-100">
               {{ terms.home.bot.badge }}
             </p>
             <h2 class="mt-5 text-2xl font-semibold uppercase leading-none tracking-normal text-white sm:text-2xl md:text-4xl">
@@ -44,7 +44,7 @@ const botLink = 'https://t.me/SoulcutsBot'
               </svg>
               {{ terms.home.bot.cta }}
             </BaseButton>
-            <p class="max-w-sm text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
+            <p class="type-eyebrow max-w-sm text-xs text-white/45">
               {{ terms.home.bot.features }}
             </p>
           </div>

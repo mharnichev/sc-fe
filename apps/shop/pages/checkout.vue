@@ -177,14 +177,14 @@ useSeo(
     <form class="space-y-6 border border-neutral-200 bg-white p-6" @submit.prevent="submit">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-semibold text-neutral-900">{{ terms.common.checkout }}</h1>
+          <h1 class="type-page-title text-3xl text-neutral-900">{{ terms.common.checkout }}</h1>
           <p v-if="auth.isAuthenticated" class="mt-1 text-sm text-neutral-500">{{ terms.checkout.signedInAs(auth.displayName) }}</p>
         </div>
         <CustomerAuthDialog v-if="!auth.isAuthenticated" />
       </div>
 
       <section class="space-y-4">
-        <h2 class="text-lg font-semibold text-neutral-900">{{ terms.checkout.contact }}</h2>
+        <h2 class="type-page-title text-lg text-neutral-900">{{ terms.checkout.contact }}</h2>
         <div class="grid gap-4 md:grid-cols-2">
           <BaseInput v-model="form.firstName" :label="terms.checkout.firstName" required autocomplete="given-name" :placeholder="terms.checkout.firstName" />
           <BaseInput v-model="form.lastName" :label="terms.checkout.lastName" required autocomplete="family-name" :placeholder="terms.checkout.lastName" />
@@ -196,7 +196,7 @@ useSeo(
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-lg font-semibold text-neutral-900">{{ terms.checkout.delivery }}</h2>
+        <h2 class="type-page-title text-lg text-neutral-900">{{ terms.checkout.delivery }}</h2>
         <BaseSelect v-model="form.shippingMethod" :label="terms.checkout.method" :options="deliveryMethodOptions" />
         <BaseInput
           v-model="delivery.cityQuery"
@@ -229,7 +229,7 @@ useSeo(
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-lg font-semibold text-neutral-900">{{ terms.checkout.notes }}</h2>
+        <h2 class="type-page-title text-lg text-neutral-900">{{ terms.checkout.notes }}</h2>
         <BaseCalendar v-model="preferredDeliveryDate" :label="terms.checkout.preferredDeliveryDate" :locale="dateLocale" :min="todayInput" :disabled-weekdays="[0]" />
         <BaseTextarea v-model="form.comment" :label="terms.checkout.deliveryNotes" :rows="3" :placeholder="terms.checkout.deliveryNotes" />
       </section>
@@ -242,7 +242,7 @@ useSeo(
     </form>
 
     <aside class="space-y-4 border border-neutral-200 bg-white p-6">
-      <h2 class="text-2xl font-semibold text-neutral-900">{{ terms.checkout.orderSummary }}</h2>
+      <h2 class="type-page-title text-2xl text-neutral-900">{{ terms.checkout.orderSummary }}</h2>
       <div v-for="item in cart.items" :key="item.product.id" class="grid gap-3 border-b border-neutral-100 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
         <div class="min-w-0">
           <p class="font-medium text-neutral-950">{{ item.product.name }}</p>

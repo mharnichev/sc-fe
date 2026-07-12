@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
         </div>
-        <p v-if="reviewsResponse?.total_review_count" class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
+        <p v-if="reviewsResponse?.total_review_count" class="type-eyebrow text-xs text-neutral-600">
           Google Maps / {{ reviewsResponse.total_review_count }}
         </p>
       </div>
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
                 >
                 <div>
                   <p class="text-sm font-semibold text-neutral-950">{{ reviewerName(review) }}</p>
-                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">
+                  <div class="type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600">
                     <span class="flex items-center gap-0.5 text-amber-500" role="img" :aria-label="`${review.star_rating || 0}/5`">
                       <span
                         v-for="(filled, index) in starIcons(review.star_rating)"
@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
               <button
                 v-if="isReviewTruncated(review)"
                 type="button"
-                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
+                class="type-meta mt-4 text-xs text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
                 @click="toggleReviewText(review)"
               >
                 {{ isReviewExpanded(review) ? terms.home.reviews.showLess : terms.home.reviews.seeFull }}
@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
               <button
                 v-if="hasOriginalReviewText(review)"
                 type="button"
-                class="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
+                class="type-meta mt-4 text-xs text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
                 @click="toggleOriginalReview(review)"
               >
                 {{ isOriginalExpanded(review) ? terms.home.reviews.hideOriginal : terms.home.reviews.readOriginal }}
@@ -308,7 +308,7 @@ onBeforeUnmount(() => {
         <p class="text-2xl font-semibold leading-snug text-neutral-950">
           {{ terms.home.reviews.ratingOnly }}
         </p>
-        <p class="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-600">
+        <p class="type-eyebrow mt-6 text-xs text-neutral-600">
           Google Maps
         </p>
       </div>

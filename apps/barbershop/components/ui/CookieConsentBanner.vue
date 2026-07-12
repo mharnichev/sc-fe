@@ -23,7 +23,7 @@ const {
     >
       <div class="mx-auto flex w-full max-w-5xl flex-col gap-5 border border-neutral-900/10 bg-white p-5 shadow-2xl shadow-neutral-950/15 sm:p-6 md:flex-row md:items-end md:justify-between">
         <div class="max-w-2xl">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+          <p class="type-eyebrow text-xs text-neutral-500">
             {{ terms.cookieConsent.label }}
           </p>
           <h2 class="mt-2 text-xl font-semibold leading-tight text-neutral-950">

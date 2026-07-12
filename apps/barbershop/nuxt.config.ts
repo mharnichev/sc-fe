@@ -36,6 +36,8 @@ const normalizeApiBase = (value: string) => {
 }
 
 const apiBase = normalizeApiBase(process.env.NUXT_PUBLIC_API_BASE || defaultApiBase)
+const sharedBrandLogosPath = new URL('../../packages/shared-assets/brand-logos', import.meta.url).pathname
+const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
 
 const originFromUrl = (value: string) => {
   try {
@@ -143,7 +145,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-05-08',
   ssr: true,
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
   components: [
     {
       path: '~/components',
@@ -157,6 +159,15 @@ export default defineNuxtConfig({
       siteUrl,
     },
   },
+  nitro: {
+    publicAssets: [
+      {
+        dir: sharedBrandLogosPath,
+        baseURL: '/brand-logos',
+        maxAge: 60 * 60 * 24 * 365,
+      },
+    ],
+  },
   routeRules: {
     '/**': {
       headers: securityHeaders,
@@ -165,6 +176,9 @@ export default defineNuxtConfig({
       headers: immutableAssetHeaders,
     },
     '/fonts/**': {
+      headers: immutableAssetHeaders,
+    },
+    '/brand-logos/**': {
       headers: immutableAssetHeaders,
     },
     '/soulcuts-bot-qr.svg': {
@@ -180,7 +194,7 @@ export default defineNuxtConfig({
   },
   alias: {
     '@shared-types': '../../packages/shared-types/src',
-    '@shared-utils': '../../packages/shared-utils/src',
+    '@shared-utils': sharedUtilsPath,
   },
   app: {
     head: {

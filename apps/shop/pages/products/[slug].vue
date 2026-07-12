@@ -314,7 +314,7 @@ useHead(() => ({
                 :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
                 @click="toggleFavorite"
               >
-                <BaseIcon name="heart" size="xxs" />
+                <BaseIcon name="heart" size="xxs" effect="heart" />
               </button>
             </div>
 

@@ -55,7 +55,7 @@ useSeoMeta({
 <template>
   <section class="flex min-h-[80vh] items-center bg-neutral-950 px-4 py-24 text-white sm:px-6">
     <div class="mx-auto w-full max-w-xl text-center">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+      <p class="type-eyebrow text-xs text-white/45">
         {{ terms.newsletter }}
       </p>
       <h1 class="mt-5 text-3xl font-semibold uppercase leading-tight sm:text-4xl">
@@ -96,7 +96,7 @@ useSeoMeta({
         <span>{{ message }}</span>
       </div>
 
-      <NuxtLink class="mt-8 inline-flex text-sm font-semibold uppercase tracking-[0.16em] text-white/55 transition hover:text-white" to="/">
+      <NuxtLink class="type-meta mt-8 inline-flex text-sm text-white/55 transition hover:text-white" to="/">
         {{ terms.home }}
       </NuxtLink>
     </div>

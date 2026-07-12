@@ -6,7 +6,7 @@ const props = withDefaults(defineProps<{
   category?: string
   size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   label?: string
-  effect?: 'none' | 'button'
+  effect?: 'none' | 'button' | 'heart'
   variant?: 'dark' | 'light'
 }>(), {
   category: 'default',
@@ -50,15 +50,16 @@ watch(iconPath, loadIcon, { immediate: true })
       'base-icon',
       `base-icon--${size}`,
       effect !== 'none' ? `base-icon--effect-${effect}` : '',
-      effect !== 'none' ? `base-icon--${variant}` : '',
+      effect === 'button' ? `base-icon--${variant}` : '',
     ]"
     :aria-hidden="label ? undefined : 'true'"
     :aria-label="label || undefined"
   >
-    <span v-if="effect !== 'none'" class="base-icon__surface" aria-hidden="true">
+    <span v-if="effect === 'button'" class="base-icon__surface" aria-hidden="true">
       <span class="base-icon__fill" />
     </span>
     <span class="base-icon__glyph" v-html="svgMarkup" />
+    <span v-if="effect === 'heart'" class="base-icon__heart-fill" aria-hidden="true" v-html="svgMarkup" />
   </span>
 </template>
 
@@ -121,6 +122,34 @@ watch(iconPath, loadIcon, { immediate: true })
   display: block;
   height: 100%;
   width: 100%;
+}
+
+.base-icon__heart-fill {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  color: #c01818;
+  clip-path: inset(100% 0 0);
+  pointer-events: none;
+  transition: clip-path 540ms cubic-bezier(0.3, 1, 0.3, 1);
+  will-change: clip-path;
+}
+
+.base-icon__heart-fill :deep(svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.base-icon--effect-heart:hover .base-icon__heart-fill,
+.base-icon--effect-heart:focus-visible .base-icon__heart-fill,
+button:not(:disabled):hover .base-icon--effect-heart .base-icon__heart-fill,
+button:not(:disabled):focus-visible .base-icon--effect-heart .base-icon__heart-fill,
+a:not([aria-disabled="true"]):hover .base-icon--effect-heart .base-icon__heart-fill,
+a:not([aria-disabled="true"]):focus-visible .base-icon--effect-heart .base-icon__heart-fill {
+  clip-path: inset(0);
 }
 
 .base-icon--effect-button {
@@ -217,7 +246,8 @@ a:not([aria-disabled="true"]):focus-visible .base-icon--effect-button {
 
 @media (prefers-reduced-motion: reduce) {
   .base-icon,
-  .base-icon__fill {
+  .base-icon__fill,
+  .base-icon__heart-fill {
     transition: none;
   }
 }

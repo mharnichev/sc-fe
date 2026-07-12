@@ -48,6 +48,14 @@ const close = (force = false) => {
 
 const forceClose = () => close(true)
 
+const updateOverlayCloseCursor = (event: PointerEvent) => {
+  const overlay = event.currentTarget
+  if (!(overlay instanceof HTMLElement)) return
+
+  overlay.style.setProperty('--overlay-close-cursor-x', `${event.clientX}px`)
+  overlay.style.setProperty('--overlay-close-cursor-y', `${event.clientY}px`)
+}
+
 const onKeyUp = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.modelValue) close()
 }
@@ -99,10 +107,15 @@ defineExpose({
       >
         <button
           v-if="!inline && showOverlay"
-          class="base-modal__overlay"
+          :class="[
+            'base-modal__overlay',
+            { 'base-modal__overlay--closeable': !blockClose },
+          ]"
           type="button"
+          :disabled="blockClose"
           :aria-label="terms.common.closeDialog"
           @click="close(false)"
+          @pointermove="updateOverlayCloseCursor"
         />
 
         <section class="base-modal__container">
@@ -153,11 +166,48 @@ defineExpose({
   position: fixed;
   inset: 0;
   z-index: 1;
-  cursor: pointer;
+  cursor: default;
   border: 0;
   background: rgb(0 0 0 / 0.32);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+}
+
+.base-modal__overlay--closeable {
+  cursor: pointer;
+}
+
+@media (pointer: fine) {
+  .base-modal__overlay--closeable {
+    cursor: none;
+  }
+
+  .base-modal__overlay--closeable::after {
+    position: fixed;
+    top: var(--overlay-close-cursor-y, -3rem);
+    left: var(--overlay-close-cursor-x, -3rem);
+    width: 42px;
+    height: 42px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='M13.5 4.5L4.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 4.5L13.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px 18px no-repeat,
+      radial-gradient(circle, #101010 0 calc(100% - 4px), #ffffff calc(100% - 4px) 100%);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0);
+    transition:
+      opacity 176ms ease,
+      transform 242ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+
+  .base-modal__overlay--closeable:hover::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .base-modal__container {

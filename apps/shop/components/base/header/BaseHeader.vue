@@ -516,13 +516,6 @@ onBeforeUnmount(() => {
             :style="{ '--category-columns-count': activeCategoryColumns }"
           >
             <template v-if="isCatalogMenu">
-              <ul v-if="activeCategory" class="cl__category_item-list">
-                <li class="cl__category_item-list_item is-group">
-                  <NuxtLink :to="categoryLink(activeCategory)" @click="closeOverlays">
-                    <BaseHoverUnderlineText>{{ terms.catalog.allCategory(activeCategory.name) }}</BaseHoverUnderlineText>
-                  </NuxtLink>
-                </li>
-              </ul>
               <ul v-for="subCategory in activeCategory?.children || []" :key="subCategory.id" class="cl__category_item-list">
                 <li class="cl__category_item-list_item is-group">
                   <NuxtLink :to="categoryLink(subCategory)" @click="closeOverlays">
@@ -538,16 +531,9 @@ onBeforeUnmount(() => {
             </template>
 
             <ul v-else-if="activeCategory" class="cl__compact-list">
-              <li>
-                <NuxtLink class="cl__compact-link cl__compact-link--all" :to="categoryLink(activeCategory)" @click="closeOverlays">
-                  <span><BaseHoverUnderlineText>{{ terms.catalog.allCategory(activeCategory.name) }}</BaseHoverUnderlineText></span>
-                  <BaseIcon name="chevron-right" size="xxs" />
-                </NuxtLink>
-              </li>
               <li v-for="subCategory in activeCategory.children" :key="subCategory.id">
                 <NuxtLink class="cl__compact-link" :to="categoryLink(subCategory)" @click="closeOverlays">
                   <span><BaseHoverUnderlineText>{{ subCategory.name }}</BaseHoverUnderlineText></span>
-                  <BaseIcon name="chevron-right" size="xxs" />
                 </NuxtLink>
               </li>
             </ul>
@@ -971,12 +957,6 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
   font-weight: 650;
   transition: color 180ms ease;
-}
-
-.cl__compact-link--all {
-  border-bottom: 1px solid rgb(10 10 10 / 0.1);
-  color: #0a0a0a;
-  font-weight: 800;
 }
 
 .cl__compact-link:hover,

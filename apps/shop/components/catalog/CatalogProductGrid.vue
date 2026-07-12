@@ -55,7 +55,7 @@ withDefaults(defineProps<{
 
 @media (min-width: 1024px) {
   .catalog-product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 </style>

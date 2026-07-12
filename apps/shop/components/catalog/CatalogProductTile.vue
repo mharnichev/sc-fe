@@ -55,7 +55,7 @@ const toggleCart = async () => {
       <ProductStatusBadges class="catalog-product-tile__badges" :product="product" />
 
       <div class="catalog-product-tile__body">
-        <h3 class="catalog-product-tile__name" itemprop="name">
+        <h3 class="catalog-product-tile__name type-title-title" itemprop="name">
           <BaseHoverUnderlineText>{{ product.name }}</BaseHoverUnderlineText>
         </h3>
         <p class="catalog-product-tile__code">
@@ -82,7 +82,7 @@ const toggleCart = async () => {
       :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
       @click="toggleFavorite"
     >
-      <BaseIcon name="heart" size="xxs" />
+      <BaseIcon name="heart" size="xxs" effect="heart" />
     </button>
 
     <div class="catalog-product-tile__bottom" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
@@ -108,6 +108,9 @@ const toggleCart = async () => {
         :aria-label="isInCart ? terms.product.removeFromCart : terms.product.addToCart"
         @click="toggleCart"
       >
+        <span class="catalog-product-tile__cart-surface" aria-hidden="true">
+          <span class="catalog-product-tile__cart-fill" />
+        </span>
         <BaseIcon :name="isInCart ? 'check' : 'shopping-cart'" size="xxs" />
       </button>
     </div>
@@ -172,7 +175,6 @@ const toggleCart = async () => {
   overflow: hidden;
   color: #262626;
   font-size: 0.875rem;
-  font-weight: 600;
   line-height: 1.45;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -288,6 +290,12 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__cart {
+  --cart-button-fill: #ffffff;
+  --cart-button-hover-color: #0a0a0a;
+  --cart-button-fill-y: -76%;
+
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   width: 2.5rem;
   height: 2.25rem;
@@ -296,16 +304,62 @@ const toggleCart = async () => {
   justify-content: center;
   border: 0;
   border-radius: 0.5rem;
+  overflow: hidden;
   background: #0a0a0a;
   color: #ffffff;
   transition:
-    background-color 180ms ease,
-    color 180ms ease;
+    background-color 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    color 420ms cubic-bezier(0.3, 1, 0.3, 1);
 }
 
 .catalog-product-tile__cart--active {
+  --cart-button-fill: #0a0a0a;
+  --cart-button-hover-color: #ffffff;
+
   background: #f5f5f4;
   color: #0a0a0a;
+}
+
+.catalog-product-tile__cart-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.catalog-product-tile__cart-fill {
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  display: block;
+  width: 150%;
+  height: 200%;
+  border-radius: 50%;
+  background: var(--cart-button-fill);
+  transform: translate3d(0, var(--cart-button-fill-y), 0);
+  transition: transform 540ms cubic-bezier(0.3, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.catalog-product-tile__cart :deep(.base-icon) {
+  position: relative;
+  z-index: 1;
+}
+
+.catalog-product-tile__cart:hover,
+.catalog-product-tile__cart:focus-visible {
+  --cart-button-fill-y: 0%;
+
+  color: var(--cart-button-hover-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-product-tile__cart,
+  .catalog-product-tile__cart-fill {
+    transition: none;
+  }
 }
 
 @media (min-width: 576px) {

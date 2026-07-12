@@ -24,7 +24,7 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
   font-display: swap;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
@@ -33,7 +33,7 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
   font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
   font-display: swap;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
@@ -63,7 +63,6 @@
 
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
-  font-family: "Cy Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -281,7 +280,8 @@ a {
 
 @layer components {
   .site-container {
-    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full px-4 sm:px-6 lg:px-8;
+    max-width: 1240px;
   }
 
   .section-y {
@@ -289,7 +289,10 @@ a {
   }
 
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.2em] text-white/50;
+    @apply text-xs text-white/50;
+    font-weight: var(--font-weight-title);
+    letter-spacing: var(--letter-spacing-eyebrow);
+    text-transform: uppercase;
   }
 
   .section-heading {
@@ -300,8 +303,14 @@ a {
     @apply text-4xl font-semibold uppercase leading-[1] tracking-normal md:text-5xl;
   }
 
+  .blog-feature-title {
+    @apply text-5xl uppercase leading-[0.9] tracking-normal sm:text-6xl lg:text-7xl;
+    font-weight: var(--font-weight-section-title);
+  }
+
   .blog-section-title {
-    @apply text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl;
+    @apply text-2xl uppercase leading-tight tracking-normal md:text-4xl;
+    font-weight: var(--font-weight-title);
   }
 
   .blog-card-title {
@@ -309,7 +318,8 @@ a {
   }
 
   .blog-body-copy {
-    @apply text-sm font-normal leading-7 md:text-base md:leading-8;
+    @apply text-sm leading-7 md:text-base md:leading-8;
+    font-weight: var(--font-weight-regular);
   }
 
   .glass-control {

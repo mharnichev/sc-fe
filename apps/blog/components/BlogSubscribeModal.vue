@@ -183,7 +183,7 @@ onMounted(() => {
 
         <button
           type="button"
-          class="mt-7 text-sm font-semibold uppercase tracking-[0.16em] text-white/55 transition hover:text-white"
+          class="type-meta mt-7 text-sm text-white/55 transition hover:text-white"
           :aria-label="terms.noThanksCloseSubscribeModal"
           data-subscribe-close
           @pointerdown.prevent.stop="closeModal"

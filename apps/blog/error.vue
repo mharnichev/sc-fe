@@ -49,7 +49,6 @@ const description = computed(() => locale.value === 'uk'
 .blog-error-page :deep(.feedback-state) {
   --feedback-state-surface: #0a0a0a;
   max-width: 52rem;
-  border: 1px solid #262626;
 }
 
 .blog-error-page__button,

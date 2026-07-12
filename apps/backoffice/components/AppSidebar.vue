@@ -201,7 +201,7 @@ const logout = () => {
           :key="section.title"
           class="border-t border-white/10 pt-4 first:border-t-0 first:pt-0"
         >
-          <p class="mb-2 px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white/35">
+          <p class="type-eyebrow mb-2 px-3 text-[0.7rem] text-white/35">
             {{ section.title }}
           </p>
           <div class="grid gap-2">
@@ -265,7 +265,7 @@ const logout = () => {
       >
         <p
           v-if="!isCollapsed"
-          class="mb-2 px-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/34"
+          class="type-eyebrow mb-2 px-3 text-[0.68rem] text-white/34"
         >
           {{ section.title }}
         </p>

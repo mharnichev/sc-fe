@@ -63,7 +63,7 @@ const handleShareClick = (method: string) => {
     :aria-label="terms.shareStory"
   >
     <h2
-      class="sharing-title text-xs font-semibold uppercase tracking-[0.2em]"
+      class="sharing-title type-eyebrow text-xs"
       :class="isLight ? 'text-neutral-600' : 'text-white/55'"
     >
       {{ terms.shareStory }}

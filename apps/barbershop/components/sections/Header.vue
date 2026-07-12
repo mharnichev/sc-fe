@@ -222,7 +222,8 @@ onBeforeUnmount(() => {
     <nav
       v-if="shouldRenderDesktopNav"
       id="desktop-nav"
-      class="pointer-events-none fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start overflow-y-auto pr-3 lg:flex"
+      class="pointer-events-none fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start pr-3 lg:flex"
+      :class="isOpen ? 'overflow-y-auto' : 'overflow-hidden'"
       :aria-label="terms.common.menu"
       @mouseenter="openDesktopMenu"
       @mouseleave="closeDesktopMenu"
@@ -232,7 +233,7 @@ onBeforeUnmount(() => {
       <div class="pointer-events-auto">
         <button
           type="button"
-          class="group relative block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+          class="type-display group relative block text-left leading-[1.05] transition-colors duration-300"
           :class="menuButtonClass"
           style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
           :aria-expanded="isOpen"
@@ -258,7 +259,7 @@ onBeforeUnmount(() => {
         >
           <NuxtLink
             :to="item.href"
-            class="group block text-left font-black uppercase leading-[1.05] transition-colors duration-300"
+            class="type-display group block text-left leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
             style="font-size: clamp(2.2rem, 3.5vw, 4rem);"
             @click.prevent="handleMenuItemClick(item.href)"
@@ -303,7 +304,7 @@ onBeforeUnmount(() => {
               v-for="(item, index) in menuItems"
               :key="item.href"
               :to="item.href"
-              class="group relative z-10 block text-left text-[42px] font-black uppercase leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
+              class="type-display group relative z-10 block text-left text-[42px] leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
               :style="{ transitionDelay: `${index * 45}ms` }"
               @click.prevent="handleMenuItemClick(item.href)"
             >

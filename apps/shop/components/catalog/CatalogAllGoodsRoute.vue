@@ -53,35 +53,71 @@ const ordering = ref(
 )
 const query = ref(readQueryValue(route.query.q))
 const category = ref(readQueryValue(route.query.category))
-const brand = ref(readQueryValue(route.query.brand))
+const brand = ref(category.value ? '' : readQueryValue(route.query.brand))
 const priceMin = ref(readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min))
 const priceMax = ref(readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max))
 const selectedFilters = reactive<Record<string, string[]>>({})
 const isFilterDrawerOpen = ref(false)
 let applyTimer: ReturnType<typeof setTimeout> | undefined
 
-for (const [key, value] of Object.entries(route.query)) {
-  if (!reservedQueryKeys.has(key)) {
-    const values = readQueryList(value)
-    if (values.length) selectedFilters[key] = values
+const syncSelectedFiltersFromRoute = () => {
+  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
+  for (const [key, value] of Object.entries(route.query)) {
+    if (!reservedQueryKeys.has(key) || (key === 'brand' && category.value)) {
+      const values = readQueryList(value)
+      if (values.length) selectedFilters[key] = values
+    }
   }
 }
+
+syncSelectedFiltersFromRoute()
 
 const [{ data: categoryTree }, { data: brands }] = await Promise.all([
   useAsyncData('shop-category-tree-all-goods', domain.getCategoryTree),
   useAsyncData('shop-brands-all-goods', () => domain.getBrands({ hasActiveProducts: true })),
 ])
 
-const flattenCategories = (nodes: CategoryTreeNodeDto[] = [], depth = 0): Array<{ label: string, value: string }> =>
-  nodes.flatMap(node => [
-    { label: `${depth ? `${'  '.repeat(depth)}- ` : ''}${node.name}`, value: node.slug },
-    ...flattenCategories(node.children, depth + 1),
-  ])
+const brandSlugs = computed(() => new Set((brands.value || []).map(item => item.slug)))
+const isBrandCategoryBranch = (node: CategoryTreeNodeDto) =>
+  node.slug === 'brendi'
+  || node.name.trim().toLocaleUpperCase('uk-UA') === 'БРЕНДИ'
+  || (node.children.length > 0 && node.children.every(child => brandSlugs.value.has(child.slug)))
 
-const categoryOptions = computed(() => flattenCategories(categoryTree.value || []))
-const brandOptions = computed(() =>
-  (brands.value || []).map(item => ({ label: item.name, value: item.slug })),
+const buildCategoryFilterGroups = (
+  nodes: CategoryTreeNodeDto[] = [],
+  isRoot = true,
+): CategoryFilterGroupDto[] => nodes.flatMap((node) => {
+  if (isBrandCategoryBranch(node)) return []
+
+  const directLeafValues = node.children
+    .filter(child => !child.children.length)
+    .map(child => ({ slug: child.slug, name: child.name, count: 0 }))
+  const standaloneRootValues = isRoot && !node.children.length
+    ? [{ slug: node.slug, name: node.name, count: 0 }]
+    : []
+  const values = directLeafValues.length ? directLeafValues : standaloneRootValues
+  const currentGroup: CategoryFilterGroupDto[] = values.length
+    ? [{ slug: `category:${node.slug}`, name: node.name, values }]
+    : []
+
+  return [
+    ...currentGroup,
+    ...buildCategoryFilterGroups(node.children, false),
+  ]
+})
+
+const categoryFilterGroups = computed<CategoryFilterGroupDto[]>(() =>
+  buildCategoryFilterGroups(categoryTree.value || []),
 )
+const brandFilterGroup = computed<CategoryFilterGroupDto>(() => ({
+  slug: 'brand',
+  name: terms.value.catalog.brand,
+  values: (brands.value || []).map(item => ({
+    slug: item.slug,
+    name: item.name,
+    count: 0,
+  })),
+}))
 
 const buildDynamicQuery = () =>
   Object.fromEntries(
@@ -146,6 +182,26 @@ const { data: productsPage, pending: productsPending, refresh: refreshProducts }
 const products = computed(() => productsPage.value?.items || [])
 const total = computed(() => productsPage.value?.total || 0)
 const facetGroups = computed<CategoryFilterGroupDto[]>(() => Object.values(categoryFacets.value?.filters || {}))
+const filterGroups = computed<CategoryFilterGroupDto[]>(() =>
+  category.value
+    ? [...categoryFilterGroups.value, ...facetGroups.value]
+    : [...categoryFilterGroups.value, brandFilterGroup.value],
+)
+const selectedCategoryGroup = computed(() =>
+  categoryFilterGroups.value.find(group => group.values.some(value => value.slug === category.value)),
+)
+const panelSelectedFilters = computed<Record<string, string[]>>(() => ({
+  ...selectedFilters,
+  ...(category.value && selectedCategoryGroup.value
+    ? { [selectedCategoryGroup.value.slug]: [category.value] }
+    : {}),
+  ...(!category.value && brand.value ? { brand: [brand.value] } : {}),
+}))
+const groupsWithoutCounts = computed(() =>
+  category.value
+    ? categoryFilterGroups.value.map(group => group.slug)
+    : [...categoryFilterGroups.value.map(group => group.slug), 'brand'],
+)
 const priceBounds = computed(() => categoryFacets.value?.price || null)
 const selectedFilterCount = computed(() =>
   Object.values(selectedFilters).reduce((sum, values) => sum + values.length, 0)
@@ -175,12 +231,6 @@ const resetOffset = () => {
   offset.value = 0
 }
 
-const updateQuery = (value: string) => {
-  query.value = value
-  resetOffset()
-  scheduleApplyState()
-}
-
 const updateBrand = (value: string) => {
   brand.value = value
   resetOffset()
@@ -205,6 +255,16 @@ const setOrdering = async (value: string) => {
 }
 
 const setFilter = (group: string, value: string, checked: boolean) => {
+  if (group.startsWith('category:')) {
+    void updateCategory(checked ? value : '')
+    return
+  }
+
+  if (group === 'brand' && !category.value) {
+    updateBrand(checked ? value : '')
+    return
+  }
+
   if (checked) selectedFilters[group] = [value]
   else delete selectedFilters[group]
   resetOffset()
@@ -212,6 +272,16 @@ const setFilter = (group: string, value: string, checked: boolean) => {
 }
 
 const removeFilter = (group: string, value: string) => {
+  if (group.startsWith('category:')) {
+    void updateCategory('')
+    return
+  }
+
+  if (group === 'brand' && !category.value) {
+    updateBrand('')
+    return
+  }
+
   const next = (selectedFilters[group] || []).filter(item => item !== value)
   if (next.length) selectedFilters[group] = next
   else delete selectedFilters[group]
@@ -239,6 +309,26 @@ const changePage = async (page: number) => {
 
 watch([priceMin, priceMax], resetOffset)
 
+watch(
+  () => readQueryValue(route.query.q),
+  async (nextQuery) => {
+    if (nextQuery === query.value) return
+
+    limit.value = readIntegerQuery(route.query.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT
+    offset.value = readIntegerQuery(route.query.offset, 0)
+    ordering.value = readQueryValue(route.query.ordering) || readQueryValue(route.query.sort)
+    query.value = nextQuery
+    category.value = readQueryValue(route.query.category)
+    brand.value = category.value ? '' : readQueryValue(route.query.brand)
+    priceMin.value = readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min)
+    priceMax.value = readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max)
+    syncSelectedFiltersFromRoute()
+
+    await refreshCategoryFacets()
+    await refreshProducts()
+  },
+)
+
 onBeforeUnmount(() => {
   if (applyTimer) clearTimeout(applyTimer)
 })
@@ -254,8 +344,10 @@ useSeo(
     <div class="catalog-route__container">
       <div class="catalog-route__title-wrapper">
         <div>
-          <p v-if="topOnly" class="catalog-route__eyebrow">{{ terms.home.popularEyebrow }}</p>
-          <h1 class="catalog-route__title">{{ topOnly ? terms.home.popularTitle : terms.catalog.title }}</h1>
+          <p v-if="topOnly" class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
+          <h1 class="catalog-route__title section-title type-title-strong">
+            <BaseScribbleOutline>{{ topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
+          </h1>
           <p v-if="topOnly" class="catalog-route__description">{{ terms.home.popularDescription }}</p>
         </div>
       </div>
@@ -268,33 +360,30 @@ useSeo(
           @update:model-value="setOrdering"
         />
 
-        <button class="catalog-route__head-filter-btn" type="button" @click="isFilterDrawerOpen = true">
-          <BaseIcon name="filter" size="xs" />
-          <span v-if="selectedFilterCount" class="catalog-route__filter-count">{{ selectedFilterCount }}</span>
-        </button>
+        <div class="catalog-route__head-actions">
+          <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
+
+          <button class="catalog-route__head-filter-btn" type="button" @click="isFilterDrawerOpen = true">
+            <BaseIcon name="filter" size="xs" />
+            <span v-if="selectedFilterCount" class="catalog-route__filter-count">{{ selectedFilterCount }}</span>
+          </button>
+        </div>
       </div>
 
       <div class="catalog-route__body">
         <div class="catalog-route__left-side-bar-wrapper">
           <CatalogFilterPanel
             class="catalog-route__left-side-bar is-filtered"
-            :groups="facetGroups"
+            :groups="filterGroups"
             :price="priceBounds"
-            :selected-filters="selectedFilters"
+            :selected-filters="panelSelectedFilters"
             :price-min="priceMin"
             :price-max="priceMax"
             :pending="filtersPending"
             :disabled="productsPending"
-            show-catalog-controls
             :show-price="Boolean(category)"
+            :hide-group-counts="groupsWithoutCounts"
             :query="query"
-            :category="category"
-            :brand="brand"
-            :category-options="categoryOptions"
-            :brand-options="brandOptions"
-            @update:query="updateQuery"
-            @update:category="updateCategory"
-            @update:brand="updateBrand"
             @update:price-min="priceMin = $event"
             @update:price-max="priceMax = $event"
             @price-change="scheduleApplyState"
@@ -305,8 +394,6 @@ useSeo(
         </div>
 
         <div class="catalog-route__content">
-          <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
-
           <CatalogProductGrid
             :products="products"
             :pending="productsPending"
@@ -342,23 +429,16 @@ useSeo(
       <template #header-title>{{ terms.catalog.filters }}</template>
       <div class="catalog-route__mobile-filters">
         <CatalogFilterPanel
-          :groups="facetGroups"
+          :groups="filterGroups"
           :price="priceBounds"
-          :selected-filters="selectedFilters"
+          :selected-filters="panelSelectedFilters"
           :price-min="priceMin"
           :price-max="priceMax"
           :pending="filtersPending"
           :disabled="productsPending"
-          show-catalog-controls
           :show-price="Boolean(category)"
+          :hide-group-counts="groupsWithoutCounts"
           :query="query"
-          :category="category"
-          :brand="brand"
-          :category-options="categoryOptions"
-          :brand-options="brandOptions"
-          @update:query="updateQuery"
-          @update:category="updateCategory"
-          @update:brand="updateBrand"
           @update:price-min="priceMin = $event"
           @update:price-max="priceMax = $event"
           @price-change="scheduleApplyState"
@@ -388,22 +468,7 @@ useSeo(
   align-items: center;
 }
 
-.catalog-route__eyebrow {
-  color: #d97706;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
-
-.catalog-route__title {
-  color: #0a0a0a;
-  font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.375rem);
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.catalog-route__eyebrow + .catalog-route__title {
+.type-eyebrow + .catalog-route__title {
   margin-top: 0.4rem;
 }
 
@@ -429,6 +494,13 @@ useSeo(
 
 .catalog-route__tab-list {
   flex: 0 1 auto;
+}
+
+.catalog-route__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
 }
 
 .catalog-route__head-filter-btn {
@@ -470,12 +542,12 @@ useSeo(
 .catalog-route__left-side-bar-wrapper {
   display: none;
   width: 100%;
-  max-width: 300px;
-  flex: 0 0 300px;
+  max-width: 280px;
+  flex: 0 0 280px;
 }
 
 .catalog-route__left-side-bar {
-  width: 300px;
+  width: 280px;
 }
 
 .catalog-route__left-side-bar.is-filtered {
@@ -492,14 +564,13 @@ useSeo(
 }
 
 .catalog-route__count {
-  padding-bottom: 0.75rem;
   color: #737373;
   font-size: 0.875rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .catalog-route__empty {
-  border: 1px solid rgb(10 10 10 / 0.1);
   background: #ffffff;
   --feedback-state-surface: #ffffff;
   color: #0a0a0a;

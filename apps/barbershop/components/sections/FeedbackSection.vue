@@ -109,7 +109,7 @@ const submit = () => {
       <form class="relative overflow-hidden border-neutral-300 bg-white p-4 md:p-8" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
         <div class="grid gap-3 md:grid-cols-2">
           <label class="block">
-            <span class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.home.feedback.fields.name }}</span>
+            <span class="type-eyebrow text-xs text-neutral-500">{{ terms.home.feedback.fields.name }}</span>
             <input
               v-model="form.name"
               required
@@ -123,7 +123,7 @@ const submit = () => {
           </label>
 
           <label class="block">
-            <span class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.home.feedback.fields.phone }}</span>
+            <span class="type-eyebrow text-xs text-neutral-500">{{ terms.home.feedback.fields.phone }}</span>
             <input
               v-model="form.phone"
               type="tel"
@@ -140,7 +140,7 @@ const submit = () => {
           </label>
 
           <label class="block md:col-span-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.home.feedback.fields.email }}</span>
+            <span class="type-eyebrow text-xs text-neutral-500">{{ terms.home.feedback.fields.email }}</span>
             <input
               v-model="form.email"
               type="email"
@@ -153,7 +153,7 @@ const submit = () => {
           </label>
 
           <label class="block md:col-span-2">
-            <span class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.home.feedback.fields.message }}</span>
+            <span class="type-eyebrow text-xs text-neutral-500">{{ terms.home.feedback.fields.message }}</span>
             <textarea
               v-model="form.message"
               required

@@ -25,8 +25,8 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
 <template>
   <div class="space-y-3 xl:space-y-4">
     <div>
-      <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Статистика</p>
-      <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:text-3xl">Моя статистика</h1>
+      <p class="type-eyebrow text-xs text-cyan-700 xl:text-sm">Статистика</p>
+      <h1 class="type-page-title mt-1 text-2xl text-slate-900 xl:text-3xl">Моя статистика</h1>
       <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500 xl:mt-2 xl:text-sm xl:leading-6">
         Дохід, записи, клієнти та завантаження за вибраний місяць.
       </p>

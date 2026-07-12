@@ -19,7 +19,7 @@ useSeoMeta({
   <div>
     <section class="border-b border-neutral-800 bg-neutral-950 py-12 sm:py-16">
       <div class="site-container">
-        <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/50">{{ terms.archive }}</p>
+        <p class="type-meta text-xs text-white/50">{{ terms.archive }}</p>
         <h1 class="mt-4 text-5xl font-black leading-none text-white sm:text-7xl">
           {{ terms.allPosts }}
         </h1>

@@ -1279,7 +1279,7 @@ onBeforeUnmount(() => {
           >
             <div class="mt-6 grid gap-3 text-left sm:grid-cols-2">
               <div class="border border-white/15 bg-white/[0.04] p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+                <p class="type-eyebrow text-xs text-white/45">
                   {{ terms.home.booking.steps[1] }}
                 </p>
                 <p class="mt-2 text-2xl font-semibold leading-tight text-white">
@@ -1287,7 +1287,7 @@ onBeforeUnmount(() => {
                 </p>
               </div>
               <div class="border border-white/15 bg-white/[0.04] p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+                <p class="type-eyebrow text-xs text-white/45">
                   {{ terms.home.booking.steps[2] }}
                 </p>
                 <p class="mt-2 text-2xl font-semibold leading-tight text-white">

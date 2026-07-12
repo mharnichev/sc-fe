@@ -10,7 +10,7 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen pb-[var(--shop-footer-height,620px)]">
+  <div class="min-h-screen">
     <BaseHeader />
     <main class="relative z-10 min-h-screen">
       <div class="site-container">

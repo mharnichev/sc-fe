@@ -1,5 +1,5 @@
 <template>
-  <p class="text-xs font-semibold uppercase tracking-[0.28em] text-neutral-500">
+  <p class="type-eyebrow type-eyebrow--wide text-xs text-neutral-500">
     <slot />
   </p>
 </template>

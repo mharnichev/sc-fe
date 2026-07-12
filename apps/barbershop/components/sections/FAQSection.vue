@@ -197,7 +197,7 @@ function onAccordionSummaryClick(event: MouseEvent) {
                       {{ question.note }}
                     </p>
                     <div v-if="question.relatedArticles?.length" class="pt-4">
-                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                      <p class="type-eyebrow text-xs text-neutral-500">
                         {{ terms.home.faq.relatedArticlesTitle }}
                       </p>
                       <div class="mt-3 flex flex-col gap-2">

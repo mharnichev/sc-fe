@@ -77,8 +77,8 @@ const logout = () => {
     <div class="auth-sidebar" :class="{ 'auth-sidebar--center': !auth.isAuthenticated }">
       <div v-if="auth.isAuthenticated" class="auth-sidebar__account">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">{{ terms.common.profile }}</p>
-          <h3 class="mt-2 text-2xl font-semibold text-neutral-950">{{ auth.displayName }}</h3>
+          <p class="type-eyebrow text-xs text-neutral-500">{{ terms.common.profile }}</p>
+          <h3 class="type-page-title mt-2 text-2xl text-neutral-950">{{ auth.displayName }}</h3>
           <p class="mt-1 text-sm text-neutral-500">{{ auth.customer?.phone }}</p>
         </div>
 

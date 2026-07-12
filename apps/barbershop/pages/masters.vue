@@ -25,8 +25,8 @@ const masterPhoto = (master: MasterDto) =>
 <template>
   <div class="space-y-8">
     <div class="max-w-2xl space-y-3" data-reveal="soft">
-      <p class="text-sm uppercase tracking-[0.3em] text-amber-700">{{ terms.pages.masters.label }}</p>
-      <h1 class="text-5xl font-semibold text-stone-900">{{ terms.pages.masters.title }}</h1>
+      <p class="type-eyebrow type-eyebrow--wide text-sm text-amber-700">{{ terms.pages.masters.label }}</p>
+      <h1 class="type-page-title text-5xl text-stone-900">{{ terms.pages.masters.title }}</h1>
       <p class="text-lg leading-8 text-stone-600">
         {{ terms.pages.masters.description }}
       </p>
@@ -35,8 +35,8 @@ const masterPhoto = (master: MasterDto) =>
       <article v-for="(master, index) in masters || []" :key="master.id" class="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm" data-reveal="soft" :data-reveal-delay="Math.min(index, 4) * 90">
         <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-80 w-full object-cover">
         <div class="space-y-3 p-6">
-          <p class="text-xs uppercase tracking-[0.3em] text-amber-700">{{ master.title }}</p>
-          <h2 class="text-2xl font-semibold text-stone-900">{{ masterName(master) }}</h2>
+          <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">{{ master.title }}</p>
+          <h2 class="type-card-title text-2xl text-stone-900">{{ masterName(master) }}</h2>
           <p class="text-sm leading-7 text-stone-600">{{ master.bio || master.description }}</p>
         </div>
       </article>

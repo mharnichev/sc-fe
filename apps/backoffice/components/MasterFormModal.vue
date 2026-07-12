@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
             <UserCircleIcon class="h-5 w-5" aria-hidden="true" />
           </span>
           <div class="min-w-0">
-            <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-cyan-700">Майстри</p>
+            <p class="type-eyebrow text-[0.68rem] text-cyan-700">Майстри</p>
             <h2 class="mt-0.5 text-lg font-semibold leading-tight text-slate-900 sm:text-xl">{{ editing ? 'Редагувати майстра' : 'Створити майстра' }}</h2>
           </div>
         </div>

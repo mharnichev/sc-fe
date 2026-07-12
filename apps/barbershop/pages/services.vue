@@ -22,11 +22,11 @@ useServiceCatalogStructuredData(structuredServices)
 
 <template>
   <section class="space-y-4">
-    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-amber-600">
+    <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-600">
       {{ terms.pages.services.label }}
     </p>
     <div class="space-y-2">
-      <h2 class="text-3xl font-semibold text-stone-900">
+      <h2 class="type-page-title text-3xl text-stone-900">
         {{ terms.pages.services.title }}
       </h2>
       <p class="max-w-2xl text-sm leading-7 text-stone-600">
@@ -37,14 +37,14 @@ useServiceCatalogStructuredData(structuredServices)
       <article v-for="(service, index) in activeServices" :key="service.catalog_id" class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-stone-200" data-reveal="soft" :data-reveal-delay="Math.min(index, 5) * 70">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h3 class="text-2xl font-semibold text-stone-900">{{ localizedService.serviceName(service) }}</h3>
+            <h3 class="type-card-title text-2xl text-stone-900">{{ localizedService.serviceName(service) }}</h3>
             <p class="mt-2 text-sm leading-7 text-stone-600">{{ localizedService.serviceDescription(service) }}</p>
           </div>
-          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">
+          <span class="type-eyebrow rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">
             {{ localizedService.serviceDuration(service.duration_minutes) }}
           </span>
         </div>
-        <p class="mt-6 text-3xl font-semibold text-stone-900">{{ localizedService.servicePrice(service.price) }}</p>
+        <p class="type-page-title mt-6 text-3xl text-stone-900">{{ localizedService.servicePrice(service.price) }}</p>
       </article>
     </div>
   </section>

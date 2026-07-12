@@ -98,7 +98,7 @@ useFaqStructuredData(() =>
     <section class="section-y">
       <div class="site-container grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <div class="space-y-5" data-reveal="soft">
-          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-amber-700">
+          <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">
             {{ page.eyebrow }}
           </p>
           <h1 class="max-w-3xl text-4xl font-semibold leading-tight text-stone-950 md:text-6xl">

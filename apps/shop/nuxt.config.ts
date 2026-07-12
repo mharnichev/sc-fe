@@ -4,12 +4,13 @@ declare const process: {
 
 const sharedTypesPath = new URL('../../packages/shared-types/src/index.ts', import.meta.url).pathname
 const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
+const sharedBrandLogosPath = new URL('../../packages/shared-assets/brand-logos', import.meta.url).pathname
 
 export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
   components: [
     {
       path: '~/components',
@@ -20,6 +21,15 @@ export default defineNuxtConfig({
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
     },
+  },
+  nitro: {
+    publicAssets: [
+      {
+        dir: sharedBrandLogosPath,
+        baseURL: '/brand-logos',
+        maxAge: 60 * 60 * 24 * 365,
+      },
+    ],
   },
   routeRules: {
     '/**': {

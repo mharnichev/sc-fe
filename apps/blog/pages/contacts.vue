@@ -152,7 +152,7 @@ useSeoMeta({
           <h2 class="blog-section-title text-white">{{ contact.detailsTitle }}</h2>
           <div class="mt-7 grid gap-px bg-white/15 sm:grid-cols-2 lg:grid-cols-4">
             <div class="bg-neutral-950 p-5 sm:p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">{{ contact.addressLabel }}</p>
+              <p class="type-eyebrow text-xs text-white/40">{{ contact.addressLabel }}</p>
               <p class="mt-3 text-base leading-7 text-white">{{ contact.address }}</p>
               <a
                 :href="MAP_URL"
@@ -166,21 +166,21 @@ useSeoMeta({
             </div>
 
             <div class="bg-neutral-950 p-5 sm:p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">{{ contact.phoneLabel }}</p>
+              <p class="type-eyebrow text-xs text-white/40">{{ contact.phoneLabel }}</p>
               <a :href="phoneHref" class="mt-3 block text-base font-semibold text-white transition hover:text-lime-300" @click="trackContactClick('phone')">
                 {{ contact.phone }}
               </a>
             </div>
 
             <div class="bg-neutral-950 p-5 sm:p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">{{ contact.emailLabel }}</p>
+              <p class="type-eyebrow text-xs text-white/40">{{ contact.emailLabel }}</p>
               <a :href="emailHref" class="mt-3 block break-all text-sm font-semibold text-white transition hover:text-lime-300" @click="trackContactClick('email')">
                 {{ contact.email }}
               </a>
             </div>
 
             <div class="bg-neutral-950 p-5 sm:p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">{{ contact.hoursLabel }}</p>
+              <p class="type-eyebrow text-xs text-white/40">{{ contact.hoursLabel }}</p>
               <dl class="mt-3 space-y-2 text-sm leading-6 text-white/75">
                 <div v-for="[day, time] in contact.hours" :key="day" class="flex justify-between gap-4">
                   <dt>{{ day }}</dt>
@@ -196,7 +196,7 @@ useSeoMeta({
     <section data-header-theme="light" class="bg-stone-100 py-12 text-neutral-950 sm:py-16 lg:py-20">
       <div class="site-container">
         <div class="max-w-3xl">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">{{ contact.formEyebrow }}</p>
+          <p class="type-eyebrow text-xs text-neutral-500">{{ contact.formEyebrow }}</p>
           <h2 class="blog-section-title mt-4">{{ contact.formTitle }}</h2>
           <p class="blog-body-copy mt-5 max-w-2xl text-neutral-600">{{ contact.formDescription }}</p>
         </div>
@@ -204,7 +204,7 @@ useSeoMeta({
         <form class="mt-10 bg-white p-4 sm:p-8" @submit.prevent="submit">
           <div class="grid gap-5 md:grid-cols-2">
             <label class="block">
-              <span class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">{{ contact.fields.name }}</span>
+              <span class="type-eyebrow text-xs text-neutral-500">{{ contact.fields.name }}</span>
               <input
                 v-model="form.name"
                 required
@@ -218,7 +218,7 @@ useSeoMeta({
             </label>
 
             <label class="block">
-              <span class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">{{ contact.fields.phone }}</span>
+              <span class="type-eyebrow text-xs text-neutral-500">{{ contact.fields.phone }}</span>
               <input
                 v-model="form.phone"
                 type="tel"
@@ -233,7 +233,7 @@ useSeoMeta({
             </label>
 
             <label class="block md:col-span-2">
-              <span class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">{{ contact.fields.email }}</span>
+              <span class="type-eyebrow text-xs text-neutral-500">{{ contact.fields.email }}</span>
               <input
                 v-model="form.email"
                 required
@@ -247,7 +247,7 @@ useSeoMeta({
             </label>
 
             <label class="block md:col-span-2">
-              <span class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">{{ contact.fields.message }}</span>
+              <span class="type-eyebrow text-xs text-neutral-500">{{ contact.fields.message }}</span>
               <textarea
                 v-model="form.message"
                 required

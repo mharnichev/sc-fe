@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
       <span v-else class="m-auto block aspect-[360/102] w-56 sm:w-72 lg:w-80" aria-hidden="true" />
 
       <div class="flex w-full flex-col gap-8 min-[560px]:flex-row min-[560px]:items-stretch md:gap-12">
-        <div ref="introPhotoFrame" class="order-last mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-lg bg-white/5 min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
+        <div ref="introPhotoFrame" class="order-last mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-lg min-[560px]:sticky min-[560px]:top-24 min-[560px]:order-first min-[560px]:mx-0 min-[560px]:w-[38%] min-[560px]:max-w-none min-[560px]:self-start" data-reveal="image" data-reveal-delay="120">
           <img
             v-if="introSectionPhotos"
             :src="introSectionPhotos"
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
             </p>
           </div>
           <div class="border-l border-white/15 pl-4 md:pl-6">
-            <p class="text-sm font-semibold uppercase tracking-[0.2em] text-white">
+            <p class="type-eyebrow text-sm text-white">
               {{ terms.home.intro.author }}
             </p>
             <div>
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
             <button
               v-if="hasIntroAccordion"
               type="button"
-              class="mt-4 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:border-white"
+              class="type-meta mt-4 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm text-white transition hover:border-white"
               :aria-expanded="isIntroExpanded"
               aria-controls="intro-philosophy-text"
               @click="isIntroExpanded = !isIntroExpanded"

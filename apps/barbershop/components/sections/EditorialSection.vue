@@ -11,9 +11,9 @@ const { terms } = useTerms()
       </div>
       <div class="grid gap-5 md:grid-cols-2">
         <article v-for="(item, index) in terms.home.journal.items" :key="item.title" class="border border-white/15 p-4 md:p-6" data-reveal="soft" :data-reveal-delay="Math.min(index, 3) * 80">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-white/50">{{ item.date }} / {{ item.category }}</p>
+          <p class="type-eyebrow text-xs text-white/50">{{ item.date }} / {{ item.category }}</p>
           <h3 class="mt-5 text-2xl font-semibold leading-tight md:mt-8">{{ item.title }}</h3>
-          <NuxtLink to="#" class="mt-6 inline-flex text-sm font-semibold uppercase tracking-[0.18em] text-white/75 md:mt-10">
+          <NuxtLink to="#" class="type-meta mt-6 inline-flex text-sm text-white/75 md:mt-10">
             {{ terms.common.read }}
           </NuxtLink>
         </article>

@@ -124,7 +124,7 @@ const copyConnectLink = async () => {
       </div>
 
       <div v-if="connectLink" class="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Telegram connect link</p>
+        <p class="type-eyebrow text-xs text-sky-700">Telegram connect link</p>
         <p class="mt-2 break-all text-sm text-slate-700">{{ connectLink }}</p>
         <div class="mt-3 flex flex-wrap gap-2">
           <BaseButton class="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white" @click="copyConnectLink">Скопіювати</BaseButton>

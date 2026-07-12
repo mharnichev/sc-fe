@@ -16,6 +16,79 @@ export const initials = (value: string) =>
     .map(part => part[0]?.toUpperCase() ?? '')
     .join('')
 
+const brandLogoFileAliases: Record<string, string> = {
+  'morgan-s-pomade': 'morgans-pomade',
+  'the-bluebeards-revenge': 'bluebeards-revenge',
+}
+
+const availableBrandLogoSlugs = new Set([
+  'american-crew',
+  'barba-italiana',
+  'barberito',
+  'barbertime',
+  'barbicide',
+  'bluebeards-revenge',
+  'comair',
+  'dapper-dan',
+  'depot',
+  'derby',
+  'floid',
+  'hawkins-brimble',
+  'high-top-capes',
+  'kent-brushes',
+  'marmara',
+  'marvis',
+  'morgans-pomade',
+  'nishman',
+  'pacinos',
+  'proraso',
+  'reuzel',
+  'shave-factory',
+  'slick-gorilla',
+  'standard-issue',
+  'uppercut-deluxe',
+  'wahl',
+  'yope',
+])
+
+const vectorBrandLogoSlugs = new Set([
+  'depot',
+  'kent-brushes',
+  'marvis',
+  'morgans-pomade',
+  'nishman',
+  'standard-issue',
+  'yope',
+])
+
+const monochromeBrandLogoSlugs = new Set([
+  'american-crew',
+  'barbertime',
+  'depot',
+  'derby',
+  'hawkins-brimble',
+  'kent-brushes',
+  'marvis',
+  'morgans-pomade',
+  'nishman',
+])
+
+const normalizedBrandLogoSlug = (slug: string) => {
+  const normalized = slug.trim().toLowerCase()
+  return brandLogoFileAliases[normalized] || normalized
+}
+
+export const localBrandLogoUrl = (slug: string) => {
+  const normalized = normalizedBrandLogoSlug(slug)
+  if (!availableBrandLogoSlugs.has(normalized)) return ''
+
+  const extension = vectorBrandLogoSlugs.has(normalized) ? 'svg' : 'webp'
+  return `/brand-logos/${normalized}.${extension}`
+}
+
+export const isMonochromeBrandLogo = (slug: string) =>
+  monochromeBrandLogoSlugs.has(normalizedBrandLogoSlug(slug))
+
 export interface ApiUploadAssetLike {
   id?: number | string | null
   file_url?: string | null

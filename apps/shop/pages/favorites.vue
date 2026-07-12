@@ -21,8 +21,8 @@ useSeo(
 <template>
   <div class="space-y-6">
     <div>
-      <p class="text-sm uppercase tracking-[0.3em] text-emerald-700">{{ terms.favorites.saved }}</p>
-      <h1 class="mt-2 text-4xl font-semibold text-neutral-900">{{ terms.common.favorites }}</h1>
+      <p class="type-eyebrow type-eyebrow--wide text-sm">{{ terms.favorites.saved }}</p>
+      <h1 class="type-page-title mt-2 text-4xl text-neutral-900">{{ terms.common.favorites }}</h1>
     </div>
     <CatalogProductGrid v-if="favoriteProducts.length" :products="favoriteProducts" />
     <FeedbackState

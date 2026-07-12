@@ -682,8 +682,8 @@ const deleteSelectedBlock = async () => {
   <div class="space-y-4 md:space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3 md:gap-4">
       <div>
-        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 md:text-sm md:tracking-[0.3em]">Календар</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900 md:mt-2 md:text-3xl">Бронювання</h1>
+        <p class="type-eyebrow text-xs text-cyan-700 md:text-sm">Календар</p>
+        <h1 class="type-page-title mt-1 text-2xl text-slate-900 md:mt-2 md:text-3xl">Бронювання</h1>
       </div>
       <div v-if="!isAdmin" class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
         <NuxtLink to="/my-bookings" class="inline-flex min-h-9 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">

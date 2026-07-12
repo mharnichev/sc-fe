@@ -17,7 +17,7 @@ const badges = computed(() => {
   const discount = getProductDiscount(props.product)
   const flags = getProductStatusFlags(props.product)
 
-  if (discount) {
+  if (discount && discount.percent >= 5) {
     const roundedPercent = formatProductDiscountPercent(discount.percent)
     items.push({
       code: 'discount',

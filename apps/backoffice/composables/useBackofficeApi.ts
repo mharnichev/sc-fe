@@ -197,6 +197,12 @@ export interface Customer {
   last_login_at: string | null
 }
 
+export interface CustomerUpdatePayload {
+  phone: string
+  name: string | null
+  notes: string | null
+}
+
 export interface CustomerBookingStatsItem {
   id: number | null
   name: string
@@ -1018,6 +1024,12 @@ export const useBackofficeApi = () => {
   const getCustomer = (customerId: number | string) =>
     api<Customer>(`/backoffice/customers/${customerId}`)
 
+  const updateCustomer = (customerId: number | string, payload: CustomerUpdatePayload) =>
+    api<Customer>(`/backoffice/customers/${customerId}`, {
+      method: 'PUT',
+      body: payload,
+    })
+
   const getCustomerOrders = (customerId: number | string, page = 1, pageSize = 10) =>
     api<PaginatedResponse<OrderSummary>>(`/backoffice/customers/${customerId}/orders`, {
       query: { page, page_size: normalizePageSize(pageSize) },
@@ -1720,6 +1732,7 @@ export const useBackofficeApi = () => {
     updateOrderStatus,
     getCustomers,
     getCustomer,
+    updateCustomer,
     getCustomerOrders,
     getCustomerBookings,
     getCustomerStats,

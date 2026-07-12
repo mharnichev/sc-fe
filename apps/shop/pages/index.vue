@@ -75,7 +75,7 @@ useSeo(
     <section class="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
       <div class="space-y-6">
         <BaseSectionLabel>{{ terms.home.eyebrow }}</BaseSectionLabel>
-        <h1 class="text-5xl font-semibold leading-tight text-neutral-900 md:text-[52px]">
+        <h1 class="type-page-title text-5xl leading-tight text-neutral-900 md:text-[52px]">
           {{ terms.home.title }}
         </h1>
         <p class="max-w-2xl text-lg leading-8 text-neutral-600">
@@ -95,10 +95,12 @@ useSeo(
     <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
     <section class="main-page__popular">
-      <p class="main-page__popular-eyebrow">{{ terms.home.popularEyebrow }}</p>
+      <p class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
       <div class="main-page__popular-heading">
         <div class="main-page__popular-copy">
-          <h2>{{ terms.home.popularTitle }}</h2>
+          <h2 class="section-title type-title-strong">
+            <BaseScribbleOutline>{{ terms.home.popularTitle }}</BaseScribbleOutline>
+          </h2>
           <p>{{ terms.home.popularDescription }}</p>
         </div>
         <BaseButton class="main-page__popular-action" to="/top" variant="outline-dark">
@@ -124,7 +126,12 @@ useSeo(
       </ul>
     </section>
 
-    <AppSection :eyebrow="terms.home.catalogEyebrow" :title="terms.home.catalogTitle" :description="terms.home.catalogDescription">
+    <AppSection
+      :eyebrow="terms.home.catalogEyebrow"
+      :title="terms.home.catalogTitle"
+      :description="terms.home.catalogDescription"
+      scribble-title
+    >
       <CatalogProductGrid
         :products="products"
         :pending="isFirstLoading"
@@ -148,14 +155,6 @@ useSeo(
   border-bottom: 1px solid rgb(10 10 10 / 0.12);
 }
 
-.main-page__popular-eyebrow {
-  color: #d97706;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
-
 .main-page__popular-heading {
   display: flex;
   align-items: flex-end;
@@ -165,13 +164,6 @@ useSeo(
 
 .main-page__popular-copy {
   min-width: 0;
-}
-
-.main-page__popular-copy h2 {
-  color: #1c1917;
-  font-size: 1.875rem;
-  font-weight: 600;
-  line-height: 1.2;
 }
 
 .main-page__popular-copy p {

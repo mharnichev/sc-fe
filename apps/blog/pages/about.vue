@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import communityImage from '~/assets/images/posts/barbering-museum-cover-1600.jpg'
-import craftImage from '~/assets/images/posts/barbering-museum-masterclass.webp'
+import cultureAwardImage from '~/assets/images/about-community-award.webp'
+import cultureSigningImage from '~/assets/images/about-community-signing.webp'
 
 const { terms } = useBlogLocale()
 const { trackBlogEvent } = useBlogAnalytics()
@@ -99,7 +100,7 @@ useHead(() => ({
     <section data-header-theme="light" class="bg-stone-100 py-14 text-neutral-950 sm:py-20 lg:py-28">
       <div class="site-container">
         <div class="grid gap-8 lg:grid-cols-[0.55fr_1.45fr] lg:gap-16">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">{{ about.identityEyebrow }}</p>
+          <p class="type-eyebrow text-xs text-neutral-500">{{ about.identityEyebrow }}</p>
           <div>
             <h2 class="blog-section-title max-w-5xl">
               {{ about.identityTitle }}
@@ -129,17 +130,30 @@ useHead(() => ({
 
     <section data-header-theme="dark" class="bg-neutral-950 py-14 text-white sm:py-20 lg:py-28">
       <div class="site-container grid gap-10 lg:grid-cols-[minmax(18rem,0.78fr)_minmax(0,1.22fr)] lg:items-center lg:gap-16">
-        <figure class="overflow-hidden bg-neutral-900">
-          <img
-            :src="craftImage"
-            :alt="about.cultureImageAlt"
-            class="aspect-[4/5] w-full object-cover"
-            width="1000"
-            height="1333"
-            loading="lazy"
-            decoding="async"
-          >
-        </figure>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <figure class="overflow-hidden bg-neutral-900">
+            <img
+              :src="cultureAwardImage"
+              :alt="about.cultureImageAlt"
+              class="aspect-[4/5] w-full object-cover"
+              width="1400"
+              height="2112"
+              loading="lazy"
+              decoding="async"
+            >
+          </figure>
+          <figure class="overflow-hidden bg-neutral-900 lg:ml-auto lg:w-[78%]">
+            <img
+              :src="cultureSigningImage"
+              :alt="about.cultureSecondaryImageAlt"
+              class="aspect-[4/5] w-full object-cover"
+              width="1400"
+              height="1867"
+              loading="lazy"
+              decoding="async"
+            >
+          </figure>
+        </div>
 
         <div>
           <p class="eyebrow">{{ about.cultureEyebrow }}</p>
@@ -161,7 +175,7 @@ useHead(() => ({
     <section data-header-theme="dark" class="bg-black py-14 text-white sm:py-20 lg:py-24">
       <div class="site-container grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:gap-16">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{{ about.journalEyebrow }}</p>
+          <p class="type-eyebrow text-xs text-white/50">{{ about.journalEyebrow }}</p>
           <h2 class="blog-section-title mt-5 max-w-5xl text-white">
             {{ about.journalTitle }}
           </h2>

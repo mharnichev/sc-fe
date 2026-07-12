@@ -24,7 +24,7 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
   font-display: swap;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
@@ -33,7 +33,7 @@
   font-family: "Cy Grotesk";
   src: url("/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
   font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
   font-display: swap;
   unicode-range: U+0020-0021, U+0026, U+0028-0029, U+0030-0039, U+003F-005A, U+0061-007A, U+00A0, U+0131, U+0237, U+0307, U+0404, U+0406-0407, U+0410-0429, U+042C, U+042E-042F, U+0430-0449, U+044C, U+044E-044F, U+0454, U+0456-0457, U+0490-0491;
 }
@@ -63,7 +63,6 @@
 
 body {
   @apply bg-stone-100 text-neutral-950 antialiased;
-  font-family: "Cy Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -301,7 +300,7 @@ a {
 
 @layer components {
   .site-container {
-    @apply mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8;
   }
 
   .section-x {

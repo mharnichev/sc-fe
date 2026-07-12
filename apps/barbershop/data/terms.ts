@@ -81,8 +81,8 @@ export const termsDictionary = {
       services: {
         label: 'Послуги',
         title: 'Послуги та ціни',
-        description: 'Вказана базова ціна. Остаточна вартість послуги може відрізнятися залежно від обраного барбера.',
-        priceNote: 'Вказана базова ціна. Остаточна вартість послуги може відрізнятися залежно від обраного барбера.',
+        description: 'Повна стрижка включає роботу з усією формою: топ-зона, скроні, потилиця, баланс і фінальна укладка волосся.',
+        priceNote: 'Повна стрижка включає роботу з усією формою: топ-зона, скроні, потилиця, баланс і фінальна укладка волосся.',
         loading: 'Завантажуємо послуги...',
         empty: 'Базові послуги поки недоступні.',
         noDescription: 'Деталі послуги уточнить майстер під час запису.',
@@ -110,6 +110,12 @@ export const termsDictionary = {
             ],
           },
         ],
+      },
+      brands: {
+        label: 'Догляд',
+        title: 'Бренди, з якими ми працюємо',
+        description: 'Професійні засоби для волосся, бороди, гоління та домашнього догляду, представлені в каталозі Soul Cuts.',
+        listLabel: 'Список брендів професійного догляду',
       },
       booking: {
         label: 'Бронювання',
@@ -241,7 +247,7 @@ export const termsDictionary = {
               },
               {
                 question: 'Що буде, якщо я запізнюся?',
-                answer: ['Якщо запізнення більше ніж на 10 хвилин, ми не завжди можемо виконати повну послугу без затримки наступного клієнта. Якщо розумієте, що не встигаєте, просто попередьте нас.'],
+                answer: ['Якщо запізнення більше ніж на 15 хвилин, ми не завжди можемо виконати повну послугу без затримки наступного клієнта. Якщо розумієте, що не встигаєте, просто попередьте нас.'],
               },
             ],
           },
@@ -525,8 +531,8 @@ export const termsDictionary = {
       services: {
         label: 'Services',
         title: 'Services and pricing',
-        description: 'Choose a haircut, beard service or complete visit. Every service has clear timing and pricing.',
-        priceNote: 'The listed price is a base price. The final service price can differ depending on the selected barber.',
+        description: 'A full haircut includes work on the entire shape: the top, temples, back of the head, balance, and final hair styling.',
+        priceNote: 'A full haircut includes work on the entire shape: the top, temples, back of the head, balance, and final hair styling.',
         loading: 'Loading services...',
         empty: 'Base services are not available yet.',
         noDescription: 'The barber will clarify service details during booking.',
@@ -554,6 +560,12 @@ export const termsDictionary = {
             ],
           },
         ],
+      },
+      brands: {
+        label: 'Grooming',
+        title: 'Brands we work with',
+        description: 'Professional hair, beard, shaving and home-care products represented in the Soul Cuts catalogue.',
+        listLabel: 'Professional grooming brands',
       },
       booking: {
         label: 'Booking',
@@ -685,7 +697,7 @@ export const termsDictionary = {
               },
               {
                 question: 'What happens if I am late?',
-                answer: ['If you are more than 10 minutes late, we may not be able to complete the full service without delaying the next client. If you know you are running late, just let us know.'],
+                answer: ['If you are more than 15 minutes late, we may not be able to complete the full service without delaying the next client. If you know you are running late, just let us know.'],
               },
             ],
           },

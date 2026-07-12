@@ -173,7 +173,7 @@ useHead(() => ({
         <div class="absolute inset-0 bg-black/45" aria-hidden="true" />
 
         <div class="relative z-10 flex h-full w-full flex-col items-start justify-end px-4 pb-12 pt-24 text-left sm:px-6 sm:pb-16 lg:px-8">
-          <h1 class="w-full max-w-none break-words text-5xl font-black uppercase leading-[0.9] text-white sm:text-6xl lg:text-7xl">
+          <h1 class="blog-feature-title w-full max-w-none break-words text-white">
             {{ post.title }}
           </h1>
         </div>

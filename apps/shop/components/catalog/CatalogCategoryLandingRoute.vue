@@ -51,8 +51,10 @@ useSeo(
 
     <div class="category-landing__head">
       <div>
-        <p class="category-landing__eyebrow">{{ terms.common.catalog }}</p>
-        <h1 class="category-landing__title">{{ currentCategory?.name }}</h1>
+        <p class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.common.catalog }}</p>
+        <h1 class="category-landing__title">
+          <BaseScribbleOutline>{{ currentCategory?.name }}</BaseScribbleOutline>
+        </h1>
         <p v-if="currentCategory?.description" class="category-landing__description">
           {{ currentCategory.description }}
         </p>
@@ -99,14 +101,6 @@ useSeo(
   gap: 1rem;
   border-bottom: 1px solid rgb(10 10 10 / 0.1);
   padding-bottom: 1.5rem;
-}
-
-.category-landing__eyebrow {
-  color: #047857;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .category-landing__title {

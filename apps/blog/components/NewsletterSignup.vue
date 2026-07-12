@@ -55,7 +55,7 @@ const handleSubmit = async () => {
     <div class="site-container">
       <div class="grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:items-end">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{{ terms.newsletter }}</p>
+          <p class="type-eyebrow text-xs text-white/50">{{ terms.newsletter }}</p>
           <h2 class="blog-section-title mt-3 text-white">
             {{ terms.newsletterHeadline }}
           </h2>

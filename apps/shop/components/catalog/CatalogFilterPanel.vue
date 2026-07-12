@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import type { CategoryFilterGroupDto, CategoryFiltersDto } from '@shared-types'
 
-interface SelectOption {
-  label: string
-  value: string | number
-}
-
 const props = withDefaults(defineProps<{
   groups: CategoryFilterGroupDto[]
   price?: CategoryFiltersDto['price'] | null
@@ -14,32 +9,21 @@ const props = withDefaults(defineProps<{
   priceMax: string
   pending?: boolean
   disabled?: boolean
-  showCatalogControls?: boolean
   showPrice?: boolean
+  hideGroupCounts?: string[]
   query?: string
-  category?: string
-  brand?: string
-  categoryOptions?: SelectOption[]
-  brandOptions?: SelectOption[]
 }>(), {
   price: null,
   pending: false,
   disabled: false,
-  showCatalogControls: false,
   showPrice: true,
+  hideGroupCounts: () => [],
   query: '',
-  category: '',
-  brand: '',
-  categoryOptions: () => [],
-  brandOptions: () => [],
 })
 
 const emit = defineEmits<{
   'update:priceMin': [value: string]
   'update:priceMax': [value: string]
-  'update:query': [value: string]
-  'update:category': [value: string]
-  'update:brand': [value: string]
   'price-change': []
   'toggle-filter': [group: string, value: string, checked: boolean]
   'remove-filter': [group: string, value: string]
@@ -56,7 +40,7 @@ const selectedEntries = computed(() =>
 )
 
 const selectedCount = computed(() => selectedEntries.value.length)
-const hasCatalogFilters = computed(() => Boolean(props.query || props.category || props.brand))
+const hasCatalogFilters = computed(() => Boolean(props.query))
 
 const selectedLabel = (groupSlug: string, valueSlug: string) => {
   const group = props.groups.find(item => item.slug === groupSlug)
@@ -78,6 +62,8 @@ const isDisabled = (groupSlug: string, valueSlug: string) => {
 
 const visibleValues = (group: CategoryFilterGroupDto) =>
   expandedGroups.value[group.slug] ? group.values : group.values.slice(0, DEFAULT_VISIBLE_VALUES)
+
+const showGroupCount = (groupSlug: string) => !props.hideGroupCounts.includes(groupSlug)
 
 const toggleGroupExpansion = (groupSlug: string) => {
   expandedGroups.value = {
@@ -101,34 +87,6 @@ const toggleGroupExpansion = (groupSlug: string) => {
       </button>
     </div>
 
-    <div v-if="showCatalogControls" class="catalog-filter-panel__controls">
-      <BaseInput
-        :model-value="query"
-        type="search"
-        :label="terms.common.search"
-        :placeholder="terms.catalog.searchPlaceholder"
-        :disabled="disabled"
-        @update:model-value="emit('update:query', String($event || ''))"
-      />
-      <BaseSelect
-        :model-value="category"
-        :label="terms.catalog.category"
-        :placeholder="terms.catalog.allCategories"
-        :options="categoryOptions"
-        :disabled="disabled"
-        @update:model-value="emit('update:category', String($event || ''))"
-      />
-      <BaseSelect
-        v-if="!category"
-        :model-value="brand"
-        :label="terms.catalog.brand"
-        :placeholder="terms.catalog.allBrands"
-        :options="brandOptions"
-        :disabled="disabled"
-        @update:model-value="emit('update:brand', String($event || ''))"
-      />
-    </div>
-
     <div v-if="pending" class="catalog-filter-panel__skeleton" aria-hidden="true">
       <span class="catalog-filter-panel__skeleton-title" />
       <span class="catalog-filter-panel__skeleton-range" />
@@ -140,15 +98,16 @@ const toggleGroupExpansion = (groupSlug: string) => {
         <p class="catalog-filter-panel__chosen-title">{{ terms.catalog.chosen }}</p>
         <ul class="catalog-filter-panel__chip-list">
           <li v-for="entry in selectedEntries" :key="`${entry.groupSlug}-${entry.valueSlug}`">
-            <button
+            <BaseChip
               class="catalog-filter-panel__chip"
-              type="button"
               @click="emit('remove-filter', entry.groupSlug, entry.valueSlug)"
             >
               <span>{{ selectedLabel(entry.groupSlug, entry.valueSlug).group }}:</span>
               <strong>{{ selectedLabel(entry.groupSlug, entry.valueSlug).value }}</strong>
-              <BaseIcon name="close" size="xxs" />
-            </button>
+              <template #trailing>
+                <BaseIcon name="close" size="xxs" />
+              </template>
+            </BaseChip>
           </li>
         </ul>
       </div>
@@ -183,7 +142,7 @@ const toggleGroupExpansion = (groupSlug: string) => {
               <BaseCheckbox
                 :model-value="isSelected(group.slug, value.slug)"
                 :label="value.name"
-                :description="terms.catalog.filterProductCount(value.count)"
+                :description="showGroupCount(group.slug) ? terms.catalog.filterProductCount(value.count) : ''"
                 :disabled="isDisabled(group.slug, value.slug)"
                 @update:model-value="emit('toggle-filter', group.slug, value.slug, $event)"
               />
@@ -207,6 +166,8 @@ const toggleGroupExpansion = (groupSlug: string) => {
 <style scoped>
 .catalog-filter-panel {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
   align-content: start;
   gap: 0.75rem;
   border-radius: 0.5rem;
@@ -249,13 +210,6 @@ const toggleGroupExpansion = (groupSlug: string) => {
   padding: 0.75rem;
 }
 
-.catalog-filter-panel__controls {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.25rem 0.5rem 0.75rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.08);
-}
-
 .catalog-filter-panel__chosen-title {
   color: #0a0a0a;
   font-size: 0.8125rem;
@@ -269,11 +223,13 @@ const toggleGroupExpansion = (groupSlug: string) => {
   padding-top: 0.625rem;
 }
 
-.catalog-filter-panel__chip {
-  display: inline-flex;
+.catalog-filter-panel__chip-list > li {
+  min-width: 0;
   max-width: 100%;
-  align-items: center;
-  gap: 0.25rem;
+}
+
+.catalog-filter-panel__chip {
+  max-width: 100%;
   border: 1px solid rgb(10 10 10 / 0.18);
   border-radius: 9999px;
   background: #ffffff;
@@ -284,12 +240,8 @@ const toggleGroupExpansion = (groupSlug: string) => {
 }
 
 .catalog-filter-panel__chip strong {
-  min-width: 0;
-  overflow: hidden;
   color: #0a0a0a;
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .catalog-filter-panel__section {
@@ -303,10 +255,6 @@ const toggleGroupExpansion = (groupSlug: string) => {
   color: #0a0a0a;
   font-size: 0.875rem;
   font-weight: 800;
-}
-
-.catalog-filter-panel__group {
-  border-bottom: 1px solid rgb(10 10 10 / 0.08);
 }
 
 .catalog-filter-panel__details {
@@ -327,6 +275,13 @@ const toggleGroupExpansion = (groupSlug: string) => {
   list-style: none;
 }
 
+.catalog-filter-panel__summary > span {
+  min-width: 0;
+  max-width: calc(100% - 1.5rem);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .catalog-filter-panel__summary::-webkit-details-marker {
   display: none;
 }
@@ -341,8 +296,14 @@ const toggleGroupExpansion = (groupSlug: string) => {
   padding: 0 0.25rem 0.5rem;
 }
 
+.catalog-filter-panel__values > li {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .catalog-filter-panel__values :deep(.base-choice) {
-  height: 2.75rem;
+  width: 100%;
+  min-height: 30px;
   align-items: center;
   gap: 0.625rem;
   border: 0;
@@ -356,6 +317,7 @@ const toggleGroupExpansion = (groupSlug: string) => {
 .catalog-filter-panel__values :deep(.base-choice__body) {
   display: flex;
   min-width: 0;
+  max-width: 100%;
   flex: 1 1 auto;
   align-items: center;
   justify-content: space-between;
@@ -364,9 +326,9 @@ const toggleGroupExpansion = (groupSlug: string) => {
 
 .catalog-filter-panel__values :deep(.base-choice__label) {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .catalog-filter-panel__values :deep(.base-choice__description) {

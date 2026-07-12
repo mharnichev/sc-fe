@@ -207,10 +207,10 @@ watch(teamMembers, (members) => {
           <div v-if="activeMember" class="pointer-events-none absolute bottom-28 left-0 right-0 z-20 text-white">
             <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
               <div :key="activeMember.id" class="site-container">
-                <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
+                <p class="type-meta type-eyebrow--wide text-xs text-white">
                   {{ activeMember.role }}
                 </p>
-                <h3 class="mt-3 text-2xl font-black uppercase leading-none text-white">
+                <h3 class="type-display mt-3 text-2xl leading-none text-white">
                   {{ activeMember.name }}
                 </h3>
                 <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
@@ -231,7 +231,7 @@ watch(teamMembers, (members) => {
           />
         </div>
 
-        <div v-if="hasMultipleTeamMembers" class="pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-white">
+        <div v-if="hasMultipleTeamMembers" class="type-meta pointer-events-none absolute bottom-6 right-5 z-30 flex items-center gap-2 text-xs text-white">
           <span>{{ terms.home.team.swipeHint }}</span>
           <svg class="team-swipe-arrow h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
@@ -260,7 +260,7 @@ watch(teamMembers, (members) => {
                 v-for="(member, index) in teamMembers"
                 :key="member.name"
                 type="button"
-                class="shrink-0 border px-3 py-2 text-left text-2xl font-black uppercase leading-none tracking-normal transition duration-300 sm:text-2xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-4xl xl:text-[42px]"
+                class="type-display shrink-0 border px-3 py-2 text-left text-2xl leading-none tracking-normal transition duration-300 sm:text-2xl md:block md:w-full md:border-transparent md:px-0 md:py-1 md:text-4xl xl:text-[42px]"
                 :class="activeMemberIndex === index ? 'border-neutral-950 bg-stone-100 text-neutral-950 md:bg-transparent md:text-neutral-950' : 'border-transparent text-neutral-950/35 hover:text-neutral-950/70'"
                 :aria-current="activeMemberIndex === index ? 'true' : undefined"
                 @click="selectMember(index)"
@@ -290,10 +290,10 @@ watch(teamMembers, (members) => {
           <div class="absolute bottom-0 left-0 right-0 text-white md:left-auto">
             <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
               <div :key="activeMember.id" class="site-container py-6 sm:py-8 md:max-w-xl md:px-12 md:py-12">
-                <p class="text-xs font-black uppercase tracking-[0.32em] text-white">
+                <p class="type-meta type-eyebrow--wide text-xs text-white">
                   {{ activeMember.role }}
                 </p>
-                <h3 class="mt-3 text-2xl font-black uppercase leading-none text-white md:hidden">
+                <h3 class="type-display mt-3 text-2xl leading-none text-white md:hidden">
                   {{ activeMember.name }}
                 </h3>
                 <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">

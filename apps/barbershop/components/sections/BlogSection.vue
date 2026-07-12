@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
 
           <div class="grid gap-4 border-y border-white/15 py-5 sm:grid-cols-3">
             <div v-for="item in terms.home.blog.points" :key="item.label">
-              <p class="text-xs font-black uppercase tracking-[0.22em] text-white/38">
+              <p class="type-meta text-xs text-white/38">
                 {{ item.label }}
               </p>
               <p class="mt-2 text-sm font-semibold leading-6 text-white/82">
@@ -74,7 +74,7 @@ onBeforeUnmount(() => {
             </BaseButton>
             <a
               :href="featuredPostHref"
-              class="inline-flex w-fit border-b border-white/50 pb-2 text-sm font-black uppercase tracking-[0.16em] text-white/72 transition hover:border-white hover:text-white"
+              class="type-meta inline-flex w-fit border-b border-white/50 pb-2 text-sm text-white/72 transition hover:border-white hover:text-white"
             >
               {{ terms.home.blog.secondaryCta }}
             </a>
@@ -95,15 +95,15 @@ onBeforeUnmount(() => {
                 decoding="async"
               >
               <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/18 to-transparent" />
-              <div class="absolute left-4 top-4 border border-white/30 bg-neutral-950/72 px-3 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white/82 backdrop-blur sm:left-6 sm:top-6">
+              <div class="type-meta absolute left-4 top-4 border border-white/30 bg-neutral-950/72 px-3 py-2 text-[11px] text-white/82 backdrop-blur sm:left-6 sm:top-6">
                 {{ terms.home.blog.featured.category }}
               </div>
               <div class="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8">
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-[0.16em] text-white/52">
+                <div class="type-meta flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/52">
                   <time datetime="2026-03-16">{{ terms.home.blog.featured.date }}</time>
                   <span>{{ terms.home.blog.featured.readTime }}</span>
                 </div>
-                <h3 class="mt-4 max-w-2xl text-2xl font-black uppercase leading-[0.98] text-white sm:text-2xl md:text-4xl lg:text-5xl">
+                <h3 class="type-display mt-4 max-w-2xl text-2xl leading-[0.98] text-white sm:text-2xl md:text-4xl lg:text-5xl">
                   {{ terms.home.blog.featured.title }}
                 </h3>
                 <p class="mt-4 max-w-xl text-sm font-semibold leading-7 text-white/72 sm:text-base sm:leading-8">

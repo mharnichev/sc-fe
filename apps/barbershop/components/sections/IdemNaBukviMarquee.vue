@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
           class="idem-marquee__item"
         >
           <img v-if="idemNaBukviLogo" :src="idemNaBukviLogo" alt="" class="h-[3.75rem] w-auto shrink-0 object-contain md:h-[4.75rem]">
-          <span class="max-w-[12rem] text-[10px] font-semibold uppercase leading-[1.05] tracking-normal text-neutral-950 md:text-xs">
+          <span class="max-w-[18rem] text-[10px] font-semibold uppercase leading-[1.05] tracking-normal text-neutral-950 md:text-xs">
             <span v-for="line in marqueeTextLines" :key="line" class="block">
               {{ line }}
             </span>

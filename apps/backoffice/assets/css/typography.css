@@ -1,0 +1,50 @@
+:root {
+  --font-family-primary: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-title: 600;
+  --font-weight-card-title: 700;
+  --font-weight-section-title: 800;
+  --font-weight-title-strong: 900;
+  --letter-spacing-eyebrow: 0.2em;
+  --letter-spacing-eyebrow-wide: 0.3em;
+  --letter-spacing-meta: 0.16em;
+}
+
+body {
+  font-family: var(--font-family-primary);
+}
+
+.type-display,
+.type-title-strong {
+  font-weight: var(--font-weight-title-strong);
+  text-transform: uppercase;
+}
+
+.type-page-title {
+  font-weight: var(--font-weight-title);
+}
+
+.type-section-title {
+  font-weight: var(--font-weight-section-title);
+}
+
+.type-card-title {
+  font-weight: var(--font-weight-card-title);
+}
+
+.type-eyebrow {
+  font-weight: var(--font-weight-title);
+  letter-spacing: var(--letter-spacing-eyebrow);
+  text-transform: uppercase;
+}
+
+.type-eyebrow--wide {
+  letter-spacing: var(--letter-spacing-eyebrow-wide);
+}
+
+.type-meta {
+  font-weight: var(--font-weight-card-title);
+  letter-spacing: var(--letter-spacing-meta);
+  text-transform: uppercase;
+}

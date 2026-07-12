@@ -24,11 +24,11 @@ const { terms } = useTerms()
         <div class="grid grid-cols-2 gap-5">
           <div class="border border-neutral-300 p-6">
             <p class="text-4xl font-semibold text-neutral-950">5</p>
-            <p class="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">{{ terms.home.about.bookingSteps }}</p>
+            <p class="type-eyebrow mt-2 text-xs text-neutral-500">{{ terms.home.about.bookingSteps }}</p>
           </div>
           <div class="border border-neutral-300 p-6">
             <p class="text-4xl font-semibold text-neutral-950">3</p>
-            <p class="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">{{ terms.home.about.contentRhythms }}</p>
+            <p class="type-eyebrow mt-2 text-xs text-neutral-500">{{ terms.home.about.contentRhythms }}</p>
           </div>
         </div>
       </div>

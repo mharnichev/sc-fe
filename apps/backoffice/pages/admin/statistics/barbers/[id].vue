@@ -28,8 +28,8 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
   <div class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Статистика майстра</p>
-        <h1 class="mt-1 text-3xl font-semibold text-slate-900">{{ barberName(stats?.barber) || `Майстер #${barberId}` }}</h1>
+        <p class="type-eyebrow type-eyebrow--wide text-sm text-cyan-700">Статистика майстра</p>
+        <h1 class="type-page-title mt-1 text-3xl text-slate-900">{{ barberName(stats?.barber) || `Майстер #${barberId}` }}</h1>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
           Детальний місячний зріз доходу, послуг, клієнтів і завантаження.
         </p>

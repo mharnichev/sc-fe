@@ -169,6 +169,14 @@ const closeSheet = () => {
   isOpen.value = false
 }
 
+const updateOverlayCloseCursor = (event: PointerEvent) => {
+  const overlay = event.currentTarget
+  if (!(overlay instanceof HTMLElement)) return
+
+  overlay.style.setProperty('--overlay-close-cursor-x', `${event.clientX}px`)
+  overlay.style.setProperty('--overlay-close-cursor-y', `${event.clientY}px`)
+}
+
 const goToPreviousMonth = () => {
   if (!canGoPrevious.value) return
   visibleMonth.value = addMonths(visibleMonth.value, -1)
@@ -317,6 +325,7 @@ onBeforeUnmount(() => {
           v-if="isOpen"
           class="booking-calendar-overlay fixed inset-0 z-[140] flex items-end bg-black/65 px-0 md:hidden"
           @click.self="closeSheet"
+          @pointermove="updateOverlayCloseCursor"
         >
           <Transition name="booking-calendar-sheet" appear>
             <div
@@ -329,7 +338,7 @@ onBeforeUnmount(() => {
               <div class="mx-auto mb-4 h-1 w-11 rounded-full bg-white/25" aria-hidden="true" />
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-white/45">{{ copy.selected }}</p>
+                  <p class="type-eyebrow text-[0.68rem] text-white/45">{{ copy.selected }}</p>
                   <h3 id="booking-calendar-title" class="mt-1 text-xl font-semibold leading-tight">{{ selectedDateLabel }}</h3>
                 </div>
                 <BaseButton
@@ -419,6 +428,43 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.booking-calendar-overlay {
+  cursor: pointer;
+}
+
+@media (pointer: fine) {
+  .booking-calendar-overlay {
+    cursor: none;
+  }
+
+  .booking-calendar-overlay::after {
+    position: fixed;
+    top: var(--overlay-close-cursor-y, -3rem);
+    left: var(--overlay-close-cursor-x, -3rem);
+    width: 42px;
+    height: 42px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='M13.5 4.5L4.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 4.5L13.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px 18px no-repeat,
+      radial-gradient(circle, #101010 0 calc(100% - 4px), #ffffff calc(100% - 4px) 100%);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0);
+    transition:
+      opacity 176ms ease,
+      transform 242ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+
+  .booking-calendar-overlay:hover::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .booking-calendar-overlay-enter-active,
