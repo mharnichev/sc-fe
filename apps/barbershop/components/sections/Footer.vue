@@ -6,6 +6,7 @@ const { terms } = useTerms()
 const { resetCookieConsent } = useCookieConsent()
 const { trackContactClick, trackEvent } = useAnalytics()
 
+const currentYear = new Date().getFullYear()
 const shouldShowFooterEmail = ref(false)
 const phoneHref = computed(() => `tel:${terms.value.home.contact.phone.replace(/[^\d+]/g, '')}`)
 
@@ -67,17 +68,11 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-5 md:mt-12 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:gap-8">
-        <div>
-          <p class="type-eyebrow type-eyebrow--wide text-sm">{{ terms.common.brand }}</p>
-          <p class="mt-4 max-w-sm text-sm leading-7 text-white/55">
-            {{ terms.home.footer.description }}
-          </p>
-        </div>
+      <div class="mt-6 grid gap-8 md:mt-12 md:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)] md:gap-12">
         <div>
           <p class="type-eyebrow text-xs text-white/45">{{ terms.common.info }}</p>
-          <div class="mt-4 space-y-2 text-sm text-white/70">
-            <p>
+          <div class="mt-4 grid gap-x-8 gap-y-3 text-sm text-white/70 min-[480px]:grid-cols-2 lg:grid-cols-3">
+            <p class="min-[480px]:col-span-2 lg:col-span-3">
               <a
                 :href="terms.home.contact.mapUrl"
                 target="_blank"
@@ -108,13 +103,20 @@ onMounted(() => {
                 {{ terms.common.localSeoPage }}
               </NuxtLink>
             </p>
-            <button
-              type="button"
-              class="text-left underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
-              @click="resetCookieConsent"
-            >
-              {{ terms.common.cookieSettings }}
-            </button>
+            <p>
+              <NuxtLink to="/terms" class="transition hover:text-white hover:underline">
+                {{ terms.common.termsLinkLabel }}
+              </NuxtLink>
+            </p>
+            <p>
+              <button
+                type="button"
+                class="text-left underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
+                @click="resetCookieConsent"
+              >
+                {{ terms.common.cookieSettings }}
+              </button>
+            </p>
           </div>
         </div>
         <div>
@@ -126,6 +128,11 @@ onMounted(() => {
             </div>
           </dl>
         </div>
+      </div>
+
+      <div class="mt-8 flex flex-col gap-2 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+        <p>{{ terms.common.copyright }} {{ currentYear }} {{ terms.common.brand }}.</p>
+        <p>{{ terms.common.rightsReserved }}</p>
       </div>
     </div>
   </footer>

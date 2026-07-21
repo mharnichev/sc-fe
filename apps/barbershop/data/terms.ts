@@ -32,6 +32,11 @@ export const termsDictionary = {
       read: 'Читати',
       localSeoPage: 'Барбершоп Одеса',
       cookieSettings: 'Налаштування cookie',
+      copyright: 'Авторські права',
+      rightsReserved: 'Усі права захищені.',
+      termsLinkLabel: 'Умови користування',
+      bookingConsentPrefix: 'Підтверджуючи запис, ви погоджуєтеся з',
+      bookingConsentSuffix: 'та надаєте згоду на обробку наданих персональних даних для оформлення й супроводу запису.',
     },
     cookieConsent: {
       label: 'Cookie',
@@ -383,9 +388,6 @@ export const termsDictionary = {
         text: 'Оберіть зручний час онлайн або напишіть нам, якщо потрібна порада перед першим візитом.',
         button: 'Почати запис',
       },
-      footer: {
-        description: 'Стрижки, борода, гоління і догляд для тих, хто цінує точність, спокійний сервіс і стабільний результат.',
-      },
       contact: {
         mapUrl: 'https://maps.app.goo.gl/h9AqbjAoWUksTRw96',
         address: '📍вулиця Канатна, 6, Одеса',
@@ -483,6 +485,11 @@ export const termsDictionary = {
       read: 'Read',
       localSeoPage: 'Barbershop Odesa',
       cookieSettings: 'Cookie settings',
+      copyright: 'Copyright',
+      rightsReserved: 'All rights reserved.',
+      termsLinkLabel: 'Terms of Use',
+      bookingConsentPrefix: 'By confirming the booking, you agree to the',
+      bookingConsentSuffix: 'and consent to the processing of the personal data provided to create and manage the appointment.',
     },
     cookieConsent: {
       label: 'Cookie',
@@ -832,9 +839,6 @@ export const termsDictionary = {
         title: 'Ready for the next appointment?',
         text: 'Choose a convenient time online or message us if you need advice before your first visit.',
         button: 'Start booking',
-      },
-      footer: {
-        description: 'Haircuts, beard work, shaving and care for people who value precision, calm service and a consistent result.',
       },
       contact: {
         mapUrl: 'https://maps.app.goo.gl/h9AqbjAoWUksTRw96',

@@ -221,7 +221,7 @@ const submit = async () => {
         <p class="text-sm uppercase tracking-[0.3em] text-amber-700">{{ terms.pages.contacts.label }}</p>
         <h1 class="text-5xl font-semibold text-stone-900">{{ terms.pages.contacts.title }}</h1>
       </div>
-      <div class="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm">
+      <div class="rounded-[2rem] bg-white p-6 shadow-sm">
         <div class="space-y-4 text-sm leading-7 text-stone-600">
           <p><strong class="text-stone-900">{{ terms.pages.contacts.addressLabel }}</strong> {{ terms.pages.contacts.address }}</p>
           <p>
@@ -241,7 +241,7 @@ const submit = async () => {
       </div>
     </section>
 
-    <form class="space-y-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+    <form class="space-y-4 rounded-[2rem] bg-white p-6 shadow-sm" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
       <div class="grid gap-4 md:grid-cols-2">
         <input
           v-model="form.first_name"
@@ -294,7 +294,7 @@ const submit = async () => {
           <option value="">{{ terms.pages.contacts.placeholders.master }}</option>
           <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
         </select>
-        <div class="rounded-2xl border border-stone-300 bg-neutral-950 p-3 text-white">
+        <div class="rounded-2xl bg-neutral-950 p-3 text-white">
           <div class="flex items-center justify-between gap-3">
             <span class="text-sm text-white/65">{{ terms.pages.contacts.placeholders.service }}</span>
             <span class="text-xs font-semibold text-white/55">{{ form.service_ids.length }}/{{ maxSelectedServices }}</span>
@@ -307,9 +307,9 @@ const submit = async () => {
               v-for="service in availableServices"
               :key="service.id"
               type="button"
-              class="w-full rounded-xl border px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-stone-500"
+              class="w-full rounded-xl px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-stone-500"
               :class="[
-                serviceSelected(service.id) ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/75 hover:border-white/50 hover:text-white',
+                serviceSelected(service.id) ? 'bg-white text-neutral-950' : 'bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white',
                 serviceSelectionLimitReached && !serviceSelected(service.id) ? 'cursor-not-allowed opacity-45' : '',
               ]"
               :disabled="!selectedMaster || (serviceSelectionLimitReached && !serviceSelected(service.id))"

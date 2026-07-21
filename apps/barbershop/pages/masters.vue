@@ -32,7 +32,7 @@ const masterPhoto = (master: MasterDto) =>
       </p>
     </div>
     <div class="grid gap-6 md:grid-cols-2">
-      <article v-for="(master, index) in masters || []" :key="master.id" class="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm" data-reveal="soft" :data-reveal-delay="Math.min(index, 4) * 90">
+      <article v-for="(master, index) in masters || []" :key="master.id" class="overflow-hidden rounded-[2rem] bg-white shadow-sm" data-reveal="soft" :data-reveal-delay="Math.min(index, 4) * 90">
         <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-80 w-full object-cover">
         <div class="space-y-3 p-6">
           <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">{{ master.title }}</p>

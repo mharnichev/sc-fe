@@ -1215,6 +1215,13 @@ onBeforeUnmount(() => {
                 </AppTransition>
               </div>
 
+              <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-xs leading-5 text-white/55">
+                {{ terms.common.bookingConsentPrefix }}
+                <NuxtLink class="underline decoration-white/30 underline-offset-4 transition hover:text-white" to="/terms">
+                  {{ terms.common.termsLinkLabel }}
+                </NuxtLink>
+                {{ terms.common.bookingConsentSuffix }}
+              </p>
               <div class="booking-step-actions mt-8 flex flex-row gap-3 sm:items-center">
                 <BaseButton
                   v-if="activeStepIndex > 0"
