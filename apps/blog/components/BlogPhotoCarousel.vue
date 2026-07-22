@@ -1,16 +1,24 @@
 <script setup lang="ts">
+import type { BlogImageFit } from '~/data/posts'
+
 interface GalleryImage {
   src: string
   alt: string
+  width?: number
+  height?: number
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   images?: GalleryImage[]
-}>()
+  imageFit?: BlogImageFit
+}>(), {
+  images: () => [],
+  imageFit: 'cover',
+})
 
 const { trackBlogEvent } = useBlogAnalytics()
-const originalImageCount = computed(() => props.images?.length ?? 0)
-const carouselImages = computed(() => [...(props.images ?? []), ...(props.images ?? []), ...(props.images ?? [])])
+const originalImageCount = computed(() => props.images.length)
+const carouselImages = computed(() => [...props.images, ...props.images, ...props.images])
 const carousel = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
 const isPaused = ref(false)
@@ -185,7 +193,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section v-if="props.images?.length" class="photo-carousel py-12 sm:py-16">
+  <section
+    v-if="props.images.length"
+    class="photo-carousel py-12 sm:py-16"
+    :class="`photo-carousel--${props.imageFit}`"
+  >
     <div
       ref="carousel"
       class="photo-carousel-viewport"
@@ -213,7 +225,9 @@ onBeforeUnmount(() => {
           <img
             :src="image.src"
             :alt="imageIndex >= originalImageCount && imageIndex < originalImageCount * 2 ? image.alt : ''"
-            class="h-full w-full object-cover"
+            :width="image.width"
+            :height="image.height"
+            class="photo-carousel-image"
             loading="lazy"
             draggable="false"
           >
@@ -248,6 +262,7 @@ onBeforeUnmount(() => {
 }
 
 .photo-carousel-track {
+  align-items: center;
   display: flex;
   width: max-content;
 }
@@ -255,7 +270,41 @@ onBeforeUnmount(() => {
 .photo-carousel-slide {
   aspect-ratio: 4 / 5;
   flex: 0 0 72vw;
+  overflow: hidden;
   width: 72vw;
+}
+
+.photo-carousel-image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.photo-carousel--contain .photo-carousel-slide {
+  background: rgb(0 0 0 / 18%);
+}
+
+.photo-carousel--contain .photo-carousel-image {
+  object-fit: contain;
+}
+
+.photo-carousel--natural-capped .photo-carousel-slide {
+  aspect-ratio: auto;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  overflow: visible;
+  padding-inline: 0.375rem;
+  width: auto;
+}
+
+.photo-carousel--natural-capped .photo-carousel-image {
+  height: auto;
+  max-height: clamp(18rem, 62svh, 34rem);
+  max-width: min(84vw, 48rem);
+  object-fit: contain;
+  width: auto;
 }
 
 .photo-carousel-viewport:hover .photo-carousel-track {
@@ -267,12 +316,30 @@ onBeforeUnmount(() => {
     flex-basis: 38vw;
     width: 38vw;
   }
+
+  .photo-carousel--natural-capped .photo-carousel-slide {
+    flex-basis: auto;
+    width: auto;
+  }
+
+  .photo-carousel--natural-capped .photo-carousel-image {
+    max-height: clamp(22rem, 65svh, 38rem);
+  }
 }
 
 @media (min-width: 1024px) {
   .photo-carousel-slide {
     flex-basis: 26vw;
     width: 26vw;
+  }
+
+  .photo-carousel--natural-capped .photo-carousel-slide {
+    flex-basis: auto;
+    width: auto;
+  }
+
+  .photo-carousel--natural-capped .photo-carousel-image {
+    max-height: clamp(24rem, 68vh, 42rem);
   }
 }
 

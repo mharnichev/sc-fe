@@ -9,6 +9,7 @@ const props = defineProps<{
   post: LocalizedBlogPost
   compact?: boolean
   recommended?: boolean
+  borderless?: boolean
 }>()
 
 const handlePostClick = () => {
@@ -23,7 +24,7 @@ const handlePostClick = () => {
   <article class="group h-full" :class="recommended ? 'bg-transparent' : 'bg-neutral-900'">
     <NuxtLink
       class="grid h-full transition"
-      :class="recommended ? 'border-0' : 'border border-neutral-800 hover:border-white/45'"
+      :class="recommended || borderless ? 'border-0' : 'border border-neutral-800 hover:border-white/45'"
       :to="`/posts/${post.slug}`"
       @click="handlePostClick"
     >

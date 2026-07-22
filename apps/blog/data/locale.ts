@@ -117,6 +117,9 @@ export interface BlogTerms {
   subscribeAgreementCollectionNotice: string
   subscribeAgreementAnd: string
   subscribeAgreementPrivacy: string
+  termsLinkLabel: string
+  subscriptionConsentPrefix: string
+  subscriptionConsentSuffix: string
   footerEyebrow: string
   footerHeadline: string
   footerDescription: string
@@ -198,6 +201,9 @@ export const blogTerms = {
     subscribeAgreementCollectionNotice: 'Повідомлення про збір інформації',
     subscribeAgreementAnd: 'та',
     subscribeAgreementPrivacy: 'Політику конфіденційності',
+    termsLinkLabel: 'Умовами користування',
+    subscriptionConsentPrefix: 'Підписуючись, ви погоджуєтеся з',
+    subscriptionConsentSuffix: 'та надаєте згоду на обробку email-адреси й повʼязаних технічних даних для ведення розсилки.',
     footerEyebrow: 'Soulcuts Journal',
     footerHeadline: 'Незалежні нотатки від команди Soul Cuts',
     footerDescription: 'Публічний журнал про барберинг, комʼюніті, міські події та історії навколо студії.',
@@ -372,6 +378,9 @@ export const blogTerms = {
     subscribeAgreementCollectionNotice: 'Information Collection Notice',
     subscribeAgreementAnd: 'and',
     subscribeAgreementPrivacy: 'Privacy Policy',
+    termsLinkLabel: 'Terms of Use',
+    subscriptionConsentPrefix: 'By subscribing, you agree to the',
+    subscriptionConsentSuffix: 'and consent to the processing of your email address and related technical data to manage the newsletter.',
     footerEyebrow: 'Soulcuts Journal',
     footerHeadline: 'Independent notes from the Soul Cuts team',
     footerDescription: 'A public journal for barbering, community, city notes, and the stories around the studio.',

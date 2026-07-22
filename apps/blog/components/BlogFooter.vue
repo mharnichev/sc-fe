@@ -42,38 +42,39 @@ onMounted(() => {
 <template>
   <footer class="overflow-hidden bg-black py-8 text-white md:py-12">
     <div class="site-container">
-      <div class="grid gap-7 md:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.65fr)] lg:items-end lg:gap-12">
-        <div class="w-full space-y-3 md:space-y-5">
-          <p class="type-eyebrow text-xs text-white/50">{{ terms.footerEyebrow }}</p>
-          <h2 class="blog-feature-title max-w-3xl text-white">
-            {{ terms.footerHeadline }}
-          </h2>
+      <div class="w-full">
+        <p class="type-eyebrow text-xs text-white/50">{{ terms.footerEyebrow }}</p>
+        <h2 class="blog-feature-title mt-3 w-full text-white md:mt-5">
+          {{ terms.footerHeadline }}
+        </h2>
+
+        <div class="mt-5 grid gap-7 md:mt-7 md:gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.65fr)] lg:items-end lg:gap-12">
           <p class="max-w-2xl text-sm leading-7 text-white/60 md:text-base md:leading-8">
             {{ terms.footerDescription }}
           </p>
-        </div>
 
-        <form class="grid gap-3 sm:grid-cols-[1fr_auto]" novalidate @submit.prevent="handleFooterSubscribe">
-          <label class="sr-only" for="footer-newsletter-email">{{ terms.emailAddress }}</label>
-          <input
-            id="footer-newsletter-email"
-            v-model="footerEmail"
-            class="glass-control glass-control--dark min-h-12 w-full px-4 text-sm text-white outline-none placeholder:text-neutral-500"
-            type="email"
-            inputmode="email"
-            autocomplete="email"
-            :placeholder="terms.emailPlaceholder"
-          >
-          <BaseButton
-            variant="light"
-            type="submit"
-          >
-            {{ terms.subscribe }}
-          </BaseButton>
-        </form>
+          <form class="grid gap-3 sm:grid-cols-[1fr_auto]" novalidate @submit.prevent="handleFooterSubscribe">
+            <label class="sr-only" for="footer-newsletter-email">{{ terms.emailAddress }}</label>
+            <input
+              id="footer-newsletter-email"
+              v-model="footerEmail"
+              class="glass-control glass-control--dark min-h-12 w-full px-4 text-sm text-white outline-none placeholder:text-neutral-500"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              :placeholder="terms.emailPlaceholder"
+            >
+            <BaseButton
+              variant="light"
+              type="submit"
+            >
+              {{ terms.subscribe }}
+            </BaseButton>
+          </form>
+        </div>
       </div>
 
-      <div class="mt-8 grid gap-7 border-t border-white/10 pt-8 md:mt-12 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:gap-8">
+      <div class="mt-8 grid gap-7 pt-8 md:mt-12 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:gap-8">
         <div>
           <p class="type-eyebrow text-sm">Soulcuts</p>
           <p class="mt-4 max-w-sm text-sm leading-7 text-white/55">
@@ -99,6 +100,9 @@ onMounted(() => {
             <button class="text-left transition hover:text-white" type="button" @click="openSubscribeModal('', 'footer_nav')">
               {{ terms.newsletter }}
             </button>
+            <NuxtLink class="transition hover:text-white" to="/terms" @click="handleFooterNavigationClick('terms')">
+              {{ terms.termsLinkLabel }}
+            </NuxtLink>
           </div>
         </div>
 
@@ -125,7 +129,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+      <div class="mt-8 flex flex-col gap-3 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
         <p>{{ terms.footerCopyrightPrefix }} {{ currentYear }} Soulcuts Journal.</p>
         <p>{{ terms.footerTagline }}</p>
       </div>

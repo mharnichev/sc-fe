@@ -24,6 +24,13 @@ if (!rawPost) {
   })
 }
 
+const isUnlisted = rawPost.visibility === 'unlisted'
+
+if (isUnlisted) {
+  const robotsHeader = useResponseHeader('X-Robots-Tag')
+  robotsHeader.value = 'noindex, nofollow, noarchive, nosnippet'
+}
+
 const post = computed(() => localizePost(rawPost, locale.value))
 const relatedPosts = computed(() => getRelatedPosts(rawPost.slug, locale.value))
 const postContent = ref<HTMLElement | null>(null)
@@ -128,6 +135,7 @@ const handlePostBookingClick = () => {
 useSeoMeta({
   title: () => post.value.title,
   description: () => post.value.excerpt,
+  robots: isUnlisted ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow',
   ogTitle: () => post.value.title,
   ogDescription: () => post.value.excerpt,
   ogImage: () => post.value.coverImage,
@@ -158,7 +166,7 @@ useHead(() => ({
     <header class="relative min-h-[calc(100svh+8rem)] sm:min-h-[calc(100svh+10rem)]">
         <div class="sticky top-0 h-[100svh] overflow-hidden bg-neutral-950">
           <picture class="absolute inset-0 h-full w-full">
-            <source :srcset="post.coverImage" media="(min-width: 768px)" type="image/jpeg">
+            <source :srcset="post.coverImage" media="(min-width: 768px)">
             <img
               :src="post.coverImageMobile"
               :alt="post.coverImageAlt"
@@ -191,29 +199,41 @@ useHead(() => ({
             {{ post.excerpt }}
           </p>
           <div class="mt-8 space-y-7 text-lg leading-9 text-neutral-300">
-            <template v-for="(paragraph, paragraphIndex) in post.content" :key="paragraph">
-              <p>
-                {{ paragraph }}
+            <template v-for="(contentBlock, paragraphIndex) in post.content" :key="paragraphIndex">
+              <p v-if="typeof contentBlock === 'string'">
+                {{ contentBlock }}
               </p>
-              <figure
-                v-for="image in getArticleImagesAfter(paragraphIndex)"
-                :key="`${paragraphIndex}-${image.src}`"
-                class="article-float-image my-16 overflow-hidden sm:my-20"
-                :class="image.placement === 'left' ? 'article-float-image--left' : 'article-float-image--right'"
+              <h2
+                v-else-if="contentBlock.type === 'heading'"
+                class="clear-both pt-8 text-3xl font-black leading-tight text-white sm:pt-12 sm:text-4xl"
               >
-                <img
-                  :src="image.src"
-                  :alt="image.alt"
-                  class="aspect-[4/3] w-full object-cover"
-                  loading="lazy"
+                {{ contentBlock.text }}
+              </h2>
+              <blockquote
+                v-else-if="contentBlock.type === 'quote'"
+                class="clear-both border-l-2 border-white/35 py-2 pl-6 text-xl font-medium italic leading-9 text-neutral-100 sm:pl-8 sm:text-2xl sm:leading-10"
+              >
+                <p>{{ contentBlock.text }}</p>
+                <footer
+                  v-if="contentBlock.attribution"
+                  class="mt-4 text-sm font-semibold not-italic leading-6 text-neutral-400"
                 >
-                <figcaption
-                  v-if="image.caption"
-                  class="mt-3 text-sm leading-6 text-neutral-500"
-                >
-                  {{ image.caption }}
-                </figcaption>
-              </figure>
+                  — {{ contentBlock.attribution }}
+                </footer>
+              </blockquote>
+              <ul
+                v-else
+                class="clear-both list-disc space-y-3 pl-6 marker:text-white/45"
+              >
+                <li v-for="item in contentBlock.items" :key="item">
+                  {{ item }}
+                </li>
+              </ul>
+              <BlogArticleImages
+                :images="getArticleImagesAfter(paragraphIndex)"
+                :layout="post.articleImageLayout"
+                :image-fit="post.imageFit"
+              />
             </template>
           </div>
         </div>
@@ -239,7 +259,10 @@ useHead(() => ({
         </div>
       </section>
       <ClientOnly v-if="resolvedGalleryImages.length">
-        <LazyBlogPhotoCarousel :images="resolvedGalleryImages" />
+        <LazyBlogPhotoCarousel
+          :images="resolvedGalleryImages"
+          :image-fit="post.imageFit"
+        />
       </ClientOnly>
     </div>
   </article>
@@ -275,10 +298,6 @@ useHead(() => ({
   transform: translateY(0);
 }
 
-.article-float-image {
-  width: 100%;
-}
-
 .recommended-post-card :deep(img) {
   filter: grayscale(0);
 }
@@ -289,38 +308,6 @@ useHead(() => ({
 
 .recommended-posts-list:hover .recommended-post-card:hover :deep(img) {
   filter: grayscale(0);
-}
-
-@media (min-width: 640px) {
-  .article-float-image {
-    margin-bottom: 5rem;
-    margin-top: 5rem;
-    width: min(58%, 30rem);
-  }
-
-  .article-float-image--right {
-    float: right;
-    margin-left: 2rem;
-  }
-
-  .article-float-image--left {
-    float: left;
-    margin-right: 2rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .article-float-image {
-    width: min(70%, 34rem);
-  }
-
-  .article-float-image--right {
-    margin-right: clamp(-8rem, -10vw, -5rem);
-  }
-
-  .article-float-image--left {
-    margin-left: clamp(-8rem, -10vw, -5rem);
-  }
 }
 
 @supports (animation-timeline: view()) {

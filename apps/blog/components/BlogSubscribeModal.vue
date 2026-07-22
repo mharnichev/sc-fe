@@ -173,12 +173,21 @@ onMounted(() => {
         </form>
 
         <p class="mt-7 max-w-lg text-xs leading-6 text-white/55">
+          <span class="block">
+            {{ terms.subscriptionConsentPrefix }}
+            <NuxtLink class="underline decoration-white/25 underline-offset-4 transition hover:text-white" to="/terms" @click="closeModal">
+              {{ terms.termsLinkLabel }}
+            </NuxtLink>
+            {{ terms.subscriptionConsentSuffix }}
+          </span>
+          <span class="mt-3 block">
           {{ terms.subscribeAgreementPrefix }}
           <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/tos" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementTerms }}</a>,
           {{ terms.subscribeAgreementMiddle }}
           <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy#information-collection-notice" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementCollectionNotice }}</a>
           {{ terms.subscribeAgreementAnd }}
           <a class="underline decoration-white/25 underline-offset-4 transition hover:text-white" href="https://substack.com/privacy" target="_blank" rel="noopener noreferrer">{{ terms.subscribeAgreementPrivacy }}</a>.
+          </span>
         </p>
 
         <button

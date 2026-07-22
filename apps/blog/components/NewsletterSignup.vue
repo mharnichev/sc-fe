@@ -92,6 +92,13 @@ const handleSubmit = async () => {
             <FeedbackFace v-if="status === 'error'" name="sad-droopy-face" class="w-7 shrink-0" />
             <span>{{ message }}</span>
           </div>
+          <p class="text-xs leading-5 text-white/50 sm:col-span-2">
+            {{ terms.subscriptionConsentPrefix }}
+            <NuxtLink class="underline decoration-white/25 underline-offset-4 transition hover:text-white" to="/terms">
+              {{ terms.termsLinkLabel }}
+            </NuxtLink>
+            {{ terms.subscriptionConsentSuffix }}
+          </p>
         </form>
       </div>
     </div>

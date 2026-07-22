@@ -62,7 +62,7 @@ useHead(() => ({
           </picture>
         </NuxtLink>
 
-        <div class="flex flex-col justify-between border-neutral-700 py-2 md:py-6 lg:py-8">
+        <div class="flex flex-col justify-between py-2 md:py-6 lg:py-8">
           <div>
             <p class="eyebrow">{{ terms.featuredPost }}</p>
             <h1 class="type-section-title mt-4 text-2xl leading-tight text-white sm:mt-5 sm:text-3xl lg:text-4xl uppercase">
@@ -94,18 +94,18 @@ useHead(() => ({
 
     <section v-if="homepagePosts.length" class="section-y">
       <div class="site-container">
-        <div class="flex flex-col gap-4 border-b border-neutral-800 pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div class="flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p class="eyebrow">{{ terms.latest }}</p>
             <h2 class="section-heading mt-3">{{ terms.newStories }}</h2>
           </div>
-          <NuxtLink class="type-meta text-sm text-white underline decoration-neutral-700 underline-offset-4 transition hover:decoration-white" to="/posts">
-            {{ terms.viewAllPosts }}
+          <NuxtLink class="type-meta w-fit text-sm text-white" to="/posts">
+            <BaseHoverUnderlineText>{{ terms.viewAllPosts }}</BaseHoverUnderlineText>
           </NuxtLink>
         </div>
 
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <PostCard v-for="post in homepagePosts" :key="post.slug" :post="post" compact />
+          <PostCard v-for="post in homepagePosts" :key="post.slug" :post="post" compact borderless />
         </div>
       </div>
     </section>

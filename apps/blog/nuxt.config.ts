@@ -143,7 +143,11 @@ export default defineNuxtConfig({
     },
   },
   modules: ['@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
+  css: [
+    '~/assets/css/animations/reveal.css',
+    '~/assets/css/main.css',
+    '~/assets/css/typography.css',
+  ],
   components: [
     {
       path: '~/components',
