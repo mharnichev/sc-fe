@@ -11,6 +11,7 @@ import {
   PhoneIcon,
   PlayCircleIcon,
   PlusIcon,
+  StarIcon,
   TagIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
@@ -24,7 +25,7 @@ const { apiErrorMessage } = useBookingFormatting()
 const toast = useBaseToastNotification()
 const emit = defineEmits<{ changed: [] }>()
 
-type SmsScenarioKey = 'booking_confirmation' | 'two_hour_reminder'
+type SmsScenarioKey = 'booking_confirmation' | 'two_hour_reminder' | 'review_request'
 type SmsJob = 'pending' | 'reminders'
 
 interface SmsScenarioDefinition {
@@ -61,6 +62,28 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     metadata: { recipient: 'customer', trigger: 'booking_upcoming', lead_hours: 2, window_minutes: 30 },
     icon: BellAlertIcon,
     toneClass: 'messaging-tone-warning',
+  },
+  {
+    key: 'review_request',
+    name: 'SMS запит відгуку після візиту',
+    type: 'post_visit_review_request',
+    locationKey: 'sms_post_visit_review_request',
+    trigger: 'Через 2 години після завершення візиту',
+    defaultBody: '#client, дякуємо за візит до Soul Cuts. Залиште чесний відгук про роботу майстра: {{review_link}}',
+    metadata: {
+      recipient: 'customer',
+      trigger: 'booking_completed',
+      primary_channel: 'sms',
+      fallback_channel: null,
+      quiet_hours_enabled: true,
+      quiet_hours_from: '21:00',
+      quiet_hours_to: '09:00',
+      frequency_cap_count: 1,
+      frequency_cap_days: 30,
+      exclusions: {},
+    },
+    icon: StarIcon,
+    toneClass: 'messaging-tone-accent',
   },
 ]
 
@@ -124,6 +147,7 @@ const editorStatusOptions = [
 const smsTypeOptions = [
   { value: 'booking_confirmation', label: 'Підтвердження запису' },
   { value: 'appointment_reminder', label: 'Нагадування про запис' },
+  { value: 'post_visit_review_request', label: 'Запит відгуку після візиту' },
 ]
 
 const scenarioBody = (definition: SmsScenarioDefinition, campaign: MessagingCampaign | null) =>
@@ -257,7 +281,7 @@ const runJob = async (job: SmsJob) => {
             <h2 class="text-xl font-semibold text-slate-900">SMS сценарії</h2>
             <MessagingChannelBadge channel="sms" />
           </div>
-          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Транзакційні SMS для підтверджень запису та нагадувань перед візитом.</p>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Автоматичні SMS для підтверджень, нагадувань і запитів відгуку після візиту.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <BaseButton class="messaging-secondary-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium" :disabled="pending" @click="refresh()">
@@ -502,7 +526,8 @@ const runJob = async (job: SmsJob) => {
               <span class="font-medium text-slate-900">{appointment_date}</span>,
               <span class="font-medium text-slate-900">{appointment_time}</span>,
               <span class="font-medium text-slate-900">{appointment_end_time}</span>,
-              <span class="font-medium text-slate-900">{barbershop_name}</span>.
+              <span class="font-medium text-slate-900">{barbershop_name}</span>,
+              <span class="font-medium text-slate-900" v-text="'{{review_link}}'" />.
             </div>
 
             <div class="flex flex-wrap gap-3">

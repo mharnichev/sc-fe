@@ -1512,7 +1512,19 @@ export const useBackofficeApi = () => {
     api<any>(`/backoffice/messaging/sms-campaigns/${campaignId}`).then(normalizeCampaign)
 
   const ensureCampaignTemplate = async (payload: Partial<CampaignPayload>) => {
-    if (payload.template_id || !payload.message_body) return payload.template_id || null
+    if (payload.template_id) {
+      if (payload.message_body) {
+        await updateMessageTemplate(payload.template_id, {
+          name: payload.name,
+          channel: payload.channel || 'telegram',
+          language: 'uk',
+          message_body: payload.message_body,
+          is_active: true,
+        })
+      }
+      return payload.template_id
+    }
+    if (!payload.message_body) return null
     const template = await createMessageTemplate({
       name: `${payload.name || 'Campaign'} template ${Date.now()}`,
       campaign_type: payload.type || 'manual',
@@ -1542,11 +1554,14 @@ export const useBackofficeApi = () => {
     }).then(normalizeCampaign)
   }
 
-  const createSmsCampaign = (payload: CampaignPayload) =>
-    api<any>('/backoffice/messaging/sms-campaigns', {
+  const createSmsCampaign = async (payload: CampaignPayload) => {
+    const smsPayload = { ...payload, channel: 'sms' as const }
+    const templateId = await ensureCampaignTemplate(smsPayload)
+    return api<any>('/backoffice/messaging/sms-campaigns', {
       method: 'POST',
-      body: campaignPayload({ ...payload, channel: 'sms' }, payload.template_id),
+      body: campaignPayload(smsPayload, templateId),
     }).then(normalizeCampaign)
+  }
 
   const updateSmsCampaign = (campaignId: number | string, payload: Partial<CampaignPayload>) =>
     api<any>(`/backoffice/messaging/sms-campaigns/${campaignId}`, {
