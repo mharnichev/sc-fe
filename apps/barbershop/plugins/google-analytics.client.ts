@@ -50,6 +50,7 @@ export default defineNuxtPlugin(() => {
   let isGtagInitialized = false
   let isGtagLoadScheduled = false
   const pendingCallbacks: (() => void)[] = []
+  const isPrivateReviewRoute = () => route.path === '/review' || route.path.startsWith('/review/')
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -112,9 +113,14 @@ export default defineNuxtPlugin(() => {
     if (!canUseAnalytics.value) return
 
     scheduleGtagLoad(() => {
+      const pagePath = isPrivateReviewRoute() ? '/review' : route.fullPath
+      const pageLocation = isPrivateReviewRoute()
+        ? `${window.location.origin}/review`
+        : window.location.href
+
       window.gtag?.('event', 'page_view', {
-        page_path: route.fullPath,
-        page_location: window.location.href,
+        page_path: pagePath,
+        page_location: pageLocation,
         page_title: document.title,
       })
     })

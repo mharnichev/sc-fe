@@ -22,12 +22,62 @@ export interface PublicBookingPayload {
   start_at: string
 }
 
+export interface MasterRatingSummaryDto {
+  master_id: number
+  average_rating: number | null
+  approved_review_count: number
+  pending_review_count: number
+  rating_distribution: Record<number, number>
+}
+
+export interface PublicMasterReviewDto {
+  id: number
+  rating: number
+  comment: string | null
+  author_name: string
+  published_at: string
+}
+
+export interface PublicMasterReviewsResponseDto {
+  items: PublicMasterReviewDto[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface PublicReviewRequestDto {
+  state: 'available' | 'submitted'
+  master_id: number
+  master_name: string
+  master_photo_url: string | null
+  visit_date: string
+  service_names: string[]
+  expires_at: string
+}
+
+export interface SubmitPublicReviewPayload {
+  token: string
+  rating: number
+  comment?: string | null
+}
+
+export interface SubmitPublicReviewResponseDto {
+  status: 'pending'
+  submitted_at: string
+}
+
 export const useBarbershopDomain = () => {
   const api = useApi()
 
   const getServices = () => api<ServiceDto[]>('/public/services')
   const getServiceCatalog = () => api<ServiceCatalogItemDto[]>('/public/service-catalog')
   const getMasters = () => api<MasterDto[]>('/public/masters')
+  const getMasterRatingSummary = (masterId: number) =>
+    api<MasterRatingSummaryDto>(`/public/reviews/masters/${masterId}/summary`)
+  const getMasterReviews = (masterId: number, limit = 2) =>
+    api<PublicMasterReviewsResponseDto>(`/public/reviews/masters/${masterId}`, {
+      query: { page: 1, page_size: limit },
+    })
   const getPages = () => api<PageDto[]>('/public/pages')
   const getReviews = () => api<GoogleBusinessReviewsResponseDto>('/public/reviews')
   const getBrands = async (): Promise<BrandDto[]> => {
@@ -61,6 +111,32 @@ export const useBarbershopDomain = () => {
     })
   }
   const createBooking = (payload: PublicBookingPayload) => api<BookingDto>('/public/bookings', { method: 'POST', body: payload })
+  const resolveReviewRequest = (token: string) =>
+    api<PublicReviewRequestDto>('/public/reviews/request', {
+      headers: { 'X-Review-Token': token },
+    })
+  const submitReviewRequest = (payload: SubmitPublicReviewPayload) =>
+    api<SubmitPublicReviewResponseDto>('/public/reviews/request', {
+      method: 'POST',
+      headers: { 'X-Review-Token': payload.token },
+      body: {
+        rating: payload.rating,
+        comment: payload.comment,
+      },
+    })
 
-  return { getServices, getServiceCatalog, getMasters, getPages, getReviews, getBrands, getAvailableSlots, createBooking }
+  return {
+    getServices,
+    getServiceCatalog,
+    getMasters,
+    getMasterRatingSummary,
+    getMasterReviews,
+    getPages,
+    getReviews,
+    getBrands,
+    getAvailableSlots,
+    createBooking,
+    resolveReviewRequest,
+    submitReviewRequest,
+  }
 }

@@ -12,6 +12,15 @@ import type {
   RecipientPreview,
   SendLog,
 } from '~/types/messaging'
+import type {
+  BookingReviewDetail,
+  BookingReviewSummary,
+  MasterRatingStatistics,
+  ReviewFilters,
+  ReviewMetrics,
+  ReviewRequestSettings,
+  ReviewRequestSettingsUpdate,
+} from '~/types/reviews'
 
 export interface TokenResponse {
   access_token: string
@@ -200,6 +209,7 @@ export interface Customer {
 export interface CustomerUpdatePayload {
   phone: string
   name: string | null
+  birthday: string | null
   notes: string | null
 }
 
@@ -1716,6 +1726,60 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
+  const adminGetReviews = (page = 1, pageSize = 20, filters: ReviewFilters = {}) =>
+    api<PaginatedResponse<BookingReviewSummary>>('/backoffice/reviews', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        moderation_status: filters.moderation_status || undefined,
+        master_id: filters.master_id ?? undefined,
+        rating: filters.rating ?? undefined,
+        submitted_from: filters.submitted_from || undefined,
+        submitted_to: filters.submitted_to || undefined,
+        request_state: filters.request_state || undefined,
+      },
+    })
+
+  const adminGetReview = (reviewId: number | string) =>
+    api<BookingReviewDetail>(`/backoffice/reviews/${reviewId}`)
+
+  const adminApproveReview = (reviewId: number | string) =>
+    api<BookingReviewDetail>(`/backoffice/reviews/${reviewId}/approve`, {
+      method: 'POST',
+    })
+
+  const adminRejectReview = (reviewId: number | string, reason?: string | null) =>
+    api<BookingReviewDetail>(`/backoffice/reviews/${reviewId}/reject`, {
+      method: 'POST',
+      body: { reason: reason?.trim() || null },
+    })
+
+  const adminGetReviewMetrics = (filters: { date_from?: string, date_to?: string } = {}) =>
+    api<ReviewMetrics>('/backoffice/reviews/metrics', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+    })
+
+  const adminGetMasterRatingStatistics = (masterId: number | string) =>
+    api<MasterRatingStatistics>(`/backoffice/reviews/masters/${masterId}/statistics`)
+
+  const adminGetMasterRatings = () =>
+    api<MasterRatingStatistics[]>('/backoffice/reviews/masters/statistics')
+
+  const getMyRatingStatistics = () =>
+    api<MasterRatingStatistics>('/backoffice/reviews/masters/me/statistics')
+
+  const getReviewRequestSettings = () =>
+    api<ReviewRequestSettings>('/backoffice/reviews/request-settings')
+
+  const updateReviewRequestSettings = (payload: ReviewRequestSettingsUpdate) =>
+    api<ReviewRequestSettings>('/backoffice/reviews/request-settings', {
+      method: 'PATCH',
+      body: payload,
+    })
+
   return {
     login,
     me,
@@ -1825,5 +1889,15 @@ export const useBackofficeApi = () => {
     updateCustomerCommunication,
     getMessagingSettings,
     updateMessagingSettings,
+    adminGetReviews,
+    adminGetReview,
+    adminApproveReview,
+    adminRejectReview,
+    adminGetReviewMetrics,
+    adminGetMasterRatingStatistics,
+    adminGetMasterRatings,
+    getMyRatingStatistics,
+    getReviewRequestSettings,
+    updateReviewRequestSettings,
   }
 }

@@ -2,6 +2,8 @@
 import { CheckCircleIcon, FunnelIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
+import type { MasterRatingStatistics } from '~/types/reviews'
+import { formatRating } from '~/utils/reviews'
 
 const api = useBackofficeApi()
 const auth = useAuthStore()
@@ -38,6 +40,10 @@ const { data: redirectMasters, refresh: refreshRedirectMasters } = await useAsyn
   'admin-master-redirect-options',
   () => isAdmin.value ? api.adminGetMasters(1, pageSize, { is_active: true }) : Promise.resolve([] as Master[]),
 )
+const { data: ratingData, error: ratingError, refresh: refreshRatings } = await useAsyncData(
+  'admin-master-review-ratings',
+  () => isAdmin.value ? api.adminGetMasterRatings() : Promise.resolve([] as MasterRatingStatistics[]),
+)
 
 const masters = computed(() => normalizeItems(data.value))
 const allKnownMasters = computed(() => {
@@ -48,6 +54,7 @@ const allKnownMasters = computed(() => {
   return Array.from(byId.values())
 })
 const total = computed(() => normalizeTotal(data.value))
+const ratingsByMaster = computed(() => new Map((ratingData.value || []).map(item => [item.master_id, item])))
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
 const masterRedirectId = (master: Master) => master.bookingRedirectMasterId ?? master.booking_redirect_master_id ?? null
 const masterRedirectLabel = (master: Master) => {
@@ -81,6 +88,7 @@ const handleMasterSaved = async (message: string) => {
   editing.value = null
   await refresh()
   await refreshRedirectMasters()
+  await refreshRatings()
 }
 
 const handleMasterModalUpdate = (value: boolean) => {
@@ -167,6 +175,7 @@ const applyFilters = async () => {
       <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
         {{ apiErrorMessage(error, 'Не вдалося завантажити майстрів.') }}
       </p>
+      <p v-if="ratingError" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">Рейтинги майстрів недоступні: потрібен backend aggregate contract.</p>
       <p class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">Total: {{ total }}</p>
       <div v-if="pending" class="text-sm text-slate-500">Завантаження майстрів...</div>
       <div v-else-if="!masters.length" class="text-sm text-slate-500">Майстрів не знайдено.</div>
@@ -189,6 +198,11 @@ const applyFilters = async () => {
               <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
               <p v-if="masterRedirectId(master)" class="text-sm text-slate-500">Онлайн-запис → {{ masterRedirectLabel(master) }}</p>
               <p class="text-xs text-slate-500">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
+              <p v-if="ratingsByMaster.get(master.id)" class="mt-2 text-xs text-slate-600">
+                <span class="font-semibold text-amber-600">{{ formatRating(ratingsByMaster.get(master.id)?.approved_average_rating) }} ★</span>
+                · {{ ratingsByMaster.get(master.id)?.approved_review_count }} схвалено
+                · {{ ratingsByMaster.get(master.id)?.pending_review_count }} очікують
+              </p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">

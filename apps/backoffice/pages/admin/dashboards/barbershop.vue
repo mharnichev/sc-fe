@@ -6,6 +6,7 @@ import {
   SparklesIcon,
 } from '@heroicons/vue/24/outline'
 import type { Booking, Master, TimeBlock } from '~/composables/useBackofficeApi'
+import { formatModerationDuration, formatRating, formatReviewConversionRate } from '~/utils/reviews'
 
 definePageMeta({
   middleware: () => {
@@ -56,6 +57,11 @@ const { data, pending, error, refresh } = await useAsyncData('admin-barbershop-d
 
   return { monthly, comparison, bookings, masters, services, customers, timeBlocks }
 })
+const { data: reviewMetrics, pending: reviewMetricsPending, error: reviewMetricsError, refresh: refreshReviewMetrics } = await useAsyncData(
+  'admin-barbershop-review-metrics',
+  () => api.adminGetReviewMetrics(),
+)
+const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics()])
 
 const monthly = computed(() => data.value?.monthly || null)
 const comparison = computed(() => data.value?.comparison || null)
@@ -139,7 +145,7 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
         type="button"
         :disabled="pending"
         class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-        @click="refresh"
+        @click="refreshAll"
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         {{ pending ? 'Оновлення...' : 'Оновити' }}
@@ -180,6 +186,24 @@ const maxDayBookings = computed(() => Math.max(1, ...nextSevenDays.value.map(day
         tone="emerald"
       />
     </div>
+
+    <section class="space-y-4 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-slate-900">Відгуки після візиту</h2><p class="mt-1 text-sm text-slate-500">Конверсія запитів і схвалений рейтинг майстрів.</p></div><NuxtLink to="/reviews" class="text-sm font-medium text-cyan-700">Модерація</NuxtLink></div>
+      <div v-if="reviewMetricsPending" class="grid grid-cols-2 gap-3 xl:grid-cols-5"><div v-for="index in 5" :key="index" class="h-20 animate-pulse rounded-2xl bg-slate-100" /></div>
+      <p v-else-if="reviewMetricsError" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">Метрики відгуків недоступні: потрібен backend metrics contract.</p>
+      <template v-else-if="reviewMetrics">
+        <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <div class="rounded-2xl bg-slate-50 px-4 py-3"><p class="text-sm text-slate-500">Доступні візити</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ reviewMetrics.eligible_completed_visits }}</p></div>
+          <div class="rounded-2xl bg-slate-50 px-4 py-3"><p class="text-sm text-slate-500">Доставлено</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ reviewMetrics.requests_delivered }}</p></div>
+          <div class="rounded-2xl bg-slate-50 px-4 py-3"><p class="text-sm text-slate-500">Відкрито форму</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ reviewMetrics.review_form_opens }}</p></div>
+          <div class="rounded-2xl bg-slate-50 px-4 py-3"><p class="text-sm text-slate-500">Конверсія</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ formatReviewConversionRate(reviewMetrics.review_conversion_rate) }}</p></div>
+          <div class="col-span-2 rounded-2xl bg-slate-50 px-4 py-3 xl:col-span-1"><p class="text-sm text-slate-500">Час модерації</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ formatModerationDuration(reviewMetrics.average_moderation_time_minutes) }}</p></div>
+        </div>
+        <div v-if="reviewMetrics.average_rating_by_master.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <div v-for="rating in reviewMetrics.average_rating_by_master" :key="rating.master_id" class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3"><span class="truncate text-sm font-medium text-slate-900">{{ barberName(rating.master) || `Майстер #${rating.master_id}` }}</span><span class="shrink-0 text-sm font-semibold text-amber-600">{{ formatRating(rating.approved_average_rating) }} ★ · {{ rating.approved_review_count }}</span></div>
+        </div>
+      </template>
+    </section>
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">

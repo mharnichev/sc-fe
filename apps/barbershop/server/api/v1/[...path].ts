@@ -22,9 +22,13 @@ export default defineEventHandler(async (event) => {
   const requestHeaders = new Headers()
   const contentType = getHeader(event, 'content-type')
   const accept = getHeader(event, 'accept')
+  const reviewToken = apiPath === 'public/reviews/request'
+    ? getHeader(event, 'x-review-token')
+    : undefined
 
   if (contentType) requestHeaders.set('content-type', contentType)
   if (accept) requestHeaders.set('accept', accept)
+  if (reviewToken) requestHeaders.set('x-review-token', reviewToken)
 
   const response = await $fetch.raw(upstreamUrl.toString(), {
     method,

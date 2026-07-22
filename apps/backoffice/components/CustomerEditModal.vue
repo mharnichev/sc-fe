@@ -26,6 +26,7 @@ const { normalizePhone, isCompletePhone } = useUkrainianPhoneMask()
 const form = reactive({
   phone: '',
   name: '',
+  birthday: '',
   notes: '',
 })
 const formError = ref('')
@@ -34,6 +35,7 @@ const saving = ref(false)
 const fillForm = () => {
   form.phone = props.customer.phone || ''
   form.name = props.customer.name || ''
+  form.birthday = props.customer.birthday || ''
   form.notes = props.customer.notes || ''
   formError.value = ''
 }
@@ -66,6 +68,7 @@ const submit = async () => {
   const payload: CustomerUpdatePayload = {
     phone: normalizePhone(form.phone),
     name: form.name.trim() || null,
+    birthday: form.birthday || null,
     notes: form.notes.trim() || null,
   }
 
@@ -125,6 +128,13 @@ watch(
             <IdentificationIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
           </template>
         </BaseInput>
+
+        <BaseCalendar
+          v-model="form.birthday"
+          label="День народження"
+          placeholder="Оберіть дату народження"
+          input-class="w-full rounded-xl border border-slate-300 px-3 py-2.5 sm:px-4"
+        />
 
         <BaseTextarea
           v-model="form.notes"

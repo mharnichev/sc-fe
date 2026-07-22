@@ -184,6 +184,22 @@ export default defineNuxtConfig({
     '/soulcuts-bot-qr.svg': {
       headers: staticAssetHeaders,
     },
+    '/review': {
+      headers: {
+        ...securityHeaders,
+        'Cache-Control': 'no-store, private',
+        'Referrer-Policy': 'no-referrer',
+        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+      },
+    },
+    '/review/**': {
+      headers: {
+        ...securityHeaders,
+        'Cache-Control': 'no-store, private',
+        'Referrer-Policy': 'no-referrer',
+        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+      },
+    },
   },
   typescript: {
     strict: true,

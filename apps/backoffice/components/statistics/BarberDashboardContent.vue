@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import type { BarberMonthlyStatisticsResponse } from '~/composables/useBackofficeApi'
+import type { MasterRatingStatistics } from '~/types/reviews'
 
 const props = defineProps<{
   stats?: BarberMonthlyStatisticsResponse | null
   loading?: boolean
+  reviewStats?: MasterRatingStatistics | null
+  reviewLoading?: boolean
+  reviewError?: unknown
 }>()
 
 const { formatMoney } = useBookingFormatting()
@@ -65,6 +69,8 @@ const bestRevenueDayLabel = computed(() => {
         :hint="`На клієнта: ${formatMoney(stats?.average_revenue_per_client)}`"
       />
     </div>
+
+    <ReviewsRatingSummary :stats="reviewStats" :loading="reviewLoading" :error="reviewError" />
 
     <StatisticsEmptyState
       v-if="!loading && stats && !hasMonthlyData"

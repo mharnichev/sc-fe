@@ -16,6 +16,7 @@ declare global {
 }
 
 export default defineNuxtPlugin(() => {
+  const route = useRoute()
   const { canUseAnalytics } = useCookieConsent()
   let isLoaded = false
   let isLoadScheduled = false
@@ -30,6 +31,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const loadHotjar = () => {
+    if (route.path === '/review' || route.path.startsWith('/review/')) return
     if (isLoaded || document.getElementById(HOTJAR_SCRIPT_ID)) return
 
     window.hj = window.hj || function hj() {
@@ -50,6 +52,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const scheduleHotjarLoad = () => {
+    if (route.path === '/review' || route.path.startsWith('/review/')) return
     if (isLoadScheduled || isLoaded) return
     isLoadScheduled = true
 
@@ -57,7 +60,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value) loadHotjar()
+          if (canUseAnalytics.value && route.path !== '/review' && !route.path.startsWith('/review/')) loadHotjar()
         })
       }, 2200)
     }
@@ -66,7 +69,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value) loadHotjar()
+          if (canUseAnalytics.value && route.path !== '/review' && !route.path.startsWith('/review/')) loadHotjar()
         })
       }, 12000)
     }

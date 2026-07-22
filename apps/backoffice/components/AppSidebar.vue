@@ -13,6 +13,7 @@ import {
   UserGroupIcon,
   ChatBubbleLeftRightIcon,
   SparklesIcon,
+  StarIcon,
   ChartBarSquareIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
@@ -63,6 +64,7 @@ const barberShopLinks = computed(() => [
         { label: 'Доступність', to: '/time-blocks', icon: ClockIcon },
         { label: 'Акції', to: '/promotions', icon: TicketIcon },
         { label: 'Клієнти', to: '/customers', icon: UsersIcon },
+        { label: 'Відгуки', to: '/reviews', icon: StarIcon },
         { label: 'Повідомлення', to: '/messaging', icon: ChatBubbleLeftRightIcon },
       ]
     : []),
@@ -102,7 +104,7 @@ const barberBottomLinks = computed(() =>
 const menuSections = computed(() => {
   const allBarbershopLinks = barberShopLinks.value
   const findLinks = (labels: string[]) => allBarbershopLinks.filter(link => labels.includes(link.label))
-  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Акції', 'Клієнти'])
+  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Акції', 'Клієнти', 'Відгуки'])
   const systemLabels = ['Повідомлення']
   const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && !systemLabels.includes(link.label))
 

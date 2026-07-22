@@ -1080,6 +1080,12 @@ onBeforeUnmount(() => {
                         <span class="block text-sm font-semibold">{{ masterName(master) }}</span>
                         <span class="mt-1 block text-xs leading-5 opacity-70">{{ masterPosition(master) }}</span>
                       </span>
+                      <MasterRatingBlock
+                        :master-id="master.id"
+                        :tone="selectedMasterId === master.id ? 'light' : 'dark'"
+                        compact
+                        class="col-span-2"
+                      />
                     </button>
                     <p v-if="mastersPending" class="text-sm text-white/55">Завантажуємо майстрів...</p>
                     <p v-else-if="!availableMasters.length" class="text-sm text-white/55">Для цієї послуги немає доступних майстрів.</p>

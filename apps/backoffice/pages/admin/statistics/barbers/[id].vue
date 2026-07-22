@@ -22,6 +22,12 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
   () => api.getBarberMonthlyStatistics(barberId.value, year.value, month.value),
   { watch: [barberId, year, month] },
 )
+const { data: reviewStats, pending: reviewPending, error: reviewError, refresh: refreshReviewStats } = await useAsyncData(
+  'admin-barber-review-statistics',
+  () => api.adminGetMasterRatingStatistics(barberId.value),
+  { watch: [barberId] },
+)
+const refreshAll = () => Promise.all([refresh(), refreshReviewStats()])
 </script>
 
 <template>
@@ -43,13 +49,13 @@ const { data: stats, pending, error, refresh } = await useAsyncData(
       v-model:month="month"
       v-model:year="year"
       :loading="pending"
-      @refresh="refresh"
+      @refresh="refreshAll"
     />
 
     <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
       {{ statisticsErrorMessage(error, 'Не вдалося завантажити статистику майстра. Перевірте, що backend запущений з monthly statistics API.') }}
     </p>
 
-    <StatisticsBarberDashboardContent :stats="stats" :loading="pending" />
+    <StatisticsBarberDashboardContent :stats="stats" :loading="pending" :review-stats="reviewStats" :review-loading="reviewPending" :review-error="reviewError" />
   </div>
 </template>

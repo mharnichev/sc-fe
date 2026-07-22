@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MessagingSettings } from '~/types/messaging'
+import type { ReviewRequestSettings, ReviewRequestSettingsUpdate } from '~/types/reviews'
 
 const api = useBackofficeApi()
 const { campaignTypes } = useMessagingUi()
@@ -7,8 +8,13 @@ const { canSendMessagingCampaigns } = useBackofficeAccess()
 const { apiErrorMessage } = useBookingFormatting()
 const toast = useBaseToastNotification()
 const saving = ref(false)
+const reviewSaving = ref(false)
 
 const { data, pending, error } = await useAsyncData('messaging-settings', () => api.getMessagingSettings())
+const { data: reviewSettings, pending: reviewPending, error: reviewError, refresh: refreshReviewSettings } = await useAsyncData(
+  'review-request-settings',
+  () => api.getReviewRequestSettings(),
+)
 
 const form = reactive<Partial<MessagingSettings>>({
   telegram_bot_status: 'offline',
@@ -32,9 +38,30 @@ const form = reactive<Partial<MessagingSettings>>({
   multi_location_enabled: false,
 })
 
+const reviewForm = reactive<ReviewRequestSettings>({
+  enabled: false,
+  delay_minutes: 60,
+  primary_channel: 'telegram',
+  sms_fallback_enabled: true,
+  quiet_hours_enabled: true,
+  quiet_hours_from: '21:00',
+  quiet_hours_to: '09:00',
+  frequency_cap_count: 1,
+  frequency_cap_days: 30,
+  exclusions: [],
+  template_preview: '',
+})
+const exclusionsText = ref('')
+
 watch(data, value => {
   if (!value) return
   Object.assign(form, value)
+}, { immediate: true })
+
+watch(reviewSettings, value => {
+  if (!value) return
+  Object.assign(reviewForm, value, { primary_channel: 'telegram' })
+  exclusionsText.value = (value.exclusions || []).join('\n')
 }, { immediate: true })
 
 const save = async () => {
@@ -48,6 +75,34 @@ const save = async () => {
   }
   finally {
     saving.value = false
+  }
+}
+
+const saveReviewSettings = async () => {
+  if (!canSendMessagingCampaigns.value) return
+  reviewSaving.value = true
+  try {
+    const payload: ReviewRequestSettingsUpdate = {
+      enabled: reviewForm.enabled,
+      delay_minutes: Math.max(0, Number(reviewForm.delay_minutes) || 0),
+      primary_channel: 'telegram',
+      sms_fallback_enabled: reviewForm.sms_fallback_enabled,
+      quiet_hours_enabled: reviewForm.quiet_hours_enabled,
+      quiet_hours_from: reviewForm.quiet_hours_from,
+      quiet_hours_to: reviewForm.quiet_hours_to,
+      frequency_cap_count: Math.max(1, Number(reviewForm.frequency_cap_count) || 1),
+      frequency_cap_days: Math.max(1, Number(reviewForm.frequency_cap_days) || 1),
+      exclusions: exclusionsText.value.split('\n').map(value => value.trim()).filter(Boolean),
+    }
+    await api.updateReviewRequestSettings(payload)
+    toast.success('Налаштування запитів відгуків збережено.')
+    await refreshReviewSettings()
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося зберегти налаштування запитів відгуків.'))
+  }
+  finally {
+    reviewSaving.value = false
   }
 }
 </script>
@@ -139,5 +194,42 @@ const save = async () => {
     >
       {{ saving ? 'Збереження...' : 'Зберегти налаштування' }}
     </BaseButton>
+
+    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div>
+        <p class="text-sm uppercase tracking-[0.2em] text-cyan-700">Після завершеного візиту</p>
+        <h2 class="mt-1 text-xl font-semibold text-slate-900">Запити внутрішніх відгуків</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-500">Frontend лише редагує backend-конфігурацію. Планування, доставка, одноразові посилання та переходи статусів залишаються на сервері.</p>
+      </div>
+
+      <div v-if="reviewPending" class="h-40 animate-pulse rounded-2xl bg-slate-100" />
+      <p v-else-if="reviewError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ apiErrorMessage(reviewError, 'Конфігурація запитів відгуків недоступна: потрібен backend settings contract.') }}</p>
+      <div v-else class="grid gap-5 xl:grid-cols-2">
+        <div class="space-y-4">
+          <label class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700"><span>Автоматичні запити увімкнено</span><BaseCheckbox v-model="reviewForm.enabled" /></label>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Затримка після завершення, хв</span><BaseInput v-model.number="reviewForm.delay_minutes" type="number" min="0" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Основний канал</span><BaseInput value="Telegram" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.sms_fallback_enabled" /> SMS fallback, якщо Telegram недоступний</label>
+          <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.quiet_hours_enabled" /> Дотримуватися quiet hours</label>
+          <div v-if="reviewForm.quiet_hours_enabled" class="grid gap-4 sm:grid-cols-2">
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Від</span><BaseInput v-model="reviewForm.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">До</span><BaseInput v-model="reviewForm.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Максимум запитів</span><BaseInput v-model.number="reviewForm.frequency_cap_count" type="number" min="1" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">За період, днів</span><BaseInput v-model.number="reviewForm.frequency_cap_days" type="number" min="1" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+          </div>
+          <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Виключення (одне backend-правило на рядок)</span><BaseTextarea v-model="exclusionsText" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" placeholder="customer_opted_out" /></label>
+          <div class="rounded-2xl bg-slate-950 p-4 text-sm text-white"><p class="text-xs uppercase tracking-[0.18em] text-white/50">Попередній перегляд шаблону</p><p class="mt-3 whitespace-pre-wrap leading-6">{{ reviewForm.template_preview || 'Backend не надав preview шаблону.' }}</p></div>
+        </div>
+      </div>
+
+      <BaseButton v-if="!reviewPending" variant="primary" :loading="reviewSaving" :disabled="!canSendMessagingCampaigns || Boolean(reviewError)" @click="saveReviewSettings">Зберегти правила запитів</BaseButton>
+    </section>
   </div>
 </template>

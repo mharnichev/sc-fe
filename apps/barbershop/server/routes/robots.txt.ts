@@ -7,6 +7,7 @@ export default defineEventHandler((event) => {
   return [
     'User-agent: *',
     'Allow: /',
+    'Disallow: /review',
     '',
     `Sitemap: ${siteUrl}/sitemap.xml`,
     '',

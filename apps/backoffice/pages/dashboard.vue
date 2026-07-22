@@ -70,6 +70,11 @@ const { data, pending, error, refresh } = await useAsyncData(
   },
   { watch: [barberId] },
 )
+const { data: reviewStats, pending: reviewPending, error: reviewError, refresh: refreshReviewStats } = await useAsyncData(
+  'barber-dashboard-review-statistics',
+  () => api.getMyRatingStatistics(),
+)
+const refreshAll = () => Promise.all([refresh(), refreshReviewStats()])
 
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
@@ -302,7 +307,7 @@ const availabilityRows = computed(() =>
         type="button"
         :disabled="pending"
         class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm"
-        @click="refresh"
+        @click="refreshAll"
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         {{ pending ? 'Оновлення...' : 'Оновити' }}
@@ -316,6 +321,8 @@ const availabilityRows = computed(() =>
     <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити dashboard майстра.') }}
     </p>
+
+    <ReviewsRatingSummary :stats="reviewStats" :loading="reviewPending" :error="reviewError" />
 
     <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
       <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">

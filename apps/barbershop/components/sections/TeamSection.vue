@@ -15,7 +15,6 @@ const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
 const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters, {
-  server: false,
   default: () => [],
 })
 
@@ -216,6 +215,12 @@ watch(teamMembers, (members) => {
                 <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
                   {{ activeMember.description }}
                 </p>
+                <MasterRatingBlock
+                  :master-id="activeMember.id"
+                  tone="dark"
+                  compact
+                  class="mt-4"
+                />
               </div>
             </Transition>
           </div>
@@ -299,6 +304,13 @@ watch(teamMembers, (members) => {
                 <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
                   {{ activeMember.description }}
                 </p>
+                <MasterRatingBlock
+                  :master-id="activeMember.id"
+                  :review-limit="1"
+                  show-reviews
+                  tone="dark"
+                  class="mt-5 max-w-md"
+                />
               </div>
             </Transition>
           </div>

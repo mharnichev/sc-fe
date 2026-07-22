@@ -24,7 +24,7 @@ export default defineNuxtRouteMiddleware(async to => {
   if (!auth.user) {
     return navigateTo(loginRedirect(to))
   }
-  if ((to.path.startsWith('/messaging') || to.path.startsWith('/blog')) && !(auth.user.is_superuser || auth.user.role === 'admin')) {
+  if ((to.path.startsWith('/messaging') || to.path.startsWith('/blog') || to.path.startsWith('/reviews')) && !(auth.user.is_superuser || auth.user.role === 'admin')) {
     return navigateTo('/')
   }
 })

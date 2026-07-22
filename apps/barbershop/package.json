@@ -6,7 +6,8 @@
     "dev": "nuxt dev --port 3000",
     "build": "nuxt build",
     "start": "nuxt start",
-    "lint": "nuxi typecheck"
+    "lint": "nuxi typecheck",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@nuxtjs/tailwindcss": "^6.12.1",

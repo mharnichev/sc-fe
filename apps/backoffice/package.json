@@ -7,7 +7,8 @@
     "dev:network": "nuxt dev --host 0.0.0.0 --port 4040",
     "build": "nuxt build",
     "start": "nuxt start",
-    "lint": "nuxi typecheck"
+    "lint": "nuxi typecheck",
+    "test": "node --test tests/reviews.test.mjs"
   },
   "dependencies": {
     "@heroicons/vue": "^2.1.5",
