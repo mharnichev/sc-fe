@@ -416,9 +416,9 @@ const runJob = async (job: SmsJob) => {
           <tbody class="divide-y divide-slate-100">
             <tr v-for="campaign in campaigns" :key="campaign.id">
               <td data-label="Назва" class="px-4 py-3 font-medium text-slate-900">{{ campaign.name }}</td>
-              <td data-label="Тип" class="px-4 py-3"><CampaignTypeBadge :type="campaign.type" /></td>
+              <td data-label="Тип" class="px-4 py-3"><MessagingCampaignTypeBadge :type="campaign.type" /></td>
               <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="campaign.channel" /></td>
-              <td data-label="Статус" class="px-4 py-3"><CampaignStatusBadge :status="campaign.status" /></td>
+              <td data-label="Статус" class="px-4 py-3"><MessagingCampaignStatusBadge :status="campaign.status" /></td>
               <td data-label="Location" class="px-4 py-3 text-slate-700">{{ campaign.location_key || '—' }}</td>
               <td data-label="Sent / failed" class="px-4 py-3 text-slate-700">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
               <td data-label="Оновлено" class="px-4 py-3 text-slate-700">{{ campaign.updated_at ? new Date(campaign.updated_at).toLocaleString('uk-UA') : '—' }}</td>
@@ -550,7 +550,7 @@ const runJob = async (job: SmsJob) => {
               <PhoneIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
               SMS preview
             </div>
-            <MessagePreview :body="form.message_body" :sample="sampleClient" />
+            <MessagingMessagePreview :body="form.message_body" :sample="sampleClient" />
           </div>
         </div>
       </template>

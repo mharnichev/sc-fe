@@ -305,7 +305,7 @@ const insertCampaignVariable = (variable: string) => {
       </div>
     </div>
 
-    <SmsCampaignsPanel @changed="refreshMessagingData" />
+    <MessagingSmsCampaignsPanel @changed="refreshMessagingData" />
 
     <section id="campaigns" ref="campaignsSectionRef" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
