@@ -11,6 +11,14 @@ type LocalizedMasterDto = MasterDto & {
   bio_en?: string | null
 }
 
+const props = withDefaults(defineProps<{
+  bookingTarget?: string
+  showAllActive?: boolean
+}>(), {
+  bookingTarget: '#booking',
+  showAllActive: false,
+})
+
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
@@ -54,7 +62,7 @@ const isVisibleInMasterBlock = (master: MasterDto) =>
 const teamMembers = computed(() =>
   (masters.value || [])
     .filter(isMasterActive)
-    .filter(isVisibleInMasterBlock)
+    .filter(master => props.showAllActive || isVisibleInMasterBlock(master))
     .map(master => ({
       id: master.id,
       name: masterName(master),
@@ -275,7 +283,7 @@ watch(teamMembers, (members) => {
               </button>
             </nav>
 
-            <BaseButton to="#booking">
+            <BaseButton :to="props.bookingTarget">
               {{ terms.home.team.cta }}
             </BaseButton>
 

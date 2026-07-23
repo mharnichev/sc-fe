@@ -71,7 +71,7 @@ useSeo(
 </script>
 
 <template>
-  <div class="space-y-16">
+  <div class="space-y-16 pb-16 md:pb-24">
     <section class="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
       <div class="space-y-6">
         <BaseSectionLabel>{{ terms.home.eyebrow }}</BaseSectionLabel>
@@ -95,11 +95,13 @@ useSeo(
     <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
     <section class="main-page__popular">
-      <p class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
+      <p class="type-eyebrow type-eyebrow--wide text-xs">
+        <BaseScribbleOutline>{{ terms.home.popularEyebrow }}</BaseScribbleOutline>
+      </p>
       <div class="main-page__popular-heading">
         <div class="main-page__popular-copy">
           <h2 class="section-title type-title-strong">
-            <BaseScribbleOutline>{{ terms.home.popularTitle }}</BaseScribbleOutline>
+            {{ terms.home.popularTitle }}
           </h2>
           <p>{{ terms.home.popularDescription }}</p>
         </div>
@@ -138,8 +140,9 @@ useSeo(
         :tail-skeleton-count="isLoading ? 12 : 0"
       />
       <div v-if="canLoadMore" class="mt-6">
-        <BaseButton type="button" block variant="outline-dark" :disabled="isLoading" @click="fetchGoods">
+        <BaseButton type="button" variant="text" :disabled="isLoading" @click="fetchGoods">
           {{ isLoading ? terms.common.loading : terms.home.showMore }}
+          <BaseIcon name="simple-arrow-right" size="xxs" />
         </BaseButton>
       </div>
     </AppSection>
@@ -152,7 +155,6 @@ useSeo(
   flex-direction: column;
   gap: 1rem;
   padding-bottom: 4rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.12);
 }
 
 .main-page__popular-heading {

@@ -130,7 +130,7 @@ defineExpose({
                   v-if="!blockClose"
                   class="base-modal__close"
                   type="button"
-                  variant="outline-dark"
+                  variant="text"
                   size="sm"
                   shape="circle"
                   :aria-label="terms.common.closeDialog"
@@ -188,11 +188,10 @@ defineExpose({
     left: var(--overlay-close-cursor-x, -3rem);
     width: 42px;
     height: 42px;
-    border: 2px solid #ffffff;
     border-radius: 50%;
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='M13.5 4.5L4.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4.5 4.5L13.5 13.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px 18px no-repeat,
-      radial-gradient(circle, #101010 0 calc(100% - 4px), #ffffff calc(100% - 4px) 100%);
+      #101010;
     box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
     content: '';
     opacity: 0;
@@ -219,7 +218,7 @@ defineExpose({
   max-height: calc(100vh - 2rem);
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgb(10 10 10 / 0.12);
+  border: 0;
   background: #ffffff;
 }
 
@@ -230,7 +229,6 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.1);
   background: #ffffff;
   padding: 0.875rem 1rem;
 }
@@ -275,7 +273,6 @@ defineExpose({
 
 .base-modal__bottom-buttons {
   flex: 0 0 auto;
-  border-top: 1px solid rgb(10 10 10 / 0.1);
   background: #ffffff;
   padding: 1rem;
 }
@@ -320,12 +317,10 @@ defineExpose({
 
 .base-modal--right:not(.base-modal--inline) .base-modal__container {
   right: 0;
-  border-right: 0;
 }
 
 .base-modal--left:not(.base-modal--inline) .base-modal__container {
   left: 0;
-  border-left: 0;
 }
 
 .base-modal--bottom:not(.base-modal--inline) .base-modal__container {
@@ -336,7 +331,6 @@ defineExpose({
   height: 80vh;
   height: 80dvh;
   max-height: min(90vh, 42rem);
-  border-bottom: 0;
 }
 
 .base-modal--top:not(.base-modal--inline) .base-modal__container {
@@ -345,7 +339,6 @@ defineExpose({
   left: 0;
   width: 100vw;
   max-height: min(90vh, 42rem);
-  border-top: 0;
 }
 
 .base-modal--full-height .base-modal__content {
@@ -431,8 +424,6 @@ defineExpose({
     width: min(100vw, 36rem);
     height: 100vh;
     max-height: 100vh;
-    border-right: 0;
-    border-bottom: 1px solid rgb(10 10 10 / 0.12);
   }
 
   .base-modal-enter-from.base-modal--bottom .base-modal__container,

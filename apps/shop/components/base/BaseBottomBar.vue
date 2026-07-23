@@ -1,19 +1,8 @@
 <script setup lang="ts">
-import type { CategoryTreeNodeDto } from '@shared-types'
-
-const POPULAR_CATEGORY_LIMIT = 4
-const POPULAR_CATEGORY_SLUG_GROUPS = [
-  ['kosmetika-dlia-borodi', 'kosmetika-nabori-boroda'],
-  ['kosmetika-dlia-volossia', 'kosmetika-ukladochni', 'kosmetika-nabori-volossia'],
-  ['kosmetika-dlia-golinnia', 'kosmetika-do-golinnia', 'kosmetika-pislia-golinnia', 'kosmetika-nabori-golinnia'],
-  ['kosmetika-dlia-tila', 'kosmetika-dlia-tila-dlia-oblichchia', 'kosmetika-dogliad-za-rukami'],
-]
-const EXCLUDED_POPULAR_CATEGORY_SLUG_PREFIXES = ['brendi']
 const cart = useCartStore()
 const favorites = useFavoritesStore()
 const auth = useCustomerAuthStore()
 const modal = useModalStore()
-const domain = useCatalogDomain()
 const route = useRoute()
 const { terms } = useShopLocale()
 
@@ -26,16 +15,8 @@ type SurfaceTheme = 'dark' | 'light'
 const bottomBarElement = ref<HTMLElement | null>(null)
 const isPartiallyHidden = ref(false)
 const isOnDarkSurface = ref(false)
-const isTopRoute = computed(() => route.path === '/top')
 const lastYPosition = ref(0)
-const categoryTree = ref<CategoryTreeNodeDto[]>([])
 let toneFrame: number | undefined
-let categoryLoadPromise: Promise<void> | undefined
-
-interface CategoryCandidate {
-  category: CategoryTreeNodeDto
-  text: string
-}
 
 const accountInitials = computed(() => {
   if (!auth.isAuthenticated) return ''
@@ -47,97 +28,7 @@ const accountInitials = computed(() => {
     .join('')
 })
 
-const normalizeCategoryText = (value: string) => value.toLocaleLowerCase()
-const categorySearchText = (category: CategoryTreeNodeDto) =>
-  normalizeCategoryText(`${category.name} ${category.slug} ${category.description || ''}`)
-const categoryCandidates = computed(() => {
-  const candidates: CategoryCandidate[] = []
-
-  const visit = (nodes: CategoryTreeNodeDto[]) => {
-    nodes.forEach(category => {
-      candidates.push({
-        category,
-        text: categorySearchText(category),
-      })
-
-      if (category.children.length) visit(category.children)
-    })
-  }
-
-  visit(categoryTree.value)
-
-  return candidates
-})
-const isPopularCategoryExcluded = (category: CategoryTreeNodeDto) =>
-  EXCLUDED_POPULAR_CATEGORY_SLUG_PREFIXES.some(prefix => category.slug === prefix || category.slug.startsWith(`${prefix}-`))
-const selectableCategoryCandidates = computed(() =>
-  categoryCandidates.value.filter(candidate => !isPopularCategoryExcluded(candidate.category)),
-)
-const popularCategoryKeywords = computed(() => {
-  const [beard, hair, shaving, care] = terms.value.header.popularGroups
-
-  return [
-    [beard, 'бород', 'beard'],
-    [hair, 'волос', 'hair', 'помад', 'pomade', 'стайл', 'styling'],
-    [shaving, 'голін', 'брит', 'shav', 'razor'],
-    [care, 'догляд', 'шкір', 'тіла', 'облич', 'care', 'skin', 'body', 'face'],
-  ]
-})
-const popularCategoryTargets = computed(() => {
-  const picked: CategoryCandidate[] = []
-  const usedSlugs = new Set<string>()
-
-  const addCandidate = (candidate?: CategoryCandidate) => {
-    if (!candidate || usedSlugs.has(candidate.category.slug) || picked.length >= POPULAR_CATEGORY_LIMIT) return
-
-    usedSlugs.add(candidate.category.slug)
-    picked.push(candidate)
-  }
-
-  for (const slugs of POPULAR_CATEGORY_SLUG_GROUPS) {
-    addCandidate(selectableCategoryCandidates.value.find(candidate => slugs.includes(candidate.category.slug)))
-  }
-
-  for (const keywords of popularCategoryKeywords.value) {
-    addCandidate(selectableCategoryCandidates.value.find(candidate =>
-      keywords.some(keyword => keyword && candidate.text.includes(normalizeCategoryText(keyword))),
-    ))
-  }
-
-  categoryTree.value.forEach(category => {
-    addCandidate(selectableCategoryCandidates.value.find(candidate => candidate.category.id === category.id))
-  })
-  selectableCategoryCandidates.value.forEach(addCandidate)
-
-  return picked
-})
-const activeRouteCategorySlug = computed(() =>
-  Array.isArray(route.query.category) ? String(route.query.category[0] || '') : String(route.query.category || ''),
-)
-const isCategoryActive = (category: CategoryTreeNodeDto) => activeRouteCategorySlug.value === category.slug
-const categoryLink = (category: CategoryTreeNodeDto) => ({
-  path: '/catalog',
-  query: { category: category.slug },
-})
-
-const loadCategories = async () => {
-  if (categoryTree.value.length) return
-
-  categoryLoadPromise ||= domain.getCategoryTree()
-    .then(categories => {
-      categoryTree.value = categories
-    })
-    .finally(() => {
-      categoryLoadPromise = undefined
-    })
-
-  await categoryLoadPromise
-}
-
-const openCatalog = () => modal.openModal(
-  'CatalogModal',
-  categoryTree.value.length ? { initialCategories: categoryTree.value } : {},
-)
+const openCatalog = () => modal.openModal('CatalogModal')
 const openBasket = () => modal.openModal('UserBasketModal')
 const openFavorites = () => modal.openModal(auth.isAuthenticated ? 'UserFavoriteModal' : 'UserAuthModal')
 const openAccount = () => modal.openModal(auth.isAuthenticated ? 'CabinetModal' : 'UserAuthModal')
@@ -262,7 +153,6 @@ onMounted(() => {
   lastYPosition.value = window.scrollY
   updateBottomBarVisibility()
   updateBottomBarTone()
-  void loadCategories()
   window.addEventListener('scroll', updateBottomBarVisibility, { passive: true })
   window.addEventListener('resize', updateBottomBarTone)
 })
@@ -286,28 +176,6 @@ onBeforeUnmount(() => {
     ]"
     :aria-label="terms.header.shopActions"
   >
-    <div
-      class="base-bottom-bar__categories"
-      :aria-label="terms.header.popularNavigation"
-    >
-      <NuxtLink
-        to="/top"
-        :class="['base-bottom-bar__category', { 'base-bottom-bar__category--active': isTopRoute }]"
-        :aria-current="isTopRoute ? 'page' : undefined"
-      >
-        <BaseHoverUnderlineText>{{ terms.home.popularEyebrow }}</BaseHoverUnderlineText>
-      </NuxtLink>
-      <NuxtLink
-        v-for="target in popularCategoryTargets"
-        :key="target.category.id"
-        :to="categoryLink(target.category)"
-        :class="['base-bottom-bar__category', { 'base-bottom-bar__category--active': isCategoryActive(target.category) }]"
-        :aria-current="isCategoryActive(target.category) ? 'page' : undefined"
-      >
-        <BaseHoverUnderlineText>{{ target.category.name }}</BaseHoverUnderlineText>
-      </NuxtLink>
-    </div>
-
     <NuxtLink to="/" class="base-bottom-bar__btn" :aria-label="terms.common.main">
       <BaseIcon name="home" size="xxs" effect="button" />
     </NuxtLink>
@@ -356,58 +224,6 @@ onBeforeUnmount(() => {
 
 .base-bottom-bar--partially-hidden {
   transform: translateY(28px);
-}
-
-.base-bottom-bar__categories {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 6px);
-  left: 0;
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 2px 0;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.base-bottom-bar__categories::-webkit-scrollbar {
-  display: none;
-}
-
-.base-bottom-bar__category {
-  display: inline-flex;
-  max-width: 42vw;
-  min-height: 32px;
-  flex: 0 0 auto;
-  align-items: center;
-  border: 1px solid rgb(10 10 10 / 0.14);
-  background: rgb(255 255 255 / 0.92);
-  color: #0a0a0a;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
-  padding: 0 0.72rem;
-  text-decoration: none;
-}
-
-.base-bottom-bar__category:hover,
-.base-bottom-bar__category:focus-visible {
-  border-color: #0a0a0a;
-  color: #0a0a0a;
-  outline: none;
-}
-
-.base-bottom-bar__category--active {
-  border-color: #0a0a0a;
-  background: #0a0a0a;
-  color: #ffffff;
-}
-
-.base-bottom-bar__category {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .base-bottom-bar__btn {

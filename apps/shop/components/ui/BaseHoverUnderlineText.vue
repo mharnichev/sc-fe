@@ -24,6 +24,7 @@ let hoverTarget: HTMLElement | null = null
 let resizeObserver: ResizeObserver | null = null
 let mutationObserver: MutationObserver | null = null
 let measureFrame: number | null = null
+let hoverStartFrame: number | null = null
 
 const lineStyle = (line: UnderlineLine) => ({
   left: `${line.left}px`,
@@ -31,14 +32,33 @@ const lineStyle = (line: UnderlineLine) => ({
   width: `${line.width}px`,
 })
 
-const setHovered = (value: boolean) => {
-  if (props.disabled) {
-    isHovered.value = false
+const stopHoverAnimation = () => {
+  if (hoverStartFrame !== null) {
+    window.cancelAnimationFrame(hoverStartFrame)
+    hoverStartFrame = null
+  }
+
+  isHovered.value = false
+}
+
+const startHoverAnimation = () => {
+  if (props.disabled || !import.meta.client) {
+    stopHoverAnimation()
     return
   }
 
-  isHovered.value = value
-  if (value) scheduleMeasure()
+  stopHoverAnimation()
+  scheduleMeasure()
+
+  // Keep the reset and start frames local to this component instance. This
+  // guarantees that a newly hovered underline always starts at scaleX(0), even
+  // when the pointer moves directly from another active underline.
+  hoverStartFrame = window.requestAnimationFrame(() => {
+    hoverStartFrame = window.requestAnimationFrame(() => {
+      hoverStartFrame = null
+      isHovered.value = true
+    })
+  })
 }
 
 const resolveHoverTarget = () => {
@@ -75,22 +95,22 @@ const attachHoverTarget = () => {
 }
 
 function handlePointerEnter() {
-  setHovered(true)
+  startHoverAnimation()
 }
 
 function handlePointerLeave() {
-  setHovered(false)
+  stopHoverAnimation()
 }
 
 function handleFocusIn() {
-  setHovered(true)
+  startHoverAnimation()
 }
 
 function handleFocusOut(event: FocusEvent) {
   const nextTarget = event.relatedTarget
   if (nextTarget instanceof Node && hoverTarget?.contains(nextTarget)) return
 
-  setHovered(false)
+  stopHoverAnimation()
 }
 
 const measureLines = () => {
@@ -171,6 +191,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', scheduleMeasure)
 
   if (measureFrame !== null) window.cancelAnimationFrame(measureFrame)
+  if (hoverStartFrame !== null) window.cancelAnimationFrame(hoverStartFrame)
 })
 
 watch(() => props.trigger, () => {
@@ -179,7 +200,7 @@ watch(() => props.trigger, () => {
 })
 
 watch(() => props.disabled, (disabled) => {
-  if (disabled) isHovered.value = false
+  if (disabled) stopHoverAnimation()
 })
 </script>
 

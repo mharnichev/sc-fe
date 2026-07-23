@@ -1,3 +1,5 @@
+import { isTokenizedReviewLocation } from '~/utils/reviews.js'
+
 const HOTJAR_ID = 6726165
 const HOTJAR_VERSION = 6
 const HOTJAR_SCRIPT_ID = 'hotjar-tracking-code'
@@ -20,6 +22,17 @@ export default defineNuxtPlugin(() => {
   const { canUseAnalytics } = useCookieConsent()
   let isLoaded = false
   let isLoadScheduled = false
+  let isPrivateReviewSession = isTokenizedReviewLocation(window.location.pathname, window.location.hash)
+
+  const hasPrivateReviewContext = () => {
+    if (isPrivateReviewSession) return true
+
+    isPrivateReviewSession = isTokenizedReviewLocation(
+      route.path,
+      route.hash || window.location.hash,
+    )
+    return isPrivateReviewSession
+  }
 
   const runWhenIdle = (callback: () => void) => {
     if (typeof window.requestIdleCallback === 'function') {
@@ -31,7 +44,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const loadHotjar = () => {
-    if (route.path === '/review' || route.path.startsWith('/review/')) return
+    if (hasPrivateReviewContext()) return
     if (isLoaded || document.getElementById(HOTJAR_SCRIPT_ID)) return
 
     window.hj = window.hj || function hj() {
@@ -52,7 +65,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const scheduleHotjarLoad = () => {
-    if (route.path === '/review' || route.path.startsWith('/review/')) return
+    if (hasPrivateReviewContext()) return
     if (isLoadScheduled || isLoaded) return
     isLoadScheduled = true
 
@@ -60,7 +73,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value && route.path !== '/review' && !route.path.startsWith('/review/')) loadHotjar()
+          if (canUseAnalytics.value && !hasPrivateReviewContext()) loadHotjar()
         })
       }, 2200)
     }
@@ -69,7 +82,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value && route.path !== '/review' && !route.path.startsWith('/review/')) loadHotjar()
+          if (canUseAnalytics.value && !hasPrivateReviewContext()) loadHotjar()
         })
       }, 12000)
     }

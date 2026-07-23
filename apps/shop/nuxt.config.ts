@@ -10,7 +10,11 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
-  css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
+  css: [
+    '~/assets/css/animations/reveal.css',
+    '~/assets/css/main.css',
+    '~/assets/css/typography.css',
+  ],
   components: [
     {
       path: '~/components',

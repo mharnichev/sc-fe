@@ -9,8 +9,14 @@ const shouldRenderDesktopNav = ref(false)
 const { locale, localeOptions, setLocale, terms } = useTerms()
 const route = useRoute()
 let desktopNavMediaQuery: MediaQueryList | null = null
+let desktopMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
-const menuItems = computed(() => terms.value.nav)
+const menuItems = computed(() => [
+  ...(route.path === '/'
+    ? []
+    : [{ label: terms.value.common.homeLink, href: '/' }]),
+  ...terms.value.nav,
+])
 const menuButtonClass = computed(() =>
   headerTheme.value === 'dark'
     ? 'text-white hover:text-white/70'
@@ -44,6 +50,11 @@ const syncDesktopNavRender = () => {
 }
 
 const openDesktopMenu = () => {
+  if (desktopMenuCloseTimer !== null) {
+    clearTimeout(desktopMenuCloseTimer)
+    desktopMenuCloseTimer = null
+  }
+
   if (isDesktopViewport()) {
     isOpen.value = true
   }
@@ -53,6 +64,30 @@ const closeDesktopMenu = () => {
   if (isDesktopViewport()) {
     isOpen.value = false
   }
+}
+
+const scheduleDesktopMenuClose = () => {
+  if (!isDesktopViewport()) return
+
+  if (desktopMenuCloseTimer !== null) {
+    clearTimeout(desktopMenuCloseTimer)
+  }
+
+  desktopMenuCloseTimer = setTimeout(() => {
+    desktopMenuCloseTimer = null
+    closeDesktopMenu()
+  }, 180)
+}
+
+const handleDesktopFocusOut = (event: FocusEvent) => {
+  const nav = event.currentTarget as HTMLElement | null
+  const nextTarget = event.relatedTarget as Node | null
+
+  if (nav && nextTarget && nav.contains(nextTarget)) {
+    return
+  }
+
+  closeDesktopMenu()
 }
 
 const toggleMobileMenu = () => {
@@ -188,6 +223,9 @@ onBeforeUnmount(() => {
     if (themeFrame !== null) {
       window.cancelAnimationFrame(themeFrame)
     }
+    if (desktopMenuCloseTimer !== null) {
+      clearTimeout(desktopMenuCloseTimer)
+    }
     document.body.style.overflow = ''
   }
 })
@@ -222,13 +260,13 @@ onBeforeUnmount(() => {
     <nav
       v-if="shouldRenderDesktopNav"
       id="desktop-nav"
-      class="pointer-events-none fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start pr-3 lg:flex"
-      :class="isOpen ? 'overflow-y-auto' : 'overflow-hidden'"
+      class="fixed left-4 top-4 z-40 hidden max-h-[calc(100vh-2rem)] flex-col items-start pr-3 lg:flex"
+      :class="isOpen ? 'pointer-events-auto overflow-y-auto' : 'pointer-events-none overflow-hidden'"
       :aria-label="terms.common.menu"
       @mouseenter="openDesktopMenu"
-      @mouseleave="closeDesktopMenu"
+      @mouseleave="scheduleDesktopMenuClose"
       @focusin="openDesktopMenu"
-      @focusout="closeDesktopMenu"
+      @focusout="handleDesktopFocusOut"
     >
       <div class="pointer-events-auto">
         <button
@@ -243,7 +281,10 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div class="pointer-events-none relative -ml-3 mt-1 flex flex-col items-start px-3 py-2">
+      <div
+        class="relative -ml-3 mt-1 flex flex-col items-start px-3 py-2"
+        :class="isOpen ? 'pointer-events-auto' : 'pointer-events-none'"
+      >
         <div
           class="absolute -inset-x-2 -inset-y-1 border transition-opacity duration-200"
           :class="[desktopMenuSurfaceClass, isOpen ? 'opacity-100' : 'opacity-0']"

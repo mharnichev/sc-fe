@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CategoryTreeNodeDto } from '@shared-types'
+import { categoryDestination } from '~/utils/category-routing'
 
 const props = defineProps<{
   modelValue: boolean
@@ -13,26 +14,38 @@ const emit = defineEmits<{
 const domain = useCatalogDomain()
 const modal = useModalStore()
 const { terms } = useShopLocale()
+const { data: cachedCategories } = useNuxtData<CategoryTreeNodeDto[]>('shop-header-category-tree')
 const isShow = ref(false)
 const loading = ref(false)
-const categories = ref<CategoryTreeNodeDto[]>([])
-const activeCategory = ref<CategoryTreeNodeDto | null>(null)
-const iconNames = ['tools', 'oil', 'battery', 'circular-saw', 'garden-tools', 'generator', 'wrench']
+const categories = ref<CategoryTreeNodeDto[]>(cachedCategories.value || [])
+const activePath = ref<CategoryTreeNodeDto[]>([])
+const direction = ref<'forward' | 'back'>('forward')
 
-watch(() => props.modelValue, value => {
+const activeCategory = computed(() => activePath.value.at(-1) || null)
+const visibleCategories = computed(() => activeCategory.value?.children || categories.value)
+const panelKey = computed(() => activePath.value.map(category => category.id).join('-') || 'root')
+const transitionName = computed(() => `catalog-sidebar-${direction.value}`)
+const levelTitle = computed(() => activeCategory.value?.name || terms.value.catalog.sidebarFallbackTitle)
+
+watch(() => props.modelValue, (value) => {
   isShow.value = value
+  if (value) {
+    activePath.value = []
+    direction.value = 'forward'
+  }
 }, { immediate: true })
 
-watch(() => props.initialCategories, value => {
+watch(() => props.initialCategories, (value) => {
   if (value?.length) categories.value = value
 }, { immediate: true })
 
-watch(categories, value => {
-  if (!activeCategory.value && value.length) activeCategory.value = value[0]
+watch(cachedCategories, (value) => {
+  if (value?.length) categories.value = value
 }, { immediate: true })
 
 const loadCategories = async () => {
   if (categories.value.length || loading.value) return
+
   loading.value = true
   try {
     categories.value = await domain.getCategoryTree()
@@ -42,8 +55,8 @@ const loadCategories = async () => {
   }
 }
 
-watch(isShow, value => {
-  if (value) loadCategories()
+watch(isShow, (value) => {
+  if (value) void loadCategories()
 })
 
 const hideCatalogModal = () => {
@@ -52,18 +65,30 @@ const hideCatalogModal = () => {
   modal.hideModal()
 }
 
-const goToCategory = async (slug: string) => {
+const goTo = async (to: string | ReturnType<typeof categoryDestination>) => {
   hideCatalogModal()
-  await navigateTo({ path: '/catalog', query: { category: slug } })
+  await navigateTo(to)
 }
 
-const onCategoryClick = async (category: CategoryTreeNodeDto) => {
-  if (!category.children.length || activeCategory.value?.slug === category.slug) {
-    await goToCategory(category.slug)
+const openCategory = async (category: CategoryTreeNodeDto) => {
+  if (!category.children.length) {
+    await goTo(categoryDestination(categories.value, category))
     return
   }
 
-  activeCategory.value = category
+  direction.value = 'forward'
+  activePath.value = [...activePath.value, category]
+}
+
+const goBack = () => {
+  if (!activePath.value.length) return
+  direction.value = 'back'
+  activePath.value = activePath.value.slice(0, -1)
+}
+
+const goToActiveCategory = async () => {
+  if (!activeCategory.value) return
+  await goTo(categoryDestination(categories.value, activeCategory.value))
 }
 </script>
 
@@ -77,155 +102,120 @@ const onCategoryClick = async (category: CategoryTreeNodeDto) => {
     @close="hideCatalogModal"
   >
     <section class="catalog-sidebar">
-      <aside class="catalog-sidebar__rail">
-        <button
-          v-for="(category, index) in categories"
-          :key="category.id"
-          :class="['catalog-sidebar__category', { 'catalog-sidebar__category--active': activeCategory?.slug === category.slug }]"
+      <header class="catalog-sidebar__header">
+        <p>{{ terms.catalog.sidebarTitle }}</p>
+        <BaseButton
+          class="catalog-sidebar__close"
           type="button"
-          @click="onCategoryClick(category)"
+          variant="outline-dark"
+          size="sm"
+          shape="circle"
+          :aria-label="terms.catalog.closeCatalog"
+          @click="hideCatalogModal"
         >
-          <BaseIcon :name="iconNames[index % iconNames.length]" category="menu" size="sm" effect="button" />
-          <span><BaseHoverUnderlineText>{{ category.name }}</BaseHoverUnderlineText></span>
-        </button>
-      </aside>
+          <BaseIcon name="close" size="xxs" />
+        </BaseButton>
+      </header>
 
-      <main class="catalog-sidebar__main">
-        <div class="catalog-sidebar__header">
-          <div>
-            <p>{{ terms.catalog.sidebarTitle }}</p>
-            <h2>{{ activeCategory?.name || terms.catalog.sidebarFallbackTitle }}</h2>
-          </div>
-          <BaseButton
-            class="catalog-sidebar__close"
-            type="button"
-            variant="outline-dark"
-            size="sm"
-            shape="circle"
-            :aria-label="terms.common.closeDialog"
-            @click="hideCatalogModal"
-          >
-            <BaseIcon name="close" size="xxs" />
-          </BaseButton>
-        </div>
+      <div v-if="loading" class="catalog-sidebar__state">
+        {{ terms.catalog.loadingCategories }}
+      </div>
 
-        <div v-if="loading" class="catalog-sidebar__state">{{ terms.catalog.loadingCategories }}</div>
+      <div v-else-if="!categories.length" class="catalog-sidebar__state">
+        {{ terms.catalog.categoriesUnavailable }}
+      </div>
 
-        <div v-else-if="activeCategory" class="catalog-sidebar__content">
-          <button class="catalog-sidebar__all" type="button" @click="goToCategory(activeCategory.slug)">
-            <span><BaseHoverUnderlineText>{{ terms.catalog.allCategory(activeCategory.name) }}</BaseHoverUnderlineText></span>
-            <BaseIcon name="chevron-right" size="xxs" />
-          </button>
+      <div v-else class="catalog-sidebar__viewport">
+        <Transition :name="transitionName">
+          <section :key="panelKey" class="catalog-sidebar__panel">
+            <button
+              v-if="activeCategory"
+              class="catalog-sidebar__back"
+              type="button"
+              @click="goBack"
+            >
+              <BaseIcon name="chevron-left" size="xxs" />
+              <span>{{ activeCategory.name }}</span>
+            </button>
 
-          <div class="catalog-sidebar__children">
-            <article v-for="child in activeCategory.children" :key="child.id" class="catalog-sidebar__child">
-              <button type="button" class="catalog-sidebar__child-title" @click="goToCategory(child.slug)">
-                <span><BaseHoverUnderlineText>{{ child.name }}</BaseHoverUnderlineText></span>
-                <BaseIcon name="chevron-right" size="xxs" />
-              </button>
-              <div v-if="child.children.length" class="catalog-sidebar__grandchildren">
-                <button
-                  v-for="grandchild in child.children"
-                  :key="grandchild.id"
-                  type="button"
-                  @click="goToCategory(grandchild.slug)"
-                >
-                  <BaseHoverUnderlineText>{{ grandchild.name }}</BaseHoverUnderlineText>
-                </button>
-              </div>
-            </article>
-          </div>
-        </div>
+            <nav class="catalog-sidebar__navigation" :aria-label="levelTitle">
+              <ul class="catalog-sidebar__list">
+                <li v-if="!activeCategory">
+                  <NuxtLink class="catalog-sidebar__item" to="/top" @click="hideCatalogModal">
+                    <span>{{ terms.home.popularEyebrow }}</span>
+                  </NuxtLink>
+                </li>
 
-        <div v-else class="catalog-sidebar__state">
-          {{ terms.catalog.categoriesUnavailable }}
-        </div>
-      </main>
+                <li>
+                  <button
+                    v-if="activeCategory"
+                    class="catalog-sidebar__item catalog-sidebar__item--all"
+                    type="button"
+                    @click="goToActiveCategory"
+                  >
+                    <span>{{ terms.catalog.allCategory(activeCategory.name) }}</span>
+                  </button>
+                  <NuxtLink
+                    v-else
+                    class="catalog-sidebar__item catalog-sidebar__item--all"
+                    to="/catalog"
+                    @click="hideCatalogModal"
+                  >
+                    <span>{{ terms.catalog.allCategories }}</span>
+                  </NuxtLink>
+                </li>
+
+                <li v-for="category in visibleCategories" :key="category.id">
+                  <button class="catalog-sidebar__item" type="button" @click="openCategory(category)">
+                    <span class="catalog-sidebar__item-copy">
+                      <strong>{{ category.name }}</strong>
+                      <small v-if="category.description">{{ category.description }}</small>
+                    </span>
+                    <BaseIcon
+                      v-if="category.children.length"
+                      class="catalog-sidebar__chevron"
+                      name="chevron-right"
+                      size="xxs"
+                    />
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </section>
+        </Transition>
+      </div>
     </section>
   </BaseModal>
 </template>
 
-<style>
-.catalog-sidebar-modal .base-modal__container {
-  width: min(92vw, 44rem);
-}
-</style>
-
 <style scoped>
 .catalog-sidebar {
-  display: grid;
-  grid-template-columns: minmax(5.5rem, 7rem) minmax(0, 1fr);
+  display: flex;
   height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   background: #ffffff;
-}
-
-.catalog-sidebar__rail {
-  display: grid;
-  align-content: start;
-  gap: 0.35rem;
-  overflow: auto;
-  border-right: 1px solid rgb(10 10 10 / 0.1);
-  background: #f5f5f4;
-  padding: 0.35rem;
-}
-
-.catalog-sidebar__category {
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
-  border: 0;
-  background: transparent;
-  padding: 0.8rem 0.35rem;
   color: #0a0a0a;
-  cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: center;
-}
-
-.catalog-sidebar__category:hover,
-.catalog-sidebar__category:focus-visible {
-  color: #0a0a0a;
-  outline: none;
-}
-
-.catalog-sidebar__category--active {
-  background: #0a0a0a;
-  color: #ffffff;
-}
-
-.catalog-sidebar__main {
-  min-width: 0;
-  overflow: auto;
 }
 
 .catalog-sidebar__header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  position: relative;
+  z-index: 3;
   display: flex;
+  min-height: 4rem;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.1);
-  background: #ffffff;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
 }
 
 .catalog-sidebar__header p {
-  color: rgb(82 82 82);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-}
-
-.catalog-sidebar__header h2 {
-  margin-top: 0.15rem;
-  font-size: 1.25rem;
-  font-weight: 800;
-  line-height: 1.2;
 }
 
 .catalog-sidebar__close {
@@ -233,82 +223,159 @@ const onCategoryClick = async (category: CategoryTreeNodeDto) => {
 }
 
 .catalog-sidebar__state {
-  padding: 1rem;
-  color: rgb(82 82 82);
-  font-size: 0.9rem;
-}
-
-.catalog-sidebar__content {
   display: grid;
-  gap: 0.85rem;
-  padding: 1rem;
+  flex: 1 1 auto;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  color: rgb(82 82 82);
+  text-align: center;
 }
 
-.catalog-sidebar__all,
-.catalog-sidebar__child-title {
+.catalog-sidebar__viewport {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.catalog-sidebar__panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.catalog-sidebar__back {
   display: flex;
   width: 100%;
+  min-height: 3.2rem;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border: 1px solid rgb(10 10 10 / 0.1);
+  gap: 0.75rem;
+  border: 0;
   background: #ffffff;
-  padding: 0.85rem;
-  color: #0a0a0a;
-  cursor: pointer;
-  font-weight: 800;
-  text-align: left;
-}
-
-.catalog-sidebar__all:hover,
-.catalog-sidebar__all:focus-visible,
-.catalog-sidebar__child-title:hover,
-.catalog-sidebar__child-title:focus-visible {
-  border-color: #0a0a0a;
-  outline: none;
-}
-
-.catalog-sidebar__children {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.catalog-sidebar__child {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.catalog-sidebar__grandchildren {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.catalog-sidebar__grandchildren button {
-  min-height: 3rem;
-  border: 1px solid rgb(10 10 10 / 0.08);
-  background: #f5f5f4;
-  padding: 0.55rem;
+  padding: 0 1.25rem;
   color: #0a0a0a;
   cursor: pointer;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-align: left;
+  text-transform: uppercase;
 }
 
-.catalog-sidebar__grandchildren button:hover,
-.catalog-sidebar__grandchildren button:focus-visible {
-  border-color: #0a0a0a;
+.catalog-sidebar__navigation {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem 0 2rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.catalog-sidebar__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalog-sidebar__item {
+  display: flex;
+  width: 100%;
+  min-height: 2.875rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 1rem;
+  color: #0a0a0a;
+  cursor: pointer;
+  font-size: clamp(1.05rem, 4.5vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  text-align: left;
+  text-decoration: none;
+}
+
+.catalog-sidebar__item:hover,
+.catalog-sidebar__item:focus-visible,
+.catalog-sidebar__back:hover,
+.catalog-sidebar__back:focus-visible {
+  background: #f5f5f4;
   outline: none;
 }
 
-@media (max-width: 520px) {
-  .catalog-sidebar {
-    grid-template-columns: 5.25rem minmax(0, 1fr);
+.catalog-sidebar__item--all {
+  color: rgb(82 82 82);
+}
+
+.catalog-sidebar__item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.catalog-sidebar__item-copy strong {
+  font: inherit;
+}
+
+.catalog-sidebar__item-copy small {
+  overflow: hidden;
+  color: rgb(82 82 82);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-sidebar__chevron {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.catalog-sidebar-forward-enter-active,
+.catalog-sidebar-forward-leave-active,
+.catalog-sidebar-back-enter-active,
+.catalog-sidebar-back-leave-active {
+  transition: transform 500ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.catalog-sidebar-forward-enter-from,
+.catalog-sidebar-back-leave-to {
+  transform: translateX(100%);
+}
+
+.catalog-sidebar-forward-leave-to,
+.catalog-sidebar-back-enter-from {
+  transform: translateX(-100%);
+}
+
+@media (min-width: 768px) {
+  .catalog-sidebar__header,
+  .catalog-sidebar__back,
+  .catalog-sidebar__item {
+    padding-right: 1.5rem;
+    padding-left: 1.5rem;
   }
 
-  .catalog-sidebar__grandchildren {
-    grid-template-columns: 1fr;
+  .catalog-sidebar__item {
+    min-height: 3.5rem;
+    font-size: clamp(1.5rem, 3vw, 3rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-sidebar-forward-enter-active,
+  .catalog-sidebar-forward-leave-active,
+  .catalog-sidebar-back-enter-active,
+  .catalog-sidebar-back-leave-active {
+    transition: none;
   }
 }
 </style>

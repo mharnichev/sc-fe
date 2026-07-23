@@ -1,8 +1,8 @@
 import type { LocaleCode } from './locale'
 import coverImage from '../assets/images/posts/barbering-museum-cover-1600.jpg'
 import coverImageMobile from '../assets/images/posts/barbering-museum-cover-mobile.jpg'
-import idemNaBukvyCoverImage from '../assets/images/posts/idem-na-bukvy-img_0534.webp'
-import idemNaBukvyCoverImageMobile from '../assets/images/posts/idem-na-bukvy-img_0528.webp'
+import idemNaBukvyCoverImage from '../assets/images/posts/idem-na-bukvy-cover.webp'
+import idemNaBukvyCoverImageMobile from '../assets/images/posts/idem-na-bukvy-cover-mobile.webp'
 
 type LocalizedText = Record<LocaleCode, string>
 type AssetModule = { default: string }
@@ -437,8 +437,8 @@ export const posts: BlogPost[] = [
     coverImage: idemNaBukvyCoverImage,
     coverImageMobile: idemNaBukvyCoverImageMobile,
     coverImageAlt: {
-      uk: 'Гості подкасту «Ідем на Букви» у студії',
-      en: 'Guests of the Idem na Bukvy podcast in the studio',
+      uk: 'Колаж із плівкових кадрів з історії проєкту «Ідем на Букви»',
+      en: 'A collage of film photographs from the history of Idem na Bukvy',
     },
     featured: true,
     visibility: 'unlisted',

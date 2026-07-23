@@ -182,9 +182,11 @@ onBeforeUnmount(() => {
   <section v-if="pending || visibleBrands.length" class="brand-slider">
     <div class="brand-slider__heading">
       <div class="brand-slider__copy">
-        <p class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.brandsEyebrow }}</p>
+        <p class="type-eyebrow type-eyebrow--wide text-xs">
+        <BaseScribbleOutline>{{ terms.home.brandsEyebrow }}</BaseScribbleOutline>
+        </p>
         <h2 class="section-title type-title-strong">
-          <BaseScribbleOutline>{{ terms.home.brandsTitle }}</BaseScribbleOutline>
+          {{ terms.home.brandsTitle }}
         </h2>
         <p>{{ terms.home.brandsDescription }}</p>
       </div>
@@ -332,10 +334,6 @@ onBeforeUnmount(() => {
   display: flex;
   min-width: 0;
   scroll-snap-align: start;
-}
-
-.brand-slider__item + .brand-slider__item {
-  border-left: 1px solid rgb(10 10 10 / 0.14);
 }
 
 .brand-slider__card {

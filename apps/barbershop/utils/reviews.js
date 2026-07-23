@@ -17,6 +17,10 @@ export const reviewTokenFromHash = (hash) => {
   }
 }
 
+export const isTokenizedReviewLocation = (pathname, hash) =>
+  (pathname === '/masters' || pathname === '/review')
+  && Boolean(reviewTokenFromHash(hash))
+
 export const isValidReviewRating = rating =>
   Number.isInteger(rating) && rating >= 1 && rating <= 5
 

@@ -41,13 +41,14 @@ const form = reactive<Partial<MessagingSettings>>({
 const reviewForm = reactive<ReviewRequestSettings>({
   enabled: false,
   delay_minutes: 60,
-  primary_channel: 'telegram',
-  sms_fallback_enabled: true,
+  primary_channel: 'sms',
+  sms_fallback_enabled: false,
   quiet_hours_enabled: true,
   quiet_hours_from: '21:00',
   quiet_hours_to: '09:00',
   frequency_cap_count: 1,
-  frequency_cap_days: 30,
+  frequency_cap_days: 90,
+  submitted_frequency_cap_days: 270,
   exclusions: [],
   template_preview: '',
 })
@@ -60,7 +61,7 @@ watch(data, value => {
 
 watch(reviewSettings, value => {
   if (!value) return
-  Object.assign(reviewForm, value, { primary_channel: 'telegram' })
+  Object.assign(reviewForm, value, { primary_channel: 'sms', sms_fallback_enabled: false })
   exclusionsText.value = (value.exclusions || []).join('\n')
 }, { immediate: true })
 
@@ -85,13 +86,14 @@ const saveReviewSettings = async () => {
     const payload: ReviewRequestSettingsUpdate = {
       enabled: reviewForm.enabled,
       delay_minutes: Math.max(0, Number(reviewForm.delay_minutes) || 0),
-      primary_channel: 'telegram',
-      sms_fallback_enabled: reviewForm.sms_fallback_enabled,
+      primary_channel: 'sms',
+      sms_fallback_enabled: false,
       quiet_hours_enabled: reviewForm.quiet_hours_enabled,
       quiet_hours_from: reviewForm.quiet_hours_from,
       quiet_hours_to: reviewForm.quiet_hours_to,
-      frequency_cap_count: Math.max(1, Number(reviewForm.frequency_cap_count) || 1),
+      frequency_cap_count: 1,
       frequency_cap_days: Math.max(1, Number(reviewForm.frequency_cap_days) || 1),
+      submitted_frequency_cap_days: Math.max(1, Number(reviewForm.submitted_frequency_cap_days) || 1),
       exclusions: exclusionsText.value.split('\n').map(value => value.trim()).filter(Boolean),
     }
     await api.updateReviewRequestSettings(payload)
@@ -209,9 +211,8 @@ const saveReviewSettings = async () => {
           <label class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700"><span>Автоматичні запити увімкнено</span><BaseCheckbox v-model="reviewForm.enabled" /></label>
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Затримка після завершення, хв</span><BaseInput v-model.number="reviewForm.delay_minutes" type="number" min="0" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
-            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Основний канал</span><BaseInput value="Telegram" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Основний канал</span><BaseInput value="SMS" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.sms_fallback_enabled" /> SMS fallback, якщо Telegram недоступний</label>
           <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.quiet_hours_enabled" /> Дотримуватися quiet hours</label>
           <div v-if="reviewForm.quiet_hours_enabled" class="grid gap-4 sm:grid-cols-2">
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Від</span><BaseInput v-model="reviewForm.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
@@ -220,9 +221,10 @@ const saveReviewSettings = async () => {
         </div>
 
         <div class="space-y-4">
-          <div class="grid gap-4 sm:grid-cols-2">
-            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Максимум запитів</span><BaseInput v-model.number="reviewForm.frequency_cap_count" type="number" min="1" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
-            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">За період, днів</span><BaseInput v-model.number="reviewForm.frequency_cap_days" type="number" min="1" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+          <div class="grid gap-4 sm:grid-cols-3">
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Максимум запитів</span><BaseInput :model-value="1" type="number" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Без відгуку, днів</span><BaseInput v-model.number="reviewForm.frequency_cap_days" type="number" min="1" max="365" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Після відгуку, днів</span><BaseInput v-model.number="reviewForm.submitted_frequency_cap_days" type="number" min="1" max="365" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
           </div>
           <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Виключення (одне backend-правило на рядок)</span><BaseTextarea v-model="exclusionsText" class="min-h-28 rounded-2xl border border-slate-300 px-4 py-3" placeholder="customer_opted_out" /></label>
           <div class="rounded-2xl bg-slate-950 p-4 text-sm text-white"><p class="text-xs uppercase tracking-[0.18em] text-white/50">Попередній перегляд шаблону</p><p class="mt-3 whitespace-pre-wrap leading-6">{{ reviewForm.template_preview || 'Backend не надав preview шаблону.' }}</p></div>

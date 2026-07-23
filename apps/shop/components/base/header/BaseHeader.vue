@@ -2,6 +2,10 @@
 import type { CategoryTreeNodeDto } from '@shared-types'
 import { categoryDestination } from '~/utils/category-routing'
 
+const emit = defineEmits<{
+  visibilityChange: [state: { visible: boolean, height: number }]
+}>()
+
 const ALWAYS_SHOW_TOP = 120
 const SCROLL_DELTA = 6
 const MENU_OPEN_DELAY = 160
@@ -40,6 +44,9 @@ const lastYPosition = ref(0)
 let menuOpenTimer: ReturnType<typeof setTimeout> | undefined
 let menuCloseTimer: ReturnType<typeof setTimeout> | undefined
 let categoryLoadPromise: Promise<void> | undefined
+let headerResizeObserver: ResizeObserver | null = null
+let lastHeaderVisible: boolean | undefined
+let lastHeaderHeight = -1
 
 interface CategoryCandidate {
   category: CategoryTreeNodeDto
@@ -320,17 +327,46 @@ const updateHeaderVisibility = () => {
   lastYPosition.value = currentY
 }
 
+const syncHeaderState = () => {
+  const visible = !isHeaderHidden.value
+  const height = Math.ceil(shopHeader.value?.getBoundingClientRect().height || 0)
+
+  if (
+    visible === lastHeaderVisible
+    && height === lastHeaderHeight
+  ) return
+
+  lastHeaderVisible = visible
+  lastHeaderHeight = height
+  emit('visibilityChange', { visible, height })
+}
+
+const handleWindowResize = () => {
+  updateCategoryMenuPosition()
+  syncHeaderState()
+}
+
+watch(isHeaderHidden, syncHeaderState, { flush: 'post' })
+
 onMounted(() => {
   lastYPosition.value = window.scrollY
   updateHeaderVisibility()
   void loadCategories()
+  syncHeaderState()
+
+  if (typeof window.ResizeObserver === 'function' && shopHeader.value) {
+    headerResizeObserver = new ResizeObserver(syncHeaderState)
+    headerResizeObserver.observe(shopHeader.value)
+  }
+
   window.addEventListener('scroll', updateHeaderVisibility, { passive: true })
-  window.addEventListener('resize', updateCategoryMenuPosition, { passive: true })
+  window.addEventListener('resize', handleWindowResize, { passive: true })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', updateHeaderVisibility)
-  window.removeEventListener('resize', updateCategoryMenuPosition)
+  window.removeEventListener('resize', handleWindowResize)
+  headerResizeObserver?.disconnect()
   cancelMenuOpen()
   cancelMenuClose()
   document.body.style.overflow = ''
@@ -428,17 +464,6 @@ onBeforeUnmount(() => {
         </button>
 
         <nav class="shop-header__popular" :aria-label="terms.header.popularNavigation">
-          <NuxtLink
-            to="/top"
-            :class="['shop-header__popular-btn', { 'shop-header__popular-btn--active': route.path === '/top' }]"
-            :aria-current="route.path === '/top' ? 'page' : undefined"
-            @click="closeOverlays"
-          >
-            <span class="shop-header__popular-label">
-              <BaseHoverUnderlineText>{{ terms.home.popularEyebrow }}</BaseHoverUnderlineText>
-            </span>
-          </NuxtLink>
-
           <NuxtLink
             v-for="target in popularCategoryTargets"
             :key="target.category.id"
@@ -575,7 +600,7 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   z-index: 60;
-  background: transparent;
+  background: #ffffff;
   color: #0a0a0a;
   transition:
     background-color 220ms ease,

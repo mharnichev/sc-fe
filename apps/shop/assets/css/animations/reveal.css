@@ -1,0 +1,23 @@
+/*
+ * App-local staggered reveal inspired by Wax Poetics motion lists.
+ * Apply v-reveal-list and mark children with data-sc-reveal-item.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html.sc-reveal-ready .sc-reveal-list [data-sc-reveal-item],
+  html.sc-reveal-ready .sc-reveal-list[data-sc-reveal-item] {
+    opacity: 0;
+    transform: translateY(var(--sc-reveal-distance, 50px));
+    transition:
+      opacity 500ms cubic-bezier(0.3, 1, 0.3, 1) var(--sc-reveal-delay, 0ms),
+      transform 500ms cubic-bezier(0.3, 1, 0.3, 1) var(--sc-reveal-delay, 0ms),
+      visibility 0s linear var(--sc-reveal-delay, 0ms);
+    visibility: hidden;
+  }
+
+  html.sc-reveal-ready .sc-reveal-list [data-sc-reveal-item].sc-reveal-item--visible,
+  html.sc-reveal-ready .sc-reveal-list[data-sc-reveal-item].sc-reveal-item--visible {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+}

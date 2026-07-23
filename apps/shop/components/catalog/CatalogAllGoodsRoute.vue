@@ -482,7 +482,7 @@ useSeo(
 
 .catalog-route__head-side-bar {
   position: sticky;
-  top: 4.75rem;
+  top: var(--shop-header-offset, 4.75rem);
   z-index: 5;
   display: flex;
   align-items: center;
@@ -490,6 +490,7 @@ useSeo(
   gap: 0.75rem;
   padding: 0.375rem 0;
   background: #ffffff;
+  transition: top 300ms ease;
 }
 
 .catalog-route__tab-list {
@@ -581,6 +582,14 @@ useSeo(
 }
 
 @media (min-width: 1024px) {
+  .catalog-route__left-side-bar.is-filtered {
+    top: calc(var(--shop-header-offset, 4.75rem) + 3.75rem);
+    height: calc(100vh - var(--shop-header-offset, 4.75rem) - 3.75rem);
+    transition:
+      top 300ms ease,
+      height 300ms ease;
+  }
+
   .catalog-route__head-filter-btn {
     display: none;
   }

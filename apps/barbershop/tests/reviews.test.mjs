@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   isValidReviewRating,
+  isTokenizedReviewLocation,
   reviewAnalyticsPayload,
   reviewRequestStateFromStatus,
   reviewTokenFromHash,
@@ -15,6 +16,15 @@ test('accepts only opaque base64url-style review tokens from the fragment', () =
   assert.equal(reviewTokenFromHash('#short'), '')
   assert.equal(reviewTokenFromHash('#token with spaces'), '')
   assert.equal(reviewTokenFromHash('#%E0%A4%A'), '')
+})
+
+test('recognizes tokenized review entry only on masters and legacy review routes', () => {
+  const tokenHash = `#${'a'.repeat(32)}`
+
+  assert.equal(isTokenizedReviewLocation('/masters', tokenHash), true)
+  assert.equal(isTokenizedReviewLocation('/review', tokenHash), true)
+  assert.equal(isTokenizedReviewLocation('/', tokenHash), false)
+  assert.equal(isTokenizedReviewLocation('/masters', '#team'), false)
 })
 
 test('accepts integer ratings from one through five only', () => {

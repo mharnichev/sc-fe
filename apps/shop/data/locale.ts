@@ -1,8 +1,8 @@
 export type ShopLocaleCode = 'uk' | 'en'
 
 export const shopLocaleOptions: Array<{ code: ShopLocaleCode, label: string, shortLabel: string }> = [
-  { code: 'uk', label: 'Укр', shortLabel: 'UA' },
-  { code: 'en', label: 'Eng', shortLabel: 'EN' },
+  { code: 'uk', label: '🇺🇦 Укр', shortLabel: 'UA' },
+  { code: 'en', label: '🇬🇧 Eng', shortLabel: 'EN' },
 ]
 
 export const shopTerms = {

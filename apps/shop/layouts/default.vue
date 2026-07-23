@@ -1,6 +1,21 @@
 <script setup lang="ts">
 const { locale } = useShopLocale()
 const isPageTransitionVisible = usePageTransitionOverlay()
+const headerState = ref<{ visible: boolean, height: number } | null>(null)
+
+const layoutStyle = computed(() => {
+  if (!headerState.value) return
+
+  return {
+    '--shop-header-offset': headerState.value.visible
+      ? `${headerState.value.height}px`
+      : '0px',
+  }
+})
+
+const handleHeaderVisibilityChange = (state: { visible: boolean, height: number }) => {
+  headerState.value = state
+}
 
 useHead({
   htmlAttrs: {
@@ -10,8 +25,8 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <BaseHeader />
+  <div class="min-h-screen" :style="layoutStyle">
+    <BaseHeader @visibility-change="handleHeaderVisibilityChange" />
     <main class="relative z-10 min-h-screen">
       <div class="site-container">
         <slot />

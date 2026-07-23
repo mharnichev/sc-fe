@@ -185,19 +185,15 @@ export default defineNuxtConfig({
       headers: staticAssetHeaders,
     },
     '/review': {
-      headers: {
-        ...securityHeaders,
-        'Cache-Control': 'no-store, private',
-        'Referrer-Policy': 'no-referrer',
-        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+      redirect: {
+        to: '/masters',
+        statusCode: 302,
       },
     },
     '/review/**': {
-      headers: {
-        ...securityHeaders,
-        'Cache-Control': 'no-store, private',
-        'Referrer-Policy': 'no-referrer',
-        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+      redirect: {
+        to: '/masters',
+        statusCode: 302,
       },
     },
   },

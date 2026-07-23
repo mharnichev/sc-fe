@@ -26,6 +26,7 @@ export const termsDictionary = {
       book: 'Запис',
       bookAppointment: 'Записатися',
       menu: 'Меню',
+      homeLink: 'На головну',
       close: 'Закрити',
       info: 'Інфо',
       hours: 'Графік',
@@ -52,8 +53,6 @@ export const termsDictionary = {
       { label: 'Блог', href: '/blog/' },
       { label: 'Відгуки', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
-      { label: 'Фідбек', href: '/#feedback' },
-      { label: 'Контакти', href: '/#contact' },
     ],
     home: {
       hero: {
@@ -479,6 +478,7 @@ export const termsDictionary = {
       book: 'Book',
       bookAppointment: 'Book appointment',
       menu: 'Menu',
+      homeLink: 'Home',
       close: 'Close',
       info: 'Info',
       hours: 'Hours',
@@ -505,8 +505,6 @@ export const termsDictionary = {
       { label: 'Blog', href: '/blog/' },
       { label: 'Reviews', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
-      { label: 'Feedback', href: '/#feedback' },
-      { label: 'Contact', href: '/#contact' },
     ],
     home: {
       hero: {

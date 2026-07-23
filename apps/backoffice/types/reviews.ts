@@ -79,13 +79,14 @@ export interface ReviewMetrics {
 export interface ReviewRequestSettings {
   enabled: boolean
   delay_minutes: number
-  primary_channel: 'telegram'
-  sms_fallback_enabled: boolean
+  primary_channel: 'sms'
+  sms_fallback_enabled: false
   quiet_hours_enabled: boolean
   quiet_hours_from: string
   quiet_hours_to: string
-  frequency_cap_count: number
+  frequency_cap_count: 1
   frequency_cap_days: number
+  submitted_frequency_cap_days: number
   exclusions: string[]
   template_preview: string
   updated_at?: string | null
@@ -94,12 +95,13 @@ export interface ReviewRequestSettings {
 export interface ReviewRequestSettingsUpdate {
   enabled: boolean
   delay_minutes: number
-  primary_channel: 'telegram'
-  sms_fallback_enabled: boolean
+  primary_channel: 'sms'
+  sms_fallback_enabled: false
   quiet_hours_enabled: boolean
   quiet_hours_from: string
   quiet_hours_to: string
-  frequency_cap_count: number
+  frequency_cap_count: 1
   frequency_cap_days: number
+  submitted_frequency_cap_days: number
   exclusions: string[]
 }

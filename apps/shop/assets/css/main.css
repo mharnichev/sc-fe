@@ -162,6 +162,24 @@ a {
   --sc-button-backdrop-filter: blur(18px) saturate(1.45);
 }
 
+.sc-button--text {
+  --sc-button-bg: transparent;
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: transparent;
+  --sc-button-hover-text: #0a0a0a;
+  --sc-button-border: transparent;
+
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25rem;
+  text-transform: none;
+}
+
 .sc-button--circle {
   width: 2.75rem;
   min-width: 2.75rem;
@@ -271,7 +289,7 @@ a {
 
 @layer components {
   .site-container {
-    @apply mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 pb-4 lg:pb-8;
   }
 
   .section-x {

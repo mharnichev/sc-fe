@@ -1,3 +1,5 @@
+import { isTokenizedReviewLocation } from '~/utils/reviews.js'
+
 const GA_MEASUREMENT_ID = 'G-YYYXH2R239'
 const GA_SCRIPT_ID = 'google-analytics-gtag'
 
@@ -49,8 +51,17 @@ export default defineNuxtPlugin(() => {
   let hasTrackedInitialPageView = false
   let isGtagInitialized = false
   let isGtagLoadScheduled = false
+  let isPrivateReviewSession = isTokenizedReviewLocation(window.location.pathname, window.location.hash)
   const pendingCallbacks: (() => void)[] = []
-  const isPrivateReviewRoute = () => route.path === '/review' || route.path.startsWith('/review/')
+  const hasPrivateReviewContext = () => {
+    if (isPrivateReviewSession) return true
+
+    isPrivateReviewSession = isTokenizedReviewLocation(
+      route.path,
+      route.hash || window.location.hash,
+    )
+    return isPrivateReviewSession
+  }
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -113,9 +124,9 @@ export default defineNuxtPlugin(() => {
     if (!canUseAnalytics.value) return
 
     scheduleGtagLoad(() => {
-      const pagePath = isPrivateReviewRoute() ? '/review' : route.fullPath
-      const pageLocation = isPrivateReviewRoute()
-        ? `${window.location.origin}/review`
+      const pagePath = hasPrivateReviewContext() ? '/masters' : route.fullPath
+      const pageLocation = hasPrivateReviewContext()
+        ? `${window.location.origin}/masters`
         : window.location.href
 
       window.gtag?.('event', 'page_view', {
