@@ -12,12 +12,26 @@ definePageMeta({
 })
 
 const api = useBackofficeApi()
+const route = useRoute()
 const auth = useAuthStore()
 const { apiErrorMessage, formatDateTime, masterName, normalizeItems } = useBookingFormatting()
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
 const page = ref(1)
 const pageSize = 20
-const filters = reactive<ReviewFilters>({ moderation_status: '', master_id: null, rating: null, submitted_from: '', submitted_to: '', request_state: '' })
+const routeModerationStatus = String(route.query.moderation_status || '')
+const routeRequestState = String(route.query.request_state || '')
+const filters = reactive<ReviewFilters>({
+  moderation_status: ['pending', 'approved', 'rejected'].includes(routeModerationStatus)
+    ? routeModerationStatus as ReviewFilters['moderation_status']
+    : '',
+  master_id: null,
+  rating: null,
+  submitted_from: '',
+  submitted_to: '',
+  request_state: ['scheduled', 'sent', 'delivered', 'submitted', 'expired', 'failed'].includes(routeRequestState)
+    ? routeRequestState as ReviewFilters['request_state']
+    : '',
+})
 
 const moderationOptions = [
   { value: '', label: 'Усі статуси модерації' },
@@ -35,7 +49,13 @@ const ratingOptions = [
 const [{ data, pending, error, refresh }, { data: mastersData }, { data: metrics, pending: metricsPending, error: metricsError, refresh: refreshMetrics }] = await Promise.all([
   useAsyncData('admin-booking-reviews', () => isAdmin.value ? api.adminGetReviews(page.value, pageSize, filters) : Promise.resolve({ total: 0, page: 1, page_size: pageSize, items: [] }), { watch: [page] }),
   useAsyncData('admin-review-master-options', () => isAdmin.value ? api.adminGetMasters(1, 200) : Promise.resolve([] as Master[])),
-  useAsyncData('admin-review-metrics', () => isAdmin.value ? api.adminGetReviewMetrics({ date_from: filters.submitted_from, date_to: filters.submitted_to }) : Promise.resolve(null)),
+  useAsyncData('admin-review-metrics', () => isAdmin.value
+    ? api.adminGetReviewMetrics({
+        date_from: filters.submitted_from && filters.submitted_to ? filters.submitted_from : undefined,
+        date_to: filters.submitted_from && filters.submitted_to ? filters.submitted_to : undefined,
+        master_id: filters.master_id,
+      })
+    : Promise.resolve(null)),
 ])
 
 const reviews = computed(() => data.value?.items || [])

@@ -64,11 +64,15 @@ export interface MasterRatingStatistics {
 }
 
 export interface ReviewMetrics {
+  date_from: string | null
+  date_to: string | null
+  timezone: 'Europe/Kyiv'
+  cohort_definition: string
   eligible_completed_visits: number
   requests_scheduled: number
   requests_sent: number
   requests_delivered: number
-  review_form_opens: number
+  review_form_opens: number | null
   submitted_reviews: number
   approved_reviews: number
   review_conversion_rate: number

@@ -18,6 +18,7 @@ interface BookingServiceOption extends LocalizedServiceText {
 const timeZone = 'Europe/Kyiv'
 const statuses: BookingStatus[] = ['confirmed', 'cancelled', 'completed']
 const statusLabels: Record<BookingStatus, string> = {
+  pending: 'Очікує підтвердження',
   confirmed: 'Підтверджено',
   cancelled: 'Скасовано',
   completed: 'Завершено',

@@ -32,6 +32,7 @@ import type {
 } from '~/composables/useBookingCalendar'
 
 const api = useBackofficeApi()
+const route = useRoute()
 const auth = useAuthStore()
 const assetUrl = useAssetUrl()
 const calendar = useBookingCalendar()
@@ -61,12 +62,17 @@ const {
 
 const pageSize = 200
 const today = todayInput()
+const bookingFilterStatuses: BookingStatus[] = ['pending', ...statuses]
+const routeStatus = String(route.query.status || '')
+const initialStatus: BookingStatus | '' = bookingFilterStatuses.includes(routeStatus as BookingStatus)
+  ? routeStatus as BookingStatus
+  : ''
 const viewMode = ref<CalendarViewMode>('week')
 const anchorDate = ref(today)
 const filters = reactive({
   master_id: '',
   service_id: '',
-  status: '',
+  status: initialStatus,
 })
 
 const selected = ref<Booking | null>(null)
@@ -133,7 +139,7 @@ const selectedMasterLabel = computed(() =>
   selectedMaster.value ? masterName(selectedMaster.value) : selectedMasterId.value ? `Майстер #${selectedMasterId.value}` : 'Майстра не вибрано',
 )
 const selectedStatusFilter = computed(() =>
-  statuses.includes(filters.status as BookingStatus) ? filters.status as BookingStatus : '',
+  bookingFilterStatuses.includes(filters.status as BookingStatus) ? filters.status as BookingStatus : '',
 )
 
 const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInView(viewMode.value) - 1))
@@ -816,7 +822,7 @@ const deleteSelectedBlock = async () => {
               <span class="min-w-0 truncate">Будь-який статус</span>
             </BaseButton>
             <BaseButton
-              v-for="status in statuses"
+              v-for="status in bookingFilterStatuses"
               :key="status"
               type="button"
               class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-50"

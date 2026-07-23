@@ -21,6 +21,7 @@ import type {
   ReviewRequestSettings,
   ReviewRequestSettingsUpdate,
 } from '~/types/reviews'
+import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
 
 export interface TokenResponse {
   access_token: string
@@ -226,7 +227,7 @@ export interface CustomerBookingStats {
   last_visit_date: string | null
 }
 
-export type BookingStatus = 'confirmed' | 'cancelled' | 'completed'
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
 export type MasterPosition = 'ambassador' | 'senior_master' | 'master'
 
 export interface Master {
@@ -1183,6 +1184,23 @@ export const useBackofficeApi = () => {
       query: { year, month },
     })
 
+  const adminGetDashboard = async (filters: {
+    date_from: string
+    date_to: string
+    compare_to_previous: boolean
+    master_id?: number | string | null
+  }) => {
+    const response = await api<unknown>('/backoffice/statistics/admin/dashboard', {
+      query: {
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        compare_to_previous: filters.compare_to_previous,
+        master_id: filters.master_id ?? undefined,
+      },
+    })
+    return parseAdminDashboardResponse(response)
+  }
+
   const adminGetMasters = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
     api<Master[] | PaginatedResponse<Master>>('/backoffice/masters', {
       query: {
@@ -1769,11 +1787,14 @@ export const useBackofficeApi = () => {
       body: { reason: reason?.trim() || null },
     })
 
-  const adminGetReviewMetrics = (filters: { date_from?: string, date_to?: string } = {}) =>
+  const adminGetReviewMetrics = (
+    filters: { date_from?: string, date_to?: string, master_id?: number | string | null } = {},
+  ) =>
     api<ReviewMetrics>('/backoffice/reviews/metrics', {
       query: {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
+        master_id: filters.master_id ?? undefined,
       },
     })
 
@@ -1836,6 +1857,7 @@ export const useBackofficeApi = () => {
     getBarberMonthlyStatistics,
     adminGetMonthlyStatistics,
     adminGetBarbersComparison,
+    adminGetDashboard,
     adminGetMasters,
     adminCreateMaster,
     adminUpdateMaster,

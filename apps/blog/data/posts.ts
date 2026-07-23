@@ -206,33 +206,33 @@ const eventContentEn = [
 ]
 
 const idemNaBukvyContentUk: BlogContentBlock[] = [
-  'Барбершоп — це ніколи не було просто про «підстригтися». Це про приналежність до спільноти, характер, стиль життя, правильну музику та розмови, які зазвичай залишаються всередині майстерні — між майстром і клієнтом. Але що буде, якщо винести ці розмови назовні? Що, як показати виворіт індустрії, її характер, проблеми та справжніх лідерів думок?',
+  'Барбершоп - це ніколи не було просто про «підстригтися». Це про приналежність до спільноти, характер, стиль життя, правильну музику та розмови, які зазвичай залишаються всередині майстерні - між майстром і клієнтом. Але що буде, якщо винести ці розмови назовні? Що, як показати виворіт індустрії, її характер, проблеми та справжніх лідерів думок?',
   'Три роки тому народився проєкт «Ідем на Букви». Він починався з простої місії: заповнити вакуум в україномовному медіапросторі. Сьогодні цей проєкт стає невідʼємною частиною всесвіту Soul Cuts, перетворюючи наш сайт на повноцінне бренд-медіа для тих, хто живе цією культурою.',
-  'Ось детальний шлях нашої еволюції за останні три роки — від першої локальної ідеї до головного медіарушія барберингу.',
+  'Ось детальний шлях нашої еволюції за останні три роки - від першої локальної ідеї до головного медіарушія барберингу.',
   { type: 'heading', text: 'Етап 1: початок та еволюція формату' },
-  'Все починалося з ідеї почути думки майстрів індустрії. Це був 2023 рік. Індустрія та комʼюніті були сильними й прагнули розвитку, тож зʼявилася ідея обʼєднати всі ці голоси на одній платформі. Згодом, окрім подкастів, ми почали транслювати блоги з івентів і масштабних заходів українського барберингу, записувати інтервʼю з топами нашої індустрії та діалоги з майстрами з інших країн — головними спікерами на сцені.',
+  'Все починалося з ідеї почути думки майстрів індустрії. Це був 2023 рік. Індустрія та комʼюніті були сильними й прагнули розвитку, тож зʼявилася ідея обʼєднати всі ці голоси на одній платформі. Згодом, окрім подкастів, ми почали транслювати блоги з івентів і масштабних заходів українського барберингу, записувати інтервʼю з топами нашої індустрії та діалоги з майстрами з інших країн - головними спікерами на сцені.',
   'Нашим фірмовим почерком стала плівкова фотографія. Чому саме плівка? Тому що вона не вміє брехати. Вона передає справжні емоції, текстуру волосся, блиск інструментів, втому і водночас кайф в очах майстра після важкої зміни. Плівка фіксувала історію нашої сфери в її найчистішому вигляді.',
   'Паралельно проєкт знову змінювався: ми з командою почали створювати власні івенти та організовувати майстеркласи з особистою айдентикою. На цьому етапі захотілося дати майстрам наступного покоління ті деталі, яких не вистачало нам під час навчання та професійного росту.',
   { type: 'heading', text: 'Етап 2: голос індустрії та міст між поколіннями' },
-  'Цей проєкт я створив, щоб обʼєднати на одній платформі думки майстрів барберингу, які розвивалися самі й розвивали культуру впродовж останніх десяти років. Моя ціль — максимально розкрити особистість гостя подкасту та простежити, як змінювалася наша індустрія через призму окремого майстра.',
+  'Цей проєкт я створив, щоб обʼєднати на одній платформі думки майстрів барберингу, які розвивалися самі й розвивали культуру впродовж останніх десяти років. Моя ціль - максимально розкрити особистість гостя подкасту та простежити, як змінювалася наша індустрія через призму окремого майстра.',
   'Усі ці знання та досвід будуть корисними для молодих майстрів, які тільки починають свій шлях. Вони зможуть надихнутися і, найголовніше, не повторювати наших помилок: від самого початку будувати себе не лише як професіонала своєї справи, а і як особистість із правильно вибудуваним позиціонуванням окремого бренду.',
   { type: 'heading', text: 'Етап 3: анатомія одеського двіжу, управлінські помилки та батли' },
   'Медіа має жити в офлайні. Проєкт став організатором великих подій в Одесі та зйомок влогів. Ми залучаємо майстрів, піднімаємо планку і розвиваємо спільноту.',
-  'За лаштунками двіжух ми фіксуємо реальні проблеми, хайпові конфлікти — як Primero і Леон — та живі думки майстрів.',
+  'За лаштунками двіжух ми фіксуємо реальні проблеми, хайпові конфлікти - як Primero і Леон - та живі думки майстрів.',
   {
     type: 'quote',
-    text: 'Коли ти розумієш, що хочеш нових відчуттів та досвіду — тобі треба «вижимати» із себе і знову набирати, як губка, чогось нового. Я досі памʼятаю, як колись Вася Писаренко проходив по всіх барбершопах Одеси і збирав нас вручну, додаючи у групу у Viber…',
+    text: 'Коли ти розумієш, що хочеш нових відчуттів та досвіду - тобі треба «вижимати» із себе і знову набирати, як губка, чогось нового. Я досі памʼятаю, як колись Вася Писаренко проходив по всіх барбершопах Одеси і збирав нас вручну, додаючи у групу у Viber…',
     attribution: 'Олександр Ковальчук, 9 років у професії',
   },
-  'Ми тримаємо руку на пульсі одеських витоків, де культуру рухали перші «динозаври» індустрії — Вася, Ваня Лютий, Ваня Білець та інші. Багато хто розʼїхався, але наше завдання — знову збирати всіх разом на великих заходах, бо саме з Одеси все колись починалося.',
+  'Ми тримаємо руку на пульсі одеських витоків, де культуру рухали перші «динозаври» індустрії - Вася, Ваня Лютий, Ваня Білець та інші. Багато хто розʼїхався, але наше завдання - знову збирати всіх разом на великих заходах, бо саме з Одеси все колись починалося.',
   {
     type: 'quote',
-    text: 'Коли я був молодим і застав рух барберингу в барбершопі «Преображенський», я завжди знаходив сильніших майстрів, у яких було що перейняти. Я йшов із таких івентів натхненним, отримував багато мотивації та відчуття приземлення — що мені ще є куди рости.',
+    text: 'Коли я був молодим і застав рух барберингу в барбершопі «Преображенський», я завжди знаходив сильніших майстрів, у яких було що перейняти. Я йшов із таких івентів натхненним, отримував багато мотивації та відчуття приземлення - що мені ще є куди рости.',
     attribution: 'Віталій HEAD HUNTER, засновник франшизи Menʼs Club',
   },
   {
     type: 'quote',
-    text: 'Ви повинні бути впевнені в тому, що робите, і тоді ви полюбите цю професію. Бо коли ти чогось не знаєш, ти боїшся — і цей страх змушує робити дурниці. Технічність вирішує все. Ти робиш дію один раз і більше не повертаєшся на попередній етап, бо наступний уже не підлаштується, якщо комбінація технік була обрана неправильно.',
+    text: 'Ви повинні бути впевнені в тому, що робите, і тоді ви полюбите цю професію. Бо коли ти чогось не знаєш, ти боїшся - і цей страх змушує робити дурниці. Технічність вирішує все. Ти робиш дію один раз і більше не повертаєшся на попередній етап, бо наступний уже не підлаштується, якщо комбінація технік була обрана неправильно.',
     attribution: 'Андрій Драгомирецький, понад 10 років у професії',
   },
   {
@@ -241,13 +241,13 @@ const idemNaBukvyContentUk: BlogContentBlock[] = [
     attribution: 'Іван Білець, майстер із понад 20-річним стажем',
   },
   { type: 'heading', text: 'Етап 4: перезавантаження форматів навчання та бізнес' },
-  'Ми ламаємо стереотипи організації подій. Показник цього — унікальний майстерклас Володимира Мєдвєдєва (Hairkillah) в Одесі. Ми вперше відмовилися від класичних навчальних залів і організували майстерклас у стінах університету. Формат аудиторії — амфітеатр.',
+  'Ми ламаємо стереотипи організації подій. Показник цього - унікальний майстерклас Володимира Мєдвєдєва (Hairkillah) в Одесі. Ми вперше відмовилися від класичних навчальних залів і організували майстерклас у стінах університету. Формат аудиторії - амфітеатр.',
   'Такі посадкові місця вплинули на якість засвоєння матеріалу. З будь-якого ракурсу було добре видно, як саме майстер працює з волоссям. Завдяки партам для кожного майстра було зручно конспектувати теорію та робити схеми стрижок.',
   'Упродовж усього майстеркласу нас бадьорила кава від бренду FOUNDATION. Від душі дякуємо їм за підтримку заходу. Такі ж слова подяки летять смачним супчикам закладу «СУПСТАНЦІЯ»: дуже смачно поїли й із новими силами продовжили навчання.',
   'Така підтримка від закладів Одеси дає чітке розуміння, що ми робимо все правильно і рухаємося в правильному напрямку.',
   { type: 'heading', text: 'Етап 5: більше ніж ремесло. Барберинг як дзеркало особистості та міст у майбутнє' },
-  'За три роки зйомок, подкастів, організації івентів та щоденної роботи за кріслом ми зробили для себе висновок: найважливіше в нашій сфері — знайти відчуття внутрішнього себе в професії.',
-  'Спочатку ти приходиш сюди, щоб просто вивчити базову навичку — стригти. Але з часом розумієш, що барберинг взагалі не лише про стрижки. Це унікальний простір, де ти знаходиш свою велику спільноту людей.',
+  'За три роки зйомок, подкастів, організації івентів та щоденної роботи за кріслом ми зробили для себе висновок: найважливіше в нашій сфері - знайти відчуття внутрішнього себе в професії.',
+  'Спочатку ти приходиш сюди, щоб просто вивчити базову навичку - стригти. Але з часом розумієш, що барберинг взагалі не лише про стрижки. Це унікальний простір, де ти знаходиш свою велику спільноту людей.',
   'І барбери, які стають клієнтами нашого проєкту, і люди, які приходять до нас стригтися, обирають свого майстра не просто за якісний фейд. Вони обирають людину.',
   { type: 'heading', text: 'Обʼєднання проєктів «Ідем на Букви» та Soul Cuts' },
   'Сьогодні проєкт «Ідем на Букви» та барбершоп Soul Cuts обʼєднуються в одному просторі. Ми однаково віримо в безкомпромісну якість, повагу до витоків, відточену техніку та унікальність кожної особистості.',
@@ -264,14 +264,14 @@ const idemNaBukvyContentUk: BlogContentBlock[] = [
   'Ми продовжуємо свою роботу: знімаємо всі події на плівку, вириваємо майстрів із вакууму рутини та качаємо індустрію.',
   'Так, тут створюється історія. І тут немає стелі, якщо ти будуєш себе як особистість.',
   { type: 'heading', text: 'Локальний шифр: чому саме «Ідем на Букви»?' },
-  'Багатьох інтригує наша назва. Насправді це частина мого коріння. Я родом із Новодністровська Чернівецької області — маленького міста на десять тисяч людей. На самому вʼїзді туди стоять великі бетонні літери «НОВОДНІСТРОВСЬК». Кожен, хто виріс там, знає: ці букви — культове місце. Усе дитинство ми з пацанами ходили туди лазити, зависати та просто проводити час. Фраза «Ідем на букви» була нашим кодом для збору.',
-  'Але якщо копнути набагато глибше — навіщо взагалі було створювати цей проєкт? Сьогодні я можу відверто зізнатися: це мій внутрішній компенсаторний механізм. Це історія, яка тягнеться з дитинства, де якісь речі та внутрішні потреби я тоді для себе не перекрив. Моє бажання постійно щось розповідати, контактувати з людьми, організовувати масштабні двіжі, збирати всіх у себе вдома — усе це нашарувалося звідти.',
+  'Багатьох інтригує наша назва. Насправді це частина мого коріння. Я родом із Новодністровська Чернівецької області - маленького міста на десять тисяч людей. На самому вʼїзді туди стоять великі бетонні літери «НОВОДНІСТРОВСЬК». Кожен, хто виріс там, знає: ці букви - культове місце. Усе дитинство ми з пацанами ходили туди лазити, зависати та просто проводити час. Фраза «Ідем на букви» була нашим кодом для збору.',
+  'Але якщо копнути набагато глибше - навіщо взагалі було створювати цей проєкт? Сьогодні я можу відверто зізнатися: це мій внутрішній компенсаторний механізм. Це історія, яка тягнеться з дитинства, де якісь речі та внутрішні потреби я тоді для себе не перекрив. Моє бажання постійно щось розповідати, контактувати з людьми, організовувати масштабні двіжі, збирати всіх у себе вдома - усе це нашарувалося звідти.',
 ]
 
 const idemNaBukvyContentEn: BlogContentBlock[] = [
-  'A barbershop has never been just a place to get a haircut. It is about belonging to a community, character, lifestyle, the right music, and conversations that usually stay inside the shop between barber and client. But what happens when those conversations move outside? What if we show the industry from the inside — its character, its problems, and its real opinion leaders?',
+  'A barbershop has never been just a place to get a haircut. It is about belonging to a community, character, lifestyle, the right music, and conversations that usually stay inside the shop between barber and client. But what happens when those conversations move outside? What if we show the industry from the inside - its character, its problems, and its real opinion leaders?',
   'Three years ago, Idem na Bukvy was born. It began with a simple mission: to fill a gap in Ukrainian-language media. Today, the project is becoming an integral part of the Soul Cuts universe, turning our website into a full brand publication for everyone who lives this culture.',
-  'This is the detailed story of our evolution over the past three years — from one local idea to a driving media force in barbering.',
+  'This is the detailed story of our evolution over the past three years - from one local idea to a driving media force in barbering.',
   { type: 'heading', text: 'Stage 1: the beginning and evolution of the format' },
   'It started with a desire to hear what the industryʼs barbers were thinking. It was 2023. The industry and its community were strong and eager to grow, so we wanted to bring those voices together on one platform. Beyond podcasts, the project soon expanded into event vlogs, reports from major Ukrainian barbering gatherings, interviews with the leading names in our industry, and conversations with international barbers who appeared as headline speakers.',
   'Film photography became our signature. Why film? Because it cannot lie. It captures real emotion, the texture of hair, the shine of tools, the fatigue and the spark in a barberʼs eyes after a hard shift. Film preserved the history of our field in its purest form.',
@@ -281,13 +281,13 @@ const idemNaBukvyContentEn: BlogContentBlock[] = [
   'That knowledge and experience can help young barbers at the beginning of their journey. It can inspire them and, most importantly, help them avoid our mistakes: to build themselves from day one not only as skilled professionals, but as people with clear positioning and a distinct personal brand.',
   { type: 'heading', text: 'Stage 3: inside Odesaʼs movement, management mistakes, and battles' },
   'Media has to live offline. The project began organizing large events in Odesa and filming vlogs. We bring barbers together, raise the bar, and develop the community.',
-  'Behind the scenes, we document real problems, much-discussed conflicts — such as Primero and Leon — and the honest thoughts of working barbers.',
+  'Behind the scenes, we document real problems, much-discussed conflicts - such as Primero and Leon - and the honest thoughts of working barbers.',
   {
     type: 'quote',
     text: 'When you realize you want new feelings and experience, you have to squeeze yourself out and then absorb something new again, like a sponge. I still remember Vasya Pysarenko walking around every barbershop in Odesa, gathering us one by one and adding everyone to a Viber group…',
     attribution: 'Oleksandr Kovalchuk, 9 years in the profession',
   },
-  'We stay connected to Odesaʼs roots, where the culture was moved forward by the industryʼs first “dinosaurs” — Vasya, Vania Liutyi, Vania Bilets, and others. Many have moved away, but our job is to bring everyone together again at large events, because this is where it all began.',
+  'We stay connected to Odesaʼs roots, where the culture was moved forward by the industryʼs first “dinosaurs” - Vasya, Vania Liutyi, Vania Bilets, and others. Many have moved away, but our job is to bring everyone together again at large events, because this is where it all began.',
   {
     type: 'quote',
     text: 'When I was young and saw the barbering movement at Preobrazhensky barbershop, I always looked for stronger barbers I could learn from. I left those events inspired, highly motivated, and grounded by the feeling that I still had room to grow.',
@@ -310,7 +310,7 @@ const idemNaBukvyContentEn: BlogContentBlock[] = [
   'Support from Odesa businesses gives us a clear sense that we are doing the right thing and moving in the right direction.',
   { type: 'heading', text: 'Stage 5: more than a craft. Barbering as a reflection of identity and a bridge to the future' },
   'After three years of filming, podcasts, events, and daily work behind the chair, we reached one conclusion: the most important thing in our field is to find a sense of your inner self within the profession.',
-  'At first, you come here simply to learn a foundational skill — cutting hair. Over time, you understand that barbering is not only about haircuts at all. It is a unique space where you find a large community of people.',
+  'At first, you come here simply to learn a foundational skill - cutting hair. Over time, you understand that barbering is not only about haircuts at all. It is a unique space where you find a large community of people.',
   'Both the barbers who become clients of our project and the people who come to us for a haircut choose their barber for more than a clean fade. They choose the person.',
   { type: 'heading', text: 'Idem na Bukvy and Soul Cuts come together' },
   'Today, Idem na Bukvy and the Soul Cuts barbershop are coming together in one space. We share the same belief in uncompromising quality, respect for our roots, refined technique, and the uniqueness of every individual.',
@@ -328,7 +328,7 @@ const idemNaBukvyContentEn: BlogContentBlock[] = [
   'This is where history is being made. And there is no ceiling when you build yourself as a person.',
   { type: 'heading', text: 'The local code: why “Idem na Bukvy”?' },
   'Our name intrigues many people, but it comes directly from my roots. I am from Novodnistrovsk in Chernivtsi region, a small town of ten thousand people. Large concrete letters spelling “NOVODNISTROVSK” stand at its entrance. Everyone who grew up there knows those letters as a cult local landmark. Throughout childhood, my friends and I went there to climb, hang out, and spend time together. The phrase “letʼs go to the letters” was our code for meeting up.',
-  'But if we go much deeper, why did this project need to exist at all? Today I can admit honestly that it is my internal compensatory mechanism. The story reaches back into childhood, to needs I could not meet at the time. My constant desire to tell stories, connect with people, organize large gatherings, and invite everyone into my home — all of it grew from there.',
+  'But if we go much deeper, why did this project need to exist at all? Today I can admit honestly that it is my internal compensatory mechanism. The story reaches back into childhood, to needs I could not meet at the time. My constant desire to tell stories, connect with people, organize large gatherings, and invite everyone into my home - all of it grew from there.',
 ]
 
 const idemNaBukvyGalleryImage = (
@@ -421,8 +421,8 @@ export const posts: BlogPost[] = [
       en: 'How Did the Story of Idem na Bukvy Begin?',
     },
     excerpt: {
-      uk: 'Три роки подкастів, плівкових репортажів та івентів — шлях від локальної ідеї до медіа про українську барберську культуру.',
-      en: 'Three years of podcasts, film-photo reports, and events — the journey from a local idea to a publication about Ukrainian barbering culture.',
+      uk: 'Три роки подкастів, плівкових репортажів та івентів - шлях від локальної ідеї до медіа про українську барберську культуру.',
+      en: 'Three years of podcasts, film-photo reports, and events - the journey from a local idea to a publication about Ukrainian barbering culture.',
     },
     publishedAt: '2026-07-14',
     category: {

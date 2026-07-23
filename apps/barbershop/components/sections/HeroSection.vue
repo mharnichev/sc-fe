@@ -8,6 +8,7 @@ const { terms } = useTerms()
 const { trackContactClick, trackEvent } = useAnalytics()
 
 const secondaryHeroImageLoaders = [
+  () => import('~/assets/images/hero/soulcuts-team.webp') as Promise<AssetModule>,
   () => import('~/assets/images/hero/2021-03-17.webp') as Promise<AssetModule>,
   () => import('~/assets/images/hero/2021-03-17_2.webp') as Promise<AssetModule>,
   () => import('~/assets/images/hero/sc-hero-barber-1.webp') as Promise<AssetModule>,
