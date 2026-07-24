@@ -33,7 +33,7 @@ onBeforeUnmount(clearReviewToken)
 <template>
   <div>
     <h1 class="sr-only">{{ terms.pages.masters.title }}</h1>
-    <TeamSection booking-target="/#booking" show-all-active />
+    <TeamSection booking-target="/#booking" />
     <ClientOnly>
       <LazyReviewRequestModal
         v-if="reviewToken"

@@ -239,9 +239,9 @@ const actionSeverityLabel: Record<DashboardActionSeverity, string> = {
   info: 'Можливість',
 }
 const actionSeverityClass: Record<DashboardActionSeverity, string> = {
-  critical: 'border-rose-200 bg-rose-50 text-rose-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
-  info: 'border-cyan-200 bg-cyan-50 text-cyan-800',
+  critical: 'dashboard-action-signal--critical',
+  warning: 'dashboard-action-signal--warning',
+  info: 'dashboard-action-signal--info',
 }
 </script>
 
@@ -282,8 +282,8 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           v-for="option in presetOptions"
           :key="option.value"
           type="button"
-          class="min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
-          :class="selectedPreset === option.value ? 'border-cyan-300 bg-cyan-50 text-cyan-900' : 'border-slate-300 text-slate-600 hover:bg-slate-50'"
+          class="dashboard-period-option min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
+          :class="selectedPreset === option.value ? 'dashboard-period-option--active' : 'dashboard-period-option--inactive'"
           :aria-pressed="selectedPreset === option.value"
           @click="selectPreset(option.value)"
         >
@@ -291,8 +291,8 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
         </button>
         <button
           type="button"
-          class="min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
-          :class="selectedPreset === 'custom' ? 'border-cyan-300 bg-cyan-50 text-cyan-900' : 'border-slate-300 text-slate-600 hover:bg-slate-50'"
+          class="dashboard-period-option min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
+          :class="selectedPreset === 'custom' ? 'dashboard-period-option--active' : 'dashboard-period-option--inactive'"
           :aria-pressed="selectedPreset === 'custom'"
           @click="selectCustom"
         >
@@ -381,6 +381,11 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
         </div>
       </section>
 
+      <DashboardBookingFunnelSection
+        :funnel="dashboard?.booking_funnel"
+        :loading="pending"
+      />
+
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(21rem,0.75fr)]">
         <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="capacity-title">
           <div class="flex items-start gap-3">
@@ -394,7 +399,7 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           <dl v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Заброньовано годин</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.booked_minutes) }}</dd></div>
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Доступно годин</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.available_minutes) }}</dd></div>
-            <div class="rounded-2xl bg-cyan-50 p-4"><dt class="text-sm text-cyan-700">Завантаження</dt><dd class="mt-2 text-2xl font-semibold text-cyan-950">{{ formatDashboardRate(dashboard?.capacity_and_leakage.utilisation_rate) }}</dd></div>
+            <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Завантаження</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatDashboardRate(dashboard?.capacity_and_leakage.utilisation_rate) }}</dd></div>
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Скасовані візити</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatNumberMetric(dashboard?.capacity_and_leakage.cancelled_visits) }}</dd><p class="mt-1 text-xs text-slate-500">Частка: {{ formatDashboardRate(dashboard?.capacity_and_leakage.cancellation_rate.current) }}</p></div>
             <div class="rounded-2xl bg-amber-50 p-4"><dt class="text-sm text-amber-700">Непідтверджені майбутні записи</dt><dd class="mt-2 text-2xl font-semibold text-amber-900">{{ formatNumberMetric(dashboard?.capacity_and_leakage.pending_unconfirmed_upcoming_bookings) }}</dd></div>
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Порожня майбутня потужність</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ emptyCapacityLabel }}</dd><p class="mt-1 text-xs text-slate-500">Прайм-час: будні 17:00–20:00, вихідні 10:00–14:00.</p></div>
@@ -418,8 +423,8 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           <div v-if="pending" class="mt-4 space-y-3"><div v-for="index in 3" :key="index" class="h-20 animate-pulse rounded-2xl bg-slate-100" /></div>
           <template v-else>
             <dl class="mt-4 grid grid-cols-2 gap-3">
-              <div class="rounded-2xl bg-cyan-50 p-4"><dt class="text-sm text-cyan-700">Нові клієнти</dt><dd class="mt-2 text-2xl font-semibold text-cyan-950">{{ formatNumberMetric(dashboard?.retention.new_clients) }}</dd></div>
-              <div class="rounded-2xl bg-emerald-50 p-4"><dt class="text-sm text-emerald-700">Повторні клієнти</dt><dd class="mt-2 text-2xl font-semibold text-emerald-950">{{ formatNumberMetric(dashboard?.retention.returning_clients) }}</dd></div>
+              <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Нові клієнти</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.new_clients) }}</dd></div>
+              <div class="dashboard-accent-card dashboard-accent-card--emerald rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Повторні клієнти</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.returning_clients) }}</dd></div>
             </dl>
             <div class="mt-3 rounded-2xl border border-slate-200 p-4">
               <p class="text-sm font-medium text-slate-900">Повторний візит після завершеного візиту</p>
@@ -469,17 +474,17 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           </div>
         </section>
 
-        <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="actions-title">
+        <section class="dashboard-action-center rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="actions-title">
           <div class="flex items-start gap-3">
             <SparklesIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
             <div>
-              <h2 id="actions-title" class="text-lg font-semibold text-slate-900">Центр дій</h2>
+              <h2 id="actions-title" class="dashboard-action-center__title text-lg font-semibold">Центр дій</h2>
               <p class="mt-1 text-sm text-slate-500">Пріоритетні сигнали, для яких є конкретна наступна дія.</p>
             </div>
           </div>
           <div v-if="pending" class="mt-4 space-y-3"><div v-for="index in 4" :key="index" class="h-20 animate-pulse rounded-2xl bg-slate-100" /></div>
           <div v-else-if="actionSignals.length" class="mt-4 space-y-3">
-            <article v-for="signal in actionSignals" :key="signal.code" class="rounded-2xl border p-4" :class="actionSeverityClass[signal.severity]">
+            <article v-for="signal in actionSignals" :key="signal.code" class="dashboard-action-signal rounded-2xl border p-4" :class="actionSeverityClass[signal.severity]">
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <p class="text-xs font-medium uppercase tracking-[0.12em]">{{ actionSeverityLabel[signal.severity] }}</p>
@@ -495,7 +500,7 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
               </NuxtLink>
             </article>
           </div>
-          <div v-else class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800">
+          <div v-else class="dashboard-action-empty mt-4 rounded-2xl border p-5">
             <CheckCircleIcon class="h-6 w-6" aria-hidden="true" />
             <p class="mt-2 font-semibold">Термінових дій не потрібно</p>
             <p class="mt-1 text-sm">Backend не повернув пріоритетних сигналів для вибраного періоду.</p>
@@ -540,3 +545,85 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
     </section>
   </div>
 </template>
+
+<style scoped>
+.dashboard-period-option {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.dashboard-period-option--inactive {
+  border-color: var(--border) !important;
+  background: var(--solid-control) !important;
+  color: var(--text-secondary) !important;
+}
+
+.dashboard-period-option--inactive:hover {
+  border-color: var(--focus-border) !important;
+  background: var(--solid-control-hover) !important;
+  color: var(--interactive-hover-text) !important;
+}
+
+.dashboard-period-option--active,
+.dashboard-period-option--active:hover {
+  border-color: color-mix(in srgb, var(--accent-text) 58%, transparent) !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-text) 22%, var(--input-bg)),
+      color-mix(in srgb, var(--accent-text) 13%, var(--glass))
+    ) !important;
+  color: color-mix(in srgb, var(--accent-text) 82%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent-text) 18%, transparent),
+    0 8px 22px color-mix(in srgb, var(--accent-text) 12%, transparent) !important;
+}
+
+.dashboard-accent-card {
+  --dashboard-card-tone: var(--accent-text);
+  border-color: color-mix(in srgb, var(--dashboard-card-tone) 28%, var(--border)) !important;
+  background: color-mix(in srgb, var(--dashboard-card-tone) 13%, var(--glass)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.dashboard-accent-card--emerald {
+  --dashboard-card-tone: var(--success);
+}
+
+.dashboard-accent-card__label {
+  color: color-mix(in srgb, var(--dashboard-card-tone) 76%, var(--text-primary)) !important;
+}
+
+.dashboard-accent-card__value {
+  color: var(--text-primary) !important;
+}
+
+.dashboard-action-center {
+  background: color-mix(in srgb, var(--accent-text) 4%, var(--glass)) !important;
+  border-color: color-mix(in srgb, var(--accent-text) 16%, var(--border)) !important;
+}
+
+.dashboard-action-center__title {
+  color: var(--text-primary) !important;
+}
+
+.dashboard-action-signal,
+.dashboard-action-empty {
+  --dashboard-action-tone: var(--accent-text);
+  border-color: color-mix(in srgb, var(--dashboard-action-tone) 30%, var(--border)) !important;
+  background: color-mix(in srgb, var(--dashboard-action-tone) 12%, var(--glass)) !important;
+  color: color-mix(in srgb, var(--dashboard-action-tone) 72%, var(--text-primary)) !important;
+}
+
+.dashboard-action-signal--critical {
+  --dashboard-action-tone: var(--danger);
+}
+
+.dashboard-action-signal--warning {
+  --dashboard-action-tone: var(--warning);
+}
+
+.dashboard-action-empty {
+  --dashboard-action-tone: var(--success);
+}
+</style>

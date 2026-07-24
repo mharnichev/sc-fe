@@ -44,17 +44,13 @@ const comparisonPercentage = computed(() => {
   const prefix = value > 0 ? '+' : ''
   return `${prefix}${value.toLocaleString('uk-UA', { maximumFractionDigits: 1 })}%`
 })
+const toneClass = computed(() => `statistics-stat-card--${props.tone}`)
 </script>
 
 <template>
   <article
-    class="min-h-32 rounded-[1.5rem] border p-4 shadow-sm"
-    :class="{
-      'border-slate-900 bg-slate-950 text-white': tone === 'dark',
-      'border-cyan-100 bg-cyan-50 text-slate-900': tone === 'cyan',
-      'border-emerald-100 bg-emerald-50 text-slate-900': tone === 'emerald',
-      'border-slate-200 bg-white text-slate-900': tone === 'slate',
-    }"
+    class="dashboard-decision-metric-card statistics-stat-card min-h-32 rounded-[1.5rem] border p-4 shadow-sm"
+    :class="toneClass"
   >
     <div v-if="loading" class="animate-pulse space-y-4" aria-label="Завантаження метрики">
       <div class="h-3 w-24 rounded bg-current opacity-10" />
@@ -62,30 +58,54 @@ const comparisonPercentage = computed(() => {
       <div class="h-3 w-44 rounded bg-current opacity-10" />
     </div>
     <template v-else>
-      <p class="text-sm" :class="tone === 'dark' ? 'text-slate-300' : 'text-slate-500'">{{ label }}</p>
-      <p class="mt-2 break-words text-2xl font-semibold sm:text-3xl" :class="{ 'text-slate-400': !available && tone !== 'dark' }">
+      <p class="statistics-stat-card__label text-sm">{{ label }}</p>
+      <p
+        class="statistics-stat-card__value mt-2 break-words text-2xl font-semibold sm:text-3xl"
+        :class="{ 'dashboard-decision-metric-card__value--unavailable': !available }"
+      >
         {{ displayValue }}
       </p>
       <p v-if="comparison && (comparisonAbsolute || comparisonPercentage)" class="mt-3 text-xs leading-5">
         <span
-          class="font-semibold"
+          class="dashboard-decision-metric-card__comparison font-semibold"
           :class="{
-            'text-emerald-600': comparisonDirection === 'positive' && tone !== 'dark',
-            'text-emerald-300': comparisonDirection === 'positive' && tone === 'dark',
-            'text-rose-600': comparisonDirection === 'negative' && tone !== 'dark',
-            'text-rose-300': comparisonDirection === 'negative' && tone === 'dark',
-            'text-slate-500': comparisonDirection === 'neutral' && tone !== 'dark',
-            'text-slate-300': comparisonDirection === 'neutral' && tone === 'dark',
+            'dashboard-decision-metric-card__comparison--positive': comparisonDirection === 'positive',
+            'dashboard-decision-metric-card__comparison--negative': comparisonDirection === 'negative',
+            'dashboard-decision-metric-card__comparison--neutral': comparisonDirection === 'neutral',
           }"
         >
           {{ [comparisonAbsolute, comparisonPercentage].filter(Boolean).join(' · ') }}
         </span>
-        <span :class="tone === 'dark' ? 'text-slate-400' : 'text-slate-500'"> проти попереднього періоду</span>
+        <span class="statistics-stat-card__hint"> проти попереднього періоду</span>
       </p>
-      <p v-else-if="hint" class="mt-3 text-xs leading-5" :class="tone === 'dark' ? 'text-slate-400' : 'text-slate-500'">{{ hint }}</p>
-      <p v-else-if="!available" class="mt-3 text-xs leading-5" :class="tone === 'dark' ? 'text-slate-400' : 'text-slate-500'">
+      <p v-else-if="hint" class="statistics-stat-card__hint mt-3 text-xs leading-5">{{ hint }}</p>
+      <p v-else-if="!available" class="statistics-stat-card__hint mt-3 text-xs leading-5">
         Backend ще не надав цю метрику.
       </p>
     </template>
   </article>
 </template>
+
+<style scoped>
+.dashboard-decision-metric-card {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--stat-card-text) 9%, transparent),
+    0 14px 36px color-mix(in srgb, #000 16%, transparent) !important;
+}
+
+.dashboard-decision-metric-card__value--unavailable {
+  color: var(--stat-card-muted) !important;
+}
+
+.dashboard-decision-metric-card__comparison--positive {
+  color: color-mix(in srgb, var(--success) 72%, var(--stat-card-text)) !important;
+}
+
+.dashboard-decision-metric-card__comparison--negative {
+  color: color-mix(in srgb, var(--danger) 72%, var(--stat-card-text)) !important;
+}
+
+.dashboard-decision-metric-card__comparison--neutral {
+  color: var(--stat-card-muted) !important;
+}
+</style>

@@ -12,7 +12,18 @@ const contractSource = await readFile(new URL('../utils/adminDashboardContract.t
 const compiledContract = ts.transpileModule(contractSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText
-const contract = await import(`data:text/javascript;base64,${Buffer.from(compiledContract).toString('base64')}`)
+const contractModuleUrl = `data:text/javascript;base64,${Buffer.from(compiledContract).toString('base64')}`
+const contract = await import(contractModuleUrl)
+const bookingFunnelUtilitySource = await readFile(new URL('../utils/bookingFunnelDashboard.ts', import.meta.url), 'utf8')
+const compiledBookingFunnelUtility = ts.transpileModule(bookingFunnelUtilitySource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText.replace(
+  /from ['"]~\/utils\/adminDashboardContract['"]/,
+  `from ${JSON.stringify(contractModuleUrl)}`,
+)
+const bookingFunnel = await import(
+  `data:text/javascript;base64,${Buffer.from(compiledBookingFunnelUtility).toString('base64')}`,
+)
 
 const backendDashboardFixture = () => ({
   period: {
@@ -89,6 +100,61 @@ const backendDashboardFixture = () => ({
     discounts: '100.00',
     average_realized_revenue_per_completed_service: '450.00',
   }],
+  booking_funnel: {
+    status: 'available',
+    status_reason: null,
+    steps: [
+      { event_type: 'booking_start', count: 100 },
+      { event_type: 'service_selected', count: 80 },
+      { event_type: 'master_selected', count: 60 },
+      { event_type: 'slot_selected', count: 30 },
+      { event_type: 'contact_entered', count: 15 },
+      { event_type: 'booking_success', count: 0 },
+    ],
+    step_to_step_conversion: [
+      { from_step: 'booking_start', to_step: 'service_selected', from_count: 100, to_count: 80, conversion_percent: '80.00', status: 'available', unavailable_reason: null },
+      { from_step: 'service_selected', to_step: 'master_selected', from_count: 80, to_count: 60, conversion_percent: '75.00', status: 'available', unavailable_reason: null },
+      { from_step: 'master_selected', to_step: 'slot_selected', from_count: 60, to_count: 30, conversion_percent: '50.00', status: 'available', unavailable_reason: null },
+      { from_step: 'slot_selected', to_step: 'contact_entered', from_count: 30, to_count: 15, conversion_percent: '50.00', status: 'available', unavailable_reason: null },
+      { from_step: 'contact_entered', to_step: 'booking_success', from_count: 15, to_count: 0, conversion_percent: '0.00', status: 'available', unavailable_reason: null },
+    ],
+    overall_conversion: {
+      started: 100,
+      succeeded: 0,
+      conversion_percent: '0.00',
+      status: 'available',
+      unavailable_reason: null,
+    },
+    drop_offs: [
+      { from_step: 'booking_start', to_step: 'service_selected', count: 20, drop_off_percent: '20.00', status: 'available' },
+      { from_step: 'service_selected', to_step: 'master_selected', count: 20, drop_off_percent: '25.00', status: 'available' },
+      { from_step: 'master_selected', to_step: 'slot_selected', count: 30, drop_off_percent: '50.00', status: 'available' },
+      { from_step: 'slot_selected', to_step: 'contact_entered', count: 15, drop_off_percent: '50.00', status: 'available' },
+      { from_step: 'contact_entered', to_step: 'booking_success', count: 15, drop_off_percent: '100.00', status: 'available' },
+    ],
+    operational_alerts: [
+      { code: 'no_slot', count: 12, rate_percent: '20.00', triggered: true },
+      { code: 'stale_schedule', count: 0, rate_percent: null, triggered: false },
+      { code: 'booking_error', count: 2, rate_percent: null, triggered: true },
+    ],
+    alert_thresholds: {
+      no_slot_min_count: 3,
+      no_slot_rate_percent: '20.00',
+      stale_schedule_count: 1,
+      booking_error_count: 1,
+      meaningful_step_sessions: 5,
+    },
+    unattributed_booking_successes: 0,
+    weekly_insight_uk: 'Найбільше відвідувачів зупиняються перед підтвердженням запису.',
+    recommended_action: {
+      code: 'investigate_booking_completion',
+      title_uk: 'Перевірити завершення запису',
+      explanation_uk: 'Перевірте валідацію та повідомлення про помилки.',
+      recommended_backoffice_route: '/bookings',
+      based_on: 'contact_entered_to_booking_success',
+    },
+    latest_weekly_digest: null,
+  },
   actionable_signals: [{
     severity: 'warning',
     code: 'pending_bookings',
@@ -98,6 +164,27 @@ const backendDashboardFixture = () => ({
     metric_unit: 'bookings',
     recommended_backoffice_route: '/bookings?status=pending',
   }],
+})
+
+const emptyBookingFunnelFixture = () => ({
+  status: 'empty',
+  status_reason: 'No booking funnel events were recorded in the selected period.',
+  steps: [],
+  step_to_step_conversion: [],
+  overall_conversion: null,
+  drop_offs: [],
+  operational_alerts: [],
+  alert_thresholds: {
+    no_slot_min_count: 3,
+    no_slot_rate_percent: '20.00',
+    stale_schedule_count: 1,
+    booking_error_count: 1,
+    meaningful_step_sessions: 5,
+  },
+  unattributed_booking_successes: 0,
+  weekly_insight_uk: 'За вибраний період подій воронки ще немає.',
+  recommended_action: null,
+  latest_weekly_digest: null,
 })
 
 test('dashboard presets are inclusive and calendar-safe', () => {
@@ -151,6 +238,49 @@ test('rates preserve backend percentage semantics and unavailable state', () => 
   assert.equal(dashboard.hasDashboardMetric(0), true)
 })
 
+test('booking funnel mapping uses backend conversion and drop-off values without recalculation', () => {
+  const funnel = backendDashboardFixture().booking_funnel
+  const rows = bookingFunnel.mapBookingFunnelRows(funnel)
+
+  assert.deepEqual(rows.map(row => row.step), [
+    'booking_start',
+    'service_selected',
+    'master_selected',
+    'slot_selected',
+    'contact_entered',
+    'booking_success',
+  ])
+  assert.equal(rows[3].count, 30)
+  assert.equal(rows[3].conversion.conversion_percent, '50.00')
+  assert.equal(rows[3].dropOff.count, 30)
+  assert.equal(rows[5].conversion.conversion_percent, '0.00')
+  assert.equal(rows[5].dropOff.drop_off_percent, '100.00')
+})
+
+test('booking funnel percentages preserve backend percent units and zero conversions', () => {
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(0), '0%')
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(0.625), '0,6%')
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(62.5), '62,5%')
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(null), 'Недоступно')
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(0, 'unavailable'), 'Недоступно')
+})
+
+test('booking funnel empty state is distinct from an observed zero conversion', () => {
+  assert.equal(bookingFunnel.bookingFunnelDisplayState(emptyBookingFunnelFixture()), 'empty')
+  assert.equal(
+    bookingFunnel.bookingFunnelDisplayState(backendDashboardFixture().booking_funnel),
+    'available',
+  )
+  assert.equal(
+    bookingFunnel.mapBookingFunnelRows(emptyBookingFunnelFixture()).every(row => row.count === null),
+    true,
+  )
+  assert.equal(
+    bookingFunnel.mapBookingFunnelRows(backendDashboardFixture().booking_funnel)[5].count,
+    0,
+  )
+})
+
 test('master sorting uses quality metrics and always keeps unavailable rows last', () => {
   const rows = [
     { master_name: 'Андрій', gross_revenue: 5000, revenue_per_available_hour: 500 },
@@ -173,6 +303,9 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.equal(response.retention.repeat_30_day.eligible_clients, 1)
   assert.equal(response.masters[0].master_name, 'Андрій')
   assert.equal(response.services[0].average_realized_revenue_per_completed_service, '450.00')
+  assert.equal(response.booking_funnel.steps[0].event_type, 'booking_start')
+  assert.equal(response.booking_funnel.overall_conversion.conversion_percent, '0.00')
+  assert.equal(response.booking_funnel.recommended_action.recommended_backoffice_route, '/bookings')
   assert.equal(response.actionable_signals[0].recommended_backoffice_route, '/bookings?status=pending')
   assert.throws(
     () => contract.parseAdminDashboardResponse({ ...backendDashboardFixture(), executive: undefined }),
@@ -184,6 +317,15 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
     () => contract.parseAdminDashboardResponse(unsafeRoute),
     /recommended_backoffice_route/,
   )
+  const malformedFunnel = backendDashboardFixture()
+  malformedFunnel.booking_funnel.step_to_step_conversion[0].conversion_percent = null
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(malformedFunnel),
+    /booking_funnel\.step_to_step_conversion\.0\.conversion_percent/,
+  )
+  const emptyFunnel = backendDashboardFixture()
+  emptyFunnel.booking_funnel = emptyBookingFunnelFixture()
+  assert.equal(contract.parseAdminDashboardResponse(emptyFunnel).booking_funnel.status, 'empty')
 })
 
 test('dashboard page uses the single typed business endpoint without legacy metric assembly', async () => {
@@ -202,6 +344,7 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.doesNotMatch(pageSource, /dashboard\?\.kpis|dashboard\?\.capacity\./)
   assert.match(pageSource, /dashboard\?\.executive\.gross_revenue\.current/)
   assert.match(pageSource, /dashboard\?\.capacity_and_leakage\.available_minutes/)
+  assert.match(pageSource, /dashboard\?\.booking_funnel/)
   assert.match(pageSource, /retention\.repeat_30_day/)
   assert.match(bookingsSource, /route\.query\.status/)
   assert.match(reviewsSource, /route\.query\.moderation_status/)

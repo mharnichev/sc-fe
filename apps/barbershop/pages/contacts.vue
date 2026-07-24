@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
 
 const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackContactClick, trackEvent } = useAnalytics()
+const bookingFunnel = useBookingFunnel()
 const { data: masters } = await useAsyncData('booking-masters', domain.getMasters)
 const maxSelectedServices = 3
 
@@ -75,6 +77,10 @@ const selectedPrice = computed(() =>
 const serviceSelected = (serviceId: number) => form.service_ids.includes(String(serviceId))
 const serviceSelectionLimitReached = computed(() => form.service_ids.length >= maxSelectedServices)
 
+const recordBookingStart = () => {
+  bookingFunnel.recordInBackground('booking_start')
+}
+
 const toggleService = (serviceId: number) => {
   const id = String(serviceId)
   if (form.service_ids.includes(id)) {
@@ -85,6 +91,11 @@ const toggleService = (serviceId: number) => {
   if (serviceSelectionLimitReached.value) return
 
   form.service_ids = [...form.service_ids, id]
+  recordBookingStart()
+  bookingFunnel.recordInBackground('service_selected', {
+    masterId: Number(form.master_id),
+    serviceId,
+  })
   const service = availableServices.value.find(service => service.id === serviceId)
   trackEvent('select_service', {
     source: 'contacts_page',
@@ -98,6 +109,11 @@ const toggleService = (serviceId: number) => {
 
 watch(() => form.master_id, () => {
   if (form.master_id) {
+    recordBookingStart()
+    bookingFunnel.recordInBackground('master_selected', {
+      masterId: Number(form.master_id),
+      serviceId: Number(form.service_ids[0]),
+    })
     trackEvent('select_master', {
       source: 'contacts_page',
       master_id: Number(form.master_id),
@@ -126,6 +142,17 @@ const handleTextInput = (
   options: { multiline?: boolean } = {},
 ) => {
   form[field] = constrainFormInput(form[field], maxLength, options)
+}
+
+const handleScheduledAtChange = () => {
+  trackEvent('select_time', {
+    source: 'contacts_page',
+    appointment_date: form.scheduled_at.slice(0, 10),
+  })
+  bookingFunnel.recordInBackground('slot_selected', {
+    masterId: Number(form.master_id),
+    serviceId: Number(form.service_ids[0]),
+  })
 }
 
 useSeo(
@@ -169,6 +196,11 @@ const submit = async () => {
     duration_minutes: selectedDurationMinutes.value,
   })
   try {
+    const funnelSessionId = bookingFunnel.sessionId()
+    bookingFunnel.recordInBackground('contact_entered', {
+      masterId: Number(form.master_id),
+      serviceId: serviceIds[0],
+    })
     await domain.createBooking({
       master_id: Number(form.master_id),
       service_id: serviceIds[0],
@@ -178,6 +210,7 @@ const submit = async () => {
       customer_phone: formatPhoneForSubmit(form.phone),
       customer_comment: safeNote || null,
       start_at: new Date(form.scheduled_at).toISOString(),
+      funnel_session_id: funnelSessionId,
     })
     state.success = terms.value.pages.contacts.success
     trackEvent('booking_success', {
@@ -197,9 +230,16 @@ const submit = async () => {
       scheduled_at: '',
       note: '',
     })
+    bookingFunnel.reset()
   }
   catch (error) {
     state.error = terms.value.pages.contacts.error
+    const status = (error as { response?: { status?: number }, status?: number })?.response?.status
+      || (error as { status?: number })?.status
+    bookingFunnel.recordInBackground(bookingFunnelFailureEvent(status), {
+      masterId: Number(form.master_id),
+      serviceId: serviceIds[0],
+    })
     trackEvent('booking_error', {
       source: 'contacts_page',
       master_id: Number(form.master_id),
@@ -340,7 +380,7 @@ const submit = async () => {
         :min="minScheduledAt"
         :max="maxScheduledAt"
         class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
-        @change="trackEvent('select_time', { source: 'contacts_page', appointment_date: form.scheduled_at.slice(0, 10) })"
+        @change="handleScheduledAtChange"
       >
       <textarea
         v-model="form.note"

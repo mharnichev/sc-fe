@@ -1,4 +1,5 @@
 import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, MasterDto, PageDto, PaginatedResponse, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
+import type { BookingFunnelEventPayload } from '~/utils/bookingFunnel'
 
 interface PublicBrandDto {
   id: number
@@ -20,6 +21,12 @@ export interface PublicBookingPayload {
   customer_comment?: string | null
   promotion_code?: string | null
   start_at: string
+  funnel_session_id?: string
+}
+
+export interface BookingFunnelEventReceipt {
+  event_id: string
+  status: 'recorded' | 'duplicate'
 }
 
 export interface MasterRatingSummaryDto {
@@ -111,6 +118,11 @@ export const useBarbershopDomain = () => {
     })
   }
   const createBooking = (payload: PublicBookingPayload) => api<BookingDto>('/public/bookings', { method: 'POST', body: payload })
+  const recordBookingFunnelEvent = (payload: BookingFunnelEventPayload) =>
+    api<BookingFunnelEventReceipt>('/public/booking-funnel/events', {
+      method: 'POST',
+      body: payload,
+    })
   const resolveReviewRequest = (token: string) =>
     api<PublicReviewRequestDto>('/public/reviews/request', {
       headers: { 'X-Review-Token': token },
@@ -136,6 +148,7 @@ export const useBarbershopDomain = () => {
     getBrands,
     getAvailableSlots,
     createBooking,
+    recordBookingFunnelEvent,
     resolveReviewRequest,
     submitReviewRequest,
   }

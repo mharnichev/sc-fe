@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
+import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
 
 type AssetModule = { default: string }
 
@@ -20,6 +21,7 @@ const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
+const bookingFunnel = useBookingFunnel()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 type BarberServiceOption = {
@@ -389,6 +391,7 @@ const selectService = (service: SelectableService) => {
       trackEvent('booking_start', {
         source: props.analyticsSource,
       })
+      bookingFunnel.recordInBackground('booking_start')
     }
 
     trackEvent('select_service', {
@@ -398,6 +401,9 @@ const selectService = (service: SelectableService) => {
       service_count: selectedServiceCount.value,
       value: Number(service.price || 0),
       currency: 'UAH',
+    })
+    bookingFunnel.recordInBackground('service_selected', {
+      serviceId: 'catalog_id' in service ? null : service.id,
     })
   }
 }
@@ -410,6 +416,10 @@ const selectMaster = (masterId: number) => {
     master_id: masterId,
     master_name: masterName(selectedMaster.value),
     service_count: selectedServiceCount.value,
+  })
+  bookingFunnel.recordInBackground('master_selected', {
+    masterId,
+    serviceId: selectedServiceIds.value[0],
   })
   goToStep(selectedServiceIds.value.length || selectedCatalogIds.value.length ? 2 : 0)
 }
@@ -424,6 +434,10 @@ const selectSlot = (slotStart: string) => {
     service_count: selectedServiceCount.value,
     duration_minutes: selectedDurationMinutes.value,
   })
+  bookingFunnel.recordInBackground('slot_selected', {
+    masterId: selectedMasterId.value,
+    serviceId: selectedServiceIds.value[0],
+  })
   goToStep(3)
 }
 
@@ -432,6 +446,13 @@ const handleExternalServiceSelect = (event: Event) => {
   if (!catalogId) return
 
   selectCatalogService(catalogId)
+  if (!selectedCatalogIds.value.includes(catalogId)) return
+
+  if (!bookingStarted.value) {
+    bookingStarted.value = true
+    bookingFunnel.recordInBackground('booking_start')
+  }
+  bookingFunnel.recordInBackground('service_selected')
 }
 
 onMounted(() => {
@@ -474,6 +495,7 @@ const slotsKey = computed(() =>
     ? `${props.idPrefix}-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
     : `${props.idPrefix}-slots-empty`,
 )
+const loadedSlotsKey = ref('')
 
 const {
   data: slots,
@@ -491,7 +513,12 @@ const {
       return Promise.resolve([])
     }
 
+    const requestedKey = slotsKey.value
     return domain.getAvailableSlots(masterId, serviceIds, date, selectedDurationMinutes.value)
+      .then((result) => {
+        loadedSlotsKey.value = requestedKey
+        return result
+      })
   },
   {
     watch: [selectedServiceIds, selectedMasterId, selectedDate],
@@ -501,6 +528,27 @@ const {
 
 const visibleSlots = computed<AvailableSlotDto[]>(() =>
   isSelectedDateClosed.value ? [] : slots.value || [],
+)
+
+watch(
+  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate],
+  () => {
+    if (
+      !canLoadSlots.value
+      || isSelectedDateClosed.value
+      || loadedSlotsKey.value !== slotsKey.value
+      || slotsPending.value
+      || slotsError.value
+      || visibleSlots.value.length
+    ) return
+
+    bookingFunnel.recordInBackground('no_slot', {
+      masterId: selectedMasterId.value,
+      serviceId: selectedServiceIds.value[0],
+      dedupeKey: selectedDate.value,
+    })
+  },
+  { immediate: true },
 )
 
 const emptySlotsMessage = computed(() =>
@@ -676,6 +724,7 @@ const resetBookingFlow = async () => {
   submitAttempted.value = false
   actionAttemptedStepIndex.value = null
   bookingStarted.value = false
+  bookingFunnel.reset()
   await nextTick()
   isResettingAfterSubmit.value = false
 }
@@ -710,6 +759,11 @@ const submit = async () => {
   })
 
   try {
+    const funnelSessionId = bookingFunnel.sessionId()
+    bookingFunnel.recordInBackground('contact_entered', {
+      masterId: selectedMasterId.value,
+      serviceId: selectedServiceIds.value[0],
+    })
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
     const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment, { multiline: true })
@@ -736,6 +790,7 @@ const submit = async () => {
       customer_comment: bookingComment,
       promotion_code: effectivePromotionCode.value || null,
       start_at: selectedSlotStart.value,
+      funnel_session_id: funnelSessionId,
     })
 
     await resetBookingFlow()
@@ -747,6 +802,12 @@ const submit = async () => {
   }
   catch (error) {
     state.error = errorMessage(error)
+    const status = (error as { response?: { status?: number }, status?: number })?.response?.status
+      || (error as { status?: number })?.status
+    bookingFunnel.recordInBackground(bookingFunnelFailureEvent(status), {
+      masterId: selectedMasterId.value,
+      serviceId: selectedServiceIds.value[0],
+    })
     trackEvent('booking_error', {
       source: props.analyticsSource,
       master_id: selectedMasterId.value,

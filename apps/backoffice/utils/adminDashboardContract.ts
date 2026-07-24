@@ -124,6 +124,110 @@ export interface DashboardServiceBreakdownItem {
   average_realized_revenue_per_completed_service: DashboardDecimal
 }
 
+export const dashboardBookingFunnelSteps = [
+  'booking_start',
+  'service_selected',
+  'master_selected',
+  'slot_selected',
+  'contact_entered',
+  'booking_success',
+] as const
+
+export type DashboardBookingFunnelStep = typeof dashboardBookingFunnelSteps[number]
+export type DashboardBookingFunnelStatus = 'available' | 'partial' | 'empty' | 'unavailable'
+export type DashboardBookingFunnelMetricStatus = 'available' | 'unavailable'
+export type DashboardBookingFunnelAlertCode = 'no_slot' | 'stale_schedule' | 'booking_error'
+
+export interface DashboardBookingFunnelStepMetric {
+  event_type: DashboardBookingFunnelStep
+  count: number
+}
+
+export interface DashboardBookingFunnelConversion {
+  from_step: DashboardBookingFunnelStep
+  to_step: DashboardBookingFunnelStep
+  from_count: number
+  to_count: number
+  conversion_percent: DashboardDecimal | null
+  status: DashboardBookingFunnelMetricStatus
+  unavailable_reason: string | null
+}
+
+export interface DashboardBookingFunnelDropOff {
+  from_step: DashboardBookingFunnelStep
+  to_step: DashboardBookingFunnelStep
+  count: number | null
+  drop_off_percent: DashboardDecimal | null
+  status: DashboardBookingFunnelMetricStatus
+}
+
+export interface DashboardBookingFunnelOverallConversion {
+  started: number
+  succeeded: number
+  conversion_percent: DashboardDecimal | null
+  status: DashboardBookingFunnelMetricStatus
+  unavailable_reason: string | null
+}
+
+export interface DashboardBookingFunnelAlertThresholds {
+  no_slot_min_count: number
+  no_slot_rate_percent: DashboardDecimal
+  stale_schedule_count: number
+  booking_error_count: number
+  meaningful_step_sessions: number
+}
+
+export interface DashboardBookingFunnelOperationalAlert {
+  code: DashboardBookingFunnelAlertCode
+  count: number
+  rate_percent: DashboardDecimal | null
+  triggered: boolean
+}
+
+export type DashboardBookingFunnelActionCode =
+  | 'review_availability'
+  | 'refresh_schedule'
+  | 'investigate_booking_errors'
+  | 'improve_service_discovery'
+  | 'clarify_master_choice'
+  | 'simplify_contact_step'
+  | 'investigate_booking_completion'
+
+export interface DashboardBookingFunnelRecommendedAction {
+  code: DashboardBookingFunnelActionCode
+  title_uk: string
+  explanation_uk: string
+  recommended_backoffice_route: string
+  based_on: string
+}
+
+export interface DashboardBookingFunnelWeeklyDigest {
+  scope: 'all_masters'
+  period_start: string
+  period_end: string
+  generated_at: string
+  status: DashboardBookingFunnelStatus
+  insight_uk: string
+  recommended_action: DashboardBookingFunnelRecommendedAction | null
+  step_counts: DashboardBookingFunnelStepMetric[]
+  operational_alerts: DashboardBookingFunnelOperationalAlert[]
+}
+
+export interface DashboardBookingFunnel {
+  status: DashboardBookingFunnelStatus
+  status_reason: string | null
+  steps: DashboardBookingFunnelStepMetric[]
+  step_to_step_conversion: DashboardBookingFunnelConversion[]
+  overall_conversion: DashboardBookingFunnelOverallConversion | null
+  drop_offs: DashboardBookingFunnelDropOff[]
+  operational_alerts: DashboardBookingFunnelOperationalAlert[]
+  alert_thresholds: DashboardBookingFunnelAlertThresholds
+  unattributed_booking_successes: number
+  weekly_insight_uk: string
+  recommended_action: DashboardBookingFunnelRecommendedAction | null
+  latest_weekly_digest: DashboardBookingFunnelWeeklyDigest | null
+}
+
 export type DashboardActionSeverity = 'info' | 'warning' | 'critical'
 export type DashboardActionCode =
   | 'pending_bookings'
@@ -149,6 +253,7 @@ export interface AdminDashboardResponse {
   retention: DashboardRetention
   masters: DashboardMasterBreakdownItem[]
   services: DashboardServiceBreakdownItem[]
+  booking_funnel: DashboardBookingFunnel
   actionable_signals: DashboardActionSignal[]
 }
 
@@ -167,6 +272,21 @@ const recordAt = (value: unknown, path: string) => isRecord(value) ? value : fai
 const arrayAt = (value: unknown, path: string) => Array.isArray(value) ? value : fail(path)
 const numberAt = (value: unknown, path: string) => isNumeric(value) ? value : fail(path)
 const stringAt = (value: unknown, path: string) => typeof value === 'string' ? value : fail(path)
+const nullableStringAt = (value: unknown, path: string) => {
+  if (value !== null) stringAt(value, path)
+}
+const booleanAt = (value: unknown, path: string) => typeof value === 'boolean' ? value : fail(path)
+const nonNegativeIntegerAt = (value: unknown, path: string) =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : fail(path)
+const literalAt = <T extends string>(value: unknown, values: readonly T[], path: string): T => {
+  const literal = stringAt(value, path)
+  return values.includes(literal as T) ? literal as T : fail(path)
+}
+const safeBackofficeRouteAt = (value: unknown, path: string) => {
+  const route = stringAt(value, path)
+  if (!route.startsWith('/') || route.startsWith('//')) fail(path)
+  return route
+}
 
 const comparableMetricAt = (value: unknown, path: string) => {
   const metric = recordAt(value, path)
@@ -181,6 +301,187 @@ const repeatMetricAt = (value: unknown, path: string) => {
   numberAt(metric.repeated_clients, `${path}.repeated_clients`)
   numberAt(metric.eligible_clients, `${path}.eligible_clients`)
   if (metric.repeat_rate !== null) numberAt(metric.repeat_rate, `${path}.repeat_rate`)
+}
+
+const funnelStepMetricAt = (value: unknown, path: string) => {
+  const metric = recordAt(value, path)
+  literalAt(metric.event_type, dashboardBookingFunnelSteps, `${path}.event_type`)
+  nonNegativeIntegerAt(metric.count, `${path}.count`)
+}
+
+const funnelAlertAt = (value: unknown, path: string) => {
+  const alert = recordAt(value, path)
+  literalAt(alert.code, ['no_slot', 'stale_schedule', 'booking_error'], `${path}.code`)
+  nonNegativeIntegerAt(alert.count, `${path}.count`)
+  if (alert.rate_percent !== null) numberAt(alert.rate_percent, `${path}.rate_percent`)
+  booleanAt(alert.triggered, `${path}.triggered`)
+}
+
+const funnelActionAt = (value: unknown, path: string) => {
+  const action = recordAt(value, path)
+  literalAt(action.code, [
+    'review_availability',
+    'refresh_schedule',
+    'investigate_booking_errors',
+    'improve_service_discovery',
+    'clarify_master_choice',
+    'simplify_contact_step',
+    'investigate_booking_completion',
+  ], `${path}.code`)
+  stringAt(action.title_uk, `${path}.title_uk`)
+  stringAt(action.explanation_uk, `${path}.explanation_uk`)
+  safeBackofficeRouteAt(action.recommended_backoffice_route, `${path}.recommended_backoffice_route`)
+  stringAt(action.based_on, `${path}.based_on`)
+}
+
+const funnelStepListAt = (value: unknown, path: string) => {
+  const steps = arrayAt(value, path)
+  steps.forEach((step, index) => funnelStepMetricAt(step, `${path}.${index}`))
+  return steps
+}
+
+const funnelAlertListAt = (value: unknown, path: string) => {
+  const alerts = arrayAt(value, path)
+  alerts.forEach((alert, index) => funnelAlertAt(alert, `${path}.${index}`))
+  return alerts
+}
+
+const funnelAt = (value: unknown, path: string) => {
+  const funnel = recordAt(value, path)
+  const status = literalAt(
+    funnel.status,
+    ['available', 'partial', 'empty', 'unavailable'],
+    `${path}.status`,
+  )
+  nullableStringAt(funnel.status_reason, `${path}.status_reason`)
+
+  const steps = funnelStepListAt(funnel.steps, `${path}.steps`)
+  const conversions = arrayAt(funnel.step_to_step_conversion, `${path}.step_to_step_conversion`)
+  const dropOffs = arrayAt(funnel.drop_offs, `${path}.drop_offs`)
+  if (status === 'empty') {
+    if (steps.length || conversions.length || dropOffs.length || funnel.overall_conversion !== null) {
+      fail(`${path}.status`)
+    }
+  }
+  else {
+    if (steps.length !== dashboardBookingFunnelSteps.length) fail(`${path}.steps`)
+    steps.forEach((rawStep, index) => {
+      const step = recordAt(rawStep, `${path}.steps.${index}`)
+      if (step.event_type !== dashboardBookingFunnelSteps[index]) fail(`${path}.steps.${index}.event_type`)
+    })
+    if (conversions.length !== dashboardBookingFunnelSteps.length - 1) {
+      fail(`${path}.step_to_step_conversion`)
+    }
+    if (dropOffs.length !== dashboardBookingFunnelSteps.length - 1) fail(`${path}.drop_offs`)
+  }
+
+  conversions.forEach((rawConversion, index) => {
+    const conversionPath = `${path}.step_to_step_conversion.${index}`
+    const conversion = recordAt(rawConversion, conversionPath)
+    const fromStep = literalAt(conversion.from_step, dashboardBookingFunnelSteps, `${conversionPath}.from_step`)
+    const toStep = literalAt(conversion.to_step, dashboardBookingFunnelSteps, `${conversionPath}.to_step`)
+    if (
+      fromStep !== dashboardBookingFunnelSteps[index]
+      || toStep !== dashboardBookingFunnelSteps[index + 1]
+    ) {
+      fail(conversionPath)
+    }
+    nonNegativeIntegerAt(conversion.from_count, `${conversionPath}.from_count`)
+    nonNegativeIntegerAt(conversion.to_count, `${conversionPath}.to_count`)
+    const metricStatus = literalAt(
+      conversion.status,
+      ['available', 'unavailable'],
+      `${conversionPath}.status`,
+    )
+    if (conversion.conversion_percent !== null) {
+      numberAt(conversion.conversion_percent, `${conversionPath}.conversion_percent`)
+    }
+    if (
+      (metricStatus === 'available' && conversion.conversion_percent === null)
+      || (metricStatus === 'unavailable' && conversion.conversion_percent !== null)
+    ) {
+      fail(`${conversionPath}.conversion_percent`)
+    }
+    nullableStringAt(conversion.unavailable_reason, `${conversionPath}.unavailable_reason`)
+  })
+
+  dropOffs.forEach((rawDropOff, index) => {
+    const dropOffPath = `${path}.drop_offs.${index}`
+    const dropOff = recordAt(rawDropOff, dropOffPath)
+    const fromStep = literalAt(dropOff.from_step, dashboardBookingFunnelSteps, `${dropOffPath}.from_step`)
+    const toStep = literalAt(dropOff.to_step, dashboardBookingFunnelSteps, `${dropOffPath}.to_step`)
+    if (
+      fromStep !== dashboardBookingFunnelSteps[index]
+      || toStep !== dashboardBookingFunnelSteps[index + 1]
+    ) {
+      fail(dropOffPath)
+    }
+    const metricStatus = literalAt(dropOff.status, ['available', 'unavailable'], `${dropOffPath}.status`)
+    if (dropOff.count !== null) nonNegativeIntegerAt(dropOff.count, `${dropOffPath}.count`)
+    if (dropOff.drop_off_percent !== null) numberAt(dropOff.drop_off_percent, `${dropOffPath}.drop_off_percent`)
+    if (
+      (metricStatus === 'available' && (dropOff.count === null || dropOff.drop_off_percent === null))
+      || (metricStatus === 'unavailable' && (dropOff.count !== null || dropOff.drop_off_percent !== null))
+    ) {
+      fail(dropOffPath)
+    }
+  })
+
+  if (funnel.overall_conversion !== null) {
+    const overall = recordAt(funnel.overall_conversion, `${path}.overall_conversion`)
+    nonNegativeIntegerAt(overall.started, `${path}.overall_conversion.started`)
+    nonNegativeIntegerAt(overall.succeeded, `${path}.overall_conversion.succeeded`)
+    const overallStatus = literalAt(
+      overall.status,
+      ['available', 'unavailable'],
+      `${path}.overall_conversion.status`,
+    )
+    if (overall.conversion_percent !== null) {
+      numberAt(overall.conversion_percent, `${path}.overall_conversion.conversion_percent`)
+    }
+    if (
+      (overallStatus === 'available' && overall.conversion_percent === null)
+      || (overallStatus === 'unavailable' && overall.conversion_percent !== null)
+    ) {
+      fail(`${path}.overall_conversion.conversion_percent`)
+    }
+    nullableStringAt(overall.unavailable_reason, `${path}.overall_conversion.unavailable_reason`)
+  }
+  else if (status !== 'empty') {
+    fail(`${path}.overall_conversion`)
+  }
+
+  funnelAlertListAt(funnel.operational_alerts, `${path}.operational_alerts`)
+  const thresholds = recordAt(funnel.alert_thresholds, `${path}.alert_thresholds`)
+  nonNegativeIntegerAt(thresholds.no_slot_min_count, `${path}.alert_thresholds.no_slot_min_count`)
+  numberAt(thresholds.no_slot_rate_percent, `${path}.alert_thresholds.no_slot_rate_percent`)
+  nonNegativeIntegerAt(thresholds.stale_schedule_count, `${path}.alert_thresholds.stale_schedule_count`)
+  nonNegativeIntegerAt(thresholds.booking_error_count, `${path}.alert_thresholds.booking_error_count`)
+  nonNegativeIntegerAt(thresholds.meaningful_step_sessions, `${path}.alert_thresholds.meaningful_step_sessions`)
+  nonNegativeIntegerAt(funnel.unattributed_booking_successes, `${path}.unattributed_booking_successes`)
+  stringAt(funnel.weekly_insight_uk, `${path}.weekly_insight_uk`)
+  if (funnel.recommended_action !== null) {
+    funnelActionAt(funnel.recommended_action, `${path}.recommended_action`)
+  }
+
+  if (funnel.latest_weekly_digest !== null) {
+    const digest = recordAt(funnel.latest_weekly_digest, `${path}.latest_weekly_digest`)
+    if (digest.scope !== 'all_masters') fail(`${path}.latest_weekly_digest.scope`)
+    stringAt(digest.period_start, `${path}.latest_weekly_digest.period_start`)
+    stringAt(digest.period_end, `${path}.latest_weekly_digest.period_end`)
+    stringAt(digest.generated_at, `${path}.latest_weekly_digest.generated_at`)
+    literalAt(
+      digest.status,
+      ['available', 'partial', 'empty', 'unavailable'],
+      `${path}.latest_weekly_digest.status`,
+    )
+    stringAt(digest.insight_uk, `${path}.latest_weekly_digest.insight_uk`)
+    if (digest.recommended_action !== null) {
+      funnelActionAt(digest.recommended_action, `${path}.latest_weekly_digest.recommended_action`)
+    }
+    funnelStepListAt(digest.step_counts, `${path}.latest_weekly_digest.step_counts`)
+    funnelAlertListAt(digest.operational_alerts, `${path}.latest_weekly_digest.operational_alerts`)
+  }
 }
 
 export const parseAdminDashboardResponse = (value: unknown): AdminDashboardResponse => {
@@ -297,6 +598,8 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
     }
   }
 
+  funnelAt(response.booking_funnel, 'booking_funnel')
+
   for (const [index, rawSignal] of arrayAt(response.actionable_signals, 'actionable_signals').entries()) {
     const signal = recordAt(rawSignal, `actionable_signals.${index}`)
     const severity = stringAt(signal.severity, `actionable_signals.${index}.severity`)
@@ -316,13 +619,10 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
     stringAt(signal.title_uk, `actionable_signals.${index}.title_uk`)
     stringAt(signal.explanation_uk, `actionable_signals.${index}.explanation_uk`)
     numberAt(signal.metric_value, `actionable_signals.${index}.metric_value`)
-    const route = stringAt(
+    safeBackofficeRouteAt(
       signal.recommended_backoffice_route,
       `actionable_signals.${index}.recommended_backoffice_route`,
     )
-    if (!route.startsWith('/') || route.startsWith('//')) {
-      fail(`actionable_signals.${index}.recommended_backoffice_route`)
-    }
   }
 
   return value as AdminDashboardResponse
