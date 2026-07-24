@@ -29,8 +29,8 @@ const form = reactive<Partial<MessagingSettings>>({
     first_visit_follow_up: null,
     loyalty_vip: null,
   },
-  quiet_hours_from: '21:00',
-  quiet_hours_to: '09:00',
+  quiet_hours_from: '20:00',
+  quiet_hours_to: '10:00',
   default_rate_limit: 20,
   default_timezone: 'Europe/Kyiv',
   opt_out_text: 'Напишіть STOP, щоб відписатися.',
@@ -40,12 +40,14 @@ const form = reactive<Partial<MessagingSettings>>({
 
 const reviewForm = reactive<ReviewRequestSettings>({
   enabled: false,
-  delay_minutes: 60,
+  delay_minutes: 0,
+  schedule_mode: 'next_day',
+  send_time: '10:00',
   primary_channel: 'sms',
   sms_fallback_enabled: false,
   quiet_hours_enabled: true,
-  quiet_hours_from: '21:00',
-  quiet_hours_to: '09:00',
+  quiet_hours_from: '20:00',
+  quiet_hours_to: '10:00',
   frequency_cap_count: 1,
   frequency_cap_days: 90,
   submitted_frequency_cap_days: 270,
@@ -85,7 +87,9 @@ const saveReviewSettings = async () => {
   try {
     const payload: ReviewRequestSettingsUpdate = {
       enabled: reviewForm.enabled,
-      delay_minutes: Math.max(0, Number(reviewForm.delay_minutes) || 0),
+      delay_minutes: 0,
+      schedule_mode: 'next_day',
+      send_time: '10:00',
       primary_channel: 'sms',
       sms_fallback_enabled: false,
       quiet_hours_enabled: reviewForm.quiet_hours_enabled,
@@ -210,7 +214,10 @@ const saveReviewSettings = async () => {
         <div class="space-y-4">
           <label class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700"><span>Автоматичні запити увімкнено</span><BaseCheckbox v-model="reviewForm.enabled" /></label>
           <div class="grid gap-4 sm:grid-cols-2">
-            <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Затримка після завершення, хв</span><BaseInput v-model.number="reviewForm.delay_minutes" type="number" min="0" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
+            <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm">
+              <p class="font-medium text-cyan-950">Щоденна відправка о {{ reviewForm.send_time }}</p>
+              <p class="mt-1 leading-5 text-cyan-800">SMS отримують клієнти із завершеним візитом за попередній день.</p>
+            </div>
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Основний канал</span><BaseInput value="SMS" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
           </div>
           <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.quiet_hours_enabled" /> Дотримуватися quiet hours</label>

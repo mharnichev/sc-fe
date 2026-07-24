@@ -83,6 +83,8 @@ export interface ReviewMetrics {
 export interface ReviewRequestSettings {
   enabled: boolean
   delay_minutes: number
+  schedule_mode: 'next_day'
+  send_time: string
   primary_channel: 'sms'
   sms_fallback_enabled: false
   quiet_hours_enabled: boolean
@@ -99,6 +101,8 @@ export interface ReviewRequestSettings {
 export interface ReviewRequestSettingsUpdate {
   enabled: boolean
   delay_minutes: number
+  schedule_mode: 'next_day'
+  send_time: '10:00'
   primary_channel: 'sms'
   sms_fallback_enabled: false
   quiet_hours_enabled: boolean
