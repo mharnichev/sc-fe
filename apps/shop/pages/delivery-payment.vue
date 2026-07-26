@@ -18,17 +18,17 @@ useSeo(
 <template>
   <section class="delivery-payment">
     <h1 class="delivery-payment__title">{{ terms.support.title }}</h1>
-      <div class="delivery-payment__body">
-        <nav class="delivery-payment__nav" :aria-label="terms.support.title">
-        <button type="button" @click="scrollToBlock('delivery')">
-          <BaseHoverUnderlineText>{{ terms.common.delivery }}</BaseHoverUnderlineText>
-        </button>
-        <button type="button" @click="scrollToBlock('payment')">
-          <BaseHoverUnderlineText>{{ terms.common.payment }}</BaseHoverUnderlineText>
-        </button>
-        <button type="button" @click="scrollToBlock('returns')">
-          <BaseHoverUnderlineText>{{ terms.common.returns }}</BaseHoverUnderlineText>
-        </button>
+    <div class="delivery-payment__body">
+      <nav class="delivery-payment__nav" :aria-label="terms.support.title">
+        <BaseButton class="delivery-payment__nav-button" type="button" variant="text" @click="scrollToBlock('delivery')">
+          {{ terms.common.delivery }}
+        </BaseButton>
+        <BaseButton class="delivery-payment__nav-button" type="button" variant="text" @click="scrollToBlock('payment')">
+          {{ terms.common.payment }}
+        </BaseButton>
+        <BaseButton class="delivery-payment__nav-button" type="button" variant="text" @click="scrollToBlock('returns')">
+          {{ terms.common.returns }}
+        </BaseButton>
       </nav>
 
       <div class="delivery-payment__list">
@@ -58,9 +58,15 @@ useSeo(
                 <li>{{ terms.support.shippingNote3 }}</li>
                 <li>{{ terms.support.shippingNote4 }}</li>
               </ul>
-              <a href="https://tracking.novaposhta.ua/" target="_blank" rel="noopener noreferrer">
-                <BaseHoverUnderlineText>{{ terms.support.trackShipment }}</BaseHoverUnderlineText>
-              </a>
+              <BaseButton
+                class="delivery-payment__tracking-link"
+                href="https://tracking.novaposhta.ua/"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="text"
+              >
+                {{ terms.support.trackShipment }}
+              </BaseButton>
             </article>
           </details>
         </section>
@@ -231,9 +237,9 @@ useSeo(
   list-style: disc;
 }
 
-.delivery-payment__accordion a {
-  color: #0a0a0a;
+.delivery-payment__tracking-link {
   font-weight: 800;
+  justify-self: start;
 }
 
 .delivery-payment__info {
@@ -272,21 +278,19 @@ useSeo(
     gap: 0.25rem;
   }
 
-  .delivery-payment__nav button {
-    border: 0;
-    background: transparent;
+  .delivery-payment__nav-button {
+    --sc-button-text: #737373;
+    --sc-button-hover-text: #0a0a0a;
+
+    width: 100%;
+    justify-content: flex-start;
     padding: 0.8rem;
-    color: #737373;
-    cursor: pointer;
     font-weight: 800;
     text-align: left;
-    transition: color 180ms ease;
   }
 
-  .delivery-payment__nav button:hover,
-  .delivery-payment__nav button:focus-visible {
-    color: #0a0a0a;
-    outline: none;
+  .delivery-payment__nav-button :deep(.sc-button__text) {
+    justify-content: flex-start;
   }
 }
 </style>

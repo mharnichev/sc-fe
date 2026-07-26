@@ -162,6 +162,16 @@ a {
   --sc-button-backdrop-filter: blur(18px) saturate(1.45);
 }
 
+.sc-button--borderless {
+  --sc-button-bg: transparent;
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
+  --sc-button-border: transparent;
+
+  border: 0;
+}
+
 .sc-button--text {
   --sc-button-bg: transparent;
   --sc-button-text: #0a0a0a;
@@ -189,6 +199,10 @@ a {
   border-radius: 9999px;
   font-weight: 900;
   line-height: 1;
+}
+
+.sc-button--pill {
+  border-radius: 9999px;
 }
 
 .sc-button--circle.sc-button--xs {

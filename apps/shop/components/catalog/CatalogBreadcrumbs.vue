@@ -1,16 +1,41 @@
 <script setup lang="ts">
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
 
-defineProps<{
+withDefaults(defineProps<{
   items: CategoryRouteCrumb[]
-}>()
+  pending?: boolean
+}>(), {
+  pending: false,
+})
 
 const { terms } = useShopLocale()
+const skeletonWidths = ['4.5rem', '7rem', '5.5rem']
 </script>
 
 <template>
-  <nav class="catalog-breadcrumbs" aria-label="Breadcrumbs">
-    <ol class="catalog-breadcrumbs__list">
+  <nav class="catalog-breadcrumbs" aria-label="Breadcrumbs" :aria-busy="pending || undefined">
+    <ol v-if="pending" class="catalog-breadcrumbs__list" aria-hidden="true">
+      <li class="catalog-breadcrumbs__home">
+        <BaseSkeleton width="1.25rem" height="1.25rem" radius="0.125rem" />
+        <BaseIcon class="catalog-breadcrumbs__separator" name="chevron-right" size="xxs" />
+      </li>
+
+      <li
+        v-for="(width, index) in skeletonWidths"
+        :key="width"
+        class="catalog-breadcrumbs__item"
+      >
+        <BaseSkeleton :width="width" height="0.875rem" radius="0.125rem" />
+        <BaseIcon
+          v-if="index < skeletonWidths.length - 1"
+          class="catalog-breadcrumbs__separator"
+          name="chevron-right"
+          size="xxs"
+        />
+      </li>
+    </ol>
+
+    <ol v-else class="catalog-breadcrumbs__list">
       <li class="catalog-breadcrumbs__home">
         <NuxtLink class="catalog-breadcrumbs__home-link" to="/" :aria-label="terms.common.main">
           <BaseIcon name="home" size="xxs" />

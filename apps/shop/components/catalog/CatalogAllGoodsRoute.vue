@@ -363,10 +363,10 @@ useSeo(
         <div class="catalog-route__head-actions">
           <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
 
-          <button class="catalog-route__head-filter-btn" type="button" @click="isFilterDrawerOpen = true">
-            <BaseIcon name="filter" size="xs" />
-            <span v-if="selectedFilterCount" class="catalog-route__filter-count">{{ selectedFilterCount }}</span>
-          </button>
+          <CatalogFilterTrigger
+            :count="selectedFilterCount"
+            @click="isFilterDrawerOpen = true"
+          />
         </div>
       </div>
 
@@ -504,36 +504,6 @@ useSeo(
   margin-left: auto;
 }
 
-.catalog-route__head-filter-btn {
-  position: relative;
-  display: inline-flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(10 10 10 / 0.12);
-  border-radius: 0;
-  background: #ffffff;
-  color: #0a0a0a;
-}
-
-.catalog-route__filter-count {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  display: inline-flex;
-  min-width: 1rem;
-  height: 1rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: #0a0a0a;
-  color: #ffffff;
-  font-size: 0.625rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
 .catalog-route__body {
   display: flex;
   gap: 0.75rem;
@@ -588,10 +558,6 @@ useSeo(
     transition:
       top 300ms ease,
       height 300ms ease;
-  }
-
-  .catalog-route__head-filter-btn {
-    display: none;
   }
 
   .catalog-route__left-side-bar-wrapper {

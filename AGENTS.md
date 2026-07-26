@@ -17,3 +17,10 @@ Rules:
 - Open the local Obsidian vault at `graphify-out/obsidian/`.
 - After a release or a broad cross-repo change, run `/Users/markgarnicev/sc/sc-spellbook/scripts/graphify-sync.sh release` from any shell.
 - During development, query graph context before wide source searches: `graphify query "<question>"`, `graphify explain "<node>"`, or `graphify path "<A>" "<B>"`.
+
+## App-local implementation policy
+
+- Do not extract components, styles, animations, composables, utilities, or other implementation details into shared packages or common folders unless the user explicitly requests that extraction.
+- By default, keep new functionality local to the app being changed.
+- When another app needs the same functionality, copy and adapt the implementation locally, even if that introduces duplication.
+- Move duplicated functionality into a shared location only after the user explicitly asks for it.

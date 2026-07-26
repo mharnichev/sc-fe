@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { formatPrice } from '@shared-utils'
-
 const cart = useCartStore()
 const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
-const { terms, dateLocale } = useShopLocale()
+const { terms } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 
 const form = reactive({
   firstName: '',
@@ -31,9 +30,7 @@ const delivery = reactive({
 })
 const cities = ref<Array<Record<string, unknown>>>([])
 const warehouses = ref<Array<Record<string, unknown>>>([])
-const preferredDeliveryDate = ref('')
 const state = reactive({ loading: false, done: false, error: '' })
-const todayInput = new Date().toISOString().slice(0, 10)
 let cityTimer: ReturnType<typeof setTimeout> | undefined
 
 const deliveryMethodOptions = computed(() => [
@@ -44,6 +41,24 @@ const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
   { label: terms.value.checkout.paymentOptions.cardOnDelivery, value: 'cardOnDelivery' },
 ])
+const isDeliveryValid = computed(() => {
+  if (!delivery.selectedCityRef) return false
+
+  if (form.shippingMethod === 'warehouse') {
+    return Boolean(delivery.selectedWarehouse)
+  }
+
+  return Boolean(form.shippingStreet.trim() && form.buildingNumber.trim())
+})
+const canSubmit = computed(() =>
+  Boolean(
+    cart.items.length
+    && form.firstName.trim()
+    && form.lastName.trim()
+    && form.phoneNumber.trim()
+    && isDeliveryValid.value,
+  ),
+)
 
 const readDeliveryField = (item: Record<string, unknown>, keys: string[]) => {
   for (const key of keys) {
@@ -81,6 +96,22 @@ watch(() => delivery.cityQuery, value => {
   if (cityTimer) clearTimeout(cityTimer)
   const query = value.trim()
   form.shippingCity = query
+
+  if (delivery.selectedCityRef) {
+    const selectedCity = cities.value.find(item => readDeliveryField(item, ['Ref', 'ref']) === delivery.selectedCityRef)
+    const selectedCityNames = selectedCity
+      ? [
+          readDeliveryField(selectedCity, ['Description', 'description']),
+          readDeliveryField(selectedCity, ['Present']),
+          readDeliveryField(selectedCity, ['MainDescription']),
+        ].filter(Boolean)
+      : []
+
+    if (!selectedCityNames.includes(query)) {
+      delivery.selectedCityRef = ''
+    }
+  }
+
   if (query.length < 2) {
     cities.value = []
     return
@@ -103,6 +134,7 @@ watch(() => delivery.selectedCityRef, async cityRef => {
   if (city) {
     form.shippingCity = readDeliveryField(city, ['Description', 'Present', 'MainDescription', 'description']) || delivery.cityQuery
     form.shippingArea = readDeliveryField(city, ['AreaDescription', 'Area', 'Region'])
+    delivery.cityQuery = form.shippingCity
   }
 
   delivery.selectedWarehouse = ''
@@ -132,20 +164,14 @@ watch(() => delivery.selectedWarehouse, value => {
 })
 
 const submit = async () => {
-  if (!cart.items.length) return
+  if (!canSubmit.value) return
   state.loading = true
   state.error = ''
   state.done = false
   try {
-    const comment = [
-      form.comment,
-      preferredDeliveryDate.value ? terms.value.checkout.preferredDeliveryDateComment(preferredDeliveryDate.value) : '',
-    ].filter(Boolean).join('\n')
-
     await domain.createOrder({
       ...form,
       shippingCity: form.shippingCity || delivery.cityQuery,
-      comment,
       items: cart.items.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
     })
     state.done = true
@@ -172,7 +198,32 @@ useSeo(
       <div class="checkout-page__user-info">
         <aside class="checkout-card checkout-card--mobile">
           <h2>{{ terms.checkout.orderSummary }}</h2>
-          <p>{{ terms.common.total }}: {{ formatPrice(cart.total) }}</p>
+          <div v-if="cart.items.length" class="checkout-order-list">
+            <article v-for="item in cart.items" :key="item.product.id" class="checkout-order-list__item">
+              <img
+                :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
+                :alt="item.product.images[0]?.alt || item.product.name"
+              >
+              <div>
+                <h3>{{ item.product.name }}</h3>
+                <BaseQuantityStepper
+                  class="checkout-order-list__stepper"
+                  :model-value="item.quantity"
+                  :min="0"
+                  :max="Math.max(1, item.product.stock)"
+                  :disabled="cart.syncing"
+                  :aria-label="terms.checkout.quantityFor(item.product.name)"
+                  @update:model-value="cart.update(item.product.id, $event)"
+                />
+              </div>
+              <strong>{{ formatPrice(Number(item.product.price) * item.quantity) }}</strong>
+            </article>
+          </div>
+          <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
+          <div class="checkout-total">
+            <span>{{ terms.common.total }}</span>
+            <strong>{{ formatPrice(cart.total) }}</strong>
+          </div>
         </aside>
 
         <form class="checkout-form" @submit.prevent="submit">
@@ -185,7 +236,7 @@ useSeo(
               <BaseInput v-model="form.firstName" :label="terms.checkout.firstName" required autocomplete="given-name" />
               <BaseInput v-model="form.lastName" :label="terms.checkout.lastName" required autocomplete="family-name" />
               <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" />
-              <BaseInput v-model="form.phoneNumber" type="tel" :label="terms.checkout.phone" required autocomplete="tel" placeholder="+380..." />
+              <BasePhoneInput v-model="form.phoneNumber" :label="terms.checkout.phone" required />
             </div>
             <CustomerAuthDialog v-if="!auth.isAuthenticated" />
           </section>
@@ -196,7 +247,19 @@ useSeo(
               <h2>{{ terms.checkout.delivery }}</h2>
             </div>
             <div class="checkout-form__grid">
-              <BaseSelect v-model="form.shippingMethod" :label="terms.checkout.method" :options="deliveryMethodOptions" />
+              <BaseField :label="terms.checkout.method">
+                <div class="checkout-choice-list">
+                  <BaseRadio
+                    v-for="option in deliveryMethodOptions"
+                    :id="`shipping-method-${option.value}`"
+                    :key="option.value"
+                    v-model="form.shippingMethod"
+                    name="shippingMethod"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </div>
+              </BaseField>
               <BaseInput
                 v-model="delivery.cityQuery"
                 :label="terms.checkout.city"
@@ -218,10 +281,12 @@ useSeo(
                 :placeholder="terms.checkout.chooseWarehouse"
                 :options="warehouseOptions"
                 :description="delivery.loadingWarehouses ? terms.checkout.loadingWarehouses : ''"
+                :disabled="!delivery.selectedCityRef || delivery.loadingWarehouses"
+                required
               />
               <div v-else class="checkout-form__grid checkout-form__grid--three">
-                <BaseInput v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" />
-                <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" />
+                <BaseInput v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" required />
+                <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" required />
                 <BaseInput v-model="form.shippingApartment" :label="terms.checkout.apartment" />
               </div>
             </div>
@@ -232,7 +297,19 @@ useSeo(
               <span>3</span>
               <h2>{{ terms.common.payment }}</h2>
             </div>
-            <BaseSelect v-model="form.paymentMethod" :label="terms.common.payment" :options="paymentOptions" />
+            <BaseField :label="terms.common.payment">
+              <div class="checkout-choice-list">
+                <BaseRadio
+                  v-for="option in paymentOptions"
+                  :id="`payment-method-${option.value}`"
+                  :key="option.value"
+                  v-model="form.paymentMethod"
+                  name="paymentMethod"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </div>
+            </BaseField>
           </section>
 
           <section class="checkout-card">
@@ -241,13 +318,12 @@ useSeo(
               <h2>{{ terms.checkout.notes }}</h2>
             </div>
             <div class="checkout-form__grid">
-              <BaseCalendar v-model="preferredDeliveryDate" :label="terms.checkout.preferredDeliveryDate" :locale="dateLocale" :min="todayInput" :disabled-weekdays="[0]" />
               <BaseTextarea v-model="form.comment" :label="terms.checkout.deliveryNotes" :rows="3" />
             </div>
           </section>
 
           <section class="checkout-card checkout-card--finish checkout-card--mobile">
-            <BaseButton type="submit" block :disabled="state.loading || !cart.items.length">
+            <BaseButton type="submit" block :disabled="state.loading || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
             <p v-if="state.done" class="checkout-page__success">{{ terms.checkout.orderSuccess }}</p>
@@ -262,7 +338,10 @@ useSeo(
             <h2>{{ terms.checkout.orderSummary }}</h2>
             <div v-if="cart.items.length" class="checkout-order-list">
               <article v-for="item in cart.items" :key="item.product.id" class="checkout-order-list__item">
-                <img :src="item.product.images[0]?.image || 'https://placehold.co/160x160?text=Product'" :alt="item.product.name">
+                <img
+                  :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
+                  :alt="item.product.images[0]?.alt || item.product.name"
+                >
                 <div>
                   <h3>{{ item.product.name }}</h3>
                   <BaseQuantityStepper
@@ -279,6 +358,7 @@ useSeo(
               </article>
             </div>
             <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
+            <p v-if="cart.error" class="checkout-page__error">{{ cart.error }}</p>
           </section>
 
           <section class="checkout-card checkout-card--finish">
@@ -286,7 +366,7 @@ useSeo(
               <span>{{ terms.common.total }}</span>
               <strong>{{ formatPrice(cart.total) }}</strong>
             </div>
-            <BaseButton type="button" block :disabled="state.loading || !cart.items.length" @click="submit">
+            <BaseButton type="button" block :disabled="state.loading || !canSubmit" @click="submit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
             <p v-if="state.done" class="checkout-page__success">{{ terms.checkout.orderSuccess }}</p>
@@ -345,6 +425,26 @@ useSeo(
 .checkout-form__grid {
   display: grid;
   gap: 1rem;
+}
+
+.checkout-choice-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkout-page :deep(.base-control) {
+  border-width: 0;
+}
+
+.checkout-page :deep(.base-control:focus),
+.checkout-page :deep(.base-control:focus-visible) {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.checkout-page :deep(.base-choice) {
+  border-width: 0;
 }
 
 .checkout-card--finish {
@@ -430,11 +530,8 @@ useSeo(
 
   .checkout-page__basket {
     display: block;
-  }
-
-  .checkout-page__basket-inner {
     position: sticky;
-    top: 1rem;
+    top: calc(var(--shop-header-offset, 4.75rem) + 1rem);
   }
 
   .checkout-card--mobile {

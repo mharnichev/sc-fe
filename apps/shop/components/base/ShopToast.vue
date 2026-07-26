@@ -77,9 +77,17 @@ onBeforeUnmount(() => {
           <span>{{ content.message }}</span>
         </span>
 
-        <button v-if="content.action" class="shop-toast__action" type="button" @click="openLogin">
+        <BaseButton
+          v-if="content.action"
+          class="shop-toast__action"
+          type="button"
+          variant="light"
+          size="xs"
+          shape="pill"
+          @click="openLogin"
+        >
           {{ content.action }}
-        </button>
+        </BaseButton>
       </aside>
     </Transition>
   </Teleport>
@@ -179,21 +187,8 @@ onBeforeUnmount(() => {
 }
 
 .shop-toast__action {
-  border: 0;
-  border-radius: 999px;
-  background: #fff;
-  color: #111;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.55rem 0.75rem;
-  transition: background-color 180ms ease, transform 180ms ease;
-}
-
-.shop-toast__action:hover,
-.shop-toast__action:focus-visible {
-  background: #eee;
-  transform: translateY(-1px);
+  --sc-button-border: transparent;
+  --sc-button-shadow: none;
 }
 
 .shop-toast-enter-active,

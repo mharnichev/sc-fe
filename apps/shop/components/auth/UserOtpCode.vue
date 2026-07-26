@@ -130,14 +130,15 @@ onBeforeUnmount(() => {
         {{ terms.auth.resendIn(formattedCountdown) }}
       </p>
 
-      <button
+      <BaseButton
         type="button"
-        class="text-sm font-semibold text-neutral-500 hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none"
+        class="mx-auto font-semibold"
+        variant="text"
         :disabled="auth.loading"
         @click="emit('change-type', 'login')"
       >
-        <BaseHoverUnderlineText>{{ terms.auth.changePhone }}</BaseHoverUnderlineText>
-      </button>
+        {{ terms.auth.changePhone }}
+      </BaseButton>
     </form>
 
     <p v-if="statusMessage" class="text-sm text-emerald-700">{{ statusMessage }}</p>

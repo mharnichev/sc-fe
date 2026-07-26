@@ -76,7 +76,13 @@ useSeo(
           <p>{{ terms.cabinet.contactInfoText }}</p>
         </div>
         <div class="cabinet-settings__fields cabinet-settings__fields--two">
-          <BaseInput v-model="form.phone" type="tel" :label="terms.checkout.phone" autocomplete="tel" />
+          <BaseInput
+            v-model="form.phone"
+            type="tel"
+            :label="terms.checkout.phone"
+            autocomplete="tel"
+            inputmode="tel"
+          />
           <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" />
         </div>
       </section>
@@ -109,8 +115,13 @@ useSeo(
 .cabinet-settings__row {
   display: grid;
   gap: 1rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.08);
   padding-bottom: 1.5rem;
+}
+
+.cabinet-settings :deep(.base-control),
+.cabinet-settings :deep(.base-control:focus),
+.cabinet-settings :deep(.base-control:focus-visible) {
+  border: 0;
 }
 
 .cabinet-settings__copy {

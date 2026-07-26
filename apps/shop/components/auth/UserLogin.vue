@@ -46,14 +46,10 @@ const requestOtp = async () => {
     </div>
 
     <form class="grid gap-4" @submit.prevent="requestOtp">
-      <BaseInput
+      <BasePhoneInput
         v-model="phone"
-        type="tel"
         :label="terms.auth.phone"
-        autocomplete="tel"
-        inputmode="tel"
         required
-        placeholder="+380..."
         :disabled="auth.loading"
         :error="errorMessage"
       />

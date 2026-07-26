@@ -6,6 +6,12 @@ type AssetModule = { default: string }
 
 const { terms } = useTerms()
 const { trackContactClick, trackEvent } = useAnalytics()
+const { open: openBookingDrawer } = useFloatingBookingDrawer()
+
+const handleBookingClick = () => {
+  openBookingDrawer()
+  trackEvent('booking_start', { source: 'hero_cta' })
+}
 
 const secondaryHeroImageLoaders = [
   () => import('~/assets/images/hero/soulcuts-team.webp') as Promise<AssetModule>,
@@ -262,7 +268,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row">
-        <BaseButton to="#booking-stepper" variant="light" effect="waves" block @click="trackEvent('booking_start', { source: 'hero_cta' })">{{ terms.home.hero.primaryCta }}</BaseButton>
+        <BaseButton variant="light" effect="waves" block @click="handleBookingClick">{{ terms.home.hero.primaryCta }}</BaseButton>
         <BaseButton to="#services" variant="dark" block @click="trackEvent('view_services', { source: 'hero_cta' })">
           {{ terms.home.hero.secondaryCta }}
         </BaseButton>

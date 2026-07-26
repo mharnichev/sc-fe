@@ -27,7 +27,6 @@ const {
   normalizedSearchTerm,
   hasSearchQuery,
   isSearchLoading,
-  clearSearch,
   clearSuggestions,
 } = useProductSearch(6)
 
@@ -177,17 +176,6 @@ defineExpose({ closeSearch })
     @submit.prevent="submitSearch()"
   >
     <div class="header-search__control">
-      <button
-        type="button"
-        class="header-search__close"
-        :class="{ 'is-active': searchTerm.length }"
-        :aria-label="terms.common.clear"
-        @mousedown.prevent
-        @click="clearSearch"
-      >
-        <BaseIcon name="close" size="xxs" />
-      </button>
-
       <input
         ref="searchInput"
         v-model="searchTerm"
@@ -255,7 +243,7 @@ defineExpose({ closeSearch })
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0 5.8rem 0 0.9rem;
+  padding: 0 2.9rem 0 0.9rem;
   color: #0a0a0a;
   font-size: 0.9rem;
   outline: none;
@@ -265,8 +253,7 @@ defineExpose({ closeSearch })
   color: rgb(82 82 82 / 0.72);
 }
 
-.header-search__submit,
-.header-search__close {
+.header-search__submit {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -293,20 +280,7 @@ defineExpose({ closeSearch })
   color: #ffffff;
 }
 
-.header-search__close {
-  right: 2.9rem;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-
-.header-search__close.is-active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.header-search__submit:focus-visible,
-.header-search__close:focus-visible {
+.header-search__submit:focus-visible {
   outline: none;
 }
 
@@ -325,7 +299,7 @@ defineExpose({ closeSearch })
 }
 
 .header-search--modal .header-search__control {
-  border: 1px solid rgb(10 10 10 / 0.14);
+  border: 0;
   background: #ffffff;
 }
 
@@ -339,6 +313,6 @@ defineExpose({ closeSearch })
   width: 100%;
   max-height: calc(100dvh - 8.5rem);
   margin-top: 0.75rem;
-  border: 1px solid rgb(10 10 10 / 0.1);
+  border: 0;
 }
 </style>

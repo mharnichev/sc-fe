@@ -26,9 +26,9 @@ const props = withDefaults(defineProps<{
   target?: string
   rel?: string
   type?: 'button' | 'submit' | 'reset'
-  variant?: 'dark' | 'light' | 'outline-dark' | 'outline-light' | 'text'
+  variant?: 'dark' | 'light' | 'outline-dark' | 'outline-light' | 'borderless' | 'text'
   size?: 'xs' | 'sm' | 'md'
-  shape?: 'default' | 'circle'
+  shape?: 'default' | 'circle' | 'pill'
   effect?: 'none' | 'waves'
   disabled?: boolean
   block?: boolean

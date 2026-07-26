@@ -70,7 +70,7 @@ const onMaxRangeChange = (event: Event) => setMax(inputValue(event), true)
   >
     <div class="catalog-price-filter__inputs">
       <input
-        class="catalog-price-filter__input"
+        class="base-control base-control--light catalog-price-filter__input"
         :value="minValue"
         type="number"
         inputmode="decimal"
@@ -84,7 +84,7 @@ const onMaxRangeChange = (event: Event) => setMax(inputValue(event), true)
       >
       <span class="catalog-price-filter__dash" aria-hidden="true">-</span>
       <input
-        class="catalog-price-filter__input"
+        class="base-control base-control--light catalog-price-filter__input"
         :value="maxValue"
         type="number"
         inputmode="decimal"
@@ -142,18 +142,6 @@ const onMaxRangeChange = (event: Event) => setMax(inputValue(event), true)
 
 .catalog-price-filter__input {
   min-width: 0;
-  width: 100%;
-  border: 1px solid rgb(10 10 10 / 0.12);
-  border-radius: 0;
-  background: rgb(23 23 23 / 0.025);
-  padding: 0.75rem 0.875rem;
-  color: #0a0a0a;
-  font-size: 0.875rem;
-  outline: none;
-}
-
-.catalog-price-filter__input:focus-visible {
-  border-color: rgb(10 10 10 / 0.32);
 }
 
 .catalog-price-filter__dash {

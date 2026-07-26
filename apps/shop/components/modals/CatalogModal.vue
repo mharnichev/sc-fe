@@ -86,10 +86,6 @@ const goBack = () => {
   activePath.value = activePath.value.slice(0, -1)
 }
 
-const goToActiveCategory = async () => {
-  if (!activeCategory.value) return
-  await goTo(categoryDestination(categories.value, activeCategory.value))
-}
 </script>
 
 <template>
@@ -143,25 +139,6 @@ const goToActiveCategory = async () => {
                 <li v-if="!activeCategory">
                   <NuxtLink class="catalog-sidebar__item" to="/top" @click="hideCatalogModal">
                     <span>{{ terms.home.popularEyebrow }}</span>
-                  </NuxtLink>
-                </li>
-
-                <li>
-                  <button
-                    v-if="activeCategory"
-                    class="catalog-sidebar__item catalog-sidebar__item--all"
-                    type="button"
-                    @click="goToActiveCategory"
-                  >
-                    <span>{{ terms.catalog.allCategory(activeCategory.name) }}</span>
-                  </button>
-                  <NuxtLink
-                    v-else
-                    class="catalog-sidebar__item catalog-sidebar__item--all"
-                    to="/catalog"
-                    @click="hideCatalogModal"
-                  >
-                    <span>{{ terms.catalog.allCategories }}</span>
                   </NuxtLink>
                 </li>
 
@@ -307,10 +284,6 @@ const goToActiveCategory = async () => {
 .catalog-sidebar__back:focus-visible {
   background: #f5f5f4;
   outline: none;
-}
-
-.catalog-sidebar__item--all {
-  color: rgb(82 82 82);
 }
 
 .catalog-sidebar__item-copy {

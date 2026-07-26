@@ -12,15 +12,6 @@ const modal = useModalStore()
 const { terms } = useShopLocale()
 const isShow = ref(false)
 
-const initials = computed(() =>
-  auth.displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join(''),
-)
-
 watch(() => props.modelValue, value => {
   isShow.value = value
 }, { immediate: true })
@@ -41,7 +32,7 @@ const logout = () => {
   <BaseModal v-model="isShow" full-height type="bottom" content-type="secondary" @close="hideCabinetModal">
     <template #header-title>
       <span class="cabinet-sidebar__head">
-        <span class="cabinet-sidebar__avatar">{{ initials || 'SC' }}</span>
+        <FeedbackFace class="cabinet-sidebar__face" name="content-smile" />
         <span class="cabinet-sidebar__identity">
           <span>{{ auth.displayName }}</span>
           <small>{{ auth.customer?.phone }}</small>
@@ -78,18 +69,10 @@ const logout = () => {
   gap: 0.6rem;
 }
 
-.cabinet-sidebar__avatar {
-  display: inline-flex;
-  height: 2rem;
+.cabinet-sidebar__face {
   width: 2rem;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #0a0a0a;
-  color: #ffffff;
-  font-size: 0.75rem;
-  font-weight: 800;
+  color: #0a0a0a;
 }
 
 .cabinet-sidebar__identity {

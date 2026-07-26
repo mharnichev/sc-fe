@@ -4,8 +4,12 @@ import bookUaImage from '~/assets/images/booking/booking-ua.webp'
 
 const { locale, terms } = useTerms()
 const { trackEvent } = useAnalytics()
+const {
+  isOpen,
+  open: openBookingDrawer,
+  close: closeBookingDrawer,
+} = useFloatingBookingDrawer()
 
-const isOpen = ref(false)
 const isTriggerOverBooking = ref(false)
 const triggerButton = ref<HTMLButtonElement | null>(null)
 let previousBodyOverflow = ''
@@ -51,14 +55,14 @@ const scheduleTriggerPositionUpdate = () => {
 const openDrawer = () => {
   if (isOpen.value) return
 
-  isOpen.value = true
+  openBookingDrawer()
   trackEvent('booking_start', {
     source: 'floating_button',
   })
 }
 
 const closeDrawer = () => {
-  isOpen.value = false
+  closeBookingDrawer()
 }
 
 const updateOverlayCloseCursor = (event: PointerEvent) => {

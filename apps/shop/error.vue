@@ -28,12 +28,12 @@ const description = computed(() => {
       :description="description"
       :seed="error.statusCode"
     >
-      <button type="button" class="shop-error-page__button" @click="clearError({ redirect: '/' })">
+      <BaseButton type="button" @click="clearError({ redirect: '/' })">
         {{ locale === 'en' ? 'Home' : 'На головну' }}
-      </button>
-      <NuxtLink class="shop-error-page__link" to="/catalog">
+      </BaseButton>
+      <BaseButton to="/catalog" variant="outline-dark">
         {{ locale === 'en' ? 'Catalog' : 'Каталог' }}
-      </NuxtLink>
+      </BaseButton>
     </FeedbackState>
   </main>
 </template>
@@ -55,26 +55,4 @@ const description = computed(() => {
   background: #ffffff;
 }
 
-.shop-error-page__button,
-.shop-error-page__link {
-  min-height: 2.75rem;
-  border: 1px solid #0a0a0a;
-  padding: 0.75rem 1rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.shop-error-page__button {
-  background: #0a0a0a;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.shop-error-page__link {
-  background: transparent;
-  color: #0a0a0a;
-  text-decoration: none;
-}
 </style>

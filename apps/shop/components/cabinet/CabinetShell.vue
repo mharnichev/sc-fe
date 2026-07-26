@@ -92,7 +92,6 @@ const logout = async () => {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  border-bottom: 1px solid rgb(10 10 10 / 0.08);
   padding: 0.75rem 0 1rem;
 }
 

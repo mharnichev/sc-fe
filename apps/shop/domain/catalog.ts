@@ -55,6 +55,16 @@ interface PublicBrandDto {
   is_active?: boolean
 }
 
+interface PublicProductVolumeVariantDto {
+  id: number
+  slug: string
+  volume_ml: number
+  volume_label: string
+  price: string | number
+  image_url: string | null
+  is_available: boolean
+}
+
 interface PublicProductDto {
   id: number
   category_id: number | null
@@ -87,6 +97,7 @@ interface PublicProductDto {
   category_tree?: Array<{ id: number, name: string, slug: string }>
   average_rating?: string | number | null
   reviews_count?: number
+  volume_variants?: PublicProductVolumeVariantDto[]
 }
 
 type ShopProductDto = ProductDto & {
@@ -94,6 +105,15 @@ type ShopProductDto = ProductDto & {
   is_new?: boolean | null
   is_top?: boolean | null
   is_popular?: boolean | null
+  volume_variants: Array<{
+    id: number
+    slug: string
+    volume_ml: number
+    volume_label: string
+    price: string
+    image_url: string | null
+    is_available: boolean
+  }>
 }
 
 interface PublicSearchResponse {
@@ -341,6 +361,10 @@ const mapProduct = (product: PublicProductDto): ShopProductDto => ({
   is_top: product.is_top,
   is_popular: product.is_popular,
   parameters: mapProductParameters(product.parameters),
+  volume_variants: (product.volume_variants ?? []).map(variant => ({
+    ...variant,
+    price: String(variant.price),
+  })),
 })
 
 const mapProductPage = (response: PaginatedResponse<PublicProductDto>): PaginatedResponse<ProductDto> => ({

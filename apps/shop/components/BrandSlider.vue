@@ -17,6 +17,7 @@ const viewport = ref<HTMLElement | null>(null)
 const canScrollBack = ref(false)
 const canScrollForward = ref(false)
 const isScrollAnimating = ref(false)
+const leavingBrandIds = ref(new Set<number>())
 const AUTO_SCROLL_INTERVAL_MS = 3000
 const SCROLL_ANIMATION_DURATION_MS = 720
 let resizeObserver: ResizeObserver | undefined
@@ -157,6 +158,18 @@ const visibleBrands = computed(() =>
   props.brands.filter(brand => Boolean(brandLogoUrl(brand))),
 )
 
+const markBrandEntering = (brandId: number) => {
+  if (!leavingBrandIds.value.has(brandId)) return
+  const nextIds = new Set(leavingBrandIds.value)
+  nextIds.delete(brandId)
+  leavingBrandIds.value = nextIds
+}
+
+const markBrandLeaving = (brandId: number) => {
+  if (leavingBrandIds.value.has(brandId)) return
+  leavingBrandIds.value = new Set(leavingBrandIds.value).add(brandId)
+}
+
 onMounted(() => {
   resizeObserver = new ResizeObserver(updateControls)
   if (viewport.value) resizeObserver.observe(viewport.value)
@@ -240,8 +253,13 @@ onBeforeUnmount(() => {
           <li v-for="brand in visibleBrands" :key="brand.id" class="brand-slider__item">
             <NuxtLink
               class="brand-slider__card"
+              :class="{ 'brand-slider__card--leaving': leavingBrandIds.has(brand.id) }"
               :to="{ path: '/catalog', query: { brand: brand.slug } }"
               :aria-label="terms.home.viewBrand(brand.name)"
+              @mouseenter="markBrandEntering(brand.id)"
+              @mouseleave="markBrandLeaving(brand.id)"
+              @focus="markBrandEntering(brand.id)"
+              @blur="markBrandLeaving(brand.id)"
             >
               <span class="brand-slider__logo">
                 <span
@@ -337,20 +355,41 @@ onBeforeUnmount(() => {
 }
 
 .brand-slider__card {
+  position: relative;
+  isolation: isolate;
   display: flex;
   width: 100%;
   min-height: 9rem;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   background: transparent;
   color: inherit;
   padding: 1.25rem 2rem;
-  transition: opacity 180ms ease;
 }
 
-.brand-slider__card:hover,
-.brand-slider__card:focus-visible {
-  opacity: 0.62;
+.brand-slider__card::before {
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  z-index: 0;
+  width: 150%;
+  height: 200%;
+  border-radius: 50%;
+  background: #0a0a0a;
+  content: '';
+  pointer-events: none;
+  transform: translate3d(0, -76%, 0);
+  will-change: transform;
+}
+
+.brand-slider__card:hover::before,
+.brand-slider__card:focus-visible::before {
+  animation: brand-slider-fill-enter 540ms cubic-bezier(0.3, 1, 0.3, 1) both;
+}
+
+.brand-slider__card--leaving:not(:hover, :focus-visible)::before {
+  animation: brand-slider-fill-exit 540ms cubic-bezier(0.3, 1, 0.3, 1) both;
 }
 
 .brand-slider__card:focus-visible {
@@ -359,12 +398,15 @@ onBeforeUnmount(() => {
 }
 
 .brand-slider__logo {
+  position: relative;
+  z-index: 1;
   display: flex;
   width: 100%;
   height: 6rem;
   align-items: center;
   justify-content: center;
   color: #292524;
+  transition: color 420ms cubic-bezier(0.3, 1, 0.3, 1);
 }
 
 .brand-slider__logo img,
@@ -375,6 +417,17 @@ onBeforeUnmount(() => {
 
 .brand-slider__logo img {
   object-fit: contain;
+  transition: filter 420ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.brand-slider__card:hover .brand-slider__logo,
+.brand-slider__card:focus-visible .brand-slider__logo {
+  color: #ffffff;
+}
+
+.brand-slider__card:hover .brand-slider__logo img,
+.brand-slider__card:focus-visible .brand-slider__logo img {
+  filter: invert(1);
 }
 
 .brand-slider__logo-mask {
@@ -426,10 +479,32 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .brand-slider__card,
+  .brand-slider__card::before,
+  .brand-slider__logo,
+  .brand-slider__logo img,
   .brand-slider__skeleton span {
     animation: none;
     transition: none;
   }
+
+  .brand-slider__card:hover::before,
+  .brand-slider__card:focus-visible::before {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .brand-slider__card--leaving:not(:hover, :focus-visible)::before {
+    transform: translate3d(0, 76%, 0);
+  }
+}
+
+@keyframes brand-slider-fill-enter {
+  from { transform: translate3d(0, -76%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes brand-slider-fill-exit {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, 76%, 0); }
 }
 
 @keyframes brand-slider-pulse {

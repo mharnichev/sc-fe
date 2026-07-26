@@ -18,7 +18,10 @@ const { terms } = useShopLocale()
 
 const slugSegments = computed(() => props.segments.map(item => String(item || '')).filter(Boolean))
 
-const { data: categoryTree } = await useAsyncData('shop-category-tree-catalog-routes', domain.getCategoryTree)
+const { data: categoryTree, pending: categoryTreePending } = await useAsyncData(
+  'shop-category-tree-catalog-routes',
+  domain.getCategoryTree,
+)
 const categoryPath = computed(() => categoryPathBySegments(categoryTree.value || [], slugSegments.value))
 const currentCategory = computed(() => categoryPath.value[categoryPath.value.length - 1] || null)
 
@@ -47,7 +50,7 @@ useSeo(
 
 <template>
   <section class="category-landing">
-    <CatalogBreadcrumbs :items="breadcrumbs" />
+    <CatalogBreadcrumbs :items="breadcrumbs" :pending="categoryTreePending" />
 
     <div class="category-landing__head">
       <div>
@@ -99,7 +102,6 @@ useSeo(
   display: grid;
   align-items: end;
   gap: 1rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.1);
   padding-bottom: 1.5rem;
 }
 
@@ -131,19 +133,17 @@ useSeo(
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.875rem;
-  border: 1px solid rgb(10 10 10 / 0.1);
+  border: 0;
   background: #ffffff;
   padding: 1rem;
   color: #0a0a0a;
   transition:
-    border-color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
 }
 
 .category-landing__card:hover,
 .category-landing__card:focus-visible {
-  border-color: rgb(10 10 10 / 0.22);
   box-shadow: 0 1rem 1.5rem rgb(10 10 10 / 0.08);
   transform: translateY(-0.125rem);
 }
@@ -184,7 +184,7 @@ useSeo(
 }
 
 .category-landing__empty {
-  border: 1px solid rgb(10 10 10 / 0.1);
+  border: 0;
   background: #ffffff;
   --feedback-state-surface: #ffffff;
   color: #0a0a0a;

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
-import { formatPrice } from '@shared-utils'
 
 const props = defineProps<{
   modelValue: boolean
@@ -13,6 +12,7 @@ const emit = defineEmits<{
 const cart = useCartStore()
 const modal = useModalStore()
 const { terms } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 const isShow = ref(false)
 
 watch(() => props.modelValue, value => {
@@ -47,20 +47,20 @@ const productImage = (item: typeof cart.items[number]) =>
 
             <div class="basket-sidebar__meta">
               <span>{{ formatPrice(item.product.price) }}</span>
-              <div class="basket-sidebar__qty">
-                <button type="button" :aria-label="terms.basket.decreaseQuantity" @click="cart.update(item.product.id, item.quantity - 1)">
-                  -
-                </button>
-                <span>{{ item.quantity }}</span>
-                <button type="button" :aria-label="terms.basket.increaseQuantity" @click="cart.update(item.product.id, item.quantity + 1)">
-                  +
-                </button>
-              </div>
+              <BaseQuantityStepper
+                class="basket-sidebar__qty"
+                :model-value="item.quantity"
+                :min="0"
+                :max="Math.max(1, item.product.stock)"
+                :disabled="cart.syncing"
+                :aria-label="terms.checkout.quantityFor(item.product.name)"
+                @update:model-value="cart.update(item.product.id, $event)"
+              />
             </div>
 
-            <button class="basket-sidebar__remove" type="button" @click="cart.remove(item.product.id)">
-              <BaseHoverUnderlineText>{{ terms.common.remove }}</BaseHoverUnderlineText>
-            </button>
+            <BaseButton class="basket-sidebar__remove" type="button" variant="text" @click="cart.remove(item.product.id)">
+              {{ terms.common.remove }}
+            </BaseButton>
           </div>
         </article>
       </div>
@@ -154,34 +154,19 @@ const productImage = (item: typeof cart.items[number]) =>
 }
 
 .basket-sidebar__qty {
-  display: inline-grid;
   grid-template-columns: 1.75rem 2rem 1.75rem;
-  align-items: center;
-  border: 1px solid rgb(10 10 10 / 0.14);
-  text-align: center;
 }
 
-.basket-sidebar__qty button {
+.basket-sidebar__qty :deep(.base-quantity-stepper__button),
+.basket-sidebar__qty :deep(.base-quantity-stepper__input) {
   height: 1.75rem;
-  border: 0;
-  background: #ffffff;
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.basket-sidebar__qty button:hover,
-.basket-sidebar__qty button:focus-visible {
-  background: #0a0a0a;
-  color: #ffffff;
-  outline: none;
 }
 
 .basket-sidebar__remove {
+  --sc-button-text: rgb(82 82 82);
+  --sc-button-hover-text: #0a0a0a;
+
   justify-self: start;
-  border: 0;
-  background: transparent;
-  color: rgb(82 82 82);
-  cursor: pointer;
   font-size: 0.75rem;
   font-weight: 700;
 }

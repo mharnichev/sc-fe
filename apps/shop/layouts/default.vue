@@ -36,8 +36,8 @@ useHead({
     <BaseBottomBar />
     <div
       data-testid="page-transition-overlay"
-      class="pointer-events-none fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
-      :class="isPageTransitionVisible ? 'opacity-100' : 'opacity-0'"
+      class="fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
+      :class="isPageTransitionVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
       aria-hidden="true"
     />
   </div>

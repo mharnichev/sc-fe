@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { CategoryTreeNodeDto, ProductSearchResponseDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
-import { formatPrice } from '@shared-utils'
 import { categoryGoodsDestination } from '~/utils/category-routing'
 
 const props = defineProps<{
@@ -17,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const { terms } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 const hasResults = computed(() =>
   props.results.suggestions.length > 0
   || props.results.products.length > 0
@@ -35,7 +35,10 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
 <template>
   <div
     class="header-search-results"
-    :class="{ 'header-search-results--loading': loading }"
+    :class="{
+      'header-search-results--loading': loading,
+      'header-search-results--empty': !hasResults && !loading,
+    }"
     :aria-busy="loading"
     aria-live="polite"
   >
@@ -128,6 +131,10 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
   padding: 0.5rem;
 }
 
+.header-search-results--empty {
+  background: transparent;
+}
+
 .header-search-results__content {
   display: grid;
 }
@@ -199,7 +206,7 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
 
 .header-search-results__empty {
   flex: 1 1 auto;
-  --feedback-state-surface: #ffffff;
+  --feedback-state-surface: transparent;
   color: #0a0a0a;
 }
 

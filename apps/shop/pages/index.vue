@@ -146,6 +146,8 @@ useSeo(
         </BaseButton>
       </div>
     </AppSection>
+
+    <RecentlyViewedProducts />
   </div>
 </template>
 

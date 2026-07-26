@@ -11,44 +11,51 @@ const readSnapshot = <T>(key: string): Partial<T> | null => {
   }
 }
 
-export default defineNuxtPlugin(() => {
-  const cart = useCartStore()
-  const favorites = useFavoritesStore()
-  const customerAuth = useCustomerAuthStore()
+export default defineNuxtPlugin((nuxtApp) => {
+  let isRestored = false
 
-  const cartSnapshot = readSnapshot<typeof cart.$state>('shop-cart')
-  if (cartSnapshot) cart.$patch(cartSnapshot)
+  nuxtApp.hook('page:finish', () => {
+    if (isRestored) return
+    isRestored = true
 
-  const favoritesSnapshot = readSnapshot<typeof favorites.$state>('shop-favorites')
-  if (favoritesSnapshot) favorites.$patch(favoritesSnapshot)
+    const cart = useCartStore()
+    const favorites = useFavoritesStore()
+    const customerAuth = useCustomerAuthStore()
 
-  const authSnapshot = readSnapshot<typeof customerAuth.$state>('shop-customer-auth')
-  if (authSnapshot) customerAuth.hydrate(authSnapshot)
+    const cartSnapshot = readSnapshot<typeof cart.$state>('shop-cart')
+    if (cartSnapshot) cart.$patch(cartSnapshot)
 
-  cart.$subscribe((_mutation, state) => {
-    localStorage.setItem('shop-cart', JSON.stringify({ items: state.items }))
+    const favoritesSnapshot = readSnapshot<typeof favorites.$state>('shop-favorites')
+    if (favoritesSnapshot) favorites.$patch(favoritesSnapshot)
+
+    const authSnapshot = readSnapshot<typeof customerAuth.$state>('shop-customer-auth')
+    if (authSnapshot) customerAuth.hydrate(authSnapshot)
+
+    cart.$subscribe((_mutation, state) => {
+      localStorage.setItem('shop-cart', JSON.stringify({ items: state.items }))
+    })
+
+    favorites.$subscribe((_mutation, state) => {
+      localStorage.setItem('shop-favorites', JSON.stringify({
+        items: state.items,
+        products: state.products,
+      }))
+    })
+
+    customerAuth.$subscribe((_mutation, state) => {
+      localStorage.setItem('shop-customer-auth', JSON.stringify({
+        accessToken: state.accessToken,
+        tokenType: state.tokenType,
+        customer: state.customer,
+      }))
+    })
+
+    if (customerAuth.accessToken) {
+      void Promise.allSettled([
+        customerAuth.fetchMe(),
+        cart.syncFromServer(),
+        favorites.syncFromServer(),
+      ])
+    }
   })
-
-  favorites.$subscribe((_mutation, state) => {
-    localStorage.setItem('shop-favorites', JSON.stringify({
-      items: state.items,
-      products: state.products,
-    }))
-  })
-
-  customerAuth.$subscribe((_mutation, state) => {
-    localStorage.setItem('shop-customer-auth', JSON.stringify({
-      accessToken: state.accessToken,
-      tokenType: state.tokenType,
-      customer: state.customer,
-    }))
-  })
-
-  if (customerAuth.accessToken) {
-    void Promise.allSettled([
-      customerAuth.fetchMe(),
-      cart.syncFromServer(),
-      favorites.syncFromServer(),
-    ])
-  }
 })

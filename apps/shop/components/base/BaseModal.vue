@@ -87,72 +87,74 @@ defineExpose({
 </script>
 
 <template>
-  <Teleport to=".app-modal-teleport" :disabled="inline">
-    <Transition name="base-modal" appear :duration="300" @after-leave="$emit('after-leave')">
-      <div
-        v-if="modelValue"
-        ref="modalElement"
-        :class="[
-          'base-modal',
-          `base-modal--${endType}`,
-          {
-            'base-modal--center': isCenter,
-            'base-modal--full-height': fullHeight,
-            'base-modal--inline': inline,
-          },
-          rootClass,
-        ]"
-        role="dialog"
-        aria-modal="true"
-      >
-        <button
-          v-if="!inline && showOverlay"
+  <ClientOnly>
+    <Teleport to=".app-modal-teleport" :disabled="inline">
+      <Transition name="base-modal" appear :duration="300" @after-leave="$emit('after-leave')">
+        <div
+          v-if="modelValue"
+          ref="modalElement"
           :class="[
-            'base-modal__overlay',
-            { 'base-modal__overlay--closeable': !blockClose },
+            'base-modal',
+            `base-modal--${endType}`,
+            {
+              'base-modal--center': isCenter,
+              'base-modal--full-height': fullHeight,
+              'base-modal--inline': inline,
+            },
+            rootClass,
           ]"
-          type="button"
-          :disabled="blockClose"
-          :aria-label="terms.common.closeDialog"
-          @click="close(false)"
-          @pointermove="updateOverlayCloseCursor"
-        />
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            v-if="!inline && showOverlay"
+            :class="[
+              'base-modal__overlay',
+              { 'base-modal__overlay--closeable': !blockClose },
+            ]"
+            type="button"
+            :disabled="blockClose"
+            :aria-label="terms.common.closeDialog"
+            @click="close(false)"
+            @pointermove="updateOverlayCloseCursor"
+          />
 
-        <section class="base-modal__container">
-          <header v-if="showHeader" class="base-modal__header">
-            <slot name="header" :close="forceClose">
-              <h2 class="base-modal__header-title">
-                <slot name="header-title" />
-              </h2>
-              <div class="base-modal__header-buttons">
-                <slot name="header-buttons" :close="forceClose" />
-                <BaseButton
-                  v-if="!blockClose"
-                  class="base-modal__close"
-                  type="button"
-                  variant="text"
-                  size="sm"
-                  shape="circle"
-                  :aria-label="terms.common.closeDialog"
-                  @click="forceClose"
-                >
-                  <BaseIcon name="close" size="xxs" />
-                </BaseButton>
-              </div>
-            </slot>
-          </header>
+          <section class="base-modal__container">
+            <header v-if="showHeader" class="base-modal__header">
+              <slot name="header" :close="forceClose">
+                <h2 class="base-modal__header-title">
+                  <slot name="header-title" />
+                </h2>
+                <div class="base-modal__header-buttons">
+                  <slot name="header-buttons" :close="forceClose" />
+                  <BaseButton
+                    v-if="!blockClose"
+                    class="base-modal__close"
+                    type="button"
+                    variant="outline-dark"
+                    size="sm"
+                    shape="circle"
+                    :aria-label="terms.common.closeDialog"
+                    @click="forceClose"
+                  >
+                    <BaseIcon name="close" size="xxs" />
+                  </BaseButton>
+                </div>
+              </slot>
+            </header>
 
-          <div :class="['base-modal__content', `is-${contentType}`]">
-            <slot :close="forceClose" />
-          </div>
+            <div :class="['base-modal__content', `is-${contentType}`]">
+              <slot :close="forceClose" />
+            </div>
 
-          <footer v-if="$slots['bottom-buttons']" class="base-modal__bottom-buttons">
-            <slot name="bottom-buttons" />
-          </footer>
-        </section>
-      </div>
-    </Transition>
-  </Teleport>
+            <footer v-if="$slots['bottom-buttons']" class="base-modal__bottom-buttons">
+              <slot name="bottom-buttons" />
+            </footer>
+          </section>
+        </div>
+      </Transition>
+    </Teleport>
+  </ClientOnly>
 </template>
 
 <style scoped>

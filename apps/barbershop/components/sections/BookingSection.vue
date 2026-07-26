@@ -766,7 +766,7 @@ const submit = async () => {
     })
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
-    const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment, { multiline: true })
+    const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment)
     const bookingComment = [
       customerComment,
       promotionActiveForBooking.value ? promotionDiscountLabels.value.bookingNote : '',
@@ -983,9 +983,6 @@ onBeforeUnmount(() => {
               <div class="booking-step-content">
                 <AppTransition>
                   <section v-if="activeStepIndex === 0" key="booking-service" class="booking-service-step">
-                    <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                      {{ terms.home.booking.steps[0] }}
-                    </h3>
                     <label class="booking-service-search-field glass-control glass-control--dark mt-3 flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white sm:mt-4">
                       <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="m14.2 14.2 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -1124,16 +1121,13 @@ onBeforeUnmount(() => {
                   </section>
 
                   <section v-else-if="activeStepIndex === 1" key="booking-master">
-                  <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                    {{ terms.home.booking.steps[1] }}
-                  </h3>
                   <div class="mt-4 grid gap-3 sm:grid-cols-2">
                     <button
                       v-for="master in availableMasters"
                       :key="master.id"
                       type="button"
-                      class="grid grid-cols-[3.5rem_1fr] gap-4 border p-2.5 text-left transition sm:p-3"
-                      :class="selectedMasterId === master.id ? 'border-white bg-white text-neutral-950' : 'border-white/15 text-white/75 hover:border-white/50'"
+                      class="grid grid-cols-[3.5rem_1fr] gap-4 p-2.5 text-left transition sm:p-3"
+                      :class="selectedMasterId === master.id ? 'bg-white text-neutral-950' : 'bg-white/[0.035] text-white/75 hover:bg-white/[0.07] hover:text-white'"
                       @click="selectMaster(master.id)"
                     >
                       <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover object-top">
@@ -1155,9 +1149,6 @@ onBeforeUnmount(() => {
 
                 <section v-else-if="activeStepIndex === 2" key="booking-time" class="booking-time-step grid gap-4 md:grid-cols-[18rem_1fr] md:gap-5">
                   <div class="booking-date-control">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                      {{ bookingTimeLabels.date }}
-                    </p>
                     <BookingDatePicker
                       v-model="selectedDate"
                       :min="today"
@@ -1196,9 +1187,6 @@ onBeforeUnmount(() => {
                 </section>
 
                 <section v-else key="booking-contact">
-                  <h3 class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                    {{ terms.home.booking.steps[3] }}
-                  </h3>
                   <div class="mt-4 grid gap-3 md:grid-cols-2">
                     <input
                       v-model="form.customer_name"
@@ -1226,14 +1214,15 @@ onBeforeUnmount(() => {
                       @paste="handlePhonePasteEvent"
                     >
                   </div>
-                  <textarea
+                  <input
                     v-model="form.customer_comment"
-                    rows="3"
+                    type="text"
+                    autocomplete="off"
                     placeholder="Коментар"
                     :maxlength="FORM_FIELD_LIMITS.comment"
                     class="glass-control glass-control--dark mt-3 w-full px-3 py-2.5 text-white outline-none placeholder:text-white/35"
-                    @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment, { multiline: true })"
-                  />
+                    @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment)"
+                  >
                   <input
                     v-model="form.promotion_code"
                     autocomplete="off"
@@ -1282,14 +1271,14 @@ onBeforeUnmount(() => {
                 </AppTransition>
               </div>
 
-              <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-xs leading-5 text-white/55">
+              <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-[10px] leading-5 text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
                 <NuxtLink class="underline decoration-white/30 underline-offset-4 transition hover:text-white" to="/terms">
                   {{ terms.common.termsLinkLabel }}
                 </NuxtLink>
                 {{ terms.common.bookingConsentSuffix }}
               </p>
-              <div class="booking-step-actions mt-8 flex flex-row gap-3 sm:items-center">
+              <div class="booking-step-actions flex flex-row gap-3 sm:items-center">
                 <BaseButton
                   v-if="activeStepIndex > 0"
                   type="button"
@@ -1463,7 +1452,6 @@ onBeforeUnmount(() => {
 
 .booking-form .booking-step-actions {
   flex-shrink: 0;
-  margin-top: 1rem;
   padding-top: 1rem;
 }
 

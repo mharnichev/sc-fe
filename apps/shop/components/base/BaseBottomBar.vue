@@ -200,7 +200,7 @@ onBeforeUnmount(() => {
 
     <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.account" @click="openAccount">
       <span v-if="accountInitials" class="base-bottom-bar__avatar">{{ accountInitials }}</span>
-      <BaseIcon v-else name="user" size="xxs" effect="button" />
+      <FeedbackFace v-else class="base-bottom-bar__account-face" name="content-smile" />
     </button>
   </nav>
 </template>
@@ -351,6 +351,10 @@ onBeforeUnmount(() => {
   color: #ffffff;
   font-size: 0.62rem;
   font-weight: 800;
+}
+
+.base-bottom-bar__account-face {
+  width: 1.5rem;
 }
 
 .base-bottom-bar--on-dark .base-bottom-bar__avatar {

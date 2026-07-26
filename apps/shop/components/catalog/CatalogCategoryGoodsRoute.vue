@@ -68,7 +68,10 @@ const syncSelectedFiltersFromQuery = () => {
 
 syncSelectedFiltersFromQuery()
 
-const { data: categoryTree } = await useAsyncData('shop-category-tree-catalog-routes', domain.getCategoryTree)
+const { data: categoryTree, pending: categoryTreePending } = await useAsyncData(
+  'shop-category-tree-catalog-routes',
+  domain.getCategoryTree,
+)
 const categoryPath = computed(() => categoryPathBySegments(categoryTree.value || [], slugSegments.value))
 const currentCategory = computed(() => categoryPath.value[categoryPath.value.length - 1] || null)
 
@@ -230,7 +233,7 @@ useSeo(
 <template>
   <section class="category">
     <div class="category__container">
-      <CatalogBreadcrumbs :items="breadcrumbs" />
+      <CatalogBreadcrumbs :items="breadcrumbs" :pending="categoryTreePending" />
 
       <div class="category__title-wrapper">
         <h1 class="category__title">
@@ -246,10 +249,10 @@ useSeo(
           @update:model-value="setOrdering"
         />
 
-        <button class="category__head-filter-btn" type="button" @click="isFilterDrawerOpen = true">
-          <BaseIcon name="filter" size="xs" />
-          <span v-if="selectedFilterCount" class="category__filter-count">{{ selectedFilterCount }}</span>
-        </button>
+        <CatalogFilterTrigger
+          :count="selectedFilterCount"
+          @click="isFilterDrawerOpen = true"
+        />
       </div>
 
       <div class="category__body">
@@ -355,7 +358,7 @@ useSeo(
 
 .category__head-side-bar {
   position: sticky;
-  top: 4.75rem;
+  top: var(--shop-header-offset, 4.75rem);
   z-index: 5;
   display: flex;
   align-items: center;
@@ -363,40 +366,11 @@ useSeo(
   justify-content: space-between;
   padding: 0.375rem 0;
   background: #ffffff;
+  transition: top 300ms ease;
 }
 
 .category__tab-list {
   flex: 0 1 auto;
-}
-
-.category__head-filter-btn {
-  position: relative;
-  display: inline-flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(10 10 10 / 0.12);
-  border-radius: 0;
-  background: #ffffff;
-  color: #0a0a0a;
-}
-
-.category__filter-count {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  display: inline-flex;
-  min-width: 1rem;
-  height: 1rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: #0a0a0a;
-  color: #ffffff;
-  font-size: 0.625rem;
-  font-weight: 900;
-  line-height: 1;
 }
 
 .category__body {
@@ -448,8 +422,12 @@ useSeo(
 }
 
 @media (min-width: 1024px) {
-  .category__head-filter-btn {
-    display: none;
+  .category__left-side-bar.is-filtered {
+    top: calc(var(--shop-header-offset, 4.75rem) + 3.75rem);
+    height: calc(100vh - var(--shop-header-offset, 4.75rem) - 3.75rem);
+    transition:
+      top 300ms ease,
+      height 300ms ease;
   }
 
   .category__left-side-bar-wrapper {

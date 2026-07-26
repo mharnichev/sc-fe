@@ -77,14 +77,15 @@ const toggleGroupExpansion = (groupSlug: string) => {
   <aside class="catalog-filter-panel" :aria-busy="pending">
     <div class="catalog-filter-panel__head">
       <h2 class="catalog-filter-panel__title">{{ terms.catalog.filters }}</h2>
-      <button
+      <BaseButton
         class="catalog-filter-panel__clear"
         type="button"
+        variant="text"
         :disabled="disabled || pending || (!selectedCount && !priceMin && !priceMax && !hasCatalogFilters)"
         @click="emit('clear')"
       >
-        <BaseHoverUnderlineText>{{ terms.common.clear }}</BaseHoverUnderlineText>
-      </button>
+        {{ terms.common.clear }}
+      </BaseButton>
     </div>
 
     <div v-if="pending" class="catalog-filter-panel__skeleton" aria-hidden="true">
@@ -149,14 +150,15 @@ const toggleGroupExpansion = (groupSlug: string) => {
             </li>
           </ul>
 
-          <button
+          <BaseButton
             v-if="group.values.length > DEFAULT_VISIBLE_VALUES"
             class="catalog-filter-panel__show-all"
             type="button"
+            variant="text"
             @click="toggleGroupExpansion(group.slug)"
           >
-            <BaseHoverUnderlineText>{{ expandedGroups[group.slug] ? terms.catalog.collapse : terms.catalog.showAll }}</BaseHoverUnderlineText>
-          </button>
+            {{ expandedGroups[group.slug] ? terms.catalog.collapse : terms.catalog.showAll }}
+          </BaseButton>
         </details>
       </section>
     </template>
@@ -192,9 +194,6 @@ const toggleGroupExpansion = (groupSlug: string) => {
 
 .catalog-filter-panel__clear,
 .catalog-filter-panel__show-all {
-  border: 0;
-  background: transparent;
-  color: #0a0a0a;
   font-size: 0.8125rem;
   font-weight: 700;
 }

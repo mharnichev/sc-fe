@@ -9,6 +9,7 @@ const props = defineProps<{
 const cart = useCartStore()
 const favorites = useFavoritesStore()
 const { terms } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 
 const imageUrl = computed(() =>
   props.product.images[0]?.image || props.product.images[0]?.image_url || 'https://placehold.co/640x640?text=Product',
@@ -18,15 +19,6 @@ const productCode = computed(() => props.product.sku || String(props.product.id)
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
 const discount = computed(() => getProductDiscount(props.product))
-
-const formatCatalogPrice = (value: string | number | null | undefined) => {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return ''
-
-  return new Intl.NumberFormat('uk-UA', {
-    maximumFractionDigits: 0,
-  }).format(numeric)
-}
 
 const toggleFavorite = async () => {
   await favorites.toggle(props.product.id, props.product)
@@ -75,44 +67,45 @@ const toggleCart = async () => {
       </div>
     </NuxtLink>
 
-    <button
+    <BaseButton
       class="catalog-product-tile__favorite"
       :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
       type="button"
+      variant="light"
+      size="xs"
+      shape="circle"
       :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
       @click="toggleFavorite"
     >
       <BaseIcon name="heart" size="xxs" effect="heart" />
-    </button>
+    </BaseButton>
 
     <div class="catalog-product-tile__bottom" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
       <div class="catalog-product-tile__prices">
         <meta itemprop="priceCurrency" content="UAH">
         <p v-if="discount" class="catalog-product-tile__old-price">
-          {{ formatCatalogPrice(discount.compareAtPrice) }}
+          {{ formatPrice(discount.compareAtPrice, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
         </p>
         <p
           class="catalog-product-tile__price"
           :class="{ 'catalog-product-tile__price--discount': discount }"
           itemprop="price"
         >
-          <span>{{ formatCatalogPrice(product.price) }}</span>
+          <span>{{ formatPrice(product.price, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}</span>
           <small>{{ terms.catalog.currencyShort }}</small>
         </p>
       </div>
 
-      <button
+      <BaseButton
         class="catalog-product-tile__cart"
         :class="{ 'catalog-product-tile__cart--active': isInCart }"
         type="button"
+        size="xs"
         :aria-label="isInCart ? terms.product.removeFromCart : terms.product.addToCart"
         @click="toggleCart"
       >
-        <span class="catalog-product-tile__cart-surface" aria-hidden="true">
-          <span class="catalog-product-tile__cart-fill" />
-        </span>
         <BaseIcon :name="isInCart ? 'check' : 'shopping-cart'" size="xxs" />
-      </button>
+      </BaseButton>
     </div>
   </article>
 </template>
@@ -208,22 +201,20 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__favorite {
+  --sc-button-bg: #ffffff;
+  --sc-button-text: #737373;
+  --sc-button-fill: #fff1f2;
+  --sc-button-hover-text: #c01818;
+  --sc-button-border: rgb(10 10 10 / 0.1);
+  --sc-button-shadow: none;
+
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
-  display: inline-flex;
   width: 2rem;
+  min-width: 2rem;
   height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(10 10 10 / 0.1);
-  border-radius: 9999px;
-  background: #ffffff;
-  color: #737373;
-  transition:
-    color 180ms ease,
-    background-color 180ms ease,
-    border-color 180ms ease;
+  min-height: 2rem;
 }
 
 .catalog-product-tile__badges {
@@ -234,11 +225,9 @@ const toggleCart = async () => {
   max-width: calc(100% - 4rem);
 }
 
-.catalog-product-tile__favorite--active,
-.catalog-product-tile__favorite:hover,
-.catalog-product-tile__favorite:focus-visible {
-  border-color: rgb(192 24 24 / 0.22);
-  color: #c01818;
+.catalog-product-tile__favorite--active {
+  --sc-button-text: #c01818;
+  --sc-button-border: rgb(192 24 24 / 0.22);
 }
 
 .catalog-product-tile__favorite--active :deep(svg) {
@@ -290,76 +279,22 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__cart {
-  --cart-button-fill: #ffffff;
-  --cart-button-hover-color: #0a0a0a;
-  --cart-button-fill-y: -76%;
+  --sc-button-border: transparent;
 
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
   width: 2.5rem;
+  min-width: 2.5rem;
   height: 2.25rem;
+  min-height: 2.25rem;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 0;
   border-radius: 0.5rem;
-  overflow: hidden;
-  background: #0a0a0a;
-  color: #ffffff;
-  transition:
-    background-color 420ms cubic-bezier(0.3, 1, 0.3, 1),
-    color 420ms cubic-bezier(0.3, 1, 0.3, 1);
+  padding: 0;
 }
 
 .catalog-product-tile__cart--active {
-  --cart-button-fill: #0a0a0a;
-  --cart-button-hover-color: #ffffff;
-
-  background: #f5f5f4;
-  color: #0a0a0a;
-}
-
-.catalog-product-tile__cart-surface {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-.catalog-product-tile__cart-fill {
-  position: absolute;
-  top: -50%;
-  left: -25%;
-  display: block;
-  width: 150%;
-  height: 200%;
-  border-radius: 50%;
-  background: var(--cart-button-fill);
-  transform: translate3d(0, var(--cart-button-fill-y), 0);
-  transition: transform 540ms cubic-bezier(0.3, 1, 0.3, 1);
-  will-change: transform;
-}
-
-.catalog-product-tile__cart :deep(.base-icon) {
-  position: relative;
-  z-index: 1;
-}
-
-.catalog-product-tile__cart:hover,
-.catalog-product-tile__cart:focus-visible {
-  --cart-button-fill-y: 0%;
-
-  color: var(--cart-button-hover-color);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .catalog-product-tile__cart,
-  .catalog-product-tile__cart-fill {
-    transition: none;
-  }
+  --sc-button-bg: #f5f5f4;
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
 }
 
 @media (min-width: 576px) {

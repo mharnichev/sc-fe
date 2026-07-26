@@ -52,6 +52,10 @@ export const shopTerms = {
       products: 'товарів',
       search: 'Пошук',
       closeDialog: 'Закрити вікно',
+      recentlyViewed: 'Переглянуті товари',
+      recentlyViewedDescription: 'Можливо, щось із цього варто переглянути ще раз.',
+      previousRecentlyViewed: 'Попередні переглянуті товари',
+      nextRecentlyViewed: 'Наступні переглянуті товари',
     },
     header: {
       pickup: 'Самовивіз в Одесі',
@@ -401,6 +405,10 @@ export const shopTerms = {
       products: 'products',
       search: 'Search',
       closeDialog: 'Close dialog',
+      recentlyViewed: 'Recently viewed products',
+      recentlyViewedDescription: 'Maybe something here is worth another look.',
+      previousRecentlyViewed: 'Previous recently viewed products',
+      nextRecentlyViewed: 'Next recently viewed products',
     },
     header: {
       pickup: 'Free local pickup in Odesa',

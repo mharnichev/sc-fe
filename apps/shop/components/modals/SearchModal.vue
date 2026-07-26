@@ -25,68 +25,30 @@ const hideSearchModal = () => {
 <template>
   <BaseModal
     v-model="isShow"
-    root-class="search-modal"
-    type="fullscreen"
-    :show-header="false"
+    full-height
+    type="bottom"
+    content-type="secondary"
     @close="hideSearchModal"
   >
-    <section class="mobile-search-modal">
-      <header class="mobile-search-modal__header">
-        <div>
-          <p>{{ terms.common.search }}</p>
-          <h2>{{ terms.header.searchProductsTitle }}</h2>
-        </div>
-        <BaseButton
-          type="button"
-          variant="outline-dark"
-          size="sm"
-          shape="circle"
-          :aria-label="terms.common.closeDialog"
-          @click="hideSearchModal"
-        >
-          <BaseIcon name="close" size="xxs" />
-        </BaseButton>
-      </header>
+    <template #header-title>{{ terms.common.search }}</template>
 
-      <div class="mobile-search-modal__body">
-        <HeaderSearch variant="modal" autofocus @close="hideSearchModal" />
-      </div>
-    </section>
+    <div class="mobile-search-modal">
+      <p class="mobile-search-modal__title">{{ terms.header.searchProductsTitle }}</p>
+      <HeaderSearch variant="modal" autofocus @close="hideSearchModal" />
+    </div>
   </BaseModal>
 </template>
 
 <style scoped>
 .mobile-search-modal {
   min-height: 100%;
-  background: #f5f5f4;
+  padding: 0.75rem;
 }
 
-.mobile-search-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid rgb(10 10 10 / 0.1);
-  background: #ffffff;
-  padding: 0.875rem 1rem;
-}
-
-.mobile-search-modal__header p {
-  color: #737373;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.mobile-search-modal__header h2 {
-  margin-top: 0.15rem;
-  color: #0a0a0a;
-  font-size: 1.05rem;
-  font-weight: 800;
-}
-
-.mobile-search-modal__body {
-  padding: 1rem;
+.mobile-search-modal__title {
+  margin-bottom: 0.75rem;
+  color: #525252;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 </style>

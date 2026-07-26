@@ -1,25 +1,37 @@
 <script setup lang="ts">
-import type { ProductReviewListDto } from '@shared-types'
+import type { ProductDto, ProductReviewListDto } from '@shared-types'
+import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
-import { formatPrice } from '@shared-utils'
 import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 
 const route = useRoute()
+const config = useRuntimeConfig()
+const requestUrl = useRequestURL()
 const domain = useCatalogDomain()
 const cart = useCartStore()
 const favorites = useFavoritesStore()
 const auth = useCustomerAuthStore()
+const recentlyViewed = useRecentlyViewedStore()
 const { terms, dateLocale } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 
 const emptyReviews: ProductReviewListDto = { total: 0, average_rating: null, items: [] }
-const { data: product, refresh: refreshProduct } = await useAsyncData(
-  `product-${route.params.slug}`,
+const productDataKey = computed(() => `product-${String(route.params.slug)}`)
+const productReviewsDataKey = computed(() => `product-reviews-${String(route.params.slug)}`)
+const {
+  data: product,
+  pending: productPending,
+  error: productError,
+  refresh: refreshProduct,
+} = await useLazyAsyncData(
+  productDataKey,
   () => domain.getProduct(String(route.params.slug)),
 )
 const { data: reviewsPage, pending: reviewsPending, refresh: refreshReviews } = await useAsyncData<ProductReviewListDto>(
-  `product-reviews-${route.params.slug}`,
+  productReviewsDataKey,
   async () => product.value ? await domain.getProductReviews(product.value.id) : emptyReviews,
+  { watch: [() => product.value?.id] },
 )
 
 const selectedImage = ref('')
@@ -28,11 +40,15 @@ const reviewForm = reactive({ text: '', rating: 5 })
 const reviewState = reactive({ loading: false, error: '', done: false })
 const recordedProductIds = new Set<number>()
 const ratingOptions = [5, 4, 3, 2, 1]
-const deliveryOptions = [
-  { title: 'Відділення Нова Пошта', time: 'Відправимо сьогодні', cost: 'від 50 ₴' },
-  { title: "Кур'єром Нової Пошти", time: 'Відправимо сьогодні', cost: 'від 85 ₴' },
-  { title: 'Поштомат Нова Пошта', time: 'Відправимо сьогодні', cost: 'від 50 ₴' },
+/*
+ * Temporarily hidden together with the product delivery block in the template.
+const fulfillmentOptions = [
+  'Відділення Нової пошти',
+  'Курʼєр',
+  'Оплата при отриманні',
+  'Карткою при отриманні',
 ]
+*/
 
 const decodeHtmlEntities = (value: string) => value
   .replace(/&nbsp;/g, ' ')
@@ -86,7 +102,22 @@ const isFavorite = computed(() => product.value ? favorites.has(product.value.id
 const isInCart = computed(() => product.value ? cart.items.some(item => item.product.id === product.value?.id) : false)
 const discount = computed(() => product.value ? getProductDiscount(product.value) : null)
 const productCode = computed(() => product.value?.sku || String(product.value?.id || ''))
+const availableVolumeVariants = computed(() =>
+  (product.value?.volume_variants ?? []).filter(variant => variant.is_available),
+)
+const hasVolumeVariants = computed(() =>
+  (product.value?.volume_variants?.length ?? 0) > 1 && availableVolumeVariants.value.length > 0,
+)
 const parameterEntries = computed(() => Object.entries(product.value?.parameters || {}))
+const brandLogoUrl = computed(() => {
+  const brand = product.value?.brand
+  if (!brand) return ''
+
+  return resolveApiAssetUrl(brand.logo_url, String(config.public.apiBase), requestUrl.origin)
+    || localBrandLogoUrl(brand.slug)
+})
+const isBrandCharacteristic = (name: string) =>
+  name.trim().toLocaleLowerCase() === terms.value.catalog.brand.trim().toLocaleLowerCase()
 const fallbackCharacteristicEntries = computed(() => {
   if (!product.value) return []
 
@@ -111,24 +142,27 @@ const toggleCart = async () => {
   await cart.toggle(product.value)
 }
 
-const recordProductView = (productId: number) => {
-  if (recordedProductIds.has(productId)) return
-  recordedProductIds.add(productId)
+const recordProductView = (viewedProduct: ProductDto) => {
+  recentlyViewed.add(viewedProduct)
+  if (recordedProductIds.has(viewedProduct.id)) return
+  recordedProductIds.add(viewedProduct.id)
 
-  void domain.recordProductView(productId).catch(error => {
-    recordedProductIds.delete(productId)
+  void domain.recordProductView(viewedProduct.id).catch(error => {
+    recordedProductIds.delete(viewedProduct.id)
     console.error('Failed to record product view', error)
   })
 }
 
 onMounted(() => {
-  if (product.value) recordProductView(product.value.id)
+  if (product.value) recordProductView(product.value)
 })
 
 watch(
-  () => product.value?.id,
-  (productId, previousProductId) => {
-    if (import.meta.client && productId && productId !== previousProductId) recordProductView(productId)
+  () => product.value,
+  (viewedProduct, previousProduct) => {
+    if (import.meta.client && viewedProduct && viewedProduct.id !== previousProduct?.id) {
+      recordProductView(viewedProduct)
+    }
   },
 )
 
@@ -242,40 +276,54 @@ useHead(() => ({
 <template>
   <section v-if="product" class="product-page">
     <div class="product-page__container">
-      <CatalogBreadcrumbs :items="productBreadcrumbItems" />
+      <CatalogBreadcrumbs :items="productBreadcrumbItems" :pending="productPending" />
 
       <div class="product-page__body">
         <div class="product-page__preview">
           <div class="product-page__preview-wrapper">
-            <section class="product-gallery" itemscope itemtype="https://schema.org/Product">
+            <section
+              class="product-gallery"
+              :class="{ 'product-gallery--with-thumbs': galleryImages.length > 1 }"
+              itemscope
+              itemtype="https://schema.org/Product"
+            >
               <meta v-if="galleryImages[0]?.image" itemprop="image" :content="galleryImages[0].image">
               <div class="product-gallery__main">
-                <button
+                <BaseButton
                   v-if="galleryImages.length > 1"
                   class="product-gallery__nav product-gallery__nav--prev"
                   type="button"
+                  variant="light"
+                  size="sm"
+                  shape="circle"
                   aria-label="Попереднє зображення"
                   @click="prevImage"
                 >
                   <BaseIcon name="chevron-right" size="xxs" />
-                </button>
+                </BaseButton>
                 <button class="product-gallery__image-button" type="button" @click="isGalleryModalOpen = true">
-                  <img
-                    :src="selectedModalImage"
-                    :alt="product.name"
-                    class="product-gallery__image"
-                    itemprop="image"
-                  >
+                  <Transition name="product-gallery-image">
+                    <img
+                      :key="selectedModalImage"
+                      :src="selectedModalImage"
+                      :alt="product.name"
+                      class="product-gallery__image"
+                      itemprop="image"
+                    >
+                  </Transition>
                 </button>
-                <button
+                <BaseButton
                   v-if="galleryImages.length > 1"
                   class="product-gallery__nav product-gallery__nav--next"
                   type="button"
+                  variant="light"
+                  size="sm"
+                  shape="circle"
                   aria-label="Наступне зображення"
                   @click="nextImage"
                 >
                   <BaseIcon name="chevron-right" size="xxs" />
-                </button>
+                </BaseButton>
               </div>
 
               <div v-if="galleryImages.length > 1" class="product-gallery__thumbs" aria-label="Галерея товару">
@@ -305,24 +353,77 @@ useHead(() => ({
               <div>
                 <h1 class="product-buy__name">{{ product.name }}</h1>
                 <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
-                <span class="product-buy__state">{{ stockLabel }}</span>
               </div>
-              <button
+              <BaseButton
                 class="product-buy__favorite"
                 :class="{ 'product-buy__favorite--active': isFavorite }"
                 type="button"
+                variant="text"
+                size="sm"
+                shape="circle"
                 :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
                 @click="toggleFavorite"
               >
                 <BaseIcon name="heart" size="xxs" effect="heart" />
-              </button>
+              </BaseButton>
             </div>
 
             <div class="product-buy__badges">
               <ProductStatusBadges :product="product" />
-              <BaseBadge :tone="stockTone">{{ stockLabel }}</BaseBadge>
+              <BaseBadge class="product-buy__badge--borderless" :tone="stockTone">{{ stockLabel }}</BaseBadge>
               <BaseBadge v-if="averageRating" tone="dark">{{ averageRating }}/5</BaseBadge>
-              <BaseBadge tone="neutral">{{ reviewsCount }} {{ terms.product.reviews }}</BaseBadge>
+              <BaseBadge class="product-buy__badge--borderless" tone="neutral">
+                {{ reviewsCount }} {{ terms.product.reviews }}
+              </BaseBadge>
+            </div>
+
+            <section v-if="characteristicEntries.length" class="product-characteristics">
+              <h2 class="product-section-title">Характеристики</h2>
+              <dl class="product-characteristics__list">
+                <div
+                  v-for="[name, value] in characteristicEntries"
+                  :key="name"
+                  class="product-characteristics__item"
+                  itemprop="additionalProperty"
+                  itemscope
+                  itemtype="https://schema.org/PropertyValue"
+                >
+                  <dt itemprop="name">{{ name }}</dt>
+                  <dd
+                    itemprop="value"
+                    :class="{ 'product-characteristics__brand': isBrandCharacteristic(name) }"
+                  >
+                    <img
+                      v-if="isBrandCharacteristic(name) && brandLogoUrl"
+                      class="product-characteristics__brand-logo"
+                      :src="brandLogoUrl"
+                      alt=""
+                      width="40"
+                      height="24"
+                      loading="lazy"
+                    >
+                    <span>{{ value }}</span>
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <div v-if="hasVolumeVariants" class="product-buy__variants">
+              <span class="product-buy__variants-label">Об’єм</span>
+              <div class="product-buy__variants-list" aria-label="Оберіть об’єм товару">
+                <BaseButton
+                  v-for="variant in availableVolumeVariants"
+                  :key="variant.id"
+                  class="product-buy__variant"
+                  :class="{ 'product-buy__variant--active': variant.id === product.id }"
+                  :to="`/products/${variant.slug}`"
+                  variant="borderless"
+                  size="sm"
+                  :aria-current="variant.id === product.id ? 'page' : undefined"
+                >
+                  {{ variant.volume_label }}
+                </BaseButton>
+              </div>
             </div>
 
             <div class="product-buy__cost" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
@@ -352,43 +453,23 @@ useHead(() => ({
             <p v-if="favorites.error" class="product-page__error">{{ favorites.error }}</p>
           </section>
 
+          <!-- Temporarily hidden product delivery block.
           <section class="product-delivery">
             <div class="product-delivery__location">
               <span>Відправка з:</span>
-              <button type="button">м. Київ</button>
+              <strong>м. Київ</strong>
             </div>
             <ul class="product-delivery__list">
-              <li v-for="item in deliveryOptions" :key="item.title" class="product-delivery__item">
-                <div class="product-delivery__service">
-                  <BaseIcon name="nova-post" size="xxs" />
-                  <span>{{ item.title }}</span>
-                </div>
-                <p>{{ item.time }}</p>
-                <strong>{{ item.cost }}</strong>
+              <li v-for="item in fulfillmentOptions" :key="item" class="product-delivery__item">
+                {{ item }}
               </li>
             </ul>
           </section>
+          -->
 
           <section v-if="productDescriptionHtml" class="product-description" itemprop="description">
             <h2 class="product-section-title">Опис</h2>
             <div class="product-description__html" v-html="productDescriptionHtml" />
-          </section>
-
-          <section v-if="characteristicEntries.length" class="product-characteristics">
-            <h2 class="product-section-title">Характеристики</h2>
-            <dl class="product-characteristics__list">
-              <div
-                v-for="[name, value] in characteristicEntries"
-                :key="name"
-                class="product-characteristics__item"
-                itemprop="additionalProperty"
-                itemscope
-                itemtype="https://schema.org/PropertyValue"
-              >
-                <dt itemprop="name">{{ name }}</dt>
-                <dd itemprop="value">{{ value }}</dd>
-              </div>
-            </dl>
           </section>
         </div>
       </div>
@@ -464,6 +545,8 @@ useHead(() => ({
           <p v-if="reviewState.error" class="product-page__error">{{ reviewState.error }}</p>
         </form>
       </section>
+
+      <RecentlyViewedProducts :exclude-product-id="product.id" />
     </div>
 
     <BaseModal
@@ -492,6 +575,101 @@ useHead(() => ({
         </div>
       </div>
     </BaseModal>
+  </section>
+
+  <section
+    v-else-if="!productError"
+    class="product-page product-page--loading"
+    aria-label="Завантаження товару"
+    aria-busy="true"
+  >
+    <div class="product-page__container">
+      <BaseSkeleton class="product-page-skeleton__breadcrumb" width="18rem" height="0.875rem" radius="9999px" />
+
+      <div class="product-page__body">
+        <div class="product-page__preview">
+          <section class="product-gallery">
+            <BaseSkeleton class="product-page-skeleton__gallery" height="25rem" radius="0.375rem" />
+            <div class="product-page-skeleton__thumbs">
+              <BaseSkeleton
+                v-for="index in 4"
+                :key="index"
+                width="3.75rem"
+                height="3.75rem"
+                radius="0.375rem"
+              />
+            </div>
+          </section>
+        </div>
+
+        <div class="product-page__info">
+          <section class="product-buy product-page-skeleton__stack">
+            <BaseSkeleton width="78%" height="1.35rem" radius="9999px" />
+            <BaseSkeleton width="9rem" height="0.75rem" radius="9999px" />
+            <BaseSkeleton width="6rem" height="0.75rem" radius="9999px" />
+            <div class="product-page-skeleton__badges">
+              <BaseSkeleton
+                v-for="index in 3"
+                :key="index"
+                width="5.5rem"
+                height="1.5rem"
+                radius="9999px"
+              />
+            </div>
+            <div class="product-buy__cost product-page-skeleton__cost">
+              <BaseSkeleton width="8rem" height="2rem" radius="0.375rem" />
+              <BaseSkeleton width="13rem" height="2.75rem" radius="0.375rem" />
+            </div>
+          </section>
+
+          <section class="product-delivery product-page-skeleton__stack">
+            <BaseSkeleton width="10rem" height="0.875rem" radius="9999px" />
+            <BaseSkeleton
+              v-for="index in 3"
+              :key="index"
+              width="100%"
+              height="1.25rem"
+              radius="9999px"
+            />
+          </section>
+
+          <section class="product-description product-page-skeleton__stack">
+            <BaseSkeleton width="8rem" height="1rem" radius="9999px" />
+            <BaseSkeleton width="100%" height="0.875rem" radius="9999px" />
+            <BaseSkeleton width="94%" height="0.875rem" radius="9999px" />
+            <BaseSkeleton width="68%" height="0.875rem" radius="9999px" />
+          </section>
+        </div>
+      </div>
+
+      <section class="product-reviews">
+        <div
+          v-for="index in 2"
+          :key="index"
+          class="product-reviews__list product-page-skeleton__stack"
+        >
+          <BaseSkeleton width="10rem" height="1.25rem" radius="9999px" />
+          <BaseSkeleton width="100%" height="0.875rem" radius="9999px" />
+          <BaseSkeleton width="82%" height="0.875rem" radius="9999px" />
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section v-else class="product-page product-page--error">
+    <FeedbackState
+      kind="error"
+      title="Не вдалося завантажити товар"
+      description="Спробуйте оновити дані або поверніться до каталогу."
+      :seed="String(route.params.slug)"
+    >
+      <BaseButton type="button" @click="refreshProduct">
+        Спробувати ще раз
+      </BaseButton>
+      <BaseButton to="/catalog" variant="outline-dark">
+        До каталогу
+      </BaseButton>
+    </FeedbackState>
   </section>
 </template>
 
@@ -531,6 +709,44 @@ useHead(() => ({
   width: 100%;
 }
 
+.product-page--loading {
+  min-height: 70vh;
+}
+
+.product-page-skeleton__breadcrumb {
+  margin: 0.75rem;
+}
+
+.product-page-skeleton__gallery {
+  min-height: 15rem;
+}
+
+.product-page-skeleton__thumbs,
+.product-page-skeleton__badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.product-page-skeleton__thumbs {
+  margin-top: 0.75rem;
+  overflow: hidden;
+}
+
+.product-page-skeleton__stack {
+  gap: 0.75rem;
+}
+
+.product-page-skeleton__cost {
+  margin-top: 0.25rem;
+}
+
+.product-page--error {
+  display: grid;
+  min-height: 70vh;
+  place-items: center;
+  background: #ffffff;
+}
+
 .product-gallery,
 .product-buy,
 .product-delivery,
@@ -553,7 +769,7 @@ useHead(() => ({
 }
 
 .product-gallery__image-button {
-  display: flex;
+  display: grid;
   width: 100%;
   align-items: center;
   justify-content: center;
@@ -563,33 +779,42 @@ useHead(() => ({
 }
 
 .product-gallery__image {
+  grid-area: 1 / 1;
   width: 100%;
   max-width: 25rem;
   max-height: 25rem;
   object-fit: contain;
 }
 
+.product-gallery-image-enter-active,
+.product-gallery-image-leave-active {
+  transition: opacity 260ms ease;
+}
+
+.product-gallery-image-enter-from,
+.product-gallery-image-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-gallery-image-enter-active,
+  .product-gallery-image-leave-active {
+    transition: none;
+  }
+}
+
 .product-gallery__nav {
+  --sc-button-bg: #ffffff;
+  --sc-button-text: #0a0a0a;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
+  --sc-button-border: transparent;
+  --sc-button-shadow: none;
+
   position: absolute;
   top: 50%;
   z-index: 2;
-  display: flex;
-  width: 2.5rem;
-  height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 9999px;
-  background: #ffffff;
-  color: #0a0a0a;
   transform: translateY(-50%);
-  transition: background-color 160ms ease, color 160ms ease;
-}
-
-.product-gallery__nav:hover,
-.product-gallery__nav:focus-visible {
-  background: #0a0a0a;
-  color: #ffffff;
 }
 
 .product-gallery__nav--prev {
@@ -648,6 +873,11 @@ useHead(() => ({
   gap: 0.75rem;
 }
 
+.product-buy > .product-characteristics {
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
 .product-buy__header {
   display: flex;
   gap: 1.5rem;
@@ -658,42 +888,29 @@ useHead(() => ({
 .product-buy__name {
   margin: 0 0 0.25rem;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 900;
   line-height: 1.35;
+  letter-spacing: 1px;
   color: #0a0a0a;
+  text-transform: uppercase;
 }
 
-.product-buy__code,
-.product-buy__state {
+.product-buy__code {
   display: block;
+  color: #737373;
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
-.product-buy__code {
-  color: #737373;
-}
-
-.product-buy__state {
-  color: #188711;
-}
-
 .product-buy__favorite {
-  display: flex;
-  width: 2.5rem;
-  height: 2.5rem;
+  --sc-button-text: #525252;
+  --sc-button-hover-text: #0a0a0a;
+
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  color: #525252;
 }
 
-.product-buy__favorite:hover,
-.product-buy__favorite:focus-visible,
 .product-buy__favorite--active {
-  color: #0a0a0a;
+  --sc-button-text: #0a0a0a;
 }
 
 .product-buy__favorite--active :deep(svg) {
@@ -704,6 +921,43 @@ useHead(() => ({
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.product-buy__badge--borderless {
+  border: 0;
+}
+
+.product-buy__variants {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.product-buy__variants-label {
+  color: #0a0a0a;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.product-buy__variants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.product-buy__variant {
+  min-width: 3.5rem;
+  text-transform: none;
+}
+
+.product-buy__variant--active {
+  --sc-button-bg: #0a0a0a;
+  --sc-button-text: #ffffff;
+  --sc-button-fill: #0a0a0a;
+  --sc-button-hover-text: #ffffff;
+
+  pointer-events: none;
 }
 
 .product-buy__cost {
@@ -773,66 +1027,43 @@ useHead(() => ({
   font-size: 0.875rem;
 }
 
-.product-delivery__location button {
-  border: 0;
-  background: transparent;
+.product-delivery__location strong {
   color: #0a0a0a;
   font-weight: 700;
 }
 
 .product-delivery__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  display: grid;
+  grid-auto-columns: minmax(max-content, 1fr);
+  grid-auto-flow: column;
   margin: 0;
+  overflow-x: auto;
   padding: 0;
+  scrollbar-width: none;
   list-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.product-delivery__list::-webkit-scrollbar {
+  display: none;
 }
 
 .product-delivery__item {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 0.25rem 0.75rem;
-  align-items: center;
-  padding: 0.375rem;
-  border-radius: 0.25rem;
-  transition: background-color 160ms ease;
-}
-
-.product-delivery__item:hover {
-  background: #f5f5f5;
-}
-
-.product-delivery__service {
   display: flex;
-  gap: 0.5rem;
   align-items: center;
-  min-width: 0;
+  justify-content: center;
+  border-left: 1px solid rgb(10 10 10 / 0.12);
+  padding: 0.625rem 0.75rem;
+  color: #262626;
+  font-size: 0.8125rem;
   font-weight: 700;
-}
-
-.product-delivery__service span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  text-align: center;
   white-space: nowrap;
 }
 
-.product-delivery__item p,
-.product-delivery__item strong {
-  margin: 0;
-  font-size: 0.875rem;
-}
-
-.product-delivery__item p {
-  color: #188711;
-  text-align: right;
-}
-
-.product-delivery__item strong {
-  grid-column: 1;
-  padding-left: 1.875rem;
-  font-weight: 500;
-  color: #262626;
+.product-delivery__item:first-child {
+  border-left: 0;
 }
 
 .product-section-title {
@@ -843,9 +1074,13 @@ useHead(() => ({
   line-height: 1.35;
 }
 
+.product-characteristics .product-section-title {
+  text-transform: uppercase;
+}
+
 .product-description__html {
   color: #404040;
-  font-size: 0.9375rem;
+  font-size: 14px;
   line-height: 1.7;
 }
 
@@ -865,7 +1100,27 @@ useHead(() => ({
 .product-description__html :deep(ul),
 .product-description__html :deep(ol) {
   margin: 0.75rem 0;
-  padding-left: 1.25rem;
+  padding-left: 1.375rem;
+}
+
+.product-description__html :deep(ul) {
+  list-style: disc outside;
+}
+
+.product-description__html :deep(ol) {
+  list-style: decimal outside;
+}
+
+.product-description__html :deep(li) {
+  padding-left: 0.25rem;
+}
+
+.product-description__html :deep(li + li) {
+  margin-top: 0.375rem;
+}
+
+.product-description__html :deep(li::marker) {
+  color: #0a0a0a;
 }
 
 .product-characteristics__list {
@@ -873,6 +1128,7 @@ useHead(() => ({
   flex-direction: column;
   gap: 0.75rem;
   margin: 0;
+  font-size: 14px;
 }
 
 .product-characteristics__item {
@@ -890,6 +1146,19 @@ useHead(() => ({
   color: #262626;
   font-weight: 700;
   text-align: right;
+}
+
+.product-characteristics__brand {
+  display: inline-flex;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.product-characteristics__brand-logo {
+  width: 2.5rem;
+  height: 1.5rem;
+  object-fit: contain;
 }
 
 .product-reviews {
@@ -1031,7 +1300,7 @@ useHead(() => ({
 @media (min-width: 1024px) {
   .product-page__body {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
   .product-page__preview {
@@ -1044,8 +1313,34 @@ useHead(() => ({
     top: 4.375rem;
   }
 
+  .product-gallery {
+    display: flex;
+    height: calc(100vh - 4.375rem);
+    height: calc(100dvh - 4.375rem);
+    flex-direction: column;
+  }
+
   .product-gallery__main {
-    min-height: 25rem;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .product-gallery__image-button {
+    height: 100%;
+  }
+
+  .product-gallery__image {
+    max-height: 100%;
+  }
+
+  .product-gallery--with-thumbs {
+    justify-content: center;
+  }
+
+  .product-gallery--with-thumbs .product-gallery__main {
+    height: min(55vh, 32rem);
+    height: min(55dvh, 32rem);
+    flex: 0 1 auto;
   }
 
   .product-reviews {
@@ -1064,15 +1359,6 @@ useHead(() => ({
     padding: 0.625rem;
   }
 
-  .product-delivery__item {
-    grid-template-columns: 1fr;
-  }
-
-  .product-delivery__item p {
-    text-align: left;
-    padding-left: 1.875rem;
-  }
-
   .product-characteristics__item {
     flex-direction: column;
     gap: 0.125rem;
@@ -1080,6 +1366,10 @@ useHead(() => ({
 
   .product-characteristics__item dd {
     text-align: left;
+  }
+
+  .product-characteristics__brand {
+    justify-content: flex-start;
   }
 }
 </style>

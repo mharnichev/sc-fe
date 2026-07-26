@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
-import { formatPrice } from '@shared-utils'
 
 const props = defineProps<{
   modelValue: boolean
@@ -14,6 +13,7 @@ const favorites = useFavoritesStore()
 const cart = useCartStore()
 const modal = useModalStore()
 const { terms } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
 const isShow = ref(false)
 
 watch(() => props.modelValue, value => {
@@ -48,14 +48,12 @@ const isInCart = (productId: number) =>
             </NuxtLink>
             <strong class="favorite-sidebar__price">{{ formatPrice(product.price) }}</strong>
             <div class="favorite-sidebar__actions">
-              <button type="button" @click="cart.toggle(product)">
-                <BaseHoverUnderlineText>
-                  {{ isInCart(product.id) ? terms.product.removeFromCart : terms.favorites.addToCart }}
-                </BaseHoverUnderlineText>
-              </button>
-              <button type="button" @click="favorites.remove(product.id)">
-                <BaseHoverUnderlineText>{{ terms.common.remove }}</BaseHoverUnderlineText>
-              </button>
+              <BaseButton type="button" variant="text" @click="cart.toggle(product)">
+                {{ isInCart(product.id) ? terms.product.removeFromCart : terms.favorites.addToCart }}
+              </BaseButton>
+              <BaseButton type="button" variant="text" @click="favorites.remove(product.id)">
+                {{ terms.common.remove }}
+              </BaseButton>
             </div>
           </div>
         </article>
@@ -92,7 +90,6 @@ const isInCart = (productId: number) =>
   display: grid;
   grid-template-columns: 5.5rem minmax(0, 1fr);
   gap: 0.75rem;
-  border: 1px solid rgb(10 10 10 / 0.1);
   background: #ffffff;
   padding: 0.65rem;
 }
@@ -137,11 +134,10 @@ const isInCart = (productId: number) =>
   gap: 0.6rem;
 }
 
-.favorite-sidebar__actions button {
-  border: 0;
-  background: transparent;
-  color: rgb(82 82 82);
-  cursor: pointer;
+.favorite-sidebar__actions :deep(.sc-button) {
+  --sc-button-text: rgb(82 82 82);
+  --sc-button-hover-text: #0a0a0a;
+
   font-size: 0.75rem;
   font-weight: 700;
 }
