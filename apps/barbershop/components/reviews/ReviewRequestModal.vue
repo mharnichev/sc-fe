@@ -272,15 +272,16 @@ onBeforeUnmount(() => {
       style="--feedback-state-surface: #fff"
     />
 
-    <FeedbackState
-      v-else-if="pageState === 'submitted'"
-      kind="success"
-      :title="labels.submittedTitle"
-      :description="labels.submittedDescription"
-      style="--feedback-state-surface: #fff"
-    >
-      <BaseButton to="/#booking">{{ labels.book }}</BaseButton>
-    </FeedbackState>
+    <div v-else-if="pageState === 'submitted'" class="review-request-state-shell">
+      <FeedbackState
+        kind="success"
+        :title="labels.submittedTitle"
+        :description="labels.submittedDescription"
+        style="--feedback-state-surface: #fff"
+      >
+        <BaseButton to="/#booking">{{ labels.book }}</BaseButton>
+      </FeedbackState>
+    </div>
 
     <FeedbackState
       v-else-if="pageState === 'network'"
@@ -292,15 +293,16 @@ onBeforeUnmount(() => {
       <BaseButton type="button" @click="loadRequest">{{ labels.retry }}</BaseButton>
     </FeedbackState>
 
-    <FeedbackState
-      v-else-if="pageState === 'success'"
-      kind="success"
-      :title="labels.successTitle"
-      :description="labels.successDescription"
-      style="--feedback-state-surface: #fff"
-    >
-      <BaseButton to="/#booking">{{ labels.book }}</BaseButton>
-    </FeedbackState>
+    <div v-else-if="pageState === 'success'" class="review-request-state-shell">
+      <FeedbackState
+        kind="success"
+        :title="labels.successTitle"
+        :description="labels.successDescription"
+        style="--feedback-state-surface: #fff"
+      >
+        <BaseButton to="/#booking">{{ labels.book }}</BaseButton>
+      </FeedbackState>
+    </div>
 
     <div v-else-if="pageState === 'valid' && request" class="min-w-0 max-w-full overflow-hidden">
       <div class="review-master-hero relative h-72 min-w-0 overflow-hidden bg-neutral-950 sm:h-80 md:h-96">
@@ -347,8 +349,8 @@ onBeforeUnmount(() => {
                 @change="selectRating(value)"
               >
               <span
-                class="flex size-11 items-center justify-center text-3xl text-neutral-300 transition hover:text-amber-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-neutral-950"
-                :class="rating && value <= rating ? 'text-amber-500' : ''"
+                class="flex size-11 items-center justify-center text-3xl transition hover:text-amber-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-neutral-950"
+                :class="rating !== null && value <= rating ? 'text-amber-500' : 'text-neutral-300'"
                 :aria-label="`${value} ${labels.ratingOption}`"
                 aria-hidden="true"
               >★</span>
@@ -387,6 +389,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.review-request-state-shell {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+}
+
 .review-master-hero__shade {
   background:
     linear-gradient(180deg, rgb(0 0 0 / 0.08) 45%, rgb(255 255 255 / 0.12) 72%, rgb(255 255 255 / 0.9) 100%);
