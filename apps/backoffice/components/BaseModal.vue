@@ -51,11 +51,20 @@ const unlockDocumentScroll = () => {
 </script>
 
 <script setup lang="ts">
+import { useId } from 'vue'
+
 const props = withDefaults(defineProps<{
   modelValue: boolean
   maxWidthClass?: string
+  ariaLabel?: string
+  ariaLabelledby?: string
+  closeOnBackdrop?: boolean
+  closeOnEscape?: boolean
 }>(), {
   maxWidthClass: 'max-w-3xl',
+  ariaLabel: 'Діалогове вікно',
+  closeOnBackdrop: true,
+  closeOnEscape: true,
 })
 
 const emit = defineEmits<{
@@ -64,6 +73,10 @@ const emit = defineEmits<{
 }>()
 
 let lockedByInstance = false
+const panelRef = ref<HTMLElement | null>(null)
+const previousFocusedElement = ref<HTMLElement | null>(null)
+const generatedId = useId()
+const titleId = `base-modal-${generatedId}-title`
 
 const setScrollLock = (locked: boolean) => {
   if (locked && !lockedByInstance) {
@@ -83,9 +96,66 @@ const close = () => {
   emit('close')
 }
 
+const focusableSelector = [
+  'a[href]',
+  'button:not(:disabled)',
+  'input:not(:disabled)',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+const focusInitialElement = () => {
+  const panel = panelRef.value
+  if (!panel) return
+  const target = panel.querySelector<HTMLElement>('[autofocus]')
+    || panel.querySelector<HTMLElement>(focusableSelector)
+    || panel
+  target.focus()
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && props.closeOnEscape) {
+    event.preventDefault()
+    close()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const panel = panelRef.value
+  const focusable = Array.from(panel?.querySelectorAll<HTMLElement>(focusableSelector) || [])
+    .filter(element => element.offsetParent !== null)
+  if (!focusable.length) {
+    event.preventDefault()
+    panel?.focus()
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last?.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first?.focus()
+  }
+}
+
 watch(
   () => props.modelValue,
-  setScrollLock,
+  async isOpen => {
+    setScrollLock(isOpen)
+    if (isOpen) {
+      previousFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      await nextTick()
+      focusInitialElement()
+    } else {
+      await nextTick()
+      previousFocusedElement.value?.focus()
+      previousFocusedElement.value = null
+    }
+  },
   { immediate: true },
 )
 
@@ -98,17 +168,22 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none bg-black/62 px-0 py-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
-      @click.self="close"
+      class="base-modal__backdrop fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none px-0 py-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
+      @click.self="closeOnBackdrop && close()"
+      @keydown="handleKeydown"
     >
       <section
-        class="backoffice-modal-panel liquid-glass flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[1.5rem] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[1.75rem]"
+        ref="panelRef"
+        class="backoffice-modal-panel base-modal__panel liquid-glass flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[1.5rem] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[1.75rem]"
         :class="maxWidthClass"
         role="dialog"
         aria-modal="true"
+        :aria-label="ariaLabelledby ? undefined : ariaLabel"
+        :aria-labelledby="ariaLabelledby"
+        tabindex="-1"
       >
-        <header v-if="$slots.head" class="shrink-0 border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
-          <slot name="head" :close="close" />
+        <header v-if="$slots.head" class="base-modal__header shrink-0 border-b px-4 py-4 sm:px-6 sm:py-5">
+          <slot name="head" :close="close" :title-id="titleId" />
         </header>
 
         <div v-if="$slots.body" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 [-webkit-overflow-scrolling:touch] sm:px-6">

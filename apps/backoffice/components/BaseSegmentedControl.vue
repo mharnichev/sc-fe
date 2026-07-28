@@ -19,10 +19,10 @@ const props = withDefaults(defineProps<{
   activeClass?: string
   inactiveClass?: string
 }>(), {
-  containerClass: 'grid gap-1 rounded-xl bg-slate-100 p-1',
+  containerClass: 'grid gap-1 rounded-xl bg-ui-subtle p-1',
   optionClass: 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition',
-  activeClass: 'bg-white text-slate-950 shadow-sm',
-  inactiveClass: 'text-slate-600 hover:text-slate-950',
+  activeClass: 'bg-ui-elevated text-ui-primary shadow-sm',
+  inactiveClass: 'text-ui-secondary',
 })
 
 const emit = defineEmits<{

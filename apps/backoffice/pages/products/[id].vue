@@ -9,18 +9,23 @@ const api = useBackofficeApi()
 const toast = useBaseToastNotification()
 
 const productId = computed(() => route.params.id as string)
+const isNewProduct = computed(() => productId.value === 'new')
 
 const editMode = ref(false)
 
-const [{ data: product, refresh: refreshProduct }, { data: categories }, { data: brands }] = await Promise.all([
+const [{ data: productResult, refresh: refreshProduct }, { data: categories }, { data: brands }] = await Promise.all([
   useAsyncData(
     () => `product-details-${productId.value}`,
-    () => api.getProduct(productId.value),
+    async () => ({
+      product: isNewProduct.value ? null : await api.getProduct(productId.value),
+    }),
     { watch: [productId] },
   ),
   useAsyncData('editor-categories', () => api.getCategories(1, 200)),
   useAsyncData('editor-brands', () => api.getBrands(1, 200)),
 ])
+
+const product = computed(() => productResult.value?.product ?? null)
 
 const galleryImages = computed(() => {
   const images = new Set<string>()
@@ -70,6 +75,13 @@ const submit = async (payload: ProductPayload) => {
   pending.value = true
   errorMessage.value = ''
   try {
+    if (isNewProduct.value) {
+      const createdProduct = await api.createProduct(payload)
+      toast.success('Товар створено.')
+      await router.replace(`/products/${createdProduct.id}`)
+      return
+    }
+
     await api.updateProduct(productId.value, payload)
     editMode.value = false
     toast.success('Товар збережено.')
@@ -89,45 +101,70 @@ const submit = async (payload: ProductPayload) => {
 </script>
 
 <template>
-  <div v-if="product" class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ product.name }}</h1>
-        <p class="mt-2 text-sm text-slate-500">Товар #{{ product.id }} · {{ product.slug }}</p>
-      </div>
-      <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-        <NuxtLink to="/products" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
+  <div class="space-y-6">
+    <template v-if="isNewProduct">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Каталог</p>
+          <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Новий товар</h1>
+          <p class="mt-2 text-sm text-ui-muted">Заповніть дані товару для додавання до каталогу.</p>
+        </div>
+        <NuxtLink to="/products" class="base-button base-button--neutral min-h-10 px-4 py-2 text-sm">
           Назад до списку
         </NuxtLink>
-        <BaseButton
-          class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
-          :aria-label="editMode ? 'Закрити редагування' : 'Редагувати товар'"
-          :title="editMode ? 'Закрити редагування' : 'Редагувати'"
-          @click="editMode = !editMode"
-        >
-          <template v-if="editMode">
-            Закрити редагування
-          </template>
-          <template v-else>
-            <PencilIcon class="h-4 w-4" aria-hidden="true" />
-            <span class="sr-only">Редагувати товар</span>
-          </template>
-        </BaseButton>
       </div>
-    </div>
 
-    <ProductForm
-      v-if="editMode"
-      :categories="categories?.items || []"
-      :brands="brands?.items || []"
-      :initial-value="initialValue"
-      :loading="pending"
-      submit-label="Зберегти зміни"
-      @submit="submit"
-    />
+      <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">
+        {{ errorMessage }}
+      </p>
+      <ProductForm
+        :categories="categories?.items || []"
+        :brands="brands?.items || []"
+        :loading="pending"
+        submit-label="Створити товар"
+        @submit="submit"
+      />
+    </template>
 
-    <div v-else class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+    <template v-else-if="product">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
+          <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ product.name }}</h1>
+          <p class="mt-2 text-sm text-slate-500">Товар #{{ product.id }} · {{ product.slug }}</p>
+        </div>
+        <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <NuxtLink to="/products" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
+            Назад до списку
+          </NuxtLink>
+          <BaseButton
+            class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
+            :aria-label="editMode ? 'Закрити редагування' : 'Редагувати товар'"
+            :title="editMode ? 'Закрити редагування' : 'Редагувати'"
+            @click="editMode = !editMode"
+          >
+            <template v-if="editMode">
+              Закрити редагування
+            </template>
+            <template v-else>
+              <PencilIcon class="h-4 w-4" aria-hidden="true" />
+              <span class="sr-only">Редагувати товар</span>
+            </template>
+          </BaseButton>
+        </div>
+      </div>
+
+      <ProductForm
+        v-if="editMode"
+        :categories="categories?.items || []"
+        :brands="brands?.items || []"
+        :initial-value="initialValue"
+        :loading="pending"
+        submit-label="Зберегти зміни"
+        @submit="submit"
+      />
+
+      <div v-else class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <section class="space-y-6 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <div class="space-y-3">
           <h2 class="text-xl font-semibold text-slate-900">Зображення</h2>
@@ -245,6 +282,19 @@ const submit = async (payload: ProductPayload) => {
           </p>
         </div>
       </section>
-    </div>
+      </div>
+    </template>
+
+    <BaseEmptyState
+      v-else
+      title="Товар не знайдено"
+      description="Поверніться до каталогу та виберіть інший товар."
+    >
+      <template #actions>
+        <NuxtLink to="/products" class="base-button base-button--neutral min-h-10 px-4 py-2 text-sm">
+          До каталогу
+        </NuxtLink>
+      </template>
+    </BaseEmptyState>
   </div>
 </template>

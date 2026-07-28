@@ -136,68 +136,74 @@ const applyFilters = async () => {
   <div class="space-y-4 xl:space-y-5">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Послуги</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Базові послуги</h1>
+        <p class="ui-eyebrow text-xs uppercase tracking-[0.22em] xl:text-sm xl:tracking-[0.3em]">Послуги</p>
+        <h1 class="mt-1 text-2xl font-semibold text-ui-primary xl:mt-2 xl:text-3xl">Базові послуги</h1>
       </div>
-      <BaseButton type="button" class="backoffice-page-create-button inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm" @click="openCreateService">
+      <BaseButton type="button" variant="create" size="sm" class="w-full sm:w-auto" @click="openCreateService">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Створити базову послугу
       </BaseButton>
     </div>
 
-    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
+    <BaseCard as="section" padding="sm" class="space-y-3 xl:space-y-4">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <BaseInput v-model="filters.search" placeholder="Пошук базових послуг" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4" />
+        <BaseInput v-model="filters.search" placeholder="Пошук базових послуг" />
         <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseButton variant="primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
         </BaseButton>
       </div>
-      <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
+      <p v-if="error" class="ui-status-danger rounded-xl px-3 py-2 text-xs xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити базові послуги з /backoffice/admin/services.') }}
       </p>
-      <p class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 xl:text-sm">Total: {{ total }}</p>
-      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження базових послуг...</div>
-      <div v-else-if="!services.length" class="text-xs text-slate-500 xl:text-sm">Базових послуг не знайдено.</div>
-      <div v-else class="overflow-x-auto">
-        <table class="service-table min-w-full divide-y divide-slate-100 text-left text-sm">
-          <thead class="text-xs uppercase text-slate-500">
-            <tr>
-              <th class="px-3 py-2.5 font-medium">Назва</th>
-              <th class="px-3 py-2.5 font-medium">Тривалість</th>
-              <th class="px-3 py-2.5 font-medium">Ціна</th>
-              <th class="px-3 py-2.5 font-medium">Статус</th>
-              <th class="px-3 py-2.5 font-medium"><span class="sr-only">Дії</span></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+      <BaseCard variant="subtle" padding="sm" class="text-xs text-ui-secondary xl:text-sm">Total: {{ total }}</BaseCard>
+      <BaseTable
+        dense
+        caption="Базові послуги"
+        table-class="service-table"
+        min-width="52rem"
+        :loading="pending"
+        loading-label="Завантаження базових послуг…"
+        :empty="!services.length"
+        empty-title="Базових послуг не знайдено"
+      >
+        <template #head>
+          <tr class="text-xs uppercase">
+            <th>Назва</th>
+            <th>Тривалість</th>
+            <th>Ціна</th>
+            <th>Статус</th>
+            <th><span class="sr-only">Дії</span></th>
+          </tr>
+        </template>
             <tr v-for="service in services" :key="service.id">
               <td data-label="Назва" class="service-name-cell px-3 py-2.5">
                 <div class="min-w-0 text-left">
-                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-slate-900">
-                    <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700" aria-hidden="true" />
+                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-ui-primary">
+                    <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-accent" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ serviceName(service) }}</span>
                   </p>
-                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
-                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-slate-700">
-                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <p class="mt-0.5 break-words text-xs leading-5 text-ui-muted">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-ui-secondary">
+                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-muted" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ serviceNameEn(service) || 'Без англійської назви' }}</span>
                   </p>
-                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+                  <p class="mt-0.5 break-words text-xs leading-5 text-ui-muted">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
                 </div>
               </td>
-              <td data-label="Тривалість" class="px-3 py-2.5 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-              <td data-label="Ціна" class="px-3 py-2.5 text-slate-700">{{ formatPrice(service.price) }}</td>
+              <td data-label="Тривалість" class="text-ui-secondary">{{ formatDuration(service.duration_minutes) }}</td>
+              <td data-label="Ціна" class="text-ui-secondary">{{ formatPrice(service.price) }}</td>
               <td data-label="Статус" class="px-3 py-2.5">
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                <BaseBadge :tone="service.is_active ? 'success' : 'neutral'">
                   {{ service.is_active ? 'активний' : 'неактивний' }}
-                </span>
+                </BaseBadge>
               </td>
               <td class="service-actions px-3 py-2.5">
                 <div class="flex flex-wrap gap-1.5">
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     aria-label="Редагувати базову послугу"
                     title="Редагувати"
                     @click="editService(service)"
@@ -206,7 +212,8 @@ const applyFilters = async () => {
                     <span class="sr-only">Редагувати</span>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     :aria-label="service.is_active ? 'Деактивувати базову послугу' : 'Активувати базову послугу'"
                     :title="service.is_active ? 'Деактивувати' : 'Активувати'"
                     @click="openToggleServiceConfirm(service)"
@@ -221,7 +228,8 @@ const applyFilters = async () => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                    variant="danger-outline"
+                    class="h-7 w-7 p-0"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Деактивація базової послуги' : 'Видалити базову послугу'"
                     :title="deletingId === service.id ? 'Деактивація...' : 'Видалити'"
@@ -233,10 +241,8 @@ const applyFilters = async () => {
                 </div>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      </BaseTable>
+    </BaseCard>
 
     <BaseServiceFormModal
       :model-value="serviceModalOpen"

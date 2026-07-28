@@ -1,7 +1,9 @@
 import type {
   DashboardActionCode,
+  DashboardActionSignal,
   DashboardComparableMetric,
   DashboardMasterBreakdownItem,
+  DashboardSignalThresholds,
 } from '~/utils/adminDashboardContract'
 
 export type AdminDashboardPreset = 'today' | '7d' | '30d' | 'mtd' | 'custom'
@@ -11,7 +13,7 @@ export type AdminDashboardMasterSortKey =
   | 'average_check'
   | 'utilisation_rate'
   | 'revenue_per_available_hour'
-  | 'returning_clients'
+  | 'returning_client_share'
   | 'approved_rating'
 export type SortDirection = 'asc' | 'desc'
 export interface AdminDashboardMetricComparison {
@@ -133,14 +135,25 @@ export const dashboardMetricComparison = (
   }
 }
 
+export const dashboardReturningClientShare = (
+  row: Pick<DashboardMasterBreakdownItem, 'new_clients' | 'returning_clients'>,
+) => {
+  const clientCount = row.new_clients + row.returning_clients
+  return clientCount > 0 ? row.returning_clients * 100 / clientCount : null
+}
+
 export const compareDashboardMasterRows = (
   first: DashboardMasterBreakdownItem,
   second: DashboardMasterBreakdownItem,
   key: AdminDashboardMasterSortKey,
   direction: SortDirection,
 ) => {
-  const firstValue = first[key]
-  const secondValue = second[key]
+  const firstValue = key === 'returning_client_share'
+    ? dashboardReturningClientShare(first)
+    : first[key]
+  const secondValue = key === 'returning_client_share'
+    ? dashboardReturningClientShare(second)
+    : second[key]
   const firstAvailable = hasDashboardMetric(firstValue)
   const secondAvailable = hasDashboardMetric(secondValue)
 
@@ -159,4 +172,56 @@ export const dashboardActionLabels: Record<DashboardActionCode, string> = {
   unfilled_capacity: 'Перевірити доступність',
   review_moderation_backlog: 'До модерації',
   failed_review_delivery: 'Перевірити доставку',
+}
+
+export const dashboardActionNextSteps: Record<DashboardActionCode, string> = {
+  pending_bookings: 'Відкрийте записи зі статусом «очікує», зв’яжіться з клієнтом і підтвердьте або скасуйте запис.',
+  elevated_cancellations: 'Перегляньте скасовані записи та знайдіть повторювані години або майстрів, після чого скоригуйте підтвердження записів.',
+  unfilled_capacity: 'Перевірте, чи опублікований графік і блокування часу актуальні, та визначте вікна, які варто заповнити першими.',
+  review_moderation_backlog: 'Перегляньте відгуки, що очікують, і схваліть або відхиліть кожен із них.',
+  failed_review_delivery: 'Перевірте невдалі запити, канал доставки та коректність налаштувань перед повторною дією.',
+}
+
+const formatDashboardThresholdNumber = (value: string | number) =>
+  Number(value).toLocaleString('uk-UA', { maximumFractionDigits: 1 })
+
+export const dashboardSignalTriggerExplanation = (
+  code: DashboardActionCode,
+  thresholds: DashboardSignalThresholds,
+) => {
+  if (code === 'pending_bookings') {
+    return `Сигнал з’являється, коли є не менше ${thresholds.pending_bookings_min_count} майбутніх записів зі статусом «очікує підтвердження».`
+  }
+  if (code === 'elevated_cancellations') {
+    return [
+      'Сигнал з’являється лише коли доступний попередній рівний період і одночасно виконані всі умови:',
+      `скасовано не менше ${thresholds.cancellation_min_count} записів,`,
+      `поточна частка скасувань не нижча за ${formatDashboardThresholdNumber(thresholds.cancellation_min_rate_percent)}%,`,
+      `зростання становить щонайменше ${formatDashboardThresholdNumber(thresholds.cancellation_min_increase_percentage_points)} в. п.`,
+    ].join(' ')
+  }
+  if (code === 'unfilled_capacity') {
+    return `Сигнал з’являється, коли одночасно вільні щонайменше ${formatDashboardMinutesAsHours(thresholds.unfilled_capacity_min_minutes)} і це не менше ${formatDashboardThresholdNumber(thresholds.unfilled_capacity_min_percent)}% усієї майбутньої доступності.`
+  }
+  if (code === 'review_moderation_backlog') {
+    return `Сигнал з’являється, коли модерації очікують щонайменше ${thresholds.review_moderation_backlog_min_count} відгуків.`
+  }
+  return `Сигнал з’являється, коли помилку доставки мають щонайменше ${thresholds.failed_review_delivery_min_count} запитів на відгук.`
+}
+
+export const formatDashboardSignalMetric = (signal: DashboardActionSignal) => {
+  const value = Number(signal.metric_value)
+  if (!Number.isFinite(value)) return 'Поточне значення недоступне'
+  if (signal.metric_unit === 'percentage_points') {
+    return `${formatDashboardThresholdNumber(value)} в. п. зростання`
+  }
+  if (signal.metric_unit === 'minutes') {
+    return `${formatDashboardMinutesAsHours(value)} вільного часу`
+  }
+  const labels = {
+    bookings: 'записів',
+    reviews: 'відгуків',
+    deliveries: 'помилок доставки',
+  } as const
+  return `${value.toLocaleString('uk-UA')} ${labels[signal.metric_unit]}`
 }

@@ -62,7 +62,7 @@ const insertVariable = (variable: string) => {
 
       <div class="space-y-2">
         <p class="text-sm font-medium text-slate-700">Змінні</p>
-        <VariablePicker @select="insertVariable" />
+        <MessagingVariablePicker @select="insertVariable" />
       </div>
 
       <div class="flex flex-wrap gap-3">
@@ -77,6 +77,6 @@ const insertVariable = (variable: string) => {
       </div>
     </div>
 
-    <MessagePreview :body="form.message_body" />
+    <MessagingMessagePreview :body="form.message_body" />
   </div>
 </template>

@@ -187,31 +187,31 @@ const updateStatus = async () => {
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]">
         <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 class="text-xl font-semibold text-slate-900">Позиції</h2>
-          <div class="mt-4 overflow-x-auto">
-            <table class="min-w-[720px] divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-50">
+          <BaseTable
+            caption="Позиції замовлення"
+            wrapper-class="mt-4 rounded-2xl"
+            min-width="720px"
+          >
+            <template #head>
                 <tr>
-                  <th class="px-4 py-3 text-left font-medium text-slate-500">Товар</th>
-                  <th class="px-4 py-3 text-left font-medium text-slate-500">SKU</th>
-                  <th class="px-4 py-3 text-left font-medium text-slate-500">К-сть</th>
-                  <th class="px-4 py-3 text-left font-medium text-slate-500">Ціна</th>
-                  <th class="px-4 py-3 text-left font-medium text-slate-500">Сума</th>
+                  <th>Товар</th>
+                  <th>SKU</th>
+                  <th>К-сть</th>
+                  <th>Ціна</th>
+                  <th>Сума</th>
                 </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
+            </template>
                 <tr v-for="item in order.items" :key="item.id">
-                  <td class="px-4 py-3">
-                    <p class="font-medium text-slate-900">{{ item.product_name || `Товар #${item.product_id}` }}</p>
-                    <p class="mt-1 text-xs text-slate-500">Product ID: {{ item.product_id }}</p>
+                  <td>
+                    <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
+                    <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
                   </td>
-                  <td class="px-4 py-3 text-slate-700">{{ item.product_sku || '—' }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ item.quantity }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ formatMoney(item.price) }}</td>
-                  <td class="px-4 py-3 font-medium text-slate-900">{{ formatMoney(item.total_price || Number(item.price) * item.quantity) }}</td>
+                  <td class="text-ui-secondary">{{ item.product_sku || '—' }}</td>
+                  <td class="text-ui-secondary">{{ item.quantity }}</td>
+                  <td class="text-ui-secondary">{{ formatMoney(item.price) }}</td>
+                  <td class="font-medium text-ui-primary">{{ formatMoney(item.total_price || Number(item.price) * item.quantity) }}</td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
+          </BaseTable>
         </section>
 
         <section class="space-y-6">

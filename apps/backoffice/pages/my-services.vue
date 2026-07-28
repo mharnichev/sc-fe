@@ -161,125 +161,62 @@ const deleteService = async (service: MasterService) => {
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити послуги майстра.') }}
       </p>
-      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження послуг...</div>
-      <div v-else-if="!services.length" class="text-xs text-slate-500 xl:text-sm">Послуг не знайдено.</div>
-      <div v-else>
-        <div class="grid gap-1.5 xl:hidden">
-          <article
-            v-for="service in services"
-            :key="service.id"
-            class="rounded-xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <p class="flex min-w-0 items-start gap-1.5 break-words text-sm font-semibold leading-snug text-slate-900">
-                  <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700" aria-hidden="true" />
-                  <span class="min-w-0 break-words">{{ serviceName(service) }}</span>
-                </p>
-                <p class="mt-0.5 line-clamp-2 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
-              </div>
-              <span class="shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
-                {{ service.is_active ? 'активна' : 'неактивна' }}
-              </span>
-            </div>
-
-            <div class="mt-1.5 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1.5 text-xs text-slate-600">
-              <div class="min-w-0 rounded-lg bg-slate-50 px-2 py-1">
-                <span class="block truncate text-[0.65rem] uppercase tracking-[0.04em] text-slate-400">Тривалість</span>
-                <span class="block min-w-0 truncate font-medium text-slate-800">{{ formatDuration(service.duration_minutes) }}</span>
-              </div>
-              <div class="min-w-0 rounded-lg bg-slate-50 px-2 py-1">
-                <span class="block truncate text-[0.65rem] uppercase tracking-[0.04em] text-slate-400">Ціна</span>
-                <span class="block min-w-0 truncate font-medium text-slate-800">{{ formatPrice(service.price) }}</span>
-              </div>
-            </div>
-
-            <div class="mt-1.5 flex items-center justify-between gap-2">
-              <span class="min-w-0 truncate rounded-full px-2 py-0.5 text-[0.68rem] font-medium" :class="service.source_type === 'base' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'">
-                {{ service.source_type === 'base' ? 'Базова' : service.source_type }}
-              </span>
-              <div class="flex shrink-0 gap-1.5">
-                <BaseButton
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
-                  aria-label="Редагувати послугу"
-                  title="Редагувати"
-                  @click="editService(service)"
-                >
-                  <PencilIcon class="h-3.5 w-3.5" aria-hidden="true" />
-                  <span class="sr-only">Редагувати</span>
-                </BaseButton>
-                <BaseButton
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
-                  :aria-label="service.is_active ? 'Деактивувати послугу' : 'Активувати послугу'"
-                  :title="service.is_active ? 'Деактивувати' : 'Активувати'"
-                  @click="openToggleServiceConfirm(service)"
-                >
-                  <NoSymbolIcon v-if="service.is_active" class="h-3.5 w-3.5" aria-hidden="true" />
-                  <CheckCircleIcon v-else class="h-3.5 w-3.5" aria-hidden="true" />
-                  <span class="sr-only">{{ service.is_active ? 'Деактивувати' : 'Активувати' }}</span>
-                </BaseButton>
-                <BaseButton
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
-                  :disabled="deletingId === service.id || !service.is_active"
-                  :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"
-                  :title="deletingId === service.id ? 'Вимкнення...' : 'Видалити'"
-                  @click="deleteService(service)"
-                >
-                  <TrashIcon class="h-3.5 w-3.5" aria-hidden="true" />
-                  <span class="sr-only">{{ deletingId === service.id ? 'Вимкнення...' : 'Видалити' }}</span>
-                </BaseButton>
-              </div>
-            </div>
-          </article>
-        </div>
-        <div class="hidden overflow-x-auto xl:block">
-          <table class="service-table min-w-full divide-y divide-slate-100 text-left text-sm">
-          <thead class="text-xs uppercase text-slate-500">
+      <BaseTable
+        dense
+        caption="Мої послуги"
+        table-class="service-table"
+        min-width="68rem"
+        :loading="pending"
+        loading-label="Завантаження послуг…"
+        :empty="!services.length"
+        empty-title="Послуг не знайдено"
+      >
+        <template #head>
             <tr>
-              <th class="px-3 py-2.5 font-medium">Назва</th>
-              <th class="px-3 py-2.5 font-medium">Тривалість</th>
-              <th class="px-3 py-2.5 font-medium">Ціна</th>
-              <th class="px-3 py-2.5 font-medium">Джерело</th>
-              <th class="px-3 py-2.5 font-medium">Базова послуга</th>
-              <th class="px-3 py-2.5 font-medium">Статус</th>
-              <th class="px-3 py-2.5 font-medium"><span class="sr-only">Дії</span></th>
+              <th>Назва</th>
+              <th>Тривалість</th>
+              <th>Ціна</th>
+              <th>Джерело</th>
+              <th>Базова послуга</th>
+              <th>Статус</th>
+              <th><span class="sr-only">Дії</span></th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+        </template>
             <tr v-for="service in services" :key="service.id">
-              <td data-label="Назва" class="service-name-cell px-3 py-2.5">
+              <td class="service-name-cell">
                 <div class="min-w-0 text-left">
-                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-slate-900">
-                    <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700" aria-hidden="true" />
+                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-ui-primary">
+                    <TagIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-accent" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ serviceName(service) }}</span>
                   </p>
-                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
-                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-slate-700">
-                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <p class="mt-0.5 break-words text-xs leading-5 text-ui-muted">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-ui-secondary">
+                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-muted" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ serviceNameEn(service) || 'Без англійської назви' }}</span>
                   </p>
-                  <p class="mt-0.5 break-words text-xs leading-5 text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+                  <p class="mt-0.5 break-words text-xs leading-5 text-ui-muted">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
                 </div>
               </td>
-              <td data-label="Тривалість" class="px-3 py-2.5 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-              <td data-label="Ціна" class="px-3 py-2.5 text-slate-700">{{ formatPrice(service.price) }}</td>
-              <td data-label="Джерело" class="px-3 py-2.5">
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="service.source_type === 'base' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'">
+              <td class="text-ui-secondary">{{ formatDuration(service.duration_minutes) }}</td>
+              <td class="text-ui-secondary">{{ formatPrice(service.price) }}</td>
+              <td>
+                <BaseBadge :tone="service.source_type === 'base' ? 'info' : 'neutral'">
                   {{ service.source_type }}
-                </span>
+                </BaseBadge>
               </td>
-              <td data-label="Базова послуга" class="px-3 py-2.5 text-slate-500">
+              <td class="text-ui-muted">
                 {{ service.base_service ? `${serviceName(service.base_service)} #${service.base_service.id}` : '-' }}
               </td>
-              <td data-label="Статус" class="px-3 py-2.5">
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <td>
+                <BaseBadge :tone="service.is_active ? 'success' : 'neutral'">
                   {{ service.is_active ? 'активний' : 'неактивний' }}
-                </span>
+                </BaseBadge>
               </td>
-              <td class="service-actions px-3 py-2.5">
+              <td class="service-actions">
                 <div class="flex flex-wrap gap-1.5">
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     aria-label="Редагувати послугу"
                     title="Редагувати"
                     @click="editService(service)"
@@ -288,7 +225,8 @@ const deleteService = async (service: MasterService) => {
                     <span class="sr-only">Редагувати</span>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     :aria-label="service.is_active ? 'Деактивувати послугу' : 'Активувати послугу'"
                     :title="service.is_active ? 'Деактивувати' : 'Активувати'"
                     @click="openToggleServiceConfirm(service)"
@@ -303,7 +241,8 @@ const deleteService = async (service: MasterService) => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                    variant="danger-outline"
+                    class="h-7 w-7 p-0"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"
                     :title="deletingId === service.id ? 'Вимкнення...' : 'Видалити'"
@@ -315,10 +254,7 @@ const deleteService = async (service: MasterService) => {
                 </div>
               </td>
             </tr>
-          </tbody>
-          </table>
-        </div>
-      </div>
+      </BaseTable>
     </section>
     <MyServiceFormModal
       :model-value="serviceModalOpen"

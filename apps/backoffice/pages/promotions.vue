@@ -228,72 +228,78 @@ const confirmDeletePromotion = async () => {
         {{ apiErrorMessage(error, 'Не вдалося завантажити акції з /backoffice/promotions.') }}
       </p>
 
-      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження акцій...</div>
-      <div v-else-if="!promotions.length" class="text-xs text-slate-500 xl:text-sm">Акцій не знайдено.</div>
-      <div v-else class="overflow-x-auto">
-        <table class="service-table min-w-full divide-y divide-slate-100 text-left text-sm">
-          <thead class="text-xs uppercase text-slate-500">
+      <BaseTable
+        dense
+        caption="Акції"
+        table-class="service-table"
+        min-width="72rem"
+        :loading="pending"
+        loading-label="Завантаження акцій…"
+        :empty="!promotions.length"
+        empty-title="Акцій не знайдено"
+      >
+        <template #head>
             <tr>
-              <th class="px-3 py-2.5 font-medium">Акція</th>
-              <th class="px-3 py-2.5 font-medium">Знижка</th>
-              <th class="px-3 py-2.5 font-medium">Аудиторія</th>
-              <th class="px-3 py-2.5 font-medium">Область</th>
-              <th class="px-3 py-2.5 font-medium">Період</th>
-              <th class="px-3 py-2.5 font-medium">Статус</th>
-              <th class="px-3 py-2.5 font-medium"><span class="sr-only">Дії</span></th>
+              <th>Акція</th>
+              <th>Знижка</th>
+              <th>Аудиторія</th>
+              <th>Область</th>
+              <th>Період</th>
+              <th>Статус</th>
+              <th><span class="sr-only">Дії</span></th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+        </template>
             <tr v-for="promotion in promotions" :key="promotion.id">
-              <td data-label="Акція" class="service-name-cell px-3 py-2.5">
+              <td class="service-name-cell">
                 <div class="min-w-0 text-left">
-                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-slate-900">
-                    <TicketIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700" aria-hidden="true" />
+                  <p class="flex min-w-0 items-start gap-1.5 font-medium leading-snug text-ui-primary">
+                    <TicketIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-accent" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ promotionName(promotion) }}</span>
                   </p>
-                  <p class="mt-1 flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <p class="mt-1 flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ui-muted">
                     <span class="min-w-0 break-all">{{ promotion.code }}</span>
                   </p>
-                  <p class="mt-1.5 break-words text-xs leading-5 text-slate-500">{{ promotion.description_uk || 'Без опису' }}</p>
-                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-slate-700">
-                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <p class="mt-1.5 break-words text-xs leading-5 text-ui-muted">{{ promotion.description_uk || 'Без опису' }}</p>
+                  <p class="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs font-medium leading-5 text-ui-secondary">
+                    <LanguageIcon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-muted" aria-hidden="true" />
                     <span class="min-w-0 break-words">{{ promotion.name_en }}</span>
                   </p>
                 </div>
               </td>
-              <td data-label="Знижка" class="px-3 py-2.5 text-slate-700">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700">
+              <td>
+                <BaseBadge tone="info" class="gap-1.5">
                   <ReceiptPercentIcon class="h-3.5 w-3.5" aria-hidden="true" />
                   {{ promotion.discount_percent }}%
-                </span>
+                </BaseBadge>
               </td>
-              <td data-label="Аудиторія" class="px-3 py-2.5 text-slate-700">
+              <td class="text-ui-secondary">
                 <span class="inline-flex items-center gap-1.5 text-sm">
-                  <UserGroupIcon class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <UserGroupIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />
                   {{ eligibilityLabel(promotion) }}
                 </span>
               </td>
-              <td data-label="Область" class="px-3 py-2.5 text-slate-700">
+              <td class="text-ui-secondary">
                 <span class="inline-flex max-w-xs items-start gap-1.5 text-sm leading-5">
-                  <FunnelIcon class="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <FunnelIcon class="mt-0.5 h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />
                   <span class="break-words">{{ promotionScopeLabel(promotion) }}</span>
                 </span>
               </td>
-              <td data-label="Період" class="px-3 py-2.5 text-slate-700">
+              <td class="text-ui-secondary">
                 <span class="inline-flex max-w-xs items-start gap-1.5 text-sm leading-5">
-                  <CalendarDaysIcon class="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <CalendarDaysIcon class="mt-0.5 h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />
                   <span class="break-words">{{ promotionPeriod(promotion) }}</span>
                 </span>
               </td>
-              <td data-label="Статус" class="px-3 py-2.5">
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="promotion.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <td>
+                <BaseBadge :tone="promotion.is_active ? 'success' : 'neutral'">
                   {{ promotion.is_active ? 'активна' : 'неактивна' }}
-                </span>
+                </BaseBadge>
               </td>
-              <td class="service-actions px-3 py-2.5">
+              <td class="service-actions">
                 <div class="flex flex-wrap gap-1.5">
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     aria-label="Редагувати акцію"
                     title="Редагувати"
                     @click="editPromotion(promotion)"
@@ -302,7 +308,8 @@ const confirmDeletePromotion = async () => {
                     <span class="sr-only">Редагувати</span>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                    variant="icon"
+                    class="h-7 w-7"
                     :aria-label="promotion.is_active ? 'Деактивувати акцію' : 'Активувати акцію'"
                     :title="promotion.is_active ? 'Деактивувати' : 'Активувати'"
                     @click="openTogglePromotionConfirm(promotion)"
@@ -317,7 +324,8 @@ const confirmDeletePromotion = async () => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                    variant="danger-outline"
+                    class="h-7 w-7 p-0"
                     :disabled="!promotion.is_active"
                     aria-label="Видалити акцію"
                     title="Видалити"
@@ -329,9 +337,7 @@ const confirmDeletePromotion = async () => {
                 </div>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
+      </BaseTable>
     </section>
 
     <PromotionFormModal

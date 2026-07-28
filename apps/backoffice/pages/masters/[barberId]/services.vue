@@ -174,48 +174,53 @@ const syncDefaults = async () => {
         <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
           {{ apiErrorMessage(error, 'Не вдалося завантажити послуги майстра.') }}
         </p>
-        <div v-if="pending" class="text-sm text-slate-500">Завантаження послуг майстра...</div>
-        <div v-else-if="!services.length" class="text-sm text-slate-500">Послуг майстра не знайдено.</div>
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-            <thead class="text-xs uppercase text-slate-500">
+        <BaseTable
+          dense
+          caption="Послуги майстра"
+          min-width="64rem"
+          :loading="pending"
+          loading-label="Завантаження послуг майстра…"
+          :empty="!services.length"
+          empty-title="Послуг майстра не знайдено"
+        >
+          <template #head>
               <tr>
-                <th class="px-4 py-3 font-medium">Назва</th>
-                <th class="px-4 py-3 font-medium">Тривалість</th>
-                <th class="px-4 py-3 font-medium">Ціна</th>
-                <th class="px-4 py-3 font-medium">Джерело</th>
-                <th class="px-4 py-3 font-medium">Базова послуга</th>
-                <th class="px-4 py-3 font-medium">Статус</th>
-                <th class="px-4 py-3 font-medium">Дії</th>
+                <th>Назва</th>
+                <th>Тривалість</th>
+                <th>Ціна</th>
+                <th>Джерело</th>
+                <th>Базова послуга</th>
+                <th>Статус</th>
+                <th>Дії</th>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
+          </template>
               <tr v-for="service in services" :key="service.id">
-                <td data-label="Назва" class="px-4 py-3">
-                  <p class="font-medium text-slate-900">{{ serviceName(service) }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
-                  <p class="mt-2 text-xs font-medium text-slate-700">{{ serviceNameEn(service) || 'Без англійської назви' }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
+                <td>
+                  <p class="font-medium text-ui-primary">{{ serviceName(service) }}</p>
+                  <p class="mt-1 text-xs text-ui-muted">{{ serviceDescriptionUk(service) || 'Без опису' }}</p>
+                  <p class="mt-2 text-xs font-medium text-ui-secondary">{{ serviceNameEn(service) || 'Без англійської назви' }}</p>
+                  <p class="mt-1 text-xs text-ui-muted">{{ serviceDescriptionEn(service) || 'Без опису англійською' }}</p>
                 </td>
-                <td data-label="Тривалість" class="px-4 py-3 text-slate-700">{{ formatDuration(service.duration_minutes) }}</td>
-                <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ formatPrice(service.price) }}</td>
-                <td data-label="Джерело" class="px-4 py-3">
-                  <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.source_type === 'base' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'">
+                <td class="text-ui-secondary">{{ formatDuration(service.duration_minutes) }}</td>
+                <td class="text-ui-secondary">{{ formatPrice(service.price) }}</td>
+                <td>
+                  <BaseBadge :tone="service.source_type === 'base' ? 'info' : 'neutral'">
                     {{ service.source_type }}
-                  </span>
+                  </BaseBadge>
                 </td>
-                <td data-label="Базова послуга" class="px-4 py-3 text-slate-500">
+                <td class="text-ui-muted">
                   {{ service.base_service ? `${serviceName(service.base_service)} #${service.base_service.id}` : '-' }}
                 </td>
-                <td data-label="Статус" class="px-4 py-3">
-                  <span class="rounded-full px-3 py-1 text-xs font-medium" :class="service.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                <td>
+                  <BaseBadge :tone="service.is_active ? 'success' : 'neutral'">
                     {{ service.is_active ? 'активний' : 'неактивний' }}
-                  </span>
+                  </BaseBadge>
                 </td>
-                <td data-label="Дії" class="px-4 py-3">
+                <td>
                   <div class="flex flex-wrap gap-2">
                     <BaseButton
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      variant="icon"
+                      class="h-8 w-8"
                       aria-label="Редагувати послугу майстра"
                       title="Редагувати"
                       @click="editService(service)"
@@ -224,7 +229,8 @@ const syncDefaults = async () => {
                       <span class="sr-only">Редагувати</span>
                     </BaseButton>
                     <BaseButton
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                      variant="icon"
+                      class="h-8 w-8"
                       :aria-label="service.is_active ? 'Деактивувати послугу майстра' : 'Активувати послугу майстра'"
                       :title="service.is_active ? 'Деактивувати' : 'Активувати'"
                       @click="openToggleServiceConfirm(service)"
@@ -239,7 +245,8 @@ const syncDefaults = async () => {
                       </template>
                     </BaseButton>
                     <BaseButton
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                      variant="danger-outline"
+                      class="h-8 w-8 p-0"
                       :disabled="deletingId === service.id || !service.is_active"
                       :aria-label="deletingId === service.id ? 'Вимкнення послуги майстра' : 'Видалити послугу майстра'"
                       :title="deletingId === service.id ? 'Вимкнення...' : 'Видалити'"
@@ -251,9 +258,7 @@ const syncDefaults = async () => {
                   </div>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+        </BaseTable>
     </section>
 
     <MasterServiceFormModal

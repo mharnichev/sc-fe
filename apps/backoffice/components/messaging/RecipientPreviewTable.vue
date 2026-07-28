@@ -10,39 +10,41 @@ defineProps<{
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white">
-    <div v-if="pending" class="p-6 text-sm text-slate-500">Завантажуємо отримувачів...</div>
-    <div v-else-if="error" class="p-6 text-sm text-rose-600">{{ error }}</div>
-    <table v-else-if="recipients.length" class="min-w-full divide-y divide-slate-200 text-sm">
-      <thead class="bg-slate-50">
+  <div v-if="error" class="ui-status-danger rounded-[1.25rem] p-6 text-sm" role="alert">{{ error }}</div>
+  <BaseTable
+    v-else
+    caption="Попередній перегляд отримувачів"
+    min-width="52rem"
+    :loading="pending"
+    loading-label="Завантажуємо отримувачів…"
+    :empty="!recipients.length"
+    :empty-title="emptyLabel || 'Отримувачів за цими правилами не знайдено'"
+  >
+    <template #head>
         <tr>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Клієнт</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Телефон</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Telegram</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Згода</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Мова</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
+          <th>Клієнт</th>
+          <th>Телефон</th>
+          <th>Telegram</th>
+          <th>Згода</th>
+          <th>Мова</th>
+          <th>Статус</th>
         </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
+    </template>
         <tr v-for="recipient in recipients" :key="recipient.id">
-          <td data-label="Клієнт" class="px-4 py-3 font-medium text-slate-900">{{ recipient.name || `Клієнт #${recipient.id}` }}</td>
-          <td data-label="Телефон" class="px-4 py-3 text-slate-700">{{ recipient.phone }}</td>
-          <td data-label="Telegram" class="px-4 py-3 text-slate-700">{{ recipient.telegram_chat_id || 'немає' }}</td>
-          <td data-label="Згода" class="px-4 py-3">
-            <span class="rounded-full px-2 py-1 text-xs font-medium" :class="recipient.marketing_consent && !recipient.opt_out ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'">
+          <td class="font-medium text-ui-primary">{{ recipient.name || `Клієнт #${recipient.id}` }}</td>
+          <td class="text-ui-secondary">{{ recipient.phone }}</td>
+          <td class="text-ui-secondary">{{ recipient.telegram_chat_id || 'немає' }}</td>
+          <td>
+            <BaseBadge :tone="recipient.marketing_consent && !recipient.opt_out ? 'success' : 'danger'">
               {{ recipient.marketing_consent && !recipient.opt_out ? 'дозволено' : 'не надсилати' }}
-            </span>
+            </BaseBadge>
           </td>
-          <td data-label="Мова" class="px-4 py-3 text-slate-700">{{ recipient.preferred_language || 'uk' }}</td>
-          <td data-label="Статус" class="px-4 py-3">
-            <span class="rounded-full px-2 py-1 text-xs font-medium" :class="recipient.eligible ? 'bg-cyan-50 text-cyan-700' : 'bg-amber-50 text-amber-700'">
+          <td class="text-ui-secondary">{{ recipient.preferred_language || 'uk' }}</td>
+          <td>
+            <BaseBadge :tone="recipient.eligible ? 'info' : 'warning'">
               {{ recipient.eligible ? 'готовий' : recipient.exclusion_reason || 'виключено' }}
-            </span>
+            </BaseBadge>
           </td>
         </tr>
-      </tbody>
-    </table>
-    <div v-else class="p-6 text-sm text-slate-500">{{ emptyLabel || 'Отримувачів за цими правилами не знайдено.' }}</div>
-  </div>
+  </BaseTable>
 </template>

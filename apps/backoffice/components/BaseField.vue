@@ -3,6 +3,9 @@ defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<{
   id?: string
+  labelId?: string
+  hintId?: string
+  errorId?: string
   label?: string
   hint?: string
   error?: string
@@ -16,11 +19,11 @@ const props = withDefaults(defineProps<{
   errorClass?: string
 }>(), {
   as: 'label',
-  rootClass: 'space-y-1.5 text-sm text-slate-700',
-  labelClass: 'font-medium',
+  rootClass: 'base-field space-y-1.5 text-sm',
+  labelClass: 'base-field__label font-medium',
   labelContentClass: 'inline-flex items-center gap-2',
-  hintClass: 'text-xs text-slate-500',
-  errorClass: 'text-xs text-rose-600',
+  hintClass: 'base-field__hint text-xs',
+  errorClass: 'base-field__error text-xs',
 })
 
 const componentTag = computed(() => props.as)
@@ -29,26 +32,32 @@ const componentTag = computed(() => props.as)
 <template>
   <component
     :is="componentTag"
-    :for="as === 'label' ? undefined : id"
+    :for="as === 'label' ? id : undefined"
     :class="[rootClass, disabled ? 'opacity-70' : '']"
   >
     <span
       v-if="label || $slots.label || $slots.icon"
+      :id="labelId"
       :class="[labelClass, labelContentClass]"
     >
       <slot name="icon" />
       <slot name="label">
         {{ label }}
       </slot>
-      <span v-if="required" aria-hidden="true" class="text-rose-500">*</span>
+      <span v-if="required" aria-hidden="true" class="base-field__required">*</span>
     </span>
 
-    <slot :id="id" />
+    <slot
+      :id="id"
+      :label-id="labelId"
+      :hint-id="hintId"
+      :error-id="errorId"
+    />
 
-    <p v-if="error" :class="errorClass">
+    <p v-if="error" :id="errorId" :class="errorClass" aria-live="polite">
       {{ error }}
     </p>
-    <p v-else-if="hint" :class="hintClass">
+    <p v-else-if="hint" :id="hintId" :class="hintClass">
       {{ hint }}
     </p>
   </component>

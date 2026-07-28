@@ -6,34 +6,39 @@ const emit = defineEmits<{ retry: [log: SendLog] }>()
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-    <div v-if="pending" class="p-6 text-sm text-slate-500">Завантажуємо журнал відправок...</div>
-    <table v-else-if="logs.length" class="min-w-full divide-y divide-slate-200 text-sm">
-      <thead class="bg-slate-50">
+  <BaseTable
+    caption="Журнал відправок"
+    min-width="60rem"
+    :loading="pending"
+    loading-label="Завантажуємо журнал відправок…"
+    :empty="!logs.length"
+    empty-title="Журнал відправок ще порожній"
+  >
+    <template #head>
         <tr>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Клієнт</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Телефон</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Telegram</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Час</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Причина</th>
-          <th class="px-4 py-3 text-left font-medium text-slate-500">Дія</th>
+          <th>Клієнт</th>
+          <th>Телефон</th>
+          <th>Telegram</th>
+          <th>Час</th>
+          <th>Причина</th>
+          <th>Дія</th>
         </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
+    </template>
         <tr v-for="log in logs" :key="log.id">
-          <td data-label="Клієнт" class="px-4 py-3 font-medium text-slate-900">{{ log.client_name }}</td>
-          <td data-label="Телефон" class="px-4 py-3 text-slate-700">{{ log.phone }}</td>
-          <td data-label="Telegram" class="px-4 py-3">
-            <span class="rounded-full px-2 py-1 text-xs font-medium" :class="log.telegram_status === 'failed' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'">
+          <td class="font-medium text-ui-primary">{{ log.client_name }}</td>
+          <td class="text-ui-secondary">{{ log.phone }}</td>
+          <td>
+            <BaseBadge :tone="log.telegram_status === 'failed' ? 'danger' : 'success'">
               {{ log.telegram_status }}
-            </span>
+            </BaseBadge>
           </td>
-          <td data-label="Час" class="px-4 py-3 text-slate-700">{{ log.sent_at ? new Date(log.sent_at).toLocaleString('uk-UA') : '—' }}</td>
-          <td data-label="Причина" class="px-4 py-3 text-slate-700">{{ log.failure_reason || '—' }}</td>
-          <td data-label="Дії" class="px-4 py-3">
+          <td class="whitespace-nowrap text-ui-secondary">{{ log.sent_at ? new Date(log.sent_at).toLocaleString('uk-UA') : '—' }}</td>
+          <td class="max-w-sm text-ui-secondary">{{ log.failure_reason || '—' }}</td>
+          <td>
             <BaseButton
               type="button"
-              class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
+              variant="neutral"
+              size="sm"
               :disabled="log.telegram_status !== 'failed'"
               @click="emit('retry', log)"
             >
@@ -41,8 +46,5 @@ const emit = defineEmits<{ retry: [log: SendLog] }>()
             </BaseButton>
           </td>
         </tr>
-      </tbody>
-    </table>
-    <p v-else class="p-6 text-sm text-slate-500">Журнал відправок ще порожній.</p>
-  </div>
+  </BaseTable>
 </template>

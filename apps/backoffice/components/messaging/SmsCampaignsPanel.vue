@@ -398,50 +398,53 @@ const runJob = async (job: SmsJob) => {
         </div>
       </div>
 
-      <div class="mt-5 overflow-hidden rounded-[1.25rem] border border-slate-200">
-        <div v-if="pending" class="p-6 text-sm text-slate-500">Завантажуємо SMS кампанії...</div>
-        <table v-else-if="campaigns.length" class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+      <BaseTable
+        caption="Усі SMS кампанії"
+        wrapper-class="mt-5"
+        min-width="72rem"
+        :loading="pending"
+        loading-label="Завантажуємо SMS кампанії…"
+        :empty="!campaigns.length"
+        empty-title="SMS кампаній за цими фільтрами немає"
+      >
+        <template #head>
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Тип</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Канал</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Location</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Sent / failed</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Оновлено</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
+              <th>Назва</th>
+              <th>Тип</th>
+              <th>Канал</th>
+              <th>Статус</th>
+              <th>Location</th>
+              <th>Sent / failed</th>
+              <th>Оновлено</th>
+              <th>Дії</th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+        </template>
             <tr v-for="campaign in campaigns" :key="campaign.id">
-              <td data-label="Назва" class="px-4 py-3 font-medium text-slate-900">{{ campaign.name }}</td>
-              <td data-label="Тип" class="px-4 py-3"><MessagingCampaignTypeBadge :type="campaign.type" /></td>
-              <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="campaign.channel" /></td>
-              <td data-label="Статус" class="px-4 py-3"><MessagingCampaignStatusBadge :status="campaign.status" /></td>
-              <td data-label="Location" class="px-4 py-3 text-slate-700">{{ campaign.location_key || '—' }}</td>
-              <td data-label="Sent / failed" class="px-4 py-3 text-slate-700">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
-              <td data-label="Оновлено" class="px-4 py-3 text-slate-700">{{ campaign.updated_at ? new Date(campaign.updated_at).toLocaleString('uk-UA') : '—' }}</td>
-              <td data-label="Дії" class="px-4 py-3">
+              <td class="font-medium text-ui-primary">{{ campaign.name }}</td>
+              <td><MessagingCampaignTypeBadge :type="campaign.type" /></td>
+              <td><MessagingChannelBadge :channel="campaign.channel" /></td>
+              <td><MessagingCampaignStatusBadge :status="campaign.status" /></td>
+              <td class="text-ui-secondary">{{ campaign.location_key || '—' }}</td>
+              <td class="text-ui-secondary">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
+              <td class="whitespace-nowrap text-ui-secondary">{{ campaign.updated_at ? new Date(campaign.updated_at).toLocaleString('uk-UA') : '—' }}</td>
+              <td>
                 <div class="flex flex-wrap gap-2">
                   <BaseButton
                     v-if="canCreateMessagingDrafts && campaignScenarioDefinition(campaign)"
-                    class="rounded-full border border-slate-300 p-2"
+                    variant="icon"
+                    aria-label="Редагувати SMS кампанію"
                     title="Редагувати"
                     @click="openCampaignEditor(campaign)"
                   >
                     <PencilIcon class="h-4 w-4" aria-hidden="true" />
                   </BaseButton>
-                  <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="rounded-full border border-slate-300 p-2" title="Деталі">
+                  <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="base-button base-button--icon h-10 w-10 p-0" aria-label="Переглянути SMS кампанію" title="Деталі">
                     <EyeIcon class="h-4 w-4" aria-hidden="true" />
                   </NuxtLink>
                 </div>
               </td>
             </tr>
-          </tbody>
-        </table>
-        <p v-else class="p-8 text-center text-sm text-slate-500">SMS кампаній за цими фільтрами немає.</p>
-      </div>
+      </BaseTable>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page = Math.max(1, page - 1)">Попередня</BaseButton>

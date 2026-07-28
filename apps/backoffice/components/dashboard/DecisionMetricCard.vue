@@ -5,6 +5,14 @@ import {
   type AdminDashboardMetricComparison,
 } from '~/utils/adminDashboard'
 
+interface MetricHelpContent {
+  summary: string
+  formula?: string
+  trigger?: string
+  action?: string
+  note?: string
+}
+
 const props = withDefaults(defineProps<{
   label: string
   value: string | number | null | undefined
@@ -13,6 +21,7 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   tone?: 'dark' | 'cyan' | 'emerald' | 'slate'
   hint?: string
+  help?: MetricHelpContent
 }>(), {
   kind: 'number',
   tone: 'slate',
@@ -58,7 +67,18 @@ const toneClass = computed(() => `statistics-stat-card--${props.tone}`)
       <div class="h-3 w-44 rounded bg-current opacity-10" />
     </div>
     <template v-else>
-      <p class="statistics-stat-card__label text-sm">{{ label }}</p>
+      <div class="flex items-center gap-1">
+        <p class="statistics-stat-card__label text-sm">{{ label }}</p>
+        <DashboardMetricHelp
+          v-if="help"
+          :title="label"
+          :summary="help.summary"
+          :formula="help.formula"
+          :trigger="help.trigger"
+          :action="help.action"
+          :note="help.note"
+        />
+      </div>
       <p
         class="statistics-stat-card__value mt-2 break-words text-2xl font-semibold sm:text-3xl"
         :class="{ 'dashboard-decision-metric-card__value--unavailable': !available }"

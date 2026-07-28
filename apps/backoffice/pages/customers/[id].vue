@@ -293,7 +293,7 @@ const bookingServiceLines = (booking: Booking) => {
       </section>
     </div>
 
-    <ClientCommunicationPanel v-if="isAdmin" :customer-id="customer.id" />
+    <MessagingClientCommunicationPanel v-if="isAdmin" :customer-id="customer.id" />
 
     <CustomerEditModal
       v-if="isAdmin"

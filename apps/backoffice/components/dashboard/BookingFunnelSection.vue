@@ -8,8 +8,10 @@ import {
 import type { DashboardBookingFunnel } from '~/utils/adminDashboardContract'
 import {
   bookingFunnelAlertContent,
+  bookingFunnelAlertTriggerExplanation,
   bookingFunnelBottleneckLabel,
   bookingFunnelDisplayState,
+  bookingFunnelStepDescriptions,
   formatBookingFunnelPercentage,
   mapBookingFunnelRows,
   triggeredBookingFunnelAlerts,
@@ -36,6 +38,10 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
   if (code !== 'no_slot' || rate === null) return countLabel
   return `${countLabel} · ${formatBookingFunnelPercentage(rate)} від виборів майстра`
 }
+const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
+  props.funnel
+    ? bookingFunnelAlertTriggerExplanation(code, props.funnel.alert_thresholds)
+    : 'Поріг сигналу недоступний.'
 </script>
 
 <template>
@@ -47,7 +53,15 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
       <div class="flex items-start gap-3">
         <ChartBarSquareIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
         <div>
-          <h2 id="booking-funnel-title" class="text-lg font-semibold text-slate-900">Воронка онлайн-запису</h2>
+          <h2 id="booking-funnel-title" class="flex items-center gap-1 text-lg font-semibold text-slate-900">
+            Воронка онлайн-запису
+            <DashboardMetricHelp
+              title="Воронка онлайн-запису"
+              summary="Кожен крок — кількість унікальних анонімних сесій із відповідною подією у вибраному періоді. Ідентифікатори зберігаються на backend у вигляді хешів."
+              formula="Конверсія кроку = сесії наступного кроку ÷ сесії попереднього кроку × 100%. Відсів = 100% − конверсія."
+              note="«Почали запис» означає першу змістовну дію у формі, а не просте відкриття сторінки."
+            />
+          </h2>
           <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
             Де відвідувачі продовжують запис, а де зупиняються. Усі показники вже розраховані на сервері.
           </p>
@@ -57,7 +71,15 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
         v-if="!loading && isRenderable"
         class="booking-funnel__overall rounded-2xl border px-4 py-3 text-right"
       >
-        <p class="text-xs text-slate-500">Від початку до успішного запису</p>
+        <p class="flex items-center justify-end gap-1 text-xs text-slate-500">
+          Від початку до успішного запису
+          <DashboardMetricHelp
+            title="Загальна конверсія запису"
+            summary="Показує, яка частка сесій із зафіксованим початком завершилася створенням запису."
+            formula="Успішно створені backend записи ÷ анонімні сесії з booking_start × 100%."
+            note="Якщо успіх неможливо надійно зіставити із сесією або успіхів більше за стартів, backend повертає недоступний чи частковий стан замість оманливого відсотка."
+          />
+        </p>
         <p class="mt-1 text-xl font-semibold text-slate-900">{{ overallConversion }}</p>
       </div>
     </div>
@@ -102,7 +124,14 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
           <span class="booking-funnel__step-number inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-semibold">
             {{ index + 1 }}
           </span>
-          <p class="mt-3 min-h-10 text-sm font-medium leading-5 text-slate-700">{{ row.label }}</p>
+          <p class="mt-3 flex min-h-10 items-start gap-1 text-sm font-medium leading-5 text-slate-700">
+            {{ row.label }}
+            <DashboardMetricHelp
+              :title="row.label"
+              :summary="bookingFunnelStepDescriptions[row.step]"
+              formula="Одна анонімна сесія враховується на цьому кроці не більше одного разу."
+            />
+          </p>
           <p class="mt-2 text-3xl font-semibold text-slate-950">
             {{ row.count === null ? 'Недоступно' : row.count.toLocaleString('uk-UA') }}
           </p>
@@ -130,7 +159,15 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
 
       <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <article class="booking-funnel__bottleneck rounded-2xl border p-4">
-          <p class="text-xs font-medium uppercase tracking-[0.14em] text-rose-700">Головне вузьке місце</p>
+          <p class="flex items-center gap-1 text-xs font-medium uppercase tracking-[0.14em] text-rose-700">
+            Головне вузьке місце
+            <DashboardMetricHelp
+              title="Як обирається вузьке місце"
+              summary="Backend порівнює активні операційні сигнали та втрати між послідовними кроками, а потім повертає одну пріоритетну дію."
+              :trigger="`Перехід бере участь у висновку лише від ${funnel.alert_thresholds.meaningful_step_sessions} сесій на попередньому кроці.`"
+              note="Малий обсяг даних не перетворюється на впевнену рекомендацію."
+            />
+          </p>
           <template v-if="funnel.recommended_action">
             <h3 class="mt-2 font-semibold text-slate-950">{{ bottleneckLabel }}</h3>
             <p class="mt-1 text-sm leading-6 text-slate-600">{{ funnel.recommended_action.explanation_uk }}</p>
@@ -152,7 +189,7 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
               <NuxtLink
                 v-if="funnel.recommended_action"
                 :to="funnel.recommended_action.recommended_backoffice_route"
-                class="mt-3 inline-flex min-h-9 items-center gap-2 rounded-full border border-cyan-300 px-3 py-2 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-50"
+                class="booking-funnel__action mt-3 inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition"
               >
                 {{ funnel.recommended_action.title_uk }}
                 <ArrowRightIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -173,10 +210,24 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
             :key="alert.code"
             class="booking-funnel__alert rounded-2xl border p-4"
           >
-            <p class="font-semibold text-amber-950">{{ bookingFunnelAlertContent[alert.code].title }}</p>
+            <p class="flex items-start gap-1 font-semibold text-amber-950">
+              {{ bookingFunnelAlertContent[alert.code].title }}
+              <DashboardMetricHelp
+                :title="bookingFunnelAlertContent[alert.code].title"
+                :summary="bookingFunnelAlertContent[alert.code].description"
+                :trigger="alertTrigger(alert.code)"
+                :action="bookingFunnelAlertContent[alert.code].action"
+              />
+            </p>
             <p class="mt-1 text-sm leading-5 text-amber-900">{{ bookingFunnelAlertContent[alert.code].description }}</p>
             <p class="mt-2 text-xs font-medium text-amber-800">
-              {{ alertMetric(alert.code, alert.count, alert.rate_percent) }}
+              Зараз: {{ alertMetric(alert.code, alert.count, alert.rate_percent) }}
+            </p>
+            <p class="mt-2 text-xs leading-5 text-amber-900">
+              <strong>Чому спрацювало:</strong> {{ alertTrigger(alert.code) }}
+            </p>
+            <p class="mt-2 text-xs leading-5 text-amber-900">
+              <strong>Що зробити:</strong> {{ bookingFunnelAlertContent[alert.code].action }}
             </p>
           </li>
         </ul>
@@ -211,6 +262,18 @@ const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number
 .booking-funnel__bottleneck {
   border-color: color-mix(in srgb, var(--danger) 24%, var(--border));
   background: color-mix(in srgb, var(--danger) 7%, var(--glass));
+}
+
+.booking-funnel__action {
+  border-color: color-mix(in srgb, var(--accent-text) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 90%, var(--text-primary));
+}
+
+.booking-funnel__action:hover {
+  border-color: color-mix(in srgb, var(--accent-text) 56%, var(--border));
+  background: color-mix(in srgb, var(--accent-text) 22%, var(--glass-hover));
+  color: var(--text-primary);
 }
 
 .booking-funnel__alert {

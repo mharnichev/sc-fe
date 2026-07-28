@@ -86,86 +86,89 @@ const prev = async () => {
   <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Товари</h1>
+        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Каталог</p>
+        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Товари</h1>
       </div>
-      <NuxtLink to="/products/new" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white">
+      <NuxtLink to="/products/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Додати товар
       </NuxtLink>
     </div>
 
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5">
-      <BaseInput v-model="filters.search" placeholder="Пошук за назвою" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
-      <BaseSelect native v-model="filters.category_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+    <BaseCard as="section" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <BaseInput v-model="filters.search" placeholder="Пошук за назвою" />
+      <BaseSelect native v-model="filters.category_id" aria-label="Категорія">
         <option value="">Усі категорії</option>
         <option v-for="category in categories?.items || []" :key="category.id" :value="String(category.id)">
           {{ category.name }}
         </option>
       </BaseSelect>
-      <BaseSelect native v-model="filters.brand_id" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      <BaseSelect native v-model="filters.brand_id" aria-label="Бренд">
         <option value="">Усі бренди</option>
         <option v-for="brand in brands?.items || []" :key="brand.id" :value="String(brand.id)">
           {{ brand.name }}
         </option>
       </BaseSelect>
-      <BaseSelect native v-model="filters.is_active" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
+      <BaseSelect native v-model="filters.is_active" aria-label="Статус товару">
         <option value="">Будь-який статус</option>
         <option value="true">Активні</option>
         <option value="false">Неактивні</option>
       </BaseSelect>
       <div class="flex gap-3">
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+        <BaseButton variant="primary" class="flex-1" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
         </BaseButton>
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+        <BaseButton variant="neutral" class="flex-1" @click="clearFilters">
           <XMarkIcon class="h-4 w-4" aria-hidden="true" />
           <span>Очистити</span>
         </BaseButton>
       </div>
-    </section>
+    </BaseCard>
 
-    <div class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
+    <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
       Total: {{ data?.total || 0 }}
-    </div>
+    </BaseCard>
 
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-50">
-          <tr>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Категорія</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Бренд</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Ціна</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Рекомендована роздрібна ціна</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Склад</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
+    <BaseTable
+      caption="Каталог товарів"
+      min-width="68rem"
+      :empty="!data?.items.length"
+      empty-title="Товарів не знайдено"
+    >
+      <template #head>
+        <tr>
+          <th>Назва</th>
+          <th>Категорія</th>
+          <th>Бренд</th>
+          <th>Ціна</th>
+          <th>Рекомендована роздрібна ціна</th>
+          <th>Склад</th>
+          <th>Статус</th>
+          <th>Дії</th>
+        </tr>
+      </template>
           <tr v-for="item in data?.items || []" :key="item.id">
             <td data-label="Назва" class="px-4 py-3">
-              <p class="font-medium text-slate-900">{{ item.name }}</p>
-              <p class="text-xs text-slate-500">{{ item.slug }}</p>
-              <p v-if="item.sku" class="text-xs text-slate-400">SKU: {{ item.sku }}</p>
+              <p class="font-medium text-ui-primary">{{ item.name }}</p>
+              <p class="text-xs text-ui-muted">{{ item.slug }}</p>
+              <p v-if="item.sku" class="text-xs text-ui-muted">SKU: {{ item.sku }}</p>
             </td>
-            <td data-label="Категорія" class="px-4 py-3 text-slate-700">{{ item.category?.name || '—' }}</td>
-            <td data-label="Бренд" class="px-4 py-3 text-slate-700">{{ item.brand?.name || '—' }}</td>
-            <td data-label="Ціна" class="px-4 py-3 text-slate-700">{{ item.price }}</td>
-            <td data-label="Рекомендована ціна" class="px-4 py-3 text-slate-700">{{ item.recommended_retail_price }}</td>
-            <td data-label="Склад" class="px-4 py-3 text-slate-700">{{ item.stock_quantity }}</td>
+            <td data-label="Категорія" class="text-ui-secondary">{{ item.category?.name || '—' }}</td>
+            <td data-label="Бренд" class="text-ui-secondary">{{ item.brand?.name || '—' }}</td>
+            <td data-label="Ціна" class="text-ui-secondary">{{ item.price }}</td>
+            <td data-label="Рекомендована ціна" class="text-ui-secondary">{{ item.recommended_retail_price }}</td>
+            <td data-label="Склад" class="text-ui-secondary">{{ item.stock_quantity }}</td>
             <td data-label="Статус" class="px-4 py-3">
-              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <BaseBadge :tone="item.is_active ? 'success' : 'neutral'">
                 {{ item.is_active ? 'активний' : 'неактивний' }}
-              </span>
+              </BaseBadge>
             </td>
             <td data-label="Дії" class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
                 <NuxtLink
                   :to="`/products/${item.id}`"
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                  class="base-button base-button--icon h-8 w-8 p-0"
                   aria-label="Переглянути товар"
                   title="Переглянути"
                 >
@@ -174,7 +177,7 @@ const prev = async () => {
                 </NuxtLink>
                 <NuxtLink
                   :to="`/products/${item.id}`"
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+                  class="base-button base-button--icon h-8 w-8 p-0"
                   aria-label="Редагувати товар"
                   title="Редагувати"
                 >
@@ -182,7 +185,8 @@ const prev = async () => {
                   <span class="sr-only">Редагувати</span>
                 </NuxtLink>
                 <BaseButton
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                  variant="danger-outline"
+                  class="h-8 w-8 p-0"
                   :disabled="pendingDeleteId === item.id"
                   :aria-label="pendingDeleteId === item.id ? 'Видалення товару' : 'Видалити товар'"
                   :title="pendingDeleteId === item.id ? 'Видалення...' : 'Видалити'"
@@ -194,12 +198,10 @@ const prev = async () => {
               </div>
             </td>
           </tr>
-        </tbody>
-      </table>
-    </div>
+    </BaseTable>
     <div class="flex flex-wrap gap-3">
-      <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="prev">Попередня</BaseButton>
-      <BaseButton :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="next">Наступна</BaseButton>
+      <BaseButton variant="neutral" :disabled="page === 1" @click="prev">Попередня</BaseButton>
+      <BaseButton variant="neutral" :disabled="!data || page * pageSize >= data.total" @click="next">Наступна</BaseButton>
     </div>
   </div>
 </template>

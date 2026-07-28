@@ -278,44 +278,42 @@ const insertCampaignVariable = (variable: string) => {
   <div class="messaging-page space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Messaging</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Комунікації з клієнтами</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Messaging</p>
+        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Комунікації з клієнтами</h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-ui-muted">
           Telegram та SMS сценарії, автоматичні запити відгуків, шаблони та контроль відправок.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <NuxtLink to="/messaging/campaigns/new" class="messaging-primary-action inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium">
+        <NuxtLink to="/messaging/campaigns/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
           <PlusIcon class="h-5 w-5" />
           Створити кампанію
         </NuxtLink>
       </div>
     </div>
 
-    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      <div v-for="index in 6" :key="index" class="h-28 animate-pulse rounded-[1.25rem] bg-slate-100" />
-    </div>
-    <div v-else-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+    <BaseLoader v-if="pending" label="Завантаження комунікацій…" />
+    <div v-else-if="error" class="ui-status-danger rounded-[1.25rem] p-5 text-sm">
       Не вдалося завантажити dashboard. <BaseButton class="font-semibold underline" @click="refresh()">Спробувати ще раз</BaseButton>
     </div>
     <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      <div v-for="card in cards" :key="card.label" class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-900">{{ card.value }}</p>
-      </div>
+      <BaseCard v-for="card in cards" :key="card.label" padding="sm">
+        <p class="text-xs uppercase tracking-[0.18em] text-ui-muted">{{ card.label }}</p>
+        <p class="mt-2 text-2xl font-semibold text-ui-primary">{{ card.value }}</p>
+      </BaseCard>
     </div>
 
     <MessagingSmsCampaignsPanel @changed="refreshMessagingData" />
 
-    <section id="campaigns" ref="campaignsSectionRef" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <section id="campaigns" ref="campaignsSectionRef" class="base-card rounded-[1.5rem] p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-xl font-semibold text-slate-900">Кампанії</h2>
-          <p class="mt-1 text-sm text-slate-500">Усі Telegram та SMS кампанії з фільтрами, статусами й діями.</p>
+          <h2 class="text-xl font-semibold text-ui-primary">Кампанії</h2>
+          <p class="mt-1 text-sm text-ui-muted">Усі Telegram та SMS кампанії з фільтрами, статусами й діями.</p>
         </div>
       </div>
 
-      <div class="mt-5 grid gap-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 md:grid-cols-3 xl:grid-cols-6">
+      <BaseCard variant="subtle" padding="sm" class="mt-5 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <BaseSelect v-model="campaignFilters.status" :options="campaignStatusOptions" menu-class="z-[220]" />
         <BaseSelect v-model="campaignFilters.type" :options="campaignTypeOptions" menu-class="z-[220]" />
         <BaseSelect v-model="campaignFilters.channel" :options="campaignChannelOptions" menu-class="z-[220]" />
@@ -326,151 +324,139 @@ const insertCampaignVariable = (variable: string) => {
           to-label=""
           from-placeholder="Початок дати"
           to-placeholder="Кінець дати"
-          input-class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm"
+          input-class="base-control px-4 py-3 text-sm"
           class="md:col-span-2 xl:col-span-2"
         />
         <MasterSelect v-model="campaignFilters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" compact menu-class="z-[220]" />
         <div class="flex flex-wrap gap-3 md:col-span-3 xl:col-span-6">
-          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyCampaignFilters">
+          <BaseButton variant="primary" @click="applyCampaignFilters">
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />
             <span>Застосувати</span>
           </BaseButton>
-          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="clearCampaignFilters">
+          <BaseButton variant="neutral" @click="clearCampaignFilters">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             <span>Очистити</span>
           </BaseButton>
         </div>
-      </div>
+      </BaseCard>
 
-      <div v-if="campaignsError" class="mt-5 rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      <div v-if="campaignsError" class="ui-status-danger mt-5 rounded-[1.25rem] p-5 text-sm">
         Не вдалося завантажити кампанії.
       </div>
-      <div class="mt-5 overflow-hidden rounded-[1.25rem] border border-slate-200">
-        <div v-if="campaignsPending" class="p-6 text-sm text-slate-500">Завантажуємо кампанії...</div>
-        <table v-else-if="campaignsData?.items.length" class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Тип</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Канал</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Аудиторія</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Sent / failed</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Заплановано</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Автор</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="campaign in campaignsData.items" :key="campaign.id">
-              <td data-label="Назва" class="px-4 py-3 font-medium text-slate-900">{{ campaign.name }}</td>
-              <td data-label="Тип" class="px-4 py-3"><CampaignTypeBadge :type="campaign.type" /></td>
+      <BaseTable
+        wrapper-class="mt-5"
+        caption="Кампанії"
+        min-width="72rem"
+        :loading="campaignsPending"
+        loading-label="Завантаження кампаній…"
+        :empty="!campaignsData?.items.length"
+        empty-title="Кампаній за цими фільтрами немає"
+      >
+        <template #head>
+          <tr>
+            <th>Назва</th><th>Тип</th><th>Канал</th><th>Статус</th><th>Аудиторія</th><th>Sent / failed</th><th>Заплановано</th><th>Автор</th><th>Дії</th>
+          </tr>
+        </template>
+            <tr v-for="campaign in campaignsData?.items || []" :key="campaign.id">
+              <td data-label="Назва" class="font-medium text-ui-primary">{{ campaign.name }}</td>
+              <td data-label="Тип" class="px-4 py-3"><MessagingCampaignTypeBadge :type="campaign.type" /></td>
               <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="campaign.channel" /></td>
-              <td data-label="Статус" class="px-4 py-3"><CampaignStatusBadge :status="campaign.status" /></td>
-              <td data-label="Аудиторія" class="px-4 py-3 text-slate-700">{{ campaign.audience_size }}</td>
-              <td data-label="Sent / failed" class="px-4 py-3 text-slate-700">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
-              <td data-label="Заплановано" class="px-4 py-3 text-slate-700">{{ campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString('uk-UA') : '—' }}</td>
-              <td data-label="Автор" class="px-4 py-3 text-slate-700">{{ campaign.created_by }}</td>
+              <td data-label="Статус" class="px-4 py-3"><MessagingCampaignStatusBadge :status="campaign.status" /></td>
+              <td data-label="Аудиторія" class="text-ui-secondary">{{ campaign.audience_size }}</td>
+              <td data-label="Sent / failed" class="text-ui-secondary">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
+              <td data-label="Заплановано" class="text-ui-secondary">{{ campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString('uk-UA') : '—' }}</td>
+              <td data-label="Автор" class="text-ui-secondary">{{ campaign.created_by }}</td>
               <td data-label="Дії" class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
-                  <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="rounded-full border border-slate-300 p-2" title="Деталі"><EyeIcon class="h-4 w-4" /></NuxtLink>
-                  <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Редагувати повідомлення" @click="openCampaignEditor(campaign)"><PencilIcon class="h-4 w-4" /></BaseButton>
-                  <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" title="Дублювати" @click="duplicateCampaign(campaign)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
-                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" :title="campaign.status === 'paused' ? 'Активувати' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
+                  <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="base-button base-button--icon h-9 w-9 p-0" title="Деталі"><EyeIcon class="h-4 w-4" /></NuxtLink>
+                  <BaseButton v-if="canCreateMessagingDrafts" variant="icon" class="h-9 w-9" title="Редагувати повідомлення" @click="openCampaignEditor(campaign)"><PencilIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canCreateMessagingDrafts" variant="icon" class="h-9 w-9" title="Дублювати" @click="duplicateCampaign(campaign)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" variant="icon" class="h-9 w-9" :title="campaign.status === 'paused' ? 'Активувати' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
                     <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" />
                   </BaseButton>
-                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-slate-300 p-2" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></BaseButton>
-                  <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" variant="icon" class="h-9 w-9" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" variant="danger-outline" class="h-9 w-9 p-0" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></BaseButton>
                 </div>
               </td>
             </tr>
-          </tbody>
-        </table>
-        <p v-else class="p-8 text-center text-sm text-slate-500">Кампаній за цими фільтрами немає.</p>
-      </div>
+      </BaseTable>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
-        <BaseButton :disabled="campaignsPage === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage = Math.max(1, campaignsPage - 1)">Попередня</BaseButton>
-        <span class="text-sm text-slate-500">Сторінка {{ campaignsPage }}</span>
-        <BaseButton :disabled="!campaignsData || campaignsPage * campaignsPageSize >= campaignsData.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="campaignsPage += 1">Наступна</BaseButton>
+        <BaseButton variant="neutral" :disabled="campaignsPage === 1" @click="campaignsPage = Math.max(1, campaignsPage - 1)">Попередня</BaseButton>
+        <span class="text-sm text-ui-muted">Сторінка {{ campaignsPage }}</span>
+        <BaseButton variant="neutral" :disabled="!campaignsData || campaignsPage * campaignsPageSize >= campaignsData.total" @click="campaignsPage += 1">Наступна</BaseButton>
       </div>
     </section>
 
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <BaseCard as="section">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-xl font-semibold text-slate-900">Telegram підключення клієнтів</h2>
-          <p class="mt-1 text-sm text-slate-500">Актуальний зріз клієнтів, які мають chat_id, маркетингову згоду або відписку.</p>
+          <h2 class="text-xl font-semibold text-ui-primary">Telegram підключення клієнтів</h2>
+          <p class="mt-1 text-sm text-ui-muted">Актуальний зріз клієнтів, які мають chat_id, маркетингову згоду або відписку.</p>
         </div>
         <BaseButton class="messaging-secondary-action rounded-full px-4 py-2 text-sm font-medium" :disabled="telegramAudiencePending" @click="refreshTelegramAudience()">
           Оновити
         </BaseButton>
       </div>
 
-      <div v-if="telegramAudiencePending" class="mt-5 grid gap-3 md:grid-cols-4">
-        <div v-for="index in 4" :key="index" class="h-24 animate-pulse rounded-[1.25rem] bg-slate-100" />
-      </div>
-      <div v-else-if="telegramAudienceError" class="mt-5 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+      <BaseLoader v-if="telegramAudiencePending" class="mt-5" label="Завантаження Telegram статистики…" />
+      <div v-else-if="telegramAudienceError" class="ui-status-danger mt-5 rounded-2xl p-4 text-sm">
         Не вдалося завантажити Telegram статистику.
       </div>
       <template v-else>
         <div class="mt-5 grid gap-3 md:grid-cols-4">
-          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Усього клієнтів</p>
-            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramAudience?.estimate.total || 0 }}</p>
-          </div>
-          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">TG підключено</p>
-            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramConnectedTotal }}</p>
-          </div>
-          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Готові до маркетингу</p>
-            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ telegramAudience?.estimate.eligible || 0 }}</p>
-          </div>
-          <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Без TG / opt-out</p>
-            <p class="mt-2 text-2xl font-semibold text-slate-900">
+          <BaseCard v-for="metric in [
+            { label: 'Усього клієнтів', value: telegramAudience?.estimate.total || 0 },
+            { label: 'TG підключено', value: telegramConnectedTotal },
+            { label: 'Готові до маркетингу', value: telegramAudience?.estimate.eligible || 0 },
+          ]" :key="metric.label" variant="subtle" padding="sm">
+            <p class="text-xs uppercase tracking-[0.18em] text-ui-muted">{{ metric.label }}</p>
+            <p class="mt-2 text-2xl font-semibold text-ui-primary">{{ metric.value }}</p>
+          </BaseCard>
+          <BaseCard variant="subtle" padding="sm">
+            <p class="text-xs uppercase tracking-[0.18em] text-ui-muted">Без TG / opt-out</p>
+            <p class="mt-2 text-2xl font-semibold text-ui-primary">
               {{ telegramAudience?.estimate.missing_chat_id || 0 }} / {{ telegramAudience?.estimate.opted_out || 0 }}
             </p>
-          </div>
+          </BaseCard>
         </div>
 
         <div class="mt-5">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h3 class="font-semibold text-slate-900">Підключені TG-акаунти</h3>
-            <p class="text-xs text-slate-500">
+            <h3 class="font-semibold text-ui-primary">Підключені TG-акаунти</h3>
+            <p class="text-xs text-ui-muted">
               Показано {{ telegramConnectedRecipients.length }} із {{ telegramConnectedTotal }} підключених.
             </p>
           </div>
-          <RecipientPreviewTable
+          <MessagingRecipientPreviewTable
             :recipients="telegramConnectedRecipients"
             empty-label="Підключених Telegram акаунтів у поточному зрізі немає."
           />
         </div>
       </template>
-    </section>
+    </BaseCard>
 
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold text-slate-900">Швидкі дії</h2>
+    <BaseCard as="section">
+        <h2 class="text-xl font-semibold text-ui-primary">Швидкі дії</h2>
         <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <NuxtLink to="/messaging/campaigns/new" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-900">
-            <PaperAirplaneIcon class="h-5 w-5 text-cyan-700" /> Створити кампанію
+          <NuxtLink to="/messaging/campaigns/new" class="base-card base-card--interactive flex items-center gap-3 rounded-2xl bg-ui-subtle p-4 text-sm font-medium text-ui-primary">
+            <PaperAirplaneIcon class="h-5 w-5 text-ui-accent" /> Створити кампанію
           </NuxtLink>
-          <NuxtLink to="/messaging/templates" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-900">
-            <DocumentDuplicateIcon class="h-5 w-5 text-cyan-700" /> Створити шаблон
+          <NuxtLink to="/messaging/templates" class="base-card base-card--interactive flex items-center gap-3 rounded-2xl bg-ui-subtle p-4 text-sm font-medium text-ui-primary">
+            <DocumentDuplicateIcon class="h-5 w-5 text-ui-accent" /> Створити шаблон
           </NuxtLink>
-          <NuxtLink to="/messaging/settings" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-900">
-            <ChatBubbleLeftRightIcon class="h-5 w-5 text-cyan-700" /> Тестовий отримувач
+          <NuxtLink to="/messaging/settings" class="base-card base-card--interactive flex items-center gap-3 rounded-2xl bg-ui-subtle p-4 text-sm font-medium text-ui-primary">
+            <ChatBubbleLeftRightIcon class="h-5 w-5 text-ui-accent" /> Тестовий отримувач
           </NuxtLink>
           <BaseButton
             type="button"
-            class="flex items-center gap-3 rounded-2xl bg-rose-50 p-4 text-left text-sm font-medium text-rose-800"
+            class="ui-status-danger flex items-center gap-3 rounded-2xl p-4 text-left text-sm font-medium"
             @click="viewFailedCampaigns"
           >
             <ExclamationTriangleIcon class="h-5 w-5" /> Переглянути помилки
           </BaseButton>
         </div>
-    </section>
+    </BaseCard>
 
     <BaseModal :model-value="Boolean(campaignEditing)" max-width-class="max-w-5xl" @update:model-value="handleCampaignEditorModelUpdate">
       <template #head="{ close }">
@@ -479,7 +465,7 @@ const insertCampaignVariable = (variable: string) => {
             <div class="flex flex-wrap items-center gap-3">
               <MessagingChannelBadge v-if="campaignEditing" :channel="campaignEditing.channel" />
             </div>
-            <h2 class="mt-1 text-2xl font-semibold text-slate-900">Редагувати повідомлення</h2>
+            <h2 class="mt-1 text-2xl font-semibold text-ui-primary">Редагувати повідомлення</h2>
           </div>
           <ModalCloseButton @click="close" />
         </div>
@@ -488,24 +474,24 @@ const insertCampaignVariable = (variable: string) => {
         <div v-if="campaignEditing" class="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div class="space-y-5">
             <label class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <PencilIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                <PencilIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                 Назва
               </span>
-              <BaseInput v-model="campaignEditor.name" class="rounded-2xl border border-slate-300 px-4 py-3" />
+              <BaseInput v-model="campaignEditor.name" />
             </label>
 
             <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,180px)]">
               <label class="grid min-w-0 gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+                <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                  <TagIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                   Тип
                 </span>
                 <BaseSelect v-model="campaignEditor.type" :options="campaignEditorTypeOptions" menu-class="z-[260]" />
               </label>
               <label class="grid min-w-0 gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <CheckCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+                <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                  <CheckCircleIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                   Статус
                 </span>
                 <BaseSelect v-model="campaignEditor.status" :options="campaignEditorStatusOptions" :disabled="!canSendMessagingCampaigns" menu-class="z-[260]" />
@@ -514,41 +500,41 @@ const insertCampaignVariable = (variable: string) => {
 
             <div v-if="campaignEditor.type === 'appointment_reminder'" class="grid gap-4 md:grid-cols-2">
               <label class="grid gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+                <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                  <ClockIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                   За скільки годин до запису
                 </span>
-                <BaseInput v-model.number="campaignEditor.lead_hours" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
+                <BaseInput v-model.number="campaignEditor.lead_hours" min="1" type="number" />
               </label>
               <label class="grid gap-2 text-sm">
-                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                  <ClockIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+                <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                  <ClockIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                   Вікно пошуку, хв
                 </span>
-                <BaseInput v-model.number="campaignEditor.window_minutes" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
+                <BaseInput v-model.number="campaignEditor.window_minutes" min="1" type="number" />
               </label>
             </div>
 
             <label v-if="campaignEditor.channel === 'sms'" class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                <TagIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                 Location key
               </span>
-              <BaseInput v-model="campaignEditor.location_key" class="rounded-2xl border border-slate-300 px-4 py-3" />
+              <BaseInput v-model="campaignEditor.location_key" />
             </label>
 
             <label class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <DocumentTextIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                <DocumentTextIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                 Повідомлення
               </span>
-              <BaseTextarea v-model="campaignEditor.message_body" class="min-h-44 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
-              <span class="text-xs text-slate-500">{{ campaignEditor.message_body.length }} символів</span>
+              <BaseTextarea v-model="campaignEditor.message_body" class="min-h-44 leading-6" />
+              <span class="text-xs text-ui-muted">{{ campaignEditor.message_body.length }} символів</span>
             </label>
 
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div class="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <TagIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            <BaseCard variant="subtle" padding="sm" class="rounded-2xl">
+              <div class="flex items-center gap-2 text-sm font-medium text-ui-secondary">
+                <TagIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                 Доступні теги
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
@@ -556,32 +542,35 @@ const insertCampaignVariable = (variable: string) => {
                   v-for="variable in variables"
                   :key="variable"
                   type="button"
-                  class="rounded-full border border-cyan-200 bg-white px-3 py-1.5 font-mono text-xs font-semibold text-cyan-800 hover:bg-cyan-50"
+                  variant="outline"
+                  size="sm"
+                  class="font-mono"
                   @click="insertCampaignVariable(variable)"
                 >
                   {{ variable }}
                 </BaseButton>
               </div>
-            </div>
+            </BaseCard>
 
             <label v-if="campaignEditor.type === 'post_visit_review_request'" class="grid gap-2 text-sm">
-              <span class="inline-flex items-center gap-2 font-medium text-slate-700">
-                <LinkIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
+                <LinkIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
                 Review link
               </span>
-              <BaseInput v-model="campaignEditor.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://..." />
+              <BaseInput v-model="campaignEditor.review_link" placeholder="https://..." />
             </label>
 
             <div class="flex flex-wrap gap-3">
               <BaseButton
-                class="backoffice-modal-action-button backoffice-modal-action-success"
+                variant="success"
+                :loading="campaignEditorSaving"
                 :disabled="campaignEditorSaving || !campaignEditor.name.trim() || !campaignEditor.message_body.trim() || !canCreateMessagingDrafts"
                 @click="saveCampaignEditor"
               >
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />
                 {{ campaignEditorSaving ? 'Збереження...' : 'Зберегти повідомлення' }}
               </BaseButton>
-              <BaseButton class="backoffice-modal-action-button backoffice-modal-action-danger-outline" :disabled="campaignEditorSaving" @click="closeCampaignEditor">
+              <BaseButton variant="danger-outline" :disabled="campaignEditorSaving" @click="closeCampaignEditor">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
               </BaseButton>
@@ -589,12 +578,12 @@ const insertCampaignVariable = (variable: string) => {
           </div>
 
           <div class="space-y-4">
-            <div class="flex items-center gap-2 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-900">
-              <PaperAirplaneIcon v-if="campaignEditor.channel === 'telegram'" class="h-5 w-5 text-cyan-700" aria-hidden="true" />
-              <ChatBubbleLeftRightIcon v-else class="h-5 w-5 text-cyan-700" aria-hidden="true" />
+            <BaseCard variant="subtle" padding="sm" class="flex items-center gap-2 text-sm font-medium text-ui-primary">
+              <PaperAirplaneIcon v-if="campaignEditor.channel === 'telegram'" class="h-5 w-5 text-ui-accent" aria-hidden="true" />
+              <ChatBubbleLeftRightIcon v-else class="h-5 w-5 text-ui-accent" aria-hidden="true" />
               Preview
-            </div>
-            <MessagePreview :body="campaignEditor.message_body" :sample="sampleClient" />
+            </BaseCard>
+            <MessagingMessagePreview :body="campaignEditor.message_body" :sample="sampleClient" />
           </div>
         </div>
       </template>

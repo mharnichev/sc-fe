@@ -135,11 +135,11 @@ const copyConnectLink = async () => {
       <div class="mt-6 grid gap-6 xl:grid-cols-2">
         <div>
           <h3 class="font-semibold text-slate-900">Історія повідомлень</h3>
-          <SendLogsTable class="mt-3" :logs="data.message_history || []" />
+          <MessagingSendLogsTable class="mt-3" :logs="data.message_history || []" />
         </div>
         <div>
           <h3 class="font-semibold text-slate-900">Запити відгуків</h3>
-          <SendLogsTable class="mt-3" :logs="data.review_requests || []" />
+          <MessagingSendLogsTable class="mt-3" :logs="data.review_requests || []" />
         </div>
       </div>
     </template>

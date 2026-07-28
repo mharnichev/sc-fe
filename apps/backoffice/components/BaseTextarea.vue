@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useId } from 'vue'
+
 defineOptions({ inheritAttrs: false })
 
 type ClassValue = string | Record<string, boolean> | unknown[]
@@ -25,7 +27,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   modelModifiers: () => ({}),
   rows: 4,
-  textareaClass: 'w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm',
+  textareaClass: 'base-control px-4 py-3 text-sm',
 })
 
 const emit = defineEmits<{
@@ -42,8 +44,12 @@ const passthroughAttrs = computed(() => {
   return rest
 })
 const attrsClass = computed(() => attrs.class)
-const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined))
 const hasField = computed(() => Boolean(props.label || props.hint || props.error))
+const generatedId = useId()
+const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined) || (hasField.value ? `base-textarea-${generatedId}` : undefined))
+const hintId = computed(() => props.hint && fieldId.value ? `${fieldId.value}-hint` : undefined)
+const errorId = computed(() => props.error && fieldId.value ? `${fieldId.value}-error` : undefined)
+const describedBy = computed(() => errorId.value || hintId.value)
 
 const handleInput = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
@@ -59,6 +65,8 @@ const handleInput = (event: Event) => {
     :label="label"
     :hint="hint"
     :error="error"
+    :hint-id="hintId"
+    :error-id="errorId"
     :required="required"
     :disabled="disabled"
     :root-class="fieldClass"
@@ -83,6 +91,8 @@ const handleInput = (event: Event) => {
       :required="required"
       :disabled="disabled"
       :readonly="readonly"
+      :aria-describedby="describedBy"
+      :aria-invalid="error ? true : undefined"
       :class="[textareaClass, attrsClass]"
       @input="handleInput"
       @change="emit('change', $event)"
@@ -102,6 +112,8 @@ const handleInput = (event: Event) => {
     :required="required"
     :disabled="disabled"
     :readonly="readonly"
+    :aria-describedby="describedBy"
+    :aria-invalid="error ? true : undefined"
     :class="[textareaClass, attrsClass]"
     @input="handleInput"
     @change="emit('change', $event)"

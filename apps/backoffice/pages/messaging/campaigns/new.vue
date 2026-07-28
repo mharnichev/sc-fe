@@ -205,7 +205,7 @@ const nextStep = () => {
 
         <div v-else-if="step === 2" class="space-y-5">
           <h2 class="text-xl font-semibold text-slate-900">Аудиторія</h2>
-          <AudienceFilterBuilder v-model="form.audience_rules" :masters="masterItems" :services="serviceItems" :estimate="estimate" :loading="audienceLoading" @preview="previewRecipients" />
+          <MessagingAudienceFilterBuilder v-model="form.audience_rules" :masters="masterItems" :services="serviceItems" :estimate="estimate" :loading="audienceLoading" @preview="previewRecipients" />
           <p v-if="estimate?.excluded" class="messaging-tone-warning rounded-2xl p-4 text-sm">
             {{ estimate.excluded }} клієнтів буде виключено через відсутній Telegram chat_id або відмову від маркетингу.
           </p>
@@ -226,7 +226,7 @@ const nextStep = () => {
               <BaseTextarea v-model="form.message_body" class="min-h-52 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
               <span class="text-xs text-slate-500">{{ form.message_body.length }} символів</span>
             </label>
-            <VariablePicker @select="insertVariable" />
+            <MessagingVariablePicker @select="insertVariable" />
             <div v-if="requiredMissingVariables.length" class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
               Не вистачає змінних: {{ requiredMissingVariables.join(', ') }}
             </div>
@@ -241,7 +241,7 @@ const nextStep = () => {
               </label>
             </div>
           </div>
-          <MessagePreview :body="form.message_body" :button-text="form.inline_button_text" :sample="sampleClient" />
+          <MessagingMessagePreview :body="form.message_body" :button-text="form.inline_button_text" :sample="sampleClient" />
         </div>
 
         <div v-else-if="step === 4" class="space-y-5">
@@ -342,7 +342,7 @@ const nextStep = () => {
               </BaseButton>
             </div>
           </div>
-          <MessagePreview :body="form.message_body" :button-text="form.inline_button_text" />
+          <MessagingMessagePreview :body="form.message_body" :button-text="form.inline_button_text" />
         </div>
 
         <div class="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5">
@@ -360,7 +360,7 @@ const nextStep = () => {
         </div>
       </template>
       <template #body>
-        <RecipientPreviewTable :recipients="recipients" :pending="recipientLoading" :error="recipientError" />
+        <MessagingRecipientPreviewTable :recipients="recipients" :pending="recipientLoading" :error="recipientError" />
       </template>
     </BaseModal>
 

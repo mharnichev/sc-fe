@@ -2,7 +2,7 @@
 import { ArrowPathIcon, EyeIcon, FunnelIcon } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
 import type { ReviewFilters } from '~/types/reviews'
-import { formatModerationDuration, formatRating, formatReviewConversionRate, reviewModerationLabels, reviewRequestStateLabels, reviewStatusClass, safeBookingReference } from '~/utils/reviews'
+import { formatModerationDuration, formatRating, formatReviewConversionRate, reviewModerationLabels, reviewRequestStateLabels, safeBookingReference } from '~/utils/reviews'
 
 definePageMeta({
   middleware: () => {
@@ -84,66 +84,78 @@ const resetFilters = async () => {
   await applyFilters()
 }
 const refreshAll = () => Promise.all([refresh(), refreshMetrics()])
+type ReviewBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+const reviewStatusTone = (status: string): ReviewBadgeTone => {
+  if (['approved', 'sent', 'delivered', 'submitted'].includes(status)) return 'success'
+  if (['rejected', 'failed', 'expired'].includes(status)) return 'danger'
+  if (['pending', 'scheduled'].includes(status)) return 'warning'
+  return 'neutral'
+}
 </script>
 
 <template>
   <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Адмін · якість</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Відгуки після візиту</h1>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Модерація відгуків, привʼязаних до підтверджених завершених записів, та спостереження за доставкою запитів.</p>
+        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Адмін · якість</p>
+        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Відгуки після візиту</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-ui-muted">Модерація відгуків, привʼязаних до підтверджених завершених записів, та спостереження за доставкою запитів.</p>
       </div>
       <BaseButton variant="neutral" :loading="pending || metricsPending" @click="refreshAll"><ArrowPathIcon class="h-4 w-4" />Оновити</BaseButton>
     </div>
 
-    <p v-if="permissionDenied" class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Для перегляду й модерації відгуків потрібні права адміністратора.</p>
+    <p v-if="permissionDenied" class="ui-status-warning rounded-2xl px-4 py-3 text-sm">Для перегляду й модерації відгуків потрібні права адміністратора.</p>
 
     <template v-else>
       <section>
-        <div v-if="metricsPending" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="index in 7" :key="index" class="h-24 animate-pulse rounded-[1.25rem] bg-slate-100" /></div>
-        <p v-else-if="metricsError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ apiErrorMessage(metricsError, 'Метрики відгуків недоступні: потрібен backend metrics contract.') }}</p>
+        <BaseLoader v-if="metricsPending" label="Завантаження метрик відгуків…" />
+        <p v-else-if="metricsError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(metricsError, 'Метрики відгуків недоступні: потрібен backend metrics contract.') }}</p>
         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatisticsStatCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" />
         </div>
       </section>
 
-      <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <BaseCard as="section" class="space-y-5">
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <BaseSelect v-model="filters.moderation_status" :options="moderationOptions" />
           <BaseSelect v-model="filters.master_id" :options="masterOptions" />
           <BaseSelect v-model="filters.rating" :options="ratingOptions" />
           <BaseSelect v-model="filters.request_state" :options="requestStateOptions" />
-          <BaseInput v-model="filters.submitted_from" type="date" aria-label="Дата подання від" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
-          <BaseInput v-model="filters.submitted_to" type="date" aria-label="Дата подання до" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+          <BaseInput v-model="filters.submitted_from" type="date" aria-label="Дата подання від" />
+          <BaseInput v-model="filters.submitted_to" type="date" aria-label="Дата подання до" />
           <BaseButton variant="primary" @click="applyFilters"><FunnelIcon class="h-4 w-4" />Застосувати</BaseButton>
           <BaseButton variant="neutral" @click="resetFilters">Очистити</BaseButton>
         </div>
 
-        <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ apiErrorMessage(error, 'Не вдалося завантажити відгуки. Потрібен backend review list contract.') }}</p>
-        <div v-if="pending" class="space-y-3"><div v-for="index in 6" :key="index" class="h-16 animate-pulse rounded-2xl bg-slate-100" /></div>
-        <div v-else-if="!reviews.length && !error" class="rounded-2xl bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">За вибраними фільтрами відгуків немає.</div>
-        <div v-else class="overflow-x-auto rounded-2xl border border-slate-200">
-          <table class="min-w-[900px] w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500"><tr><th class="px-4 py-3">Майстер</th><th class="px-4 py-3">Запис</th><th class="px-4 py-3">Оцінка</th><th class="px-4 py-3">Модерація</th><th class="px-4 py-3">Запит</th><th class="px-4 py-3">Подано</th><th class="px-4 py-3"><span class="sr-only">Дії</span></th></tr></thead>
-            <tbody class="divide-y divide-slate-100">
+        <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(error, 'Не вдалося завантажити відгуки. Потрібен backend review list contract.') }}</p>
+        <BaseTable
+          caption="Відгуки після візиту"
+          min-width="900px"
+          :loading="pending"
+          loading-label="Завантаження відгуків…"
+          :empty="!reviews.length && !error"
+          empty-title="За вибраними фільтрами відгуків немає"
+        >
+          <template #head>
+            <tr class="text-xs uppercase tracking-[0.12em]">
+              <th>Майстер</th><th>Запис</th><th>Оцінка</th><th>Модерація</th><th>Запит</th><th>Подано</th><th><span class="sr-only">Дії</span></th>
+            </tr>
+          </template>
               <tr v-for="review in reviews" :key="review.id">
-                <td class="px-4 py-3 font-medium text-slate-900">{{ masterName(review.master) }}</td>
-                <td class="px-4 py-3 text-slate-600">{{ safeBookingReference(review.booking_reference) }}</td>
-                <td class="px-4 py-3 font-semibold text-amber-600">{{ formatRating(review.rating) }} ★</td>
-                <td class="px-4 py-3"><span class="rounded-full px-3 py-1 text-xs font-medium" :class="reviewStatusClass(review.moderation_status)">{{ reviewModerationLabels[review.moderation_status] }}</span></td>
-                <td class="px-4 py-3"><span v-if="review.request_state" class="rounded-full px-3 py-1 text-xs font-medium" :class="reviewStatusClass(review.request_state)">{{ reviewRequestStateLabels[review.request_state] }}</span><span v-else class="text-slate-400">—</span></td>
-                <td class="px-4 py-3 text-slate-600">{{ formatDateTime(review.submitted_at) }}</td>
-                <td class="px-4 py-3 text-right"><NuxtLink :to="`/reviews/${review.id}`" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700"><EyeIcon class="h-4 w-4" />Деталі</NuxtLink></td>
+                <td class="font-medium text-ui-primary">{{ masterName(review.master) }}</td>
+                <td class="text-ui-secondary">{{ safeBookingReference(review.booking_reference) }}</td>
+                <td><BaseBadge tone="warning">{{ formatRating(review.rating) }} ★</BaseBadge></td>
+                <td><BaseBadge :tone="reviewStatusTone(review.moderation_status)">{{ reviewModerationLabels[review.moderation_status] }}</BaseBadge></td>
+                <td><BaseBadge v-if="review.request_state" :tone="reviewStatusTone(review.request_state)">{{ reviewRequestStateLabels[review.request_state] }}</BaseBadge><span v-else class="text-ui-muted">—</span></td>
+                <td class="text-ui-secondary">{{ formatDateTime(review.submitted_at) }}</td>
+                <td class="text-right"><NuxtLink :to="`/reviews/${review.id}`" class="base-button base-button--neutral min-h-9 gap-2 px-3 py-2 text-xs"><EyeIcon class="h-4 w-4" />Деталі</NuxtLink></td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+        </BaseTable>
 
         <div v-if="totalPages > 1" class="flex items-center justify-between gap-3">
-          <BaseButton variant="neutral" :disabled="page <= 1" @click="page -= 1">Назад</BaseButton><span class="text-sm text-slate-500">Сторінка {{ page }} з {{ totalPages }}</span><BaseButton variant="neutral" :disabled="page >= totalPages" @click="page += 1">Далі</BaseButton>
+          <BaseButton variant="neutral" :disabled="page <= 1" @click="page -= 1">Назад</BaseButton><span class="text-sm text-ui-muted">Сторінка {{ page }} з {{ totalPages }}</span><BaseButton variant="neutral" :disabled="page >= totalPages" @click="page += 1">Далі</BaseButton>
         </div>
-      </section>
+      </BaseCard>
     </template>
   </div>
 </template>

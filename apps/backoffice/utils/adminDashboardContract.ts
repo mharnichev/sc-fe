@@ -502,8 +502,35 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
   if (typeof period.comparison_requested !== 'boolean') fail('period.comparison_requested')
   numberAt(period.max_range_days, 'period.max_range_days')
   const definitions = recordAt(period.definitions, 'period.definitions')
-  stringAt(definitions.retention_cohort, 'period.definitions.retention_cohort')
-  recordAt(period.signal_thresholds, 'period.signal_thresholds')
+  for (const key of [
+    'gross_revenue',
+    'available_minutes',
+    'booked_minutes',
+    'cancellation_rate',
+    'retention_cohort',
+    'service_allocation',
+    'no_show',
+    'prime_time',
+  ]) {
+    stringAt(definitions[key], `period.definitions.${key}`)
+  }
+  const signalThresholds = recordAt(period.signal_thresholds, 'period.signal_thresholds')
+  for (const key of [
+    'pending_bookings_min_count',
+    'cancellation_min_count',
+    'unfilled_capacity_min_minutes',
+    'review_moderation_backlog_min_count',
+    'failed_review_delivery_min_count',
+  ]) {
+    nonNegativeIntegerAt(signalThresholds[key], `period.signal_thresholds.${key}`)
+  }
+  for (const key of [
+    'cancellation_min_rate_percent',
+    'cancellation_min_increase_percentage_points',
+    'unfilled_capacity_min_percent',
+  ]) {
+    numberAt(signalThresholds[key], `period.signal_thresholds.${key}`)
+  }
 
   const executive = recordAt(response.executive, 'executive')
   for (const key of [
@@ -619,6 +646,11 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
     stringAt(signal.title_uk, `actionable_signals.${index}.title_uk`)
     stringAt(signal.explanation_uk, `actionable_signals.${index}.explanation_uk`)
     numberAt(signal.metric_value, `actionable_signals.${index}.metric_value`)
+    literalAt(
+      signal.metric_unit,
+      ['bookings', 'percentage_points', 'minutes', 'reviews', 'deliveries'],
+      `actionable_signals.${index}.metric_unit`,
+    )
     safeBackofficeRouteAt(
       signal.recommended_backoffice_route,
       `actionable_signals.${index}.recommended_backoffice_route`,

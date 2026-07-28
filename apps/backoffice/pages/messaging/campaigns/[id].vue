@@ -70,8 +70,8 @@ const retryFailed = async () => {
         <div class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-wrap gap-2">
-              <CampaignStatusBadge :status="campaign.status" />
-              <CampaignTypeBadge :type="campaign.type" />
+              <MessagingCampaignStatusBadge :status="campaign.status" />
+              <MessagingCampaignTypeBadge :type="campaign.type" />
               <MessagingChannelBadge :channel="campaign.channel" />
             </div>
             <div class="flex flex-wrap gap-2">
@@ -97,10 +97,10 @@ const retryFailed = async () => {
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Timezone</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.timezone || 'Europe/Kyiv' }}</dd></div>
           </dl>
         </div>
-        <MessagePreview :body="campaign.message_body || ''" />
+        <MessagingMessagePreview :body="campaign.message_body || ''" />
       </section>
 
-      <CampaignAnalyticsCards :metrics="campaign.metrics || { total_recipients: campaign.audience_size, sent: campaign.sent_count, failed: campaign.failed_count, skipped: 0, delivery_rate: campaign.audience_size ? Math.round((campaign.sent_count / campaign.audience_size) * 100) : 0 }" />
+      <MessagingCampaignAnalyticsCards :metrics="campaign.metrics || { total_recipients: campaign.audience_size, sent: campaign.sent_count, failed: campaign.failed_count, skipped: 0, delivery_rate: campaign.audience_size ? Math.round((campaign.sent_count / campaign.audience_size) * 100) : 0 }" />
 
       <section class="grid gap-6 xl:grid-cols-2">
         <div class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
@@ -118,7 +118,7 @@ const retryFailed = async () => {
 
       <section class="space-y-4">
         <h2 class="text-xl font-semibold text-slate-900">Журнал відправок</h2>
-        <SendLogsTable :logs="logs?.items || []" :pending="logsPending" />
+        <MessagingSendLogsTable :logs="logs?.items || []" :pending="logsPending" />
       </section>
 
       <section id="recipients" class="space-y-4">
@@ -148,7 +148,7 @@ const retryFailed = async () => {
         <div class="grid gap-6 xl:grid-cols-2">
           <div>
             <h3 class="mb-3 font-semibold text-slate-900">Фактична черга та статуси</h3>
-            <CampaignRecipientsTable
+            <MessagingCampaignRecipientsTable
               :recipients="recipients?.items || []"
               :pending="recipientsPending"
               empty-label="Повідомлення для цієї кампанії ще не створені."
@@ -156,7 +156,7 @@ const retryFailed = async () => {
           </div>
           <div>
             <h3 class="mb-3 font-semibold text-slate-900">Хто підпадає під правила</h3>
-            <CampaignRecipientsTable
+            <MessagingCampaignRecipientsTable
               :recipients="calculatedRecipients?.items || []"
               :pending="calculatedRecipientsPending"
               empty-label="За правилами кампанії отримувачів не знайдено."

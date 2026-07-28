@@ -14,9 +14,12 @@ import {
 } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
 import {
+  dashboardActionNextSteps,
   dashboardActionLabels,
   dashboardDateRangeError,
   dashboardMetricComparison,
+  dashboardSignalTriggerExplanation,
+  formatDashboardSignalMetric,
   formatDashboardMinutesAsHours,
   formatDashboardRate,
   hasDashboardMetric,
@@ -243,6 +246,10 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
   warning: 'dashboard-action-signal--warning',
   info: 'dashboard-action-signal--info',
 }
+const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
+  dashboard.value
+    ? dashboardSignalTriggerExplanation(code, dashboard.value.period.signal_thresholds)
+    : 'Поріг сигналу недоступний.'
 </script>
 
 <template>
@@ -260,6 +267,14 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
         Оновити
       </BaseButton>
     </header>
+
+    <aside class="flex items-start gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
+      <InformationCircleIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
+      <p>
+        Натисніть <strong>?</strong> біля назви показника, щоб побачити формулу, джерело та умову сигналу.
+        <strong>0</strong> означає виміряний нуль, а <strong>«Недоступно»</strong> — що даних для чесного розрахунку немає.
+      </p>
+    </aside>
 
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="dashboard-period-title">
       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -356,6 +371,11 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
             :value="dashboard?.executive.gross_revenue.current"
             :comparison="dashboardMetricComparison(dashboard?.executive.gross_revenue)"
             :loading="pending"
+            :help="{
+              summary: 'Сума за завершеними візитами у вибраному періоді за часовим поясом Europe/Kyiv.',
+              formula: 'Σ збережених у записі total_amount; якщо total_amount відсутній, backend використовує subtotal_amount.',
+              note: 'Це виручка, не прибуток: собівартість, зарплати та постійні витрати не враховані.',
+            }"
           />
           <DashboardDecisionMetricCard
             label="Завершені візити"
@@ -363,13 +383,23 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
             :value="dashboard?.executive.completed_visits.current"
             :comparison="dashboardMetricComparison(dashboard?.executive.completed_visits)"
             :loading="pending"
+            :help="{
+              summary: 'Кількість записів зі статусом «завершено», час початку яких потрапляє у вибраний період.',
+              formula: 'COUNT записів зі статусом completed у межах включних дат Europe/Kyiv.',
+              note: 'Скасовані, майбутні та непідтверджені записи сюди не входять.',
+            }"
           />
           <DashboardDecisionMetricCard
             label="Середній чек"
             kind="money"
-            :value="dashboard?.executive.average_check.current"
-            :comparison="dashboardMetricComparison(dashboard?.executive.average_check)"
+            :value="Number(dashboard?.executive.completed_visits.current || 0) > 0 ? dashboard?.executive.average_check.current : null"
+            :comparison="Number(dashboard?.executive.completed_visits.current || 0) > 0 ? dashboardMetricComparison(dashboard?.executive.average_check) : null"
             :loading="pending"
+            :help="{
+              summary: 'Середня фактично зафіксована виручка на один завершений візит.',
+              formula: 'Виручка ÷ кількість завершених візитів.',
+              note: 'Знижки вже відображені у total_amount; це не середня прайсова ціна.',
+            }"
           />
           <DashboardDecisionMetricCard
             label="Унікальні клієнти"
@@ -377,6 +407,11 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
             :value="dashboard?.executive.unique_clients.current"
             :comparison="dashboardMetricComparison(dashboard?.executive.unique_clients)"
             :loading="pending"
+            :help="{
+              summary: 'Кількість різних клієнтів серед завершених візитів у вибраному періоді.',
+              formula: 'COUNT DISTINCT за customer_id; якщо зв’язку з клієнтом немає — за нормалізованим номером телефону запису.',
+              note: 'Один клієнт із кількома завершеними візитами рахується один раз.',
+            }"
           />
         </div>
       </section>
@@ -397,12 +432,85 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           </div>
           <div v-if="pending" class="mt-4 grid gap-3 sm:grid-cols-2"><div v-for="index in 6" :key="index" class="h-24 animate-pulse rounded-2xl bg-slate-100" /></div>
           <dl v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Заброньовано годин</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.booked_minutes) }}</dd></div>
-            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Доступно годин</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.available_minutes) }}</dd></div>
-            <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Завантаження</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatDashboardRate(dashboard?.capacity_and_leakage.utilisation_rate) }}</dd></div>
-            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Скасовані візити</dt><dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatNumberMetric(dashboard?.capacity_and_leakage.cancelled_visits) }}</dd><p class="mt-1 text-xs text-slate-500">Частка: {{ formatDashboardRate(dashboard?.capacity_and_leakage.cancellation_rate.current) }}</p></div>
-            <div class="rounded-2xl bg-amber-50 p-4"><dt class="text-sm text-amber-700">Непідтверджені майбутні записи</dt><dd class="mt-2 text-2xl font-semibold text-amber-900">{{ formatNumberMetric(dashboard?.capacity_and_leakage.pending_unconfirmed_upcoming_bookings) }}</dd></div>
-            <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-sm text-slate-500">Порожня майбутня потужність</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ emptyCapacityLabel }}</dd><p class="mt-1 text-xs text-slate-500">Прайм-час: будні 17:00–20:00, вихідні 10:00–14:00.</p></div>
+            <div class="rounded-2xl bg-slate-50 p-4">
+              <dt class="flex items-center gap-1 text-sm text-slate-500">
+                Заброньовано годин
+                <DashboardMetricHelp
+                  title="Заброньовано годин"
+                  summary="Час неперервного перетину записів із реально опублікованою доступністю майстрів."
+                  formula="Об’єднання інтервалів усіх записів, крім скасованих, ∩ доступність після блокувань часу."
+                  note="Перетини записів не подвоюють хвилини."
+                />
+              </dt>
+              <dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.booked_minutes) }}</dd>
+            </div>
+            <div class="rounded-2xl bg-slate-50 p-4">
+              <dt class="flex items-center gap-1 text-sm text-slate-500">
+                Доступно годин
+                <DashboardMetricHelp
+                  title="Доступно годин"
+                  summary="Опублікований робочий час активних видимих майстрів у вибраному періоді."
+                  formula="Об’єднання вікон доступності ∩ вибраний період − об’єднання блокувань часу."
+                  note="Це фактичний знаменник завантаження, а не порівняння з найзавантаженішим днем."
+                />
+              </dt>
+              <dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatDashboardMinutesAsHours(dashboard?.capacity_and_leakage.available_minutes) }}</dd>
+            </div>
+            <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4">
+              <dt class="dashboard-accent-card__label flex items-center gap-1 text-sm">
+                Завантаження
+                <DashboardMetricHelp
+                  title="Завантаження"
+                  summary="Частка опублікованого доступного часу, зайнята записами."
+                  formula="Заброньовані хвилини ÷ доступні хвилини × 100%."
+                  note="Якщо доступних хвилин немає, backend зараз повертає 0%; для однозначного «недоступно» контракту бракує статусу знаменника."
+                />
+              </dt>
+              <dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">
+                {{ Number(dashboard?.capacity_and_leakage.available_minutes || 0) > 0 ? formatDashboardRate(dashboard?.capacity_and_leakage.utilisation_rate) : 'Недоступно' }}
+              </dd>
+            </div>
+            <div class="rounded-2xl bg-slate-50 p-4">
+              <dt class="flex items-center gap-1 text-sm text-slate-500">
+                Скасовані візити
+                <DashboardMetricHelp
+                  title="Скасування"
+                  summary="Кількість записів зі статусом «скасовано», запланованих на вибраний період."
+                  formula="Частка скасувань = скасовані записи ÷ усі записи, заплановані на період × 100%."
+                  :trigger="dashboard ? dashboardSignalTriggerExplanation('elevated_cancellations', dashboard.period.signal_thresholds) : undefined"
+                  note="Пороговий сигнал оцінює зростання у відсоткових пунктах, а не відносну зміну у відсотках."
+                />
+              </dt>
+              <dd class="mt-2 text-2xl font-semibold text-slate-900">{{ formatNumberMetric(dashboard?.capacity_and_leakage.cancelled_visits) }}</dd>
+              <p class="mt-1 text-xs text-slate-500">Частка: {{ formatDashboardRate(dashboard?.capacity_and_leakage.cancellation_rate.current) }}</p>
+            </div>
+            <div class="dashboard-accent-card dashboard-accent-card--amber rounded-2xl border p-4">
+              <dt class="dashboard-accent-card__label flex items-center gap-1 text-sm">
+                Непідтверджені майбутні записи
+                <DashboardMetricHelp
+                  title="Непідтверджені майбутні записи"
+                  summary="Майбутні записи зі статусом «очікує підтвердження» у межах вибраного періоду."
+                  formula="COUNT pending, де start_at ≥ поточний час і start_at входить у період."
+                  :trigger="dashboard ? dashboardSignalTriggerExplanation('pending_bookings', dashboard.period.signal_thresholds) : undefined"
+                  action="Підтвердьте актуальні записи або скасуйте ті, що не відбудуться."
+                />
+              </dt>
+              <dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.capacity_and_leakage.pending_unconfirmed_upcoming_bookings) }}</dd>
+            </div>
+            <div class="rounded-2xl bg-slate-50 p-4">
+              <dt class="flex items-center gap-1 text-sm text-slate-500">
+                Порожня майбутня потужність
+                <DashboardMetricHelp
+                  title="Порожня майбутня потужність"
+                  summary="Майбутня частина вже опублікованої доступності, яка ще не перекрита жодним активним записом."
+                  formula="Майбутня доступність − об’єднання майбутніх записів; частка = порожні хвилини ÷ майбутні доступні хвилини × 100%."
+                  :trigger="dashboard ? dashboardSignalTriggerExplanation('unfilled_capacity', dashboard.period.signal_thresholds) : undefined"
+                  action="Спочатку перевірте актуальність графіка, потім працюйте з найбільшими та прайм-вікнами."
+                />
+              </dt>
+              <dd class="mt-2 text-xl font-semibold text-slate-900">{{ emptyCapacityLabel }}</dd>
+              <p class="mt-1 text-xs text-slate-500">Прайм-час: будні 17:00–20:00, вихідні 10:00–14:00.</p>
+            </div>
           </dl>
           <ul v-if="dashboard?.capacity_and_leakage.prime_time_empty_windows.length" class="mt-3 grid gap-2 sm:grid-cols-2">
             <li v-for="window in dashboard.capacity_and_leakage.prime_time_empty_windows" :key="`${window.master_id}-${window.start_at}`" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm">
@@ -416,18 +524,58 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           <div class="flex items-start gap-3">
             <UserGroupIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
             <div>
-              <h2 id="retention-title" class="text-lg font-semibold text-slate-900">Утримання клієнтів</h2>
-              <p class="mt-1 text-sm text-slate-500">Нові проти тих, хто вже відвідував Soul Cuts.</p>
+              <h2 id="retention-title" class="flex items-center gap-1 text-lg font-semibold text-slate-900">
+                Утримання клієнтів
+                <DashboardMetricHelp
+                  title="Когорта утримання"
+                  summary="Когорта складається з клієнтів, чий перший завершений візит у поточній області майстра потрапив у вибраний період."
+                  formula="Repeat N = клієнти з наступним завершеним візитом упродовж N днів ÷ клієнти, для яких повні N днів уже можна спостерігати × 100%."
+                  note="Клієнт не входить у знаменник 30/45/60 днів, доки відповідне вікно не минуло повністю. Це захищає метрику від штучного заниження."
+                />
+              </h2>
+              <p class="mt-1 text-sm text-slate-500">
+                {{ selectedMasterId ? 'Нові та повторні відносно обраного майстра.' : 'Нові проти тих, хто вже відвідував Soul Cuts.' }}
+              </p>
             </div>
           </div>
           <div v-if="pending" class="mt-4 space-y-3"><div v-for="index in 3" :key="index" class="h-20 animate-pulse rounded-2xl bg-slate-100" /></div>
           <template v-else>
             <dl class="mt-4 grid grid-cols-2 gap-3">
-              <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Нові клієнти</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.new_clients) }}</dd></div>
-              <div class="dashboard-accent-card dashboard-accent-card--emerald rounded-2xl border p-4"><dt class="dashboard-accent-card__label text-sm">Повторні клієнти</dt><dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.returning_clients) }}</dd></div>
+              <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4">
+                <dt class="dashboard-accent-card__label flex items-center gap-1 text-sm">
+                  Нові клієнти
+                  <DashboardMetricHelp
+                    title="Нові клієнти"
+                    summary="Унікальні клієнти із завершеним візитом у періоді, для яких це перший завершений візит у поточній області."
+                    formula="Дата першого завершеного візиту ≥ початку вибраного періоду."
+                    :note="selectedMasterId ? 'За фільтра майстра «новий» означає новий для цього майстра.' : 'Без фільтра «новий» означає перший завершений візит у Soul Cuts.'"
+                  />
+                </dt>
+                <dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.new_clients) }}</dd>
+              </div>
+              <div class="dashboard-accent-card dashboard-accent-card--emerald rounded-2xl border p-4">
+                <dt class="dashboard-accent-card__label flex items-center gap-1 text-sm">
+                  Повторні клієнти
+                  <DashboardMetricHelp
+                    title="Повторні клієнти"
+                    summary="Унікальні клієнти із завершеним візитом у періоді, які вже мали завершений візит у поточній області."
+                    formula="Дата першого завершеного візиту < початку вибраного періоду."
+                    :note="selectedMasterId ? 'За фільтра майстра історія оцінюється для цього майстра.' : 'Без фільтра враховується історія завершених візитів у Soul Cuts.'"
+                  />
+                </dt>
+                <dd class="dashboard-accent-card__value mt-2 text-2xl font-semibold">{{ formatNumberMetric(dashboard?.retention.returning_clients) }}</dd>
+              </div>
             </dl>
             <div class="mt-3 rounded-2xl border border-slate-200 p-4">
-              <p class="text-sm font-medium text-slate-900">Повторний візит після завершеного візиту</p>
+              <p class="flex items-center gap-1 text-sm font-medium text-slate-900">
+                Повторний візит після завершеного візиту
+                <DashboardMetricHelp
+                  title="Повторний візит за 30 / 45 / 60 днів"
+                  summary="Для кожного вікна показано: повторні клієнти / клієнти, яких уже можна оцінити · частка повтору."
+                  formula="repeated_clients ÷ eligible_clients × 100%."
+                  note="«Ще не спостережувано» означає, що для жодного клієнта когорти повне вікно ще не завершилося; це не 0%."
+                />
+              </p>
               <dl class="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div><dt class="text-xs text-slate-500">30 днів</dt><dd class="mt-1 font-semibold text-slate-900">{{ repeatMetricLabel(dashboard?.retention.repeat_30_day) }}</dd></div>
                 <div><dt class="text-xs text-slate-500">45 днів</dt><dd class="mt-1 font-semibold text-slate-900">{{ repeatMetricLabel(dashboard?.retention.repeat_45_day) }}</dd></div>
@@ -436,7 +584,7 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
             </div>
             <p class="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-500">
               <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              {{ dashboard?.period.definitions.retention_cohort || 'Визначення когорти недоступне.' }}
+              До знаменника кожного вікна входять лише клієнти, для яких усі 30, 45 або 60 днів уже минули до кінця періоду чи поточного київського часу.
             </p>
           </template>
         </section>
@@ -448,8 +596,19 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
         <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="services-title">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 id="services-title" class="text-lg font-semibold text-slate-900">Послуги</h2>
+              <h2 id="services-title" class="flex items-center gap-1 text-lg font-semibold text-slate-900">
+                Послуги
+                <DashboardMetricHelp
+                  title="Ефективність послуг"
+                  summary="«Завершено» — кількість різних завершених записів, у яких була послуга. Виручка багатопослугового запису розподіляється між його послугами."
+                  formula="Частка послуги = її поточна ціна ÷ суму поточних цін послуг запису; виручка/виконання = розподілена виручка ÷ завершені записи з послугою."
+                  note="Це не маржа. Історичних цін на кожну позицію запису немає, тому зміна поточної ціни може змінити розподіл історичної виручки між послугами."
+                />
+              </h2>
               <p class="mt-1 text-sm text-slate-500">Виручка, завершені виконання та середня виручка за виконання. Маржа не розраховується без витрат.</p>
+              <p class="mt-2 max-w-3xl text-xs leading-5 text-amber-700">
+                Важливо: для розподілу суми багатопослугового запису backend використовує поточні ціни послуг, бо знімки ціни кожної позиції поки не зберігаються.
+              </p>
             </div>
             <div class="inline-flex rounded-full border border-slate-200 p-1" aria-label="Сортування послуг">
               <button type="button" class="rounded-full px-3 py-1.5 text-xs font-medium" :class="serviceSortKey === 'gross_revenue' ? 'bg-slate-950 text-white' : 'text-slate-600'" :aria-pressed="serviceSortKey === 'gross_revenue'" @click="serviceSortKey = 'gross_revenue'">За виручкою</button>
@@ -458,27 +617,38 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
           </div>
           <div v-if="pending" class="mt-4 space-y-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-slate-100" /></div>
           <StatisticsEmptyState v-else-if="!sortedServices.length" class="mt-4" title="Немає даних про послуги" description="Backend не повернув послуги для вибраного періоду." />
-          <div v-else class="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-            <table class="min-w-[720px] w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-3 font-medium">Послуга</th><th class="px-4 py-3 font-medium">Виручка</th><th class="px-4 py-3 font-medium">Завершено</th><th class="px-4 py-3 font-medium">Виручка / виконання</th><th class="px-4 py-3 font-medium">Знижки</th></tr></thead>
-              <tbody class="divide-y divide-slate-100">
+          <BaseTable
+            v-else
+            caption="Ефективність послуг"
+            wrapper-class="mt-4 rounded-2xl"
+            min-width="720px"
+          >
+            <template #head>
+              <tr><th>Послуга</th><th>Виручка</th><th>Завершено</th><th>Виручка / виконання</th><th>Знижки</th></tr>
+            </template>
                 <tr v-for="service in sortedServices" :key="service.service_id">
-                  <td class="px-4 py-3 font-medium text-slate-900">{{ service.service_name }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ formatMoneyMetric(service.gross_revenue) }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ formatNumberMetric(service.completed_visits) }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ formatMoneyMetric(service.average_realized_revenue_per_completed_service) }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ discountLabel(service) }}</td>
+                  <td class="font-medium text-ui-primary">{{ service.service_name }}</td>
+                  <td class="text-ui-secondary">{{ formatMoneyMetric(service.gross_revenue) }}</td>
+                  <td class="text-ui-secondary">{{ formatNumberMetric(service.completed_visits) }}</td>
+                  <td class="text-ui-secondary">{{ formatMoneyMetric(service.average_realized_revenue_per_completed_service) }}</td>
+                  <td class="text-ui-secondary">{{ discountLabel(service) }}</td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
+          </BaseTable>
         </section>
 
         <section class="dashboard-action-center rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="actions-title">
           <div class="flex items-start gap-3">
             <SparklesIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
             <div>
-              <h2 id="actions-title" class="dashboard-action-center__title text-lg font-semibold">Центр дій</h2>
+              <h2 id="actions-title" class="dashboard-action-center__title flex items-center gap-1 text-lg font-semibold">
+                Центр дій
+                <DashboardMetricHelp
+                  title="Як формуються сигнали"
+                  summary="Backend перевіряє бізнес-показники за явними порогами та повертає лише сигнали, для яких є конкретний екран дії."
+                  formula="Критичні сигнали показуються першими, потім попередження і можливості. Значення та пороги надходять одним dashboard-відповіддю."
+                  note="Відсутність сигналу означає, що умови порога не виконані; це не гарантує відсутність усіх бізнес-ризиків."
+                />
+              </h2>
               <p class="mt-1 text-sm text-slate-500">Пріоритетні сигнали, для яких є конкретна наступна дія.</p>
             </div>
           </div>
@@ -488,12 +658,35 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <p class="text-xs font-medium uppercase tracking-[0.12em]">{{ actionSeverityLabel[signal.severity] }}</p>
-                  <h3 class="mt-1 font-semibold">{{ signal.title_uk }}</h3>
+                  <h3 class="mt-1 flex items-start gap-1 font-semibold">
+                    {{ signal.title_uk }}
+                    <DashboardMetricHelp
+                      :title="signal.title_uk"
+                      :summary="signal.explanation_uk"
+                      :trigger="actionSignalTrigger(signal.code)"
+                      :action="dashboardActionNextSteps[signal.code]"
+                      :note="`Поточне значення: ${formatDashboardSignalMetric(signal)}.`"
+                    />
+                  </h3>
                   <p class="mt-1 text-sm leading-5 opacity-80">{{ signal.explanation_uk }}</p>
                 </div>
                 <ExclamationTriangleIcon v-if="signal.severity === 'critical' || signal.severity === 'warning'" class="h-5 w-5 shrink-0" aria-hidden="true" />
                 <ClockIcon v-else class="h-5 w-5 shrink-0" aria-hidden="true" />
               </div>
+              <dl class="mt-3 grid gap-2 text-xs leading-5">
+                <div>
+                  <dt class="font-semibold">Зараз</dt>
+                  <dd class="opacity-80">{{ formatDashboardSignalMetric(signal) }}</dd>
+                </div>
+                <div>
+                  <dt class="font-semibold">Чому спрацювало</dt>
+                  <dd class="opacity-80">{{ actionSignalTrigger(signal.code) }}</dd>
+                </div>
+                <div>
+                  <dt class="font-semibold">Що зробити</dt>
+                  <dd class="opacity-80">{{ dashboardActionNextSteps[signal.code] }}</dd>
+                </div>
+              </dl>
               <NuxtLink :to="signal.recommended_backoffice_route" class="mt-3 inline-flex min-h-9 items-center gap-2 rounded-full border border-current px-3 py-2 text-xs font-semibold">
                 {{ dashboardActionLabels[signal.code] }}
                 <ArrowRightIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -514,7 +707,15 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
         <div class="flex items-start gap-3">
           <ShieldCheckIcon class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
           <div>
-            <h2 id="reputation-title" class="text-lg font-semibold text-slate-900">Репутація</h2>
+            <h2 id="reputation-title" class="flex items-center gap-1 text-lg font-semibold text-slate-900">
+              Репутація
+              <DashboardMetricHelp
+                title="Воронка запитів на відгук"
+                summary="Усі етапи прив’язані до тих самих завершених записів, запланованих у вибраному включному періоді Europe/Kyiv."
+                formula="Конверсія у відгук = надіслані клієнтами відгуки ÷ надіслані запити × 100%."
+                note="Оцінки майстрів включають лише схвалені відгуки; очікувані та відхилені не впливають на рейтинг."
+              />
+            </h2>
             <p class="mt-1 text-sm text-slate-500">Воронка запитів відгуку та схвалені оцінки майстрів за вибраний період.</p>
           </div>
         </div>
@@ -527,12 +728,50 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
       <p v-else-if="reviewMetricsError" class="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Метрики репутації недоступні: потрібен backend review metrics contract.</p>
       <template v-else-if="reviewMetrics">
         <dl class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Доступні візити</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.eligible_completed_visits }}</dd></div>
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Надіслано</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.requests_sent }}</dd></div>
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Доставлено</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.requests_delivered }}</dd></div>
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Відкрито форму</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatNumberMetric(reviewMetrics.review_form_opens) }}</dd></div>
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Конверсія</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatReviewConversionRate(reviewMetrics.review_conversion_rate) }}</dd></div>
-          <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-xs text-slate-500">Час модерації</dt><dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatModerationDuration(reviewMetrics.average_moderation_time_minutes) }}</dd></div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Доступні візити
+              <DashboardMetricHelp title="Доступні для запиту візити" summary="Завершені візити у вибраному періоді, пов’язані з профілем клієнта." formula="COUNT completed bookings, де customer_id заповнений." note="Це базова технічна придатність; окремі правила частоти або виключення можуть не дати створити запит." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.eligible_completed_visits }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Надіслано
+              <DashboardMetricHelp title="Надіслано запитів" summary="Запити на відгук для записів цієї когорти, у яких зафіксовано час відправлення." formula="COUNT ReviewRequest.sent_at." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.requests_sent }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Доставлено
+              <DashboardMetricHelp title="Доставлено запитів" summary="Надіслані запити цієї когорти, для яких провайдер підтвердив доставку." formula="COUNT ReviewRequest.delivered_at." note="Відсутність підтвердження доставки не завжди означає, що повідомлення точно не потрапило клієнту." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">{{ reviewMetrics.requests_delivered }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Відкрито форму
+              <DashboardMetricHelp title="Відкрито форму відгуку" summary="Подія відкриття форми поки не зберігається як доменна подія." formula="Метрика буде доступна після додавання persisted review_form_open event." note="«Недоступно» тут навмисне й не означає 0 відкриттів." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatNumberMetric(reviewMetrics.review_form_opens) }}</dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Конверсія
+              <DashboardMetricHelp title="Конверсія у відгук" summary="Частка надісланих запитів, що завершилися відправленням відгуку клієнтом." formula="submitted_reviews ÷ requests_sent × 100%." note="Знаменник — надіслані, а не доставлені запити." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">
+              {{ reviewMetrics.requests_sent > 0 ? formatReviewConversionRate(reviewMetrics.review_conversion_rate) : 'Недоступно' }}
+            </dd>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <dt class="flex items-center gap-1 text-xs text-slate-500">
+              Час модерації
+              <DashboardMetricHelp title="Середній час модерації" summary="Середній час від надсилання відгуку клієнтом до рішення модератора." formula="AVG(moderated_at − submitted_at) для відгуків із рішенням." note="Якщо жоден відгук ще не модеровано, показник недоступний." />
+            </dt>
+            <dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatModerationDuration(reviewMetrics.average_moderation_time_minutes) }}</dd>
+          </div>
         </dl>
         <div v-if="reviewMetrics.average_rating_by_master.length" class="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           <NuxtLink v-for="rating in reviewMetrics.average_rating_by_master" :key="rating.master_id" :to="`/admin/statistics/barbers/${rating.master_id}`" class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-50">
@@ -588,6 +827,10 @@ const actionSeverityClass: Record<DashboardActionSeverity, string> = {
 
 .dashboard-accent-card--emerald {
   --dashboard-card-tone: var(--success);
+}
+
+.dashboard-accent-card--amber {
+  --dashboard-card-tone: var(--warning);
 }
 
 .dashboard-accent-card__label {

@@ -14,8 +14,8 @@ const props = withDefaults(defineProps<{
   labelClass?: string
 }>(), {
   value: true,
-  inputClass: 'h-4 w-4 rounded border-slate-300',
-  labelClass: 'inline-flex items-center gap-2 text-sm text-slate-700',
+  inputClass: 'base-checkbox',
+  labelClass: 'base-checkbox__label inline-flex items-center gap-2 text-sm',
 })
 
 const emit = defineEmits<{
@@ -52,7 +52,10 @@ const updateValue = (event: Event) => {
 </script>
 
 <template>
-  <label v-if="hasLabel || $slots.default" :class="[labelClass, disabled ? 'opacity-70' : '']">
+  <label
+    v-if="hasLabel || $slots.default"
+    :class="[labelClass, disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer']"
+  >
     <input
       v-bind="passthroughAttrs"
       type="checkbox"

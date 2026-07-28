@@ -46,31 +46,35 @@ const applyFilters = async () => {
         <div class="border-b border-slate-200 px-5 py-4">
           <h2 class="text-lg font-semibold text-slate-900">Плоский список</h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+        <BaseTable
+          caption="Плоский список категорій"
+          wrapper-class="rounded-none border-0"
+          min-width="48rem"
+          :empty="!data?.items.length"
+          empty-title="Категорій не знайдено"
+        >
+          <template #head>
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Slug</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Батьківська категорія</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
+              <th>Назва</th>
+              <th>Slug</th>
+              <th>Батьківська категорія</th>
+              <th>Статус</th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+          </template>
             <tr v-for="item in data?.items || []" :key="item.id">
-              <td data-label="Назва" class="px-4 py-3">
-                <p class="font-medium text-slate-900">{{ item.name }}</p>
-                <p class="text-xs text-slate-500">{{ item.description || 'Без опису' }}</p>
+              <td>
+                <p class="font-medium text-ui-primary">{{ item.name }}</p>
+                <p class="text-xs text-ui-muted">{{ item.description || 'Без опису' }}</p>
               </td>
-              <td data-label="Slug" class="px-4 py-3 text-slate-700">{{ item.slug }}</td>
-              <td data-label="Батьківська категорія" class="px-4 py-3 text-slate-700">{{ item.parent_id || '—' }}</td>
-              <td data-label="Статус" class="px-4 py-3">
-                <span class="rounded-full px-3 py-1 text-xs font-medium" :class="item.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <td class="text-ui-secondary">{{ item.slug }}</td>
+              <td class="text-ui-secondary">{{ item.parent_id || '—' }}</td>
+              <td>
+                <BaseBadge :tone="item.is_active ? 'success' : 'neutral'">
                   {{ item.is_active ? 'активний' : 'неактивний' }}
-                </span>
+                </BaseBadge>
               </td>
             </tr>
-          </tbody>
-        </table>
+        </BaseTable>
       </section>
 
       <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">

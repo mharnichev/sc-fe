@@ -145,13 +145,15 @@ const applyFilters = async () => {
   <div class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Адмін</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Майстри</h1>
+        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Адмін</p>
+        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Майстри</h1>
       </div>
       <BaseButton
         type="button"
+        variant="create"
         :disabled="!isAdmin"
-        class="backoffice-page-create-button inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60 sm:w-auto"
+        size="lg"
+        class="w-full sm:w-auto"
         @click="openCreateMaster"
       >
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
@@ -159,27 +161,27 @@ const applyFilters = async () => {
       </BaseButton>
     </div>
 
-    <p v-if="!isAdmin" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+    <p v-if="!isAdmin" class="ui-status-warning rounded-2xl px-4 py-3 text-sm">
       Для керування майстрами потрібен доступ адміністратора.
     </p>
 
-    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+    <BaseCard as="section" padding="lg" class="space-y-5">
       <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <BaseInput v-model="filters.search" placeholder="Пошук майстрів" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
+        <BaseInput v-model="filters.search" placeholder="Пошук майстрів" />
         <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
+        <BaseButton variant="primary" @click="applyFilters">
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span>Застосувати</span>
         </BaseButton>
       </div>
-      <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+      <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити майстрів.') }}
       </p>
-      <p v-if="ratingError" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">Рейтинги майстрів недоступні: потрібен backend aggregate contract.</p>
-      <p class="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">Total: {{ total }}</p>
-      <div v-if="pending" class="text-sm text-slate-500">Завантаження майстрів...</div>
-      <div v-else-if="!masters.length" class="text-sm text-slate-500">Майстрів не знайдено.</div>
-      <div v-else class="divide-y divide-slate-100">
+      <p v-if="ratingError" class="ui-status-warning rounded-2xl px-4 py-3 text-sm">Рейтинги майстрів недоступні: потрібен backend aggregate contract.</p>
+      <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">Total: {{ total }}</BaseCard>
+      <BaseLoader v-if="pending" label="Завантаження майстрів…" />
+      <BaseEmptyState v-else-if="!masters.length" compact title="Майстрів не знайдено" />
+      <div v-else class="divide-y divide-ui">
         <article v-for="master in masters" :key="master.id" class="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-center">
           <div class="flex items-start gap-3">
             <img
@@ -189,29 +191,30 @@ const applyFilters = async () => {
               class="h-14 w-14 shrink-0 rounded-2xl object-cover"
               loading="lazy"
             >
-            <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-500">
+            <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-ui-subtle text-sm font-semibold text-ui-muted">
               {{ masterInitials(master) }}
             </div>
             <div>
-              <p class="font-medium text-slate-900">{{ masterName(master) }}</p>
-              <p class="text-sm text-slate-500">{{ masterPositionLabel(master) }}</p>
-              <p class="text-sm text-slate-500">{{ master.phone || master.email || 'Без контактів' }}</p>
-              <p v-if="masterRedirectId(master)" class="text-sm text-slate-500">Онлайн-запис → {{ masterRedirectLabel(master) }}</p>
-              <p class="text-xs text-slate-500">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
-              <p v-if="ratingsByMaster.get(master.id)" class="mt-2 text-xs text-slate-600">
-                <span class="font-semibold text-amber-600">{{ formatRating(ratingsByMaster.get(master.id)?.approved_average_rating) }} ★</span>
+              <p class="font-medium text-ui-primary">{{ masterName(master) }}</p>
+              <p class="text-sm text-ui-muted">{{ masterPositionLabel(master) }}</p>
+              <p class="text-sm text-ui-muted">{{ master.phone || master.email || 'Без контактів' }}</p>
+              <p v-if="masterRedirectId(master)" class="text-sm text-ui-muted">Онлайн-запис → {{ masterRedirectLabel(master) }}</p>
+              <p class="text-xs text-ui-muted">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
+              <p v-if="ratingsByMaster.get(master.id)" class="mt-2 text-xs text-ui-secondary">
+                <span class="font-semibold ui-status-warning rounded-full px-2 py-0.5">{{ formatRating(ratingsByMaster.get(master.id)?.approved_average_rating) }} ★</span>
                 · {{ ratingsByMaster.get(master.id)?.approved_review_count }} схвалено
                 · {{ ratingsByMaster.get(master.id)?.pending_review_count }} очікують
               </p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-full px-3 py-1 text-xs font-medium" :class="isMasterActive(master) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+            <BaseBadge :tone="isMasterActive(master) ? 'success' : 'neutral'">
               {{ isMasterActive(master) ? 'активний' : 'неактивний' }}
-            </span>
-            <NuxtLink class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700" :to="`/masters/${master.id}/services`">Послуги</NuxtLink>
+            </BaseBadge>
+            <NuxtLink class="base-button base-button--neutral min-h-8 px-3 py-1.5 text-xs" :to="`/masters/${master.id}/services`">Послуги</NuxtLink>
             <BaseButton
-              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50"
+              variant="icon"
+              class="h-8 w-8"
               aria-label="Редагувати майстра"
               title="Редагувати"
               @click="editMaster(master)"
@@ -220,7 +223,8 @@ const applyFilters = async () => {
               <span class="sr-only">Редагувати</span>
             </BaseButton>
             <BaseButton
-              class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              variant="icon"
+              class="h-8 w-8"
               :disabled="!isAdmin"
               :aria-label="isMasterActive(master) ? 'Деактивувати майстра' : 'Активувати майстра'"
               :title="isMasterActive(master) ? 'Деактивувати' : 'Активувати'"
@@ -238,7 +242,7 @@ const applyFilters = async () => {
           </div>
         </article>
       </div>
-    </section>
+    </BaseCard>
 
     <MasterFormModal
       :model-value="masterModalOpen"

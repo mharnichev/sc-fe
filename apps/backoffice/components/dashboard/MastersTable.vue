@@ -3,6 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
 import type { DashboardMasterBreakdownItem } from '~/utils/adminDashboardContract'
 import {
   compareDashboardMasterRows,
+  dashboardReturningClientShare,
   formatDashboardRate,
   hasDashboardMetric,
   type AdminDashboardMasterSortKey,
@@ -30,7 +31,7 @@ const columns: Array<{ key: AdminDashboardMasterSortKey, label: string, compactL
   { key: 'average_check', label: 'Середній чек', compactLabel: 'Сер. чек' },
   { key: 'utilisation_rate', label: 'Завантаження', compactLabel: 'Завант.' },
   { key: 'revenue_per_available_hour', label: 'Виручка / доступну годину', compactLabel: 'Виручка / год' },
-  { key: 'returning_clients', label: 'Повторні клієнти', compactLabel: 'Повторні' },
+  { key: 'returning_client_share', label: 'Частка повторних клієнтів', compactLabel: 'Повторні, %' },
   { key: 'approved_rating', label: 'Схвалений рейтинг', compactLabel: 'Рейтинг' },
 ]
 
@@ -52,6 +53,17 @@ const formatNumber = (value: number | null) =>
   hasDashboardMetric(value) ? Number(value).toLocaleString('uk-UA') : 'Недоступно'
 const formatMoneyMetric = (value: string | number | null) =>
   hasDashboardMetric(value) ? formatMoney(value) : 'Недоступно'
+const averageCheckLabel = (row: DashboardMasterBreakdownItem) =>
+  row.completed_visits > 0 ? formatMoneyMetric(row.average_check) : 'Недоступно'
+const utilisationLabel = (row: DashboardMasterBreakdownItem) =>
+  row.available_minutes > 0 ? formatDashboardRate(row.utilisation_rate) : 'Недоступно'
+const revenuePerHourLabel = (row: DashboardMasterBreakdownItem) =>
+  row.available_minutes > 0 ? formatMoneyMetric(row.revenue_per_available_hour) : 'Недоступно'
+const returningShareLabel = (row: DashboardMasterBreakdownItem) => {
+  const share = dashboardReturningClientShare(row)
+  if (share === null) return 'Недоступно'
+  return `${formatDashboardRate(share)} · ${row.returning_clients}/${row.new_clients + row.returning_clients}`
+}
 const ratingLabel = (row: DashboardMasterBreakdownItem) =>
   hasDashboardMetric(row.approved_rating)
     ? `${formatRating(Number(row.approved_rating))} ★ · ${row.approved_review_count}`
@@ -62,7 +74,15 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
   <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Майстри</h2>
+        <h2 class="flex items-center gap-1 text-lg font-semibold text-slate-900">
+          Майстри
+          <DashboardMetricHelp
+            title="Як порівнюються майстри"
+            summary="Таблиця поєднує обсяг, ефективність доступного часу, повернення клієнтів і лише схвалені оцінки. Початкове сортування — не за загальною виручкою."
+            formula="Середній чек = виручка ÷ завершені візити; завантаження = заброньовані ÷ доступні хвилини; виручка/год = виручка × 60 ÷ доступні хвилини; частка повторних = повторні ÷ (нові + повторні)."
+            note="Якщо знаменник дорівнює нулю, похідна метрика показується як «Недоступно», а не як нуль."
+          />
+        </h2>
         <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
           Порівняння якості виручки, завантаження та повернення клієнтів. Початкове сортування — за виручкою на доступну годину.
         </p>
@@ -79,52 +99,19 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
       title="Немає даних про майстрів"
       description="Backend не повернув майстрів для вибраного періоду."
     />
-    <template v-else>
-      <div class="mt-4 flex gap-2 overflow-x-auto pb-2 lg:hidden" aria-label="Сортування майстрів">
-        <button
-          v-for="column in columns"
-          :key="column.key"
-          type="button"
-          class="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-xs font-medium"
-          :class="sortKey === column.key ? 'border-cyan-300 bg-cyan-50 text-cyan-900' : 'border-slate-300 text-slate-600'"
-          :aria-label="sortAriaLabel(column.key, column.label)"
-          @click="toggleSort(column.key)"
-        >
-          {{ column.compactLabel }}
-          <ChevronUpIcon v-if="sortKey === column.key && sortDirection === 'asc'" class="h-3.5 w-3.5" aria-hidden="true" />
-          <ChevronDownIcon v-else-if="sortKey === column.key" class="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </div>
-
-      <div class="mt-2 space-y-3 lg:hidden">
-        <article v-for="row in sortedRows" :key="row.master_id" class="rounded-2xl border border-slate-200 p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h3 class="truncate font-semibold text-slate-900">{{ row.master_name }}</h3>
-              <p class="mt-1 text-sm text-slate-500">{{ formatNumber(row.completed_visits) }} завершених візитів</p>
-            </div>
-            <NuxtLink :to="`/admin/statistics/barbers/${row.master_id}`" class="shrink-0 text-sm font-medium text-cyan-700">Деталі</NuxtLink>
-          </div>
-          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div><dt class="text-xs text-slate-500">Виручка</dt><dd class="mt-1 font-medium text-slate-900">{{ formatMoneyMetric(row.gross_revenue) }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Середній чек</dt><dd class="mt-1 font-medium text-slate-900">{{ formatMoneyMetric(row.average_check) }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Завантаження</dt><dd class="mt-1 font-medium text-slate-900">{{ formatDashboardRate(row.utilisation_rate) }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Виручка / год</dt><dd class="mt-1 font-medium text-slate-900">{{ formatMoneyMetric(row.revenue_per_available_hour) }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Нові / повторні</dt><dd class="mt-1 font-medium text-slate-900">{{ row.new_clients }} / {{ row.returning_clients }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Схвалений рейтинг</dt><dd class="mt-1 font-medium text-amber-600">{{ ratingLabel(row) }}</dd></div>
-          </dl>
-        </article>
-      </div>
-
-      <div class="mt-4 hidden overflow-x-auto rounded-2xl border border-slate-200 lg:block">
-        <table class="min-w-[1120px] w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50 text-left text-xs text-slate-500">
+    <BaseTable
+      v-else
+      caption="Порівняння майстрів"
+      wrapper-class="mt-4 rounded-2xl"
+      min-width="1120px"
+    >
+      <template #head>
             <tr>
-              <th class="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-medium">Майстер</th>
-              <th v-for="column in columns" :key="column.key" class="px-4 py-3 font-medium">
+              <th class="sticky left-0 z-10 bg-ui-subtle">Майстер</th>
+              <th v-for="column in columns" :key="column.key">
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1 text-left hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
+                  class="base-table__sort inline-flex items-center gap-1 rounded-md text-left"
                   :aria-label="sortAriaLabel(column.key, column.label)"
                   @click="toggleSort(column.key)"
                 >
@@ -133,24 +120,20 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
                   <ChevronDownIcon v-else-if="sortKey === column.key" class="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </th>
-              <th class="px-4 py-3 font-medium"><span class="sr-only">Дії</span></th>
+              <th><span class="sr-only">Дії</span></th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in sortedRows" :key="row.master_id" class="hover:bg-slate-50">
-              <td class="sticky left-0 bg-white px-4 py-3 font-medium text-slate-900">{{ row.master_name }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatMoneyMetric(row.gross_revenue) }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatNumber(row.completed_visits) }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatMoneyMetric(row.average_check) }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatDashboardRate(row.utilisation_rate) }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatMoneyMetric(row.revenue_per_available_hour) }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ row.returning_clients }}</td>
-              <td class="px-4 py-3 font-medium text-amber-600">{{ ratingLabel(row) }}</td>
-              <td class="px-4 py-3 text-right"><NuxtLink :to="`/admin/statistics/barbers/${row.master_id}`" class="text-sm font-medium text-cyan-700">Деталі</NuxtLink></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
+      </template>
+          <tr v-for="row in sortedRows" :key="row.master_id">
+            <td class="sticky left-0 bg-ui-surface font-medium text-ui-primary">{{ row.master_name }}</td>
+            <td class="text-ui-secondary">{{ formatMoneyMetric(row.gross_revenue) }}</td>
+            <td class="text-ui-secondary">{{ formatNumber(row.completed_visits) }}</td>
+            <td class="text-ui-secondary">{{ averageCheckLabel(row) }}</td>
+            <td class="text-ui-secondary">{{ utilisationLabel(row) }}</td>
+            <td class="text-ui-secondary">{{ revenuePerHourLabel(row) }}</td>
+            <td class="text-ui-secondary">{{ returningShareLabel(row) }}</td>
+            <td><BaseBadge tone="warning">{{ ratingLabel(row) }}</BaseBadge></td>
+            <td class="text-right"><NuxtLink :to="`/admin/statistics/barbers/${row.master_id}`" class="font-medium text-ui-accent hover:underline">Деталі</NuxtLink></td>
+          </tr>
+    </BaseTable>
   </section>
 </template>

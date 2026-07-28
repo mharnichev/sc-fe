@@ -46,6 +46,12 @@ const backendDashboardFixture = () => ({
     signal_thresholds: {
       pending_bookings_min_count: 1,
       cancellation_min_count: 3,
+      cancellation_min_rate_percent: '15.00',
+      cancellation_min_increase_percentage_points: '5.00',
+      unfilled_capacity_min_minutes: 120,
+      unfilled_capacity_min_percent: '30.00',
+      review_moderation_backlog_min_count: 1,
+      failed_review_delivery_min_count: 1,
     },
   },
   executive: {
@@ -238,6 +244,37 @@ test('rates preserve backend percentage semantics and unavailable state', () => 
   assert.equal(dashboard.hasDashboardMetric(0), true)
 })
 
+test('action signal explanations use backend thresholds and metric units', () => {
+  const thresholds = backendDashboardFixture().period.signal_thresholds
+
+  assert.match(
+    dashboard.dashboardSignalTriggerExplanation('pending_bookings', thresholds),
+    /не менше 1/,
+  )
+  assert.match(
+    dashboard.dashboardSignalTriggerExplanation('elevated_cancellations', thresholds),
+    /не менше 3 записів.*15%.*5 в\. п\./,
+  )
+  assert.match(
+    dashboard.dashboardSignalTriggerExplanation('unfilled_capacity', thresholds),
+    /2 год.*30%/,
+  )
+  assert.equal(
+    dashboard.formatDashboardSignalMetric({
+      metric_value: '90',
+      metric_unit: 'minutes',
+    }),
+    '1,5 год вільного часу',
+  )
+  assert.equal(
+    dashboard.formatDashboardSignalMetric({
+      metric_value: '7.5',
+      metric_unit: 'percentage_points',
+    }),
+    '7,5 в. п. зростання',
+  )
+})
+
 test('booking funnel mapping uses backend conversion and drop-off values without recalculation', () => {
   const funnel = backendDashboardFixture().booking_funnel
   const rows = bookingFunnel.mapBookingFunnelRows(funnel)
@@ -255,6 +292,23 @@ test('booking funnel mapping uses backend conversion and drop-off values without
   assert.equal(rows[3].dropOff.count, 30)
   assert.equal(rows[5].conversion.conversion_percent, '0.00')
   assert.equal(rows[5].dropOff.drop_off_percent, '100.00')
+})
+
+test('booking funnel alert explanations use the supplied compound thresholds', () => {
+  const thresholds = backendDashboardFixture().booking_funnel.alert_thresholds
+
+  assert.match(
+    bookingFunnel.bookingFunnelAlertTriggerExplanation('no_slot', thresholds),
+    /щонайменше 3.*не менше 20%/,
+  )
+  assert.match(
+    bookingFunnel.bookingFunnelAlertTriggerExplanation('stale_schedule', thresholds),
+    /щонайменше 1/,
+  )
+  assert.match(
+    bookingFunnel.bookingFunnelAlertTriggerExplanation('booking_error', thresholds),
+    /щонайменше 1/,
+  )
 })
 
 test('booking funnel percentages preserve backend percent units and zero conversions', () => {
@@ -296,6 +350,24 @@ test('master sorting uses quality metrics and always keeps unavailable rows last
   assert.deepEqual(ascending.map(row => row.master_name), ['Андрій', 'Василь', 'Богдан'])
 })
 
+test('returning-client share is explicit and sortable without treating an empty cohort as zero', () => {
+  const rows = [
+    { master_name: 'Андрій', new_clients: 4, returning_clients: 6 },
+    { master_name: 'Богдан', new_clients: 0, returning_clients: 0 },
+    { master_name: 'Василь', new_clients: 1, returning_clients: 4 },
+  ]
+
+  assert.equal(dashboard.dashboardReturningClientShare(rows[0]), 60)
+  assert.equal(dashboard.dashboardReturningClientShare(rows[1]), null)
+  assert.deepEqual(
+    [...rows]
+      .sort((first, second) =>
+        dashboard.compareDashboardMasterRows(first, second, 'returning_client_share', 'desc'))
+      .map(row => row.master_name),
+    ['Василь', 'Андрій', 'Богдан'],
+  )
+})
+
 test('BE dashboard fixture is runtime-validated before rendering', () => {
   const response = contract.parseAdminDashboardResponse(backendDashboardFixture())
 
@@ -323,17 +395,30 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
     () => contract.parseAdminDashboardResponse(malformedFunnel),
     /booking_funnel\.step_to_step_conversion\.0\.conversion_percent/,
   )
+  const missingThreshold = backendDashboardFixture()
+  delete missingThreshold.period.signal_thresholds.unfilled_capacity_min_percent
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(missingThreshold),
+    /period\.signal_thresholds\.unfilled_capacity_min_percent/,
+  )
+  const invalidSignalUnit = backendDashboardFixture()
+  invalidSignalUnit.actionable_signals[0].metric_unit = 'customers'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(invalidSignalUnit),
+    /actionable_signals\.0\.metric_unit/,
+  )
   const emptyFunnel = backendDashboardFixture()
   emptyFunnel.booking_funnel = emptyBookingFunnelFixture()
   assert.equal(contract.parseAdminDashboardResponse(emptyFunnel).booking_funnel.status, 'empty')
 })
 
 test('dashboard page uses the single typed business endpoint without legacy metric assembly', async () => {
-  const [apiSource, pageSource, bookingsSource, reviewsSource] = await Promise.all([
+  const [apiSource, pageSource, bookingsSource, reviewsSource, metricHelpSource] = await Promise.all([
     readFile(new URL('../composables/useBackofficeApi.ts', import.meta.url), 'utf8'),
     readFile(new URL('../pages/admin/dashboards/barbershop.vue', import.meta.url), 'utf8'),
     readFile(new URL('../pages/bookings.vue', import.meta.url), 'utf8'),
     readFile(new URL('../pages/reviews/index.vue', import.meta.url), 'utf8'),
+    readFile(new URL('../components/dashboard/MetricHelp.vue', import.meta.url), 'utf8'),
   ])
 
   assert.match(apiSource, /api<unknown>\('\/backoffice\/statistics\/admin\/dashboard'/)
@@ -351,4 +436,11 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(reviewsSource, /route\.query\.request_state/)
   assert.doesNotMatch(pageSource, /label="Прибуток"/)
   assert.match(pageSource, /Europe\/Kyiv/)
+  assert.match(pageSource, /Чому спрацювало/)
+  assert.match(pageSource, /dashboardSignalTriggerExplanation/)
+  assert.match(pageSource, /review_form_open event/)
+  assert.match(metricHelpSource, /QuestionMarkCircleIcon/)
+  assert.match(metricHelpSource, /aria-expanded/)
+  assert.match(metricHelpSource, /role="tooltip"/)
+  assert.match(metricHelpSource, /event\.key === 'Escape'/)
 })

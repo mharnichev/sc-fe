@@ -224,12 +224,12 @@ const availabilityOverlapMinutes = (window: MasterAvailabilityWindow, dateInput:
   return Math.round((overlapEnd - overlapStart) / 60000)
 }
 
-const availabilityStatusClass = (tone: AvailabilityTone) => ({
-  available: 'bg-emerald-50 text-emerald-700',
-  partial: 'bg-amber-50 text-amber-700',
-  blocked: 'bg-rose-50 text-rose-700',
-  closed: 'bg-slate-100 text-slate-600',
-}[tone])
+const availabilityBadgeTone = (tone: AvailabilityTone) => ({
+  available: 'success',
+  partial: 'warning',
+  blocked: 'danger',
+  closed: 'neutral',
+} as const)[tone]
 
 const availabilityRows = computed(() =>
   Array.from({ length: availabilityDays }, (_, index) => {
@@ -297,16 +297,17 @@ const availabilityRows = computed(() =>
   <div class="space-y-3 xl:space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Огляд майстра</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:text-3xl">Дашборд</h1>
-        <p class="mt-1 text-xs text-slate-500 xl:text-sm">
+        <p class="ui-eyebrow text-xs uppercase tracking-[0.22em] xl:text-sm xl:tracking-[0.3em]">Огляд майстра</p>
+        <h1 class="mt-1 text-2xl font-semibold text-ui-primary xl:text-3xl">Дашборд</h1>
+        <p class="mt-1 text-xs text-ui-muted xl:text-sm">
           {{ roleLabel }}<span v-if="linkedMaster"> · {{ masterName(linkedMaster) }}</span>
         </p>
       </div>
       <BaseButton
         type="button"
-        :disabled="pending"
-        class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 xl:min-h-10 xl:gap-2 xl:px-4 xl:py-2.5 xl:text-sm"
+        variant="neutral"
+        size="sm"
+        :loading="pending"
         @click="refreshAll"
       >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
@@ -314,69 +315,69 @@ const availabilityRows = computed(() =>
       </BaseButton>
     </div>
 
-    <p v-if="!isBarber || !barberId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
+    <p v-if="!isBarber || !barberId" class="ui-status-warning rounded-xl px-3 py-2 text-xs xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       Для повного огляду потрібен акаунт із роллю майстра або прив’язкою до профілю майстра.
     </p>
 
-    <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
+    <p v-if="error" class="ui-status-danger rounded-xl px-3 py-2 text-xs xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити dashboard майстра.') }}
     </p>
 
     <ReviewsRatingSummary :stats="reviewStats" :loading="reviewPending" :error="reviewError" />
 
-    <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+    <BaseCard as="section" padding="sm">
       <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
         <div>
-          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Статуси бронювань</h2>
-          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Діапазон: {{ formatInputDate(today) }} - {{ formatInputDate(rangeEnd) }}</p>
+          <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Статуси бронювань</h2>
+          <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">Діапазон: {{ formatInputDate(today) }} - {{ formatInputDate(rangeEnd) }}</p>
         </div>
-        <NuxtLink to="/my-bookings" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
+        <NuxtLink to="/my-bookings" class="base-button base-button--neutral min-h-8 gap-1.5 px-3 py-1.5 text-xs xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
           Мої бронювання
           <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
         </NuxtLink>
       </div>
       <div class="mt-2 grid grid-cols-3 gap-2 xl:mt-3 xl:gap-3">
-        <div v-for="summary in statusSummaries" :key="summary.status" class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
-          <p class="truncate text-xs text-slate-500 xl:text-sm">{{ summary.label }}</p>
-          <p class="mt-0.5 text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ summary.count }}</p>
-        </div>
+        <BaseCard v-for="summary in statusSummaries" :key="summary.status" variant="subtle" padding="sm" class="rounded-xl xl:rounded-2xl">
+          <p class="truncate text-xs text-ui-muted xl:text-sm">{{ summary.label }}</p>
+          <p class="mt-0.5 text-xl font-semibold text-ui-primary xl:mt-1 xl:text-2xl">{{ summary.count }}</p>
+        </BaseCard>
       </div>
-    </section>
+    </BaseCard>
 
     <div class="grid gap-2 md:grid-cols-2 xl:gap-4">
-      <article class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
-        <p class="text-xs text-slate-500 xl:text-sm">Сьогодні</p>
-        <p class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">{{ todayBookings.length }}</p>
-        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">{{ formatDuration(todayBookedMinutes) }} · {{ formatPrice(todayRevenue) }}</p>
-      </article>
-      <article class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
-        <p class="text-xs text-slate-500 xl:text-sm">Наступний запис</p>
-        <p class="mt-1 text-xl font-semibold text-slate-900 xl:mt-2 xl:text-2xl">
+      <BaseCard as="article" padding="sm">
+        <p class="text-xs text-ui-muted xl:text-sm">Сьогодні</p>
+        <p class="mt-1 text-2xl font-semibold text-ui-primary xl:mt-2 xl:text-3xl">{{ todayBookings.length }}</p>
+        <p class="mt-1 text-xs text-ui-muted xl:mt-2 xl:text-sm">{{ formatDuration(todayBookedMinutes) }} · {{ formatPrice(todayRevenue) }}</p>
+      </BaseCard>
+      <BaseCard as="article" padding="sm">
+        <p class="text-xs text-ui-muted xl:text-sm">Наступний запис</p>
+        <p class="mt-1 text-xl font-semibold text-ui-primary xl:mt-2 xl:text-2xl">
           {{ nextTodayBooking ? formatTime(bookingStart(nextTodayBooking)) : 'Немає' }}
         </p>
-        <p class="mt-1 truncate text-xs text-slate-500 xl:mt-2 xl:text-sm">
+        <p class="mt-1 truncate text-xs text-ui-muted xl:mt-2 xl:text-sm">
           {{ nextTodayBooking ? `${formatDateTime(bookingStart(nextTodayBooking))} · ${bookingServicesLabel(nextTodayBooking, services)}` : 'На сьогодні наступних записів немає' }}
         </p>
-      </article>
+      </BaseCard>
     </div>
 
     <div class="grid gap-3 xl:gap-4">
-      <section class="rounded-[1.25rem] border border-slate-200 bg-white shadow-sm xl:rounded-[1.75rem]">
-        <div class="border-b border-slate-200 px-3 py-2 xl:px-4 xl:py-3">
-          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Сьогоднішній розклад</h2>
-          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ formatInputDate(today) }}</p>
+      <BaseCard as="section" padding="none">
+        <div class="border-b border-ui px-3 py-2 xl:px-4 xl:py-3">
+          <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Сьогоднішній розклад</h2>
+          <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">{{ formatInputDate(today) }}</p>
         </div>
-        <div v-if="pending" class="p-3 text-xs text-slate-500 xl:p-4 xl:text-sm">Завантаження даних...</div>
-        <div v-else-if="!todayBookings.length" class="p-3 text-xs text-slate-500 xl:p-4 xl:text-sm">На сьогодні записів немає.</div>
-        <div v-else class="divide-y divide-slate-100">
+        <BaseLoader v-if="pending" label="Завантаження розкладу…" size="sm" />
+        <BaseEmptyState v-else-if="!todayBookings.length" compact title="На сьогодні записів немає" />
+        <div v-else class="divide-y divide-ui">
           <article v-for="booking in todayBookings.slice(0, 6)" :key="booking.id" class="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2 px-3 py-2 md:grid-cols-[120px_1fr_auto] md:items-center xl:gap-3 xl:px-4 xl:py-3">
             <div>
-              <p class="text-sm font-semibold text-slate-900 xl:text-base">{{ formatTime(bookingStart(booking)) }}</p>
-              <p class="text-xs text-slate-500">{{ formatTime(bookingEnd(booking)) }}</p>
+              <p class="text-sm font-semibold text-ui-primary xl:text-base">{{ formatTime(bookingStart(booking)) }}</p>
+              <p class="text-xs text-ui-muted">{{ formatTime(bookingEnd(booking)) }}</p>
             </div>
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-slate-900 xl:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-              <p class="mt-0.5 truncate text-xs text-slate-500 xl:mt-1 xl:text-sm">
+              <p class="truncate text-sm font-medium text-ui-primary xl:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
+              <p class="mt-0.5 truncate text-xs text-ui-muted xl:mt-1 xl:text-sm">
                 {{ bookingServicesLabel(booking, services) }} · {{ bookingComment(booking) || 'Без коментаря' }}
               </p>
             </div>
@@ -385,150 +386,152 @@ const availabilityRows = computed(() =>
             </div>
           </article>
         </div>
-      </section>
+      </BaseCard>
     </div>
 
     <div class="grid gap-3 xl:grid-cols-2 xl:gap-4">
-      <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+      <BaseCard as="section" padding="sm">
         <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
           <div>
-            <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Найближчі 7 днів</h2>
-            <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Заповнення відносно робочого дня 09:00-20:00.</p>
+            <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Найближчі 7 днів</h2>
+            <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">Заповнення відносно робочого дня 09:00-20:00.</p>
           </div>
-          <p class="rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-medium text-cyan-700 xl:px-3 xl:py-1 xl:text-sm">
+          <BaseBadge tone="info" size="md">
             {{ formatPrice(rangeRevenue) }}
-          </p>
+          </BaseBadge>
         </div>
         <div class="mt-2 space-y-2 xl:mt-3 xl:space-y-3">
           <div v-for="day in daySummaries" :key="day.date" class="space-y-1.5 xl:space-y-2">
             <div class="flex items-center justify-between gap-3 text-xs xl:gap-4 xl:text-sm">
-              <span class="font-medium text-slate-900">{{ day.label }}</span>
-              <span class="truncate text-right text-slate-500">
+              <span class="font-medium text-ui-primary">{{ day.label }}</span>
+              <span class="truncate text-right text-ui-muted">
                 {{ day.dayOff ? 'Вихідний' : `${day.bookings} записів · ${formatDuration(day.bookedMinutes)}` }}
               </span>
             </div>
-            <div class="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div class="h-2 overflow-hidden rounded-full bg-ui-disabled">
               <div
                 class="h-full rounded-full"
-                :class="day.dayOff ? 'bg-slate-300' : 'bg-cyan-500'"
+                :class="day.dayOff ? 'bg-ui-disabled' : 'bg-ui-accent'"
                 :style="{ width: `${day.busyPercent}%` }"
               />
             </div>
-            <p v-if="day.dayOff" class="text-xs text-slate-500">Понеділок — вихідний день за замовчуванням.</p>
-            <p v-else-if="day.blocks" class="text-xs text-slate-500">Блокування часу: {{ day.blocks }}</p>
+            <p v-if="day.dayOff" class="text-xs text-ui-muted">Понеділок — вихідний день за замовчуванням.</p>
+            <p v-else-if="day.blocks" class="text-xs text-ui-muted">Блокування часу: {{ day.blocks }}</p>
           </div>
         </div>
-      </section>
+      </BaseCard>
 
-      <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+      <BaseCard as="section" padding="sm">
         <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
           <div>
-            <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Послуги</h2>
-            <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">Активні послуги персонального профілю майстра.</p>
+            <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Послуги</h2>
+            <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">Активні послуги персонального профілю майстра.</p>
           </div>
-          <NuxtLink to="/my-services" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
+          <NuxtLink to="/my-services" class="base-button base-button--neutral min-h-8 gap-1.5 px-3 py-1.5 text-xs xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
             Послуги
             <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
           </NuxtLink>
         </div>
 
         <dl class="mt-2 grid grid-cols-3 gap-2 xl:mt-3 xl:gap-3">
-          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
-            <dt class="truncate text-xs text-slate-500 xl:text-sm">Активні</dt>
-            <dd class="mt-0.5 text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ activeServices.length }}</dd>
-          </div>
-          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
-            <dt class="truncate text-xs text-slate-500 xl:text-sm">Тривалість</dt>
-            <dd class="mt-0.5 truncate text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ formatDuration(averageServiceDuration) }}</dd>
-          </div>
-          <div class="rounded-xl bg-slate-50 px-2 py-2 xl:rounded-2xl xl:px-4 xl:py-2.5">
-            <dt class="truncate text-xs text-slate-500 xl:text-sm">Ціна</dt>
-            <dd class="mt-0.5 truncate text-xl font-semibold text-slate-900 xl:mt-1 xl:text-2xl">{{ formatPrice(averageServicePrice) }}</dd>
-          </div>
+          <BaseCard variant="subtle" padding="sm" class="rounded-xl xl:rounded-2xl">
+            <dt class="truncate text-xs text-ui-muted xl:text-sm">Активні</dt>
+            <dd class="mt-0.5 text-xl font-semibold text-ui-primary xl:mt-1 xl:text-2xl">{{ activeServices.length }}</dd>
+          </BaseCard>
+          <BaseCard variant="subtle" padding="sm" class="rounded-xl xl:rounded-2xl">
+            <dt class="truncate text-xs text-ui-muted xl:text-sm">Тривалість</dt>
+            <dd class="mt-0.5 truncate text-xl font-semibold text-ui-primary xl:mt-1 xl:text-2xl">{{ formatDuration(averageServiceDuration) }}</dd>
+          </BaseCard>
+          <BaseCard variant="subtle" padding="sm" class="rounded-xl xl:rounded-2xl">
+            <dt class="truncate text-xs text-ui-muted xl:text-sm">Ціна</dt>
+            <dd class="mt-0.5 truncate text-xl font-semibold text-ui-primary xl:mt-1 xl:text-2xl">{{ formatPrice(averageServicePrice) }}</dd>
+          </BaseCard>
         </dl>
 
-        <div class="mt-2 max-h-[16rem] divide-y divide-slate-100 overflow-y-auto pr-1 xl:mt-3 xl:max-h-[18rem] xl:pr-2">
+        <div class="mt-2 max-h-[16rem] divide-y divide-ui overflow-y-auto pr-1 xl:mt-3 xl:max-h-[18rem] xl:pr-2">
           <article v-for="service in activeServices" :key="service.id" class="py-2 xl:py-2.5">
             <div class="grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start xl:gap-2">
               <div class="min-w-0">
-                <p class="text-sm font-medium text-slate-900">{{ service.name }}</p>
-                <p v-if="service.description" class="mt-0.5 line-clamp-1 text-xs text-slate-500">{{ service.description }}</p>
+                <p class="text-sm font-medium text-ui-primary">{{ service.name }}</p>
+                <p v-if="service.description" class="mt-0.5 line-clamp-1 text-xs text-ui-muted">{{ service.description }}</p>
               </div>
               <div class="min-w-0">
-                <p class="text-sm font-medium text-slate-700">{{ service.title_en || 'Без англійської назви' }}</p>
-                <p v-if="service.description_en" class="mt-0.5 line-clamp-1 text-xs text-slate-500">{{ service.description_en }}</p>
-                <p v-else class="mt-0.5 text-xs text-slate-400">Без опису англійською</p>
+                <p class="text-sm font-medium text-ui-secondary">{{ service.title_en || 'Без англійської назви' }}</p>
+                <p v-if="service.description_en" class="mt-0.5 line-clamp-1 text-xs text-ui-muted">{{ service.description_en }}</p>
+                <p v-else class="mt-0.5 text-xs text-ui-muted">Без опису англійською</p>
               </div>
-              <div class="shrink-0 text-xs text-slate-500 sm:text-right">
-                <p class="font-medium text-slate-900">{{ formatPrice(service.price) }}</p>
+              <div class="shrink-0 text-xs text-ui-muted sm:text-right">
+                <p class="font-medium text-ui-primary">{{ formatPrice(service.price) }}</p>
                 <p class="mt-0.5">{{ formatDuration(service.duration_minutes) }}</p>
               </div>
             </div>
           </article>
-          <p v-if="!activeServices.length" class="py-2 text-xs text-slate-500 xl:py-3 xl:text-sm">Активних послуг немає.</p>
+          <BaseEmptyState v-if="!activeServices.length" compact title="Активних послуг немає" />
         </div>
-      </section>
+      </BaseCard>
     </div>
 
-    <section class="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:rounded-[1.75rem] xl:p-4">
+    <BaseCard as="section" padding="sm">
       <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
         <div>
-          <h2 class="text-base font-semibold text-slate-900 xl:text-lg">Доступність</h2>
-          <p class="mt-0.5 text-xs text-slate-500 xl:mt-1 xl:text-sm">
+          <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Доступність</h2>
+          <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">
             Місяць вперед за відкритими інтервалами {{ workdayStart }}-{{ workdayEnd }}. Понеділок — вихідний за замовчуванням.
           </p>
         </div>
-        <NuxtLink to="/my-time-blocks" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
+        <NuxtLink to="/my-time-blocks" class="base-button base-button--neutral min-h-8 gap-1.5 px-3 py-1.5 text-xs xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
           Доступність
           <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
         </NuxtLink>
       </div>
 
-      <div class="availability-table-scroll mt-2 overflow-x-auto rounded-xl border border-slate-200 xl:mt-3 xl:rounded-2xl">
-        <table class="availability-table min-w-[680px] w-full divide-y divide-slate-200 text-xs xl:min-w-[760px] xl:text-sm">
-          <thead class="bg-slate-50">
-            <tr>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Дата</th>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Статус</th>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Відкрито</th>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Доступно</th>
-              <th class="px-3 py-2 text-left font-medium text-slate-500 xl:px-4 xl:py-3">Блокування часу</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+      <BaseTable
+        dense
+        caption="Доступність майстра на місяць"
+        wrapper-class="availability-table-scroll mt-2 rounded-xl xl:mt-3 xl:rounded-2xl"
+        min-width="clamp(680px, 60vw, 760px)"
+        table-class="text-xs xl:text-sm"
+      >
+        <template #head>
+          <tr>
+            <th>Дата</th>
+            <th>Статус</th>
+            <th>Відкрито</th>
+            <th>Доступно</th>
+            <th>Блокування часу</th>
+          </tr>
+        </template>
             <tr v-for="row in availabilityRows" :key="row.date">
               <td data-label="Дата" class="px-3 py-2 xl:px-4 xl:py-3">
-                <p class="font-medium text-slate-900">{{ row.label }}</p>
-                <p class="mt-1 text-xs text-slate-500">{{ row.dayOff ? 'Понеділок' : `${workdayStart}-${workdayEnd}` }}</p>
+                <p class="font-medium text-ui-primary">{{ row.label }}</p>
+                <p class="mt-1 text-xs text-ui-muted">{{ row.dayOff ? 'Понеділок' : `${workdayStart}-${workdayEnd}` }}</p>
               </td>
               <td data-label="Статус" class="px-3 py-2 xl:px-4 xl:py-3">
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-medium xl:px-3 xl:py-1" :class="availabilityStatusClass(row.tone)">
+                <BaseBadge :tone="availabilityBadgeTone(row.tone)">
                   {{ row.status }}
-                </span>
+                </BaseBadge>
               </td>
               <td data-label="Відкрито" class="px-3 py-2 xl:px-4 xl:py-3">
-                <p class="font-medium text-slate-900">{{ formatDuration(row.openMinutes) }}</p>
-                <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${row.busyPercent}%` }" />
+                <p class="font-medium text-ui-primary">{{ formatDuration(row.openMinutes) }}</p>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-ui-disabled">
+                  <div class="h-full rounded-full bg-ui-success" :style="{ width: `${row.busyPercent}%` }" />
                 </div>
               </td>
-              <td data-label="Доступно" class="px-3 py-2 text-slate-700 xl:px-4 xl:py-3">{{ formatDuration(row.availableMinutes) }}</td>
-              <td data-label="Блокування часу" class="px-3 py-2 xl:px-4 xl:py-3">
+              <td data-label="Доступно" class="px-3 py-2 text-ui-secondary xl:px-4 xl:py-3">{{ formatDuration(row.availableMinutes) }}</td>
+              <td data-label="Блокування часу" class="min-w-[210px] whitespace-normal">
                 <div v-if="row.blocks.length" class="space-y-1">
-                  <p v-for="segment in row.blocks.slice(0, 2)" :key="segment.block.id" class="text-sm text-slate-600">
+                  <p v-for="segment in row.blocks.slice(0, 2)" :key="segment.block.id" class="text-sm text-ui-secondary">
                     {{ formatTime(segment.block.start_at) }}-{{ formatTime(segment.block.end_at) }} · {{ segment.block.reason || 'Без причини' }}
                   </p>
-                  <p v-if="row.blocks.length > 2" class="text-xs text-slate-400">
+                  <p v-if="row.blocks.length > 2" class="text-xs text-ui-muted">
                     +{{ row.blocks.length - 2 }} ще
                   </p>
                 </div>
-                <span v-else class="text-slate-400">{{ row.dayOff ? 'Вихідний за графіком' : '-' }}</span>
+                <span v-else class="text-ui-muted">{{ row.dayOff ? 'Вихідний за графіком' : '-' }}</span>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      </BaseTable>
+    </BaseCard>
 
   </div>
 </template>
@@ -543,45 +546,5 @@ const availabilityRows = computed(() =>
     border-radius: 0;
   }
 
-  .availability-table {
-    display: table !important;
-    width: 100% !important;
-  }
-
-  .availability-table thead {
-    display: table-header-group !important;
-  }
-
-  .availability-table tbody {
-    display: table-row-group !important;
-    padding: 0 !important;
-    background: transparent !important;
-  }
-
-  .availability-table tr {
-    display: table-row !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-  }
-
-  .availability-table th,
-  .availability-table td {
-    display: table-cell !important;
-    padding: 0.5rem 0.625rem !important;
-    text-align: left !important;
-    vertical-align: top;
-    white-space: nowrap;
-  }
-
-  .availability-table td::before {
-    display: none !important;
-    content: none !important;
-  }
-
-  .availability-table td:last-child {
-    min-width: 210px;
-    white-space: normal;
-  }
 }
 </style>

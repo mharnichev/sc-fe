@@ -97,13 +97,13 @@ const eventLabel = (type: BlogSubscriptionEventType) => ({
 }[type])
 
 const eventTone = (type: BlogSubscriptionEventType) => ({
-  subscribed: 'bg-emerald-50 text-emerald-700',
-  resubscribed: 'bg-cyan-50 text-cyan-700',
-  unsubscribed: 'bg-rose-50 text-rose-700',
-}[type])
+  subscribed: 'success',
+  resubscribed: 'info',
+  unsubscribed: 'danger',
+} as const)[type]
 
 const statusLabel = (status: string) => status === 'subscribed' ? 'активна' : 'відписана'
-const statusTone = (status: string) => status === 'subscribed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+const statusTone = (status: string) => status === 'subscribed' ? 'success' : 'neutral'
 
 const eventCount = (type: BlogSubscriptionEventType) =>
   statistics.value?.events.find(item => item.event_type === type)?.count || 0
@@ -329,34 +329,37 @@ const refreshAll = () => refresh()
           <EnvelopeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
           <h2 class="text-lg font-semibold text-slate-900">Останні підписники</h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+        <BaseTable
+          caption="Останні підписники блогу"
+          wrapper-class="rounded-none border-0"
+          min-width="46rem"
+          :loading="pending"
+          loading-label="Завантаження підписників…"
+          :empty="!subscriptions.length"
+          empty-title="Підписників ще немає"
+        >
+          <template #head>
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Email</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Джерело</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Підписка</th>
+              <th>Email</th>
+              <th>Статус</th>
+              <th>Джерело</th>
+              <th>Підписка</th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+          </template>
             <tr v-for="subscription in subscriptions" :key="subscription.id">
-              <td data-label="Email" class="px-4 py-3">
-                <p class="font-medium text-slate-900">{{ subscription.email }}</p>
-                <p class="mt-1 text-xs text-slate-500">{{ subscription.name || `Subscription #${subscription.id}` }}</p>
+              <td>
+                <p class="font-medium text-ui-primary">{{ subscription.email }}</p>
+                <p class="mt-1 text-xs text-ui-muted">{{ subscription.name || `Subscription #${subscription.id}` }}</p>
               </td>
-              <td data-label="Статус" class="px-4 py-3">
-                <span class="rounded-full px-3 py-1 text-xs font-medium" :class="statusTone(subscription.status)">
+              <td>
+                <BaseBadge :tone="statusTone(subscription.status)">
                   {{ statusLabel(subscription.status) }}
-                </span>
+                </BaseBadge>
               </td>
-              <td data-label="Джерело" class="px-4 py-3 text-slate-700">{{ sourceLabel(subscription.source) }}</td>
-              <td data-label="Підписка" class="px-4 py-3 text-slate-700">{{ formatDateTime(subscription.subscribed_at) }}</td>
+              <td class="text-ui-secondary">{{ sourceLabel(subscription.source) }}</td>
+              <td class="whitespace-nowrap text-ui-secondary">{{ formatDateTime(subscription.subscribed_at) }}</td>
             </tr>
-          </tbody>
-        </table>
-        <p v-if="!pending && !subscriptions.length" class="px-5 py-8 text-center text-sm text-slate-500">
-          Підписників ще немає.
-        </p>
+        </BaseTable>
       </section>
 
       <section class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
@@ -364,31 +367,34 @@ const refreshAll = () => refresh()
           <CalendarDaysIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
           <h2 class="text-lg font-semibold text-slate-900">Останні події</h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+        <BaseTable
+          caption="Останні події блогу"
+          wrapper-class="rounded-none border-0"
+          min-width="44rem"
+          :loading="pending"
+          loading-label="Завантаження подій…"
+          :empty="!events.length"
+          empty-title="Подій блогу ще немає"
+        >
+          <template #head>
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Подія</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Підписка</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Джерело</th>
-              <th class="px-4 py-3 text-left font-medium text-slate-500">Дата</th>
+              <th>Подія</th>
+              <th>Підписка</th>
+              <th>Джерело</th>
+              <th>Дата</th>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+          </template>
             <tr v-for="event in events" :key="event.id">
-              <td data-label="Подія" class="px-4 py-3">
-                <span class="rounded-full px-3 py-1 text-xs font-medium" :class="eventTone(event.event_type)">
+              <td>
+                <BaseBadge :tone="eventTone(event.event_type)">
                   {{ eventLabel(event.event_type) }}
-                </span>
+                </BaseBadge>
               </td>
-              <td data-label="Підписка" class="px-4 py-3 text-slate-700">#{{ event.subscription_id }}</td>
-              <td data-label="Джерело" class="px-4 py-3 text-slate-700">{{ sourceLabel(event.source) }}</td>
-              <td data-label="Дата" class="px-4 py-3 text-slate-700">{{ formatDateTime(event.occurred_at) }}</td>
+              <td class="text-ui-secondary">#{{ event.subscription_id }}</td>
+              <td class="text-ui-secondary">{{ sourceLabel(event.source) }}</td>
+              <td class="whitespace-nowrap text-ui-secondary">{{ formatDateTime(event.occurred_at) }}</td>
             </tr>
-          </tbody>
-        </table>
-        <p v-if="!pending && !events.length" class="px-5 py-8 text-center text-sm text-slate-500">
-          Подій блогу ще немає.
-        </p>
+        </BaseTable>
       </section>
     </div>
 

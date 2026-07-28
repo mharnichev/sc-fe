@@ -1,9 +1,11 @@
-const themeStorageKey = 'soulcuts-backoffice-theme'
+import {
+  applyBackofficeTheme,
+  resolveBackofficeTheme,
+  type BackofficeTheme,
+} from '~/composables/useBackofficeTheme'
 
 export default defineNuxtPlugin(() => {
-  const storedTheme = window.localStorage.getItem(themeStorageKey)
-  const theme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'dark'
-
-  document.documentElement.dataset.backofficeTheme = theme
-  document.documentElement.style.colorScheme = theme
+  const theme = useState<BackofficeTheme>('backoffice-theme', resolveBackofficeTheme)
+  theme.value = resolveBackofficeTheme()
+  applyBackofficeTheme(theme.value)
 })

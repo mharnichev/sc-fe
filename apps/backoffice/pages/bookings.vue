@@ -68,6 +68,8 @@ const initialStatus: BookingStatus | '' = bookingFilterStatuses.includes(routeSt
   ? routeStatus as BookingStatus
   : ''
 const viewMode = ref<CalendarViewMode>('week')
+const calendarViewOptions = (['today', 'week', 'month'] as CalendarViewMode[])
+  .map(mode => ({ value: mode, label: calendarViewLabels[mode] }))
 const anchorDate = ref(today)
 const filters = reactive({
   master_id: '',
@@ -275,6 +277,7 @@ const setViewMode = (mode: CalendarViewMode) => {
     anchorDate.value = todayInput()
   }
 }
+const handleViewModeUpdate = (mode: string | number | boolean) => setViewMode(mode as CalendarViewMode)
 
 const moveRange = (direction: -1 | 1) => {
   anchorDate.value = addDaysInput(anchorDate.value, direction * calendar.daysInView(viewMode.value))
@@ -688,48 +691,46 @@ const deleteSelectedBlock = async () => {
   <div class="space-y-4 md:space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3 md:gap-4">
       <div>
-        <p class="type-eyebrow text-xs text-cyan-700 md:text-sm">Календар</p>
-        <h1 class="type-page-title mt-1 text-2xl text-slate-900 md:mt-2 md:text-3xl">Бронювання</h1>
+        <p class="type-eyebrow ui-eyebrow text-xs md:text-sm">Календар</p>
+        <h1 class="type-page-title mt-1 text-2xl text-ui-primary md:mt-2 md:text-3xl">Бронювання</h1>
       </div>
       <div v-if="!isAdmin" class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
-        <NuxtLink to="/my-bookings" class="inline-flex min-h-9 flex-1 items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
+        <NuxtLink to="/my-bookings" class="base-button base-button--neutral min-h-9 flex-1 px-3 py-2 text-xs sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
           Мої бронювання
         </NuxtLink>
       </div>
     </div>
 
-    <section class="relative z-[140] space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:space-y-4 md:p-4">
+    <BaseCard as="section" padding="sm" class="relative z-[140] space-y-3 md:space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-2 md:gap-3">
-        <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
-          <BaseButton
-            v-for="mode in (['today', 'week', 'month'] as CalendarViewMode[])"
-            :key="mode"
-            type="button"
-            class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
-            :class="viewMode === mode ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'"
-            @click="setViewMode(mode)"
-          >
-            {{ calendarViewLabels[mode] }}
-          </BaseButton>
-        </div>
+        <BaseSegmentedControl
+          :model-value="viewMode"
+          :options="calendarViewOptions"
+          aria-label="Режим календаря"
+          container-class="grid grid-cols-3 gap-1 rounded-2xl bg-ui-subtle p-1"
+          option-class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
+          @update:model-value="handleViewModeUpdate"
+        />
 
         <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 sm:w-auto md:flex md:flex-wrap md:gap-2">
           <BaseButton
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-10 md:w-10"
+            variant="icon"
+            class="h-9 w-9 md:h-10 md:w-10"
             aria-label="Попередній період"
             title="Попередній період"
             @click="moveRange(-1)"
           >
             <ChevronLeftIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
           </BaseButton>
-          <BaseCalendar v-model="anchorDate" class="min-h-9 min-w-0 rounded-xl border border-slate-300 px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm" />
-          <BaseButton type="button" class="min-h-9 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 md:min-h-10 md:px-4 md:py-2 md:text-sm" @click="goToToday">
+          <BaseCalendar v-model="anchorDate" class="base-control min-h-9 min-w-0 rounded-xl px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm" />
+          <BaseButton type="button" variant="neutral" size="sm" @click="goToToday">
             Сьогодні
           </BaseButton>
           <BaseButton
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-10 md:w-10"
+            variant="icon"
+            class="h-9 w-9 md:h-10 md:w-10"
             aria-label="Наступний період"
             title="Наступний період"
             @click="moveRange(1)"
@@ -740,50 +741,50 @@ const deleteSelectedBlock = async () => {
       </div>
 
       <div class="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-5">
-        <div v-if="isAdmin" ref="masterFilterRef" class="relative min-w-0 space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
+        <div v-if="isAdmin" ref="masterFilterRef" class="relative min-w-0 space-y-1 text-xs text-ui-secondary md:space-y-2 md:text-sm">
           <span class="inline-flex items-center gap-1.5 font-medium">
-            <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            <UserCircleIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
             Майстер
           </span>
           <BaseButton
             type="button"
-            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
             :aria-expanded="masterFilterOpen"
             @click="masterFilterOpen = !masterFilterOpen"
           >
             <span class="flex min-w-0 items-center gap-2">
-              <span v-if="selectedMaster" class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+              <span v-if="selectedMaster" class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
                 <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterName(selectedMaster)" class="h-full w-full object-cover">
                 <span v-else>{{ masterInitials(selectedMaster) }}</span>
               </span>
-              <span class="min-w-0 truncate" :class="selectedMaster ? 'text-slate-900' : 'text-slate-500'">
+              <span class="min-w-0 truncate" :class="selectedMaster ? 'text-ui-primary' : 'text-ui-muted'">
                 {{ selectedMaster ? masterName(selectedMaster) : 'Усі майстри' }}
               </span>
             </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
           </BaseButton>
           <div
             v-if="masterFilterOpen"
-            class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl p-1 md:rounded-2xl"
           >
             <BaseButton
               type="button"
-              class="flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
-              :class="!filters.master_id ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition"
+              :class="!filters.master_id ? 'is-selected' : ''"
               @click="selectMasterFilter('')"
             >
-              <span class="h-7 w-7 shrink-0 rounded-full bg-slate-100 ring-1 ring-slate-200" />
+              <span class="h-7 w-7 shrink-0 rounded-full border border-ui bg-ui-subtle" />
               <span class="min-w-0 truncate">Усі майстри</span>
             </BaseButton>
             <BaseButton
               v-for="master in masterOptions"
               :key="master.id"
               type="button"
-              class="flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-              :class="filters.master_id === String(master.id) ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition"
+              :class="filters.master_id === String(master.id) ? 'is-selected' : ''"
               @click="selectMasterFilter(String(master.id))"
             >
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
                 <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterName(master)" class="h-full w-full object-cover">
                 <span v-else>{{ masterInitials(master) }}</span>
               </span>
@@ -792,31 +793,31 @@ const deleteSelectedBlock = async () => {
           </div>
         </div>
 
-        <div ref="statusFilterRef" class="relative min-w-0 space-y-1 text-xs text-slate-700 md:space-y-2 md:text-sm">
+        <div ref="statusFilterRef" class="relative min-w-0 space-y-1 text-xs text-ui-secondary md:space-y-2 md:text-sm">
           <span class="inline-flex items-center gap-1.5 font-medium">
-            <FunnelIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            <FunnelIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
             Статус
           </span>
           <BaseButton
             type="button"
-            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
             :aria-expanded="statusFilterOpen"
             @click="statusFilterOpen = !statusFilterOpen"
           >
             <span class="min-w-0 overflow-hidden">
               <BookingStatusBadge v-if="selectedStatusFilter" :status="selectedStatusFilter" />
-              <span v-else class="block truncate text-slate-500">Будь-який статус</span>
+              <span v-else class="block truncate text-ui-muted">Будь-який статус</span>
             </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="statusFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="statusFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
           </BaseButton>
           <div
             v-if="statusFilterOpen"
-            class="booking-select-menu booking-status-menu absolute z-[180] mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu booking-status-menu base-select__menu absolute z-[180] mt-1 w-full min-w-0 overflow-hidden rounded-xl p-1 md:rounded-2xl"
           >
             <BaseButton
               type="button"
-              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
-              :class="!selectedStatusFilter ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
+              :class="!selectedStatusFilter ? 'is-selected' : ''"
               @click="selectStatusFilter('')"
             >
               <span class="min-w-0 truncate">Будь-який статус</span>
@@ -825,8 +826,8 @@ const deleteSelectedBlock = async () => {
               v-for="status in bookingFilterStatuses"
               :key="status"
               type="button"
-              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-50"
-              :class="selectedStatusFilter === status ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left transition"
+              :class="selectedStatusFilter === status ? 'is-selected' : ''"
               @click="selectStatusFilter(status)"
             >
               <BookingStatusBadge :status="status" />
@@ -834,30 +835,30 @@ const deleteSelectedBlock = async () => {
           </div>
         </div>
 
-        <div ref="serviceFilterRef" class="relative col-span-2 min-w-0 space-y-1 text-xs text-slate-700 md:col-span-1 md:space-y-2 md:text-sm">
+        <div ref="serviceFilterRef" class="relative col-span-2 min-w-0 space-y-1 text-xs text-ui-secondary md:col-span-1 md:space-y-2 md:text-sm">
           <span class="inline-flex items-center gap-1.5 font-medium">
-            <ScissorsIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+            <ScissorsIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
             Послуга
           </span>
           <BaseButton
             type="button"
-            class="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
+            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
             :aria-expanded="serviceFilterOpen"
             @click="serviceFilterOpen = !serviceFilterOpen"
           >
-            <span class="min-w-0 truncate" :class="selectedServiceFilter ? 'text-slate-900' : 'text-slate-500'">
+            <span class="min-w-0 truncate" :class="selectedServiceFilter ? 'text-ui-primary' : 'text-ui-muted'">
               {{ selectedServiceFilter ? serviceName(selectedServiceFilter) : 'Усі послуги' }}
             </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="serviceFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="serviceFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
           </BaseButton>
           <div
             v-if="serviceFilterOpen"
-            class="booking-select-menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
+            class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl p-1 md:rounded-2xl"
           >
             <BaseButton
               type="button"
-              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-500 transition hover:bg-slate-50"
-              :class="!filters.service_id ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
+              :class="!filters.service_id ? 'is-selected' : ''"
               @click="selectServiceFilter('')"
             >
               <span class="min-w-0 truncate">Усі послуги</span>
@@ -866,8 +867,8 @@ const deleteSelectedBlock = async () => {
               v-for="service in bookingServiceOptions"
               :key="service.id"
               type="button"
-              class="flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-              :class="filters.service_id === String(service.id) ? 'bg-slate-50' : ''"
+              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
+              :class="filters.service_id === String(service.id) ? 'is-selected' : ''"
               @click="selectServiceFilter(String(service.id))"
             >
               <span class="min-w-0 truncate">{{ serviceName(service) }}</span>
@@ -875,31 +876,34 @@ const deleteSelectedBlock = async () => {
           </div>
         </div>
 
-        <div class="order-last col-span-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2 md:rounded-2xl md:px-4 md:py-3 md:text-sm xl:col-span-5">
-          <p class="font-medium text-slate-900">{{ anchorDate }} - {{ rangeEnd }}</p>
+        <div class="order-last col-span-2 min-w-0 rounded-xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:col-span-2 md:rounded-2xl md:px-4 md:py-3 md:text-sm xl:col-span-5">
+          <p class="font-medium text-ui-primary">{{ anchorDate }} - {{ rangeEnd }}</p>
           <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }} · Відкритих інтервалів: {{ availabilityWindows.length }}</p>
         </div>
         <div class="col-span-2 flex min-w-0 items-end gap-2 md:col-span-1 md:gap-3">
-          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
+          <BaseButton type="button" variant="primary" class="flex-1" @click="applyFilters">
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />
             <span class="truncate">Застосувати</span>
           </BaseButton>
-          <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
+          <BaseButton type="button" variant="neutral" class="flex-1" @click="clearFilters">
             <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             <span class="truncate">Очистити</span>
           </BaseButton>
         </div>
       </div>
-    </section>
+    </BaseCard>
 
     <div class="space-y-2 md:space-y-3">
-      <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
+      <p v-if="error" class="ui-status-danger rounded-xl px-3 py-2 text-xs md:rounded-2xl md:px-4 md:py-3 md:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити календар бронювань.') }}
       </p>
-      <p v-if="pending" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">Завантаження календаря...</p>
-      <p v-else-if="!calendarEntries.length" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 md:rounded-2xl md:px-4 md:py-3 md:text-sm">
-        У вибраному діапазоні немає бронювань або блокувань. Вільні слоти можна вибирати прямо в календарі.
-      </p>
+      <BaseLoader v-if="pending" label="Завантаження календаря…" size="sm" />
+      <BaseEmptyState
+        v-else-if="!calendarEntries.length"
+        compact
+        title="У вибраному діапазоні немає бронювань або блокувань"
+        description="Вільні слоти можна вибирати прямо в календарі."
+      />
     </div>
 
     <BookingCalendarGrid
@@ -916,36 +920,38 @@ const deleteSelectedBlock = async () => {
       @entry-click="handleEntryClick"
     />
 
-    <section class="rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 md:gap-3 md:px-4 md:py-3">
+    <BaseCard as="section" padding="none">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-2 md:gap-3 md:px-4 md:py-3">
         <div>
-          <h2 class="text-base font-semibold text-slate-900 md:text-lg">Список бронювань</h2>
-          <p class="mt-0.5 text-xs text-slate-500 md:mt-1 md:text-sm">Поточний діапазон: {{ anchorDate }} - {{ rangeEnd }} · Total: {{ total }}</p>
+          <h2 class="text-base font-semibold text-ui-primary md:text-lg">Список бронювань</h2>
+          <p class="mt-0.5 text-xs text-ui-muted md:mt-1 md:text-sm">Поточний діапазон: {{ anchorDate }} - {{ rangeEnd }} · Total: {{ total }}</p>
         </div>
       </div>
-      <div v-if="!visibleBookings.length" class="p-3 text-sm text-slate-500 md:p-4">Бронювань за цими фільтрами немає.</div>
-      <div v-else class="divide-y divide-slate-100">
+      <BaseEmptyState v-if="!visibleBookings.length" compact title="Бронювань за цими фільтрами немає" />
+      <div v-else class="divide-y divide-ui">
         <article v-for="booking in visibleBookings" :key="booking.id" class="grid gap-2 px-3 py-2 text-left md:grid-cols-[160px_1fr_auto] md:items-center md:gap-3 md:px-4 md:py-3">
           <div class="min-w-0 md:min-w-max">
-            <p class="truncate text-sm font-semibold text-slate-900 md:text-base">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
-            <p class="truncate text-[0.68rem] text-slate-500 md:text-xs">{{ formatDateTime(bookingStart(booking)) }}</p>
+            <p class="truncate text-sm font-semibold text-ui-primary md:text-base">{{ formatTime(bookingStart(booking)) }} - {{ formatTime(bookingEnd(booking)) }}</p>
+            <p class="truncate text-[0.68rem] text-ui-muted md:text-xs">{{ formatDateTime(bookingStart(booking)) }}</p>
           </div>
           <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-slate-900 md:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
-            <p class="mt-0.5 truncate text-xs text-slate-500 md:mt-1 md:text-sm">
+            <p class="truncate text-sm font-medium text-ui-primary md:text-base">{{ customerName(booking) }} · {{ bookingPhone(booking) || 'Без телефону' }}</p>
+            <p class="mt-0.5 truncate text-xs text-ui-muted md:mt-1 md:text-sm">
               {{ bookingListMeta(booking) }}
             </p>
           </div>
           <div class="flex items-center justify-start gap-2 md:flex-wrap md:justify-end md:gap-3">
             <BookingStatusBadge :status="booking.status" />
-            <span
+            <BaseBadge
               v-if="isRedirectedBooking(booking)"
-              class="inline-flex h-7 items-center rounded-full border border-amber-300 bg-amber-50 px-2 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-amber-700 md:h-8"
+              tone="warning"
+              class="h-7 px-2 text-[0.68rem] uppercase tracking-[0.12em] md:h-8"
             >
               Редирект
-            </span>
+            </BaseBadge>
             <BaseButton
-              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-50 md:h-8 md:w-8"
+              variant="icon"
+              class="h-7 w-7 shrink-0 md:h-8 md:w-8"
               aria-label="Переглянути бронювання"
               title="Переглянути"
               @click="selected = booking"
@@ -956,7 +962,7 @@ const deleteSelectedBlock = async () => {
           </div>
         </article>
       </div>
-    </section>
+    </BaseCard>
 
     <BookingDetailsModal
       :booking="selected"
@@ -990,23 +996,24 @@ const deleteSelectedBlock = async () => {
       <template #head="{ close }">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Блокування</p>
-            <h2 class="mt-2 text-2xl font-semibold text-slate-900">Недоступний час</h2>
+            <p class="ui-eyebrow text-sm uppercase tracking-[0.25em]">Блокування</p>
+            <h2 class="mt-2 text-2xl font-semibold text-ui-primary">Недоступний час</h2>
           </div>
           <ModalCloseButton @click="close" />
         </div>
       </template>
       <template #body>
         <div v-if="selectedBlock" class="space-y-4">
-          <div class="rounded-2xl bg-slate-50 px-4 py-3">
-            <p class="font-medium text-slate-900">{{ formatDateTime(selectedBlock.start_at) }} - {{ formatDateTime(selectedBlock.end_at) }}</p>
-            <p class="mt-1 text-sm text-slate-500">{{ selectedBlock.reason || 'Без причини' }}</p>
-          </div>
+          <BaseCard variant="subtle" padding="sm" class="rounded-2xl">
+            <p class="font-medium text-ui-primary">{{ formatDateTime(selectedBlock.start_at) }} - {{ formatDateTime(selectedBlock.end_at) }}</p>
+            <p class="mt-1 text-sm text-ui-muted">{{ selectedBlock.reason || 'Без причини' }}</p>
+          </BaseCard>
           <div class="backoffice-modal-actions">
             <BaseButton
               type="button"
+              variant="danger"
+              :loading="deletingBlock"
               :disabled="deletingBlock"
-              class="backoffice-modal-action-button backoffice-modal-action-danger"
               @click="deleteSelectedBlock"
             >
               <TrashIcon class="h-4 w-4" aria-hidden="true" />

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useId } from 'vue'
+
 defineOptions({ inheritAttrs: false })
 
 type InputValue = string | number | null
@@ -32,7 +34,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   modelModifiers: () => ({}),
   type: 'text',
-  inputClass: 'w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm',
+  inputClass: 'base-control px-4 py-3 text-sm',
 })
 
 const emit = defineEmits<{
@@ -52,8 +54,12 @@ const passthroughAttrs = computed(() => {
 const attrsClass = computed(() => attrs.class)
 const inputRef = ref<HTMLInputElement | null>(null)
 const hasField = computed(() => Boolean(props.label || props.hint || props.error))
+const generatedId = useId()
 
-const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined))
+const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined) || (hasField.value ? `base-input-${generatedId}` : undefined))
+const hintId = computed(() => props.hint && fieldId.value ? `${fieldId.value}-hint` : undefined)
+const errorId = computed(() => props.error && fieldId.value ? `${fieldId.value}-error` : undefined)
+const describedBy = computed(() => errorId.value || hintId.value)
 const normalizedValue = computed(() => props.modelValue ?? props.value ?? '')
 const inputValue = computed(() => props.type === 'file' ? undefined : normalizedValue.value)
 
@@ -86,6 +92,8 @@ defineExpose({
     :label="label"
     :hint="hint"
     :error="error"
+    :hint-id="hintId"
+    :error-id="errorId"
     :required="required"
     :disabled="disabled"
     :root-class="fieldClass"
@@ -116,6 +124,8 @@ defineExpose({
       :required="required"
       :disabled="disabled"
       :readonly="readonly"
+      :aria-describedby="describedBy"
+      :aria-invalid="error ? true : undefined"
       :class="[inputClass, attrsClass]"
       @input="handleInput"
       @change="emit('change', $event)"
@@ -142,6 +152,8 @@ defineExpose({
     :required="required"
     :disabled="disabled"
     :readonly="readonly"
+    :aria-describedby="describedBy"
+    :aria-invalid="error ? true : undefined"
     :class="[inputClass, attrsClass]"
     @input="handleInput"
     @change="emit('change', $event)"

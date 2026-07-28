@@ -117,43 +117,44 @@ const closeDeleteConfirm = (value: boolean) => {
     </section>
 
     <div v-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити шаблони.</div>
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-      <div v-if="pending" class="p-6 text-sm text-slate-500">Завантажуємо шаблони...</div>
-      <table v-else-if="data?.items.length" class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-50">
+    <BaseTable
+      caption="Шаблони повідомлень"
+      min-width="56rem"
+      :loading="pending"
+      loading-label="Завантажуємо шаблони…"
+      :empty="!data?.items.length"
+      empty-title="Шаблонів ще немає"
+    >
+      <template #head>
           <tr>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Назва</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Тип</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Канал</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Мова</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Статус</th>
-            <th class="px-4 py-3 text-left font-medium text-slate-500">Дії</th>
+            <th>Назва</th>
+            <th>Тип</th>
+            <th>Канал</th>
+            <th>Мова</th>
+            <th>Статус</th>
+            <th>Дії</th>
           </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="template in data.items" :key="template.id">
-            <td data-label="Назва" class="px-4 py-3">
-              <p class="font-medium text-slate-900">{{ template.name }}</p>
-              <p v-if="template.is_default" class="mt-1 text-xs text-cyan-700">За замовчуванням</p>
+      </template>
+          <tr v-for="template in data?.items || []" :key="template.id">
+            <td>
+              <p class="font-medium text-ui-primary">{{ template.name }}</p>
+              <p v-if="template.is_default" class="mt-1 text-xs text-ui-accent">За замовчуванням</p>
             </td>
-            <td data-label="Тип" class="px-4 py-3 text-slate-700">{{ campaignTypeLabel(template.campaign_type) }}</td>
-            <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="template.channel" /></td>
-            <td data-label="Мова" class="px-4 py-3 text-slate-700">{{ template.language }}</td>
-            <td data-label="Статус" class="px-4 py-3">
-              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="template.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">{{ template.is_active ? 'активний' : 'неактивний' }}</span>
+            <td class="text-ui-secondary">{{ campaignTypeLabel(template.campaign_type) }}</td>
+            <td><MessagingChannelBadge :channel="template.channel" /></td>
+            <td class="text-ui-secondary">{{ template.language }}</td>
+            <td>
+              <BaseBadge :tone="template.is_active ? 'success' : 'neutral'">{{ template.is_active ? 'активний' : 'неактивний' }}</BaseBadge>
             </td>
-            <td data-label="Дії" class="px-4 py-3">
+            <td>
               <div class="flex gap-2">
-                <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="openEdit(template)"><PencilIcon class="h-4 w-4" /></BaseButton>
-                <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full border border-slate-300 p-2" @click="duplicate(template)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
-                <BaseButton v-if="canSendMessagingCampaigns" class="rounded-full border border-rose-200 p-2 text-rose-700" @click="deleting = template"><TrashIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canCreateMessagingDrafts" variant="icon" aria-label="Редагувати шаблон" title="Редагувати" @click="openEdit(template)"><PencilIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canCreateMessagingDrafts" variant="icon" aria-label="Дублювати шаблон" title="Дублювати" @click="duplicate(template)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canSendMessagingCampaigns" variant="danger-outline" class="h-10 w-10 p-0" aria-label="Видалити шаблон" title="Видалити" @click="deleting = template"><TrashIcon class="h-4 w-4" /></BaseButton>
               </div>
             </td>
           </tr>
-        </tbody>
-      </table>
-      <p v-else class="p-8 text-center text-sm text-slate-500">Шаблонів ще немає.</p>
-    </div>
+    </BaseTable>
 
     <BaseModal v-model="editorOpen" max-width-class="max-w-6xl">
       <template #head="{ close }">
@@ -166,7 +167,7 @@ const closeDeleteConfirm = (value: boolean) => {
         </div>
       </template>
       <template #body>
-        <MessageTemplateEditor v-model="templateForm" />
+        <MessagingMessageTemplateEditor v-model="templateForm" />
         <div class="backoffice-modal-actions mt-6 border-t border-slate-200 pt-5">
           <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" :disabled="saving || !templateForm.name || !templateForm.message_body" @click="saveTemplate">
             <CheckCircleIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />
