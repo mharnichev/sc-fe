@@ -150,6 +150,22 @@ const backendDashboardFixture = () => ({
       booking_error_count: 1,
       meaningful_step_sessions: 5,
     },
+    no_slot_dates: [{
+      target_date: '2026-07-30',
+      observations: 8,
+      unique_sessions: 6,
+      affected_masters: 2,
+      first_observed_at: '2026-07-23T08:15:00+03:00',
+      last_observed_at: '2026-07-24T18:45:00+03:00',
+    }, {
+      target_date: '2026-07-31',
+      observations: 4,
+      unique_sessions: 4,
+      affected_masters: 1,
+      first_observed_at: '2026-07-24T10:00:00+03:00',
+      last_observed_at: '2026-07-24T12:30:00+03:00',
+    }],
+    no_slot_unknown_date_count: 3,
     unattributed_booking_successes: 0,
     weekly_insight_uk: 'Найбільше відвідувачів зупиняються перед підтвердженням запису.',
     recommended_action: {
@@ -187,6 +203,8 @@ const emptyBookingFunnelFixture = () => ({
     booking_error_count: 1,
     meaningful_step_sessions: 5,
   },
+  no_slot_dates: [],
+  no_slot_unknown_date_count: 0,
   unattributed_booking_successes: 0,
   weekly_insight_uk: 'За вибраний період подій воронки ще немає.',
   recommended_action: null,
@@ -377,6 +395,8 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.equal(response.services[0].average_realized_revenue_per_completed_service, '450.00')
   assert.equal(response.booking_funnel.steps[0].event_type, 'booking_start')
   assert.equal(response.booking_funnel.overall_conversion.conversion_percent, '0.00')
+  assert.equal(response.booking_funnel.no_slot_dates[0].target_date, '2026-07-30')
+  assert.equal(response.booking_funnel.no_slot_unknown_date_count, 3)
   assert.equal(response.booking_funnel.recommended_action.recommended_backoffice_route, '/bookings')
   assert.equal(response.actionable_signals[0].recommended_backoffice_route, '/bookings?status=pending')
   assert.throws(
@@ -394,6 +414,12 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.throws(
     () => contract.parseAdminDashboardResponse(malformedFunnel),
     /booking_funnel\.step_to_step_conversion\.0\.conversion_percent/,
+  )
+  const malformedNoSlotDate = backendDashboardFixture()
+  malformedNoSlotDate.booking_funnel.no_slot_dates[0].target_date = '2026-02-31'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(malformedNoSlotDate),
+    /booking_funnel\.no_slot_dates\.0\.target_date/,
   )
   const missingThreshold = backendDashboardFixture()
   delete missingThreshold.period.signal_thresholds.unfilled_capacity_min_percent
@@ -430,6 +456,10 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(pageSource, /dashboard\?\.executive\.gross_revenue\.current/)
   assert.match(pageSource, /dashboard\?\.capacity_and_leakage\.available_minutes/)
   assert.match(pageSource, /dashboard\?\.booking_funnel/)
+  assert.match(
+    await readFile(new URL('../components/dashboard/BookingFunnelSection.vue', import.meta.url), 'utf8'),
+    /funnel\.no_slot_unknown_date_count/,
+  )
   assert.match(pageSource, /retention\.repeat_30_day/)
   assert.match(bookingsSource, /route\.query\.status/)
   assert.match(reviewsSource, /route\.query\.moderation_status/)

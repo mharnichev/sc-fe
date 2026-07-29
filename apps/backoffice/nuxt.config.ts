@@ -7,8 +7,12 @@ const sharedTypesPath = new URL('../../packages/shared-types/src/index.ts', impo
 const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
 
 export default defineNuxtConfig({
+  compatibilityDate: '2026-07-28',
   ssr: false,
   devtools: { enabled: false },
+  experimental: {
+    viteEnvironmentApi: true,
+  },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
   runtimeConfig: {

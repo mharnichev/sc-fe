@@ -268,14 +268,6 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
       </BaseButton>
     </header>
 
-    <aside class="flex items-start gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
-      <InformationCircleIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
-      <p>
-        Натисніть <strong>?</strong> біля назви показника, щоб побачити формулу, джерело та умову сигналу.
-        <strong>0</strong> означає виміряний нуль, а <strong>«Недоступно»</strong> — що даних для чесного розрахунку немає.
-      </p>
-    </aside>
-
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="dashboard-period-title">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>

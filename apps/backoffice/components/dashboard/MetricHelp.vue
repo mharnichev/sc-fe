@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
 
 .dashboard-metric-help__tooltip {
   position: absolute;
-  z-index: 60;
+  z-index: 50030;
   top: calc(100% + 0.5rem);
   right: 0;
   display: grid;

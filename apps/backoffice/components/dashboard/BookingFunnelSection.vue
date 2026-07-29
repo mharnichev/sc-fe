@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowRightIcon,
+  CalendarDaysIcon,
   ChartBarSquareIcon,
   ExclamationTriangleIcon,
   LightBulbIcon,
@@ -24,6 +25,7 @@ const props = defineProps<{
 
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
+const noSlotDates = computed(() => props.funnel?.no_slot_dates ?? [])
 const bottleneckLabel = computed(() => bookingFunnelBottleneckLabel(props.funnel))
 const displayState = computed(() => bookingFunnelDisplayState(props.funnel))
 const isRenderable = computed(() =>
@@ -42,6 +44,22 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
   props.funnel
     ? bookingFunnelAlertTriggerExplanation(code, props.funnel.alert_thresholds)
     : 'Поріг сигналу недоступний.'
+const targetDateFormatter = new Intl.DateTimeFormat('uk-UA', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+const observedAtFormatter = new Intl.DateTimeFormat('uk-UA', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Kyiv',
+})
+const formatTargetDate = (value: string) =>
+  targetDateFormatter.format(new Date(`${value}T00:00:00.000Z`))
+const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(value))
 </script>
 
 <template>
@@ -199,6 +217,85 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
         </article>
       </div>
 
+      <section
+        v-if="noSlotDates.length || funnel.no_slot_unknown_date_count"
+        class="booking-funnel__no-slot-dates mt-4 overflow-hidden rounded-2xl border"
+        aria-labelledby="booking-funnel-no-slot-dates-title"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
+          <div class="flex items-start gap-3">
+            <CalendarDaysIcon class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
+            <div>
+              <h3
+                id="booking-funnel-no-slot-dates-title"
+                class="flex items-center gap-1 text-sm font-semibold text-slate-900"
+              >
+                Дати, на які не знайшли вільних слотів
+                <DashboardMetricHelp
+                  title="Дати без доступних слотів"
+                  summary="Показує відкриті робочі дні, для яких успішний запит повернув порожній список слотів."
+                  formula="Одне спостереження на анонімну сесію, майстра, послугу та вибрану дату."
+                  note="Помилки мережі, закриті робочі дні та конфлікти застарілих слотів сюди не потрапляють."
+                />
+              </h3>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Допомагає відрізнити загальний сигнал «немає слотів» від конкретних проблемних днів.
+              </p>
+            </div>
+          </div>
+          <span
+            v-if="funnel.no_slot_unknown_date_count"
+            class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+          >
+            Дата не визначена: {{ funnel.no_slot_unknown_date_count.toLocaleString('uk-UA') }}
+          </span>
+        </div>
+
+        <BaseTable
+          v-if="noSlotDates.length"
+          caption="Дати, на які відвідувачі не знайшли вільних слотів"
+          min-width="50rem"
+          wrapper-class="!rounded-none !border-x-0 !border-b-0"
+        >
+          <template #head>
+            <tr class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <th class="px-4 py-3 font-medium">Дата без слотів</th>
+              <th class="px-4 py-3 text-right font-medium">Спостереження</th>
+              <th class="px-4 py-3 text-right font-medium">Сесії</th>
+              <th class="px-4 py-3 text-right font-medium">Майстри</th>
+              <th class="px-4 py-3 font-medium">Вперше помітили</th>
+              <th class="px-4 py-3 font-medium">Востаннє помітили</th>
+            </tr>
+          </template>
+          <tr v-for="item in noSlotDates" :key="item.target_date">
+            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+              <time :datetime="item.target_date">{{ formatTargetDate(item.target_date) }}</time>
+            </td>
+            <td class="px-4 py-3 text-right font-semibold text-slate-900">
+              {{ item.observations.toLocaleString('uk-UA') }}
+            </td>
+            <td class="px-4 py-3 text-right text-slate-700">
+              {{ item.unique_sessions.toLocaleString('uk-UA') }}
+            </td>
+            <td class="px-4 py-3 text-right text-slate-700">
+              {{ item.affected_masters.toLocaleString('uk-UA') }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-slate-600">
+              <time :datetime="item.first_observed_at">{{ formatObservedAt(item.first_observed_at) }}</time>
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-slate-600">
+              <time :datetime="item.last_observed_at">{{ formatObservedAt(item.last_observed_at) }}</time>
+            </td>
+          </tr>
+        </BaseTable>
+        <p
+          v-else
+          class="border-t border-slate-200 px-4 py-3 text-sm leading-6 text-slate-500"
+        >
+          Для старих подій вибрану дату відновити неможливо, тому вони показані лише загальним числом.
+        </p>
+      </section>
+
       <div v-if="alerts.length" class="mt-4" aria-labelledby="booking-funnel-alerts-title">
         <h3 id="booking-funnel-alerts-title" class="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" aria-hidden="true" />
@@ -210,7 +307,7 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
             :key="alert.code"
             class="booking-funnel__alert rounded-2xl border p-4"
           >
-            <p class="flex items-start gap-1 font-semibold text-amber-950">
+            <p class="flex items-start gap-1 font-semibold">
               {{ bookingFunnelAlertContent[alert.code].title }}
               <DashboardMetricHelp
                 :title="bookingFunnelAlertContent[alert.code].title"
@@ -219,14 +316,14 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
                 :action="bookingFunnelAlertContent[alert.code].action"
               />
             </p>
-            <p class="mt-1 text-sm leading-5 text-amber-900">{{ bookingFunnelAlertContent[alert.code].description }}</p>
-            <p class="mt-2 text-xs font-medium text-amber-800">
+            <p class="mt-1 text-sm leading-5">{{ bookingFunnelAlertContent[alert.code].description }}</p>
+            <p class="mt-2 text-xs font-medium">
               Зараз: {{ alertMetric(alert.code, alert.count, alert.rate_percent) }}
             </p>
-            <p class="mt-2 text-xs leading-5 text-amber-900">
+            <p class="mt-2 text-xs leading-5">
               <strong>Чому спрацювало:</strong> {{ alertTrigger(alert.code) }}
             </p>
-            <p class="mt-2 text-xs leading-5 text-amber-900">
+            <p class="mt-2 text-xs leading-5">
               <strong>Що зробити:</strong> {{ bookingFunnelAlertContent[alert.code].action }}
             </p>
           </li>
@@ -279,5 +376,11 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
 .booking-funnel__alert {
   border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
   background: color-mix(in srgb, var(--warning) 10%, var(--glass));
+  color: var(--bo-warning-text);
+}
+
+.booking-funnel__no-slot-dates {
+  border-color: color-mix(in srgb, var(--warning) 24%, var(--border));
+  background: color-mix(in srgb, var(--warning) 5%, var(--glass));
 }
 </style>

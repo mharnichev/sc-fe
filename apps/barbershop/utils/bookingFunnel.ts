@@ -14,11 +14,7 @@ export type BookingFunnelClientEventType = typeof bookingFunnelClientEventTypes[
 export interface BookingFunnelEventContext {
   masterId?: number | null
   serviceId?: number | null
-  /**
-   * Separates repeatable observations, such as no-slot results for different
-   * dates. It is used only to derive an idempotency key and is never sent.
-   */
-  dedupeKey?: string
+  targetDate?: string | null
 }
 
 export interface BookingFunnelAttempt {
@@ -32,12 +28,22 @@ export interface BookingFunnelEventPayload {
   event_type: BookingFunnelClientEventType
   master_id?: number
   service_id?: number
+  target_date?: string
 }
 
 type RandomId = () => string
 
 const positiveInteger = (value: number | null | undefined) =>
   Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined
+
+const isoDate = (value: string | null | undefined) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+    ? value
+    : undefined
+}
 
 const eventKey = (
   eventType: BookingFunnelClientEventType,
@@ -46,7 +52,7 @@ const eventKey = (
   eventType,
   positiveInteger(context.masterId) ?? '',
   positiveInteger(context.serviceId) ?? '',
-  context.dedupeKey || '',
+  eventType === 'no_slot' ? isoDate(context.targetDate) ?? '' : '',
 ].join(':')
 
 export const createBookingFunnelAttempt = (randomId: RandomId): BookingFunnelAttempt => ({
@@ -66,6 +72,7 @@ export const bookingFunnelEventPayload = (
 
   const masterId = positiveInteger(context.masterId)
   const serviceId = positiveInteger(context.serviceId)
+  const targetDate = eventType === 'no_slot' ? isoDate(context.targetDate) : undefined
 
   return {
     event_id: eventId,
@@ -73,6 +80,7 @@ export const bookingFunnelEventPayload = (
     event_type: eventType,
     ...(masterId ? { master_id: masterId } : {}),
     ...(serviceId ? { service_id: serviceId } : {}),
+    ...(targetDate ? { target_date: targetDate } : {}),
   }
 }
 

@@ -1423,6 +1423,11 @@ main :is(section, article, form):has(.booking-select-menu) {
   z-index: 50000;
 }
 
+main :is(section, article, form):has(.dashboard-metric-help__tooltip) {
+  position: relative;
+  z-index: 50020;
+}
+
 @media (min-width: 640px) {
   .backoffice-modal-actions {
     flex-direction: row;

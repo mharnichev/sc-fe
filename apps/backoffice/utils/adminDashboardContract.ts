@@ -184,6 +184,15 @@ export interface DashboardBookingFunnelOperationalAlert {
   triggered: boolean
 }
 
+export interface DashboardBookingFunnelNoSlotDate {
+  target_date: string
+  observations: number
+  unique_sessions: number
+  affected_masters: number
+  first_observed_at: string
+  last_observed_at: string
+}
+
 export type DashboardBookingFunnelActionCode =
   | 'review_availability'
   | 'refresh_schedule'
@@ -222,6 +231,8 @@ export interface DashboardBookingFunnel {
   drop_offs: DashboardBookingFunnelDropOff[]
   operational_alerts: DashboardBookingFunnelOperationalAlert[]
   alert_thresholds: DashboardBookingFunnelAlertThresholds
+  no_slot_dates: DashboardBookingFunnelNoSlotDate[]
+  no_slot_unknown_date_count: number
   unattributed_booking_successes: number
   weekly_insight_uk: string
   recommended_action: DashboardBookingFunnelRecommendedAction | null
@@ -278,6 +289,18 @@ const nullableStringAt = (value: unknown, path: string) => {
 const booleanAt = (value: unknown, path: string) => typeof value === 'boolean' ? value : fail(path)
 const nonNegativeIntegerAt = (value: unknown, path: string) =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : fail(path)
+const isoDateAt = (value: unknown, path: string) => {
+  const date = stringAt(value, path)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(path)
+  const parsed = new Date(`${date}T00:00:00.000Z`)
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) fail(path)
+  return date
+}
+const isoDateTimeAt = (value: unknown, path: string) => {
+  const dateTime = stringAt(value, path)
+  if (Number.isNaN(Date.parse(dateTime))) fail(path)
+  return dateTime
+}
 const literalAt = <T extends string>(value: unknown, values: readonly T[], path: string): T => {
   const literal = stringAt(value, path)
   return values.includes(literal as T) ? literal as T : fail(path)
@@ -344,6 +367,24 @@ const funnelAlertListAt = (value: unknown, path: string) => {
   const alerts = arrayAt(value, path)
   alerts.forEach((alert, index) => funnelAlertAt(alert, `${path}.${index}`))
   return alerts
+}
+
+const funnelNoSlotDateListAt = (value: unknown, path: string) => {
+  const dates = arrayAt(value, path)
+  dates.forEach((rawDate, index) => {
+    const datePath = `${path}.${index}`
+    const date = recordAt(rawDate, datePath)
+    isoDateAt(date.target_date, `${datePath}.target_date`)
+    nonNegativeIntegerAt(date.observations, `${datePath}.observations`)
+    nonNegativeIntegerAt(date.unique_sessions, `${datePath}.unique_sessions`)
+    nonNegativeIntegerAt(date.affected_masters, `${datePath}.affected_masters`)
+    const firstObservedAt = isoDateTimeAt(date.first_observed_at, `${datePath}.first_observed_at`)
+    const lastObservedAt = isoDateTimeAt(date.last_observed_at, `${datePath}.last_observed_at`)
+    if (Date.parse(firstObservedAt) > Date.parse(lastObservedAt)) {
+      fail(`${datePath}.last_observed_at`)
+    }
+  })
+  return dates
 }
 
 const funnelAt = (value: unknown, path: string) => {
@@ -458,6 +499,11 @@ const funnelAt = (value: unknown, path: string) => {
   nonNegativeIntegerAt(thresholds.stale_schedule_count, `${path}.alert_thresholds.stale_schedule_count`)
   nonNegativeIntegerAt(thresholds.booking_error_count, `${path}.alert_thresholds.booking_error_count`)
   nonNegativeIntegerAt(thresholds.meaningful_step_sessions, `${path}.alert_thresholds.meaningful_step_sessions`)
+  funnelNoSlotDateListAt(funnel.no_slot_dates, `${path}.no_slot_dates`)
+  nonNegativeIntegerAt(
+    funnel.no_slot_unknown_date_count,
+    `${path}.no_slot_unknown_date_count`,
+  )
   nonNegativeIntegerAt(funnel.unattributed_booking_successes, `${path}.unattributed_booking_successes`)
   stringAt(funnel.weekly_insight_uk, `${path}.weekly_insight_uk`)
   if (funnel.recommended_action !== null) {

@@ -36,25 +36,51 @@ test('creates an anonymous attempt and stable event IDs for retries', () => {
   assert.deepEqual(retry, first)
 })
 
-test('uses the dedupe key locally without exposing it to the API', () => {
+test('sends a no-slot target date and uses it to deduplicate observations', () => {
   const attempt = funnel.createBookingFunnelAttempt(ids('session-id-123456'))
   const randomId = ids('first-event-id', 'second-event-id')
 
   const firstDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, dedupeKey: '2026-07-25' },
+    { masterId: 7, serviceId: 11, targetDate: '2026-07-25' },
+    randomId,
+  )
+  const firstDateRetry = funnel.bookingFunnelEventPayload(
+    attempt,
+    'no_slot',
+    { masterId: 7, serviceId: 11, targetDate: '2026-07-25' },
     randomId,
   )
   const secondDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, dedupeKey: '2026-07-26' },
+    { masterId: 7, serviceId: 11, targetDate: '2026-07-26' },
     randomId,
   )
 
+  assert.deepEqual(firstDateRetry, firstDate)
   assert.notEqual(firstDate.event_id, secondDate.event_id)
-  assert.equal('dedupeKey' in firstDate, false)
+  assert.equal(firstDate.target_date, '2026-07-25')
+  assert.equal(secondDate.target_date, '2026-07-26')
+})
+
+test('does not expose malformed dates or target dates for unrelated events', () => {
+  const malformed = funnel.bookingFunnelEventPayload(
+    funnel.createBookingFunnelAttempt(ids('session-id-123456')),
+    'no_slot',
+    { targetDate: '2026-02-31' },
+    ids('event-id-123456'),
+  )
+  const unrelated = funnel.bookingFunnelEventPayload(
+    funnel.createBookingFunnelAttempt(ids('session-id-654321')),
+    'slot_selected',
+    { targetDate: '2026-07-25' },
+    ids('event-id-654321'),
+  )
+
+  assert.equal('target_date' in malformed, false)
+  assert.equal('target_date' in unrelated, false)
 })
 
 test('allows only aggregate identifiers and drops invalid or personal fields', () => {
@@ -103,4 +129,5 @@ test('public booking API contract records events and attributes server-side succ
     assert.match(source, /funnel_session_id: funnelSessionId/)
     assert.match(source, /bookingFunnelFailureEvent\(status\)/)
   }
+  assert.match(bookingSource, /targetDate: selectedDate\.value/)
 })
