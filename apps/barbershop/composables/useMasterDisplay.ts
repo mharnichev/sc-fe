@@ -52,5 +52,22 @@ export const useMasterDisplay = () => {
       || `Master #${master.id}`
   }
 
-  return { masterName }
+  const masterFullName = (master?: MasterDto | null) => {
+    if (!master) return ''
+
+    const language = locale.value === 'en' ? 'en' : 'uk'
+    const localizedFields = language === 'en'
+      ? [master.full_name_en, master.full_name, master.full_name_uk]
+      : [master.full_name_uk, master.full_name, master.full_name_en]
+    const localizedFullName = firstMatchedName(
+      localizedFields,
+      field => localizedName(field, language),
+    )
+
+    return localizedFullName
+      || firstMatchedName(localizedFields, cleanName)
+      || masterName(master)
+  }
+
+  return { masterFullName, masterName }
 }

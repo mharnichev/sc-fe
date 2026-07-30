@@ -144,6 +144,9 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   compatibilityDate: '2026-05-08',
   ssr: true,
+  experimental: {
+    viteEnvironmentApi: true,
+  },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css', '~/assets/css/typography.css'],
   components: [

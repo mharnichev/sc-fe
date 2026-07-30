@@ -74,9 +74,9 @@ onBeforeUnmount(() => {
             </BaseButton>
             <a
               :href="featuredPostHref"
-              class="type-meta inline-flex w-fit border-b border-white/50 pb-2 text-sm text-white/72 transition hover:border-white hover:text-white"
+              class="type-meta inline-flex w-fit text-sm text-white/72 transition hover:text-white"
             >
-              {{ terms.home.blog.secondaryCta }}
+              <BaseHoverUnderlineText>{{ terms.home.blog.secondaryCta }}</BaseHoverUnderlineText>
             </a>
           </div>
         </div>

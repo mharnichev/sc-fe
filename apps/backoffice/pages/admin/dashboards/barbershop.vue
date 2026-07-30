@@ -189,6 +189,16 @@ const comparisonPeriodLabel = computed(() =>
 
 const formatNumberMetric = (value: number | null | undefined) =>
   hasDashboardMetric(value) ? Number(value).toLocaleString('uk-UA', { maximumFractionDigits: 1 }) : 'Недоступно'
+const reviewTrackingFormatter = new Intl.DateTimeFormat('uk-UA', {
+  timeZone: 'Europe/Kyiv',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const formatReviewTrackingStart = (value: string | null) =>
+  value ? reviewTrackingFormatter.format(new Date(value)) : 'невідомого моменту'
 const formatMoneyMetric = (value: string | number | null | undefined) =>
   hasDashboardMetric(value) ? formatMoney(value) : 'Недоступно'
 const emptyCapacityLabel = computed(() => {
@@ -744,14 +754,14 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
           <div class="rounded-2xl bg-slate-50 p-3">
             <dt class="flex items-center gap-1 text-xs text-slate-500">
               Відкрито форму
-              <DashboardMetricHelp title="Відкрито форму відгуку" summary="Подія відкриття форми поки не зберігається як доменна подія." formula="Метрика буде доступна після додавання persisted review_form_open event." note="«Недоступно» тут навмисне й не означає 0 відкриттів." />
+              <DashboardMetricHelp title="Унікальні запити з відкритою формою" summary="Кількість запитів вибраної когорти, для яких хоча б раз підтверджено досягнення форми." formula="COUNT DISTINCT ReviewFormOpenEvent.review_request_id." note="Повторні завантаження й автоматичні retry не збільшують показник. Для когорт до початку persisted-трекінгу значення позначається як часткове або недоступне." />
             </dt>
             <dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatNumberMetric(reviewMetrics.review_form_opens) }}</dd>
           </div>
           <div class="rounded-2xl bg-slate-50 p-3">
             <dt class="flex items-center gap-1 text-xs text-slate-500">
               Конверсія
-              <DashboardMetricHelp title="Конверсія у відгук" summary="Частка надісланих запитів, що завершилися відправленням відгуку клієнтом." formula="submitted_reviews ÷ requests_sent × 100%." note="Знаменник — надіслані, а не доставлені запити." />
+              <DashboardMetricHelp title="Конверсія у відгук" summary="Частка надісланих запитів, які мають прив’язаний поданий відгук у тій самій когорті." formula="Запити з sent_at і review_id ÷ запити з sent_at × 100%." note="Знаменник — надіслані, а не доставлені запити; ручні або аномальні відгуки без надісланого запиту виключаються." />
             </dt>
             <dd class="mt-2 text-xl font-semibold text-slate-900">
               {{ reviewMetrics.requests_sent > 0 ? formatReviewConversionRate(reviewMetrics.review_conversion_rate) : 'Недоступно' }}
@@ -765,6 +775,12 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
             <dd class="mt-2 text-xl font-semibold text-slate-900">{{ formatModerationDuration(reviewMetrics.average_moderation_time_minutes) }}</dd>
           </div>
         </dl>
+        <p
+          v-if="reviewMetrics.review_form_opens_status !== 'available'"
+          class="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Збереження відкриттів форми почалося {{ formatReviewTrackingStart(reviewMetrics.review_form_open_tracking_started_at) }}. Для цієї когорти показник {{ reviewMetrics.review_form_opens_status === 'partial' ? 'є підтвердженим мінімумом через старі або змішані посилання' : 'недоступний, бо всі посилання втратили чинність раніше' }}.
+        </p>
         <div v-if="reviewMetrics.average_rating_by_master.length" class="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           <NuxtLink v-for="rating in reviewMetrics.average_rating_by_master" :key="rating.master_id" :to="`/admin/statistics/barbers/${rating.master_id}`" class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-50">
             <span class="truncate text-sm font-medium text-slate-900">{{ barberName(rating.master) || `Майстер #${rating.master_id}` }}</span>

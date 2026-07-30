@@ -107,8 +107,13 @@ const backendDashboardFixture = () => ({
     average_realized_revenue_per_completed_service: '450.00',
   }],
   booking_funnel: {
+    calculation_version: 2,
+    timezone: 'Europe/Kyiv',
+    cohort_definition: 'Attempts started in the selected period.',
+    master_attribution_definition: 'Early steps follow the selected master in the same attempt.',
     status: 'available',
     status_reason: null,
+    tracking_gap_count: 0,
     steps: [
       { event_type: 'booking_start', count: 100 },
       { event_type: 'service_selected', count: 80 },
@@ -189,8 +194,13 @@ const backendDashboardFixture = () => ({
 })
 
 const emptyBookingFunnelFixture = () => ({
+  calculation_version: 2,
+  timezone: 'Europe/Kyiv',
+  cohort_definition: 'Attempts started in the selected period.',
+  master_attribution_definition: 'Early steps follow the selected master in the same attempt.',
   status: 'empty',
   status_reason: 'No booking funnel events were recorded in the selected period.',
+  tracking_gap_count: 0,
   steps: [],
   step_to_step_conversion: [],
   overall_conversion: null,
@@ -415,11 +425,59 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
     () => contract.parseAdminDashboardResponse(malformedFunnel),
     /booking_funnel\.step_to_step_conversion\.0\.conversion_percent/,
   )
+  const mismatchedTransitionBase = backendDashboardFixture()
+  mismatchedTransitionBase.booking_funnel.step_to_step_conversion[0].from_count = 99
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(mismatchedTransitionBase),
+    /booking_funnel\.step_to_step_conversion\.0/,
+  )
+  const inconsistentTransitionRate = backendDashboardFixture()
+  inconsistentTransitionRate.booking_funnel.step_to_step_conversion[0].conversion_percent = '79.00'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(inconsistentTransitionRate),
+    /booking_funnel\.step_to_step_conversion\.0/,
+  )
+  const inconsistentDropOff = backendDashboardFixture()
+  inconsistentDropOff.booking_funnel.drop_offs[0].count = 19
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(inconsistentDropOff),
+    /booking_funnel\.drop_offs\.0/,
+  )
+  const inconsistentTrackingGap = backendDashboardFixture()
+  inconsistentTrackingGap.booking_funnel.tracking_gap_count = 1
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(inconsistentTrackingGap),
+    /booking_funnel\.tracking_gap_count/,
+  )
+  const impossibleUnavailableOverall = backendDashboardFixture()
+  impossibleUnavailableOverall.booking_funnel.overall_conversion = {
+    started: 100,
+    succeeded: 1,
+    conversion_percent: null,
+    status: 'unavailable',
+    unavailable_reason: 'Synthetic malformed intersection.',
+  }
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(impossibleUnavailableOverall),
+    /booking_funnel\.overall_conversion\.succeeded/,
+  )
   const malformedNoSlotDate = backendDashboardFixture()
   malformedNoSlotDate.booking_funnel.no_slot_dates[0].target_date = '2026-02-31'
   assert.throws(
     () => contract.parseAdminDashboardResponse(malformedNoSlotDate),
     /booking_funnel\.no_slot_dates\.0\.target_date/,
+  )
+  const inconsistentOperationalAlert = backendDashboardFixture()
+  inconsistentOperationalAlert.booking_funnel.operational_alerts[2].triggered = false
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(inconsistentOperationalAlert),
+    /booking_funnel\.operational_alerts/,
+  )
+  const invalidFunnelThreshold = backendDashboardFixture()
+  invalidFunnelThreshold.booking_funnel.alert_thresholds.no_slot_rate_percent = '120.00'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(invalidFunnelThreshold),
+    /booking_funnel\.alert_thresholds\.no_slot_rate_percent/,
   )
   const missingThreshold = backendDashboardFixture()
   delete missingThreshold.period.signal_thresholds.unfilled_capacity_min_percent
@@ -436,15 +494,46 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   const emptyFunnel = backendDashboardFixture()
   emptyFunnel.booking_funnel = emptyBookingFunnelFixture()
   assert.equal(contract.parseAdminDashboardResponse(emptyFunnel).booking_funnel.status, 'empty')
+
+  const weeklyDigest = backendDashboardFixture()
+  weeklyDigest.booking_funnel.latest_weekly_digest = {
+    scope: 'all_masters',
+    period_start: '2026-07-13',
+    period_end: '2026-07-19',
+    generated_at: '2026-07-20T01:00:00+03:00',
+    status: 'available',
+    insight_uk: 'Тижневий зріз.',
+    recommended_action: null,
+    step_counts: structuredClone(weeklyDigest.booking_funnel.steps),
+    operational_alerts: structuredClone(weeklyDigest.booking_funnel.operational_alerts),
+  }
+  assert.equal(
+    contract.parseAdminDashboardResponse(weeklyDigest)
+      .booking_funnel.latest_weekly_digest.period_end,
+    '2026-07-19',
+  )
+  weeklyDigest.booking_funnel.latest_weekly_digest.period_end = '2026-07-18'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(weeklyDigest),
+    /booking_funnel\.latest_weekly_digest\.period_end/,
+  )
 })
 
 test('dashboard page uses the single typed business endpoint without legacy metric assembly', async () => {
-  const [apiSource, pageSource, bookingsSource, reviewsSource, metricHelpSource] = await Promise.all([
+  const [
+    apiSource,
+    pageSource,
+    bookingsSource,
+    reviewsSource,
+    metricHelpSource,
+    bookingFunnelSource,
+  ] = await Promise.all([
     readFile(new URL('../composables/useBackofficeApi.ts', import.meta.url), 'utf8'),
     readFile(new URL('../pages/admin/dashboards/barbershop.vue', import.meta.url), 'utf8'),
     readFile(new URL('../pages/bookings.vue', import.meta.url), 'utf8'),
     readFile(new URL('../pages/reviews/index.vue', import.meta.url), 'utf8'),
     readFile(new URL('../components/dashboard/MetricHelp.vue', import.meta.url), 'utf8'),
+    readFile(new URL('../components/dashboard/BookingFunnelSection.vue', import.meta.url), 'utf8'),
   ])
 
   assert.match(apiSource, /api<unknown>\('\/backoffice\/statistics\/admin\/dashboard'/)
@@ -456,9 +545,13 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(pageSource, /dashboard\?\.executive\.gross_revenue\.current/)
   assert.match(pageSource, /dashboard\?\.capacity_and_leakage\.available_minutes/)
   assert.match(pageSource, /dashboard\?\.booking_funnel/)
-  assert.match(
-    await readFile(new URL('../components/dashboard/BookingFunnelSection.vue', import.meta.url), 'utf8'),
-    /funnel\.no_slot_unknown_date_count/,
+  assert.match(bookingFunnelSource, /funnel\.no_slot_unknown_date_count/)
+  assert.match(bookingFunnelSource, /v-if="isRenderable"[\s\S]+aria-label="Кроки воронки/)
+  assert.match(bookingFunnelSource, /Операційні сигнали за період залишаються доступними нижче/)
+  assert.match(bookingFunnelSource, /funnel\.unattributed_booking_successes/)
+  assert.doesNotMatch(
+    bookingFunnelSource,
+    /v-else-if="!funnel \|\| funnel\.status === 'unavailable'"/,
   )
   assert.match(pageSource, /retention\.repeat_30_day/)
   assert.match(bookingsSource, /route\.query\.status/)
@@ -468,7 +561,7 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(pageSource, /Europe\/Kyiv/)
   assert.match(pageSource, /Чому спрацювало/)
   assert.match(pageSource, /dashboardSignalTriggerExplanation/)
-  assert.match(pageSource, /review_form_open event/)
+  assert.match(pageSource, /COUNT DISTINCT ReviewFormOpenEvent\.review_request_id/)
   assert.match(metricHelpSource, /QuestionMarkCircleIcon/)
   assert.match(metricHelpSource, /aria-expanded/)
   assert.match(metricHelpSource, /role="tooltip"/)

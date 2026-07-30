@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
+import { kyivDateTimeLocalInput, kyivLocalDateTimeToIso } from '~/utils/kyivDateTime'
 
 const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
@@ -26,18 +27,8 @@ const state = reactive({ loading: false, success: '', error: '' })
 const phoneHref = computed(() => `tel:${terms.value.pages.contacts.phone.replace(/[^\d+]/g, '')}`)
 const emailHref = computed(() => `mailto:${terms.value.pages.contacts.email}`)
 
-const formatDateTimeLocalInput = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-const minScheduledAt = formatDateTimeLocalInput(new Date())
-const maxScheduledAt = formatDateTimeLocalInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+const minScheduledAt = kyivDateTimeLocalInput(new Date())
+const maxScheduledAt = kyivDateTimeLocalInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
 
 const masterName = (master: {
   full_name?: string | null
@@ -77,8 +68,27 @@ const selectedPrice = computed(() =>
 const serviceSelected = (serviceId: number) => form.service_ids.includes(String(serviceId))
 const serviceSelectionLimitReached = computed(() => form.service_ids.length >= maxSelectedServices)
 
-const recordBookingStart = () => {
-  bookingFunnel.recordInBackground('booking_start')
+const recordBookingStart = (masterId?: number) => {
+  if (bookingFunnel.claimAnalyticsStart()) {
+    trackEvent('booking_start', {
+      source: 'contacts_page',
+    })
+  }
+  bookingFunnel.recordInBackground('booking_start', {
+    masterId,
+  })
+}
+
+const recordReachedMasterStep = (masterId: number, serviceId: number) => {
+  recordBookingStart(masterId)
+  bookingFunnel.recordInBackground('service_selected', {
+    masterId,
+    serviceId,
+  })
+  bookingFunnel.recordInBackground('master_selected', {
+    masterId,
+    serviceId,
+  })
 }
 
 const toggleService = (serviceId: number) => {
@@ -91,11 +101,7 @@ const toggleService = (serviceId: number) => {
   if (serviceSelectionLimitReached.value) return
 
   form.service_ids = [...form.service_ids, id]
-  recordBookingStart()
-  bookingFunnel.recordInBackground('service_selected', {
-    masterId: Number(form.master_id),
-    serviceId,
-  })
+  recordReachedMasterStep(Number(form.master_id), serviceId)
   const service = availableServices.value.find(service => service.id === serviceId)
   trackEvent('select_service', {
     source: 'contacts_page',
@@ -108,22 +114,22 @@ const toggleService = (serviceId: number) => {
 }
 
 watch(() => form.master_id, () => {
-  if (form.master_id) {
-    recordBookingStart()
-    bookingFunnel.recordInBackground('master_selected', {
-      masterId: Number(form.master_id),
-      serviceId: Number(form.service_ids[0]),
-    })
-    trackEvent('select_master', {
-      source: 'contacts_page',
-      master_id: Number(form.master_id),
-      master_name: selectedMaster.value ? masterName(selectedMaster.value) : undefined,
-    })
-  }
-
   form.service_ids = form.service_ids.filter(serviceId =>
     availableServices.value.some(service => service.id === Number(serviceId)),
   )
+
+  if (form.master_id) {
+    const masterId = Number(form.master_id)
+    recordBookingStart(masterId)
+    if (form.service_ids.length) {
+      recordReachedMasterStep(masterId, Number(form.service_ids[0]))
+    }
+    trackEvent('select_master', {
+      source: 'contacts_page',
+      master_id: masterId,
+      master_name: selectedMaster.value ? masterName(selectedMaster.value) : undefined,
+    })
+  }
 })
 
 const handlePhoneInput = (event: Event) => {
@@ -145,13 +151,27 @@ const handleTextInput = (
 }
 
 const handleScheduledAtChange = () => {
+  const masterId = Number(form.master_id)
+  const serviceId = Number(form.service_ids[0])
+  const scheduledAt = kyivLocalDateTimeToIso(form.scheduled_at)
+  if (
+    !scheduledAt
+    || !Number.isInteger(masterId)
+    || masterId <= 0
+    || !Number.isInteger(serviceId)
+    || serviceId <= 0
+  ) {
+    return
+  }
+
+  recordReachedMasterStep(masterId, serviceId)
   trackEvent('select_time', {
     source: 'contacts_page',
     appointment_date: form.scheduled_at.slice(0, 10),
   })
   bookingFunnel.recordInBackground('slot_selected', {
-    masterId: Number(form.master_id),
-    serviceId: Number(form.service_ids[0]),
+    masterId,
+    serviceId,
   })
 }
 
@@ -179,7 +199,15 @@ const submit = async () => {
   }
 
   const serviceIds = form.service_ids.map(Number).filter(Number.isFinite)
-  if (!serviceIds.length) {
+  const masterId = Number(form.master_id)
+  const scheduledAt = kyivLocalDateTimeToIso(form.scheduled_at)
+  if (
+    !serviceIds.length
+    || !Number.isInteger(masterId)
+    || masterId <= 0
+    || !scheduledAt
+    || new Date(scheduledAt).getTime() <= Date.now()
+  ) {
     state.success = ''
     state.error = terms.value.pages.contacts.error
     return
@@ -190,32 +218,37 @@ const submit = async () => {
   state.error = ''
   trackEvent('booking_submit', {
     source: 'contacts_page',
-    master_id: Number(form.master_id),
+    master_id: masterId,
     appointment_date: form.scheduled_at.slice(0, 10),
     service_count: serviceIds.length,
     duration_minutes: selectedDurationMinutes.value,
   })
   try {
     const funnelSessionId = bookingFunnel.sessionId()
+    recordReachedMasterStep(masterId, serviceIds[0])
+    bookingFunnel.recordInBackground('slot_selected', {
+      masterId,
+      serviceId: serviceIds[0],
+    })
     bookingFunnel.recordInBackground('contact_entered', {
-      masterId: Number(form.master_id),
+      masterId,
       serviceId: serviceIds[0],
     })
     await domain.createBooking({
-      master_id: Number(form.master_id),
+      master_id: masterId,
       service_id: serviceIds[0],
       service_ids: serviceIds,
       duration_minutes: selectedDurationMinutes.value,
       customer_name: safeCustomerName,
       customer_phone: formatPhoneForSubmit(form.phone),
       customer_comment: safeNote || null,
-      start_at: new Date(form.scheduled_at).toISOString(),
+      start_at: scheduledAt,
       funnel_session_id: funnelSessionId,
     })
     state.success = terms.value.pages.contacts.success
     trackEvent('booking_success', {
       source: 'contacts_page',
-      master_id: Number(form.master_id),
+      master_id: masterId,
       appointment_date: form.scheduled_at.slice(0, 10),
       service_count: serviceIds.length,
       duration_minutes: selectedDurationMinutes.value,
@@ -236,16 +269,23 @@ const submit = async () => {
     state.error = terms.value.pages.contacts.error
     const status = (error as { response?: { status?: number }, status?: number })?.response?.status
       || (error as { status?: number })?.status
-    bookingFunnel.recordInBackground(bookingFunnelFailureEvent(status), {
-      masterId: Number(form.master_id),
-      serviceId: serviceIds[0],
-    })
-    trackEvent('booking_error', {
-      source: 'contacts_page',
-      master_id: Number(form.master_id),
-      appointment_date: form.scheduled_at.slice(0, 10),
-      error_message: state.error,
-    })
+    const funnelFailureEvent = bookingFunnelFailureEvent(status)
+    if (funnelFailureEvent) {
+      bookingFunnel.recordInBackground(funnelFailureEvent, {
+        masterId,
+        serviceId: serviceIds[0],
+      })
+    }
+    trackEvent(
+      funnelFailureEvent === 'booking_error' ? 'booking_error' : 'booking_submit_failed',
+      {
+        source: 'contacts_page',
+        master_id: masterId,
+        appointment_date: form.scheduled_at.slice(0, 10),
+        reason: status === 409 ? 'slot_conflict' : funnelFailureEvent ? 'technical' : 'validation',
+        status_code: Number.isInteger(status) ? status : undefined,
+      },
+    )
     console.error(error)
   }
   finally {
@@ -266,15 +306,15 @@ const submit = async () => {
           <p><strong class="text-stone-900">{{ terms.pages.contacts.addressLabel }}</strong> {{ terms.pages.contacts.address }}</p>
           <p>
             <strong class="text-stone-900">{{ terms.pages.contacts.phoneLabel }}</strong>
-            <a :href="phoneHref" class="transition hover:text-stone-900 hover:underline" @click="trackContactClick('phone', 'contacts_page')">
-              {{ terms.pages.contacts.phone }}
+            <a :href="phoneHref" class="transition hover:text-stone-900" @click="trackContactClick('phone', 'contacts_page')">
+              <BaseHoverUnderlineText>{{ terms.pages.contacts.phone }}</BaseHoverUnderlineText>
             </a>
           </p>
           <p><strong class="text-stone-900">{{ terms.pages.contacts.hoursLabel }}</strong> {{ terms.pages.contacts.hours }}</p>
           <p v-if="terms.pages.contacts.email">
             <strong class="text-stone-900">{{ terms.pages.contacts.emailLabel }}</strong>
-            <a :href="emailHref" class="transition hover:text-stone-900 hover:underline" @click="trackContactClick('email', 'contacts_page')">
-              {{ terms.pages.contacts.email }}
+            <a :href="emailHref" class="transition hover:text-stone-900" @click="trackContactClick('email', 'contacts_page')">
+              <BaseHoverUnderlineText>{{ terms.pages.contacts.email }}</BaseHoverUnderlineText>
             </a>
           </p>
         </div>
@@ -382,6 +422,9 @@ const submit = async () => {
         class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
         @change="handleScheduledAtChange"
       >
+      <p class="-mt-2 text-xs text-white/55">
+        Дата й час інтерпретуються у часовому поясі Europe/Kyiv.
+      </p>
       <textarea
         v-model="form.note"
         rows="4"

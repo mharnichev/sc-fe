@@ -12,7 +12,6 @@ let mobileBookingPhotoObserver: IntersectionObserver | null = null
 let bookingAnchorLockTimer: number | null = null
 let deferredSectionsMountTimer: number | null = null
 const bookingHashTargets = new Set(['#booking', '#booking-stepper'])
-
 const hasBookingHashTarget = () => bookingHashTargets.has(window.location.hash)
 const stopBookingAnchorLock = () => {
   if (bookingAnchorLockTimer === null) return

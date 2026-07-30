@@ -32,6 +32,13 @@ const filters = reactive<ReviewFilters>({
     ? routeRequestState as ReviewFilters['request_state']
     : '',
 })
+const metricDraft = reactive({
+  date_from: '',
+  date_to: '',
+  master_id: null as number | null,
+})
+const appliedMetricFilters = ref({ ...metricDraft })
+const metricPeriodError = ref('')
 
 const moderationOptions = [
   { value: '', label: 'Усі статуси модерації' },
@@ -51,9 +58,9 @@ const [{ data, pending, error, refresh }, { data: mastersData }, { data: metrics
   useAsyncData('admin-review-master-options', () => isAdmin.value ? api.adminGetMasters(1, 200) : Promise.resolve([] as Master[])),
   useAsyncData('admin-review-metrics', () => isAdmin.value
     ? api.adminGetReviewMetrics({
-        date_from: filters.submitted_from && filters.submitted_to ? filters.submitted_from : undefined,
-        date_to: filters.submitted_from && filters.submitted_to ? filters.submitted_to : undefined,
-        master_id: filters.master_id,
+        date_from: appliedMetricFilters.value.date_from || undefined,
+        date_to: appliedMetricFilters.value.date_to || undefined,
+        master_id: appliedMetricFilters.value.master_id,
       })
     : Promise.resolve(null)),
 ])
@@ -65,25 +72,94 @@ const masterOptions = computed(() => [
   ...normalizeItems(mastersData.value).map(master => ({ value: master.id, label: masterName(master) })),
 ])
 const permissionDenied = computed(() => !isAdmin.value || (typeof error.value === 'object' && error.value && 'response' in error.value && (error.value as { response?: { status?: number } }).response?.status === 403))
+const metricsDateFormatter = new Intl.DateTimeFormat('uk-UA', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+const formatMetricDate = (value: string) =>
+  metricsDateFormatter.format(new Date(`${value}T00:00:00.000Z`))
+const metricsTrackingFormatter = new Intl.DateTimeFormat('uk-UA', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Kyiv',
+})
+const formatMetricTrackingStart = (value: string | null) =>
+  value ? metricsTrackingFormatter.format(new Date(value)) : 'невідомого моменту'
+const metricScopeLabel = computed(() => {
+  if (!metrics.value?.date_from || !metrics.value.date_to) {
+    return 'Фактична когорта: усі завершені візити за весь час · Europe/Kyiv'
+  }
+  return `Фактична когорта: завершені візити, заплановані з ${formatMetricDate(metrics.value.date_from)} до ${formatMetricDate(metrics.value.date_to)} включно · Europe/Kyiv`
+})
+const reviewFormOpenValue = computed(() => {
+  if (!metrics.value || metrics.value.review_form_opens_status === 'unavailable') return 'Недоступно'
+  const value = metrics.value.review_form_opens ?? 0
+  return metrics.value.review_form_opens_status === 'partial' ? `${value}*` : value
+})
 const metricCards = computed(() => [
-  { label: 'Доступні завершені візити', value: metrics.value?.eligible_completed_visits ?? '—' },
-  { label: 'Заплановано / надіслано', value: metrics.value ? `${metrics.value.requests_scheduled} / ${metrics.value.requests_sent}` : '—' },
-  { label: 'Доставлено', value: metrics.value?.requests_delivered ?? '—' },
-  { label: 'Відкрито форму', value: metrics.value?.review_form_opens ?? '—' },
-  { label: 'Надіслано / схвалено', value: metrics.value ? `${metrics.value.submitted_reviews} / ${metrics.value.approved_reviews}` : '—' },
-  { label: 'Конверсія', value: metrics.value ? formatReviewConversionRate(metrics.value.review_conversion_rate) : '—' },
+  { label: 'Завершені візити з клієнтом', value: metrics.value?.eligible_completed_visits ?? '—' },
+  { label: 'Запити створено', value: metrics.value?.requests_scheduled ?? '—' },
+  { label: 'Запити надіслано', value: metrics.value?.requests_sent ?? '—' },
+  { label: 'Підтверджено доставку', value: metrics.value?.requests_delivered ?? '—' },
+  { label: 'Унікальні запити з відкритою формою', value: reviewFormOpenValue.value },
+  { label: 'Відгуки подано', value: metrics.value?.submitted_reviews ?? '—' },
+  { label: 'Відгуки схвалено', value: metrics.value?.approved_reviews ?? '—' },
+  { label: 'Конверсія запит → відгук', value: formatReviewConversionRate(metrics.value?.review_conversion_rate) },
+  { label: 'Конверсія запит → відкриття', value: formatReviewConversionRate(metrics.value?.sent_to_open_rate) },
+  { label: 'Конверсія відкриття → відгук', value: formatReviewConversionRate(metrics.value?.opened_to_submitted_rate) },
   { label: 'Час модерації', value: formatModerationDuration(metrics.value?.average_moderation_time_minutes) },
 ])
 
 const applyFilters = async () => {
   page.value = 1
-  await Promise.all([refresh(), refreshMetrics()])
+  await refresh()
 }
 const resetFilters = async () => {
   Object.assign(filters, { moderation_status: '', master_id: null, rating: null, submitted_from: '', submitted_to: '', request_state: '' })
-  await applyFilters()
+  Object.assign(metricDraft, { date_from: '', date_to: '', master_id: null })
+  appliedMetricFilters.value = { ...metricDraft }
+  metricPeriodError.value = ''
+  page.value = 1
+  await Promise.all([refresh(), refreshMetrics()])
 }
 const refreshAll = () => Promise.all([refresh(), refreshMetrics()])
+const validIsoDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+const applyMetricPeriod = async () => {
+  const { date_from: dateFrom, date_to: dateTo } = metricDraft
+  metricPeriodError.value = ''
+  if (Boolean(dateFrom) !== Boolean(dateTo)) {
+    metricPeriodError.value = 'Вкажіть обидві межі періоду або залиште обидві порожніми.'
+    return
+  }
+  if (dateFrom && dateTo) {
+    if (!validIsoDate(dateFrom) || !validIsoDate(dateTo)) {
+      metricPeriodError.value = 'Перевірте коректність дат періоду.'
+      return
+    }
+    const start = new Date(`${dateFrom}T00:00:00.000Z`)
+    const end = new Date(`${dateTo}T00:00:00.000Z`)
+    const inclusiveDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+    if (inclusiveDays <= 0) {
+      metricPeriodError.value = 'Дата початку не може бути пізнішою за дату завершення.'
+      return
+    }
+    if (inclusiveDays > 366) {
+      metricPeriodError.value = 'Період метрик не може перевищувати 366 днів.'
+      return
+    }
+  }
+  appliedMetricFilters.value = { ...metricDraft }
+  await refreshMetrics()
+}
 type ReviewBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 const reviewStatusTone = (status: string): ReviewBadgeTone => {
   if (['approved', 'sent', 'delivered', 'submitted'].includes(status)) return 'success'
@@ -110,9 +186,39 @@ const reviewStatusTone = (status: string): ReviewBadgeTone => {
       <section>
         <BaseLoader v-if="metricsPending" label="Завантаження метрик відгуків…" />
         <p v-else-if="metricsError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(metricsError, 'Метрики відгуків недоступні: потрібен backend metrics contract.') }}</p>
-        <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatisticsStatCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" />
-        </div>
+        <template v-else>
+          <div class="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_minmax(0,16rem)_auto]">
+            <BaseInput v-model="metricDraft.date_from" type="date" aria-label="Дата запланованого візиту для метрик від" />
+            <BaseInput v-model="metricDraft.date_to" type="date" aria-label="Дата запланованого візиту для метрик до" />
+            <BaseSelect v-model="metricDraft.master_id" :options="masterOptions" aria-label="Майстер для метрик" />
+            <BaseButton variant="neutral" :disabled="metricsPending" @click="applyMetricPeriod">Застосувати до метрик</BaseButton>
+          </div>
+          <p v-if="metricPeriodError" class="ui-status-danger mb-3 rounded-2xl px-4 py-3 text-sm" role="alert">{{ metricPeriodError }}</p>
+          <p class="mb-3 text-xs leading-5 text-ui-muted">
+            {{ metricScopeLabel }}. Поля вище є чернеткою до натискання кнопки. Фільтри дати подання нижче застосовуються лише до списку вже поданих відгуків.
+          </p>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatisticsStatCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" />
+          </div>
+          <p
+            v-if="metrics?.review_form_opens_status === 'partial'"
+            class="ui-status-warning mt-3 rounded-2xl px-4 py-3 text-sm"
+          >
+            * Відкриття форми зберігаються з {{ formatMetricTrackingStart(metrics.review_form_open_tracking_started_at) }}. У цій когорті є посилання, чий період дії почався раніше, тому показано лише підтверджений мінімум, а конверсії через відкриття навмисне недоступні.
+          </p>
+          <p
+            v-else-if="metrics?.review_form_opens_status === 'unavailable'"
+            class="ui-status-warning mt-3 rounded-2xl px-4 py-3 text-sm"
+          >
+            Усі надіслані посилання цієї когорти вже втратили чинність до початку збереження відкриттів {{ formatMetricTrackingStart(metrics.review_form_open_tracking_started_at) }}; нуль не підставляється.
+          </p>
+          <p
+            v-if="metrics?.submitted_without_sent_count"
+            class="ui-status-warning mt-3 rounded-2xl px-4 py-3 text-sm"
+          >
+            {{ metrics.submitted_without_sent_count }} відгуків у когорті не мають надісланого запиту й виключені з конверсії «запит → відгук».
+          </p>
+        </template>
       </section>
 
       <BaseCard as="section" class="space-y-5">

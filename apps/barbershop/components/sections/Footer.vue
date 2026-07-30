@@ -64,7 +64,7 @@ onMounted(() => {
           <p class="max-w-2xl text-sm leading-6 text-white/65 md:text-base md:leading-8">
             {{ terms.home.cta.text }}
           </p>
-          <BaseButton class="w-full md:w-auto" to="#booking" variant="light" effect="waves" @click="trackEvent('booking_start', { source: 'footer_cta' })">{{ terms.home.cta.button }}</BaseButton>
+          <BaseButton class="w-full md:w-auto" to="/#booking" variant="light" effect="waves" @click="trackEvent('booking_cta_click', { source: 'footer_cta' })">{{ terms.home.cta.button }}</BaseButton>
         </div>
       </div>
 
@@ -77,44 +77,59 @@ onMounted(() => {
                 :href="terms.home.contact.mapUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
+                class="transition hover:text-white"
                 @click="trackContactClick('map', 'footer')"
               >
-                {{ terms.home.contact.address }}
+                <BaseHoverUnderlineText>{{ terms.home.contact.address }}</BaseHoverUnderlineText>
               </a>
             </p>
             <p>
-              <a :href="phoneHref" class="transition hover:text-white hover:underline" @click="trackContactClick('phone', 'footer')">
-                {{ terms.home.contact.phone }}
+              <a :href="phoneHref" class="transition hover:text-white" @click="trackContactClick('phone', 'footer')">
+                <BaseHoverUnderlineText>{{ terms.home.contact.phone }}</BaseHoverUnderlineText>
               </a>
             </p>
             <p v-if="terms.home.contact.email">
-              <button type="button" class="transition hover:text-white hover:underline" @click="openFooterEmail">
-                {{ shouldShowFooterEmail ? terms.home.contact.email : 'Email' }}
+              <button type="button" class="transition hover:text-white" @click="openFooterEmail">
+                <BaseHoverUnderlineText>{{ shouldShowFooterEmail ? terms.home.contact.email : 'Email' }}</BaseHoverUnderlineText>
               </button>
             </p>
             <p>
-              <a href="/blog/" class="transition hover:text-white hover:underline" @click="trackEvent('view_blog', { source: 'footer' })">
-                {{ terms.home.journal.label }}
+              <a href="/blog/" class="transition hover:text-white" @click="trackEvent('view_blog', { source: 'footer' })">
+                <BaseHoverUnderlineText>{{ terms.home.journal.label }}</BaseHoverUnderlineText>
               </a>
             </p>
             <p>
-              <NuxtLink to="/barbershop-odesa" class="transition hover:text-white hover:underline">
-                {{ terms.common.localSeoPage }}
+              <NuxtLink to="/services" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.home.services.label }}</BaseHoverUnderlineText>
               </NuxtLink>
             </p>
             <p>
-              <NuxtLink to="/terms" class="transition hover:text-white hover:underline">
-                {{ terms.common.termsLinkLabel }}
+              <NuxtLink to="/masters" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.home.team.title }}</BaseHoverUnderlineText>
+              </NuxtLink>
+            </p>
+            <p>
+              <NuxtLink to="/contacts" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.pages.contacts.label }}</BaseHoverUnderlineText>
+              </NuxtLink>
+            </p>
+            <p>
+              <NuxtLink to="/barbershop-odesa" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.common.localSeoPage }}</BaseHoverUnderlineText>
+              </NuxtLink>
+            </p>
+            <p>
+              <NuxtLink to="/terms" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
               </NuxtLink>
             </p>
             <p>
               <button
                 type="button"
-                class="text-left underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
+                class="text-left transition hover:text-white"
                 @click="resetCookieConsent"
               >
-                {{ terms.common.cookieSettings }}
+                <BaseHoverUnderlineText>{{ terms.common.cookieSettings }}</BaseHoverUnderlineText>
               </button>
             </p>
           </div>

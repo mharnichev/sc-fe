@@ -17,11 +17,11 @@ import type {
   BookingReviewSummary,
   MasterRatingStatistics,
   ReviewFilters,
-  ReviewMetrics,
   ReviewRequestSettings,
   ReviewRequestSettingsUpdate,
 } from '~/types/reviews'
 import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
+import { parseReviewMetricsResponse } from '~/utils/reviews'
 
 export interface TokenResponse {
   access_token: string
@@ -1790,13 +1790,13 @@ export const useBackofficeApi = () => {
   const adminGetReviewMetrics = (
     filters: { date_from?: string, date_to?: string, master_id?: number | string | null } = {},
   ) =>
-    api<ReviewMetrics>('/backoffice/reviews/metrics', {
+    api<unknown>('/backoffice/reviews/metrics', {
       query: {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
         master_id: filters.master_id ?? undefined,
       },
-    })
+    }).then(parseReviewMetricsResponse)
 
   const adminGetMasterRatingStatistics = (masterId: number | string) =>
     api<MasterRatingStatistics>(`/backoffice/reviews/masters/${masterId}/statistics`)

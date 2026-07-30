@@ -1,11 +1,13 @@
 <script setup lang="ts">
 const { terms } = useTerms()
+const { trackEvent } = useAnalytics()
 
 type FaqQuestion = {
   question: string
   answer: readonly string[]
   list?: readonly { label: string, text: string }[]
   note?: string
+  bookingCta?: boolean
   relatedArticles?: readonly { title: string, href: string }[]
 }
 
@@ -196,6 +198,15 @@ function onAccordionSummaryClick(event: MouseEvent) {
                     <p v-if="question.note" class="text-neutral-500">
                       {{ question.note }}
                     </p>
+                    <BaseButton
+                      v-if="question.bookingCta"
+                      to="/#booking"
+                      class="w-full sm:w-auto"
+                      effect="waves"
+                      @click="trackEvent('booking_cta_click', { source: 'faq' })"
+                    >
+                      {{ terms.common.bookAppointment }}
+                    </BaseButton>
                     <div v-if="question.relatedArticles?.length" class="pt-4">
                       <p class="type-eyebrow text-xs text-neutral-500">
                         {{ terms.home.faq.relatedArticlesTitle }}

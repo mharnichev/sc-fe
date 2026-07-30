@@ -1,4 +1,5 @@
-import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, MasterDto, PageDto, PaginatedResponse, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
+import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, PageDto, PaginatedResponse, ServicePromotionDto } from '@shared-types'
+import type { PublicMasterDto, PublicServiceCatalogItemDto, PublicServiceDto } from '~/utils/seoRoutes'
 import type { BookingFunnelEventPayload } from '~/utils/bookingFunnel'
 
 interface PublicBrandDto {
@@ -33,8 +34,11 @@ export interface MasterRatingSummaryDto {
   master_id: number
   average_rating: number | null
   approved_review_count: number
-  pending_review_count: number
-  rating_distribution: Record<number, number>
+}
+
+type RawMasterRatingSummaryDto = MasterRatingSummaryDto & {
+  pending_review_count?: number
+  rating_distribution?: Record<number, number>
 }
 
 export interface PublicMasterReviewDto {
@@ -73,18 +77,111 @@ export interface SubmitPublicReviewResponseDto {
   submitted_at: string
 }
 
+const publicPromotion = (promotion?: ServicePromotionDto | null) => promotion
+  ? {
+      id: promotion.id,
+      code: promotion.code,
+      name_uk: promotion.name_uk,
+      name_en: promotion.name_en,
+      discount_percent: promotion.discount_percent,
+      discount_amount: promotion.discount_amount,
+      promotional_price: promotion.promotional_price,
+    }
+  : null
+
+const publicMasterService = (service: PublicServiceDto): PublicServiceDto => ({
+  id: service.id,
+  barber_id: service.barber_id,
+  base_service_id: service.base_service_id,
+  source_type: service.source_type,
+  created_at: service.created_at,
+  updated_at: service.updated_at,
+  name: service.name,
+  title_uk: service.title_uk,
+  title_en: service.title_en,
+  slug: service.slug,
+  description: service.description,
+  description_uk: service.description_uk,
+  description_en: service.description_en,
+  price: service.price,
+  duration_minutes: service.duration_minutes,
+  status: service.status,
+  is_active: service.is_active,
+  active_promotion: publicPromotion(service.active_promotion),
+})
+
+const publicAssetUrl = (value: PublicMasterDto['photo'] | PublicMasterDto['avatar']) =>
+  typeof value === 'string' ? value : value?.file_url || null
+
+const publicMaster = (master: PublicMasterDto): PublicMasterDto => ({
+  id: master.id,
+  created_at: master.created_at,
+  updated_at: master.updated_at,
+  name: master.name,
+  full_name: master.full_name,
+  last_name: master.last_name,
+  first_name_uk: master.first_name_uk,
+  last_name_uk: master.last_name_uk,
+  first_name_en: master.first_name_en,
+  last_name_en: master.last_name_en,
+  full_name_uk: master.full_name_uk,
+  full_name_en: master.full_name_en,
+  position: master.position,
+  position_uk: master.position_uk,
+  position_en: master.position_en,
+  title_uk: master.title_uk,
+  title_en: master.title_en,
+  slug: master.slug,
+  title: master.title,
+  description: master.description,
+  description_uk: master.description_uk,
+  description_en: master.description_en,
+  bio: master.bio,
+  bio_uk: master.bio_uk,
+  bio_en: master.bio_en,
+  photo_url: master.photo_url || publicAssetUrl(master.photo),
+  avatar_url: master.avatar_url || publicAssetUrl(master.avatar),
+  status: master.status,
+  is_active: master.is_active,
+  showOnMasterBlock: master.showOnMasterBlock,
+  show_on_master_block: master.show_on_master_block,
+  services: master.services?.map(publicMasterService),
+})
+
 export const useBarbershopDomain = () => {
   const api = useApi()
 
-  const getServices = () => api<ServiceDto[]>('/public/services')
-  const getServiceCatalog = () => api<ServiceCatalogItemDto[]>('/public/service-catalog')
-  const getMasters = () => api<MasterDto[]>('/public/masters')
-  const getMasterRatingSummary = (masterId: number) =>
-    api<MasterRatingSummaryDto>(`/public/reviews/masters/${masterId}/summary`)
-  const getMasterReviews = (masterId: number, limit = 2) =>
-    api<PublicMasterReviewsResponseDto>(`/public/reviews/masters/${masterId}`, {
+  const getServices = () => api<PublicServiceDto[]>('/public/services')
+  const getServiceCatalog = () => api<PublicServiceCatalogItemDto[]>('/public/service-catalog')
+  const getMasters = async () =>
+    (await api<PublicMasterDto[]>('/public/masters')).map(publicMaster)
+  const getMasterRatingSummary = async (masterId: number): Promise<MasterRatingSummaryDto> => {
+    const summary = await api<RawMasterRatingSummaryDto>(`/public/reviews/masters/${masterId}/summary`)
+
+    return {
+      master_id: summary.master_id,
+      average_rating: summary.average_rating,
+      approved_review_count: summary.approved_review_count,
+    }
+  }
+  const getMasterReviews = async (masterId: number, limit = 2) => {
+    const response = await api<PublicMasterReviewsResponseDto>(`/public/reviews/masters/${masterId}`, {
       query: { page: 1, page_size: limit },
     })
+
+    return {
+      items: response.items.map(review => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        author_name: review.author_name,
+        published_at: review.published_at,
+      })),
+      total: response.total,
+      page: response.page,
+      page_size: response.page_size,
+    }
+  }
   const getPages = () => api<PageDto[]>('/public/pages')
   const getReviews = () => api<GoogleBusinessReviewsResponseDto>('/public/reviews')
   const getBrands = async (): Promise<BrandDto[]> => {
@@ -122,10 +219,21 @@ export const useBarbershopDomain = () => {
     api<BookingFunnelEventReceipt>('/public/booking-funnel/events', {
       method: 'POST',
       body: payload,
+      keepalive: true,
+      retry: 2,
+      retryDelay: 200,
     })
   const resolveReviewRequest = (token: string) =>
     api<PublicReviewRequestDto>('/public/reviews/request', {
       headers: { 'X-Review-Token': token },
+    })
+  const recordReviewFormOpen = (token: string) =>
+    api<void>('/public/reviews/request/open', {
+      method: 'POST',
+      headers: { 'X-Review-Token': token },
+      keepalive: true,
+      retry: 2,
+      retryDelay: 200,
     })
   const submitReviewRequest = (payload: SubmitPublicReviewPayload) =>
     api<SubmitPublicReviewResponseDto>('/public/reviews/request', {
@@ -150,6 +258,7 @@ export const useBarbershopDomain = () => {
     createBooking,
     recordBookingFunnelEvent,
     resolveReviewRequest,
+    recordReviewFormOpen,
     submitReviewRequest,
   }
 }

@@ -13,10 +13,8 @@ type LocalizedMasterDto = MasterDto & {
 
 const props = withDefaults(defineProps<{
   bookingTarget?: string
-  showAllActive?: boolean
 }>(), {
   bookingTarget: '#booking',
-  showAllActive: false,
 })
 
 const { locale, terms } = useTerms()
@@ -33,12 +31,7 @@ const isMobile = ref(false)
 let mobileMediaQuery: MediaQueryList | null = null
 let mobileMediaHandler: (() => void) | null = null
 const { masterName } = useMasterDisplay()
-
-const teamImages = [
-  'https://images.unsplash.com/photo-1599351431613-18ef1fdd27e1?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1588771930296-88c2cb03f386?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&w=900&q=80',
-]
+const profileLabel = computed(() => locale.value === 'en' ? 'View barber profile' : 'Профіль майстра')
 
 const masterRole = (master: LocalizedMasterDto) =>
   locale.value === 'en'
@@ -47,22 +40,14 @@ const masterRole = (master: LocalizedMasterDto) =>
 
 const masterDescription = (master: LocalizedMasterDto) =>
   locale.value === 'en'
-    ? master.bio_en || master.description_en || master.bio || master.description || master.bio_uk || master.description_uk || terms.value.home.team.noDescription
-    : master.bio_uk || master.description_uk || master.bio || master.description || master.bio_en || master.description_en || terms.value.home.team.noDescription
+    ? master.bio_en || master.description_en || master.bio || master.description || master.bio_uk || master.description_uk || ''
+    : master.bio_uk || master.description_uk || master.bio || master.description || master.bio_en || master.description_en || ''
 
 const masterPhoto = (master: MasterDto) =>
-  assetUrl(master.photo || master.photo_url) || teamImages[0]
-
-const isMasterActive = (master: MasterDto) =>
-  master.is_active ?? master.status !== 'inactive'
-
-const isVisibleInMasterBlock = (master: MasterDto) =>
-  master.showOnMasterBlock ?? master.show_on_master_block ?? true
+  assetUrl(master.photo || master.photo_url)
 
 const teamMembers = computed(() =>
-  (masters.value || [])
-    .filter(isMasterActive)
-    .filter(master => props.showAllActive || isVisibleInMasterBlock(master))
+  indexablePublicMasters(masters.value || [])
     .map(master => ({
       id: master.id,
       name: masterName(master),
@@ -70,11 +55,12 @@ const teamMembers = computed(() =>
       description: masterDescription(master),
       image: masterPhoto(master),
       imageAlt: masterName(master),
+      profilePath: masterSeoPath(master),
     })),
 )
 
 const activeMember = computed(() => teamMembers.value[activeMemberIndex.value] || teamMembers.value[0] || null)
-const activeImage = computed(() => activeMember.value?.image || teamImages[0])
+const activeImage = computed(() => activeMember.value?.image || '')
 const hasMultipleTeamMembers = computed(() => teamMembers.value.length > 1)
 const teamScrollHeight = computed(() => isMobile.value ? '100svh' : `${Math.max(teamMembers.value.length, 1) * 100}vh`)
 
@@ -220,7 +206,7 @@ watch(teamMembers, (members) => {
                 <h3 class="type-display mt-3 text-2xl leading-none text-white">
                   {{ activeMember.name }}
                 </h3>
-                <p class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
+                <p v-if="activeMember.description" class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
                   {{ activeMember.description }}
                 </p>
                 <MasterRatingBlock
@@ -229,6 +215,13 @@ watch(teamMembers, (members) => {
                   compact
                   class="mt-4"
                 />
+                <NuxtLink
+                  v-if="activeMember.profilePath"
+                  :to="activeMember.profilePath"
+                  class="pointer-events-auto mt-4 inline-flex text-sm font-semibold text-white"
+                >
+                  <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+                </NuxtLink>
               </div>
             </Transition>
           </div>
@@ -283,20 +276,29 @@ watch(teamMembers, (members) => {
               </button>
             </nav>
 
-            <BaseButton :to="props.bookingTarget">
-              {{ terms.home.team.cta }}
-            </BaseButton>
+            <div class="flex items-center gap-5">
+              <BaseButton :to="props.bookingTarget">
+                {{ terms.home.team.cta }}
+              </BaseButton>
+              <NuxtLink
+                v-if="activeMember?.profilePath"
+                :to="activeMember.profilePath"
+                class="text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
+              >
+                <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+              </NuxtLink>
+            </div>
 
           </div>
         </div>
 
-        <article v-if="activeMember" class="relative -mr-6 min-h-0 overflow-hidden bg-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]" data-reveal="image" data-reveal-delay="160">
+        <article v-if="activeMember" class="relative -mr-6 min-h-0 overflow-hidden bg-neutral-950 lg:-mr-8 min-[1240px]:-mr-[calc((100vw-77.5rem)/2+2rem)]" data-reveal="image" data-reveal-delay="160">
           <Transition name="team-photo" mode="out-in">
             <img
               :key="activeMember.name"
               :src="activeImage"
               :alt="activeMember.imageAlt"
-              class="absolute inset-0 h-full w-full object-cover object-top"
+              class="absolute inset-0 h-full w-full object-cover object-[right_top]"
               loading="lazy"
             >
           </Transition>
@@ -309,7 +311,7 @@ watch(teamMembers, (members) => {
                 <h3 class="type-display mt-3 text-2xl leading-none text-white md:hidden">
                   {{ activeMember.name }}
                 </h3>
-                <p class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
+                <p v-if="activeMember.description" class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
                   {{ activeMember.description }}
                 </p>
                 <MasterRatingBlock
@@ -319,6 +321,13 @@ watch(teamMembers, (members) => {
                   tone="dark"
                   class="mt-5 max-w-md"
                 />
+                <NuxtLink
+                  v-if="activeMember.profilePath"
+                  :to="activeMember.profilePath"
+                  class="mt-4 inline-flex text-sm font-semibold text-white"
+                >
+                  <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+                </NuxtLink>
               </div>
             </Transition>
           </div>
@@ -326,7 +335,7 @@ watch(teamMembers, (members) => {
 
         <FeedbackState
           v-else
-          class="-mr-6 min-h-0 bg-white text-neutral-950 lg:-mr-8 min-[1280px]:-mr-[calc((100vw-80rem)/2+2rem)]"
+          class="-mr-6 min-h-0 bg-white text-neutral-950 lg:-mr-8 min-[1240px]:-mr-[calc((100vw-77.5rem)/2+2rem)]"
           :kind="mastersPending ? 'empty' : 'unavailable'"
           :face="mastersPending ? 'wide-eyed-smile' : 'sad-droopy-face'"
           :title="mastersPending ? terms.home.team.loading : terms.home.team.empty"

@@ -21,6 +21,42 @@ type ReviewsStructuredDataValue = {
   }[]
 }
 
+type ServiceDetailStructuredDataValue = {
+  description: string
+  durationMinutes?: number | null
+  name: string
+  offers: readonly {
+    durationMinutes?: number | null
+    name?: string | null
+    price?: string | number | null
+  }[]
+  path: string
+}
+
+type BarberStructuredDataValue = {
+  description?: string | null
+  image?: string | null
+  jobTitle?: string | null
+  name: string
+  path: string
+  rating?: {
+    ratingValue?: number | null
+    reviewCount?: number | null
+  } | null
+  reviews?: readonly {
+    authorName: string
+    body?: string | null
+    datePublished?: string | null
+    rating: number
+  }[]
+  services: readonly {
+    durationMinutes?: number | null
+    name: string
+    path?: string | null
+    price?: string | number | null
+  }[]
+}
+
 const escapeJsonLd = (value: JsonLdValue) =>
   JSON.stringify(value).replace(/</g, '\\u003c')
 
@@ -45,26 +81,15 @@ export const useLocalBusinessStructuredData = () => {
     '@type': 'HairSalon',
     '@id': `${siteUrl}/#local-business`,
     name: terms.value.common.brand,
-    alternateName: [
-      'Soulcuts',
-      'Soul Cuts Barbershop',
-      'Soul Cuts Odesa',
-      'Barbershop Odesa',
-      'Barbershop Odessa',
-      'Барбершоп Одеса',
-      'Барбершоп Одесса',
-    ],
     url: siteUrl,
     image: absoluteUrl(defaultBusinessImage),
     logo: absoluteUrl(defaultBusinessImage),
     description: terms.value.seo.homeDescription,
     telephone: terms.value.home.contact.phone,
-    priceRange: '₴₴',
     currenciesAccepted: 'UAH',
-    paymentAccepted: 'Cash, Card',
     address: {
       '@type': 'PostalAddress',
-      streetAddress: 'вулиця Канатна, 6',
+      streetAddress: terms.value.home.contact.address.replace(/^\s*📍\s*/, '').trim(),
       addressLocality: 'Одеса',
       addressRegion: 'Одеська область',
       addressCountry: 'UA',
@@ -100,36 +125,6 @@ export const useLocalBusinessStructuredData = () => {
       contactType: 'booking',
       areaServed: 'UA',
       availableLanguage: ['uk', 'en'],
-    },
-    makesOffer: {
-      '@type': 'OfferCatalog',
-      name: terms.value.seo.servicesTitle,
-      itemListElement: [
-        {
-          '@type': 'Offer',
-          itemOffered: {
-            '@type': 'Service',
-            name: 'Чоловіча стрижка',
-            serviceType: 'Men haircut',
-          },
-        },
-        {
-          '@type': 'Offer',
-          itemOffered: {
-            '@type': 'Service',
-            name: 'Оформлення бороди',
-            serviceType: 'Beard trim',
-          },
-        },
-        {
-          '@type': 'Offer',
-          itemOffered: {
-            '@type': 'Service',
-            name: 'Гоління шаветкою',
-            serviceType: 'Shaving',
-          },
-        },
-      ],
     },
     potentialAction: {
       '@type': 'ReserveAction',
@@ -188,6 +183,140 @@ export const useServiceCatalogStructuredData = (
       },
     })),
   }))
+}
+
+export const useServiceStructuredData = (
+  value: MaybeRefOrGetter<ServiceDetailStructuredDataValue>,
+) => {
+  const { absoluteUrl, siteUrl } = useSiteUrl()
+
+  useJsonLd('service-detail-schema', () => {
+    const service = toValue(value)
+    const url = absoluteUrl(service.path)
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      '@id': `${url}#service`,
+      name: service.name,
+      description: service.description,
+      url,
+      duration: service.durationMinutes ? `PT${service.durationMinutes}M` : undefined,
+      provider: {
+        '@id': `${siteUrl}/#local-business`,
+      },
+      areaServed: {
+        '@type': 'City',
+        name: 'Одеса',
+      },
+      offers: service.offers
+        .filter(offer => offer.price !== null && offer.price !== undefined && offer.price !== '')
+        .map(offer => ({
+          '@type': 'Offer',
+          name: offer.name || service.name,
+          url,
+          price: String(offer.price),
+          priceCurrency: 'UAH',
+          availability: 'https://schema.org/InStock',
+          seller: {
+            '@id': `${siteUrl}/#local-business`,
+          },
+          itemOffered: {
+            '@type': 'Service',
+            name: offer.name || service.name,
+            duration: offer.durationMinutes ? `PT${offer.durationMinutes}M` : undefined,
+            provider: {
+              '@id': `${siteUrl}/#local-business`,
+            },
+          },
+        })),
+      potentialAction: {
+        '@type': 'ReserveAction',
+        name: service.name,
+        target: absoluteUrl('/#booking'),
+      },
+    }
+  })
+}
+
+export const useBarberStructuredData = (
+  value: MaybeRefOrGetter<BarberStructuredDataValue>,
+) => {
+  const { absoluteUrl, siteUrl } = useSiteUrl()
+
+  useJsonLd('barber-profile-schema', () => {
+    const barber = toValue(value)
+    const url = absoluteUrl(barber.path)
+    const ratingValue = barber.rating?.ratingValue
+    const reviewCount = barber.rating?.reviewCount
+    const hasRating = typeof ratingValue === 'number'
+      && ratingValue > 0
+      && typeof reviewCount === 'number'
+      && reviewCount > 0
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      '@id': `${url}#barber`,
+      name: barber.name,
+      description: barber.description || undefined,
+      image: barber.image ? absoluteUrl(barber.image) : undefined,
+      url,
+      jobTitle: barber.jobTitle || undefined,
+      worksFor: {
+        '@id': `${siteUrl}/#local-business`,
+      },
+      makesOffer: barber.services
+        .filter(service => service.price !== null && service.price !== undefined && service.price !== '')
+        .map(service => ({
+          '@type': 'Offer',
+          name: service.name,
+          url: service.path ? absoluteUrl(service.path) : url,
+          price: String(service.price),
+          priceCurrency: 'UAH',
+          availability: 'https://schema.org/InStock',
+          itemOffered: {
+            '@type': 'Service',
+            name: service.name,
+            duration: service.durationMinutes ? `PT${service.durationMinutes}M` : undefined,
+            provider: {
+              '@id': `${siteUrl}/#local-business`,
+            },
+          },
+        })),
+      aggregateRating: hasRating
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue,
+            reviewCount,
+            bestRating: 5,
+            worstRating: 1,
+          }
+        : undefined,
+      review: (barber.reviews || [])
+        .filter(review => review.body && review.rating > 0)
+        .map(review => ({
+          '@type': 'Review',
+          author: {
+            '@type': 'Person',
+            name: review.authorName,
+          },
+          reviewRating: {
+            '@type': 'Rating',
+            ratingValue: review.rating,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          reviewBody: review.body,
+          datePublished: review.datePublished || undefined,
+        })),
+      potentialAction: {
+        '@type': 'ReserveAction',
+        name: barber.name,
+        target: absoluteUrl('/#booking'),
+      },
+    }
+  })
 }
 
 export const useReviewsStructuredData = (
@@ -275,6 +404,7 @@ export const useWebPageStructuredData = (
 export const useBreadcrumbStructuredData = (
   title: MaybeRefOrGetter<string>,
   path?: MaybeRefOrGetter<string>,
+  breadcrumbs?: MaybeRefOrGetter<readonly { name: string, path: string }[]>,
 ) => {
   const route = useRoute()
   const { absoluteUrl } = useSiteUrl()
@@ -291,7 +421,17 @@ export const useBreadcrumbStructuredData = (
       },
     ]
 
-    if (pagePath !== '/') {
+    const customBreadcrumbs = breadcrumbs ? toValue(breadcrumbs) : []
+
+    if (customBreadcrumbs.length) {
+      items.push(...customBreadcrumbs.map((breadcrumb, index) => ({
+        '@type': 'ListItem',
+        position: index + 2,
+        name: breadcrumb.name,
+        item: absoluteUrl(breadcrumb.path),
+      })))
+    }
+    else if (pagePath !== '/') {
       items.push({
         '@type': 'ListItem',
         position: 2,

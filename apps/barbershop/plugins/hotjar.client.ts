@@ -20,18 +20,16 @@ declare global {
 export default defineNuxtPlugin(() => {
   const route = useRoute()
   const { canUseAnalytics } = useCookieConsent()
+  const { isPrivateReviewRoute } = useReviewPrivacy()
   let isLoaded = false
   let isLoadScheduled = false
-  let isPrivateReviewSession = isTokenizedReviewLocation(window.location.pathname, window.location.hash)
 
   const hasPrivateReviewContext = () => {
-    if (isPrivateReviewSession) return true
-
-    isPrivateReviewSession = isTokenizedReviewLocation(
+    if (isPrivateReviewRoute.value) return true
+    return isTokenizedReviewLocation(
       route.path,
       route.hash || window.location.hash,
     )
-    return isPrivateReviewSession
   }
 
   const runWhenIdle = (callback: () => void) => {
@@ -101,8 +99,24 @@ export default defineNuxtPlugin(() => {
   watch(
     canUseAnalytics,
     (allowed) => {
-      if (allowed) scheduleHotjarLoad()
+      if (allowed) {
+        scheduleHotjarLoad()
+        return
+      }
+      // Hotjar cannot stop an in-progress recording programmatically. Reloading
+      // removes its runtime after consent is withdrawn; the fresh page will not
+      // load the script while analytics consent remains disabled.
+      if (isLoaded || document.getElementById(HOTJAR_SCRIPT_ID)) {
+        window.location.reload()
+      }
     },
     { immediate: true },
+  )
+
+  watch(
+    isPrivateReviewRoute,
+    (isPrivate) => {
+      if (!isPrivate && canUseAnalytics.value) scheduleHotjarLoad()
+    },
   )
 })

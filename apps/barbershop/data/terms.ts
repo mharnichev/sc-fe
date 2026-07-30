@@ -31,7 +31,7 @@ export const termsDictionary = {
       info: 'Інфо',
       hours: 'Графік',
       read: 'Читати',
-      localSeoPage: 'Барбершоп Одеса',
+      localSeoPage: 'Soul Cuts - барбершоп в Одесі',
       cookieSettings: 'Налаштування cookie',
       copyright: 'Авторські права',
       rightsReserved: 'Усі права захищені.',
@@ -47,9 +47,9 @@ export const termsDictionary = {
       acceptAll: 'Прийняти всі',
     },
     nav: [
-      { label: 'Послуги', href: '/#services' },
+      { label: 'Послуги', href: '/services' },
       { label: 'Запис', href: '/#booking' },
-      { label: 'Команда', href: '/#team' },
+      { label: 'Майстри', href: '/masters' },
       { label: 'Блог', href: '/blog/' },
       { label: 'Відгуки', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
@@ -229,6 +229,7 @@ export const termsDictionary = {
               {
                 question: 'Як записатися онлайн?',
                 answer: ['Натисніть кнопку запису на сайті, оберіть послугу, майстра, дату та час. Якщо потрібна порада перед першим візитом, залиште заявку через контактну форму або зателефонуйте нам.'],
+                bookingCta: true,
                 relatedArticles: [
                   { title: 'Барберінг у музеї: перший репортаж Soul Cuts', href: '/blog/posts/barbering-in-the-museum' },
                 ],
@@ -483,7 +484,7 @@ export const termsDictionary = {
       info: 'Info',
       hours: 'Hours',
       read: 'Read',
-      localSeoPage: 'Barbershop Odesa',
+      localSeoPage: 'Soul Cuts Barbershop in Odesa',
       cookieSettings: 'Cookie settings',
       copyright: 'Copyright',
       rightsReserved: 'All rights reserved.',
@@ -499,9 +500,9 @@ export const termsDictionary = {
       acceptAll: 'Accept all',
     },
     nav: [
-      { label: 'Services', href: '/#services' },
+      { label: 'Services', href: '/services' },
       { label: 'Booking', href: '/#booking' },
-      { label: 'Team', href: '/#team' },
+      { label: 'Barbers', href: '/masters' },
       { label: 'Blog', href: '/blog/' },
       { label: 'Reviews', href: '/#reviews' },
       { label: 'FAQ', href: '/#faq' },
@@ -680,6 +681,7 @@ export const termsDictionary = {
               {
                 question: 'How do I book online?',
                 answer: ['Use the booking button on the site, choose a service, barber, date and time. If you need advice before your first visit, send a request through the contact form or call us.'],
+                bookingCta: true,
                 relatedArticles: [
                   { title: 'Barbering in a Museum: The First Soul Cuts Report', href: '/blog/posts/barbering-in-the-museum' },
                 ],

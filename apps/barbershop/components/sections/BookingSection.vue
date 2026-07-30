@@ -55,7 +55,6 @@ const activeStepIndex = ref(0)
 const submitAttempted = ref(false)
 const actionAttemptedStepIndex = ref<number | null>(null)
 const isResettingAfterSubmit = ref(false)
-const bookingStarted = ref(false)
 const promotionConfirmed = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
 const bookingStepKeys = ['service', 'master', 'time', 'contact']
@@ -348,6 +347,20 @@ const resolveSelectedServiceForMaster = () => {
   )
 }
 
+const recordReachedMasterStep = (masterId: number, serviceId?: number) => {
+  bookingFunnel.recordInBackground('booking_start', {
+    masterId,
+  })
+  bookingFunnel.recordInBackground('service_selected', {
+    masterId,
+    serviceId,
+  })
+  bookingFunnel.recordInBackground('master_selected', {
+    masterId,
+    serviceId,
+  })
+}
+
 const selectCatalogService = (catalogId: string) => {
   if (!activeServiceCatalog.value.some(service => service.catalog_id === catalogId)) return
 
@@ -386,8 +399,7 @@ const selectService = (service: SelectableService) => {
   }
 
   if (!wasSelected && serviceSelected(service)) {
-    if (!bookingStarted.value) {
-      bookingStarted.value = true
+    if (bookingFunnel.claimAnalyticsStart()) {
       trackEvent('booking_start', {
         source: props.analyticsSource,
       })
@@ -403,28 +415,47 @@ const selectService = (service: SelectableService) => {
       currency: 'UAH',
     })
     bookingFunnel.recordInBackground('service_selected', {
+      masterId: selectedMasterId.value,
       serviceId: 'catalog_id' in service ? null : service.id,
     })
+    if (selectedMasterId.value) {
+      recordReachedMasterStep(
+        selectedMasterId.value,
+        selectedServiceIds.value[0],
+      )
+    }
   }
 }
 
 const selectMaster = (masterId: number) => {
   selectedMasterId.value = masterId
   resolveSelectedServiceForMaster()
+  if (bookingFunnel.claimAnalyticsStart()) {
+    trackEvent('booking_start', {
+      source: props.analyticsSource,
+    })
+  }
   trackEvent('select_master', {
     source: props.analyticsSource,
     master_id: masterId,
     master_name: masterName(selectedMaster.value),
     service_count: selectedServiceCount.value,
   })
-  bookingFunnel.recordInBackground('master_selected', {
-    masterId,
-    serviceId: selectedServiceIds.value[0],
-  })
+  if (selectedServiceIds.value.length || selectedCatalogIds.value.length) {
+    recordReachedMasterStep(masterId, selectedServiceIds.value[0])
+  }
+  else {
+    bookingFunnel.recordInBackground('booking_start', {
+      masterId,
+    })
+  }
   goToStep(selectedServiceIds.value.length || selectedCatalogIds.value.length ? 2 : 0)
 }
 
 const selectSlot = (slotStart: string) => {
+  if (!selectedMasterId.value || !selectedServiceIds.value.length) return
+
+  recordReachedMasterStep(selectedMasterId.value, selectedServiceIds.value[0])
   selectedSlotStart.value = slotStart
   trackEvent('select_time', {
     source: props.analyticsSource,
@@ -445,14 +476,9 @@ const handleExternalServiceSelect = (event: Event) => {
   const catalogId = (event as CustomEvent<{ catalogId?: string }>).detail?.catalogId
   if (!catalogId) return
 
-  selectCatalogService(catalogId)
-  if (!selectedCatalogIds.value.includes(catalogId)) return
-
-  if (!bookingStarted.value) {
-    bookingStarted.value = true
-    bookingFunnel.recordInBackground('booking_start')
-  }
-  bookingFunnel.recordInBackground('service_selected')
+  const service = activeServiceCatalog.value.find(item => item.catalog_id === catalogId)
+  if (!service) return
+  if (!selectedCatalogIds.value.includes(catalogId)) selectService(service)
 }
 
 onMounted(() => {
@@ -542,6 +568,10 @@ watch(
       || visibleSlots.value.length
     ) return
 
+    recordReachedMasterStep(
+      selectedMasterId.value!,
+      selectedServiceIds.value[0],
+    )
     bookingFunnel.recordInBackground('no_slot', {
       masterId: selectedMasterId.value,
       serviceId: selectedServiceIds.value[0],
@@ -723,7 +753,6 @@ const resetBookingFlow = async () => {
   activeStepIndex.value = 0
   submitAttempted.value = false
   actionAttemptedStepIndex.value = null
-  bookingStarted.value = false
   bookingFunnel.reset()
   await nextTick()
   isResettingAfterSubmit.value = false
@@ -760,6 +789,11 @@ const submit = async () => {
 
   try {
     const funnelSessionId = bookingFunnel.sessionId()
+    recordReachedMasterStep(selectedMasterId.value, selectedServiceIds.value[0])
+    bookingFunnel.recordInBackground('slot_selected', {
+      masterId: selectedMasterId.value,
+      serviceId: selectedServiceIds.value[0],
+    })
     bookingFunnel.recordInBackground('contact_entered', {
       masterId: selectedMasterId.value,
       serviceId: selectedServiceIds.value[0],
@@ -804,16 +838,23 @@ const submit = async () => {
     state.error = errorMessage(error)
     const status = (error as { response?: { status?: number }, status?: number })?.response?.status
       || (error as { status?: number })?.status
-    bookingFunnel.recordInBackground(bookingFunnelFailureEvent(status), {
-      masterId: selectedMasterId.value,
-      serviceId: selectedServiceIds.value[0],
-    })
-    trackEvent('booking_error', {
-      source: props.analyticsSource,
-      master_id: selectedMasterId.value,
-      appointment_date: selectedDate.value,
-      error_message: state.error,
-    })
+    const funnelFailureEvent = bookingFunnelFailureEvent(status)
+    if (funnelFailureEvent) {
+      bookingFunnel.recordInBackground(funnelFailureEvent, {
+        masterId: selectedMasterId.value,
+        serviceId: selectedServiceIds.value[0],
+      })
+    }
+    trackEvent(
+      funnelFailureEvent === 'booking_error' ? 'booking_error' : 'booking_submit_failed',
+      {
+        source: props.analyticsSource,
+        master_id: selectedMasterId.value,
+        appointment_date: selectedDate.value,
+        reason: status === 409 ? 'slot_conflict' : funnelFailureEvent ? 'technical' : 'validation',
+        status_code: Number.isInteger(status) ? status : undefined,
+      },
+    )
     console.error(error)
   }
   finally {
@@ -1273,8 +1314,8 @@ onBeforeUnmount(() => {
 
               <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-[10px] leading-5 text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
-                <NuxtLink class="underline decoration-white/30 underline-offset-4 transition hover:text-white" to="/terms">
-                  {{ terms.common.termsLinkLabel }}
+                <NuxtLink class="transition hover:text-white" to="/terms">
+                  <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
                 </NuxtLink>
                 {{ terms.common.bookingConsentSuffix }}
               </p>
@@ -1452,7 +1493,7 @@ onBeforeUnmount(() => {
 
 .booking-form .booking-step-actions {
   flex-shrink: 0;
-  padding-top: 1rem;
+  padding-top: 0;
 }
 
 @media (min-width: 640px) {
@@ -1539,7 +1580,7 @@ onBeforeUnmount(() => {
   .booking-step-panel--time .booking-step-actions {
     flex-shrink: 0;
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding-top: 0;
   }
 
   .booking-step-panel--service .booking-service__item {
@@ -1581,7 +1622,7 @@ onBeforeUnmount(() => {
   .booking-section:not(.booking-section--drawer) .booking-step-actions {
     flex-shrink: 0;
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding-top: 0;
   }
 }
 
@@ -1679,7 +1720,7 @@ onBeforeUnmount(() => {
 .booking-section--drawer .booking-step-actions {
   flex-shrink: 0;
   margin-top: 1rem;
-  padding-top: 1rem;
+  padding-top: 0;
 }
 
 .booking-guided-action {

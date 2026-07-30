@@ -75,13 +75,13 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
             Воронка онлайн-запису
             <DashboardMetricHelp
               title="Воронка онлайн-запису"
-              summary="Кожен крок — кількість унікальних анонімних сесій із відповідною подією у вибраному періоді. Ідентифікатори зберігаються на backend у вигляді хешів."
-              formula="Конверсія кроку = сесії наступного кроку ÷ сесії попереднього кроку × 100%. Відсів = 100% − конверсія."
-              note="«Почали запис» означає першу змістовну дію у формі, а не просте відкриття сторінки."
+              summary="Когорта складається зі спроб, у яких найраніший persisted booking_start зафіксовано у вибраному періоді. Пізніші contextual backfill не дублюють спробу між періодами, а кроки зіставляються за тим самим анонімним session hash."
+              formula="Конверсія A → B = сесії, що мають обидві події A і B, ÷ сесії з A × 100%. Відсів = сесії A без B."
+              note="«Почали запис» означає першу змістовну дію у формі, а не клік CTA чи відкриття сторінки. Версія розрахунку — 2."
             />
           </h2>
           <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-            Де відвідувачі продовжують запис, а де зупиняються. Усі показники вже розраховані на сервері.
+            Де спроби запису продовжуються, а де зупиняються. Період визначає booking_start; завершення тієї самої спроби може надійти пізніше.
           </p>
         </div>
       </div>
@@ -94,8 +94,8 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
           <DashboardMetricHelp
             title="Загальна конверсія запису"
             summary="Показує, яка частка сесій із зафіксованим початком завершилася створенням запису."
-            formula="Успішно створені backend записи ÷ анонімні сесії з booking_start × 100%."
-            note="Якщо успіх неможливо надійно зіставити із сесією або успіхів більше за стартів, backend повертає недоступний чи частковий стан замість оманливого відсотка."
+            formula="Сесії з booking_start і server-side booking_success ÷ сесії з booking_start × 100%."
+            note="Успіхи без anonymous session виключаються з відсотка й показуються окремо як прогалина атрибуції."
           />
         </p>
         <p class="mt-1 text-xl font-semibold text-slate-900">{{ overallConversion }}</p>
@@ -114,7 +114,7 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
     />
 
     <div
-      v-else-if="!funnel || funnel.status === 'unavailable'"
+      v-else-if="!funnel"
       class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
       role="status"
     >
@@ -126,14 +126,38 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
 
     <template v-else>
       <div
-        v-if="funnel.status === 'partial'"
+        v-if="funnel.status === 'unavailable'"
+        class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
+        role="status"
+      >
+        <p class="font-semibold">Конверсія воронки поки недоступна</p>
+        <p class="mt-1 text-sm leading-6">
+          Недостатньо надійних подій booking_start, тому кроки й відсотки не показуються. Операційні сигнали за період залишаються доступними нижче.
+        </p>
+        <p class="mt-2 text-sm leading-6">
+          Діагностика телеметрії:
+          {{ funnel.tracking_gap_count.toLocaleString('uk-UA') }} переходів без попередньої події,
+          {{ funnel.unattributed_booking_successes.toLocaleString('uk-UA') }} успішних записів без anonymous session.
+        </p>
+        <p v-if="funnel.status_reason" class="mt-2 text-xs leading-5">{{ funnel.status_reason }}</p>
+      </div>
+
+      <div
+        v-else-if="funnel.status === 'partial'"
         class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"
         role="status"
       >
-        Частина подій неповна. Доступні значення показані нижче, а ненадійні переходи позначені як недоступні.
+        Частина телеметрії неповна: {{ funnel.tracking_gap_count.toLocaleString('uk-UA') }} переходів без попередньої події,
+        {{ funnel.unattributed_booking_successes.toLocaleString('uk-UA') }} успішних записів без anonymous session.
+        Відсотки нижче рахуються лише як перетини тих самих сесій.
+        <span v-if="funnel.status_reason" class="block text-xs">{{ funnel.status_reason }}</span>
       </div>
 
-      <ol class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Кроки воронки онлайн-запису">
+      <ol
+        v-if="isRenderable"
+        class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6"
+        aria-label="Кроки воронки онлайн-запису"
+      >
         <li
           v-for="(row, index) in rows"
           :key="row.step"
@@ -153,7 +177,7 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
           <p class="mt-2 text-3xl font-semibold text-slate-950">
             {{ row.count === null ? 'Недоступно' : row.count.toLocaleString('uk-UA') }}
           </p>
-          <p class="mt-1 text-xs text-slate-500">відвідувачів</p>
+          <p class="mt-1 text-xs text-slate-500">спроб запису</p>
 
           <div v-if="row.conversion" class="mt-4 border-t border-slate-200 pt-3">
             <p class="text-xs text-slate-500">З попереднього кроку</p>
@@ -167,6 +191,12 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
                 · {{ formatBookingFunnelPercentage(row.dropOff.drop_off_percent) }}
               </template>
               <span v-else>недоступно</span>
+            </p>
+            <p
+              v-if="row.conversion.status === 'unavailable' && row.conversion.unavailable_reason"
+              class="mt-2 text-xs leading-5 text-amber-700"
+            >
+              {{ row.conversion.unavailable_reason }}
             </p>
           </div>
           <p v-else class="mt-4 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-500">

@@ -258,18 +258,22 @@ onBeforeUnmount(() => {
               <button
                 v-if="isReviewTruncated(review)"
                 type="button"
-                class="type-meta mt-4 text-xs text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
+                class="type-meta mt-4 text-xs text-neutral-600 transition hover:text-neutral-950"
                 @click="toggleReviewText(review)"
               >
-                {{ isReviewExpanded(review) ? terms.home.reviews.showLess : terms.home.reviews.seeFull }}
+                <BaseHoverUnderlineText>
+                  {{ isReviewExpanded(review) ? terms.home.reviews.showLess : terms.home.reviews.seeFull }}
+                </BaseHoverUnderlineText>
               </button>
               <button
                 v-if="hasOriginalReviewText(review)"
                 type="button"
-                class="type-meta mt-4 text-xs text-neutral-600 underline underline-offset-8 transition hover:text-neutral-950"
+                class="type-meta mt-4 text-xs text-neutral-600 transition hover:text-neutral-950"
                 @click="toggleOriginalReview(review)"
               >
-                {{ isOriginalExpanded(review) ? terms.home.reviews.hideOriginal : terms.home.reviews.readOriginal }}
+                <BaseHoverUnderlineText>
+                  {{ isOriginalExpanded(review) ? terms.home.reviews.hideOriginal : terms.home.reviews.readOriginal }}
+                </BaseHoverUnderlineText>
               </button>
               <p v-if="isOriginalExpanded(review)" class="mt-4 border-l border-neutral-300 pl-4 text-sm leading-6 text-neutral-600">
                 {{ originalReviewText(review) }}

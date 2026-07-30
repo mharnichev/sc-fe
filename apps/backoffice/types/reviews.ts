@@ -73,9 +73,17 @@ export interface ReviewMetrics {
   requests_sent: number
   requests_delivered: number
   review_form_opens: number | null
+  review_form_opens_status: 'available' | 'partial' | 'unavailable'
+  review_form_open_tracking_started_at: string | null
   submitted_reviews: number
   approved_reviews: number
-  review_conversion_rate: number
+  review_conversion_rate: number | null
+  sent_to_open_rate: number | null
+  opened_to_submitted_rate: number | null
+  sent_and_submitted_count: number
+  sent_and_opened_count: number
+  opened_and_submitted_count: number
+  submitted_without_sent_count: number
   average_moderation_time_minutes: number | null
   average_rating_by_master: MasterRatingStatistics[]
 }

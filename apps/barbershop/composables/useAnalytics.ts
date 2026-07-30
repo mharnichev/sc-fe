@@ -8,12 +8,20 @@ declare global {
 
 export const useAnalytics = () => {
   const { canUseAnalytics } = useCookieConsent()
+  const { isPrivateReviewRoute } = useReviewPrivacy()
 
   const trackEvent = (eventName: string, params: AnalyticsEventParams = {}) => {
     if (!import.meta.client || !canUseAnalytics.value || !window.gtag) return
 
+    const contextualParams = isPrivateReviewRoute.value
+      ? {
+          ...params,
+          page_path: '/masters',
+          page_location: `${window.location.origin}/masters`,
+        }
+      : params
     const cleanParams = Object.fromEntries(
-      Object.entries(params).filter(([, value]) => value !== undefined && value !== ''),
+      Object.entries(contextualParams).filter(([, value]) => value !== undefined && value !== ''),
     )
 
     window.gtag('event', eventName, cleanParams)

@@ -56,7 +56,7 @@ const openDrawer = () => {
   if (isOpen.value) return
 
   openBookingDrawer()
-  trackEvent('booking_start', {
+  trackEvent('booking_cta_click', {
     source: 'floating_button',
   })
 }

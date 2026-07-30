@@ -1,4 +1,8 @@
 const publicApiPrefix = 'public/'
+const reviewTokenHeaderPaths = new Set([
+  'public/reviews/request',
+  'public/reviews/request/open',
+])
 
 const normalizeUpstreamBase = (value: string) => value.replace(/\/+$/, '')
 
@@ -22,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const requestHeaders = new Headers()
   const contentType = getHeader(event, 'content-type')
   const accept = getHeader(event, 'accept')
-  const reviewToken = apiPath === 'public/reviews/request'
+  const reviewToken = reviewTokenHeaderPaths.has(apiPath)
     ? getHeader(event, 'x-review-token')
     : undefined
 

@@ -17,8 +17,13 @@ export const reviewTokenFromHash = (hash) => {
   }
 }
 
+const normalizedPathname = pathname =>
+  typeof pathname === 'string'
+    ? pathname.replace(/\/+$/, '') || '/'
+    : ''
+
 export const isTokenizedReviewLocation = (pathname, hash) =>
-  (pathname === '/masters' || pathname === '/review')
+  (normalizedPathname(pathname) === '/masters' || normalizedPathname(pathname) === '/review')
   && Boolean(reviewTokenFromHash(hash))
 
 export const isValidReviewRating = rating =>
@@ -41,15 +46,16 @@ const REVIEW_ANALYTICS_REASONS = new Set([
 ])
 
 /**
- * @param {{ rating?: number, hasText?: boolean, reason?: string }} [values]
+ * @param {{ rating?: number, hasText?: boolean, reason?: string, masterId?: number }} [values]
  * @returns {Record<string, string | number | boolean | null | undefined>}
  */
-export const reviewAnalyticsPayload = ({ rating, hasText, reason } = {}) => {
+export const reviewAnalyticsPayload = ({ rating, hasText, reason, masterId } = {}) => {
   const payload = {}
 
   if (isValidReviewRating(rating)) payload.rating = rating
   if (typeof hasText === 'boolean') payload.has_text = hasText
   if (REVIEW_ANALYTICS_REASONS.has(reason)) payload.reason = reason
+  if (Number.isInteger(masterId) && masterId > 0) payload.master_id = masterId
 
   return payload
 }

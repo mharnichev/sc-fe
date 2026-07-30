@@ -2,12 +2,17 @@ import { toValue, type MaybeRefOrGetter } from 'vue'
 import defaultOgImage from '~/assets/images/main/sc-open-img.webp'
 
 interface SeoOptions {
+  breadcrumbs?: MaybeRefOrGetter<readonly { name: string, path: string }[]>
   image?: MaybeRefOrGetter<string>
   path?: MaybeRefOrGetter<string>
-  type?: MaybeRefOrGetter<'website' | 'article'>
+  type?: MaybeRefOrGetter<'website' | 'article' | 'profile'>
 }
 
-const normalizeRoutePath = (path: string) => path.split('#')[0]?.split('?')[0] || '/'
+const normalizeRoutePath = (path: string) => {
+  const cleanPath = path.split('#')[0]?.split('?')[0] || '/'
+  const withLeadingSlash = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`
+  return withLeadingSlash === '/' ? withLeadingSlash : withLeadingSlash.replace(/\/+$/, '')
+}
 
 export const useSeo = (
   title: MaybeRefOrGetter<string>,
@@ -18,7 +23,7 @@ export const useSeo = (
   const { absoluteUrl } = useSiteUrl()
   const { locale, terms } = useTerms()
 
-  const pagePath = () => toValue(options.path) || normalizeRoutePath(route.path)
+  const pagePath = () => normalizeRoutePath(toValue(options.path) || route.path)
   const pageUrl = () => absoluteUrl(pagePath())
   const imageUrl = () => absoluteUrl(toValue(options.image) || defaultOgImage)
 
@@ -52,6 +57,6 @@ export const useSeo = (
 
   if (import.meta.server) {
     useWebPageStructuredData(title, description, pagePath)
-    useBreadcrumbStructuredData(title, pagePath)
+    useBreadcrumbStructuredData(title, pagePath, options.breadcrumbs)
   }
 }

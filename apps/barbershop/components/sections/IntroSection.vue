@@ -149,12 +149,14 @@ onBeforeUnmount(() => {
             <button
               v-if="hasIntroAccordion"
               type="button"
-              class="type-meta mt-4 inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm text-white transition hover:border-white"
+              class="type-meta mt-4 inline-flex items-center gap-2 text-sm text-white"
               :aria-expanded="isIntroExpanded"
               aria-controls="intro-philosophy-text"
               @click="isIntroExpanded = !isIntroExpanded"
             >
-              {{ isIntroExpanded ? terms.home.intro.readLess : terms.home.intro.readAll }}
+              <BaseHoverUnderlineText>
+                {{ isIntroExpanded ? terms.home.intro.readLess : terms.home.intro.readAll }}
+              </BaseHoverUnderlineText>
               <span class="intro-accordion-arrow h-2 w-2 border-b border-r border-current" :class="{ 'is-open': isIntroExpanded }" aria-hidden="true" />
             </button>
           </div>

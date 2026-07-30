@@ -48,19 +48,17 @@ export default defineNuxtPlugin(() => {
   const route = useRoute()
   const router = useRouter()
   const { canUseAnalytics } = useCookieConsent()
+  const { isPrivateReviewRoute } = useReviewPrivacy()
   let hasTrackedInitialPageView = false
   let isGtagInitialized = false
   let isGtagLoadScheduled = false
-  let isPrivateReviewSession = isTokenizedReviewLocation(window.location.pathname, window.location.hash)
   const pendingCallbacks: (() => void)[] = []
   const hasPrivateReviewContext = () => {
-    if (isPrivateReviewSession) return true
-
-    isPrivateReviewSession = isTokenizedReviewLocation(
+    if (isPrivateReviewRoute.value) return true
+    return isTokenizedReviewLocation(
       route.path,
       route.hash || window.location.hash,
     )
-    return isPrivateReviewSession
   }
 
   const ensureGtagQueue = () => {
@@ -123,16 +121,19 @@ export default defineNuxtPlugin(() => {
   const trackPageView = () => {
     if (!canUseAnalytics.value) return
 
-    scheduleGtagLoad(() => {
-      const pagePath = hasPrivateReviewContext() ? '/masters' : route.fullPath
-      const pageLocation = hasPrivateReviewContext()
-        ? `${window.location.origin}/masters`
-        : window.location.href
+    const fragmentFreePath = route.fullPath.split('#', 1)[0] || route.path
+    const privateReviewContext = hasPrivateReviewContext()
+    const pagePath = privateReviewContext ? '/masters' : fragmentFreePath
+    const pageLocation = privateReviewContext
+      ? `${window.location.origin}/masters`
+      : `${window.location.origin}${fragmentFreePath}`
+    const pageTitle = document.title
 
+    scheduleGtagLoad(() => {
       window.gtag?.('event', 'page_view', {
         page_path: pagePath,
         page_location: pageLocation,
-        page_title: document.title,
+        page_title: pageTitle,
       })
     })
   }
@@ -154,9 +155,10 @@ export default defineNuxtPlugin(() => {
     { immediate: true },
   )
 
-  router.afterEach(() => {
+  router.afterEach(async () => {
     if (!canUseAnalytics.value) return
 
+    await nextTick()
     trackPageView()
   })
 })

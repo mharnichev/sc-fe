@@ -10,7 +10,7 @@ const { open: openBookingDrawer } = useFloatingBookingDrawer()
 
 const handleBookingClick = () => {
   openBookingDrawer()
-  trackEvent('booking_start', { source: 'hero_cta' })
+  trackEvent('booking_cta_click', { source: 'hero_cta' })
 }
 
 const secondaryHeroImageLoaders = [
@@ -250,17 +250,22 @@ onBeforeUnmount(() => {
             :href="terms.home.contact.mapUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-white/80 underline decoration-white/25 underline-offset-4 transition hover:text-white hover:decoration-white"
+            class="text-white/80 transition hover:text-white"
             @click="trackContactClick('map', 'hero')"
           >
-            {{ terms.home.hero.location }}
+            <BaseHoverUnderlineText>{{ terms.home.hero.location }}</BaseHoverUnderlineText>
           </a>
         </SectionLabel>
       </div>
 
       <div class="flex max-w-[22rem] flex-col gap-1 sm:max-w-none sm:gap-0">
         <h1 class="max-w-5xl text-center text-2xl font-semibold uppercase leading-[0.95] tracking-normal sm:text-2xl md:text-3xl">
-          {{ terms.home.hero.title }}
+          <NuxtLink
+            to="/barbershop-odesa"
+            class="transition-colors hover:text-white/80"
+          >
+            <BaseHoverUnderlineText>{{ terms.home.hero.title }}</BaseHoverUnderlineText>
+          </NuxtLink>
         </h1>
 
         <p class="text-sm leading-6 text-white/65 sm:text-base sm:leading-8 sm:text-white/60">

@@ -22,6 +22,12 @@ export interface BookingFunnelAttempt {
   eventIds: Record<string, string>
 }
 
+export interface StoredBookingFunnelAttempt {
+  attempt: BookingFunnelAttempt
+  expiresAt: number
+  analyticsStarted: boolean
+}
+
 export interface BookingFunnelEventPayload {
   event_id: string
   anonymous_session_id: string
@@ -32,6 +38,7 @@ export interface BookingFunnelEventPayload {
 }
 
 type RandomId = () => string
+const SAFE_IDENTIFIER = /^[A-Za-z0-9._:-]{8,128}$/
 
 const positiveInteger = (value: number | null | undefined) =>
   Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined
@@ -60,6 +67,57 @@ export const createBookingFunnelAttempt = (randomId: RandomId): BookingFunnelAtt
   eventIds: {},
 })
 
+export const parseStoredBookingFunnelAttempt = (
+  value: string | null,
+  now = Date.now(),
+): StoredBookingFunnelAttempt | null => {
+  if (!value) return null
+
+  try {
+    const parsed = JSON.parse(value) as Partial<StoredBookingFunnelAttempt>
+    const attempt = parsed.attempt
+    if (
+      !attempt
+      || !SAFE_IDENTIFIER.test(attempt.anonymousSessionId)
+      || !Number.isFinite(parsed.expiresAt)
+      || Number(parsed.expiresAt) <= now
+      || (
+        parsed.analyticsStarted !== undefined
+        && typeof parsed.analyticsStarted !== 'boolean'
+      )
+      || !attempt.eventIds
+      || typeof attempt.eventIds !== 'object'
+      || Array.isArray(attempt.eventIds)
+    ) {
+      return null
+    }
+
+    const eventEntries = Object.entries(attempt.eventIds)
+    if (
+      eventEntries.length > 100
+      || eventEntries.some(([key, eventId]) =>
+        key.length > 256
+        || typeof eventId !== 'string'
+        || !SAFE_IDENTIFIER.test(eventId),
+      )
+    ) {
+      return null
+    }
+
+    return {
+      attempt: {
+        anonymousSessionId: attempt.anonymousSessionId,
+        eventIds: Object.fromEntries(eventEntries),
+      },
+      expiresAt: Number(parsed.expiresAt),
+      analyticsStarted: parsed.analyticsStarted === true,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
 export const bookingFunnelEventPayload = (
   attempt: BookingFunnelAttempt,
   eventType: BookingFunnelClientEventType,
@@ -84,5 +142,10 @@ export const bookingFunnelEventPayload = (
   }
 }
 
-export const bookingFunnelFailureEvent = (status?: number | null): BookingFunnelClientEventType =>
-  status === 409 ? 'stale_schedule' : 'booking_error'
+export const bookingFunnelFailureEvent = (
+  status?: number | null,
+): BookingFunnelClientEventType | null => {
+  if (status === 409) return 'stale_schedule'
+  if (!status || status >= 500) return 'booking_error'
+  return null
+}

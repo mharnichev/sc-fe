@@ -36,6 +36,39 @@ test('creates an anonymous attempt and stable event IDs for retries', () => {
   assert.deepEqual(retry, first)
 })
 
+test('restores only safe, unexpired attempts from session storage', () => {
+  const stored = JSON.stringify({
+    attempt: {
+      anonymousSessionId: 'booking-session-id-123456',
+      eventIds: {
+        'booking_start::': 'event-event-id-123456',
+      },
+    },
+    expiresAt: 2_000,
+    analyticsStarted: false,
+  })
+
+  assert.deepEqual(funnel.parseStoredBookingFunnelAttempt(stored, 1_000), {
+    attempt: {
+      anonymousSessionId: 'booking-session-id-123456',
+      eventIds: {
+        'booking_start::': 'event-event-id-123456',
+      },
+    },
+    expiresAt: 2_000,
+    analyticsStarted: false,
+  })
+  assert.equal(funnel.parseStoredBookingFunnelAttempt(stored, 2_000), null)
+  assert.equal(
+    funnel.parseStoredBookingFunnelAttempt(
+      stored.replace('"analyticsStarted":false', '"analyticsStarted":"yes"'),
+      1_000,
+    ),
+    null,
+  )
+  assert.equal(funnel.parseStoredBookingFunnelAttempt('{"attempt":{"anonymousSessionId":"unsafe"}}'), null)
+})
+
 test('sends a no-slot target date and uses it to deduplicate observations', () => {
   const attempt = funnel.createBookingFunnelAttempt(ids('session-id-123456'))
   const randomId = ids('first-event-id', 'second-event-id')
@@ -108,7 +141,9 @@ test('allows only aggregate identifiers and drops invalid or personal fields', (
 
 test('maps slot conflicts separately from other booking failures', () => {
   assert.equal(funnel.bookingFunnelFailureEvent(409), 'stale_schedule')
-  assert.equal(funnel.bookingFunnelFailureEvent(422), 'booking_error')
+  assert.equal(funnel.bookingFunnelFailureEvent(400), null)
+  assert.equal(funnel.bookingFunnelFailureEvent(422), null)
+  assert.equal(funnel.bookingFunnelFailureEvent(429), null)
   assert.equal(funnel.bookingFunnelFailureEvent(500), 'booking_error')
   assert.equal(funnel.bookingFunnelFailureEvent(), 'booking_error')
 })
@@ -120,14 +155,45 @@ test('public booking API contract records events and attributes server-side succ
     'utf8',
   )
   const contactsSource = await readFile(new URL('../pages/contacts.vue', import.meta.url), 'utf8')
+  const funnelComposableSource = await readFile(
+    new URL('../composables/useBookingFunnel.ts', import.meta.url),
+    'utf8',
+  )
 
   assert.match(domainSource, /api<BookingFunnelEventReceipt>\('\/public\/booking-funnel\/events'/)
   assert.match(domainSource, /funnel_session_id\?: string/)
+  assert.match(domainSource, /keepalive: true/)
+  assert.match(domainSource, /retry: 2/)
+  assert.match(funnelComposableSource, /window\.sessionStorage/)
+  assert.match(funnelComposableSource, /storedAttempt\.value\.analyticsStarted = true/)
+  assert.match(funnelComposableSource, /const claimAnalyticsStart =/)
 
   for (const source of [bookingSource, contactsSource]) {
     assert.match(source, /bookingFunnel\.recordInBackground\('contact_entered'/)
     assert.match(source, /funnel_session_id: funnelSessionId/)
     assert.match(source, /bookingFunnelFailureEvent\(status\)/)
+    assert.match(source, /bookingFunnel\.claimAnalyticsStart\(\)/)
+    assert.doesNotMatch(source, /const bookingStarted = ref\(false\)/)
   }
   assert.match(bookingSource, /targetDate: selectedDate\.value/)
+  assert.match(bookingSource, /recordReachedMasterStep/)
+  assert.match(bookingSource, /trackEvent\('booking_start', \{\s*source: props\.analyticsSource/)
+  assert.match(contactsSource, /kyivLocalDateTimeToIso\(form\.scheduled_at\)/)
+  assert.match(contactsSource, /recordReachedMasterStep\(masterId, serviceIds\[0\]\)/)
+  assert.match(contactsSource, /trackEvent\('booking_start', \{\s*source: 'contacts_page'/)
+})
+
+test('CTA clicks stay separate from meaningful booking starts', async () => {
+  const sources = await Promise.all([
+    '../components/FloatingBookingDrawer.vue',
+    '../components/sections/HeroSection.vue',
+    '../components/sections/Footer.vue',
+    '../components/sections/ServicesGrid.vue',
+  ].map(path => readFile(new URL(path, import.meta.url), 'utf8')))
+
+  for (const ctaSource of sources) {
+    assert.match(ctaSource, /booking_cta_click/)
+    assert.doesNotMatch(ctaSource, /trackEvent\(['"]booking_start/)
+    assert.doesNotMatch(ctaSource, /trackEvent\(['"]select_service/)
+  }
 })

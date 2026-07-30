@@ -29,7 +29,7 @@ const rating = ref<number | null>(null)
 const reviewText = ref('')
 const validationMessage = ref('')
 const submitting = ref(false)
-let hasTrackedFormOpen = false
+let hasTrackedAnalyticsOpen = false
 
 const labels = computed(() => locale.value === 'en'
   ? {
@@ -113,13 +113,24 @@ const loadRequest = async () => {
     request.value = response
     pageState.value = response.state === 'submitted' ? 'submitted' : 'valid'
 
-    if (response.state !== 'submitted' && !hasTrackedFormOpen) {
-      hasTrackedFormOpen = true
-      trackEvent('review_form_opened')
+    if (response.state !== 'submitted') {
+      if (!hasTrackedAnalyticsOpen) {
+        hasTrackedAnalyticsOpen = true
+        trackEvent('review_form_opened', reviewAnalyticsPayload({
+          masterId: response.master_id,
+        }))
+      }
+      // Re-attempt this idempotent milestone after every successful reload.
+      // The backend's unique request key prevents retries from inflating it.
+      void domain.recordReviewFormOpen(props.token).catch(() => undefined)
     }
   }
   catch (error) {
+    const state = reviewRequestStateFromStatus(apiStatus(error))
     setStateFromApiError(error)
+    trackEvent('review_form_load_failed', reviewAnalyticsPayload({
+      reason: state,
+    }))
   }
   finally {
     await nextTick()
@@ -146,7 +157,10 @@ const handleOpenUpdate = (value: boolean) => {
 const selectRating = (value: number) => {
   rating.value = value
   validationMessage.value = ''
-  trackEvent('rating_selected', reviewAnalyticsPayload({ rating: value }))
+  trackEvent('rating_selected', reviewAnalyticsPayload({
+    rating: value,
+    masterId: request.value?.master_id,
+  }))
 }
 
 const handleReviewInput = () => {
@@ -158,7 +172,10 @@ const submit = async () => {
 
   if (!isValidReviewRating(rating.value)) {
     validationMessage.value = labels.value.ratingRequired
-    trackEvent('review_submit_failed', reviewAnalyticsPayload({ reason: 'validation' }))
+    trackEvent('review_submit_failed', reviewAnalyticsPayload({
+      reason: 'validation',
+      masterId: request.value?.master_id,
+    }))
     return
   }
 
@@ -167,7 +184,10 @@ const submit = async () => {
   const expiresAt = request.value?.expires_at ? new Date(request.value.expires_at).getTime() : Number.NaN
   if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
     pageState.value = 'expired'
-    trackEvent('review_submit_failed', reviewAnalyticsPayload({ reason: 'expired' }))
+    trackEvent('review_submit_failed', reviewAnalyticsPayload({
+      reason: 'expired',
+      masterId: request.value?.master_id,
+    }))
     return
   }
 
@@ -178,6 +198,7 @@ const submit = async () => {
   trackEvent('review_submit_started', reviewAnalyticsPayload({
     rating: selectedRating,
     hasText: Boolean(safeReviewText),
+    masterId: request.value?.master_id,
   }))
 
   try {
@@ -191,6 +212,7 @@ const submit = async () => {
     trackEvent('review_submitted', reviewAnalyticsPayload({
       rating: selectedRating,
       hasText: Boolean(safeReviewText),
+      masterId: request.value?.master_id,
     }))
   }
   catch (error) {
@@ -207,6 +229,7 @@ const submit = async () => {
       reason: state,
       rating: selectedRating,
       hasText: Boolean(safeReviewText),
+      masterId: request.value?.master_id,
     }))
   }
   finally {
@@ -249,6 +272,7 @@ onBeforeUnmount(() => {
     type="right"
     @update:model-value="handleOpenUpdate"
   >
+    <div data-hj-suppress class="min-h-full">
     <FeedbackState
       v-if="pageState === 'loading'"
       :title="labels.loading"
@@ -384,6 +408,7 @@ onBeforeUnmount(() => {
           {{ submitting ? labels.submitting : labels.submit }}
         </BaseButton>
       </form>
+    </div>
     </div>
   </BaseModal>
 </template>

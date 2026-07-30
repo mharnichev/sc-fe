@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --port 3000",
+    "dev": "TMPDIR=/tmp nuxt dev --port 3000",
     "build": "nuxt build",
     "start": "nuxt start",
     "lint": "nuxi typecheck",

@@ -1,10 +1,14 @@
 import {
   bookingFunnelEventPayload,
   createBookingFunnelAttempt,
-  type BookingFunnelAttempt,
+  parseStoredBookingFunnelAttempt,
   type BookingFunnelClientEventType,
   type BookingFunnelEventContext,
+  type StoredBookingFunnelAttempt,
 } from '~/utils/bookingFunnel'
+
+const BOOKING_FUNNEL_STORAGE_KEY = 'soulcuts.booking-funnel-attempt.v1'
+const BOOKING_FUNNEL_ATTEMPT_TTL_MS = 2 * 60 * 60 * 1000
 
 const secureRandomId = () => {
   if (!import.meta.client) return null
@@ -19,21 +23,80 @@ const secureRandomId = () => {
 
 export const useBookingFunnel = () => {
   const domain = useBarbershopDomain()
-  let attempt: BookingFunnelAttempt | null = null
+  const storedAttempt = useState<StoredBookingFunnelAttempt | null>(
+    'booking-funnel-attempt',
+    () => null,
+  )
+  const storageHydrated = useState<boolean>('booking-funnel-attempt-hydrated', () => false)
   const completedEvents = new Set<string>()
   const inFlightEvents = new Map<string, Promise<void>>()
 
+  const persistAttempt = () => {
+    if (!import.meta.client) return
+
+    try {
+      if (storedAttempt.value) {
+        window.sessionStorage.setItem(
+          BOOKING_FUNNEL_STORAGE_KEY,
+          JSON.stringify(storedAttempt.value),
+        )
+      }
+      else {
+        window.sessionStorage.removeItem(BOOKING_FUNNEL_STORAGE_KEY)
+      }
+    }
+    catch {
+      // Storage can be unavailable in privacy modes; in-memory tracking still works.
+    }
+  }
+
+  const hydrateAttempt = () => {
+    if (!import.meta.client || storageHydrated.value) return
+    storageHydrated.value = true
+
+    try {
+      storedAttempt.value = parseStoredBookingFunnelAttempt(
+        window.sessionStorage.getItem(BOOKING_FUNNEL_STORAGE_KEY),
+      )
+    }
+    catch {
+      storedAttempt.value = null
+    }
+  }
+
   const ensureAttempt = () => {
-    if (attempt) return attempt
+    if (!import.meta.client) return null
+    hydrateAttempt()
+
+    const now = Date.now()
+    if (storedAttempt.value && storedAttempt.value.expiresAt > now) {
+      storedAttempt.value.expiresAt = now + BOOKING_FUNNEL_ATTEMPT_TTL_MS
+      persistAttempt()
+      return storedAttempt.value.attempt
+    }
 
     const randomId = secureRandomId()
     if (!randomId) return null
 
-    attempt = createBookingFunnelAttempt(() => randomId)
+    const attempt = createBookingFunnelAttempt(() => randomId)
+    storedAttempt.value = {
+      attempt,
+      expiresAt: now + BOOKING_FUNNEL_ATTEMPT_TTL_MS,
+      analyticsStarted: false,
+    }
+    persistAttempt()
     return attempt
   }
 
   const sessionId = () => ensureAttempt()?.anonymousSessionId
+
+  const claimAnalyticsStart = () => {
+    if (!ensureAttempt() || !storedAttempt.value || storedAttempt.value.analyticsStarted) return false
+
+    storedAttempt.value.analyticsStarted = true
+    persistAttempt()
+    return true
+  }
 
   const record = (
     eventType: BookingFunnelClientEventType,
@@ -48,6 +111,7 @@ export const useBookingFunnel = () => {
       context,
       () => secureRandomId() || currentAttempt.anonymousSessionId,
     )
+    persistAttempt()
     const eventId = payload.event_id
 
     if (completedEvents.has(eventId)) return Promise.resolve()
@@ -77,7 +141,8 @@ export const useBookingFunnel = () => {
   }
 
   const reset = () => {
-    attempt = null
+    storedAttempt.value = null
+    persistAttempt()
     completedEvents.clear()
     inFlightEvents.clear()
   }
@@ -85,6 +150,7 @@ export const useBookingFunnel = () => {
   return {
     record,
     recordInBackground,
+    claimAnalyticsStart,
     reset,
     sessionId,
   }

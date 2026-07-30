@@ -173,8 +173,18 @@ useSeo(
 
 .legal-copy :deep(a) {
   color: rgb(161 98 7);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  background-size: 0 1px;
+  text-decoration: none;
+  transition: background-size 432ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.legal-copy :deep(a:hover),
+.legal-copy :deep(a:focus-visible) {
+  background-position: left bottom;
+  background-size: 100% 1px;
 }
 
 @media (min-width: 640px) {

@@ -223,8 +223,13 @@ export interface DashboardBookingFunnelWeeklyDigest {
 }
 
 export interface DashboardBookingFunnel {
+  calculation_version: 2
+  timezone: 'Europe/Kyiv'
+  cohort_definition: string
+  master_attribution_definition: string
   status: DashboardBookingFunnelStatus
   status_reason: string | null
+  tracking_gap_count: number
   steps: DashboardBookingFunnelStepMetric[]
   step_to_step_conversion: DashboardBookingFunnelConversion[]
   overall_conversion: DashboardBookingFunnelOverallConversion | null
@@ -289,6 +294,13 @@ const nullableStringAt = (value: unknown, path: string) => {
 const booleanAt = (value: unknown, path: string) => typeof value === 'boolean' ? value : fail(path)
 const nonNegativeIntegerAt = (value: unknown, path: string) =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : fail(path)
+const percentageAt = (value: unknown, path: string) => {
+  const percentage = Number(numberAt(value, path))
+  if (percentage < 0 || percentage > 100) fail(path)
+  return percentage
+}
+const closeTo = (actual: number, expected: number) =>
+  Math.abs(actual - expected) <= 0.011
 const isoDateAt = (value: unknown, path: string) => {
   const date = stringAt(value, path)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(path)
@@ -334,10 +346,18 @@ const funnelStepMetricAt = (value: unknown, path: string) => {
 
 const funnelAlertAt = (value: unknown, path: string) => {
   const alert = recordAt(value, path)
-  literalAt(alert.code, ['no_slot', 'stale_schedule', 'booking_error'], `${path}.code`)
-  nonNegativeIntegerAt(alert.count, `${path}.count`)
-  if (alert.rate_percent !== null) numberAt(alert.rate_percent, `${path}.rate_percent`)
-  booleanAt(alert.triggered, `${path}.triggered`)
+  const code = literalAt(
+    alert.code,
+    ['no_slot', 'stale_schedule', 'booking_error'],
+    `${path}.code`,
+  )
+  const count = nonNegativeIntegerAt(alert.count, `${path}.count`)
+  const ratePercent = alert.rate_percent === null
+    ? null
+    : percentageAt(alert.rate_percent, `${path}.rate_percent`)
+  if (code !== 'no_slot' && ratePercent !== null) fail(`${path}.rate_percent`)
+  const triggered = booleanAt(alert.triggered, `${path}.triggered`)
+  return { code, count, ratePercent, triggered }
 }
 
 const funnelActionAt = (value: unknown, path: string) => {
@@ -365,8 +385,13 @@ const funnelStepListAt = (value: unknown, path: string) => {
 
 const funnelAlertListAt = (value: unknown, path: string) => {
   const alerts = arrayAt(value, path)
-  alerts.forEach((alert, index) => funnelAlertAt(alert, `${path}.${index}`))
-  return alerts
+  if (alerts.length !== 0 && alerts.length !== 3) fail(path)
+  const normalized = alerts.map((alert, index) => funnelAlertAt(alert, `${path}.${index}`))
+  const expectedCodes = ['no_slot', 'stale_schedule', 'booking_error'] as const
+  normalized.forEach((alert, index) => {
+    if (alert.code !== expectedCodes[index]) fail(`${path}.${index}.code`)
+  })
+  return normalized
 }
 
 const funnelNoSlotDateListAt = (value: unknown, path: string) => {
@@ -375,9 +400,12 @@ const funnelNoSlotDateListAt = (value: unknown, path: string) => {
     const datePath = `${path}.${index}`
     const date = recordAt(rawDate, datePath)
     isoDateAt(date.target_date, `${datePath}.target_date`)
-    nonNegativeIntegerAt(date.observations, `${datePath}.observations`)
-    nonNegativeIntegerAt(date.unique_sessions, `${datePath}.unique_sessions`)
-    nonNegativeIntegerAt(date.affected_masters, `${datePath}.affected_masters`)
+    const observations = nonNegativeIntegerAt(date.observations, `${datePath}.observations`)
+    const uniqueSessions = nonNegativeIntegerAt(date.unique_sessions, `${datePath}.unique_sessions`)
+    const affectedMasters = nonNegativeIntegerAt(date.affected_masters, `${datePath}.affected_masters`)
+    if (uniqueSessions > observations || affectedMasters > observations) {
+      fail(datePath)
+    }
     const firstObservedAt = isoDateTimeAt(date.first_observed_at, `${datePath}.first_observed_at`)
     const lastObservedAt = isoDateTimeAt(date.last_observed_at, `${datePath}.last_observed_at`)
     if (Date.parse(firstObservedAt) > Date.parse(lastObservedAt)) {
@@ -389,6 +417,14 @@ const funnelNoSlotDateListAt = (value: unknown, path: string) => {
 
 const funnelAt = (value: unknown, path: string) => {
   const funnel = recordAt(value, path)
+  if (funnel.calculation_version !== 2) fail(`${path}.calculation_version`)
+  if (funnel.timezone !== 'Europe/Kyiv') fail(`${path}.timezone`)
+  stringAt(funnel.cohort_definition, `${path}.cohort_definition`)
+  stringAt(funnel.master_attribution_definition, `${path}.master_attribution_definition`)
+  const trackingGapCount = nonNegativeIntegerAt(
+    funnel.tracking_gap_count,
+    `${path}.tracking_gap_count`,
+  )
   const status = literalAt(
     funnel.status,
     ['available', 'partial', 'empty', 'unavailable'],
@@ -416,6 +452,20 @@ const funnelAt = (value: unknown, path: string) => {
     if (dropOffs.length !== dashboardBookingFunnelSteps.length - 1) fail(`${path}.drop_offs`)
   }
 
+  const stepCounts = new Map<DashboardBookingFunnelStep, number>()
+  steps.forEach((rawStep, index) => {
+    const step = recordAt(rawStep, `${path}.steps.${index}`)
+    stepCounts.set(
+      step.event_type as DashboardBookingFunnelStep,
+      nonNegativeIntegerAt(step.count, `${path}.steps.${index}.count`),
+    )
+  })
+  const transitionMetrics: Array<{
+    fromCount: number
+    toCount: number
+    conversionPercent: number | null
+    status: DashboardBookingFunnelMetricStatus
+  }> = []
   conversions.forEach((rawConversion, index) => {
     const conversionPath = `${path}.step_to_step_conversion.${index}`
     const conversion = recordAt(rawConversion, conversionPath)
@@ -427,23 +477,52 @@ const funnelAt = (value: unknown, path: string) => {
     ) {
       fail(conversionPath)
     }
-    nonNegativeIntegerAt(conversion.from_count, `${conversionPath}.from_count`)
-    nonNegativeIntegerAt(conversion.to_count, `${conversionPath}.to_count`)
+    const fromCount = nonNegativeIntegerAt(conversion.from_count, `${conversionPath}.from_count`)
+    const toCount = nonNegativeIntegerAt(conversion.to_count, `${conversionPath}.to_count`)
     const metricStatus = literalAt(
       conversion.status,
       ['available', 'unavailable'],
       `${conversionPath}.status`,
     )
-    if (conversion.conversion_percent !== null) {
-      numberAt(conversion.conversion_percent, `${conversionPath}.conversion_percent`)
-    }
+    const conversionPercent = conversion.conversion_percent === null
+      ? null
+      : percentageAt(conversion.conversion_percent, `${conversionPath}.conversion_percent`)
     if (
-      (metricStatus === 'available' && conversion.conversion_percent === null)
-      || (metricStatus === 'unavailable' && conversion.conversion_percent !== null)
+      (metricStatus === 'available' && conversionPercent === null)
+      || (metricStatus === 'unavailable' && conversionPercent !== null)
     ) {
       fail(`${conversionPath}.conversion_percent`)
     }
+    const expectedFromCount = stepCounts.get(fromStep)
+    const destinationCount = stepCounts.get(toStep)
+    if (
+      expectedFromCount === undefined
+      || destinationCount === undefined
+      || fromCount !== expectedFromCount
+      || toCount > destinationCount
+    ) {
+      fail(conversionPath)
+    }
+    if (metricStatus === 'available') {
+      if (
+        fromCount === 0
+        || toCount > fromCount
+        || conversionPercent === null
+        || !closeTo(
+          conversionPercent,
+          Math.round(toCount / fromCount * 10_000) / 100,
+        )
+      ) {
+        fail(conversionPath)
+      }
+    }
     nullableStringAt(conversion.unavailable_reason, `${conversionPath}.unavailable_reason`)
+    transitionMetrics.push({
+      fromCount,
+      toCount,
+      conversionPercent,
+      status: metricStatus,
+    })
   })
 
   dropOffs.forEach((rawDropOff, index) => {
@@ -458,33 +537,85 @@ const funnelAt = (value: unknown, path: string) => {
       fail(dropOffPath)
     }
     const metricStatus = literalAt(dropOff.status, ['available', 'unavailable'], `${dropOffPath}.status`)
-    if (dropOff.count !== null) nonNegativeIntegerAt(dropOff.count, `${dropOffPath}.count`)
-    if (dropOff.drop_off_percent !== null) numberAt(dropOff.drop_off_percent, `${dropOffPath}.drop_off_percent`)
+    const count = dropOff.count === null
+      ? null
+      : nonNegativeIntegerAt(dropOff.count, `${dropOffPath}.count`)
+    const dropOffPercent = dropOff.drop_off_percent === null
+      ? null
+      : percentageAt(dropOff.drop_off_percent, `${dropOffPath}.drop_off_percent`)
     if (
-      (metricStatus === 'available' && (dropOff.count === null || dropOff.drop_off_percent === null))
-      || (metricStatus === 'unavailable' && (dropOff.count !== null || dropOff.drop_off_percent !== null))
+      (metricStatus === 'available' && (count === null || dropOffPercent === null))
+      || (metricStatus === 'unavailable' && (count !== null || dropOffPercent !== null))
+    ) {
+      fail(dropOffPath)
+    }
+    const transition = transitionMetrics[index]
+    if (!transition || transition.status !== metricStatus) fail(dropOffPath)
+    if (
+      metricStatus === 'available'
+      && (
+        count !== transition.fromCount - transition.toCount
+        || transition.conversionPercent === null
+        || dropOffPercent === null
+        || !closeTo(dropOffPercent, 100 - transition.conversionPercent)
+      )
     ) {
       fail(dropOffPath)
     }
   })
 
+  const derivedTrackingGapCount = transitionMetrics.reduce(
+    (total, transition, index) =>
+      total
+      + Number(stepCounts.get(dashboardBookingFunnelSteps[index + 1]) || 0)
+      - transition.toCount,
+    0,
+  )
+  if (trackingGapCount !== derivedTrackingGapCount) {
+    fail(`${path}.tracking_gap_count`)
+  }
+
   if (funnel.overall_conversion !== null) {
     const overall = recordAt(funnel.overall_conversion, `${path}.overall_conversion`)
-    nonNegativeIntegerAt(overall.started, `${path}.overall_conversion.started`)
-    nonNegativeIntegerAt(overall.succeeded, `${path}.overall_conversion.succeeded`)
+    const started = nonNegativeIntegerAt(overall.started, `${path}.overall_conversion.started`)
+    const succeeded = nonNegativeIntegerAt(overall.succeeded, `${path}.overall_conversion.succeeded`)
     const overallStatus = literalAt(
       overall.status,
       ['available', 'unavailable'],
       `${path}.overall_conversion.status`,
     )
-    if (overall.conversion_percent !== null) {
-      numberAt(overall.conversion_percent, `${path}.overall_conversion.conversion_percent`)
-    }
+    const conversionPercent = overall.conversion_percent === null
+      ? null
+      : percentageAt(
+          overall.conversion_percent,
+          `${path}.overall_conversion.conversion_percent`,
+        )
     if (
-      (overallStatus === 'available' && overall.conversion_percent === null)
-      || (overallStatus === 'unavailable' && overall.conversion_percent !== null)
+      (overallStatus === 'available' && conversionPercent === null)
+      || (overallStatus === 'unavailable' && conversionPercent !== null)
     ) {
       fail(`${path}.overall_conversion.conversion_percent`)
+    }
+    const marginalSuccesses = Number(stepCounts.get('booking_success') || 0)
+    if (started !== Number(stepCounts.get('booking_start') || 0)) {
+      fail(`${path}.overall_conversion.started`)
+    }
+    if (succeeded > marginalSuccesses) {
+      fail(`${path}.overall_conversion.succeeded`)
+    }
+    if (
+      overallStatus === 'available'
+      && (
+        started === 0
+        || succeeded > started
+        || conversionPercent === null
+        || !closeTo(
+          conversionPercent,
+          Math.round(succeeded / started * 10_000) / 100,
+        )
+      )
+    ) {
+      fail(`${path}.overall_conversion`)
     }
     nullableStringAt(overall.unavailable_reason, `${path}.overall_conversion.unavailable_reason`)
   }
@@ -492,13 +623,51 @@ const funnelAt = (value: unknown, path: string) => {
     fail(`${path}.overall_conversion`)
   }
 
-  funnelAlertListAt(funnel.operational_alerts, `${path}.operational_alerts`)
+  const operationalAlerts = funnelAlertListAt(
+    funnel.operational_alerts,
+    `${path}.operational_alerts`,
+  )
+  if (
+    (status === 'empty' && operationalAlerts.length !== 0)
+    || (status !== 'empty' && operationalAlerts.length !== 3)
+  ) {
+    fail(`${path}.operational_alerts`)
+  }
   const thresholds = recordAt(funnel.alert_thresholds, `${path}.alert_thresholds`)
-  nonNegativeIntegerAt(thresholds.no_slot_min_count, `${path}.alert_thresholds.no_slot_min_count`)
-  numberAt(thresholds.no_slot_rate_percent, `${path}.alert_thresholds.no_slot_rate_percent`)
-  nonNegativeIntegerAt(thresholds.stale_schedule_count, `${path}.alert_thresholds.stale_schedule_count`)
-  nonNegativeIntegerAt(thresholds.booking_error_count, `${path}.alert_thresholds.booking_error_count`)
+  const noSlotMinCount = nonNegativeIntegerAt(
+    thresholds.no_slot_min_count,
+    `${path}.alert_thresholds.no_slot_min_count`,
+  )
+  const noSlotRateThreshold = percentageAt(
+    thresholds.no_slot_rate_percent,
+    `${path}.alert_thresholds.no_slot_rate_percent`,
+  )
+  const staleScheduleThreshold = nonNegativeIntegerAt(
+    thresholds.stale_schedule_count,
+    `${path}.alert_thresholds.stale_schedule_count`,
+  )
+  const bookingErrorThreshold = nonNegativeIntegerAt(
+    thresholds.booking_error_count,
+    `${path}.alert_thresholds.booking_error_count`,
+  )
   nonNegativeIntegerAt(thresholds.meaningful_step_sessions, `${path}.alert_thresholds.meaningful_step_sessions`)
+  if (operationalAlerts.length) {
+    const [noSlot, staleSchedule, bookingError] = operationalAlerts
+    if (
+      !noSlot
+      || !staleSchedule
+      || !bookingError
+      || noSlot.triggered !== (
+        noSlot.count >= noSlotMinCount
+        && noSlot.ratePercent !== null
+        && noSlot.ratePercent >= noSlotRateThreshold
+      )
+      || staleSchedule.triggered !== (staleSchedule.count >= staleScheduleThreshold)
+      || bookingError.triggered !== (bookingError.count >= bookingErrorThreshold)
+    ) {
+      fail(`${path}.operational_alerts`)
+    }
+  }
   funnelNoSlotDateListAt(funnel.no_slot_dates, `${path}.no_slot_dates`)
   nonNegativeIntegerAt(
     funnel.no_slot_unknown_date_count,
@@ -513,10 +682,24 @@ const funnelAt = (value: unknown, path: string) => {
   if (funnel.latest_weekly_digest !== null) {
     const digest = recordAt(funnel.latest_weekly_digest, `${path}.latest_weekly_digest`)
     if (digest.scope !== 'all_masters') fail(`${path}.latest_weekly_digest.scope`)
-    stringAt(digest.period_start, `${path}.latest_weekly_digest.period_start`)
-    stringAt(digest.period_end, `${path}.latest_weekly_digest.period_end`)
-    stringAt(digest.generated_at, `${path}.latest_weekly_digest.generated_at`)
-    literalAt(
+    const digestPeriodStart = isoDateAt(
+      digest.period_start,
+      `${path}.latest_weekly_digest.period_start`,
+    )
+    const digestPeriodEnd = isoDateAt(
+      digest.period_end,
+      `${path}.latest_weekly_digest.period_end`,
+    )
+    if (
+      (
+        Date.parse(`${digestPeriodEnd}T00:00:00.000Z`)
+        - Date.parse(`${digestPeriodStart}T00:00:00.000Z`)
+      ) / 86_400_000 !== 6
+    ) {
+      fail(`${path}.latest_weekly_digest.period_end`)
+    }
+    isoDateTimeAt(digest.generated_at, `${path}.latest_weekly_digest.generated_at`)
+    const digestStatus = literalAt(
       digest.status,
       ['available', 'partial', 'empty', 'unavailable'],
       `${path}.latest_weekly_digest.status`,
@@ -525,8 +708,32 @@ const funnelAt = (value: unknown, path: string) => {
     if (digest.recommended_action !== null) {
       funnelActionAt(digest.recommended_action, `${path}.latest_weekly_digest.recommended_action`)
     }
-    funnelStepListAt(digest.step_counts, `${path}.latest_weekly_digest.step_counts`)
-    funnelAlertListAt(digest.operational_alerts, `${path}.latest_weekly_digest.operational_alerts`)
+    const digestSteps = funnelStepListAt(
+      digest.step_counts,
+      `${path}.latest_weekly_digest.step_counts`,
+    )
+    const digestAlerts = funnelAlertListAt(
+      digest.operational_alerts,
+      `${path}.latest_weekly_digest.operational_alerts`,
+    )
+    if (
+      (digestStatus === 'empty' && (digestSteps.length || digestAlerts.length))
+      || (
+        digestStatus !== 'empty'
+        && (
+          digestSteps.length !== dashboardBookingFunnelSteps.length
+          || digestAlerts.length !== 3
+        )
+      )
+    ) {
+      fail(`${path}.latest_weekly_digest`)
+    }
+    digestSteps.forEach((rawStep, index) => {
+      const step = recordAt(rawStep, `${path}.latest_weekly_digest.step_counts.${index}`)
+      if (step.event_type !== dashboardBookingFunnelSteps[index]) {
+        fail(`${path}.latest_weekly_digest.step_counts.${index}.event_type`)
+      }
+    })
   }
 }
 

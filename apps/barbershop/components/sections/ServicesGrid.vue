@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import type { ServiceCatalogItemDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import type { PublicServiceCatalogItemDto } from '~/utils/seoRoutes'
 
-const { terms } = useTerms()
+const props = withDefaults(defineProps<{
+  services?: readonly PublicServiceCatalogItemDto[]
+}>(), {
+  services: () => [],
+})
+
+const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
+const route = useRoute()
 const servicesSection = ref<HTMLElement | null>(null)
-const hasRequestedServices = ref(false)
+const hasRequestedServices = ref(props.services.length > 0)
 let serviceCatalogObserver: IntersectionObserver | null = null
 
 const { data: serviceCatalog, pending: servicesPending, execute: loadServicesCatalog } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
@@ -17,7 +25,7 @@ const { data: serviceCatalog, pending: servicesPending, execute: loadServicesCat
 })
 
 const requestServicesCatalog = () => {
-  if (hasRequestedServices.value) return
+  if (hasRequestedServices.value || props.services.length) return
 
   hasRequestedServices.value = true
   serviceCatalogObserver?.disconnect()
@@ -25,9 +33,15 @@ const requestServicesCatalog = () => {
   void loadServicesCatalog()
 }
 
-const showServicesSkeleton = computed(() => !hasRequestedServices.value || servicesPending.value)
+const showServicesSkeleton = computed(() =>
+  props.services.length
+    ? false
+    : !hasRequestedServices.value || servicesPending.value,
+)
 
 onMounted(() => {
+  if (props.services.length) return
+
   const target = servicesSection.value
 
   if (!target || typeof window.IntersectionObserver !== 'function') {
@@ -70,9 +84,20 @@ const compareServices = (first: ServiceCatalogItemDto, second: ServiceCatalogIte
 }
 
 const baseServices = computed(() =>
-  activeBaseCatalogItems(serviceCatalog.value)
+  activeBaseCatalogItems(props.services.length ? [...props.services] : serviceCatalog.value)
     .sort(compareServices),
 )
+const indexableServiceIds = computed(() =>
+  new Set(indexableServiceCatalog(props.services.length ? props.services : serviceCatalog.value)
+    .map(service => serviceStableId(service))),
+)
+const serviceDetailPath = (service: ServiceCatalogItemDto) =>
+  indexableServiceIds.value.has(serviceStableId(service))
+    ? serviceSeoPath(service)
+    : ''
+const detailLabel = computed(() => locale.value === 'en' ? 'Service details' : 'Деталі послуги')
+const catalogueLabel = computed(() => locale.value === 'en' ? 'Full service catalogue' : 'Усі послуги')
+const bookingLabel = computed(() => locale.value === 'en' ? 'Book' : 'Записатися')
 
 const formatServicePrice = (service: ServiceCatalogItemDto) =>
   localizedService.servicePrice(service.active_promotion?.promotional_price ?? service.price, { from: true })
@@ -84,16 +109,21 @@ const promotionLabel = (service: ServiceCatalogItemDto) =>
   service.active_promotion ? `-${service.active_promotion.discount_percent}%` : ''
 
 const selectService = async (service: ServiceCatalogItemDto) => {
-  trackEvent('select_service', {
+  trackEvent('service_cta_click', {
     source: 'services_grid',
     service_id: service.catalog_id,
     service_name: localizedService.serviceName(service),
     value: Number(service.price || 0),
     currency: 'UAH',
   })
-  trackEvent('booking_start', {
+  trackEvent('booking_cta_click', {
     source: 'services_grid',
   })
+
+  if (route.path !== '/') {
+    await navigateTo('/#booking')
+    return
+  }
 
   if (import.meta.client) {
     window.dispatchEvent(new CustomEvent('barbershop:select-service', {
@@ -116,9 +146,18 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             {{ terms.home.services.title }}
           </h2>
         </div>
-        <p class="max-w-md text-base leading-7 text-neutral-600 md:leading-8">
-          {{ terms.home.services.description }}
-        </p>
+        <div class="max-w-md">
+          <p class="text-base leading-7 text-neutral-600 md:leading-8">
+            {{ terms.home.services.description }}
+          </p>
+          <NuxtLink
+            v-if="route.path === '/'"
+            to="/services"
+            class="type-meta mt-4 block w-fit text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
+          >
+            <BaseHoverUnderlineText>{{ catalogueLabel }}</BaseHoverUnderlineText>
+          </NuxtLink>
+        </div>
       </div>
 
       <div
@@ -157,15 +196,14 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         <article
           v-for="(service, index) in baseServices"
           :key="service.catalog_id"
-          class="pt-0"
-          :class="service.active_promotion ? 'is-promoted-service' : ''"
+          class="service-card relative grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
+          :class="service.active_promotion ? 'service-card--promotion is-promoted-service' : ''"
           data-reveal="soft"
           :data-reveal-delay="Math.min(index, 5) * 70"
         >
           <button
             type="button"
-            class="service-card grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
-            :class="service.active_promotion ? 'service-card--promotion' : ''"
+            class="service-card__summary grid w-full gap-4 text-left"
             @click="selectService(service)"
           >
             <div class="flex items-start justify-between gap-5">
@@ -180,26 +218,37 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             <p class="text-sm leading-6 text-neutral-600 md:leading-7">
               {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
             </p>
-            <span class="service-card__meta type-eyebrow flex items-center justify-between gap-4 px-3 py-3 text-xs text-neutral-500">
-              <span>{{ formatServiceDuration(service) }}</span>
-              <span>{{ terms.home.services.choose }}</span>
-            </span>
-            <span
-              v-if="service.active_promotion"
-              class="service-army-strip flex items-center justify-between gap-2 overflow-hidden px-3 py-2 text-neutral-950"
-            >
-              <span class="flex min-w-0 items-center gap-2">
-                <img
-                  src="~/assets/images/services/army-logo.webp"
-                  alt=""
-                  class="h-5 w-5 shrink-0 object-contain"
-                  aria-hidden="true"
-                >
-                <span class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.08em]">{{ service.active_promotion.name_uk }}</span>
-              </span>
-              <span class="service-army-discount shrink-0 text-xs font-bold leading-none text-white">{{ promotionLabel(service) }}</span>
-            </span>
           </button>
+          <NuxtLink
+            v-if="serviceDetailPath(service)"
+            :to="serviceDetailPath(service)"
+            class="service-detail-link type-meta -mt-1 w-fit text-[10px] font-semibold text-neutral-600 transition hover:text-neutral-950"
+          >
+            <BaseHoverUnderlineText>{{ detailLabel }}</BaseHoverUnderlineText>
+          </NuxtLink>
+          <button
+            type="button"
+            class="service-card__booking service-card__meta type-eyebrow flex items-center justify-between gap-4 px-3 py-3 text-xs text-neutral-500"
+            @click="selectService(service)"
+          >
+            <span>{{ formatServiceDuration(service) }}</span>
+            <span>{{ route.path === '/' ? terms.home.services.choose : bookingLabel }}</span>
+          </button>
+          <span
+            v-if="service.active_promotion"
+            class="service-army-strip flex items-center justify-between gap-2 overflow-hidden px-3 py-2 text-neutral-950"
+          >
+            <span class="flex min-w-0 items-center gap-2">
+              <img
+                src="~/assets/images/services/army-logo.webp"
+                alt=""
+                class="h-5 w-5 shrink-0 object-contain"
+                aria-hidden="true"
+              >
+              <span class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.08em]">{{ service.active_promotion.name_uk }}</span>
+            </span>
+            <span class="service-army-discount shrink-0 text-xs font-bold leading-none text-white">{{ promotionLabel(service) }}</span>
+          </span>
         </article>
       </div>
     </div>
@@ -210,16 +259,31 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 .service-card {
   position: relative;
   isolation: isolate;
+  cursor: pointer;
   background: rgb(255 255 255 / 0.62);
 }
 
 .service-card:hover,
-.service-card:focus-visible {
+.service-card:has(.service-card__summary:focus-visible),
+.service-card:has(.service-card__booking:focus-visible) {
   background: rgb(255 255 255 / 0.74);
+}
+
+.service-card__summary:focus-visible,
+.service-card__booking:focus-visible {
+  outline: none;
 }
 
 .service-card__meta {
   background: rgb(23 23 23 / 0.035);
+}
+
+.service-detail-link {
+  position: relative;
+  z-index: 2;
+  font-size: 10px;
+  line-height: 1.25;
+  text-decoration: none;
 }
 
 .service-card--promotion {
