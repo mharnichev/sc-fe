@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
@@ -185,7 +185,7 @@ const prev = async () => {
                   <span class="sr-only">Редагувати</span>
                 </NuxtLink>
                 <BaseButton
-                  variant="danger-outline"
+                  variant="danger-icon"
                   class="h-8 w-8 p-0"
                   :disabled="pendingDeleteId === item.id"
                   :aria-label="pendingDeleteId === item.id ? 'Видалення товару' : 'Видалити товар'"

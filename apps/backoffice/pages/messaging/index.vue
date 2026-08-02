@@ -16,7 +16,6 @@ import {
   PlusIcon,
   PlayIcon,
   TagIcon,
-  TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign, MessagingChannel } from '~/types/messaging'
@@ -375,7 +374,7 @@ const insertCampaignVariable = (variable: string) => {
                     <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" />
                   </BaseButton>
                   <BaseButton v-if="canSendMessagingCampaigns" variant="icon" class="h-9 w-9" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></BaseButton>
-                  <BaseButton v-if="canSendMessagingCampaigns" variant="danger-outline" class="h-9 w-9 p-0" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></BaseButton>
+                  <BaseButton v-if="canSendMessagingCampaigns" variant="danger-icon" class="h-9 w-9 p-0" title="Видалити" @click="confirmCampaignAction = { campaign, action: 'delete' }"><TrashIcon class="h-4 w-4" /></BaseButton>
                 </div>
               </td>
             </tr>

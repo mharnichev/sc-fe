@@ -6,7 +6,6 @@ import {
   FunnelIcon,
   EyeIcon,
   ScissorsIcon,
-  TrashIcon,
   UserCircleIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'

@@ -6,6 +6,7 @@ type ButtonVariant =
   | 'success'
   | 'danger'
   | 'danger-outline'
+  | 'danger-icon'
   | 'secondary'
   | 'neutral'
   | 'create'
@@ -40,7 +41,8 @@ const attrsClass = computed(() => attrs.class)
 const baseClass = computed(() => {
   if (props.variant === 'unstyled') return ''
 
-  const sizeClass = props.variant === 'icon' ? 'h-10 w-10 gap-0 p-0' : {
+  const isIconVariant = props.variant === 'icon' || props.variant === 'danger-icon'
+  const sizeClass = isIconVariant ? 'h-10 w-10 gap-0 p-0' : {
     sm: 'min-h-9 gap-1.5 px-3 py-1.5 text-xs',
     md: 'min-h-10 gap-2 px-4 py-2 text-sm',
     lg: 'min-h-11 gap-2 px-5 py-3 text-sm',
@@ -56,6 +58,7 @@ const baseClass = computed(() => {
 const variantClass = computed(() => {
   if (props.variant === 'unstyled') return ''
   if (props.variant === 'create') return 'base-button--primary'
+  if (props.variant === 'danger-icon') return 'base-button--danger-outline'
   return `base-button--${props.variant}`
 })
 </script>

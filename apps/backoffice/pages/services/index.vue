@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, FunnelIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, FunnelIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
 import type { BaseService } from '~/composables/useBackofficeApi'
 
 definePageMeta({
@@ -228,7 +228,7 @@ const applyFilters = async () => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    variant="danger-outline"
+                    variant="danger-icon"
                     class="h-7 w-7 p-0"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Деактивація базової послуги' : 'Видалити базову послугу'"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChatBubbleLeftRightIcon, ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleLeftRightIcon, ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()

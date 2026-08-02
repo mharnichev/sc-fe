@@ -9,7 +9,6 @@ import {
   PlusIcon,
   ReceiptPercentIcon,
   TicketIcon,
-  TrashIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
 import type { Promotion } from '~/composables/useBackofficeApi'
@@ -324,7 +323,7 @@ const confirmDeletePromotion = async () => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    variant="danger-outline"
+                    variant="danger-icon"
                     class="h-7 w-7 p-0"
                     :disabled="!promotion.is_active"
                     aria-label="Видалити акцію"

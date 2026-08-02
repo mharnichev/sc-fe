@@ -185,22 +185,24 @@ export const termsDictionary = {
       },
       blog: {
         label: 'Блог',
-        title: 'Історії зсередини барберської культури.',
-        description: 'У Soulcuts Journal збираємо репортажі з подій, нотатки про ремесло, комʼюніті та все, що стоїть за роботою в кріслі.',
-        primaryCta: 'Відкрити блог',
+        title: 'Історії Soul Cuts.',
+        description: 'Репортажі про людей, події та культуру навколо Soul Cuts.',
+        primaryCta: 'Усі матеріали',
         secondaryCta: 'Читати головний матеріал',
-        points: [
-          { label: 'Події', text: 'Репортажі з майстеркласів і зустрічей комʼюніті.' },
-          { label: 'Ремесло', text: 'Практичні думки про форму, інструменти й роботу майстра.' },
-          { label: 'Культура', text: 'Люди, місця та історії навколо Soul Cuts.' },
-        ],
-        featured: {
+        lead: {
           category: 'Історія проєкту',
           date: '14 липня 2026 р.',
           readTime: '11 хв читання',
           title: 'З чого починалася історія проєкту «Ідем на Букви»?',
-          excerpt: 'Три роки подкастів, плівкових репортажів та івентів - шлях від локальної ідеї до медіа про українську барберську культуру.',
           coverAlt: 'Колаж із плівкових кадрів з історії проєкту «Ідем на Букви»',
+        },
+        featured: {
+          category: 'Комʼюніті',
+          date: '16 березня 2026 р.',
+          readTime: '7 хв читання',
+          title: 'Барберінг у музеї: перший репортаж Soul Cuts',
+          excerpt: 'Як ми зібрали барберське комʼюніті в Одеському музеї західного та східного мистецтва і навіщо нам такі зустрічі.',
+          coverAlt: 'Учасники барберської події Soul Cuts в музеї',
         },
       },
       reviews: {
@@ -637,22 +639,24 @@ export const termsDictionary = {
       },
       blog: {
         label: 'Blog',
-        title: 'Stories from inside barber culture.',
-        description: 'Soulcuts Journal collects event reports, notes on the craft, community stories and the work behind the chair.',
-        primaryCta: 'Open blog',
+        title: 'Stories by Soul Cuts.',
+        description: 'Reports about the people, events and culture around Soul Cuts.',
+        primaryCta: 'All stories',
         secondaryCta: 'Read the feature',
-        points: [
-          { label: 'Events', text: 'Reports from masterclasses and community gatherings.' },
-          { label: 'Craft', text: 'Practical notes on shape, tools and the barberʼs work.' },
-          { label: 'Culture', text: 'People, places and stories around Soul Cuts.' },
-        ],
-        featured: {
+        lead: {
           category: 'Project story',
           date: 'July 14, 2026',
           readTime: '11 min read',
           title: 'How Did the Story of Idem na Bukvy Begin?',
-          excerpt: 'Three years of podcasts, film-photo reports, and events - the journey from a local idea to a publication about Ukrainian barbering culture.',
           coverAlt: 'A collage of film photographs from the history of Idem na Bukvy',
+        },
+        featured: {
+          category: 'Community',
+          date: 'March 16, 2026',
+          readTime: '7 min read',
+          title: 'Barbering in a Museum: The First Soul Cuts Report',
+          excerpt: 'How we brought the barbering community into the Odesa Museum of Western and Eastern Art, and why these gatherings matter.',
+          coverAlt: 'Soul Cuts barbering event participants in the museum',
         },
       },
       reviews: {

@@ -5,8 +5,20 @@ import type { PublicServiceCatalogItemDto } from '~/utils/seoRoutes'
 
 const props = withDefaults(defineProps<{
   services?: readonly PublicServiceCatalogItemDto[]
+  sectionLabel?: string
+  sectionTitle?: string
+  sectionDescription?: string
+  showCatalogueLink?: boolean
+  preserveCatalogItems?: boolean
+  priceFrom?: boolean
 }>(), {
   services: () => [],
+  sectionLabel: '',
+  sectionTitle: '',
+  sectionDescription: '',
+  showCatalogueLink: false,
+  preserveCatalogItems: false,
+  priceFrom: true,
 })
 
 const { locale, terms } = useTerms()
@@ -83,10 +95,14 @@ const compareServices = (first: ServiceCatalogItemDto, second: ServiceCatalogIte
   return servicePriceValue(first) - servicePriceValue(second)
 }
 
-const baseServices = computed(() =>
-  activeBaseCatalogItems(props.services.length ? [...props.services] : serviceCatalog.value)
-    .sort(compareServices),
-)
+const baseServices = computed(() => {
+  const sourceServices = props.services.length ? [...props.services] : serviceCatalog.value
+  const activeServices = props.preserveCatalogItems
+    ? activeCatalogItems(sourceServices)
+    : activeBaseCatalogItems(sourceServices)
+
+  return activeServices.sort(compareServices)
+})
 const indexableServiceIds = computed(() =>
   new Set(indexableServiceCatalog(props.services.length ? props.services : serviceCatalog.value)
     .map(service => serviceStableId(service))),
@@ -98,11 +114,14 @@ const serviceDetailPath = (service: ServiceCatalogItemDto) =>
 const detailLabel = computed(() => locale.value === 'en' ? 'Service details' : 'Деталі послуги')
 const catalogueLabel = computed(() => locale.value === 'en' ? 'Full service catalogue' : 'Усі послуги')
 const bookingLabel = computed(() => locale.value === 'en' ? 'Book' : 'Записатися')
+const displaySectionLabel = computed(() => props.sectionLabel || terms.value.home.services.label)
+const displaySectionTitle = computed(() => props.sectionTitle || terms.value.home.services.title)
+const displaySectionDescription = computed(() => props.sectionDescription || terms.value.home.services.description)
 
 const formatServicePrice = (service: ServiceCatalogItemDto) =>
-  localizedService.servicePrice(service.active_promotion?.promotional_price ?? service.price, { from: true })
+  localizedService.servicePrice(service.active_promotion?.promotional_price ?? service.price, { from: props.priceFrom })
 const formatServiceRegularPrice = (service: ServiceCatalogItemDto) =>
-  localizedService.servicePrice(service.price, { from: true })
+  localizedService.servicePrice(service.price, { from: props.priceFrom })
 const formatServiceDuration = (service: ServiceCatalogItemDto) =>
   localizedService.serviceDuration(service.duration_minutes)
 const promotionLabel = (service: ServiceCatalogItemDto) =>
@@ -141,17 +160,17 @@ const selectService = async (service: ServiceCatalogItemDto) => {
     <div class="site-container">
       <div class="mb-8 flex flex-col justify-between gap-4 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
-          <SectionLabel>{{ terms.home.services.label }}</SectionLabel>
+          <SectionLabel>{{ displaySectionLabel }}</SectionLabel>
           <h2 class="section-title mt-4">
-            {{ terms.home.services.title }}
+            {{ displaySectionTitle }}
           </h2>
         </div>
         <div class="max-w-md">
           <p class="text-base leading-7 text-neutral-600 md:leading-8">
-            {{ terms.home.services.description }}
+            {{ displaySectionDescription }}
           </p>
           <NuxtLink
-            v-if="route.path === '/'"
+            v-if="route.path === '/' || showCatalogueLink"
             to="/services"
             class="type-meta mt-4 block w-fit text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
           >

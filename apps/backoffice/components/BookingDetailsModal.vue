@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BanknotesIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, ReceiptPercentIcon, StopIcon, TrashIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { BanknotesIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, ReceiptPercentIcon, StopIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Service } from '~/composables/useBackofficeApi'
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, DocumentDuplicateIcon, FunnelIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentDuplicateIcon, FunnelIcon, PencilIcon } from '@heroicons/vue/24/outline'
 import type { MessageTemplate, MessageTemplatePayload } from '~/types/messaging'
 
 const api = useBackofficeApi()
@@ -150,7 +150,7 @@ const closeDeleteConfirm = (value: boolean) => {
               <div class="flex gap-2">
                 <BaseButton v-if="canCreateMessagingDrafts" variant="icon" aria-label="Редагувати шаблон" title="Редагувати" @click="openEdit(template)"><PencilIcon class="h-4 w-4" /></BaseButton>
                 <BaseButton v-if="canCreateMessagingDrafts" variant="icon" aria-label="Дублювати шаблон" title="Дублювати" @click="duplicate(template)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
-                <BaseButton v-if="canSendMessagingCampaigns" variant="danger-outline" class="h-10 w-10 p-0" aria-label="Видалити шаблон" title="Видалити" @click="deleting = template"><TrashIcon class="h-4 w-4" /></BaseButton>
+                <BaseButton v-if="canSendMessagingCampaigns" variant="danger-icon" class="h-10 w-10 p-0" aria-label="Видалити шаблон" title="Видалити" @click="deleting = template"><TrashIcon class="h-4 w-4" /></BaseButton>
               </div>
             </td>
           </tr>

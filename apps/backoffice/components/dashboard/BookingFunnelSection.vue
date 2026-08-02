@@ -102,8 +102,8 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
       </div>
     </div>
 
-    <div v-if="loading" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Завантаження воронки запису">
-      <div v-for="index in 6" :key="index" class="h-44 animate-pulse rounded-2xl bg-slate-100" />
+    <div v-if="loading" class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6" aria-label="Завантаження воронки запису">
+      <div v-for="index in 6" :key="index" class="h-32 animate-pulse rounded-xl bg-slate-100" />
     </div>
 
     <StatisticsEmptyState
@@ -155,36 +155,40 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
 
       <ol
         v-if="isRenderable"
-        class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6"
+        class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6"
         aria-label="Кроки воронки онлайн-запису"
       >
         <li
           v-for="(row, index) in rows"
           :key="row.step"
-          class="booking-funnel__step relative rounded-2xl border p-4"
+          class="booking-funnel__step relative rounded-xl border p-2.5"
         >
-          <span class="booking-funnel__step-number inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-semibold">
-            {{ index + 1 }}
-          </span>
-          <p class="mt-3 flex min-h-10 items-start gap-1 text-sm font-medium leading-5 text-slate-700">
-            {{ row.label }}
-            <DashboardMetricHelp
-              :title="row.label"
-              :summary="bookingFunnelStepDescriptions[row.step]"
-              formula="Одна анонімна сесія враховується на цьому кроці не більше одного разу."
-            />
-          </p>
-          <p class="mt-2 text-3xl font-semibold text-slate-950">
-            {{ row.count === null ? 'Недоступно' : row.count.toLocaleString('uk-UA') }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">спроб запису</p>
+          <div class="flex min-w-0 items-center gap-1.5">
+            <span class="booking-funnel__step-number inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold">
+              {{ index + 1 }}
+            </span>
+            <p class="flex min-w-0 flex-1 items-center gap-0.5 text-xs font-medium leading-4 text-slate-700">
+              <span class="min-w-0 truncate">{{ row.label }}</span>
+              <DashboardMetricHelp
+                :title="row.label"
+                :summary="bookingFunnelStepDescriptions[row.step]"
+                formula="Одна анонімна сесія враховується на цьому кроці не більше одного разу."
+              />
+            </p>
+          </div>
+          <div class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+            <p class="text-xl font-semibold leading-none text-slate-950">
+              {{ row.count === null ? 'Недоступно' : row.count.toLocaleString('uk-UA') }}
+            </p>
+            <p class="text-[0.625rem] leading-4 text-slate-500">спроб запису</p>
+          </div>
 
-          <div v-if="row.conversion" class="mt-4 border-t border-slate-200 pt-3">
-            <p class="text-xs text-slate-500">З попереднього кроку</p>
-            <p class="mt-1 font-semibold text-slate-900">
+          <div v-if="row.conversion" class="booking-funnel__conversion mt-2 rounded-lg border px-2 py-2">
+            <p class="text-[0.625rem] leading-4 text-slate-500">З попереднього кроку</p>
+            <p class="mt-0.5 text-sm font-semibold leading-none text-slate-900">
               {{ formatBookingFunnelPercentage(row.conversion.conversion_percent, row.conversion.status) }}
             </p>
-            <p class="mt-2 text-xs leading-5 text-slate-500">
+            <p class="mt-1 text-[0.625rem] leading-4 text-slate-500">
               Відсів:
               <template v-if="row.dropOff?.status === 'available'">
                 <strong class="font-semibold text-slate-700">{{ row.dropOff.count?.toLocaleString('uk-UA') }}</strong>
@@ -194,12 +198,12 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
             </p>
             <p
               v-if="row.conversion.status === 'unavailable' && row.conversion.unavailable_reason"
-              class="mt-2 text-xs leading-5 text-amber-700"
+              class="mt-1 text-[0.625rem] leading-4 text-amber-700"
             >
               {{ row.conversion.unavailable_reason }}
             </p>
           </div>
-          <p v-else class="mt-4 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-500">
+          <p v-else class="booking-funnel__conversion booking-funnel__conversion--start mt-2 rounded-lg border px-2 py-2 text-[0.625rem] leading-4 text-slate-500">
             Початок воронки — попереднього кроку немає.
           </p>
         </li>
@@ -384,6 +388,17 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
 .booking-funnel__step-number {
   background: color-mix(in srgb, var(--accent-text) 15%, var(--glass));
   color: color-mix(in srgb, var(--accent-text) 78%, var(--text-primary));
+}
+
+.booking-funnel__conversion {
+  border-color: color-mix(in srgb, var(--accent-text) 22%, var(--border));
+  background: color-mix(in srgb, var(--accent-text) 6%, var(--glass));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 48%, transparent);
+}
+
+.booking-funnel__conversion--start {
+  border-color: color-mix(in srgb, var(--text-secondary) 16%, var(--border));
+  background: color-mix(in srgb, var(--text-secondary) 4%, var(--glass));
 }
 
 .booking-funnel__bottleneck {

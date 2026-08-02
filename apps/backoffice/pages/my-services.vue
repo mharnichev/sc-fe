@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
 import type { MasterService, BaseService, Master } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -241,7 +241,7 @@ const deleteService = async (service: MasterService) => {
                     </template>
                   </BaseButton>
                   <BaseButton
-                    variant="danger-outline"
+                    variant="danger-icon"
                     class="h-7 w-7 p-0"
                     :disabled="deletingId === service.id || !service.is_active"
                     :aria-label="deletingId === service.id ? 'Вимкнення послуги' : 'Видалити послугу'"

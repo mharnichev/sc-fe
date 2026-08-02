@@ -200,28 +200,32 @@ watch(teamMembers, (members) => {
           <div v-if="activeMember" class="pointer-events-none absolute bottom-28 left-0 right-0 z-20 text-white">
             <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
               <div :key="activeMember.id" class="site-container">
-                <p class="type-meta type-eyebrow--wide text-xs text-white">
-                  {{ activeMember.role }}
-                </p>
-                <h3 class="type-display mt-3 text-2xl leading-none text-white">
-                  {{ activeMember.name }}
-                </h3>
-                <p v-if="activeMember.description" class="mt-4 max-w-sm break-words text-base leading-7 text-white/82">
-                  {{ activeMember.description }}
-                </p>
-                <MasterRatingBlock
-                  :master-id="activeMember.id"
-                  tone="dark"
-                  compact
-                  class="mt-4"
-                />
-                <NuxtLink
-                  v-if="activeMember.profilePath"
-                  :to="activeMember.profilePath"
-                  class="pointer-events-auto mt-4 inline-flex text-sm font-semibold text-white"
-                >
-                  <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
-                </NuxtLink>
+                <div class="team-member-copy-surface w-full max-w-md p-5 sm:p-6">
+                  <p class="type-meta type-eyebrow--wide text-xs text-white">
+                    {{ activeMember.role }}
+                  </p>
+                  <h3 class="type-display mt-3 text-2xl leading-none text-white">
+                    {{ activeMember.name }}
+                  </h3>
+                  <MasterRatingBlock
+                    :master-id="activeMember.id"
+                    tone="dark"
+                    compact
+                    class="mt-4"
+                    :summary-label="activeMember.description"
+                    :show-summary-details="false"
+                  />
+                  <NuxtLink
+                    v-if="activeMember.profilePath"
+                    :to="activeMember.profilePath"
+                    class="group pointer-events-auto mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
+                  >
+                    <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+                    <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </NuxtLink>
+                </div>
               </div>
             </Transition>
           </div>
@@ -276,18 +280,9 @@ watch(teamMembers, (members) => {
               </button>
             </nav>
 
-            <div class="flex items-center gap-5">
-              <BaseButton :to="props.bookingTarget">
-                {{ terms.home.team.cta }}
-              </BaseButton>
-              <NuxtLink
-                v-if="activeMember?.profilePath"
-                :to="activeMember.profilePath"
-                class="text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
-              >
-                <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
-              </NuxtLink>
-            </div>
+            <BaseButton :to="props.bookingTarget">
+              {{ terms.home.team.cta }}
+            </BaseButton>
 
           </div>
         </div>
@@ -305,29 +300,33 @@ watch(teamMembers, (members) => {
           <div class="absolute bottom-0 left-0 right-0 text-white md:left-auto">
             <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
               <div :key="activeMember.id" class="site-container py-6 sm:py-8 md:max-w-xl md:px-12 md:py-12">
-                <p class="type-meta type-eyebrow--wide text-xs text-white">
-                  {{ activeMember.role }}
-                </p>
-                <h3 class="type-display mt-3 text-2xl leading-none text-white md:hidden">
-                  {{ activeMember.name }}
-                </h3>
-                <p v-if="activeMember.description" class="mt-4 max-w-md break-words text-base leading-8 text-white/78">
-                  {{ activeMember.description }}
-                </p>
-                <MasterRatingBlock
-                  :master-id="activeMember.id"
-                  :review-limit="1"
-                  show-reviews
-                  tone="dark"
-                  class="mt-5 max-w-md"
-                />
-                <NuxtLink
-                  v-if="activeMember.profilePath"
-                  :to="activeMember.profilePath"
-                  class="mt-4 inline-flex text-sm font-semibold text-white"
-                >
-                  <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
-                </NuxtLink>
+                <div class="team-member-copy-surface w-full max-w-md p-6 sm:p-7">
+                  <p class="type-meta type-eyebrow--wide text-xs text-white">
+                    {{ activeMember.role }}
+                  </p>
+                  <h3 class="type-display mt-3 text-2xl leading-none text-white md:hidden">
+                    {{ activeMember.name }}
+                  </h3>
+                  <MasterRatingBlock
+                    :master-id="activeMember.id"
+                    :review-limit="1"
+                    show-reviews
+                    tone="dark"
+                    class="mt-5 max-w-md"
+                    :summary-label="activeMember.description"
+                    :show-summary-details="false"
+                  />
+                  <NuxtLink
+                    v-if="activeMember.profilePath"
+                    :to="activeMember.profilePath"
+                    class="group mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
+                  >
+                    <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+                    <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </NuxtLink>
+                </div>
               </div>
             </Transition>
           </div>
@@ -373,6 +372,13 @@ watch(teamMembers, (members) => {
 .team-member-copy-leave-to {
   opacity: 0;
   transform: translateY(-0.75rem);
+}
+
+.team-member-copy-surface {
+  background: rgb(10 10 10 / 0.58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  clip-path: polygon(0px 4%, 6% 0px, 18% 2%, 31% 0px, 47% 3%, 64% 1%, 80% 3%, 100% 0px, 97% 15%, 100% 32%, 97% 49%, 100% 67%, 98% 84%, 100% 100%, 84% 98%, 67% 100%, 50% 97%, 32% 100%, 15% 98%, 0px 100%, 3% 84%, 0px 67%, 3% 50%, 0px 33%, 3% 16%);
 }
 
 .team-mobile-slider {

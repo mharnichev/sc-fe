@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon, FunnelIcon, LockOpenIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, FunnelIcon, LockOpenIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type { Master, MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 

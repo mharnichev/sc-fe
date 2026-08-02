@@ -7,11 +7,15 @@ const props = withDefaults(defineProps<{
   reviewLimit?: number
   tone?: 'light' | 'dark'
   compact?: boolean
+  summaryLabel?: string
+  showSummaryDetails?: boolean
 }>(), {
   showReviews: false,
   reviewLimit: 2,
   tone: 'light',
   compact: false,
+  summaryLabel: '',
+  showSummaryDetails: true,
 })
 
 const { locale } = useTerms()
@@ -107,15 +111,20 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
       compact ? 'master-rating-block--compact' : '',
     ]"
   >
-    <p v-if="pending" class="text-xs leading-5 opacity-60" role="status">
-      {{ labels.loading }}
-    </p>
-    <p v-else-if="error" class="text-xs leading-5 opacity-60" role="status">
-      {{ labels.unavailable }}
-    </p>
-    <p v-else-if="!hasRating" class="text-xs leading-5 opacity-60">
-      {{ labels.empty }}
-    </p>
+    <div v-if="pending || error || !hasRating" class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span v-if="summaryLabel" class="type-meta type-eyebrow--wide text-xs">
+        {{ summaryLabel }}
+      </span>
+      <p v-if="pending" class="text-xs leading-5 opacity-60" role="status">
+        {{ labels.loading }}
+      </p>
+      <p v-else-if="error" class="text-xs leading-5 opacity-60" role="status">
+        {{ labels.unavailable }}
+      </p>
+      <p v-else class="text-xs leading-5 opacity-60">
+        {{ labels.empty }}
+      </p>
+    </div>
     <template v-else>
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span class="flex items-center gap-1 text-amber-500" role="img" :aria-label="`${trust?.summary.average_rating?.toFixed(1)} / 5`">
@@ -124,10 +133,13 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
             {{ trust?.summary.average_rating?.toFixed(1) }}
           </strong>
         </span>
-        <span class="text-xs opacity-65">
+        <span v-if="summaryLabel" class="type-meta type-eyebrow--wide text-xs">
+          {{ summaryLabel }}
+        </span>
+        <span v-if="showSummaryDetails" class="text-xs opacity-65">
           {{ trust?.summary.approved_review_count }} {{ labels.reviews }}
         </span>
-        <span class="type-meta text-[0.62rem] opacity-50">/ {{ labels.verified }}</span>
+        <span v-if="showSummaryDetails" class="type-meta text-[0.62rem] opacity-50">/ {{ labels.verified }}</span>
       </div>
 
       <div v-if="showReviews && recentReviews.length" class="mt-4 space-y-3" :aria-label="labels.recent">

@@ -191,6 +191,66 @@ const services = computed<BarberService[]>(() => {
   })
 })
 
+const serviceGridItems = computed<PublicServiceCatalogItemDto[]>(() => {
+  const seenServices = new Set<string>()
+  const masterServices = (master.services || []) as PublicServiceDto[]
+
+  return masterServices.filter(isPublicServiceActive).flatMap((service) => {
+    const baseId = typeof service.base_service_id === 'number'
+      ? service.base_service_id
+      : null
+    const catalogService = baseId ? catalogByBaseId.get(baseId) : undefined
+    const serviceKey = catalogService && baseId
+      ? `base:${baseId}`
+      : `service:${service.id}`
+
+    if (seenServices.has(serviceKey)) return []
+    seenServices.add(serviceKey)
+
+    const serviceName = service.name?.trim() || catalogService?.name || ''
+    if (!serviceName) return []
+
+    const titleUk = service.title_uk?.trim() || catalogService?.title_uk || null
+    const titleEn = service.title_en?.trim() || catalogService?.title_en || null
+    const description = service.description?.trim() || catalogService?.description || null
+    const descriptionUk = service.description_uk?.trim() || catalogService?.description_uk || null
+    const descriptionEn = service.description_en?.trim() || catalogService?.description_en || null
+    const activePromotion = service.active_promotion || null
+
+    return [{
+      ...catalogService,
+      catalog_id: catalogService?.catalog_id || `master:${master.id}:service:${service.id}`,
+      base_service_id: baseId,
+      source_type: catalogService?.source_type || (baseId ? 'base' : 'custom'),
+      name: serviceName,
+      title_uk: titleUk,
+      title_en: titleEn,
+      description,
+      description_uk: descriptionUk,
+      description_en: descriptionEn,
+      price: service.price,
+      duration_minutes: service.duration_minutes,
+      active_promotion: activePromotion,
+      barber_ids: [master.id],
+      barber_service_ids: [service.id],
+      barber_services: [{
+        id: service.id,
+        barber_id: master.id,
+        name: serviceName,
+        title_uk: titleUk,
+        title_en: titleEn,
+        description,
+        description_uk: descriptionUk,
+        description_en: descriptionEn,
+        price: service.price,
+        duration_minutes: service.duration_minutes,
+        is_active: service.is_active,
+        active_promotion: activePromotion,
+      }],
+    }]
+  })
+})
+
 const approvedReviews = computed<ApprovedReview[]>(() =>
   (trust.value?.reviews || []).flatMap((review) => {
     const comment = review.comment?.trim() || ''
@@ -232,6 +292,109 @@ const rating = computed(() => {
   return { ratingValue, reviewCount }
 })
 
+const activeReviewIndex = ref(0)
+const visibleReviewSlides = ref(1)
+const expandedReviewIds = ref<number[]>([])
+
+const maxActiveReviewIndex = computed(() =>
+  Math.max(0, approvedReviews.value.length - visibleReviewSlides.value),
+)
+
+const reviewSliderTransform = computed(() =>
+  `translateX(-${activeReviewIndex.value * (100 / visibleReviewSlides.value)}%)`,
+)
+
+const goToReview = (index: number) => {
+  if (!approvedReviews.value.length) return
+  activeReviewIndex.value = (index + maxActiveReviewIndex.value + 1) % (maxActiveReviewIndex.value + 1)
+}
+
+let reviewAutoplayTimer: ReturnType<typeof setInterval> | null = null
+
+const stopReviewAutoplay = () => {
+  if (!import.meta.client || !reviewAutoplayTimer) return
+  clearInterval(reviewAutoplayTimer)
+  reviewAutoplayTimer = null
+}
+
+const startReviewAutoplay = () => {
+  if (!import.meta.client) return
+  stopReviewAutoplay()
+  if (maxActiveReviewIndex.value <= 0) return
+
+  reviewAutoplayTimer = setInterval(() => {
+    goToReview(activeReviewIndex.value + 1)
+  }, 3000)
+}
+
+const updateVisibleReviewSlides = () => {
+  if (!import.meta.client) return
+
+  if (window.matchMedia('(min-width: 1024px)').matches) {
+    visibleReviewSlides.value = 3
+    return
+  }
+
+  if (window.matchMedia('(min-width: 768px)').matches) {
+    visibleReviewSlides.value = 2
+    return
+  }
+
+  visibleReviewSlides.value = 1
+}
+
+const starIcons = (reviewRating: number) =>
+  Array.from({ length: 5 }, (_, index) => index < Math.round(reviewRating))
+
+const isReviewExpanded = (review: ApprovedReview) =>
+  expandedReviewIds.value.includes(review.id)
+
+const toggleReviewText = (review: ApprovedReview) => {
+  if (isReviewExpanded(review)) {
+    expandedReviewIds.value = expandedReviewIds.value.filter(id => id !== review.id)
+    return
+  }
+
+  expandedReviewIds.value = [...expandedReviewIds.value, review.id]
+}
+
+const reviewPreview = (review: ApprovedReview) => {
+  if (isReviewExpanded(review) || review.comment.length <= 140) return review.comment
+  return `${review.comment.slice(0, 140).trimEnd()}...`
+}
+
+watch(
+  () => approvedReviews.value.length,
+  (length) => {
+    if (!length) {
+      activeReviewIndex.value = 0
+      stopReviewAutoplay()
+      return
+    }
+
+    if (activeReviewIndex.value >= length) activeReviewIndex.value = 0
+    if (import.meta.client) startReviewAutoplay()
+  },
+  { immediate: true },
+)
+
+watch(visibleReviewSlides, () => {
+  if (activeReviewIndex.value > maxActiveReviewIndex.value) {
+    activeReviewIndex.value = maxActiveReviewIndex.value
+  }
+})
+
+onMounted(() => {
+  updateVisibleReviewSlides()
+  window.addEventListener('resize', updateVisibleReviewSlides)
+  startReviewAutoplay()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateVisibleReviewSlides)
+  stopReviewAutoplay()
+})
+
 const pageLabels = computed(() => locale.value === 'en'
   ? {
       backHome: 'Home',
@@ -240,9 +403,15 @@ const pageLabels = computed(() => locale.value === 'en'
       local: 'Soul Cuts in Odesa',
       masters: 'Barbers',
       metaLead: 'Barber at Soul Cuts in Odesa',
+      nextReview: 'Next review',
+      previousReview: 'Previous review',
       reviews: 'Approved client reviews',
+      reviewCount: 'approved reviews',
+      reviewGuest: 'Soul Cuts client',
+      seeFullReview: 'Read full review',
       services: 'Available services',
       servicesIntro: 'Current services, prices and duration for this barber.',
+      showLessReview: 'Show less',
       viewAllServices: 'View all services',
       viewTeam: 'Meet the team',
     }
@@ -253,9 +422,15 @@ const pageLabels = computed(() => locale.value === 'en'
       local: 'Soul Cuts в Одесі',
       masters: 'Барбери',
       metaLead: 'Барбер Soul Cuts в Одесі',
+      nextReview: 'Наступний відгук',
+      previousReview: 'Попередній відгук',
       reviews: 'Схвалені відгуки клієнтів',
+      reviewCount: 'схвалених відгуків',
+      reviewGuest: 'Клієнт Soul Cuts',
+      seeFullReview: 'Читати повністю',
       services: 'Доступні послуги',
       servicesIntro: 'Актуальні послуги, ціни та тривалість роботи цього барбера.',
+      showLessReview: 'Згорнути',
       viewAllServices: 'Усі послуги',
       viewTeam: 'Переглянути команду',
     })
@@ -373,7 +548,7 @@ useBarberStructuredData(() => ({
                 ★ {{ rating.ratingValue.toFixed(1) }}
               </span>
               <span class="text-neutral-500">
-                {{ rating.reviewCount }} {{ pageLabels.reviews.toLocaleLowerCase() }}
+                {{ rating.reviewCount }} {{ pageLabels.reviewCount }}
               </span>
             </div>
 
@@ -405,79 +580,106 @@ useBarberStructuredData(() => ({
       </div>
     </section>
 
-    <section class="section-y-tight bg-white">
+    <ServicesGrid
+      :services="serviceGridItems"
+      :section-label="pageLabels.services"
+      :section-title="pageLabels.services"
+      :section-description="pageLabels.servicesIntro"
+      show-catalogue-link
+      preserve-catalog-items
+      :price-from="false"
+    />
+
+    <section id="reviews" v-if="approvedReviews.length" class="section-y-tight bg-stone-100">
       <div class="site-container">
-        <div class="max-w-2xl">
-          <SectionLabel>{{ pageLabels.services }}</SectionLabel>
-          <h2 class="section-title mt-4">
-            {{ pageLabels.services }}
-          </h2>
-          <p class="mt-4 text-base leading-7 text-neutral-600">
-            {{ pageLabels.servicesIntro }}
+        <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6" data-reveal="soft">
+          <div>
+            <SectionLabel>{{ pageLabels.reviews }}</SectionLabel>
+            <p v-if="rating" class="mt-4 text-3xl font-semibold leading-tight text-neutral-950">
+              {{ rating.ratingValue.toFixed(1) }}/5
+            </p>
+          </div>
+          <p v-if="rating" class="type-eyebrow text-xs text-neutral-600">
+            {{ rating.reviewCount }} {{ pageLabels.reviewCount }}
           </p>
         </div>
 
-        <div class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <article
-            v-for="service in services"
-            :key="service.id"
-            class="group flex min-h-44 flex-col border border-neutral-200 bg-stone-100 p-5 transition hover:-translate-y-0.5 hover:border-neutral-400"
+        <div class="mt-8 md:mt-10">
+          <div
+            class="overflow-hidden"
+            @mouseenter="stopReviewAutoplay"
+            @mouseleave="startReviewAutoplay"
+            @focusin="stopReviewAutoplay"
+            @focusout="startReviewAutoplay"
           >
-            <NuxtLink
-              v-if="service.path"
-              :to="service.path"
-              class="text-xl font-semibold"
+            <div
+              class="flex transition-transform duration-700 ease-out"
+              :style="{ transform: reviewSliderTransform }"
             >
-              <BaseHoverUnderlineText>{{ service.name }}</BaseHoverUnderlineText>
-            </NuxtLink>
-            <h3 v-else class="text-xl font-semibold">
-              {{ service.name }}
-            </h3>
-            <dl class="mt-auto flex items-end justify-between gap-4 pt-8 text-sm">
-              <div>
-                <dt class="sr-only">{{ pageLabels.services }}</dt>
-                <dd class="font-semibold">{{ localizedService.servicePrice(service.price) }}</dd>
-              </div>
-              <div class="text-right text-neutral-500">
-                <dt class="sr-only">{{ pageLabels.services }}</dt>
-                <dd>{{ localizedService.serviceDuration(service.durationMinutes) }}</dd>
-              </div>
-            </dl>
-          </article>
-        </div>
+              <article
+                v-for="(review, index) in approvedReviews"
+                :key="review.id"
+                class="min-w-full border-l border-neutral-300 pl-4 pr-4 md:min-w-[50%] md:pl-5 md:pr-6 lg:min-w-[33.333333%]"
+                data-reveal="soft"
+                :data-reveal-delay="Math.min(index, 2) * 90"
+              >
+                <div class="mb-4">
+                  <p class="text-sm font-semibold text-neutral-950">
+                    {{ review.authorName || pageLabels.reviewGuest }}
+                  </p>
+                  <div class="type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600">
+                    <span class="flex items-center gap-0.5 text-amber-500" role="img" :aria-label="`${review.rating}/5`">
+                      <span
+                        v-for="(filled, starIndex) in starIcons(review.rating)"
+                        :key="starIndex"
+                        :class="filled ? 'text-amber-500' : 'text-neutral-300'"
+                        aria-hidden="true"
+                      >★</span>
+                    </span>
+                    <span v-if="formatReviewDate(review.publishedAt)">/ {{ formatReviewDate(review.publishedAt) }}</span>
+                  </div>
+                </div>
+                <p class="text-sm font-semibold leading-6 text-neutral-950 md:text-base md:leading-7">
+                  "{{ reviewPreview(review) }}"
+                </p>
+                <button
+                  v-if="review.comment.length > 140"
+                  type="button"
+                  class="type-meta mt-4 text-xs text-neutral-600 transition hover:text-neutral-950"
+                  @click="toggleReviewText(review)"
+                >
+                  <BaseHoverUnderlineText>
+                    {{ isReviewExpanded(review) ? pageLabels.showLessReview : pageLabels.seeFullReview }}
+                  </BaseHoverUnderlineText>
+                </button>
+              </article>
+            </div>
+          </div>
 
-        <div class="mt-8">
-          <BaseButton to="/services" variant="light">
-            {{ pageLabels.viewAllServices }}
-          </BaseButton>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="approvedReviews.length" class="section-y-tight bg-stone-100">
-      <div class="site-container">
-        <SectionLabel>{{ pageLabels.reviews }}</SectionLabel>
-        <h2 class="section-title mt-4">
-          {{ pageLabels.reviews }}
-        </h2>
-
-        <div class="mt-8 grid gap-4 md:grid-cols-2">
-          <blockquote
-            v-for="review in approvedReviews"
-            :key="review.id"
-            class="border-l-2 border-amber-600 bg-white/65 p-5"
-          >
-            <p class="text-base leading-8 text-neutral-800">
-              “{{ review.comment }}”
-            </p>
-            <footer class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
-              <span v-if="review.authorName">{{ review.authorName }}</span>
-              <span>{{ review.rating }}/5</span>
-              <time v-if="review.publishedAt" :datetime="review.publishedAt">
-                {{ formatReviewDate(review.publishedAt) }}
-              </time>
-            </footer>
-          </blockquote>
+          <div class="mt-7 flex justify-end">
+            <div class="flex gap-2">
+              <BaseButton
+                type="button"
+                variant="outline-dark"
+                shape="circle"
+                size="sm"
+                :aria-label="pageLabels.previousReview"
+                @click="goToReview(activeReviewIndex - 1)"
+              >
+                ‹
+              </BaseButton>
+              <BaseButton
+                type="button"
+                variant="outline-dark"
+                shape="circle"
+                size="sm"
+                :aria-label="pageLabels.nextReview"
+                @click="goToReview(activeReviewIndex + 1)"
+              >
+                ›
+              </BaseButton>
+            </div>
+          </div>
         </div>
       </div>
     </section>

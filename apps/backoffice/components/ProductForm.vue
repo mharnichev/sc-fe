@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import { slugify } from '@shared-utils'
 import type { Brand, Category, ProductPayload } from '~/composables/useBackofficeApi'
 
