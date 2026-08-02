@@ -25,6 +25,8 @@ if (!rawPost) {
 }
 
 const isUnlisted = rawPost.visibility === 'unlisted'
+const runtimeConfig = useRuntimeConfig()
+const articleUrl = `${String(runtimeConfig.public.siteUrl).replace(/\/+$/, '')}/posts/${rawPost.slug}`
 
 if (isUnlisted) {
   const robotsHeader = useResponseHeader('X-Robots-Tag')
@@ -139,10 +141,17 @@ useSeoMeta({
   ogTitle: () => post.value.title,
   ogDescription: () => post.value.excerpt,
   ogImage: () => post.value.coverImage,
+  ogType: 'article',
+  ogUrl: articleUrl,
+  twitterCard: 'summary_large_image',
 })
 
 useHead(() => ({
   link: [
+    {
+      rel: 'canonical',
+      href: articleUrl,
+    },
     {
       rel: 'preload',
       as: 'image',

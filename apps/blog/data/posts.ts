@@ -441,7 +441,6 @@ export const posts: BlogPost[] = [
       en: 'A collage of film photographs from the history of Idem na Bukvy',
     },
     featured: true,
-    visibility: 'unlisted',
     articleImageLayout: 'grouped-gallery',
     imageFit: 'natural-capped',
     articleImages: [

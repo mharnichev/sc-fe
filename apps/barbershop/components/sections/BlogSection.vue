@@ -4,16 +4,22 @@ type AssetModule = { default: string }
 const { terms } = useTerms()
 
 const blogHref = '/blog/'
-const featuredPostHref = '/blog/posts/barbering-in-the-museum'
+const featuredPostHref = '/blog/posts/history-of-idem-na-bukvy'
 const featuredPostCover = ref('')
+const featuredPostCoverMobile = ref('')
 const featuredPostCard = ref<HTMLElement | null>(null)
 let coverObserver: IntersectionObserver | null = null
 
 const loadFeaturedPostCover = async () => {
   if (featuredPostCover.value) return
 
-  const image = await import('../../../blog/assets/images/posts/barbering-museum-cover-1600.jpg') as AssetModule
-  featuredPostCover.value = image.default
+  const [desktopImage, mobileImage] = await Promise.all([
+    import('~/assets/images/main/idem-na-bukvy-blog-cover.webp') as Promise<AssetModule>,
+    import('~/assets/images/main/idem-na-bukvy-blog-cover-mobile.webp') as Promise<AssetModule>,
+  ])
+
+  featuredPostCover.value = desktopImage.default
+  featuredPostCoverMobile.value = mobileImage.default
 }
 
 onMounted(() => {
@@ -84,23 +90,29 @@ onBeforeUnmount(() => {
         <article ref="featuredPostCard" data-reveal="image" data-reveal-delay="120">
           <a :href="featuredPostHref" class="group block h-full">
             <div class="relative min-h-[22rem] overflow-hidden bg-neutral-900 sm:min-h-[30rem] lg:h-full lg:min-h-[38rem]">
-              <img
-                v-if="featuredPostCover"
-                :src="featuredPostCover"
-                :alt="terms.home.blog.featured.coverAlt"
-                class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]"
-                width="1600"
-                height="1060"
-                loading="lazy"
-                decoding="async"
-              >
+              <picture v-if="featuredPostCover" class="absolute inset-0 h-full w-full">
+                <source
+                  v-if="featuredPostCoverMobile"
+                  :srcset="featuredPostCoverMobile"
+                  media="(max-width: 767px)"
+                >
+                <img
+                  :src="featuredPostCover"
+                  :alt="terms.home.blog.featured.coverAlt"
+                  class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]"
+                  width="1920"
+                  height="1080"
+                  loading="lazy"
+                  decoding="async"
+                >
+              </picture>
               <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/18 to-transparent" />
               <div class="type-meta absolute left-4 top-4 border border-white/30 bg-neutral-950/72 px-3 py-2 text-[11px] text-white/82 backdrop-blur sm:left-6 sm:top-6">
                 {{ terms.home.blog.featured.category }}
               </div>
               <div class="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8">
                 <div class="type-meta flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/52">
-                  <time datetime="2026-03-16">{{ terms.home.blog.featured.date }}</time>
+                  <time datetime="2026-07-14">{{ terms.home.blog.featured.date }}</time>
                   <span>{{ terms.home.blog.featured.readTime }}</span>
                 </div>
                 <h3 class="type-display mt-4 max-w-2xl text-2xl leading-[0.98] text-white sm:text-2xl md:text-4xl lg:text-5xl">
