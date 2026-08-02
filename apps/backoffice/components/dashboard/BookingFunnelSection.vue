@@ -25,7 +25,7 @@ const props = defineProps<{
 
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
-const noSlotDates = computed(() => props.funnel?.no_slot_dates ?? [])
+const noSlotContexts = computed(() => props.funnel?.no_slot_contexts ?? [])
 const bottleneckLabel = computed(() => bookingFunnelBottleneckLabel(props.funnel))
 const displayState = computed(() => bookingFunnelDisplayState(props.funnel))
 const isRenderable = computed(() =>
@@ -60,6 +60,14 @@ const observedAtFormatter = new Intl.DateTimeFormat('uk-UA', {
 const formatTargetDate = (value: string) =>
   targetDateFormatter.format(new Date(`${value}T00:00:00.000Z`))
 const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(value))
+const noSlotMasterLabel = (masterId: number | null, masterName: string | null) =>
+  masterName || (masterId ? `Майстер #${masterId}` : 'Майстра не визначено')
+const noSlotServicesLabel = (services: DashboardBookingFunnel['no_slot_contexts'][number]['services']) =>
+  services.length
+    ? services.map(service => service.service_name || `Послуга #${service.service_id}`).join(', ')
+    : 'Послуги не визначено'
+const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][number]) =>
+  `${item.target_date}:${item.master_id ?? 'unknown'}:${item.services.map(service => service.service_id).join(',')}`
 </script>
 
 <template>
@@ -252,7 +260,7 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
       </div>
 
       <section
-        v-if="noSlotDates.length || funnel.no_slot_unknown_date_count"
+        v-if="noSlotContexts.length || funnel.no_slot_unknown_date_count"
         class="booking-funnel__no-slot-dates mt-4 overflow-hidden rounded-2xl border"
         aria-labelledby="booking-funnel-no-slot-dates-title"
       >
@@ -268,8 +276,8 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
                 <DashboardMetricHelp
                   title="Дати без доступних слотів"
                   summary="Показує відкриті робочі дні, для яких успішний запит повернув порожній список слотів."
-                  formula="Одне спостереження на анонімну сесію, майстра, послугу та вибрану дату."
-                  note="Помилки мережі, закриті робочі дні та конфлікти застарілих слотів сюди не потрапляють."
+                  formula="Одне спостереження на анонімну спробу, майстра, повний набір вибраних послуг та дату пошуку."
+                  note="Період dashboard фільтрує час спостереження. Помилки мережі, закриті робочі дні та конфлікти застарілих слотів сюди не потрапляють."
                 />
               </h3>
               <p class="mt-1 text-xs leading-5 text-slate-500">
@@ -283,36 +291,46 @@ const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(
           >
             Дата не визначена: {{ funnel.no_slot_unknown_date_count.toLocaleString('uk-UA') }}
           </span>
+          <span
+            v-if="funnel.no_slot_contexts_truncated"
+            class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+          >
+            Показано перші {{ funnel.no_slot_context_limit.toLocaleString('uk-UA') }} контекстів
+          </span>
         </div>
 
         <BaseTable
-          v-if="noSlotDates.length"
-          caption="Дати, на які відвідувачі не знайшли вільних слотів"
-          min-width="50rem"
+          v-if="noSlotContexts.length"
+          caption="Дати, майстри та послуги, для яких відвідувачі не знайшли вільних слотів"
+          min-width="64rem"
           wrapper-class="!rounded-none !border-x-0 !border-b-0"
         >
           <template #head>
             <tr class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <th class="px-4 py-3 font-medium">Дата без слотів</th>
+              <th class="px-4 py-3 font-medium">Майстер</th>
+              <th class="px-4 py-3 font-medium">Послуги</th>
               <th class="px-4 py-3 text-right font-medium">Спостереження</th>
               <th class="px-4 py-3 text-right font-medium">Сесії</th>
-              <th class="px-4 py-3 text-right font-medium">Майстри</th>
               <th class="px-4 py-3 font-medium">Вперше помітили</th>
               <th class="px-4 py-3 font-medium">Востаннє помітили</th>
             </tr>
           </template>
-          <tr v-for="item in noSlotDates" :key="item.target_date">
+          <tr v-for="item in noSlotContexts" :key="noSlotContextKey(item)">
             <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
               <time :datetime="item.target_date">{{ formatTargetDate(item.target_date) }}</time>
+            </td>
+            <td class="px-4 py-3 text-slate-700">
+              {{ noSlotMasterLabel(item.master_id, item.master_name) }}
+            </td>
+            <td class="max-w-xs px-4 py-3 text-slate-700">
+              {{ noSlotServicesLabel(item.services) }}
             </td>
             <td class="px-4 py-3 text-right font-semibold text-slate-900">
               {{ item.observations.toLocaleString('uk-UA') }}
             </td>
             <td class="px-4 py-3 text-right text-slate-700">
               {{ item.unique_sessions.toLocaleString('uk-UA') }}
-            </td>
-            <td class="px-4 py-3 text-right text-slate-700">
-              {{ item.affected_masters.toLocaleString('uk-UA') }}
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-slate-600">
               <time :datetime="item.first_observed_at">{{ formatObservedAt(item.first_observed_at) }}</time>

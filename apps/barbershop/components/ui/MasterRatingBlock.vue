@@ -9,6 +9,7 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   summaryLabel?: string
   showSummaryDetails?: boolean
+  showReviewCount?: boolean
 }>(), {
   showReviews: false,
   reviewLimit: 2,
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<{
   compact: false,
   summaryLabel: '',
   showSummaryDetails: true,
+  showReviewCount: false,
 })
 
 const { locale } = useTerms()
@@ -28,6 +30,7 @@ const labels = computed(() => locale.value === 'en'
       empty: 'No approved reviews yet',
       verified: 'Verified after a visit',
       reviews: 'approved reviews',
+      reviewsShort: 'reviews',
       recent: 'Recent reviews',
       guest: 'Soul Cuts client',
     }
@@ -37,6 +40,7 @@ const labels = computed(() => locale.value === 'en'
       empty: 'Ще немає схвалених відгуків',
       verified: 'Підтверджено після візиту',
       reviews: 'схвалених відгуків',
+      reviewsShort: 'відгуків',
       recent: 'Останні відгуки',
       guest: 'Клієнт Soul Cuts',
     })
@@ -133,14 +137,29 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
             {{ trust?.summary.average_rating?.toFixed(1) }}
           </strong>
         </span>
-        <span v-if="summaryLabel" class="type-meta type-eyebrow--wide text-xs">
+        <span v-if="summaryLabel && !showReviewCount" class="type-meta type-eyebrow--wide text-xs">
           {{ summaryLabel }}
+        </span>
+        <span
+          v-if="showReviewCount"
+          class="flex items-center gap-2 text-xs opacity-70"
+          :aria-label="`${trust?.summary.approved_review_count} ${labels.reviewsShort}`"
+        >
+          <span class="h-3 w-px bg-current opacity-40" aria-hidden="true" />
+          <span>
+            <strong class="font-semibold tabular-nums">{{ trust?.summary.approved_review_count }}</strong>
+            {{ labels.reviewsShort }}
+          </span>
         </span>
         <span v-if="showSummaryDetails" class="text-xs opacity-65">
           {{ trust?.summary.approved_review_count }} {{ labels.reviews }}
         </span>
         <span v-if="showSummaryDetails" class="type-meta text-[0.62rem] opacity-50">/ {{ labels.verified }}</span>
       </div>
+
+      <p v-if="summaryLabel && showReviewCount" class="type-meta type-eyebrow--wide mt-2 text-xs">
+        {{ summaryLabel }}
+      </p>
 
       <div v-if="showReviews && recentReviews.length" class="mt-4 space-y-3" :aria-label="labels.recent">
         <blockquote

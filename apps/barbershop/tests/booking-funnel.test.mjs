@@ -71,29 +71,38 @@ test('restores only safe, unexpired attempts from session storage', () => {
 
 test('sends a no-slot target date and uses it to deduplicate observations', () => {
   const attempt = funnel.createBookingFunnelAttempt(ids('session-id-123456'))
-  const randomId = ids('first-event-id', 'second-event-id')
+  const randomId = ids('first-event-id', 'second-event-id', 'third-event-id')
 
   const firstDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, targetDate: '2026-07-25' },
+    { masterId: 7, serviceId: 12, serviceIds: [12, 11, 12], targetDate: '2026-07-25' },
     randomId,
   )
   const firstDateRetry = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, targetDate: '2026-07-25' },
+    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-25' },
     randomId,
   )
   const secondDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, targetDate: '2026-07-26' },
+    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-26' },
+    randomId,
+  )
+  const anotherServiceSet = funnel.bookingFunnelEventPayload(
+    attempt,
+    'no_slot',
+    { masterId: 7, serviceId: 11, serviceIds: [11], targetDate: '2026-07-25' },
     randomId,
   )
 
-  assert.deepEqual(firstDateRetry, firstDate)
+  assert.equal(firstDateRetry.event_id, firstDate.event_id)
+  assert.deepEqual(firstDateRetry.service_ids, firstDate.service_ids)
   assert.notEqual(firstDate.event_id, secondDate.event_id)
+  assert.notEqual(firstDate.event_id, anotherServiceSet.event_id)
+  assert.deepEqual(firstDate.service_ids, [11, 12])
   assert.equal(firstDate.target_date, '2026-07-25')
   assert.equal(secondDate.target_date, '2026-07-26')
 })
@@ -176,6 +185,10 @@ test('public booking API contract records events and attributes server-side succ
     assert.doesNotMatch(source, /const bookingStarted = ref\(false\)/)
   }
   assert.match(bookingSource, /targetDate: selectedDate\.value/)
+  assert.match(bookingSource, /serviceIds: selectedServiceIds\.value/)
+  assert.match(bookingSource, /isSelectedDateClosed\.value/)
+  assert.match(bookingSource, /slotsError\.value/)
+  assert.match(bookingSource, /visibleSlots\.value\.length/)
   assert.match(bookingSource, /recordReachedMasterStep/)
   assert.match(bookingSource, /trackEvent\('booking_start', \{\s*source: props\.analyticsSource/)
   assert.match(contactsSource, /kyivLocalDateTimeToIso\(form\.scheduled_at\)/)

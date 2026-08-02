@@ -575,6 +575,7 @@ watch(
     bookingFunnel.recordInBackground('no_slot', {
       masterId: selectedMasterId.value,
       serviceId: selectedServiceIds.value[0],
+      serviceIds: selectedServiceIds.value,
       targetDate: selectedDate.value,
     })
   },

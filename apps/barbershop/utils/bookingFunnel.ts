@@ -14,6 +14,7 @@ export type BookingFunnelClientEventType = typeof bookingFunnelClientEventTypes[
 export interface BookingFunnelEventContext {
   masterId?: number | null
   serviceId?: number | null
+  serviceIds?: number[] | null
   targetDate?: string | null
 }
 
@@ -34,6 +35,7 @@ export interface BookingFunnelEventPayload {
   event_type: BookingFunnelClientEventType
   master_id?: number
   service_id?: number
+  service_ids?: number[]
   target_date?: string
 }
 
@@ -42,6 +44,13 @@ const SAFE_IDENTIFIER = /^[A-Za-z0-9._:-]{8,128}$/
 
 const positiveInteger = (value: number | null | undefined) =>
   Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined
+
+const positiveIntegerList = (value: number[] | null | undefined) => {
+  if (!Array.isArray(value)) return undefined
+  const normalized = [...new Set(value.map(positiveInteger).filter((item): item is number => item !== undefined))]
+    .sort((first, second) => first - second)
+  return normalized.length > 0 && normalized.length <= 10 ? normalized : undefined
+}
 
 const isoDate = (value: string | null | undefined) => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
@@ -55,12 +64,19 @@ const isoDate = (value: string | null | undefined) => {
 const eventKey = (
   eventType: BookingFunnelClientEventType,
   context: BookingFunnelEventContext,
-) => [
-  eventType,
-  positiveInteger(context.masterId) ?? '',
-  positiveInteger(context.serviceId) ?? '',
-  eventType === 'no_slot' ? isoDate(context.targetDate) ?? '' : '',
-].join(':')
+) => {
+  const serviceId = positiveInteger(context.serviceId)
+  const noSlotServiceIds = eventType === 'no_slot'
+    ? positiveIntegerList(context.serviceIds) ?? (serviceId ? [serviceId] : undefined)
+    : undefined
+  return [
+    eventType,
+    positiveInteger(context.masterId) ?? '',
+    eventType === 'no_slot' ? '' : serviceId ?? '',
+    noSlotServiceIds?.join(',') ?? '',
+    eventType === 'no_slot' ? isoDate(context.targetDate) ?? '' : '',
+  ].join(':')
+}
 
 export const createBookingFunnelAttempt = (randomId: RandomId): BookingFunnelAttempt => ({
   anonymousSessionId: `booking-${randomId()}`,
@@ -130,6 +146,9 @@ export const bookingFunnelEventPayload = (
 
   const masterId = positiveInteger(context.masterId)
   const serviceId = positiveInteger(context.serviceId)
+  const serviceIds = eventType === 'no_slot'
+    ? positiveIntegerList(context.serviceIds) ?? (serviceId ? [serviceId] : undefined)
+    : undefined
   const targetDate = eventType === 'no_slot' ? isoDate(context.targetDate) : undefined
 
   return {
@@ -138,6 +157,7 @@ export const bookingFunnelEventPayload = (
     event_type: eventType,
     ...(masterId ? { master_id: masterId } : {}),
     ...(serviceId ? { service_id: serviceId } : {}),
+    ...(serviceIds ? { service_ids: serviceIds } : {}),
     ...(targetDate ? { target_date: targetDate } : {}),
   }
 }

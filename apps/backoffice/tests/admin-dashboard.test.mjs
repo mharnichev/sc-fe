@@ -170,6 +170,21 @@ const backendDashboardFixture = () => ({
       first_observed_at: '2026-07-24T10:00:00+03:00',
       last_observed_at: '2026-07-24T12:30:00+03:00',
     }],
+    no_slot_contexts: [{
+      target_date: '2026-07-30',
+      master_id: 3,
+      master_name: 'Андрій',
+      services: [
+        { service_id: 9, service_name: 'Стрижка' },
+        { service_id: 10, service_name: 'Борода' },
+      ],
+      observations: 8,
+      unique_sessions: 6,
+      first_observed_at: '2026-07-23T08:15:00+03:00',
+      last_observed_at: '2026-07-24T18:45:00+03:00',
+    }],
+    no_slot_context_limit: 250,
+    no_slot_contexts_truncated: false,
     no_slot_unknown_date_count: 3,
     unattributed_booking_successes: 0,
     weekly_insight_uk: 'Найбільше відвідувачів зупиняються перед підтвердженням запису.',
@@ -214,6 +229,9 @@ const emptyBookingFunnelFixture = () => ({
     meaningful_step_sessions: 5,
   },
   no_slot_dates: [],
+  no_slot_contexts: [],
+  no_slot_context_limit: 250,
+  no_slot_contexts_truncated: false,
   no_slot_unknown_date_count: 0,
   unattributed_booking_successes: 0,
   weekly_insight_uk: 'За вибраний період подій воронки ще немає.',
@@ -406,6 +424,8 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.equal(response.booking_funnel.steps[0].event_type, 'booking_start')
   assert.equal(response.booking_funnel.overall_conversion.conversion_percent, '0.00')
   assert.equal(response.booking_funnel.no_slot_dates[0].target_date, '2026-07-30')
+  assert.equal(response.booking_funnel.no_slot_contexts[0].master_name, 'Андрій')
+  assert.equal(response.booking_funnel.no_slot_contexts[0].services[1].service_name, 'Борода')
   assert.equal(response.booking_funnel.no_slot_unknown_date_count, 3)
   assert.equal(response.booking_funnel.recommended_action.recommended_backoffice_route, '/bookings')
   assert.equal(response.actionable_signals[0].recommended_backoffice_route, '/bookings?status=pending')
@@ -466,6 +486,18 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.throws(
     () => contract.parseAdminDashboardResponse(malformedNoSlotDate),
     /booking_funnel\.no_slot_dates\.0\.target_date/,
+  )
+  const duplicateNoSlotService = backendDashboardFixture()
+  duplicateNoSlotService.booking_funnel.no_slot_contexts[0].services[1].service_id = 9
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(duplicateNoSlotService),
+    /booking_funnel\.no_slot_contexts\.0\.services\.1\.service_id/,
+  )
+  const excessiveNoSlotContexts = backendDashboardFixture()
+  excessiveNoSlotContexts.booking_funnel.no_slot_context_limit = 0
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(excessiveNoSlotContexts),
+    /booking_funnel\.no_slot_context_limit/,
   )
   const inconsistentOperationalAlert = backendDashboardFixture()
   inconsistentOperationalAlert.booking_funnel.operational_alerts[2].triggered = false

@@ -193,6 +193,22 @@ export interface DashboardBookingFunnelNoSlotDate {
   last_observed_at: string
 }
 
+export interface DashboardBookingFunnelNoSlotService {
+  service_id: number
+  service_name: string | null
+}
+
+export interface DashboardBookingFunnelNoSlotContext {
+  target_date: string
+  master_id: number | null
+  master_name: string | null
+  services: DashboardBookingFunnelNoSlotService[]
+  observations: number
+  unique_sessions: number
+  first_observed_at: string
+  last_observed_at: string
+}
+
 export type DashboardBookingFunnelActionCode =
   | 'review_availability'
   | 'refresh_schedule'
@@ -237,6 +253,9 @@ export interface DashboardBookingFunnel {
   operational_alerts: DashboardBookingFunnelOperationalAlert[]
   alert_thresholds: DashboardBookingFunnelAlertThresholds
   no_slot_dates: DashboardBookingFunnelNoSlotDate[]
+  no_slot_contexts: DashboardBookingFunnelNoSlotContext[]
+  no_slot_context_limit: number
+  no_slot_contexts_truncated: boolean
   no_slot_unknown_date_count: number
   unattributed_booking_successes: number
   weekly_insight_uk: string
@@ -413,6 +432,41 @@ const funnelNoSlotDateListAt = (value: unknown, path: string) => {
     }
   })
   return dates
+}
+
+const funnelNoSlotContextListAt = (value: unknown, path: string, limit: number) => {
+  const contexts = arrayAt(value, path)
+  if (contexts.length > limit) fail(path)
+  contexts.forEach((rawContext, index) => {
+    const contextPath = `${path}.${index}`
+    const context = recordAt(rawContext, contextPath)
+    isoDateAt(context.target_date, `${contextPath}.target_date`)
+    if (context.master_id !== null) {
+      const masterId = nonNegativeIntegerAt(context.master_id, `${contextPath}.master_id`)
+      if (masterId === 0) fail(`${contextPath}.master_id`)
+    }
+    nullableStringAt(context.master_name, `${contextPath}.master_name`)
+    const services = arrayAt(context.services, `${contextPath}.services`)
+    if (services.length > 10) fail(`${contextPath}.services`)
+    const serviceIds = new Set<number>()
+    services.forEach((rawService, serviceIndex) => {
+      const servicePath = `${contextPath}.services.${serviceIndex}`
+      const service = recordAt(rawService, servicePath)
+      const serviceId = nonNegativeIntegerAt(service.service_id, `${servicePath}.service_id`)
+      if (serviceId === 0 || serviceIds.has(serviceId)) fail(`${servicePath}.service_id`)
+      serviceIds.add(serviceId)
+      nullableStringAt(service.service_name, `${servicePath}.service_name`)
+    })
+    const observations = nonNegativeIntegerAt(context.observations, `${contextPath}.observations`)
+    const uniqueSessions = nonNegativeIntegerAt(context.unique_sessions, `${contextPath}.unique_sessions`)
+    if (uniqueSessions > observations) fail(contextPath)
+    const firstObservedAt = isoDateTimeAt(context.first_observed_at, `${contextPath}.first_observed_at`)
+    const lastObservedAt = isoDateTimeAt(context.last_observed_at, `${contextPath}.last_observed_at`)
+    if (Date.parse(firstObservedAt) > Date.parse(lastObservedAt)) {
+      fail(`${contextPath}.last_observed_at`)
+    }
+  })
+  return contexts
 }
 
 const funnelAt = (value: unknown, path: string) => {
@@ -669,6 +723,17 @@ const funnelAt = (value: unknown, path: string) => {
     }
   }
   funnelNoSlotDateListAt(funnel.no_slot_dates, `${path}.no_slot_dates`)
+  const noSlotContextLimit = nonNegativeIntegerAt(
+    funnel.no_slot_context_limit,
+    `${path}.no_slot_context_limit`,
+  )
+  if (noSlotContextLimit === 0) fail(`${path}.no_slot_context_limit`)
+  funnelNoSlotContextListAt(
+    funnel.no_slot_contexts,
+    `${path}.no_slot_contexts`,
+    noSlotContextLimit,
+  )
+  booleanAt(funnel.no_slot_contexts_truncated, `${path}.no_slot_contexts_truncated`)
   nonNegativeIntegerAt(
     funnel.no_slot_unknown_date_count,
     `${path}.no_slot_unknown_date_count`,

@@ -214,6 +214,7 @@ watch(teamMembers, (members) => {
                     class="mt-4"
                     :summary-label="activeMember.description"
                     :show-summary-details="false"
+                    show-review-count
                   />
                   <NuxtLink
                     v-if="activeMember.profilePath"
@@ -315,6 +316,7 @@ watch(teamMembers, (members) => {
                     class="mt-5 max-w-md"
                     :summary-label="activeMember.description"
                     :show-summary-details="false"
+                    show-review-count
                   />
                   <NuxtLink
                     v-if="activeMember.profilePath"
