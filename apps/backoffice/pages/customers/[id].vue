@@ -81,7 +81,13 @@ const bookingTotal = (booking: Booking) =>
   booking.total_amount ?? Math.max(Number(bookingSubtotal(booking) || 0) - bookingDiscount(booking), 0)
 
 const bookingHasPromotion = (booking: Booking) =>
-  Boolean(booking.promotion_code || booking.promotion_id || bookingDiscount(booking) > 0)
+  Boolean(
+    booking.promotion_code
+    || booking.promotion_id
+    || booking.promotion_name_uk
+    || booking.promotion_name_en
+    || booking.promotion_discount_percent,
+  )
 
 const bookingPromotionLabel = (booking: Booking) => {
   const name = booking.promotion_name_uk || booking.promotion_name_en || 'Акція'

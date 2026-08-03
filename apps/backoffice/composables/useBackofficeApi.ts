@@ -424,6 +424,10 @@ export interface BookingSchedulePayload {
   service_ids?: number[]
 }
 
+export interface BookingDiscountPayload {
+  discount_amount: number
+}
+
 export interface TimeBlock {
   id: number
   master_id: number
@@ -1384,6 +1388,12 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
+  const adminUpdateBookingDiscount = (bookingId: number | string, payload: BookingDiscountPayload) =>
+    api<Booking>(`/backoffice/bookings/${bookingId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
   const adminDeleteBooking = (bookingId: number | string) =>
     api(`/backoffice/bookings/${bookingId}`, {
       method: 'DELETE',
@@ -1881,6 +1891,7 @@ export const useBackofficeApi = () => {
     adminCreateBooking,
     adminUpdateBookingStatus,
     adminUpdateBookingSchedule,
+    adminUpdateBookingDiscount,
     adminDeleteBooking,
     adminGetTimeBlocks,
     adminCreateTimeBlock,

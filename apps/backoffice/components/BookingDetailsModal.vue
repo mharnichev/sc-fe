@@ -8,8 +8,10 @@ const props = defineProps<{
   allowedStatuses?: BookingStatus[]
   pendingStatus?: BookingStatus | ''
   pendingSchedule?: boolean
+  pendingDiscount?: boolean
   pendingDelete?: boolean
   canEdit?: boolean
+  canEditDiscount?: boolean
   canDelete?: boolean
   masters?: Master[]
   services?: Service[]
@@ -19,6 +21,7 @@ const emit = defineEmits<{
   close: []
   updateStatus: [status: BookingStatus]
   updateSchedule: [payload: BookingSchedulePayload]
+  updateDiscount: [discountAmount: number]
   delete: []
 }>()
 
@@ -50,10 +53,15 @@ const scheduleForm = reactive({
 const serviceForm = reactive({
   service_ids: [] as string[],
 })
+const discountForm = reactive({
+  amount: 0,
+})
 const scheduleError = ref('')
 const serviceError = ref('')
+const discountError = ref('')
 const scheduleEditing = ref(false)
 const serviceEditing = ref(false)
+const discountEditing = ref(false)
 const deleteConfirmOpen = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
@@ -115,6 +123,13 @@ const resetServiceForm = () => {
   serviceEditing.value = false
 }
 
+const resetDiscountForm = () => {
+  if (!props.booking) return
+  discountForm.amount = Number(props.booking.discount_amount || 0)
+  discountError.value = ''
+  discountEditing.value = false
+}
+
 const resolvedMaster = computed(() =>
   props.booking?.master || props.booking?.barber || props.masters?.find(master => master.id === props.booking?.master_id) || null,
 )
@@ -146,7 +161,14 @@ const bookingDiscount = computed(() => Number(props.booking?.discount_amount || 
 const bookingTotal = computed(() =>
   props.booking?.total_amount ?? Math.max(Number(bookingSubtotal.value || 0) - bookingDiscount.value, 0),
 )
-const hasPromotion = computed(() => Boolean(props.booking?.promotion_code || props.booking?.promotion_id || bookingDiscount.value > 0))
+const discountInputMax = computed(() => Math.max(Math.floor(Number(bookingSubtotal.value || 0)), 0))
+const hasPromotion = computed(() => Boolean(
+  props.booking?.promotion_code
+  || props.booking?.promotion_id
+  || props.booking?.promotion_name_uk
+  || props.booking?.promotion_name_en
+  || props.booking?.promotion_discount_percent,
+))
 const promotionLabel = computed(() => {
   if (!props.booking) return ''
   const name = props.booking.promotion_name_uk || props.booking.promotion_name_en || 'Акція'
@@ -169,6 +191,7 @@ const editableServiceOptions = computed(() => {
 })
 
 const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && isAdmin.value && props.canEdit !== false))
+const canEditBookingDiscount = computed(() => Boolean(props.booking && isAdmin.value && props.canEditDiscount === true))
 const canDeleteBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canDelete !== false))
 const orderedAllowedStatuses = computed(() => {
   const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
@@ -219,6 +242,28 @@ const submitServices = () => {
   emit('updateSchedule', { service_ids: serviceIds })
 }
 
+const submitDiscount = () => {
+  discountError.value = validateBookingDiscountAmount(discountForm.amount, bookingSubtotal.value)
+  if (discountError.value) {
+    toast.warning(discountError.value)
+    return
+  }
+
+  if (Number(discountForm.amount) === bookingDiscount.value) {
+    discountEditing.value = false
+    return
+  }
+
+  emit('updateDiscount', Number(discountForm.amount))
+}
+
+const removeDiscount = () => {
+  if (!canEditBookingDiscount.value || bookingDiscount.value <= 0 || props.pendingDiscount) return
+  discountError.value = ''
+  discountEditing.value = false
+  emit('updateDiscount', 0)
+}
+
 const cancelScheduleEditing = () => {
   resetScheduleForm()
   scheduleEditing.value = false
@@ -227,6 +272,11 @@ const cancelScheduleEditing = () => {
 const cancelServiceEditing = () => {
   resetServiceForm()
   serviceEditing.value = false
+}
+
+const cancelDiscountEditing = () => {
+  resetDiscountForm()
+  discountEditing.value = false
 }
 
 const copyPhone = async () => {
@@ -261,6 +311,12 @@ watch(
 watch(
   () => [props.booking?.id, props.booking?.service_id, props.booking?.service_ids?.join(',') || ''],
   resetServiceForm,
+  { immediate: true },
+)
+
+watch(
+  () => [props.booking?.id, props.booking?.discount_amount],
+  resetDiscountForm,
   { immediate: true },
 )
 
@@ -370,6 +426,57 @@ onBeforeUnmount(() => {
               <ReceiptPercentIcon class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span class="min-w-0 break-words">Стрижка за акцією: {{ promotionLabel }}</span>
             </p>
+            <div v-if="canEditBookingDiscount && !discountEditing" class="mt-3 grid gap-2" :class="bookingDiscount > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'">
+              <BaseButton
+                type="button"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
+                :aria-label="bookingDiscount > 0 ? 'Редагувати знижку бронювання' : 'Додати знижку до бронювання'"
+                :disabled="pendingDiscount"
+                @click="discountEditing = true"
+              >
+                <PencilIcon class="h-4 w-4" aria-hidden="true" />
+                {{ bookingDiscount > 0 ? 'Редагувати знижку' : 'Додати знижку' }}
+              </BaseButton>
+              <BaseButton
+                v-if="bookingDiscount > 0"
+                type="button"
+                class="backoffice-modal-action-danger-outline inline-flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition"
+                aria-label="Видалити знижку бронювання"
+                :disabled="pendingDiscount"
+                @click="removeDiscount"
+              >
+                <TrashIcon v-if="!pendingDiscount" />
+                {{ pendingDiscount ? 'Видалення...' : 'Видалити знижку' }}
+              </BaseButton>
+            </div>
+            <form
+              v-else-if="canEditBookingDiscount"
+              class="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200"
+              @submit.prevent="submitDiscount"
+            >
+              <BaseInput
+                v-model.number="discountForm.amount"
+                label="Знижка, грн"
+                :error="discountError"
+                required
+                type="number"
+                min="0"
+                :max="discountInputMax"
+                step="1"
+                inputmode="numeric"
+                input-class="base-control px-3 py-2 text-sm"
+              />
+              <div class="backoffice-modal-actions mt-3">
+                <BaseButton type="submit" :disabled="pendingDiscount" class="backoffice-modal-action-button backoffice-modal-action-primary">
+                  <CheckCircleIcon v-if="!pendingDiscount" class="h-4 w-4" aria-hidden="true" />
+                  {{ pendingDiscount ? 'Збереження...' : 'Зберегти' }}
+                </BaseButton>
+                <BaseButton type="button" :disabled="pendingDiscount" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelDiscountEditing">
+                  <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+                  Скасувати
+                </BaseButton>
+              </div>
+            </form>
           </div>
           <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
             <BaseButton

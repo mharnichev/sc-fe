@@ -84,6 +84,7 @@ const actionModalOpen = ref(false)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
+const pendingDiscount = ref(false)
 const pendingDelete = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
@@ -637,6 +638,35 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   }
 }
 
+const updateDiscount = async (discountAmount: number) => {
+  if (!selected.value) return
+  if (!isAdmin.value) {
+    actionError.value = 'Лише адміністратор може редагувати знижку бронювання.'
+    toastNotification.warning(actionError.value)
+    return
+  }
+  pendingDiscount.value = true
+  actionError.value = ''
+  try {
+    const updated = await api.adminUpdateBookingDiscount(selected.value.id, { discount_amount: discountAmount })
+    selected.value = { ...selected.value, ...updated }
+    toastNotification.success(discountAmount === 0 ? 'Знижку бронювання видалено.' : 'Знижку бронювання оновлено.')
+    await refresh()
+  }
+  catch (cause) {
+    actionError.value = apiErrorMessage(
+      cause,
+      discountAmount === 0
+        ? 'Не вдалося видалити знижку бронювання.'
+        : 'Не вдалося оновити знижку бронювання.',
+    )
+    toastNotification.error(actionError.value)
+  }
+  finally {
+    pendingDiscount.value = false
+  }
+}
+
 const deleteSelectedBooking = async () => {
   if (!selected.value || selected.value.status === 'completed' || !canManageBooking(selected.value.master_id)) return
   pendingDelete.value = true
@@ -968,14 +998,17 @@ const deleteSelectedBlock = async () => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
+      :pending-discount="pendingDiscount"
       :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
+      :can-edit-discount="isAdmin"
       :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
       :masters="masterOptions"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
       @update-schedule="updateSchedule"
+      @update-discount="updateDiscount"
       @delete="deleteSelectedBooking"
     />
 
