@@ -126,7 +126,14 @@ const bookingDurationMinutes = (booking: Booking) => {
 }
 
 const bookingPrice = (booking: Booking) =>
-  resolveServices(booking).reduce((total, service) => total + Number(service.price || 0), 0)
+  Number(
+    booking.total_amount
+    ?? booking.subtotal_amount
+    ?? resolveServices(booking).reduce(
+      (total, service) => total + Number(booking.service_prices?.[String(service.id)] ?? service.price ?? 0),
+      0,
+    ),
+  )
 
 const activeBookings = computed(() => bookings.value.filter(booking => booking.status !== 'cancelled'))
 const todayBookings = computed(() =>

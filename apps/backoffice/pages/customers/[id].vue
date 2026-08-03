@@ -73,7 +73,10 @@ const handleCustomerSaved = async () => {
 }
 
 const bookingSubtotal = (booking: Booking) =>
-  booking.subtotal_amount ?? bookingServices(booking).reduce((sum, service) => sum + Number(service.price || 0), 0)
+  booking.subtotal_amount ?? bookingServices(booking).reduce(
+    (sum, service) => sum + Number(booking.service_prices?.[String(service.id)] ?? service.price ?? 0),
+    0,
+  )
 
 const bookingDiscount = (booking: Booking) => Number(booking.discount_amount || 0)
 
@@ -101,7 +104,7 @@ const bookingServiceLines = (booking: Booking) => {
   if (!services.length) return [{ name: bookingServicesLabel(booking), price: '' }]
   return services.map(service => ({
     name: service.title_uk || service.name || service.title_en || `Послуга #${service.id}`,
-    price: formatPrice(service.price),
+    price: formatPrice(booking.service_prices?.[String(service.id)] ?? service.price),
   }))
 }
 </script>

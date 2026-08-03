@@ -12,6 +12,7 @@ import {
 import { initials } from '@shared-utils'
 import type {
   Booking,
+  BookingPricingPayload,
   BookingSchedulePayload,
   BookingStatus,
   ManualBookingPayload,
@@ -84,7 +85,7 @@ const actionModalOpen = ref(false)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingSchedule = ref(false)
-const pendingDiscount = ref(false)
+const pendingPricing = ref(false)
 const pendingDelete = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
@@ -638,32 +639,27 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
   }
 }
 
-const updateDiscount = async (discountAmount: number) => {
+const updatePricing = async (payload: BookingPricingPayload) => {
   if (!selected.value) return
   if (!isAdmin.value) {
-    actionError.value = 'Лише адміністратор може редагувати знижку бронювання.'
+    actionError.value = 'Лише адміністратор може редагувати ціни та акцію бронювання.'
     toastNotification.warning(actionError.value)
     return
   }
-  pendingDiscount.value = true
+  pendingPricing.value = true
   actionError.value = ''
   try {
-    const updated = await api.adminUpdateBookingDiscount(selected.value.id, { discount_amount: discountAmount })
+    const updated = await api.adminUpdateBookingPricing(selected.value.id, payload)
     selected.value = { ...selected.value, ...updated }
-    toastNotification.success(discountAmount === 0 ? 'Знижку бронювання видалено.' : 'Знижку бронювання оновлено.')
+    toastNotification.success('Ціни та акцію бронювання оновлено.')
     await refresh()
   }
   catch (cause) {
-    actionError.value = apiErrorMessage(
-      cause,
-      discountAmount === 0
-        ? 'Не вдалося видалити знижку бронювання.'
-        : 'Не вдалося оновити знижку бронювання.',
-    )
+    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити ціни та акцію бронювання.')
     toastNotification.error(actionError.value)
   }
   finally {
-    pendingDiscount.value = false
+    pendingPricing.value = false
   }
 }
 
@@ -998,17 +994,18 @@ const deleteSelectedBlock = async () => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-schedule="pendingSchedule"
-      :pending-discount="pendingDiscount"
+      :pending-pricing="pendingPricing"
       :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
-      :can-edit-discount="isAdmin"
+      :can-edit-pricing="isAdmin"
       :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
       :masters="masterOptions"
       :services="serviceOptions"
+      :promotions="activePromotions"
       @close="selected = null"
       @update-status="updateStatus"
       @update-schedule="updateSchedule"
-      @update-discount="updateDiscount"
+      @update-pricing="updatePricing"
       @delete="deleteSelectedBooking"
     />
 

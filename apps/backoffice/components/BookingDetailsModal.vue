@@ -1,27 +1,28 @@
 <script setup lang="ts">
 import { BanknotesIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, ReceiptPercentIcon, StopIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import type { Booking, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
-import type { Master, Service } from '~/composables/useBackofficeApi'
+import type { Booking, BookingPricingPayload, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
+import type { Master, Promotion, Service } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
   booking: Booking | null
   allowedStatuses?: BookingStatus[]
   pendingStatus?: BookingStatus | ''
   pendingSchedule?: boolean
-  pendingDiscount?: boolean
+  pendingPricing?: boolean
   pendingDelete?: boolean
   canEdit?: boolean
-  canEditDiscount?: boolean
+  canEditPricing?: boolean
   canDelete?: boolean
   masters?: Master[]
   services?: Service[]
+  promotions?: Promotion[]
 }>()
 
 const emit = defineEmits<{
   close: []
   updateStatus: [status: BookingStatus]
   updateSchedule: [payload: BookingSchedulePayload]
-  updateDiscount: [discountAmount: number]
+  updatePricing: [payload: BookingPricingPayload]
   delete: []
 }>()
 
@@ -53,15 +54,16 @@ const scheduleForm = reactive({
 const serviceForm = reactive({
   service_ids: [] as string[],
 })
-const discountForm = reactive({
-  amount: 0,
+const pricingForm = reactive({
+  service_prices: [] as Array<{ service_id: number, price_amount: number }>,
+  promotion_code: '',
 })
 const scheduleError = ref('')
 const serviceError = ref('')
-const discountError = ref('')
+const pricingError = ref('')
 const scheduleEditing = ref(false)
 const serviceEditing = ref(false)
-const discountEditing = ref(false)
+const pricingEditing = ref(false)
 const deleteConfirmOpen = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
@@ -123,11 +125,15 @@ const resetServiceForm = () => {
   serviceEditing.value = false
 }
 
-const resetDiscountForm = () => {
+const resetPricingForm = () => {
   if (!props.booking) return
-  discountForm.amount = Number(props.booking.discount_amount || 0)
-  discountError.value = ''
-  discountEditing.value = false
+  pricingForm.service_prices = resolvedServices.value.map(service => ({
+    service_id: Number(service.id),
+    price_amount: bookingServicePrice(service),
+  }))
+  pricingForm.promotion_code = props.booking.promotion_code || ''
+  pricingError.value = ''
+  pricingEditing.value = false
 }
 
 const resolvedMaster = computed(() =>
@@ -145,23 +151,27 @@ const resolvedServices = computed(() =>
   props.booking ? bookingServices(props.booking, props.services || []) : [],
 )
 
+const bookingServicePrice = (service: { id?: number | string, price?: number | string | null }) => Number(
+  props.booking?.service_prices?.[String(service.id ?? '')] ?? service.price ?? 0,
+)
+
 const resolvedServicesPriceLabel = computed(() => {
   if (!resolvedServices.value.length) return ''
-  const total = resolvedServices.value.reduce((sum, service) => sum + Number(service.price || 0), 0)
+  const prices = resolvedServices.value.map(bookingServicePrice)
+  const total = prices.reduce((sum, price) => sum + price, 0)
 
-  if (resolvedServices.value.length === 1) return formatPrice(resolvedServices.value[0]?.price)
+  if (resolvedServices.value.length === 1) return formatPrice(prices[0])
 
-  return `${resolvedServices.value.map(service => formatPrice(service.price)).join(', ')} · разом ${formatPrice(total)}`
+  return `${prices.map(formatPrice).join(', ')} · разом ${formatPrice(total)}`
 })
 
 const bookingSubtotal = computed(() =>
-  props.booking?.subtotal_amount ?? resolvedServices.value.reduce((sum, service) => sum + Number(service.price || 0), 0),
+  props.booking?.subtotal_amount ?? resolvedServices.value.reduce((sum, service) => sum + bookingServicePrice(service), 0),
 )
 const bookingDiscount = computed(() => Number(props.booking?.discount_amount || 0))
 const bookingTotal = computed(() =>
   props.booking?.total_amount ?? Math.max(Number(bookingSubtotal.value || 0) - bookingDiscount.value, 0),
 )
-const discountInputMax = computed(() => Math.max(Math.floor(Number(bookingSubtotal.value || 0)), 0))
 const hasPromotion = computed(() => Boolean(
   props.booking?.promotion_code
   || props.booking?.promotion_id
@@ -176,6 +186,17 @@ const promotionLabel = computed(() => {
   const percent = props.booking.promotion_discount_percent ? ` · ${props.booking.promotion_discount_percent}%` : ''
   return `${name}${code}${percent}`
 })
+const promotionOptions = computed(() => [
+  { value: '', label: 'Без акції' },
+  ...(props.promotions || []).map(promotion => ({
+    value: promotion.code,
+    label: `${promotion.name_uk || promotion.name_en || promotion.code} · ${promotion.code} · ${promotion.discount_percent}%`,
+  })),
+])
+const pricingServiceName = (serviceId: number) => {
+  const service = resolvedServices.value.find(item => Number(item.id) === serviceId)
+  return service?.title_uk || service?.name || service?.title_en || `Послуга #${serviceId}`
+}
 
 const editableServiceOptions = computed(() => {
   if (!props.booking) return []
@@ -191,7 +212,7 @@ const editableServiceOptions = computed(() => {
 })
 
 const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && isAdmin.value && props.canEdit !== false))
-const canEditBookingDiscount = computed(() => Boolean(props.booking && isAdmin.value && props.canEditDiscount === true))
+const canEditBookingPricing = computed(() => Boolean(props.booking && isAdmin.value && props.canEditPricing === true))
 const canDeleteBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canDelete !== false))
 const orderedAllowedStatuses = computed(() => {
   const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
@@ -242,26 +263,26 @@ const submitServices = () => {
   emit('updateSchedule', { service_ids: serviceIds })
 }
 
-const submitDiscount = () => {
-  discountError.value = validateBookingDiscountAmount(discountForm.amount, bookingSubtotal.value)
-  if (discountError.value) {
-    toast.warning(discountError.value)
+const submitPricing = () => {
+  const invalidPrice = pricingForm.service_prices.find(item => (
+    !Number.isFinite(Number(item.price_amount))
+    || !Number.isInteger(Number(item.price_amount))
+    || Number(item.price_amount) < 0
+  ))
+  if (!pricingForm.service_prices.length || invalidPrice) {
+    pricingError.value = 'Ціна кожної послуги має бути цілим невід’ємним числом.'
+    toast.warning(pricingError.value)
     return
   }
 
-  if (Number(discountForm.amount) === bookingDiscount.value) {
-    discountEditing.value = false
-    return
-  }
-
-  emit('updateDiscount', Number(discountForm.amount))
-}
-
-const removeDiscount = () => {
-  if (!canEditBookingDiscount.value || bookingDiscount.value <= 0 || props.pendingDiscount) return
-  discountError.value = ''
-  discountEditing.value = false
-  emit('updateDiscount', 0)
+  pricingError.value = ''
+  emit('updatePricing', {
+    service_prices: pricingForm.service_prices.map(item => ({
+      service_id: item.service_id,
+      price_amount: Number(item.price_amount),
+    })),
+    promotion_code: pricingForm.promotion_code || null,
+  })
 }
 
 const cancelScheduleEditing = () => {
@@ -274,9 +295,9 @@ const cancelServiceEditing = () => {
   serviceEditing.value = false
 }
 
-const cancelDiscountEditing = () => {
-  resetDiscountForm()
-  discountEditing.value = false
+const cancelPricingEditing = () => {
+  resetPricingForm()
+  pricingEditing.value = false
 }
 
 const copyPhone = async () => {
@@ -315,8 +336,12 @@ watch(
 )
 
 watch(
-  () => [props.booking?.id, props.booking?.discount_amount],
-  resetDiscountForm,
+  () => [
+    props.booking?.id,
+    props.booking?.promotion_code,
+    JSON.stringify(props.booking?.service_prices || {}),
+  ],
+  resetPricingForm,
   { immediate: true },
 )
 
@@ -426,52 +451,59 @@ onBeforeUnmount(() => {
               <ReceiptPercentIcon class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span class="min-w-0 break-words">Стрижка за акцією: {{ promotionLabel }}</span>
             </p>
-            <div v-if="canEditBookingDiscount && !discountEditing" class="mt-3 grid gap-2" :class="bookingDiscount > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'">
+            <div v-if="canEditBookingPricing && !pricingEditing" class="mt-3">
               <BaseButton
                 type="button"
                 class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
-                :aria-label="bookingDiscount > 0 ? 'Редагувати знижку бронювання' : 'Додати знижку до бронювання'"
-                :disabled="pendingDiscount"
-                @click="discountEditing = true"
+                aria-label="Редагувати ціни та акцію бронювання"
+                :disabled="pendingPricing"
+                @click="pricingEditing = true"
               >
                 <PencilIcon class="h-4 w-4" aria-hidden="true" />
-                {{ bookingDiscount > 0 ? 'Редагувати знижку' : 'Додати знижку' }}
-              </BaseButton>
-              <BaseButton
-                v-if="bookingDiscount > 0"
-                type="button"
-                class="backoffice-modal-action-danger-outline inline-flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition"
-                aria-label="Видалити знижку бронювання"
-                :disabled="pendingDiscount"
-                @click="removeDiscount"
-              >
-                <TrashIcon v-if="!pendingDiscount" />
-                {{ pendingDiscount ? 'Видалення...' : 'Видалити знижку' }}
+                Редагувати ціни та акцію
               </BaseButton>
             </div>
             <form
-              v-else-if="canEditBookingDiscount"
+              v-else-if="canEditBookingPricing"
               class="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200"
-              @submit.prevent="submitDiscount"
+              @submit.prevent="submitPricing"
             >
-              <BaseInput
-                v-model.number="discountForm.amount"
-                label="Знижка, грн"
-                :error="discountError"
-                required
-                type="number"
-                min="0"
-                :max="discountInputMax"
-                step="1"
-                inputmode="numeric"
-                input-class="base-control px-3 py-2 text-sm"
-              />
+              <div class="space-y-3">
+                <BaseInput
+                  v-for="item in pricingForm.service_prices"
+                  :key="item.service_id"
+                  v-model.number="item.price_amount"
+                  :label="`Ціна · ${pricingServiceName(item.service_id)}, грн`"
+                  required
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputmode="numeric"
+                  input-class="base-control px-3 py-2 text-sm"
+                />
+                <label class="block space-y-1 text-xs text-slate-700 sm:text-sm">
+                  <span class="inline-flex items-center gap-1.5 font-medium">
+                    <ReceiptPercentIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
+                    Акція
+                  </span>
+                  <BaseSelect
+                    :model-value="pricingForm.promotion_code"
+                    :options="promotionOptions"
+                    placeholder="Без акції"
+                    menu-class="z-[260]"
+                    aria-label="Акція бронювання"
+                    @update:model-value="pricingForm.promotion_code = String($event || '')"
+                  />
+                </label>
+                <p v-if="pricingError" class="text-xs font-medium text-rose-600">{{ pricingError }}</p>
+                <p class="text-xs text-slate-500">Щоб прибрати застосовану знижку, виберіть «Без акції».</p>
+              </div>
               <div class="backoffice-modal-actions mt-3">
-                <BaseButton type="submit" :disabled="pendingDiscount" class="backoffice-modal-action-button backoffice-modal-action-primary">
-                  <CheckCircleIcon v-if="!pendingDiscount" class="h-4 w-4" aria-hidden="true" />
-                  {{ pendingDiscount ? 'Збереження...' : 'Зберегти' }}
+                <BaseButton type="submit" :disabled="pendingPricing" class="backoffice-modal-action-button backoffice-modal-action-primary">
+                  <CheckCircleIcon v-if="!pendingPricing" class="h-4 w-4" aria-hidden="true" />
+                  {{ pendingPricing ? 'Збереження...' : 'Зберегти' }}
                 </BaseButton>
-                <BaseButton type="button" :disabled="pendingDiscount" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelDiscountEditing">
+                <BaseButton type="button" :disabled="pendingPricing" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelPricingEditing">
                   <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                   Скасувати
                 </BaseButton>

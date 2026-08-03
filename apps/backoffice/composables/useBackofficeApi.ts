@@ -369,6 +369,7 @@ export interface Booking {
   redirected_from_master?: BookingRedirectMaster | null
   service?: Service | null
   services?: Service[]
+  service_prices?: Record<string, number>
   subtotal_amount?: string | number | null
   discount_amount?: string | number | null
   total_amount?: string | number | null
@@ -424,8 +425,14 @@ export interface BookingSchedulePayload {
   service_ids?: number[]
 }
 
-export interface BookingDiscountPayload {
-  discount_amount: number
+export interface BookingServicePricePayload {
+  service_id: number
+  price_amount: number
+}
+
+export interface BookingPricingPayload {
+  service_prices: BookingServicePricePayload[]
+  promotion_code: string | null
 }
 
 export interface TimeBlock {
@@ -1388,7 +1395,7 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
-  const adminUpdateBookingDiscount = (bookingId: number | string, payload: BookingDiscountPayload) =>
+  const adminUpdateBookingPricing = (bookingId: number | string, payload: BookingPricingPayload) =>
     api<Booking>(`/backoffice/bookings/${bookingId}`, {
       method: 'PATCH',
       body: payload,
@@ -1891,7 +1898,7 @@ export const useBackofficeApi = () => {
     adminCreateBooking,
     adminUpdateBookingStatus,
     adminUpdateBookingSchedule,
-    adminUpdateBookingDiscount,
+    adminUpdateBookingPricing,
     adminDeleteBooking,
     adminGetTimeBlocks,
     adminCreateTimeBlock,
