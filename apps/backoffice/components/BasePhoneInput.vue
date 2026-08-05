@@ -24,6 +24,9 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  focus: [event: FocusEvent]
+  blur: [event: FocusEvent]
+  keydown: [event: KeyboardEvent]
 }>()
 
 const { formatPhone } = useUkrainianPhoneMask()
@@ -38,15 +41,19 @@ const inputValue = computed({
   set: value => setPhoneValue(value, true),
 })
 
-const handleFocus = () => {
+const handleFocus = (event: FocusEvent) => {
   focused.value = true
   setPhoneValue(props.modelValue, true)
+  emit('focus', event)
 }
 
-const handleBlur = () => {
+const handleBlur = (event: FocusEvent) => {
   focused.value = false
   setPhoneValue(props.modelValue, false)
+  emit('blur', event)
 }
+
+const handleKeydown = (event: KeyboardEvent) => emit('keydown', event)
 
 const handlePaste = (event: ClipboardEvent) => {
   const pastedText = event.clipboardData?.getData('text') || ''
@@ -75,6 +82,7 @@ const handlePaste = (event: ClipboardEvent) => {
     :input-class="inputClass"
     @focus="handleFocus"
     @blur="handleBlur"
+    @keydown="handleKeydown"
     @paste="handlePaste"
   >
     <template #icon>

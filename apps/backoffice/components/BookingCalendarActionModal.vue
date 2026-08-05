@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowPathIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, ClockIcon, LockOpenIcon, NoSymbolIcon, PlusIcon, ReceiptPercentIcon, ScissorsIcon, SunIcon, UserIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { CalendarActionPayload, CalendarActionType, CalendarSelection } from '~/composables/useBookingCalendar'
-import type { Promotion, Service } from '~/composables/useBackofficeApi'
+import type { CustomerSummary, Promotion, Service } from '~/composables/useBackofficeApi'
 
 type AvailabilityPreset = 'interval' | 'day' | 'week' | 'month'
 
@@ -310,6 +310,11 @@ const markDurationEdited = () => {
   durationEdited.value = true
 }
 
+const selectCustomer = (customer: CustomerSummary) => {
+  form.customer_phone = customer.phone
+  form.customer_name = [customer.name, customer.surname].filter(Boolean).join(' ').trim() || `Клієнт #${customer.id}`
+}
+
 const submitIcon = computed(() => {
   if (form.action === 'booking') return PlusIcon
   if (form.action === 'block') return NoSymbolIcon
@@ -453,7 +458,7 @@ const submitLabel = computed(() => {
           </label>
         </div>
 
-        <div v-if="form.action === 'booking'" class="grid grid-cols-2 gap-2 xl:gap-4">
+        <div v-if="form.action === 'booking'" class="grid grid-cols-1 gap-2 min-[676px]:grid-cols-2 xl:gap-4">
           <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium">
               <UserIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
@@ -461,18 +466,19 @@ const submitLabel = computed(() => {
             </span>
             <BaseInput v-model="form.customer_name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3" />
           </label>
-          <BasePhoneInput
+          <BaseCustomerPhoneInput
             v-model="form.customer_phone"
             required
             label="Телефон клієнта"
-            label-class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm"
+            label-class="text-xs text-slate-700 xl:text-sm"
             label-content-class="inline-flex items-center gap-1.5 font-medium"
             icon-class="h-4 w-4 text-slate-500"
             input-class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
+            @select="selectCustomer"
           />
         </div>
 
-        <label v-if="form.action !== 'availability'" class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
+        <label v-if="form.action !== 'availability'" class="block mt-2 space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
           <span class="inline-flex items-center gap-1.5 font-medium">
             <ChatBubbleLeftEllipsisIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
             {{ form.action === 'booking' ? 'Коментар' : 'Причина' }}
