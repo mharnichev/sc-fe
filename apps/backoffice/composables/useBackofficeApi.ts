@@ -21,6 +21,7 @@ import type {
   ReviewRequestSettingsUpdate,
 } from '~/types/reviews'
 import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
+import { parseBookingRecoverySummary, type BookingRecoverySummary } from '~/utils/bookingRecoveryContract'
 import { parseReviewMetricsResponse } from '~/utils/reviews'
 
 export interface TokenResponse {
@@ -1212,6 +1213,19 @@ export const useBackofficeApi = () => {
     return parseAdminDashboardResponse(response)
   }
 
+  const adminGetBookingRecoverySummary = async (filters: {
+    date_from: string
+    date_to: string
+  }): Promise<BookingRecoverySummary> => {
+    const response = await api<unknown>('/backoffice/booking-recovery/summary', {
+      query: {
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+      },
+    })
+    return parseBookingRecoverySummary(response)
+  }
+
   const adminGetMasters = (page = 1, pageSize = 100, filters: { search?: string, is_active?: boolean | null } = {}) =>
     api<Master[] | PaginatedResponse<Master>>('/backoffice/masters', {
       query: {
@@ -1875,6 +1889,7 @@ export const useBackofficeApi = () => {
     adminGetMonthlyStatistics,
     adminGetBarbersComparison,
     adminGetDashboard,
+    adminGetBookingRecoverySummary,
     adminGetMasters,
     adminCreateMaster,
     adminUpdateMaster,

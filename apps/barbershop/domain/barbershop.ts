@@ -23,11 +23,76 @@ export interface PublicBookingPayload {
   promotion_code?: string | null
   start_at: string
   funnel_session_id?: string
+  recovery_source?: 'alternative'
 }
 
 export interface BookingFunnelEventReceipt {
   event_id: string
   status: 'recorded' | 'duplicate'
+}
+
+export interface BookingAlternativeMasterDto {
+  id: number
+  name: string
+  photo_url: string | null
+  avatar_url: string | null
+  role: string | null
+  rating_summary: number | null
+}
+
+export interface BookingAlternativeSlotDto {
+  master: BookingAlternativeMasterDto
+  start_at: string
+  end_at: string
+  date: string
+  duration_minutes: number
+}
+
+export interface BookingAlternativesResponseDto {
+  same_master: BookingAlternativeSlotDto[]
+  other_masters: BookingAlternativeSlotDto[]
+}
+
+export interface BookingAlternativesPayload {
+  master_id: number
+  service_ids: number[]
+  desired_date: string
+  duration_minutes: number
+  another_master_acceptable: boolean
+  funnel_session_id?: string
+}
+
+export interface PublicWaitlistPayload {
+  customer_name: string
+  customer_phone: string
+  service_ids: number[]
+  preferred_master_id: number | null
+  desired_date: string
+  acceptable_date_from?: string
+  acceptable_date_to?: string
+  duration_minutes: number
+  notification_consent: true
+}
+
+export interface PublicWaitlistResponseDto {
+  public_id: string
+  status: 'active' | 'offered' | 'booked' | 'expired' | 'cancelled'
+  expires_at: string
+  cancel_token: string
+}
+
+export interface BookingRecoveryEventPayload {
+  event_id: string
+  anonymous_session_id: string
+  event_type: 'alternative_slot_selected' | 'waitlist_opened'
+  master_id?: number
+  service_id?: number
+}
+
+export interface WaitlistOfferClaimResponseDto {
+  booking_id: number
+  start_at: string
+  end_at: string
 }
 
 export interface MasterRatingSummaryDto {
@@ -215,6 +280,23 @@ export const useBarbershopDomain = () => {
     })
   }
   const createBooking = (payload: PublicBookingPayload) => api<BookingDto>('/public/bookings', { method: 'POST', body: payload })
+  const getBookingAlternatives = (payload: BookingAlternativesPayload) =>
+    api<BookingAlternativesResponseDto>('/public/booking-alternatives', { method: 'POST', body: payload })
+  const createWaitlistRequest = (payload: PublicWaitlistPayload) =>
+    api<PublicWaitlistResponseDto>('/public/waitlist', { method: 'POST', body: payload })
+  const recordBookingRecoveryEvent = (payload: BookingRecoveryEventPayload) =>
+    api<BookingFunnelEventReceipt>('/public/booking-recovery/events', {
+      method: 'POST',
+      body: payload,
+      keepalive: true,
+      retry: 2,
+      retryDelay: 200,
+    })
+  const claimWaitlistOffer = (token: string) =>
+    api<WaitlistOfferClaimResponseDto>('/public/waitlist/offers/claim', {
+      method: 'POST',
+      body: { token },
+    })
   const recordBookingFunnelEvent = (payload: BookingFunnelEventPayload) =>
     api<BookingFunnelEventReceipt>('/public/booking-funnel/events', {
       method: 'POST',
@@ -256,6 +338,10 @@ export const useBarbershopDomain = () => {
     getBrands,
     getAvailableSlots,
     createBooking,
+    getBookingAlternatives,
+    createWaitlistRequest,
+    recordBookingRecoveryEvent,
+    claimWaitlistOffer,
     recordBookingFunnelEvent,
     resolveReviewRequest,
     recordReviewFormOpen,

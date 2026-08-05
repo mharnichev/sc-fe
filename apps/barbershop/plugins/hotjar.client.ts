@@ -19,6 +19,7 @@ declare global {
 
 export default defineNuxtPlugin(() => {
   const route = useRoute()
+  const router = useRouter()
   const { canUseAnalytics } = useCookieConsent()
   const { isPrivateReviewRoute } = useReviewPrivacy()
   let isLoaded = false
@@ -31,6 +32,11 @@ export default defineNuxtPlugin(() => {
       route.hash || window.location.hash,
     )
   }
+  const isPrivateWaitlistOfferPath = (path: string) =>
+    path === '/booking/waitlist-offer' || path === '/booking/waitlist-offer/'
+  const hasPrivateWaitlistOfferContext = () => isPrivateWaitlistOfferPath(route.path)
+  const hasPrivateContext = () =>
+    hasPrivateReviewContext() || hasPrivateWaitlistOfferContext()
 
   const runWhenIdle = (callback: () => void) => {
     if (typeof window.requestIdleCallback === 'function') {
@@ -42,7 +48,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const loadHotjar = () => {
-    if (hasPrivateReviewContext()) return
+    if (hasPrivateContext()) return
     if (isLoaded || document.getElementById(HOTJAR_SCRIPT_ID)) return
 
     window.hj = window.hj || function hj() {
@@ -63,7 +69,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const scheduleHotjarLoad = () => {
-    if (hasPrivateReviewContext()) return
+    if (hasPrivateContext()) return
     if (isLoadScheduled || isLoaded) return
     isLoadScheduled = true
 
@@ -71,7 +77,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value && !hasPrivateReviewContext()) loadHotjar()
+          if (canUseAnalytics.value && !hasPrivateContext()) loadHotjar()
         })
       }, 2200)
     }
@@ -80,7 +86,7 @@ export default defineNuxtPlugin(() => {
       window.setTimeout(() => {
         runWhenIdle(() => {
           isLoadScheduled = false
-          if (canUseAnalytics.value && !hasPrivateReviewContext()) loadHotjar()
+          if (canUseAnalytics.value && !hasPrivateContext()) loadHotjar()
         })
       }, 12000)
     }
@@ -112,6 +118,16 @@ export default defineNuxtPlugin(() => {
     },
     { immediate: true },
   )
+
+  router.beforeEach((to) => {
+    if (!isPrivateWaitlistOfferPath(to.path)) return
+    if (!isLoaded && !document.getElementById(HOTJAR_SCRIPT_ID)) return
+
+    // Hotjar cannot stop an active recording. A full navigation creates a clean
+    // offer page where the private-route guard prevents the script from loading.
+    window.location.assign(to.fullPath)
+    return false
+  })
 
   watch(
     isPrivateReviewRoute,

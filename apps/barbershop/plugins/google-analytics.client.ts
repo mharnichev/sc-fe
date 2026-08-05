@@ -60,6 +60,8 @@ export default defineNuxtPlugin(() => {
       route.hash || window.location.hash,
     )
   }
+  const hasPrivateWaitlistOfferContext = () =>
+    route.path === '/booking/waitlist-offer' || route.path === '/booking/waitlist-offer/'
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -123,10 +125,17 @@ export default defineNuxtPlugin(() => {
 
     const fragmentFreePath = route.fullPath.split('#', 1)[0] || route.path
     const privateReviewContext = hasPrivateReviewContext()
-    const pagePath = privateReviewContext ? '/masters' : fragmentFreePath
+    const privateWaitlistOfferContext = hasPrivateWaitlistOfferContext()
+    const pagePath = privateReviewContext
+      ? '/masters'
+      : privateWaitlistOfferContext
+        ? '/booking/waitlist-offer'
+        : fragmentFreePath
     const pageLocation = privateReviewContext
       ? `${window.location.origin}/masters`
-      : `${window.location.origin}${fragmentFreePath}`
+      : privateWaitlistOfferContext
+        ? `${window.location.origin}/booking/waitlist-offer`
+        : `${window.location.origin}${fragmentFreePath}`
     const pageTitle = document.title
 
     scheduleGtagLoad(() => {

@@ -157,7 +157,21 @@ const {
   { watch: [appliedDateFrom, appliedDateTo, selectedMasterId] },
 )
 
-const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics()])
+const {
+  data: bookingRecovery,
+  pending: bookingRecoveryPending,
+  error: bookingRecoveryError,
+  refresh: refreshBookingRecovery,
+} = await useAsyncData(
+  'admin-booking-recovery-summary',
+  () => api.adminGetBookingRecoverySummary({
+    date_from: appliedDateFrom.value,
+    date_to: appliedDateTo.value,
+  }),
+  { watch: [appliedDateFrom, appliedDateTo] },
+)
+
+const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery()])
 const errorStatus = computed(() => {
   if (typeof error.value !== 'object' || !error.value) return undefined
   if ('statusCode' in error.value) return Number((error.value as { statusCode?: number }).statusCode)
@@ -272,7 +286,7 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
           Рішення для якісної виручки, завантаження команди та повернення клієнтів.
         </p>
       </div>
-      <BaseButton variant="neutral" :loading="pending || reviewMetricsPending" @click="refreshAll">
+      <BaseButton variant="neutral" :loading="pending || reviewMetricsPending || bookingRecoveryPending" @click="refreshAll">
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         Оновити
       </BaseButton>
@@ -434,6 +448,12 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
       <DashboardBookingFunnelSection
         :funnel="dashboard?.booking_funnel"
         :loading="pending"
+      />
+
+      <DashboardBookingRecoverySection
+        :summary="bookingRecovery"
+        :loading="bookingRecoveryPending"
+        :unavailable="Boolean(bookingRecoveryError)"
       />
 
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(21rem,0.75fr)]">

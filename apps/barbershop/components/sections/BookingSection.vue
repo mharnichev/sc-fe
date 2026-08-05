@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
+import type { BookingAlternativeSlotDto } from '~/domain/barbershop'
 import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
+import {
+  addRecoveryCalendarDays,
+  addRecoveryCalendarMonths,
+  bookingAlternativesPayload,
+  kyivRecoveryDateInput,
+  publicWaitlistPayload,
+  remapRecoveryServiceIds,
+} from '~/utils/bookingRecovery'
 
 type AssetModule = { default: string }
 
@@ -27,6 +36,11 @@ type SelectableService = ServiceDto | ServiceCatalogItemDto
 type BarberServiceOption = {
   id: number
   master: MasterDto
+}
+
+type RecoverySelection = {
+  masterId: number
+  startAt: string
 }
 
 const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-services-catalog' : `${props.idPrefix}-service-catalog`
@@ -73,6 +87,28 @@ const form = reactive({
   promotion_code: '',
 })
 
+const recovery = reactive({
+  loading: false,
+  error: '',
+  stale: '',
+  loadedKey: '',
+  sameMaster: [] as BookingAlternativeSlotDto[],
+  otherMasters: [] as BookingAlternativeSlotDto[],
+})
+const recoverySelection = ref<RecoverySelection | null>(null)
+const waitlistOpen = ref(false)
+const waitlistState = ref<'form' | 'submitting' | 'success' | 'duplicate' | 'error'>('form')
+const waitlistError = ref('')
+const waitlistNamePrefilled = ref(false)
+const waitlistPhonePrefilled = ref(false)
+const waitlistForm = reactive({
+  customer_name: '',
+  customer_phone: '',
+  another_master_acceptable: false,
+  nearby_dates_acceptable: false,
+  notification_consent: false,
+})
+
 const state = reactive({
   loading: false,
   success: '',
@@ -84,11 +120,15 @@ const bookingSectionPhotos = ref('')
 const bookingSectionRoot = ref<HTMLElement | null>(null)
 let bookingPhotoObserver: IntersectionObserver | null = null
 
-const formatDateInput = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+const recoveryEventId = () => {
+  if (!import.meta.client) return null
+  const cryptoApi = globalThis.crypto
+  const random = cryptoApi?.randomUUID?.()
+  if (random) return `recovery-${random}`
+  if (typeof cryptoApi?.getRandomValues !== 'function') return null
+
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16))
+  return `recovery-${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`
 }
 
 const isMondayDateInput = (value: string) => {
@@ -98,15 +138,11 @@ const isMondayDateInput = (value: string) => {
   return new Date(year, month - 1, day).getDay() === 1
 }
 
-const today = formatDateInput(new Date())
-const maxBookableDate = formatDateInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+const today = kyivRecoveryDateInput()
+const maxBookableDate = addRecoveryCalendarMonths(today, 2)
 const defaultBookableDate = (() => {
-  const date = new Date()
-
-  for (let dayOffset = 0; dayOffset <= 90; dayOffset += 1) {
-    const candidate = new Date(date)
-    candidate.setDate(date.getDate() + dayOffset)
-    const value = formatDateInput(candidate)
+  for (let dayOffset = 0; dayOffset <= 62; dayOffset += 1) {
+    const value = addRecoveryCalendarDays(today, dayOffset)
 
     if (!isMondayDateInput(value)) return value
   }
@@ -501,6 +537,7 @@ watch(selectedMasterId, resolveSelectedServiceForMaster)
 
 watch([selectedServiceIds, selectedCatalogIds, selectedMasterId, selectedDate], () => {
   selectedSlotStart.value = ''
+  recoverySelection.value = null
   if (!isResettingAfterSubmit.value) {
     state.success = ''
     state.error = ''
@@ -556,6 +593,272 @@ const visibleSlots = computed<AvailableSlotDto[]>(() =>
   isSelectedDateClosed.value ? [] : slots.value || [],
 )
 
+const alternativeServiceIds = (masterId: number) => {
+  if (masterId === selectedMasterId.value) return [...selectedServiceIds.value]
+
+  if (selectedCatalogItems.value.length) {
+    const ids = selectedCatalogItems.value
+      .map(service => service.barber_services.find(item => item.barber_id === masterId)?.id)
+      .filter((id): id is number => Boolean(id))
+    return ids.length === selectedCatalogItems.value.length && new Set(ids).size === ids.length ? ids : null
+  }
+
+  return remapRecoveryServiceIds(
+    selectedServiceIds.value,
+    selectedMasterServices.value,
+    mastersById.value.get(masterId)?.services || [],
+  )
+}
+
+const canSelectAlternative = (slot: BookingAlternativeSlotDto) =>
+  Boolean(
+    slot.date
+    && slot.start_at
+    && mastersById.value.has(slot.master.id)
+    && alternativeServiceIds(slot.master.id)?.length === selectedServiceIds.value.length,
+  )
+
+const recoveryCopy = computed(() => locale.value === 'en'
+  ? {
+      title: 'No available slots on this date',
+      description: 'We found the nearest options so you can book without searching again.',
+      sameMaster: (name: string) => `Nearest time with ${name}`,
+      otherMasters: 'Other barbers are available that day',
+      otherDates: 'Other nearby dates',
+      waitlist: 'Notify me if a slot becomes available',
+      loading: 'Looking for the nearest available options...',
+      unavailable: 'We could not load alternatives. Please try again.',
+      stale: 'That time was just taken. We refreshed the nearest available options.',
+      chooseAnother: 'Choose another date or barber',
+      duration: (minutes: number) => `${minutes} min`,
+      rating: (value: number) => `Rating ${value.toFixed(1)}`,
+      waitlistTitle: 'Join the waitlist',
+      waitlistDescription: 'This is not a confirmed booking. We will text you if a suitable time becomes available.',
+      name: 'Name',
+      phone: 'Phone',
+      masterPreference: 'Barber preference',
+      onlyThisMaster: 'Only this barber',
+      anotherMaster: 'Another barber is fine',
+      datePreference: 'Date preference',
+      onlyThisDate: 'Only this date',
+      nearbyDates: 'Nearest days',
+      consent: 'Send me an SMS if a suitable time becomes available',
+      submit: 'Join waitlist',
+      sending: 'Sending...',
+      success: 'Done. We will send an SMS if a suitable time becomes available. This is not a booking yet — you will need to confirm the time.',
+      duplicate: 'You already have an active waitlist request for these preferences. We will text you if a suitable time becomes available.',
+      error: 'We could not add you to the waitlist. Please try again.',
+      back: 'Back to date and barber selection',
+      contactSaved: 'We will use the contact details you entered for this booking.',
+      close: 'Close',
+    }
+  : {
+      title: 'На цю дату вільних вікон немає',
+      description: 'Ми знайшли найближчі варіанти, щоб ви могли записатися без зайвого пошуку.',
+      sameMaster: (name: string) => `Найближчий час у ${name}`,
+      otherMasters: 'Цього дня доступні інші майстри',
+      otherDates: 'Інші найближчі дати',
+      waitlist: 'Повідомити мене, якщо звільниться вікно',
+      loading: 'Шукаємо найближчі вільні варіанти...',
+      unavailable: 'Не вдалося завантажити варіанти. Спробуйте ще раз.',
+      stale: 'Цей час щойно зайняли. Ми оновили найближчі вільні варіанти.',
+      chooseAnother: 'Обрати іншу дату або майстра',
+      duration: (minutes: number) => `${minutes} хв`,
+      rating: (value: number) => `Рейтинг ${value.toFixed(1)}`,
+      waitlistTitle: 'Стати в лист очікування',
+      waitlistDescription: 'Це не підтверджений запис. Ми надішлемо SMS, якщо з’явиться відповідний час.',
+      name: 'Ім’я',
+      phone: 'Телефон',
+      masterPreference: 'Побажання щодо майстра',
+      onlyThisMaster: 'Лише цей майстер',
+      anotherMaster: 'Підійде інший майстер',
+      datePreference: 'Побажання щодо дати',
+      onlyThisDate: 'Лише ця дата',
+      nearbyDates: 'Найближчі дні',
+      consent: 'Надіслати SMS, якщо з’явиться підходяще вікно',
+      submit: 'Стати в лист очікування',
+      sending: 'Надсилаємо...',
+      success: 'Готово. Напишемо SMS, якщо з’явиться відповідне вікно. Це ще не запис — час потрібно буде підтвердити.',
+      duplicate: 'У вас уже є активний запит із такими побажаннями. Напишемо SMS, якщо з’явиться відповідне вікно.',
+      error: 'Не вдалося додати вас до листа очікування. Спробуйте ще раз.',
+      back: 'Повернутися до вибору дати й майстра',
+      contactSaved: 'Використаємо контакти, які ви вже вказали для запису.',
+      close: 'Закрити',
+    },
+)
+
+const recoveryRequestKey = computed(() =>
+  canLoadSlots.value && !isSelectedDateClosed.value
+    ? `${selectedMasterId.value}:${selectedServiceIds.value.join(',')}:${selectedDate.value}:${selectedDurationMinutes.value}`
+    : '',
+)
+
+const recordRecoveryEvent = (eventType: 'alternative_slot_selected' | 'waitlist_opened', masterId?: number) => {
+  const anonymousSessionId = bookingFunnel.sessionId()
+  const eventId = recoveryEventId()
+  if (!anonymousSessionId || !eventId) return
+
+  void domain.recordBookingRecoveryEvent({
+    event_id: eventId,
+    anonymous_session_id: anonymousSessionId,
+    event_type: eventType,
+    ...(masterId ? { master_id: masterId } : {}),
+    ...(selectedServiceIds.value[0] ? { service_id: selectedServiceIds.value[0] } : {}),
+  }).catch(() => {
+    // Recovery observability is best effort and never blocks booking.
+  })
+}
+
+const loadRecoveryAlternatives = async (force = false) => {
+  const requestKey = recoveryRequestKey.value
+  if (!requestKey || recovery.loading || (!force && recovery.loadedKey === requestKey)) return
+
+  const masterId = selectedMasterId.value
+  if (!masterId) return
+  recovery.loading = true
+  recovery.error = ''
+  if (force) recovery.loadedKey = ''
+
+  try {
+    const response = await domain.getBookingAlternatives(bookingAlternativesPayload({
+      masterId,
+      serviceIds: selectedServiceIds.value,
+      desiredDate: selectedDate.value,
+      durationMinutes: selectedDurationMinutes.value,
+      funnelSessionId: bookingFunnel.sessionId(),
+    }))
+    if (recoveryRequestKey.value !== requestKey) return
+    recovery.sameMaster = response.same_master.slice(0, 3)
+    recovery.otherMasters = response.other_masters
+    recovery.loadedKey = requestKey
+  }
+  catch {
+    if (recoveryRequestKey.value === requestKey) {
+      recovery.sameMaster = []
+      recovery.otherMasters = []
+      recovery.error = recoveryCopy.value.unavailable
+      recovery.loadedKey = requestKey
+    }
+  }
+  finally {
+    recovery.loading = false
+  }
+}
+
+const sameMasterAlternatives = computed(() => recovery.sameMaster.filter(canSelectAlternative).slice(0, 3))
+const sameDayOtherMasterAlternatives = computed(() =>
+  recovery.otherMasters.filter(slot => slot.date === selectedDate.value && canSelectAlternative(slot)),
+)
+const nearbyDateAlternatives = computed(() => {
+  const slots = recovery.otherMasters
+    .filter(slot => slot.date !== selectedDate.value && canSelectAlternative(slot))
+  const seen = new Set<string>()
+  return slots.filter((slot) => {
+    const key = `${slot.master.id}:${slot.start_at}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 6)
+})
+
+const openWaitlist = () => {
+  waitlistForm.customer_name = waitlistForm.customer_name || form.customer_name
+  waitlistForm.customer_phone = waitlistForm.customer_phone || form.customer_phone
+  waitlistNamePrefilled.value = waitlistForm.customer_name.trim().length >= 2
+  waitlistPhonePrefilled.value = isValidPhoneNumber(waitlistForm.customer_phone)
+  waitlistForm.another_master_acceptable = false
+  waitlistForm.nearby_dates_acceptable = false
+  waitlistForm.notification_consent = false
+  waitlistError.value = ''
+  waitlistState.value = 'form'
+  waitlistOpen.value = true
+  recordRecoveryEvent('waitlist_opened', selectedMasterId.value || undefined)
+}
+
+const waitlistNeedsName = computed(() => !waitlistNamePrefilled.value)
+const waitlistNeedsPhone = computed(() => !waitlistPhonePrefilled.value)
+
+const submitWaitlist = async () => {
+  const customerName = sanitizeFormText(waitlistForm.customer_name, FORM_FIELD_LIMITS.fullName)
+  const customerPhone = formatPhoneForSubmit(waitlistForm.customer_phone)
+  if (customerName.length < 2 || !customerPhone || !waitlistForm.notification_consent || !selectedDate.value || !selectedServiceIds.value.length) {
+    waitlistError.value = recoveryCopy.value.error
+    return
+  }
+
+  waitlistState.value = 'submitting'
+  waitlistError.value = ''
+  try {
+    await domain.createWaitlistRequest(publicWaitlistPayload({
+      customerName,
+      customerPhone,
+      serviceIds: selectedServiceIds.value,
+      selectedMasterId: selectedMasterId.value,
+      desiredDate: selectedDate.value,
+      durationMinutes: selectedDurationMinutes.value,
+      anotherMasterAcceptable: waitlistForm.another_master_acceptable,
+      nearbyDatesAcceptable: waitlistForm.nearby_dates_acceptable,
+      maxBookableDate,
+    }))
+    form.customer_name = customerName
+    form.customer_phone = formatPhoneInput(customerPhone)
+    waitlistState.value = 'success'
+  }
+  catch (error) {
+    const status = (error as { response?: { status?: number }, status?: number })?.response?.status
+      || (error as { status?: number })?.status
+    waitlistState.value = status === 409 ? 'duplicate' : 'error'
+    waitlistError.value = status === 409 ? recoveryCopy.value.duplicate : recoveryCopy.value.error
+  }
+}
+
+const returnToSelection = () => {
+  waitlistOpen.value = false
+  goToStep(2)
+}
+
+const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
+  const serviceIds = alternativeServiceIds(slot.master.id)
+  if (!serviceIds?.length || recovery.loading) return
+
+  recovery.loading = true
+  recovery.stale = ''
+  recovery.error = ''
+  recoverySelection.value = null
+  selectedMasterId.value = slot.master.id
+  selectedServiceIds.value = serviceIds
+  selectedDate.value = slot.date
+
+  try {
+    await nextTick()
+    await refreshSlots()
+    const isStillAvailable = (slots.value || []).some(item => item.start_at === slot.start_at)
+    if (!isStillAvailable) {
+      recovery.stale = recoveryCopy.value.stale
+      bookingFunnel.recordInBackground('stale_schedule', {
+        masterId: slot.master.id,
+        serviceId: serviceIds[0],
+      })
+      recovery.loading = false
+      await loadRecoveryAlternatives(true)
+      return
+    }
+
+    selectedSlotStart.value = slot.start_at
+    recoverySelection.value = { masterId: slot.master.id, startAt: slot.start_at }
+    recordRecoveryEvent('alternative_slot_selected', slot.master.id)
+    selectSlot(slot.start_at)
+  }
+  catch {
+    recovery.stale = recoveryCopy.value.stale
+    recovery.loading = false
+    await loadRecoveryAlternatives(true)
+  }
+  finally {
+    recovery.loading = false
+  }
+}
+
 watch(
   [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate],
   () => {
@@ -582,10 +885,21 @@ watch(
   { immediate: true },
 )
 
-const emptySlotsMessage = computed(() =>
-  selectedDate.value === today
-    ? terms.value.home.booking.noSlotsToday
-    : terms.value.home.booking.noSlotsDate,
+watch(
+  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate],
+  () => {
+    if (
+      !canLoadSlots.value
+      || isSelectedDateClosed.value
+      || loadedSlotsKey.value !== slotsKey.value
+      || slotsPending.value
+      || slotsError.value
+      || visibleSlots.value.length
+    ) return
+
+    void loadRecoveryAlternatives()
+  },
+  { immediate: true },
 )
 
 const dateLocale = computed(() => locale.value === 'en' ? 'en-US' : 'uk-UA')
@@ -629,6 +943,17 @@ const formatBookingDateTime = (value: string) =>
     minute: '2-digit',
     timeZone: 'Europe/Kyiv',
   }).format(new Date(value))
+
+const formatRecoveryDate = (value: string) =>
+  new Intl.DateTimeFormat(dateLocale.value, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/Kyiv',
+  }).format(new Date(`${value}T12:00:00+03:00`))
+
+const alternativeMasterPhoto = (slot: BookingAlternativeSlotDto) =>
+  masterPhoto(mastersById.value.get(slot.master.id))
 
 const selectedSlot = computed(() =>
   visibleSlots.value.find(slot => slot.start_at === selectedSlotStart.value) || null,
@@ -730,6 +1055,12 @@ const handlePhonePasteEvent = (event: ClipboardEvent) => {
   })
 }
 
+const handleWaitlistPhonePaste = (event: ClipboardEvent) => {
+  handlePhonePaste(event, value => {
+    waitlistForm.customer_phone = value
+  })
+}
+
 const handleTextInput = (
   field: 'customer_name' | 'customer_comment' | 'promotion_code',
   maxLength: number,
@@ -763,8 +1094,16 @@ const errorMessage = (error: unknown) => {
   const status = (error as { response?: { status?: number }, status?: number })?.response?.status
     || (error as { status?: number })?.status
 
-  if (status === 409) return 'Цей час вже зайнятий. Оновіть доступні слоти та оберіть інший час.'
-  if (status === 400) return 'Перевірте дані запису: час має бути майбутнім і в межах робочих годин.'
+  if (status === 409) {
+    return locale.value === 'en'
+      ? 'That time has just been taken. We refreshed the available times so you can choose another one.'
+      : 'Цей час вже зайнятий. Ми оновили доступні слоти, щоб ви могли обрати інший.'
+  }
+  if (status === 400) {
+    return locale.value === 'en'
+      ? 'Please check the booking details: the time must be in the future and within working hours.'
+      : 'Перевірте дані запису: час має бути майбутнім і в межах робочих годин.'
+  }
   return terms.value.pages.contacts.error
 }
 
@@ -787,6 +1126,8 @@ const submit = async () => {
     service_count: selectedServiceIds.value.length,
     duration_minutes: selectedDurationMinutes.value,
   })
+  const selectedFromAlternative = recoverySelection.value?.masterId === selectedMasterId.value
+    && recoverySelection.value?.startAt === selectedSlotStart.value
 
   try {
     const funnelSessionId = bookingFunnel.sessionId()
@@ -814,7 +1155,6 @@ const submit = async () => {
       service_count: selectedServiceIds.value.length,
       duration_minutes: selectedDurationMinutes.value,
     }
-
     await domain.createBooking({
       master_id: selectedMasterId.value,
       service_id: selectedServiceIds.value[0],
@@ -826,6 +1166,7 @@ const submit = async () => {
       promotion_code: effectivePromotionCode.value || null,
       start_at: selectedSlotStart.value,
       funnel_session_id: funnelSessionId,
+      ...(selectedFromAlternative ? { recovery_source: 'alternative' as const } : {}),
     })
 
     await resetBookingFlow()
@@ -845,6 +1186,11 @@ const submit = async () => {
         masterId: selectedMasterId.value,
         serviceId: selectedServiceIds.value[0],
       })
+    }
+    if (status === 409) {
+      await refreshSlots()
+      goToStep(2)
+      if (selectedFromAlternative) recovery.stale = recoveryCopy.value.stale
     }
     trackEvent(
       funnelFailureEvent === 'booking_error' ? 'booking_error' : 'booking_submit_failed',
@@ -1202,6 +1548,7 @@ onBeforeUnmount(() => {
 
                   <div class="booking-slots-column">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">{{ bookingTimeLabels.slots }}</p>
+                    <p v-if="recovery.stale" class="mt-3 text-sm text-amber-100" role="alert">{{ recovery.stale }}</p>
                     <div v-if="visibleSlots.length" class="booking-slots-grid mt-4 grid grid-cols-3 gap-2">
                       <button
                         v-for="slot in visibleSlots"
@@ -1222,9 +1569,87 @@ onBeforeUnmount(() => {
                     </p>
                     <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
                     <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">{{ bookingTimeLabels.slotsError }}</p>
-                    <p v-else-if="!visibleSlots.length" class="mt-4 text-sm text-white/55">
-                      {{ emptySlotsMessage }}
-                    </p>
+                    <div
+                      v-else-if="!visibleSlots.length"
+                      class="booking-recovery mt-4 bg-white/[0.035] p-3 sm:p-4"
+                      role="region"
+                      :aria-label="recoveryCopy.title"
+                    >
+                      <p class="text-base font-semibold text-white">{{ recoveryCopy.title }}</p>
+                      <p class="mt-1 text-sm leading-6 text-white/65">{{ recoveryCopy.description }}</p>
+                      <p v-if="recovery.loading" class="mt-3 text-sm text-white/55">{{ recoveryCopy.loading }}</p>
+                      <p v-else-if="recovery.error" class="mt-3 text-sm text-rose-200">{{ recovery.error }}</p>
+
+                      <section v-if="sameMasterAlternatives.length" class="mt-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
+                          {{ recoveryCopy.sameMaster(sameMasterAlternatives[0].master.name) }}
+                        </p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          <button
+                            v-for="slot in sameMasterAlternatives"
+                            :key="`${slot.master.id}-${slot.start_at}`"
+                            type="button"
+                            class="bg-white/[0.055] px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-white hover:text-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                            :disabled="recovery.loading"
+                            @click="selectRecoveryAlternative(slot)"
+                          >
+                            <span class="block">{{ formatRecoveryDate(slot.date) }}</span>
+                            <span class="mt-0.5 block text-xs opacity-70">{{ formatTime(slot.start_at) }} · {{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                          </button>
+                        </div>
+                      </section>
+
+                      <section v-if="sameDayOtherMasterAlternatives.length" class="mt-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">{{ recoveryCopy.otherMasters }}</p>
+                        <div class="mt-2 grid gap-2">
+                          <button
+                            v-for="slot in sameDayOtherMasterAlternatives"
+                            :key="`${slot.master.id}-${slot.start_at}`"
+                            type="button"
+                            class="grid grid-cols-[3.5rem_1fr_auto] items-center gap-4 bg-white/[0.045] p-2.5 text-left transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                            :disabled="recovery.loading"
+                            @click="selectRecoveryAlternative(slot)"
+                          >
+                            <img :src="alternativeMasterPhoto(slot)" :alt="slot.master.name" class="h-14 w-14 object-cover object-top">
+                            <span class="min-w-0">
+                              <span class="block truncate text-sm font-semibold text-white">{{ slot.master.name }}</span>
+                              <span v-if="slot.master.role" class="block truncate text-xs text-white/60">{{ slot.master.role }}</span>
+                              <span v-if="slot.master.rating_summary !== null" class="block text-xs text-white/60">{{ recoveryCopy.rating(slot.master.rating_summary) }}</span>
+                            </span>
+                            <span class="text-right text-sm font-semibold text-white">
+                              <span class="block">{{ formatTime(slot.start_at) }}</span>
+                              <span class="mt-0.5 block text-xs font-normal text-white/60">{{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                            </span>
+                          </button>
+                        </div>
+                      </section>
+
+                      <section v-if="nearbyDateAlternatives.length" class="mt-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">{{ recoveryCopy.otherDates }}</p>
+                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                          <button
+                            v-for="slot in nearbyDateAlternatives"
+                            :key="`${slot.master.id}-${slot.start_at}`"
+                            type="button"
+                            class="bg-white/[0.045] p-2.5 text-left transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                            :disabled="recovery.loading"
+                            @click="selectRecoveryAlternative(slot)"
+                          >
+                            <span class="block text-sm font-semibold text-white">{{ formatRecoveryDate(slot.date) }} · {{ formatTime(slot.start_at) }}</span>
+                            <span class="mt-1 block text-xs text-white/60">{{ slot.master.name }} · {{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                          </button>
+                        </div>
+                      </section>
+
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action" :disabled="recovery.loading" @click="openWaitlist">
+                          {{ recoveryCopy.waitlist }}
+                        </BaseButton>
+                        <BaseButton type="button" variant="outline-light" size="sm" class="booking-recovery-action" @click="goToStep(1)">
+                          {{ recoveryCopy.chooseAnother }}
+                        </BaseButton>
+                      </div>
+                    </div>
                   </div>
                 </section>
 
@@ -1402,6 +1827,98 @@ onBeforeUnmount(() => {
             </div>
           </FormStatusOverlay>
         </form>
+
+        <BaseModal
+          v-model="waitlistOpen"
+          :dialog-label="recoveryCopy.waitlistTitle"
+          :close-label="recoveryCopy.close"
+          type="right"
+        >
+          <form class="mx-auto w-full max-w-xl p-6 pt-14 sm:p-8 sm:pt-14" @submit.prevent="submitWaitlist">
+            <p class="type-eyebrow text-xs text-neutral-500">{{ recoveryCopy.waitlist }}</p>
+            <h2 class="mt-3 text-2xl font-semibold leading-tight text-neutral-950">{{ recoveryCopy.waitlistTitle }}</h2>
+            <p class="mt-3 text-sm leading-6 text-neutral-600">{{ recoveryCopy.waitlistDescription }}</p>
+
+            <template v-if="waitlistState === 'form' || waitlistState === 'submitting'">
+              <div v-if="waitlistNeedsName || waitlistNeedsPhone" class="mt-6 grid gap-3">
+                <label v-if="waitlistNeedsName" class="grid gap-1.5 text-sm font-semibold text-neutral-800">
+                  {{ recoveryCopy.name }}
+                  <input
+                    v-model="waitlistForm.customer_name"
+                    required
+                    autocomplete="name"
+                    minlength="2"
+                    :maxlength="FORM_FIELD_LIMITS.fullName"
+                    class="border border-neutral-300 bg-white px-3 py-2.5 outline-none transition focus:border-neutral-950 focus:ring-2 focus:ring-neutral-950/20"
+                    @input="waitlistForm.customer_name = constrainFormInput(waitlistForm.customer_name, FORM_FIELD_LIMITS.fullName)"
+                  >
+                </label>
+                <label v-if="waitlistNeedsPhone" class="grid gap-1.5 text-sm font-semibold text-neutral-800">
+                  {{ recoveryCopy.phone }}
+                  <input
+                    v-model="waitlistForm.customer_phone"
+                    required
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    maxlength="17"
+                    class="border border-neutral-300 bg-white px-3 py-2.5 outline-none transition focus:border-neutral-950 focus:ring-2 focus:ring-neutral-950/20"
+                    @input="waitlistForm.customer_phone = formatPhoneInput(waitlistForm.customer_phone)"
+                    @paste="handleWaitlistPhonePaste"
+                  >
+                </label>
+              </div>
+              <p v-else class="mt-6 border border-neutral-200 bg-neutral-50 p-3 text-sm leading-6 text-neutral-600">{{ recoveryCopy.contactSaved }}</p>
+
+              <fieldset class="mt-6">
+                <legend class="text-sm font-semibold text-neutral-800">{{ recoveryCopy.masterPreference }}</legend>
+                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
+                  <input v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="false" type="radio">
+                  {{ recoveryCopy.onlyThisMaster }}
+                </label>
+                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
+                  <input v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="true" type="radio">
+                  {{ recoveryCopy.anotherMaster }}
+                </label>
+              </fieldset>
+
+              <fieldset class="mt-5">
+                <legend class="text-sm font-semibold text-neutral-800">{{ recoveryCopy.datePreference }}</legend>
+                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
+                  <input v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="false" type="radio">
+                  {{ recoveryCopy.onlyThisDate }}
+                </label>
+                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
+                  <input v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="true" type="radio">
+                  {{ recoveryCopy.nearbyDates }}
+                </label>
+              </fieldset>
+
+              <label class="mt-5 flex cursor-pointer items-start gap-3 border border-neutral-200 p-3 text-sm leading-5 text-neutral-700">
+                <input v-model="waitlistForm.notification_consent" type="checkbox" class="mt-0.5">
+                <span>{{ recoveryCopy.consent }}</span>
+              </label>
+              <p v-if="waitlistError" class="mt-3 text-sm leading-6 text-rose-700">{{ waitlistError }}</p>
+              <div class="mt-6 flex flex-wrap gap-3">
+                <BaseButton type="submit" variant="dark" size="sm" :disabled="waitlistState === 'submitting' || !waitlistForm.notification_consent">
+                  {{ waitlistState === 'submitting' ? recoveryCopy.sending : recoveryCopy.submit }}
+                </BaseButton>
+                <BaseButton type="button" variant="outline-dark" size="sm" @click="returnToSelection">
+                  {{ recoveryCopy.back }}
+                </BaseButton>
+              </div>
+            </template>
+
+            <div v-else class="mt-8">
+              <p class="text-base leading-7 text-neutral-700">
+                {{ waitlistState === 'success' ? recoveryCopy.success : waitlistError }}
+              </p>
+              <BaseButton type="button" variant="dark" size="sm" class="mt-6" @click="returnToSelection">
+                {{ recoveryCopy.back }}
+              </BaseButton>
+            </div>
+          </form>
+        </BaseModal>
       </div>
     </div>
   </component>
@@ -1577,6 +2094,14 @@ onBeforeUnmount(() => {
     padding-right: 0.25rem;
   }
 
+  .booking-step-panel--time .booking-recovery {
+    min-height: 0;
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
   .booking-step-panel--service .booking-step-actions,
   .booking-step-panel--time .booking-step-actions {
     flex-shrink: 0;
@@ -1727,6 +2252,11 @@ onBeforeUnmount(() => {
 .booking-guided-action {
   border: 1px solid rgb(115 115 115 / 0.7);
   animation: booking-guided-border 2.1s ease-in-out infinite;
+}
+
+:deep(.booking-recovery-action) {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .booking-action-content-enter-active,
