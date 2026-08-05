@@ -49,6 +49,7 @@ export interface DashboardExecutiveMetrics {
   gross_revenue: DashboardComparableMetric
   completed_visits: DashboardComparableMetric<number>
   unique_clients: DashboardComparableMetric<number>
+  new_database_customers: DashboardComparableMetric<number>
   average_check: DashboardComparableMetric
   booking_subtotal: DashboardComparableMetric
   promotion_discount_amount: DashboardComparableMetric
@@ -855,6 +856,7 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
     'gross_revenue',
     'completed_visits',
     'unique_clients',
+    'new_database_customers',
     'average_check',
     'booking_subtotal',
     'promotion_discount_amount',

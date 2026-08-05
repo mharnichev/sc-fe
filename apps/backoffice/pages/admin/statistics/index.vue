@@ -82,9 +82,10 @@ const refreshAll = () => refresh()
         tone="cyan"
       />
       <StatisticsStatCard
-        label="Унікальні клієнти"
+        label="Клієнти з завершеним візитом"
         :value="monthly?.total_clients || 0"
         :loading="pending"
+        hint="Різні клієнти, які мали хоча б один завершений візит у вибраному місяці."
       />
       <StatisticsStatCard
         label="Скасування / неявки"
@@ -149,7 +150,7 @@ const refreshAll = () => refresh()
           >
             <span class="min-w-0">
               <span class="block truncate text-sm font-medium text-slate-900 xl:text-base">#{{ index + 1 }} {{ barberName(row.barber) }}</span>
-              <span class="mt-0.5 block text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ row.completed_appointments }} записів · {{ row.unique_clients }} клієнтів</span>
+              <span class="mt-0.5 block text-xs text-slate-500 xl:mt-1 xl:text-sm">{{ row.completed_appointments }} записів · {{ row.unique_clients }} клієнтів із завершеним візитом</span>
             </span>
             <span class="shrink-0 text-xs font-semibold text-slate-900 xl:text-sm">{{ formatMoney(row.revenue) }}</span>
           </NuxtLink>

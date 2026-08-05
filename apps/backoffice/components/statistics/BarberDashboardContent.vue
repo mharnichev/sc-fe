@@ -56,10 +56,10 @@ const bestRevenueDayLabel = computed(() => {
         tone="cyan"
       />
       <StatisticsStatCard
-        label="Унікальні клієнти"
+        label="Клієнти з завершеним візитом"
         :value="stats?.unique_clients || 0"
         :loading="loading"
-        :hint="stats ? `Нові: ${stats.clients.new_clients} · Повернулися: ${stats.clients.returning_clients}` : ''"
+        :hint="stats ? `Різні клієнти за завершеними візитами. Перший візит: ${stats.clients.new_clients} · Повторні: ${stats.clients.returning_clients}` : ''"
       />
       <StatisticsStatCard
         class="col-span-2 xl:col-span-1"
@@ -80,13 +80,13 @@ const bestRevenueDayLabel = computed(() => {
 
     <div class="grid grid-cols-2 gap-2 xl:grid-cols-3 xl:gap-4">
       <StatisticsStatCard
-        label="Нові клієнти"
+        label="Клієнти з першим візитом"
         :value="stats?.clients.new_clients || 0"
         :loading="loading"
         tone="emerald"
       />
       <StatisticsStatCard
-        label="Повернулися"
+        label="Повторні клієнти"
         :value="stats?.clients.returning_clients || 0"
         :loading="loading"
       />

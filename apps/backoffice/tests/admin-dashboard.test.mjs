@@ -58,6 +58,7 @@ const backendDashboardFixture = () => ({
     gross_revenue: { current: '900.00', previous: '750.00', percent_change: '20.00' },
     completed_visits: { current: 2, previous: 1, percent_change: '100.00' },
     unique_clients: { current: 2, previous: 1, percent_change: '100.00' },
+    new_database_customers: { current: 3, previous: 2, percent_change: '50.00' },
     average_check: { current: '450.00', previous: '750.00', percent_change: '-40.00' },
     booking_subtotal: { current: '1000.00', previous: '800.00', percent_change: '25.00' },
     promotion_discount_amount: { current: '100.00', previous: '50.00', percent_change: '100.00' },
@@ -418,6 +419,7 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   const response = contract.parseAdminDashboardResponse(backendDashboardFixture())
 
   assert.equal(response.executive.gross_revenue.current, '900.00')
+  assert.equal(response.executive.new_database_customers.current, 3)
   assert.equal(response.retention.repeat_30_day.eligible_clients, 1)
   assert.equal(response.masters[0].master_name, 'Андрій')
   assert.equal(response.services[0].average_realized_revenue_per_completed_service, '450.00')
@@ -575,6 +577,9 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.doesNotMatch(pageSource, /adminGetMonthlyStatistics|adminGetBarbersComparison|adminGetBookings/)
   assert.doesNotMatch(pageSource, /dashboard\?\.kpis|dashboard\?\.capacity\./)
   assert.match(pageSource, /dashboard\?\.executive\.gross_revenue\.current/)
+  assert.match(pageSource, /dashboard\?\.executive\.new_database_customers\.current/)
+  assert.match(pageSource, /label="Клієнти з завершеним візитом"/)
+  assert.doesNotMatch(pageSource, /label="Унікальні клієнти"/)
   assert.match(pageSource, /dashboard\?\.capacity_and_leakage\.available_minutes/)
   assert.match(pageSource, /dashboard\?\.booking_funnel/)
   assert.match(bookingFunnelSource, /funnel\.no_slot_unknown_date_count/)

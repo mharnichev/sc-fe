@@ -43,7 +43,7 @@ const topServiceName = (row: BarberComparisonItem) =>
               <th>Майстер</th>
               <th>Дохід</th>
               <th>Записи</th>
-              <th>Клієнти</th>
+              <th>Клієнти з візитом</th>
               <th>Середній чек</th>
               <th>Популярна послуга</th>
               <th>Деталі</th>

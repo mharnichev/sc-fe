@@ -361,11 +361,11 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
         <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="executive-kpi-title" class="text-lg font-semibold text-slate-900">Ключовий результат</h2>
-            <p class="mt-1 text-sm text-slate-500">Лише завершені візити у вибраному періоді.</p>
+            <p class="mt-1 text-sm text-slate-500">Виручка, завершені візити та зміни клієнтської бази у вибраному періоді.</p>
           </div>
           <p class="text-xs text-slate-400">Виручка не є прибутком: витрати, зарплати й постійні видатки не враховані.</p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <DashboardDecisionMetricCard
             label="Виручка"
             kind="money"
@@ -404,15 +404,28 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
             }"
           />
           <DashboardDecisionMetricCard
-            label="Унікальні клієнти"
-            tone="emerald"
+            label="Клієнти з завершеним візитом"
             :value="dashboard?.executive.unique_clients.current"
             :comparison="dashboardMetricComparison(dashboard?.executive.unique_clients)"
             :loading="pending"
             :help="{
-              summary: 'Кількість різних клієнтів серед завершених візитів у вибраному періоді.',
-              formula: 'COUNT DISTINCT за customer_id; якщо зв’язку з клієнтом немає — за нормалізованим номером телефону запису.',
+              summary: 'Кількість різних клієнтів, які мали хоча б один завершений візит у вибраному періоді.',
+              formula: 'COUNT DISTINCT за customer_id; для старих незв’язаних записів — за номером, збереженим у записі.',
               note: 'Один клієнт із кількома завершеними візитами рахується один раз.',
+            }"
+          />
+          <DashboardDecisionMetricCard
+            label="Нові клієнти в базі"
+            tone="emerald"
+            :value="dashboard?.executive.new_database_customers.current"
+            :comparison="dashboardMetricComparison(dashboard?.executive.new_database_customers)"
+            :loading="pending"
+            :help="{
+              summary: 'Кількість унікальних номерів телефону, для яких запис клієнта вперше створено в базі у вибраному періоді.',
+              formula: 'COUNT DISTINCT Customer.phone, де Customer.created_at входить у вибраний період Europe/Kyiv.',
+              note: selectedMasterId
+                ? 'За фільтра майстра враховуються нові клієнти, для яких у тому самому періоді створено запис до цього майстра.'
+                : 'Імпортовані записи також входять у показник у дату їх створення в цій базі.',
             }"
           />
         </div>
@@ -536,7 +549,7 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
                 />
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                {{ selectedMasterId ? 'Нові та повторні відносно обраного майстра.' : 'Нові проти тих, хто вже відвідував Soul Cuts.' }}
+                {{ selectedMasterId ? 'Перший завершений візит і повторні візити відносно обраного майстра.' : 'Перший завершений візит проти клієнтів, які вже відвідували Soul Cuts.' }}
               </p>
             </div>
           </div>
@@ -545,9 +558,9 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
             <dl class="mt-4 grid grid-cols-2 gap-3">
               <div class="dashboard-accent-card dashboard-accent-card--cyan rounded-2xl border p-4">
                 <dt class="dashboard-accent-card__label flex items-center gap-1 text-sm">
-                  Нові клієнти
+                  Клієнти з першим візитом
                   <DashboardMetricHelp
-                    title="Нові клієнти"
+                    title="Клієнти з першим візитом"
                     summary="Унікальні клієнти із завершеним візитом у періоді, для яких це перший завершений візит у поточній області."
                     formula="Дата першого завершеного візиту ≥ початку вибраного періоду."
                     :note="selectedMasterId ? 'За фільтра майстра «новий» означає новий для цього майстра.' : 'Без фільтра «новий» означає перший завершений візит у Soul Cuts.'"
