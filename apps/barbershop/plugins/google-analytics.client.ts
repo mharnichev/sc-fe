@@ -62,6 +62,9 @@ export default defineNuxtPlugin(() => {
   }
   const hasPrivateWaitlistOfferContext = () =>
     route.path === '/booking/waitlist-offer' || route.path === '/booking/waitlist-offer/'
+  const isPrivateCustomerActivityPath = (path: string) =>
+    path === '/booking/manage' || path === '/booking/manage/' || path === '/booking/cancel' || path === '/booking/cancel/'
+  const hasPrivateCustomerActivityContext = () => isPrivateCustomerActivityPath(route.path)
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -108,7 +111,7 @@ export default defineNuxtPlugin(() => {
     runAfterInitialLoad(() => {
       isGtagLoadScheduled = false
 
-      if (!canUseAnalytics.value) {
+      if (!canUseAnalytics.value || hasPrivateCustomerActivityContext()) {
         pendingCallbacks.length = 0
         return
       }
@@ -122,6 +125,7 @@ export default defineNuxtPlugin(() => {
 
   const trackPageView = () => {
     if (!canUseAnalytics.value) return
+    if (hasPrivateCustomerActivityContext()) return
 
     const fragmentFreePath = route.fullPath.split('#', 1)[0] || route.path
     const privateReviewContext = hasPrivateReviewContext()
@@ -163,6 +167,15 @@ export default defineNuxtPlugin(() => {
     },
     { immediate: true },
   )
+
+  router.beforeEach((to) => {
+    if (!isPrivateCustomerActivityPath(to.path)) return
+    if (!isGtagInitialized && !document.getElementById(GA_SCRIPT_ID)) return
+
+    // Reload into a clean document where the private-route guard keeps GA off.
+    window.location.assign(to.fullPath)
+    return false
+  })
 
   router.afterEach(async () => {
     if (!canUseAnalytics.value) return

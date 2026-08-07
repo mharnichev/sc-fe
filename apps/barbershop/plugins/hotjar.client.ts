@@ -34,9 +34,11 @@ export default defineNuxtPlugin(() => {
   }
   const isPrivateWaitlistOfferPath = (path: string) =>
     path === '/booking/waitlist-offer' || path === '/booking/waitlist-offer/'
+  const isPrivateCustomerActivityPath = (path: string) =>
+    path === '/booking/manage' || path === '/booking/manage/' || path === '/booking/cancel' || path === '/booking/cancel/'
   const hasPrivateWaitlistOfferContext = () => isPrivateWaitlistOfferPath(route.path)
   const hasPrivateContext = () =>
-    hasPrivateReviewContext() || hasPrivateWaitlistOfferContext()
+    hasPrivateReviewContext() || hasPrivateWaitlistOfferContext() || isPrivateCustomerActivityPath(route.path)
 
   const runWhenIdle = (callback: () => void) => {
     if (typeof window.requestIdleCallback === 'function') {
@@ -120,7 +122,7 @@ export default defineNuxtPlugin(() => {
   )
 
   router.beforeEach((to) => {
-    if (!isPrivateWaitlistOfferPath(to.path)) return
+    if (!isPrivateWaitlistOfferPath(to.path) && !isPrivateCustomerActivityPath(to.path)) return
     if (!isLoaded && !document.getElementById(HOTJAR_SCRIPT_ID)) return
 
     // Hotjar cannot stop an active recording. A full navigation creates a clean

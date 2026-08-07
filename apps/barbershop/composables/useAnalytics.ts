@@ -16,6 +16,9 @@ export const useAnalytics = () => {
 
     const privateWaitlistOfferContext =
       route.path === '/booking/waitlist-offer' || route.path === '/booking/waitlist-offer/'
+    const privateCustomerActivityContext =
+      route.path === '/booking/manage' || route.path === '/booking/manage/' || route.path === '/booking/cancel' || route.path === '/booking/cancel/'
+    if (privateCustomerActivityContext) return
     const waitlistSafeParams = privateWaitlistOfferContext
       ? {
           ...params,

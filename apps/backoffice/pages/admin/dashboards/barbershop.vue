@@ -126,20 +126,38 @@ const masterOptions = computed(() => [
 ])
 watch(selectedMasterId, () => persistRange())
 
+const dashboardAsyncDataKey = computed(() => [
+  'admin-decision-dashboard',
+  appliedDateFrom.value,
+  appliedDateTo.value,
+  compareToPrevious.value,
+  selectedMasterId.value || 'all',
+].join(':'))
+const reviewMetricsAsyncDataKey = computed(() => [
+  'admin-barbershop-review-metrics',
+  appliedDateFrom.value,
+  appliedDateTo.value,
+  selectedMasterId.value || 'all',
+].join(':'))
+const bookingRecoveryAsyncDataKey = computed(() => [
+  'admin-booking-recovery-summary',
+  appliedDateFrom.value,
+  appliedDateTo.value,
+].join(':'))
+
 const {
   data: dashboard,
   pending,
   error,
   refresh,
 } = await useAsyncData(
-  'admin-decision-dashboard',
+  dashboardAsyncDataKey,
   () => api.adminGetDashboard({
     date_from: appliedDateFrom.value,
     date_to: appliedDateTo.value,
     compare_to_previous: compareToPrevious.value,
     master_id: selectedMasterId.value,
   }),
-  { watch: [appliedDateFrom, appliedDateTo, compareToPrevious, selectedMasterId] },
 )
 
 const {
@@ -148,13 +166,12 @@ const {
   error: reviewMetricsError,
   refresh: refreshReviewMetrics,
 } = await useAsyncData(
-  'admin-barbershop-review-metrics',
+  reviewMetricsAsyncDataKey,
   () => api.adminGetReviewMetrics({
     date_from: appliedDateFrom.value,
     date_to: appliedDateTo.value,
     master_id: selectedMasterId.value,
   }),
-  { watch: [appliedDateFrom, appliedDateTo, selectedMasterId] },
 )
 
 const {
@@ -163,12 +180,11 @@ const {
   error: bookingRecoveryError,
   refresh: refreshBookingRecovery,
 } = await useAsyncData(
-  'admin-booking-recovery-summary',
+  bookingRecoveryAsyncDataKey,
   () => api.adminGetBookingRecoverySummary({
     date_from: appliedDateFrom.value,
     date_to: appliedDateTo.value,
   }),
-  { watch: [appliedDateFrom, appliedDateTo] },
 )
 
 const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery()])

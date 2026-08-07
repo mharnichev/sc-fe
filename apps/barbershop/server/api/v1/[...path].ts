@@ -3,6 +3,8 @@ const reviewTokenHeaderPaths = new Set([
   'public/reviews/request',
   'public/reviews/request/open',
 ])
+const isCustomerActivityPath = (path: string) =>
+  path === 'public/customer-activity' || path.startsWith('public/customer-activity/')
 
 const normalizeUpstreamBase = (value: string) => value.replace(/\/+$/, '')
 
@@ -29,10 +31,14 @@ export default defineEventHandler(async (event) => {
   const reviewToken = reviewTokenHeaderPaths.has(apiPath)
     ? getHeader(event, 'x-review-token')
     : undefined
+  const customerActivityToken = isCustomerActivityPath(apiPath)
+    ? getHeader(event, 'x-customer-activity-token')
+    : undefined
 
   if (contentType) requestHeaders.set('content-type', contentType)
   if (accept) requestHeaders.set('accept', accept)
   if (reviewToken) requestHeaders.set('x-review-token', reviewToken)
+  if (customerActivityToken) requestHeaders.set('x-customer-activity-token', customerActivityToken)
 
   const response = await $fetch.raw(upstreamUrl.toString(), {
     method,
@@ -51,6 +57,11 @@ export default defineEventHandler(async (event) => {
   if (responseContentType) setHeader(event, 'content-type', responseContentType)
   if (cacheControl) setHeader(event, 'cache-control', cacheControl)
   if (etag) setHeader(event, 'etag', etag)
+  if (isCustomerActivityPath(apiPath)) {
+    setHeader(event, 'cache-control', 'no-store, private')
+    setHeader(event, 'pragma', 'no-cache')
+    setHeader(event, 'vary', 'X-Customer-Activity-Token')
+  }
 
   return response._data
 })

@@ -95,6 +95,34 @@ export interface WaitlistOfferClaimResponseDto {
   end_at: string
 }
 
+export interface CustomerActivityBookingDto {
+  public_id: string
+  master_name: string
+  service_names: string[]
+  start_at: string
+  end_at: string
+  status: 'confirmed'
+}
+
+export interface CustomerActivityWaitlistDto {
+  public_id: string
+  master_name?: string | null
+  service_names: string[]
+  desired_date: string
+  preferred_time_from?: string | null
+  preferred_time_to?: string | null
+  status: 'active' | 'offered'
+  expires_at?: string | null
+  offered_start_at?: string | null
+  offered_end_at?: string | null
+  offer_expires_at?: string | null
+}
+
+export interface CustomerActivityResponseDto {
+  bookings: CustomerActivityBookingDto[]
+  waitlist: CustomerActivityWaitlistDto[]
+}
+
 export interface MasterRatingSummaryDto {
   master_id: number
   average_rating: number | null
@@ -297,6 +325,25 @@ export const useBarbershopDomain = () => {
       method: 'POST',
       body: { token },
     })
+  // Keep the opaque capability transport in one place. Its caller retains it
+  // only in memory after reading a private SMS fragment.
+  const customerActivityHeaders = (token: string) => ({
+    'X-Customer-Activity-Token': token,
+  })
+  const resolveCustomerActivity = (token: string) =>
+    api<CustomerActivityResponseDto>('/public/customer-activity', {
+      headers: customerActivityHeaders(token),
+    })
+  const cancelCustomerActivityBooking = (publicId: string, token: string) =>
+    api<void>(`/public/customer-activity/bookings/${encodeURIComponent(publicId)}/cancel`, {
+      method: 'POST',
+      headers: customerActivityHeaders(token),
+    })
+  const cancelCustomerActivityWaitlist = (publicId: string, token: string) =>
+    api<void>(`/public/customer-activity/waitlist/${encodeURIComponent(publicId)}/cancel`, {
+      method: 'POST',
+      headers: customerActivityHeaders(token),
+    })
   const recordBookingFunnelEvent = (payload: BookingFunnelEventPayload) =>
     api<BookingFunnelEventReceipt>('/public/booking-funnel/events', {
       method: 'POST',
@@ -342,6 +389,9 @@ export const useBarbershopDomain = () => {
     createWaitlistRequest,
     recordBookingRecoveryEvent,
     claimWaitlistOffer,
+    resolveCustomerActivity,
+    cancelCustomerActivityBooking,
+    cancelCustomerActivityWaitlist,
     recordBookingFunnelEvent,
     resolveReviewRequest,
     recordReviewFormOpen,

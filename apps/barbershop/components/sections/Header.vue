@@ -16,6 +16,7 @@ const menuItems = computed(() => [
     ? []
     : [{ label: terms.value.common.homeLink, href: '/' }]),
   ...terms.value.nav,
+  { label: locale.value === 'en' ? 'My appointments' : 'Мої записи', href: '/booking/manage' },
 ])
 const menuButtonClass = computed(() =>
   headerTheme.value === 'dark'
