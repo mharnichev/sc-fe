@@ -47,7 +47,7 @@ const syncingEndTime = ref(false)
 
 const availabilityPresetOptions: Array<{ value: AvailabilityPreset, label: string, description: string, icon: typeof ClockIcon }> = [
   { value: 'interval', label: 'Інтервал', description: 'Вибраний час', icon: ClockIcon },
-  { value: 'day', label: 'День', description: '09:00-20:00', icon: SunIcon },
+  { value: 'day', label: 'День', description: `${calendar.workdayStart}-${calendar.workdayEnd}`, icon: SunIcon },
   { value: 'week', label: 'Тиждень', description: 'Робочі дні', icon: CalendarDaysIcon },
   { value: 'month', label: 'Місяць', description: 'До 2 місяців', icon: CalendarDaysIcon },
 ]

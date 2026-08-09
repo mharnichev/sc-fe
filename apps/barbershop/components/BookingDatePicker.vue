@@ -17,8 +17,10 @@ const props = withDefaults(defineProps<{
   max: string
   locale: LocaleCode
   disabledWeekdays?: number[]
+  inline?: boolean
 }>(), {
   disabledWeekdays: () => [],
+  inline: false,
 })
 
 const emit = defineEmits<{
@@ -191,7 +193,7 @@ const selectDate = (day: CalendarDay) => {
   if (day.disabled) return
 
   emit('update:modelValue', day.value)
-  closeSheet()
+  if (!props.inline) closeSheet()
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -240,8 +242,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="booking-date-picker mt-4">
+  <div class="booking-date-picker">
     <button
+      v-if="!inline"
       type="button"
       class="flex min-h-14 w-full items-center justify-between gap-3 border border-white/15 bg-white/[0.04] px-4 py-3 text-left text-white transition hover:border-white/40 hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/55 md:hidden"
       :aria-expanded="isOpen"
@@ -258,7 +261,13 @@ onBeforeUnmount(() => {
       </svg>
     </button>
 
-    <div class="hidden border border-white/15 bg-white/[0.04] p-3 md:block">
+    <div
+      :class="
+        inline
+          ? 'block'
+          : 'hidden border border-white/15 bg-white/[0.04] p-3 md:block'
+      "
+    >
       <div class="flex items-center justify-between gap-3">
         <BaseButton
           type="button"
@@ -289,24 +298,31 @@ onBeforeUnmount(() => {
         </BaseButton>
       </div>
 
-      <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-white/40">
+      <div
+        class="grid grid-cols-7 text-center font-semibold uppercase text-white/40"
+        :class="inline ? 'mt-3 gap-0.5 text-[0.58rem] tracking-[0.08em]' : 'mt-4 gap-1 text-[0.62rem] tracking-[0.12em]'"
+      >
         <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
       </div>
 
-      <div class="mt-2 grid grid-cols-7 gap-1">
+      <div
+        class="grid grid-cols-7"
+        :class="inline ? 'mt-1.5 gap-0.5' : 'mt-2 gap-1'"
+      >
         <button
           v-for="day in calendarDays"
           :key="day.value"
           type="button"
-          class="relative flex aspect-square min-h-9 items-center justify-center border text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          class="relative flex items-center justify-center rounded-[4px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           :class="[
+            inline ? 'h-8 text-xs' : 'aspect-square min-h-9 text-sm',
             day.selected
-              ? 'border-white bg-white text-neutral-950'
+              ? 'bg-white text-neutral-950'
               : day.disabled
-                ? 'cursor-not-allowed border-transparent text-white/18'
+                ? 'cursor-not-allowed text-white/18'
                 : day.currentMonth
-                  ? 'border-white/10 text-white/78 hover:border-white/45 hover:bg-white/[0.07] hover:text-white'
-                  : 'border-transparent text-white/30 hover:border-white/20 hover:text-white/60',
+                  ? 'bg-white/[0.06] text-white/78 hover:bg-white/[0.12] hover:text-white'
+                  : 'bg-white/[0.025] text-white/30 hover:bg-white/[0.07] hover:text-white/60',
           ]"
           :disabled="day.disabled"
           :aria-label="day.label"
@@ -319,7 +335,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <Teleport to="body">
+    <Teleport v-if="!inline" to="body">
       <Transition name="booking-calendar-overlay">
         <div
           v-if="isOpen"
@@ -395,15 +411,15 @@ onBeforeUnmount(() => {
                   v-for="day in calendarDays"
                   :key="day.value"
                   type="button"
-                  class="relative flex h-11 items-center justify-center border text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                  class="relative flex h-11 items-center justify-center rounded-[4px] text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   :class="[
                     day.selected
-                      ? 'border-white bg-white text-neutral-950'
+                      ? 'bg-white text-neutral-950'
                       : day.disabled
-                        ? 'cursor-not-allowed border-transparent text-white/18'
+                        ? 'cursor-not-allowed text-white/18'
                         : day.currentMonth
-                          ? 'border-white/10 text-white/80 hover:border-white/45 hover:bg-white/[0.07] hover:text-white'
-                          : 'border-transparent text-white/30 hover:border-white/20 hover:text-white/60',
+                          ? 'bg-white/[0.06] text-white/80 hover:bg-white/[0.12] hover:text-white'
+                          : 'bg-white/[0.025] text-white/30 hover:bg-white/[0.07] hover:text-white/60',
                   ]"
                   :disabled="day.disabled"
                   :aria-label="day.label"

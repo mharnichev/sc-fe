@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
+import { includesBookingStart } from '~/utils/bookingSlots'
 import { kyivDateTimeLocalInput, kyivLocalDateTimeToIso } from '~/utils/kyivDateTime'
 
 const { terms, locale } = useTerms()
@@ -23,6 +24,10 @@ const form = reactive({
 })
 
 const state = reactive({ loading: false, success: '', error: '' })
+
+const slotUnavailableMessage = computed(() => locale.value === 'en'
+  ? 'That time is no longer available. Please choose another available time.'
+  : 'Цей час уже недоступний. Будь ласка, оберіть інший вільний час.')
 
 const phoneHref = computed(() => `tel:${terms.value.pages.contacts.phone.replace(/[^\d+]/g, '')}`)
 const emailHref = computed(() => `mailto:${terms.value.pages.contacts.email}`)
@@ -183,10 +188,11 @@ useSeo(
 const submit = async () => {
   const safeFirstName = sanitizeFormText(form.first_name, FORM_FIELD_LIMITS.name)
   const safeLastName = sanitizeFormText(form.last_name, FORM_FIELD_LIMITS.name)
+  const safeEmail = sanitizeFormText(form.email, FORM_FIELD_LIMITS.email)
   const safeNote = sanitizeFormText(form.note, FORM_FIELD_LIMITS.comment, { multiline: true })
   const safeCustomerName = `${safeFirstName} ${safeLastName}`.trim()
 
-  if (!safeFirstName || !safeLastName) {
+  if (!safeFirstName || !safeLastName || !safeEmail) {
     state.success = ''
     state.error = terms.value.pages.contacts.error
     return
@@ -224,6 +230,21 @@ const submit = async () => {
     duration_minutes: selectedDurationMinutes.value,
   })
   try {
+    const availableSlots = await domain.getAvailableSlots(
+      masterId,
+      serviceIds,
+      form.scheduled_at.slice(0, 10),
+      selectedDurationMinutes.value,
+    )
+    if (!includesBookingStart(availableSlots, scheduledAt)) {
+      state.error = slotUnavailableMessage.value
+      bookingFunnel.recordInBackground('stale_schedule', {
+        masterId,
+        serviceId: serviceIds[0],
+      })
+      return
+    }
+
     const funnelSessionId = bookingFunnel.sessionId()
     recordReachedMasterStep(masterId, serviceIds[0])
     bookingFunnel.recordInBackground('slot_selected', {
@@ -241,6 +262,7 @@ const submit = async () => {
       duration_minutes: selectedDurationMinutes.value,
       customer_name: safeCustomerName,
       customer_phone: formatPhoneForSubmit(form.phone),
+      customer_email: safeEmail,
       customer_comment: safeNote || null,
       start_at: scheduledAt,
       funnel_session_id: funnelSessionId,
@@ -266,9 +288,9 @@ const submit = async () => {
     bookingFunnel.reset()
   }
   catch (error) {
-    state.error = terms.value.pages.contacts.error
     const status = (error as { response?: { status?: number }, status?: number })?.response?.status
       || (error as { status?: number })?.status
+    state.error = status === 409 ? slotUnavailableMessage.value : terms.value.pages.contacts.error
     const funnelFailureEvent = bookingFunnelFailureEvent(status)
     if (funnelFailureEvent) {
       bookingFunnel.recordInBackground(funnelFailureEvent, {

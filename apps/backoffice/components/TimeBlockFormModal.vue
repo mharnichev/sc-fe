@@ -15,6 +15,7 @@ const emit = defineEmits<{
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
+const calendar = useBookingCalendar()
 const {
   todayInput,
   toKyivIso,
@@ -25,8 +26,8 @@ const form = reactive({
   master_id: '',
   date: todayInput(),
   block_type: 'full_day',
-  start_time: '09:00',
-  end_time: '20:00',
+  start_time: calendar.workdayStart,
+  end_time: calendar.workdayEnd,
   reason: '',
 })
 const formError = ref('')
@@ -40,8 +41,8 @@ const fillForm = () => {
   form.master_id = ''
   form.date = todayInput()
   form.block_type = 'full_day'
-  form.start_time = '09:00'
-  form.end_time = '20:00'
+  form.start_time = calendar.workdayStart
+  form.end_time = calendar.workdayEnd
   form.reason = ''
   formError.value = ''
 }
@@ -54,8 +55,8 @@ watch(
   () => form.block_type,
   value => {
     if (value === 'full_day') {
-      form.start_time = '09:00'
-      form.end_time = '20:00'
+      form.start_time = calendar.workdayStart
+      form.end_time = calendar.workdayEnd
     }
   },
 )
@@ -67,7 +68,9 @@ const validate = () => {
   if (form.block_type === 'custom') {
     if (!form.start_time || !form.end_time) return 'Час початку й завершення обов’язкові.'
     if (form.start_time >= form.end_time) return 'Час початку має бути раніше часу завершення.'
-    if (form.start_time < '09:00' || form.end_time > '20:00') return 'Власний інтервал має бути в межах 09:00-20:00.'
+    if (form.start_time < calendar.workdayStart || form.end_time > calendar.workdayEnd) {
+      return `Власний інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
+    }
   }
   return ''
 }
@@ -83,8 +86,8 @@ const submit = async () => {
   try {
     await api.adminCreateTimeBlock({
       master_id: Number(form.master_id),
-      start_at: toKyivIso(form.date, form.block_type === 'full_day' ? '09:00' : form.start_time),
-      end_at: toKyivIso(form.date, form.block_type === 'full_day' ? '20:00' : form.end_time),
+      start_at: toKyivIso(form.date, form.block_type === 'full_day' ? calendar.workdayStart : form.start_time),
+      end_at: toKyivIso(form.date, form.block_type === 'full_day' ? calendar.workdayEnd : form.end_time),
       reason: form.reason.trim() || null,
     })
     emit('saved', 'Блокування часу створено.')
@@ -185,8 +188,8 @@ watch(
                 v-model="form.start_time"
                 :disabled="form.block_type === 'full_day'"
                 type="time"
-                min="09:00"
-                max="20:00"
+                :min="calendar.workdayStart"
+                :max="calendar.workdayEnd"
                 input-class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 text-sm disabled:bg-slate-100"
               />
             </span>
@@ -201,8 +204,8 @@ watch(
                 v-model="form.end_time"
                 :disabled="form.block_type === 'full_day'"
                 type="time"
-                min="09:00"
-                max="20:00"
+                :min="calendar.workdayStart"
+                :max="calendar.workdayEnd"
                 input-class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 text-sm disabled:bg-slate-100"
               />
             </span>

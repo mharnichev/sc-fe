@@ -18,6 +18,7 @@ definePageMeta({
 
 const auth = useAuthStore()
 const api = useBackofficeApi()
+const calendar = useBookingCalendar()
 const {
   statuses,
   timeZone,
@@ -43,9 +44,9 @@ const {
 
 const today = todayInput()
 const rangeEnd = addDaysInput(today, 14)
-const workdayStart = '09:00'
-const workdayEnd = '20:00'
-const workdayMinutes = 11 * 60
+const workdayStart = calendar.workdayStart
+const workdayEnd = calendar.workdayEnd
+const workdayMinutes = calendar.toMinutes(workdayEnd) - calendar.toMinutes(workdayStart)
 const availabilityDays = 30
 
 const { data: publicMasters } = await useAsyncData('barber-dashboard-master-options', () => api.getPublicMasters())
@@ -401,7 +402,7 @@ const availabilityRows = computed(() =>
         <div class="flex flex-wrap items-center justify-between gap-2 xl:gap-3">
           <div>
             <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Найближчі 7 днів</h2>
-            <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">Заповнення відносно робочого дня 09:00-20:00.</p>
+            <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">Заповнення відносно робочого дня {{ workdayStart }}-{{ workdayEnd }}.</p>
           </div>
           <BaseBadge tone="info" size="md">
             {{ formatPrice(rangeRevenue) }}

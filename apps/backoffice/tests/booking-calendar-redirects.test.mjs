@@ -5,6 +5,7 @@ import ts from 'typescript'
 
 const bookingsPage = new URL('../pages/bookings.vue', import.meta.url)
 const timeBlocksPage = new URL('../pages/time-blocks.vue', import.meta.url)
+const myTimeBlocksPage = new URL('../pages/my-time-blocks.vue', import.meta.url)
 const calendarSource = await readFile(new URL('../composables/useBookingCalendar.ts', import.meta.url), 'utf8')
 const compiledCalendar = ts.transpileModule(calendarSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -26,6 +27,72 @@ test('booking calendar keeps time blocks returned for a redirected master', asyn
     source,
     /timeBlocks\.value\.filter\([\s\S]*?Number\(block\.master_id\) === selectedMasterId\.value/,
   )
+})
+
+test('master time-block filters use an inclusive Kyiv date selection as a half-open datetime range', async () => {
+  const source = await readFile(myTimeBlocksPage, 'utf8')
+
+  assert.match(source, /date_from: toKyivIso\(filters\.date_from, '00:00'\)/)
+  assert.match(source, /date_to: toKyivIso\(addDaysInput\(filters\.date_to, 1\), '00:00'\)/)
+  assert.match(source, /const blocks = computed<TimeBlock\[\]>\(\(\) => normalizeItems\(data\.value\?\.timeBlocks\)\)/)
+  assert.doesNotMatch(source, /date_from: filters\.date_from/)
+  assert.doesNotMatch(source, /date_to: filters\.date_to/)
+  assert.doesNotMatch(source, /block\.start_at\.slice\(0, 10\)/)
+})
+
+test('time blocks remain busy and expose their Kyiv time in calendar entries', () => {
+  const timeFormatter = new Intl.DateTimeFormat('uk-UA', {
+    timeZone: 'Europe/Kyiv',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  globalThis.useBookingFormatting = () => ({
+    timeZone: 'Europe/Kyiv',
+    addDaysInput: value => value,
+    todayInput: () => '2026-08-09',
+    toKyivIso: (date, time) => `${date}T${time}:00+03:00`,
+    formatDateTime: value => value,
+    formatTime: value => value ? timeFormatter.format(new Date(value)) : '-',
+    bookingStart: booking => booking.start_at,
+    bookingEnd: booking => booking.end_at,
+    bookingPhone: () => '',
+    customerName: () => '',
+    bookingRedirectSourceLabel: () => '',
+    bookingServices: () => [],
+    bookingServicesLabel: () => '',
+  })
+
+  const block = {
+    id: 42,
+    master_id: 2,
+    start_at: '2026-08-09T09:00:00Z',
+    end_at: '2026-08-09T10:00:00Z',
+    reason: 'Перерва',
+  }
+  const calendar = calendarContract.useBookingCalendar()
+
+  assert.deepEqual(calendar.buildBusyRanges([], [block], []), [{
+    id: 'block-42',
+    kind: 'block',
+    date: '2026-08-09',
+    startAt: block.start_at,
+    endAt: block.end_at,
+    startMinutes: 12 * 60,
+    endMinutes: 13 * 60,
+  }])
+  assert.deepEqual(calendar.buildDisplayEntries([], [block], []), [{
+    id: 'block-42',
+    kind: 'block',
+    date: '2026-08-09',
+    startAt: block.start_at,
+    endAt: block.end_at,
+    startMinutes: 12 * 60,
+    endMinutes: 13 * 60,
+    title: 'Заблоковано',
+    subtitle: 'Перерва',
+    meta: '12:00-13:00',
+    block,
+  }])
 })
 
 test('time-block filters send an inclusive Kyiv date selection as a half-open datetime range', async () => {

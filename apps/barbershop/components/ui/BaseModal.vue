@@ -189,8 +189,8 @@ onBeforeUnmount(() => {
 
 .base-modal--right .base-modal__container {
   width: 100vw;
-  height: 88svh;
-  max-height: 88svh;
+  height: calc(100svh - 60px);
+  max-height: calc(100svh - 60px);
   border-radius: 0.5rem 0.5rem 0 0;
 }
 

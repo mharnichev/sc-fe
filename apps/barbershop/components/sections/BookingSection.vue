@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import type { BookingAlternativeSlotDto } from '~/domain/barbershop'
+import FeedbackFace from '~/components/ui/FeedbackFace.vue'
+import { includesBookingStart, sameBookingInstant } from '~/utils/bookingSlots'
 import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
 import {
   addRecoveryCalendarDays,
@@ -79,6 +81,7 @@ const bookingStepperId = computed(() => props.idPrefix === 'booking' ? 'booking-
 const isDrawerMode = computed(() => props.mode === 'drawer')
 const closedWeekdays = [1]
 let serviceSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let serviceSearchPlaceholderTimer: ReturnType<typeof setTimeout> | null = null
 
 const form = reactive({
   customer_name: '',
@@ -209,6 +212,26 @@ const serviceSearchLabels = computed(() => locale.value === 'en'
       noResults: 'Послуги не знайдено.',
     },
 )
+const serviceSearchSuggestions = computed(() => locale.value === 'en'
+  ? [
+      'Men\'s haircut',
+      'Clipper haircut',
+      'Kids haircut',
+      'Haircut and beard',
+    ]
+  : [
+      'Чоловіча стрижка',
+      'Стрижка машинкою',
+      'Дитяча стрижка',
+      'Стрижка та борода',
+    ],
+)
+const animatedServiceSearchPlaceholder = ref<string | null>(null)
+const serviceSearchPlaceholder = computed(() => {
+  if (!isDrawerMode.value) return serviceSearchLabels.value.placeholder
+
+  return animatedServiceSearchPlaceholder.value ?? serviceSearchSuggestions.value[0]
+})
 const serviceBarbersLabel = computed(() => locale.value === 'en' ? 'Barbers and prices' : 'Барбери та ціни')
 const promotionDiscountLabels = computed(() => locale.value === 'en'
   ? {
@@ -368,6 +391,69 @@ const clearServiceSearch = () => {
   debouncedServiceSearchQuery.value = ''
 }
 
+const stopServiceSearchPlaceholderAnimation = () => {
+  if (!serviceSearchPlaceholderTimer) return
+
+  clearTimeout(serviceSearchPlaceholderTimer)
+  serviceSearchPlaceholderTimer = null
+}
+
+const startServiceSearchPlaceholderAnimation = () => {
+  stopServiceSearchPlaceholderAnimation()
+
+  if (!isDrawerMode.value) {
+    animatedServiceSearchPlaceholder.value = null
+    return
+  }
+
+  const suggestions = serviceSearchSuggestions.value
+  const firstSuggestion = suggestions[0] || serviceSearchLabels.value.placeholder
+
+  if (!import.meta.client || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    animatedServiceSearchPlaceholder.value = firstSuggestion
+    return
+  }
+
+  let suggestionIndex = 0
+  let characterIndex = 0
+  let deleting = false
+  animatedServiceSearchPlaceholder.value = ''
+
+  const tick = () => {
+    const suggestion = suggestions[suggestionIndex] || firstSuggestion
+
+    if (!deleting) {
+      characterIndex += 1
+      animatedServiceSearchPlaceholder.value = suggestion.slice(0, characterIndex)
+
+      if (characterIndex >= suggestion.length) {
+        deleting = true
+        serviceSearchPlaceholderTimer = setTimeout(tick, 1100)
+        return
+      }
+
+      const nextCharacter = suggestion.charAt(characterIndex)
+      const typingDelay = nextCharacter === ' ' ? 170 : 80 + Math.round(Math.random() * 45)
+      serviceSearchPlaceholderTimer = setTimeout(tick, typingDelay)
+      return
+    }
+
+    characterIndex -= 1
+    animatedServiceSearchPlaceholder.value = suggestion.slice(0, Math.max(characterIndex, 0))
+
+    if (characterIndex <= 0) {
+      deleting = false
+      suggestionIndex = (suggestionIndex + 1) % suggestions.length
+      serviceSearchPlaceholderTimer = setTimeout(tick, 240)
+      return
+    }
+
+    serviceSearchPlaceholderTimer = setTimeout(tick, 45)
+  }
+
+  serviceSearchPlaceholderTimer = setTimeout(tick, 240)
+}
+
 const resolveSelectedServiceForMaster = () => {
   if (!selectedMasterId.value) return
 
@@ -518,12 +604,16 @@ const handleExternalServiceSelect = (event: Event) => {
 }
 
 onMounted(() => {
+  startServiceSearchPlaceholderAnimation()
+
   if (!props.listenForExternalSelect) return
 
   window.addEventListener('barbershop:select-service', handleExternalServiceSelect)
 })
 
 onBeforeUnmount(() => {
+  stopServiceSearchPlaceholderAnimation()
+
   if (serviceSearchDebounceTimer) {
     clearTimeout(serviceSearchDebounceTimer)
   }
@@ -532,6 +622,8 @@ onBeforeUnmount(() => {
 
   window.removeEventListener('barbershop:select-service', handleExternalServiceSelect)
 })
+
+watch(locale, startServiceSearchPlaceholderAnimation)
 
 watch(selectedMasterId, resolveSelectedServiceForMaster)
 
@@ -832,7 +924,7 @@ const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
   try {
     await nextTick()
     await refreshSlots()
-    const isStillAvailable = (slots.value || []).some(item => item.start_at === slot.start_at)
+    const isStillAvailable = includesBookingStart(slots.value || [], slot.start_at)
     if (!isStillAvailable) {
       recovery.stale = recoveryCopy.value.stale
       bookingFunnel.recordInBackground('stale_schedule', {
@@ -913,7 +1005,6 @@ const bookingTimeLabels = computed(() => locale.value === 'en'
       contact: 'Contact details',
       date: 'Date',
       next: 'Next',
-      slots: 'Time',
       slotsError: 'Unable to load times.',
       slotsPending: 'Searching available times...',
     }
@@ -923,7 +1014,6 @@ const bookingTimeLabels = computed(() => locale.value === 'en'
       contact: 'До контактів',
       date: 'Дата',
       next: 'Далі',
-      slots: 'Час',
       slotsError: 'Не вдалося завантажити слоти.',
       slotsPending: 'Шукаємо вільні слоти...',
     },
@@ -1129,7 +1219,7 @@ const submit = async () => {
     duration_minutes: selectedDurationMinutes.value,
   })
   const selectedFromAlternative = recoverySelection.value?.masterId === selectedMasterId.value
-    && recoverySelection.value?.startAt === selectedSlotStart.value
+    && sameBookingInstant(recoverySelection.value?.startAt, selectedSlotStart.value)
 
   try {
     const funnelSessionId = bookingFunnel.sessionId()
@@ -1373,7 +1463,7 @@ onBeforeUnmount(() => {
               <div class="booking-step-content">
                 <AppTransition>
                   <section v-if="activeStepIndex === 0" key="booking-service" class="booking-service-step">
-                    <label class="booking-service-search-field glass-control glass-control--dark mt-3 flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white sm:mt-4">
+                    <label class="booking-service-search-field glass-control glass-control--dark flex items-center gap-2 px-3 py-2.5 text-white/70 focus-within:text-white">
                       <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="m14.2 14.2 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                         <path d="M8.8 15.1a6.3 6.3 0 1 0 0-12.6 6.3 6.3 0 0 0 0 12.6Z" stroke="currentColor" stroke-width="1.6" />
@@ -1381,7 +1471,8 @@ onBeforeUnmount(() => {
                       <input
                         v-model="serviceSearchQuery"
                         type="search"
-                        :placeholder="serviceSearchLabels.placeholder"
+                        :placeholder="serviceSearchPlaceholder"
+                        :aria-label="serviceSearchLabels.placeholder"
                         class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
                         autocomplete="off"
                       >
@@ -1511,7 +1602,7 @@ onBeforeUnmount(() => {
                   </section>
 
                   <section v-else-if="activeStepIndex === 1" key="booking-master">
-                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div class="grid gap-3 sm:grid-cols-2">
                     <button
                       v-for="master in availableMasters"
                       :key="master.id"
@@ -1545,13 +1636,13 @@ onBeforeUnmount(() => {
                       :max="maxBookableDate"
                       :locale="locale"
                       :disabled-weekdays="closedWeekdays"
+                      :inline="isDrawerMode"
                     />
                   </div>
 
                   <div class="booking-slots-column">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">{{ bookingTimeLabels.slots }}</p>
-                    <p v-if="recovery.stale" class="mt-3 text-sm text-amber-100" role="alert">{{ recovery.stale }}</p>
-                    <div v-if="visibleSlots.length" class="booking-slots-grid mt-4 grid grid-cols-3 gap-2">
+                    <p v-if="recovery.stale" class="text-sm text-amber-100" role="alert">{{ recovery.stale }}</p>
+                    <div v-if="visibleSlots.length" class="booking-slots-grid grid grid-cols-3 gap-2">
                       <button
                         v-for="slot in visibleSlots"
                         :key="slot.start_at"
@@ -1573,12 +1664,23 @@ onBeforeUnmount(() => {
                     <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">{{ bookingTimeLabels.slotsError }}</p>
                     <div
                       v-else-if="!visibleSlots.length"
-                      class="booking-recovery mt-4 bg-white/[0.035] p-3 sm:p-4"
+                      class="booking-recovery"
                       role="region"
                       :aria-label="recoveryCopy.title"
                     >
-                      <p class="text-base font-semibold text-white">{{ recoveryCopy.title }}</p>
-                      <p class="mt-1 text-sm leading-6 text-white/65">{{ recoveryCopy.description }}</p>
+                      <div class="flex items-start gap-2">
+                        <span class="mt-0.5 block h-14 w-14 shrink-0 overflow-hidden" aria-hidden="true">
+                          <FeedbackFace
+                            name="sad-droopy-face"
+                            class="h-full w-full text-amber-200/85"
+                            style="--feedback-face-cutout: #0a0a0a"
+                          />
+                        </span>
+                        <div class="min-w-0">
+                          <p class="text-[14px] font-semibold leading-5 text-white">{{ recoveryCopy.title }}</p>
+                          <p class="text-[13px] leading-[1.35] text-white/65">{{ recoveryCopy.description }}</p>
+                        </div>
+                      </div>
                       <p v-if="recovery.loading" class="mt-3 text-sm text-white/55">{{ recoveryCopy.loading }}</p>
                       <p v-else-if="recovery.error" class="mt-3 text-sm text-rose-200">{{ recovery.error }}</p>
 
@@ -1645,6 +1747,7 @@ onBeforeUnmount(() => {
 
                       <div class="mt-4 flex flex-wrap gap-2">
                         <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action" :disabled="recovery.loading" @click="openWaitlist">
+                          <span class="mr-1.5 text-[0.9em] leading-none" aria-hidden="true">🔔</span>
                           {{ recoveryCopy.waitlist }}
                         </BaseButton>
                         <BaseButton type="button" variant="outline-light" size="sm" class="booking-recovery-action" @click="goToStep(1)">
@@ -1656,51 +1759,69 @@ onBeforeUnmount(() => {
                 </section>
 
                 <section v-else key="booking-contact">
-                  <div class="mt-4 grid gap-3 md:grid-cols-2">
-                    <input
-                      v-model="form.customer_name"
-                      required
-                      autocomplete="name"
-                      placeholder="Ім'я"
-                      minlength="2"
-                      :maxlength="FORM_FIELD_LIMITS.fullName"
-                        class="glass-control glass-control--dark px-3 py-2.5 text-white outline-none placeholder:text-white/35"
+                  <div class="grid gap-3 md:grid-cols-2">
+                    <div class="booking-contact-field">
+                      <svg class="booking-contact-field__icon" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M7.5 0.875C5.49797 0.875 3.875 2.49797 3.875 4.5C3.875 6.15288 4.98124 7.54738 6.49373 7.98351C5.2997 8.12901 4.27557 8.55134 3.50407 9.31167C2.52216 10.2794 2.02502 11.72 2.02502 13.5999C2.02502 13.8623 2.23769 14.0749 2.50002 14.0749C2.76236 14.0749 2.97502 13.8623 2.97502 13.5999C2.97502 11.8799 3.42786 10.7206 4.17091 9.9883C4.91536 9.25463 6.02674 8.87499 7.49995 8.87499C8.97317 8.87499 10.0846 9.25463 10.8291 9.98831C11.5721 10.7206 12.025 11.8799 12.025 13.5999C12.025 13.8623 12.2376 14.0749 12.5 14.0749C12.7623 14.075 12.975 13.8623 12.975 13.6C12.975 11.72 12.4778 10.2794 11.4959 9.31166C10.7244 8.55135 9.70025 8.12903 8.50625 7.98352C10.0187 7.5474 11.125 6.15289 11.125 4.5C11.125 2.49797 9.50203 0.875 7.5 0.875ZM4.825 4.5C4.825 3.02264 6.02264 1.825 7.5 1.825C8.97736 1.825 10.175 3.02264 10.175 4.5C10.175 5.97736 8.97736 7.175 7.5 7.175C6.02264 7.175 4.825 5.97736 4.825 4.5Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                      </svg>
+                      <input
+                        v-model="form.customer_name"
+                        required
+                        autocomplete="name"
+                        placeholder="Ім'я"
+                        minlength="2"
+                        :maxlength="FORM_FIELD_LIMITS.fullName"
+                        class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
                         :class="shouldShowStepIssue(3) && !form.customer_name.trim() ? 'glass-control--invalid' : ''"
-                      @input="handleTextInput('customer_name', FORM_FIELD_LIMITS.fullName)"
-                    >
+                        @input="handleTextInput('customer_name', FORM_FIELD_LIMITS.fullName)"
+                      >
+                    </div>
+                    <div class="booking-contact-field">
+                      <svg class="booking-contact-field__icon" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M4 2.5C4 2.22386 4.22386 2 4.5 2H10.5C10.7761 2 11 2.22386 11 2.5V12.5C11 12.7761 10.7761 13 10.5 13H4.5C4.22386 13 4 12.7761 4 12.5V2.5ZM4.5 1C3.67157 1 3 1.67157 3 2.5V12.5C3 13.3284 3.67157 14 4.5 14H10.5C11.3284 14 12 13.3284 12 12.5V2.5C12 1.67157 11.3284 1 10.5 1H4.5ZM6 11.65C5.8067 11.65 5.65 11.8067 5.65 12C5.65 12.1933 5.8067 12.35 6 12.35H9C9.1933 12.35 9.35 12.1933 9.35 12C9.35 11.8067 9.1933 11.65 9 11.65H6Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                      </svg>
+                      <input
+                        v-model="form.customer_phone"
+                        required
+                        type="tel"
+                        inputmode="tel"
+                        autocomplete="tel"
+                        placeholder="Телефон"
+                        maxlength="17"
+                        pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
+                        class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
+                        :class="shouldShowStepIssue(3) && !isValidPhoneNumber(form.customer_phone) ? 'glass-control--invalid' : ''"
+                        @input="handlePhoneInput"
+                        @paste="handlePhonePasteEvent"
+                      >
+                    </div>
+                  </div>
+                  <div class="booking-contact-field mt-3">
+                    <svg class="booking-contact-field__icon" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M3.94993 2.95002L3.94993 4.49998C3.94993 4.74851 3.74845 4.94998 3.49993 4.94998C3.2514 4.94998 3.04993 4.74851 3.04993 4.49998V2.50004C3.04993 2.45246 3.05731 2.40661 3.07099 2.36357C3.12878 2.18175 3.29897 2.05002 3.49993 2.05002H11.4999C11.6553 2.05002 11.7922 2.12872 11.8731 2.24842C11.9216 2.32024 11.9499 2.40682 11.9499 2.50002L11.9499 2.50004V4.49998C11.9499 4.74851 11.7485 4.94998 11.4999 4.94998C11.2514 4.94998 11.0499 4.74851 11.0499 4.49998V2.95002H8.04993V12.05H9.25428C9.50281 12.05 9.70428 12.2515 9.70428 12.5C9.70428 12.7486 9.50281 12.95 9.25428 12.95H5.75428C5.50575 12.95 5.30428 12.7486 5.30428 12.5C5.30428 12.2515 5.50575 12.05 5.75428 12.05H6.94993V2.95002H3.94993Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" />
+                    </svg>
                     <input
-                      v-model="form.customer_phone"
-                      required
-                      type="tel"
-                      inputmode="tel"
-                      autocomplete="tel"
-                      placeholder="Телефон"
-                      maxlength="17"
-                      pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
-                      class="glass-control glass-control--dark px-3 py-2.5 text-white outline-none placeholder:text-white/35"
-                      :class="shouldShowStepIssue(3) && !isValidPhoneNumber(form.customer_phone) ? 'glass-control--invalid' : ''"
-                      @input="handlePhoneInput"
-                      @paste="handlePhonePasteEvent"
+                      v-model="form.customer_comment"
+                      type="text"
+                      autocomplete="off"
+                      placeholder="Коментар"
+                      :maxlength="FORM_FIELD_LIMITS.comment"
+                      class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
+                      @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment)"
                     >
                   </div>
-                  <input
-                    v-model="form.customer_comment"
-                    type="text"
-                    autocomplete="off"
-                    placeholder="Коментар"
-                    :maxlength="FORM_FIELD_LIMITS.comment"
-                    class="glass-control glass-control--dark mt-3 w-full px-3 py-2.5 text-white outline-none placeholder:text-white/35"
-                    @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment)"
-                  >
-                  <input
-                    v-model="form.promotion_code"
-                    autocomplete="off"
-                    inputmode="text"
-                    placeholder="Промокод"
-                    maxlength="50"
-                    class="glass-control glass-control--dark mt-3 w-full px-3 py-2.5 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
-                    @input="handleTextInput('promotion_code', 50)"
-                  >
+                  <div class="booking-contact-field mt-3">
+                    <span class="booking-contact-field__icon booking-contact-field__icon--emoji" aria-hidden="true">🎁</span>
+                    <input
+                      v-model="form.promotion_code"
+                      autocomplete="off"
+                      inputmode="text"
+                      placeholder="Промокод"
+                      maxlength="50"
+                      class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
+                      @input="handleTextInput('promotion_code', 50)"
+                    >
+                  </div>
                   <label
                     v-if="selectedServicesHavePromotion"
                     class="glass-control glass-control--dark booking-army-toggle mt-3 flex cursor-pointer flex-col items-start justify-between gap-3 overflow-hidden px-3 py-2.5 text-white sm:flex-row sm:items-center"
@@ -1927,6 +2048,47 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.booking-contact-field {
+  position: relative;
+}
+
+.booking-contact-field__input {
+  display: block;
+  width: 100%;
+  padding-left: 2.5rem;
+}
+
+.booking-contact-field__icon {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 0.75rem;
+  pointer-events: none;
+  color: rgb(255 255 255 / 45%);
+  transform: translateY(-50%);
+  transition:
+    color 240ms ease,
+    filter 240ms ease,
+    opacity 240ms ease;
+}
+
+.booking-contact-field:focus-within .booking-contact-field__icon {
+  color: rgb(255 255 255 / 92%);
+  filter: drop-shadow(0 0 0.3rem rgb(255 255 255 / 18%));
+}
+
+.booking-contact-field__icon--emoji {
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.7;
+  filter: saturate(0.85) brightness(0.95);
+}
+
+.booking-contact-field:focus-within .booking-contact-field__icon--emoji {
+  opacity: 1;
+  filter: saturate(1.05) brightness(1.08) drop-shadow(0 0 0.3rem rgb(255 255 255 / 16%));
+}
+
 .booking-step-tab {
   transition-property:
     background-color,

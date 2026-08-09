@@ -53,7 +53,7 @@ const periodOptions: Array<{ value: PeriodPreset, label: string, description: st
 ]
 
 const windowTypeOptions: Array<{ value: WindowType, label: string, description: string, icon: typeof LockOpenIcon }> = [
-  { value: 'full_day', label: 'Повний день', description: '09:00-20:00', icon: LockOpenIcon },
+  { value: 'full_day', label: 'Повний день', description: `${calendar.workdayStart}-${calendar.workdayEnd}`, icon: LockOpenIcon },
   { value: 'custom', label: 'Власний час', description: 'Свій інтервал', icon: ClockIcon },
 ]
 

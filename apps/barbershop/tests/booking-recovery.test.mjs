@@ -9,6 +9,28 @@ const utilityCompiled = ts.transpileModule(utilitySource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText
 const recovery = await import(`data:text/javascript;base64,${Buffer.from(utilityCompiled).toString('base64')}`)
+const slotsUtilitySource = await read('../utils/bookingSlots.ts')
+const slotsUtilityCompiled = ts.transpileModule(slotsUtilitySource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText
+const bookingSlots = await import(`data:text/javascript;base64,${Buffer.from(slotsUtilityCompiled).toString('base64')}`)
+
+test('slot matching compares timestamps instead of ISO string formatting', () => {
+  const slots = [{ start_at: '2026-08-09T12:00:00+03:00' }]
+
+  assert.equal(bookingSlots.sameBookingInstant(slots[0].start_at, '2026-08-09T09:00:00Z'), true)
+  assert.equal(bookingSlots.sameBookingInstant(slots[0].start_at, '2026-08-09T09:30:00Z'), false)
+  assert.equal(bookingSlots.includesBookingStart(slots, '2026-08-09T09:00:00Z'), true)
+})
+
+test('contacts booking validates availability and keeps the required email in its payload', async () => {
+  const source = await read('../pages/contacts.vue')
+
+  assert.match(source, /await domain\.getAvailableSlots\(/)
+  assert.match(source, /includesBookingStart\(availableSlots, scheduledAt\)/)
+  assert.match(source, /customer_email: safeEmail/)
+  assert.match(source, /status === 409 \? slotUnavailableMessage\.value/)
+})
 
 test('public recovery contracts use only documented endpoints and private-safe analytics payloads', async () => {
   const domainSource = await read('../domain/barbershop.ts')
@@ -77,7 +99,8 @@ test('no-slot recovery maps alternatives through the normal booking flow and cla
   assert.match(source, /waitlistNamePrefilled\.value = waitlistForm\.customer_name\.trim\(\)\.length >= 2/)
   assert.match(source, /waitlistPhonePrefilled\.value = isValidPhoneNumber/)
   assert.match(source, /\.booking-step-panel--time \.booking-recovery \{[\s\S]*?overflow-y: auto;/)
-  assert.match(source, /class="booking-recovery mt-4 bg-white\/\[0\.035\] p-3 sm:p-4"/)
+  assert.match(source, /class="booking-recovery"/)
+  assert.match(source, /<FeedbackFace[\s\S]*?name="sad-droopy-face"/)
   assert.match(source, /masterPhoto\(mastersById\.value\.get\(slot\.master\.id\)\)/)
   assert.match(source, /:alt="slot\.master\.name" class="h-14 w-14 object-cover object-top"/)
   assert.match(source, /:deep\(\.booking-recovery-action\) \{[\s\S]*?border-color: transparent;/)

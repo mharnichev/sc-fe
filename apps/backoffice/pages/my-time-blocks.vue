@@ -33,8 +33,8 @@ const { data, pending, error, refresh } = await useAsyncData(
   async () => {
     const [timeBlocks, availability] = await Promise.all([
       api.getMyTimeBlocks({
-        date_from: filters.date_from,
-        date_to: filters.date_to,
+        date_from: toKyivIso(filters.date_from, '00:00'),
+        date_to: toKyivIso(addDaysInput(filters.date_to, 1), '00:00'),
       }),
       api.getMyAvailability({
         date_from: toKyivIso(filters.date_from, calendar.workdayStart),
@@ -45,12 +45,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   },
 )
 
-const blocks = computed<TimeBlock[]>(() =>
-  normalizeItems(data.value?.timeBlocks).filter(block => {
-    const date = block.start_at.slice(0, 10)
-    return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
-  }),
-)
+const blocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
 const availabilityWindows = computed<MasterAvailabilityWindow[]>(() =>
   (data.value?.availability || []).filter(window => {
     const date = window.start_at.slice(0, 10)
@@ -157,7 +152,7 @@ const deleteAvailability = async (windowId: number) => {
       <div>
         <p class="text-xs uppercase tracking-[0.22em] text-cyan-700 xl:text-sm xl:tracking-[0.3em]">Доступність</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900 xl:mt-2 xl:text-3xl">Моя доступність</h1>
-        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Відкривайте час для запису й блокуйте недоступні інтервали в межах 09:00-20:00.</p>
+        <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Відкривайте час для запису й блокуйте недоступні інтервали в межах {{ calendar.workdayStart }}-{{ calendar.workdayEnd }}.</p>
       </div>
       <div class="flex w-full flex-wrap gap-2 sm:w-auto">
         <BaseButton type="button" class="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300 px-3 py-2 text-xs font-medium text-cyan-700 transition hover:border-cyan-700 hover:bg-cyan-700 hover:text-white disabled:opacity-60 sm:flex-none xl:min-h-11 xl:gap-2 xl:px-5 xl:py-3 xl:text-sm" :disabled="telegramConnectLoading" @click="openTelegramConnect">

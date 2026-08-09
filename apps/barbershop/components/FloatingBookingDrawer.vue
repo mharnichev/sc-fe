@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="floating-booking-drawer-title"
-      class="fixed inset-x-0 bottom-0 z-[100] flex h-[88svh] max-h-[88svh] flex-col rounded-t-lg bg-neutral-950 text-white md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-none md:w-[min(45rem,92vw)] md:rounded-none"
+      class="fixed inset-x-0 bottom-0 z-[100] flex h-[calc(100svh-60px)] max-h-[calc(100svh-60px)] flex-col rounded-t-lg bg-neutral-950 text-white md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-none md:w-[min(45rem,92vw)] md:rounded-none"
     >
       <div class="flex shrink-0 items-start justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 md:px-5">
         <div>
