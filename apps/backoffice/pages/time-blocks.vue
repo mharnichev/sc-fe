@@ -31,9 +31,9 @@ const [{ data, pending, error, refresh }, { data: masters }] = await Promise.all
     async () => {
       const masterId = filters.master_id ? Number(filters.master_id) : null
       const [timeBlocks, availability] = await Promise.all([
-        api.adminGetTimeBlocks(1, 200, {
-          date_from: filters.date_from,
-          date_to: filters.date_to,
+        api.adminGetCalendarTimeBlocks({
+          date_from: toKyivIso(filters.date_from, '00:00'),
+          date_to: toKyivIso(addDaysInput(filters.date_to, 1), '00:00'),
           master_id: masterId,
         }),
         api.adminGetAvailability({
@@ -48,12 +48,7 @@ const [{ data, pending, error, refresh }, { data: masters }] = await Promise.all
   useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200)),
 ])
 
-const blocks = computed<TimeBlock[]>(() =>
-  normalizeItems(data.value?.timeBlocks).filter(block => {
-    const date = block.start_at.slice(0, 10)
-    return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
-  }),
-)
+const blocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
 const availabilityWindows = computed<MasterAvailabilityWindow[]>(() =>
   (data.value?.availability || []).filter(window => {
     const date = window.start_at.slice(0, 10)

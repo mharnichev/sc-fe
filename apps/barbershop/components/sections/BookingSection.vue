@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import type { BookingAlternativeSlotDto } from '~/domain/barbershop'
-import { bookingFunnelFailureEvent } from '~/utils/bookingFunnel'
+import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
 import {
   addRecoveryCalendarDays,
   addRecoveryCalendarMonths,
@@ -862,14 +862,15 @@ const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
 watch(
   [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate],
   () => {
-    if (
-      !canLoadSlots.value
-      || isSelectedDateClosed.value
-      || loadedSlotsKey.value !== slotsKey.value
-      || slotsPending.value
-      || slotsError.value
-      || visibleSlots.value.length
-    ) return
+    if (!shouldRecordNoSlotObservation({
+      canLoad: canLoadSlots.value,
+      isClosedDate: isSelectedDateClosed.value,
+      loadedKey: loadedSlotsKey.value,
+      requestKey: slotsKey.value,
+      pending: slotsPending.value,
+      hasError: Boolean(slotsError.value),
+      slotCount: visibleSlots.value.length,
+    })) return
 
     recordReachedMasterStep(
       selectedMasterId.value!,
@@ -880,6 +881,7 @@ watch(
       serviceId: selectedServiceIds.value[0],
       serviceIds: selectedServiceIds.value,
       targetDate: selectedDate.value,
+      durationMinutes: selectedDurationMinutes.value,
     })
   },
   { immediate: true },

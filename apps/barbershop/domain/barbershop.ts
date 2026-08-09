@@ -90,7 +90,7 @@ export interface BookingRecoveryEventPayload {
 }
 
 export interface WaitlistOfferClaimResponseDto {
-  booking_id: number
+  public_id: string
   start_at: string
   end_at: string
 }

@@ -446,6 +446,21 @@ export interface TimeBlock {
   master?: Master | null
 }
 
+export interface CalendarHold {
+  kind: 'waitlist_hold'
+  master_id: number
+  start_at: string
+  end_at: string
+  expires_at: string
+}
+
+export interface CalendarCapacityBooking {
+  kind: 'booking'
+  master_id: number
+  start_at: string
+  end_at: string
+}
+
 export interface MasterAvailabilityWindow {
   id: number
   master_id: number
@@ -752,6 +767,16 @@ export interface BookingFilters {
   date_to?: string
   master_id?: number | null
   service_id?: number | null
+  status?: BookingStatus | '' | null
+}
+
+export interface CalendarRangeFilters {
+  date_from: string
+  date_to: string
+  master_id?: number | null
+}
+
+export interface CalendarBookingFilters extends CalendarRangeFilters {
   status?: BookingStatus | '' | null
 }
 
@@ -1094,11 +1119,19 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
-  const getMyCalendar = (filters: BookingFilters = {}) =>
-    api<Booking[] | PaginatedResponse<Booking>>('/backoffice/masters/me/calendar', {
+  const getMyCalendar = (filters: CalendarRangeFilters) =>
+    api<Booking[]>('/backoffice/masters/me/calendar', {
       query: {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
+      },
+    })
+
+  const getMyCalendarCapacity = (filters: CalendarRangeFilters) =>
+    api<CalendarCapacityBooking[]>('/backoffice/masters/me/calendar-capacity', {
+      query: {
+        date_from: filters.date_from,
+        date_to: filters.date_to,
       },
     })
 
@@ -1133,6 +1166,14 @@ export const useBackofficeApi = () => {
 
   const getMyTimeBlocks = (filters: { date_from?: string, date_to?: string } = {}) =>
     api<TimeBlock[] | PaginatedResponse<TimeBlock>>('/backoffice/masters/me/time-blocks', {
+      query: {
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+    })
+
+  const getMyCalendarHolds = (filters: CalendarRangeFilters) =>
+    api<CalendarHold[]>('/backoffice/masters/me/calendar-holds', {
       query: {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
@@ -1391,6 +1432,25 @@ export const useBackofficeApi = () => {
       },
     })
 
+  const adminGetCalendarBookings = (filters: CalendarBookingFilters) =>
+    api<Booking[]>('/backoffice/calendar/bookings', {
+      query: {
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        master_id: filters.master_id ?? undefined,
+        status: filters.status || undefined,
+      },
+    })
+
+  const adminGetCalendarTimeBlocks = (filters: CalendarRangeFilters) =>
+    api<TimeBlock[]>('/backoffice/calendar/time-blocks', {
+      query: {
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        master_id: filters.master_id ?? undefined,
+      },
+    })
+
   const adminCreateBooking = (payload: ManualBookingPayload) =>
     api<Booking>('/backoffice/bookings', {
       method: 'POST',
@@ -1425,6 +1485,15 @@ export const useBackofficeApi = () => {
       query: {
         page,
         page_size: normalizePageSize(pageSize),
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        master_id: filters.master_id ?? undefined,
+      },
+    })
+
+  const adminGetCalendarHolds = (filters: CalendarRangeFilters) =>
+    api<CalendarHold[]>('/backoffice/calendar-holds', {
+      query: {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
         master_id: filters.master_id ?? undefined,
@@ -1873,12 +1942,14 @@ export const useBackofficeApi = () => {
     createPublicBooking,
     createMyManualBooking,
     getMyCalendar,
+    getMyCalendarCapacity,
     getMyBookings,
     updateMyBookingStatus,
     deleteMyBooking,
     getMyServices,
     updateMyService,
     getMyTimeBlocks,
+    getMyCalendarHolds,
     createMyTimeBlock,
     deleteMyTimeBlock,
     getMyAvailability,
@@ -1910,12 +1981,15 @@ export const useBackofficeApi = () => {
     deleteMasterService,
     syncDefaultMasterServices,
     adminGetBookings,
+    adminGetCalendarBookings,
+    adminGetCalendarTimeBlocks,
     adminCreateBooking,
     adminUpdateBookingStatus,
     adminUpdateBookingSchedule,
     adminUpdateBookingPricing,
     adminDeleteBooking,
     adminGetTimeBlocks,
+    adminGetCalendarHolds,
     adminCreateTimeBlock,
     adminDeleteTimeBlock,
     adminGetAvailability,

@@ -204,6 +204,7 @@ export interface DashboardBookingFunnelNoSlotContext {
   master_id: number | null
   master_name: string | null
   services: DashboardBookingFunnelNoSlotService[]
+  duration_minutes: number | null
   observations: number
   unique_sessions: number
   first_observed_at: string
@@ -458,6 +459,13 @@ const funnelNoSlotContextListAt = (value: unknown, path: string, limit: number) 
       serviceIds.add(serviceId)
       nullableStringAt(service.service_name, `${servicePath}.service_name`)
     })
+    if (context.duration_minutes !== null) {
+      const durationMinutes = nonNegativeIntegerAt(
+        context.duration_minutes,
+        `${contextPath}.duration_minutes`,
+      )
+      if (durationMinutes === 0 || durationMinutes > 720) fail(`${contextPath}.duration_minutes`)
+    }
     const observations = nonNegativeIntegerAt(context.observations, `${contextPath}.observations`)
     const uniqueSessions = nonNegativeIntegerAt(context.unique_sessions, `${contextPath}.unique_sessions`)
     if (uniqueSessions > observations) fail(contextPath)

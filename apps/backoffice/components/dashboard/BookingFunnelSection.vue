@@ -67,7 +67,7 @@ const noSlotServicesLabel = (services: DashboardBookingFunnel['no_slot_contexts'
     ? services.map(service => service.service_name || `Послуга #${service.service_id}`).join(', ')
     : 'Послуги не визначено'
 const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][number]) =>
-  `${item.target_date}:${item.master_id ?? 'unknown'}:${item.services.map(service => service.service_id).join(',')}`
+  `${item.target_date}:${item.master_id ?? 'unknown'}:${item.services.map(service => service.service_id).join(',')}:${item.duration_minutes ?? 'unknown'}`
 </script>
 
 <template>
@@ -272,16 +272,16 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
                 id="booking-funnel-no-slot-dates-title"
                 class="flex items-center gap-1 text-sm font-semibold text-slate-900"
               >
-                Дати, на які не знайшли вільних слотів
+                Історичні пошуки без доступних слотів
                 <DashboardMetricHelp
-                  title="Дати без доступних слотів"
-                  summary="Показує відкриті робочі дні, для яких успішний запит повернув порожній список слотів."
-                  formula="Одне спостереження на анонімну спробу, майстра, повний набір вибраних послуг та дату пошуку."
-                  note="Період dashboard фільтрує час спостереження. Помилки мережі, закриті робочі дні та конфлікти застарілих слотів сюди не потрапляють."
+                  title="Історичні пошуки без доступних слотів"
+                  summary="Показує історичні моменти, коли перевірений сервером запит повернув 0 доступних для запису початків. Це не стан календаря зараз."
+                  formula="Одне спостереження на анонімну спробу, майстра, повний набір послуг, їх загальну тривалість та дату пошуку."
+                  note="Враховуються записи, блокування, активні утримання листа очікування, тривалість і час, що вже минув. Помилки мережі, понеділки, минулі дати та дати поза горизонтом запису сюди не потрапляють."
                 />
               </h3>
               <p class="mt-1 text-xs leading-5 text-slate-500">
-                Допомагає відрізнити загальний сигнал «немає слотів» від конкретних проблемних днів.
+                Це зафіксований результат «0 доступних початків» у вказаний момент, а не поточний стан календаря.
               </p>
             </div>
           </div>
@@ -301,15 +301,16 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
 
         <BaseTable
           v-if="noSlotContexts.length"
-          caption="Дати, майстри та послуги, для яких відвідувачі не знайшли вільних слотів"
+          caption="Історичні перевірені запити, що повернули 0 доступних для запису початків"
           min-width="64rem"
           wrapper-class="!rounded-none !border-x-0 !border-b-0"
         >
           <template #head>
             <tr class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <th class="px-4 py-3 font-medium">Дата без слотів</th>
+              <th class="px-4 py-3 font-medium">Бажана дата</th>
               <th class="px-4 py-3 font-medium">Майстер</th>
               <th class="px-4 py-3 font-medium">Послуги</th>
+              <th class="px-4 py-3 text-right font-medium">Тривалість</th>
               <th class="px-4 py-3 text-right font-medium">Спостереження</th>
               <th class="px-4 py-3 text-right font-medium">Сесії</th>
               <th class="px-4 py-3 font-medium">Вперше помітили</th>
@@ -325,6 +326,9 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
             </td>
             <td class="max-w-xs px-4 py-3 text-slate-700">
               {{ noSlotServicesLabel(item.services) }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-right text-slate-700">
+              {{ item.duration_minutes ? `${item.duration_minutes} хв` : 'Невідомо' }}
             </td>
             <td class="px-4 py-3 text-right font-semibold text-slate-900">
               {{ item.observations.toLocaleString('uk-UA') }}

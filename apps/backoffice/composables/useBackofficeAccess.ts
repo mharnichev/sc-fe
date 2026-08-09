@@ -1,5 +1,14 @@
 import type { Master } from '~/composables/useBackofficeApi'
 
+export const bookingBelongsToMaster = (
+  linkedMasterId?: number | null,
+  bookingMasterId?: number | null,
+  sourceMasterId?: number | null,
+) => {
+  if (linkedMasterId == null) return false
+  return bookingMasterId === linkedMasterId || sourceMasterId === linkedMasterId
+}
+
 export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
   const auth = useAuthStore()
 
@@ -21,8 +30,8 @@ export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
     return 'Користувач backoffice'
   })
 
-  const canManageBooking = (masterId?: number | null) =>
-    isAdmin.value || Boolean(linkedMaster.value && masterId === linkedMaster.value.id)
+  const canManageBooking = (masterId?: number | null, sourceMasterId?: number | null) =>
+    isAdmin.value || bookingBelongsToMaster(linkedMaster.value?.id, masterId, sourceMasterId)
 
   return {
     isAdmin,

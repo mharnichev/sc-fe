@@ -1,7 +1,7 @@
-import type { Booking, MasterAvailabilityWindow, Service, TimeBlock } from '~/composables/useBackofficeApi'
+import type { Booking, CalendarCapacityBooking, CalendarHold, MasterAvailabilityWindow, Service, TimeBlock } from '~/composables/useBackofficeApi'
 
 export type CalendarViewMode = 'today' | 'week' | 'month'
-export type CalendarEntryKind = 'booking' | 'block'
+export type CalendarEntryKind = 'booking' | 'block' | 'waitlist_hold'
 export type CalendarActionType = 'booking' | 'block' | 'availability'
 
 export interface CalendarDay {
@@ -53,6 +53,7 @@ export interface CalendarDisplayEntry extends CalendarBusyRange {
   meta: string
   booking?: Booking
   block?: TimeBlock
+  hold?: CalendarHold
 }
 
 export interface CalendarSelection {
@@ -85,10 +86,10 @@ export const calendarViewLabels: Record<CalendarViewMode, string> = {
   month: '30 днів',
 }
 
-const workdayStart = '09:00'
+const workdayStart = '08:00'
 const workdayEnd = '20:00'
 const slotMinutes = 30
-const workdayStartMinutes = 9 * 60
+const workdayStartMinutes = 8 * 60
 const workdayEndMinutes = 20 * 60
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -103,12 +104,32 @@ const minutesToTime = (minutes: number) =>
 
 const hasValidDate = (value: Date) => !Number.isNaN(value.getTime())
 
+export const capacityBlockingBookings = (bookings: Booking[]) =>
+  bookings.filter(booking => booking.status === 'confirmed')
+
+export const activeCalendarHoldsAt = (holds: CalendarHold[], nowMs: number) =>
+  holds.filter(hold => {
+    const expiresAt = new Date(hold.expires_at).getTime()
+    return Number.isFinite(expiresAt) && expiresAt > nowMs
+  })
+
+export const nearestCalendarHoldExpiryAt = (holds: CalendarHold[], nowMs: number) => {
+  let nearest: number | null = null
+  for (const hold of holds) {
+    const expiresAt = new Date(hold.expires_at).getTime()
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) continue
+    if (nearest == null || expiresAt < nearest) nearest = expiresAt
+  }
+  return nearest
+}
+
 export const useBookingCalendar = () => {
   const {
     timeZone,
     addDaysInput,
     todayInput,
     toKyivIso,
+    formatDateTime,
     formatTime,
     bookingStart,
     bookingEnd,
@@ -276,6 +297,40 @@ export const useBookingCalendar = () => {
     }
   }
 
+  const holdRange = (hold: CalendarHold): CalendarBusyRange | null => {
+    const date = dateInputFromDateTime(hold.start_at)
+    const startTime = timeInputFromDateTime(hold.start_at)
+    const endTime = timeInputFromDateTime(hold.end_at)
+    if (!date || !startTime || !endTime) return null
+
+    return {
+      id: `waitlist-hold-${hold.master_id}-${hold.start_at}-${hold.end_at}-${hold.expires_at}`,
+      kind: 'waitlist_hold',
+      date,
+      startAt: hold.start_at,
+      endAt: hold.end_at,
+      startMinutes: toMinutes(startTime),
+      endMinutes: toMinutes(endTime),
+    }
+  }
+
+  const capacityBookingRange = (booking: CalendarCapacityBooking): CalendarBusyRange | null => {
+    const date = dateInputFromDateTime(booking.start_at)
+    const startTime = timeInputFromDateTime(booking.start_at)
+    const endTime = timeInputFromDateTime(booking.end_at)
+    if (!date || !startTime || !endTime) return null
+
+    return {
+      id: `capacity-booking-${booking.master_id}-${booking.start_at}-${booking.end_at}`,
+      kind: 'booking',
+      date,
+      startAt: booking.start_at,
+      endAt: booking.end_at,
+      startMinutes: toMinutes(startTime),
+      endMinutes: toMinutes(endTime),
+    }
+  }
+
   const availabilityRange = (window: MasterAvailabilityWindow): CalendarAvailabilityRange | null => {
     const date = dateInputFromDateTime(window.start_at)
     const startTime = timeInputFromDateTime(window.start_at)
@@ -293,9 +348,17 @@ export const useBookingCalendar = () => {
     }
   }
 
-  const buildBusyRanges = (bookings: Booking[], blocks: TimeBlock[], services: Service[]) => [
+  const buildBusyRanges = (
+    bookings: Booking[],
+    blocks: TimeBlock[],
+    services: Service[],
+    holds: CalendarHold[] = [],
+    capacityBookings: CalendarCapacityBooking[] = [],
+  ) => [
     ...bookings.map(booking => bookingRange(booking, services)).filter(Boolean) as CalendarBusyRange[],
     ...blocks.map(blockRange).filter(Boolean) as CalendarBusyRange[],
+    ...holds.map(holdRange).filter(Boolean) as CalendarBusyRange[],
+    ...capacityBookings.map(capacityBookingRange).filter(Boolean) as CalendarBusyRange[],
   ]
 
   const buildAvailabilityRanges = (windows: MasterAvailabilityWindow[]) =>
@@ -317,7 +380,12 @@ export const useBookingCalendar = () => {
   const rangeOverlapsAvailability = (startAt: string, endAt: string, availabilityRanges: CalendarAvailabilityRange[]) =>
     availabilityRanges.some(range => rangesOverlap(startAt, endAt, range.startAt, range.endAt))
 
-  const buildDisplayEntries = (bookings: Booking[], blocks: TimeBlock[], services: Service[]): CalendarDisplayEntry[] => {
+  const buildDisplayEntries = (
+    bookings: Booking[],
+    blocks: TimeBlock[],
+    services: Service[],
+    holds: CalendarHold[] = [],
+  ): CalendarDisplayEntry[] => {
     const bookingEntries = bookings
       .map(booking => {
         const range = bookingRange(booking, services)
@@ -346,7 +414,21 @@ export const useBookingCalendar = () => {
       })
       .filter(Boolean) as CalendarDisplayEntry[]
 
-    return [...bookingEntries, ...blockEntries]
+    const holdEntries = holds
+      .map(hold => {
+        const range = holdRange(hold)
+        if (!range) return null
+        return {
+          ...range,
+          title: 'Тимчасово зарезервовано',
+          subtitle: `Діє до ${formatDateTime(hold.expires_at)} за Києвом`,
+          meta: `${formatTime(range.startAt)}-${formatTime(range.endAt)}`,
+          hold,
+        }
+      })
+      .filter(Boolean) as CalendarDisplayEntry[]
+
+    return [...bookingEntries, ...blockEntries, ...holdEntries]
   }
 
   const selectionFromSlots = (slots: CalendarSlot[]): CalendarSelection | null => {
@@ -373,6 +455,9 @@ export const useBookingCalendar = () => {
     daysInView,
     buildDays,
     buildSlotsByDay,
+    capacityBlockingBookings,
+    activeCalendarHoldsAt,
+    nearestCalendarHoldExpiryAt,
     buildBusyRanges,
     buildAvailabilityRanges,
     buildDisplayEntries,

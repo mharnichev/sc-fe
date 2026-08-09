@@ -12,6 +12,8 @@ import {
 import { initials } from '@shared-utils'
 import type {
   Booking,
+  CalendarCapacityBooking,
+  CalendarHold,
   BookingPricingPayload,
   BookingSchedulePayload,
   BookingStatus,
@@ -47,6 +49,7 @@ const {
   bookingPhone,
   customerName,
   masterName,
+  redirectedFromMasterId,
   bookingRedirectSourceLabel,
   isRedirectedBooking,
   serviceName,
@@ -60,7 +63,6 @@ const {
   apiErrorMessage,
 } = useBookingFormatting()
 
-const pageSize = 200
 const today = todayInput()
 const bookingFilterStatuses: BookingStatus[] = ['pending', ...statuses]
 const routeStatus = String(route.query.status || '')
@@ -161,8 +163,6 @@ const { data, pending, error, refresh } = await useAsyncData(
       date_from: queryDateFrom.value,
       date_to: queryDateTo.value,
       master_id: masterId,
-      service_id: filters.service_id ? Number(filters.service_id) : null,
-      status: filters.status as BookingStatus | '',
     }
     const availabilityFilters = {
       date_from: toKyivIso(anchorDate.value, calendar.workdayStart),
@@ -171,39 +171,49 @@ const { data, pending, error, refresh } = await useAsyncData(
     }
 
     if (isAdmin.value) {
-      const [bookings, timeBlocks, availability] = await Promise.all([
-        api.adminGetBookings(1, pageSize, bookingFilters),
-        api.adminGetTimeBlocks(1, pageSize, {
+      const [bookings, timeBlocks, holds, availability] = await Promise.all([
+        api.adminGetCalendarBookings(bookingFilters),
+        api.adminGetCalendarTimeBlocks({
+          date_from: queryDateFrom.value,
+          date_to: queryDateTo.value,
+          master_id: masterId,
+        }),
+        api.adminGetCalendarHolds({
           date_from: queryDateFrom.value,
           date_to: queryDateTo.value,
           master_id: masterId,
         }),
         masterId ? api.adminGetAvailability(availabilityFilters) : Promise.resolve([] as MasterAvailabilityWindow[]),
       ])
-      return { bookings, timeBlocks, availability }
+      return { bookings, timeBlocks, capacity: [] as CalendarCapacityBooking[], holds, availability }
     }
 
-    const [bookings, timeBlocks, availability] = await Promise.all([
-      api.getMyBookings({
+    const [bookings, timeBlocks, capacity, holds, availability] = await Promise.all([
+      api.getMyCalendar({
         date_from: queryDateFrom.value,
         date_to: queryDateTo.value,
-        status: filters.status as BookingStatus | '',
       }),
       api.getMyTimeBlocks({
         date_from: queryDateFrom.value,
         date_to: queryDateTo.value,
       }),
+      api.getMyCalendarCapacity({
+        date_from: queryDateFrom.value,
+        date_to: queryDateTo.value,
+      }),
+      api.getMyCalendarHolds({
+        date_from: queryDateFrom.value,
+        date_to: queryDateTo.value,
+      }),
       api.getMyAvailability(availabilityFilters),
     ])
-    return { bookings, timeBlocks, availability }
+    return { bookings, timeBlocks, capacity, holds, availability }
   },
   {
     watch: [
       viewMode,
       anchorDate,
       selectedMasterId,
-      () => filters.service_id,
-      () => filters.status,
       isAdmin,
     ],
   },
@@ -211,7 +221,48 @@ const { data, pending, error, refresh } = await useAsyncData(
 
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
+const calendarCapacityBookings = computed<CalendarCapacityBooking[]>(() => normalizeItems(data.value?.capacity))
+const calendarHoldRecords = computed<CalendarHold[]>(() => normalizeItems(data.value?.holds))
+const calendarClockMs = ref(Date.now())
+const calendarHolds = computed(() => calendar.activeCalendarHoldsAt(calendarHoldRecords.value, calendarClockMs.value))
 const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => data.value?.availability || [])
+
+let calendarHoldExpiryTimer: ReturnType<typeof setTimeout> | null = null
+let stopCalendarHoldExpiryWatch: (() => void) | null = null
+let calendarHoldExpiryMounted = false
+
+const clearCalendarHoldExpiryTimer = () => {
+  if (calendarHoldExpiryTimer == null) return
+  clearTimeout(calendarHoldExpiryTimer)
+  calendarHoldExpiryTimer = null
+}
+
+const scheduleCalendarHoldExpiryRefresh = () => {
+  clearCalendarHoldExpiryTimer()
+  if (!calendarHoldExpiryMounted) return
+  const nowMs = Date.now()
+  calendarClockMs.value = nowMs
+  const nearestExpiry = calendar.nearestCalendarHoldExpiryAt(calendarHoldRecords.value, nowMs)
+  if (nearestExpiry == null) return
+
+  calendarHoldExpiryTimer = setTimeout(() => {
+    calendarHoldExpiryTimer = null
+    calendarClockMs.value = Date.now()
+    void refresh().finally(scheduleCalendarHoldExpiryRefresh)
+  }, Math.max(0, nearestExpiry - nowMs) + 100)
+}
+
+onMounted(() => {
+  calendarHoldExpiryMounted = true
+  stopCalendarHoldExpiryWatch = watch(calendarHoldRecords, scheduleCalendarHoldExpiryRefresh, { immediate: true })
+})
+
+onBeforeUnmount(() => {
+  calendarHoldExpiryMounted = false
+  stopCalendarHoldExpiryWatch?.()
+  stopCalendarHoldExpiryWatch = null
+  clearCalendarHoldExpiryTimer()
+})
 
 const visibleBookings = computed(() => {
   const selectedServiceId = filters.service_id ? Number(filters.service_id) : null
@@ -222,14 +273,21 @@ const visibleBookings = computed(() => {
   })
 })
 
-const visibleBlocks = computed(() =>
-  timeBlocks.value.filter(block => !selectedMasterId.value || Number(block.master_id) === selectedMasterId.value),
-)
+// The API resolves booking redirects before filtering time blocks. A block can
+// therefore belong to the redirect target rather than the selected public master.
+const visibleBlocks = computed<TimeBlock[]>(() => timeBlocks.value)
 
-const activeBookings = computed(() => visibleBookings.value.filter(booking => booking.status !== 'cancelled'))
-const busyRanges = computed(() => calendar.buildBusyRanges(activeBookings.value, visibleBlocks.value, serviceOptions.value))
+const capacityBookings = computed(() => isAdmin.value ? calendar.capacityBlockingBookings(bookings.value) : [])
+const redactedCapacityBookings = computed(() => isAdmin.value ? [] : calendarCapacityBookings.value)
+const busyRanges = computed(() => calendar.buildBusyRanges(
+  capacityBookings.value,
+  visibleBlocks.value,
+  serviceOptions.value,
+  calendarHolds.value,
+  redactedCapacityBookings.value,
+))
 const availabilityRanges = computed(() => selectedMasterId.value ? calendar.buildAvailabilityRanges(availabilityWindows.value) : [])
-const calendarEntries = computed(() => calendar.buildDisplayEntries(activeBookings.value, visibleBlocks.value, serviceOptions.value))
+const calendarEntries = computed(() => calendar.buildDisplayEntries(visibleBookings.value, visibleBlocks.value, serviceOptions.value, calendarHolds.value))
 const total = computed(() => normalizeTotal(data.value?.bookings))
 
 const bookingServiceOptions = computed(() => {
@@ -249,9 +307,11 @@ const bookingListMeta = (booking: Booking) =>
   [bookingServicesLabel(booking, serviceOptions.value), masterName(resolveMaster(booking)), bookingRedirectSourceLabel(booking), bookingComment(booking) || 'Без коментаря']
     .filter(Boolean)
     .join(' · ')
+const canManageCalendarBooking = (booking?: Booking | null) =>
+  Boolean(booking && canManageBooking(booking.master_id, redirectedFromMasterId(booking)))
 
 const allowedStatusActions = (booking: Booking | null) =>
-  !booking || booking.status === 'completed' || !canManageBooking(booking.master_id)
+  !booking || booking.status === 'completed' || !canManageCalendarBooking(booking)
     ? []
     : statuses.filter(status => status !== booking.status)
 
@@ -393,6 +453,7 @@ const openDayAvailability = async (day: CalendarDay) => {
 }
 
 const handleEntryClick = (entry: CalendarDisplayEntry) => {
+  if (entry.kind === 'waitlist_hold') return
   if (entry.booking) {
     selected.value = entry.booking
     return
@@ -664,7 +725,7 @@ const updatePricing = async (payload: BookingPricingPayload) => {
 }
 
 const deleteSelectedBooking = async () => {
-  if (!selected.value || selected.value.status === 'completed' || !canManageBooking(selected.value.master_id)) return
+  if (!selected.value || selected.value.status === 'completed' || !canManageCalendarBooking(selected.value)) return
   pendingDelete.value = true
   actionError.value = ''
   try {
@@ -926,7 +987,7 @@ const deleteSelectedBlock = async () => {
       <BaseEmptyState
         v-else-if="!calendarEntries.length"
         compact
-        title="У вибраному діапазоні немає бронювань або блокувань"
+        title="У вибраному діапазоні немає бронювань, блокувань або утримань"
         description="Вільні слоти можна вибирати прямо в календарі."
       />
     </div>
@@ -998,7 +1059,7 @@ const deleteSelectedBlock = async () => {
       :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
       :can-edit-pricing="isAdmin"
-      :can-delete="Boolean(selected && selected.status !== 'completed' && canManageBooking(selected.master_id))"
+      :can-delete="Boolean(selected && selected.status !== 'completed' && canManageCalendarBooking(selected))"
       :masters="masterOptions"
       :services="serviceOptions"
       :promotions="activePromotions"

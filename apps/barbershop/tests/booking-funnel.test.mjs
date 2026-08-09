@@ -36,6 +36,24 @@ test('creates an anonymous attempt and stable event IDs for retries', () => {
   assert.deepEqual(retry, first)
 })
 
+test('keeps pre-duration event keys stable for non-no-slot events', () => {
+  const attempt = {
+    anonymousSessionId: 'booking-session-id-123456',
+    eventIds: {
+      'master_selected:7:11::': 'event-existing-id-123456',
+    },
+  }
+
+  const payload = funnel.bookingFunnelEventPayload(
+    attempt,
+    'master_selected',
+    { masterId: 7, serviceId: 11 },
+    ids('must-not-be-used'),
+  )
+
+  assert.equal(payload.event_id, 'event-existing-id-123456')
+})
+
 test('restores only safe, unexpired attempts from session storage', () => {
   const stored = JSON.stringify({
     attempt: {
@@ -71,30 +89,36 @@ test('restores only safe, unexpired attempts from session storage', () => {
 
 test('sends a no-slot target date and uses it to deduplicate observations', () => {
   const attempt = funnel.createBookingFunnelAttempt(ids('session-id-123456'))
-  const randomId = ids('first-event-id', 'second-event-id', 'third-event-id')
+  const randomId = ids('first-event-id', 'second-event-id', 'third-event-id', 'fourth-event-id')
 
   const firstDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 12, serviceIds: [12, 11, 12], targetDate: '2026-07-25' },
+    { masterId: 7, serviceId: 12, serviceIds: [12, 11, 12], targetDate: '2026-07-25', durationMinutes: 90 },
     randomId,
   )
   const firstDateRetry = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-25' },
+    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-25', durationMinutes: 90 },
     randomId,
   )
   const secondDate = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-26' },
+    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-26', durationMinutes: 90 },
     randomId,
   )
   const anotherServiceSet = funnel.bookingFunnelEventPayload(
     attempt,
     'no_slot',
-    { masterId: 7, serviceId: 11, serviceIds: [11], targetDate: '2026-07-25' },
+    { masterId: 7, serviceId: 11, serviceIds: [11], targetDate: '2026-07-25', durationMinutes: 90 },
+    randomId,
+  )
+  const anotherDuration = funnel.bookingFunnelEventPayload(
+    attempt,
+    'no_slot',
+    { masterId: 7, serviceId: 11, serviceIds: [11, 12], targetDate: '2026-07-25', durationMinutes: 120 },
     randomId,
   )
 
@@ -102,9 +126,31 @@ test('sends a no-slot target date and uses it to deduplicate observations', () =
   assert.deepEqual(firstDateRetry.service_ids, firstDate.service_ids)
   assert.notEqual(firstDate.event_id, secondDate.event_id)
   assert.notEqual(firstDate.event_id, anotherServiceSet.event_id)
+  assert.notEqual(firstDate.event_id, anotherDuration.event_id)
   assert.deepEqual(firstDate.service_ids, [11, 12])
   assert.equal(firstDate.target_date, '2026-07-25')
+  assert.equal(firstDate.duration_minutes, 90)
   assert.equal(secondDate.target_date, '2026-07-26')
+})
+
+test('records no-slot only for the settled empty response matching the current request', () => {
+  const settledEmpty = {
+    canLoad: true,
+    isClosedDate: false,
+    loadedKey: 'master-7-date-b',
+    requestKey: 'master-7-date-b',
+    pending: false,
+    hasError: false,
+    slotCount: 0,
+  }
+
+  assert.equal(funnel.shouldRecordNoSlotObservation(settledEmpty), true)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, loadedKey: 'master-7-date-a' }), false)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, pending: true }), false)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, hasError: true }), false)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, slotCount: 1 }), false)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, canLoad: false }), false)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, isClosedDate: true }), false)
 })
 
 test('does not expose malformed dates or target dates for unrelated events', () => {
@@ -186,6 +232,8 @@ test('public booking API contract records events and attributes server-side succ
   }
   assert.match(bookingSource, /targetDate: selectedDate\.value/)
   assert.match(bookingSource, /serviceIds: selectedServiceIds\.value/)
+  assert.match(bookingSource, /durationMinutes: selectedDurationMinutes\.value/)
+  assert.match(bookingSource, /shouldRecordNoSlotObservation/)
   assert.match(bookingSource, /isSelectedDateClosed\.value/)
   assert.match(bookingSource, /slotsError\.value/)
   assert.match(bookingSource, /visibleSlots\.value\.length/)

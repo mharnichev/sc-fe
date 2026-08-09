@@ -152,10 +152,15 @@ const bookingEntryClass = (entry: CalendarDisplayEntry) => {
   }
 }
 
-const entryClass = (entry: CalendarDisplayEntry) =>
-  entry.kind === 'booking'
-    ? bookingEntryClass(entry)
-    : 'blocked-entry border-white/16 bg-white/10 text-white shadow-black/20 hover:border-white/28'
+const entryIsInteractive = (entry: CalendarDisplayEntry) => entry.kind !== 'waitlist_hold'
+
+const entryClass = (entry: CalendarDisplayEntry) => {
+  if (entry.kind === 'booking') return `${bookingEntryClass(entry)} hover:scale-[1.01]`
+  if (entry.kind === 'waitlist_hold') {
+    return 'calendar-entry-hold cursor-default border-amber-200/24 text-amber-50 shadow-black/20'
+  }
+  return 'blocked-entry border-white/16 bg-white/10 text-white shadow-black/20 hover:scale-[1.01] hover:border-white/28'
+}
 
 const entryCustomerName = (entry: CalendarDisplayEntry) =>
   entry.booking ? customerName(entry.booking) : ''
@@ -239,6 +244,7 @@ const handlePointerMove = (event: PointerEvent) => {
 }
 
 const beginEntryTap = (entry: CalendarDisplayEntry, event: PointerEvent) => {
+  if (!entryIsInteractive(entry)) return
   if (event.pointerType === 'mouse' && event.button !== 0) return
   activeEntryTap.value = {
     id: entry.id,
@@ -268,6 +274,7 @@ const cancelEntryTap = (event?: PointerEvent) => {
 }
 
 const handleEntryClick = (entry: CalendarDisplayEntry, event: MouseEvent) => {
+  if (!entryIsInteractive(entry)) return
   const tap = activeEntryTap.value
   const isKeyboardClick = event.detail === 0
   const cancelledRecently = performance.now() - lastEntryTapCancelAt.value < entryTapCancelWindow
@@ -322,6 +329,9 @@ watch(selectionError, value => {
         </span>
         <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-white/80 ring-1 ring-white/10">
           <span class="h-2 w-2 rounded-full bg-white/50" /> Блокування
+        </span>
+        <span class="calendar-entry-hold inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-amber-50 ring-1 ring-amber-100/15">
+          <span class="h-2 w-2 rounded-full bg-amber-300/85" /> Утримання
         </span>
         <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] px-2 py-0.5 text-white/42">
           <span class="h-2 w-2 rounded-full bg-white/25" /> Вихідний
@@ -409,9 +419,11 @@ watch(selectionError, value => {
             v-for="entry in entriesByDay[day.date]"
             :key="entry.id"
             type="button"
-            class="absolute left-1 z-[1] flex items-start overflow-hidden rounded-xl border px-2 py-1.5 text-left text-xs shadow-sm backdrop-blur-xl transition hover:scale-[1.01]"
+            class="absolute left-1 z-[1] flex items-start overflow-hidden rounded-xl border px-2 py-1.5 text-left text-xs shadow-sm backdrop-blur-xl transition"
             :class="entryClass(entry)"
             :style="entryStyle(entry)"
+            :disabled="!entryIsInteractive(entry)"
+            :aria-label="`${entry.title}. ${entry.subtitle}`"
             @pointerdown="beginEntryTap(entry, $event)"
             @pointermove="updateEntryTap"
             @pointercancel="cancelEntryTap"
@@ -470,6 +482,18 @@ watch(selectionError, value => {
   background:
     linear-gradient(135deg, rgb(148 163 184 / 0.32), rgb(71 85 105 / 0.34)),
     rgb(15 23 42 / 0.54);
+}
+
+.calendar-entry-hold {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgb(251 191 36 / 0.16) 0,
+      rgb(251 191 36 / 0.16) 8px,
+      rgb(120 53 15 / 0.18) 8px,
+      rgb(120 53 15 / 0.18) 16px
+    ),
+    rgb(120 53 15 / 0.42);
 }
 
 .calendar-service-chip {

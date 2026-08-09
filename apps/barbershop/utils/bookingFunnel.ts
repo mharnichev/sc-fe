@@ -16,6 +16,7 @@ export interface BookingFunnelEventContext {
   serviceId?: number | null
   serviceIds?: number[] | null
   targetDate?: string | null
+  durationMinutes?: number | null
 }
 
 export interface BookingFunnelAttempt {
@@ -37,10 +38,29 @@ export interface BookingFunnelEventPayload {
   service_id?: number
   service_ids?: number[]
   target_date?: string
+  duration_minutes?: number
+}
+
+export interface NoSlotObservationState {
+  canLoad: boolean
+  isClosedDate: boolean
+  loadedKey: string
+  requestKey: string
+  pending: boolean
+  hasError: boolean
+  slotCount: number
 }
 
 type RandomId = () => string
 const SAFE_IDENTIFIER = /^[A-Za-z0-9._:-]{8,128}$/
+
+export const shouldRecordNoSlotObservation = (state: NoSlotObservationState) =>
+  state.canLoad
+  && !state.isClosedDate
+  && state.loadedKey === state.requestKey
+  && !state.pending
+  && !state.hasError
+  && state.slotCount === 0
 
 const positiveInteger = (value: number | null | undefined) =>
   Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined
@@ -69,13 +89,18 @@ const eventKey = (
   const noSlotServiceIds = eventType === 'no_slot'
     ? positiveIntegerList(context.serviceIds) ?? (serviceId ? [serviceId] : undefined)
     : undefined
-  return [
+  const durationMinutes = eventType === 'no_slot'
+    ? positiveInteger(context.durationMinutes)
+    : undefined
+  const parts: Array<string | number> = [
     eventType,
     positiveInteger(context.masterId) ?? '',
     eventType === 'no_slot' ? '' : serviceId ?? '',
     noSlotServiceIds?.join(',') ?? '',
     eventType === 'no_slot' ? isoDate(context.targetDate) ?? '' : '',
-  ].join(':')
+  ]
+  if (eventType === 'no_slot') parts.push(durationMinutes ?? '')
+  return parts.join(':')
 }
 
 export const createBookingFunnelAttempt = (randomId: RandomId): BookingFunnelAttempt => ({
@@ -150,6 +175,9 @@ export const bookingFunnelEventPayload = (
     ? positiveIntegerList(context.serviceIds) ?? (serviceId ? [serviceId] : undefined)
     : undefined
   const targetDate = eventType === 'no_slot' ? isoDate(context.targetDate) : undefined
+  const durationMinutes = eventType === 'no_slot'
+    ? positiveInteger(context.durationMinutes)
+    : undefined
 
   return {
     event_id: eventId,
@@ -159,6 +187,7 @@ export const bookingFunnelEventPayload = (
     ...(serviceId ? { service_id: serviceId } : {}),
     ...(serviceIds ? { service_ids: serviceIds } : {}),
     ...(targetDate ? { target_date: targetDate } : {}),
+    ...(durationMinutes ? { duration_minutes: durationMinutes } : {}),
   }
 }
 

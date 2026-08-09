@@ -179,6 +179,7 @@ const backendDashboardFixture = () => ({
         { service_id: 9, service_name: 'Стрижка' },
         { service_id: 10, service_name: 'Борода' },
       ],
+      duration_minutes: 90,
       observations: 8,
       unique_sessions: 6,
       first_observed_at: '2026-07-23T08:15:00+03:00',
@@ -428,6 +429,7 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.equal(response.booking_funnel.no_slot_dates[0].target_date, '2026-07-30')
   assert.equal(response.booking_funnel.no_slot_contexts[0].master_name, 'Андрій')
   assert.equal(response.booking_funnel.no_slot_contexts[0].services[1].service_name, 'Борода')
+  assert.equal(response.booking_funnel.no_slot_contexts[0].duration_minutes, 90)
   assert.equal(response.booking_funnel.no_slot_unknown_date_count, 3)
   assert.equal(response.booking_funnel.recommended_action.recommended_backoffice_route, '/bookings')
   assert.equal(response.actionable_signals[0].recommended_backoffice_route, '/bookings?status=pending')
@@ -494,6 +496,12 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.throws(
     () => contract.parseAdminDashboardResponse(duplicateNoSlotService),
     /booking_funnel\.no_slot_contexts\.0\.services\.1\.service_id/,
+  )
+  const invalidNoSlotDuration = backendDashboardFixture()
+  invalidNoSlotDuration.booking_funnel.no_slot_contexts[0].duration_minutes = 0
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(invalidNoSlotDuration),
+    /booking_funnel\.no_slot_contexts\.0\.duration_minutes/,
   )
   const excessiveNoSlotContexts = backendDashboardFixture()
   excessiveNoSlotContexts.booking_funnel.no_slot_context_limit = 0

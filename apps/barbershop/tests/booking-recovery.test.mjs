@@ -18,6 +18,8 @@ test('public recovery contracts use only documented endpoints and private-safe a
   assert.match(domainSource, /api<BookingFunnelEventReceipt>\('\/public\/booking-recovery\/events'/)
   assert.match(domainSource, /event_type: 'alternative_slot_selected' \| 'waitlist_opened'/)
   assert.match(domainSource, /claimWaitlistOffer = \(token: string\)/)
+  assert.match(domainSource, /interface WaitlistOfferClaimResponseDto \{\s+public_id: string/)
+  assert.doesNotMatch(domainSource, /interface WaitlistOfferClaimResponseDto \{\s+booking_id:/)
   assert.match(domainSource, /'\/public\/waitlist\/offers\/claim'/)
   assert.match(domainSource, /body: \{ token \}/)
   assert.doesNotMatch(domainSource, /customer_name.*BookingRecoveryEventPayload/)
