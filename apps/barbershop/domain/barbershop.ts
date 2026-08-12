@@ -27,6 +27,36 @@ export interface PublicBookingPayload {
   recovery_source?: 'alternative'
 }
 
+export interface PublicBookingResult {
+  booking: BookingDto
+  browserSessionCreated: boolean
+}
+
+export interface RepeatBookingMasterContextDto {
+  id: number | null
+  name: string | null
+  available: boolean
+}
+
+export interface RepeatBookingServiceContextDto {
+  id: number
+  name: string
+  available: boolean
+}
+
+export interface RepeatBookingContextDto {
+  preferred_master: RepeatBookingMasterContextDto
+  services: RepeatBookingServiceContextDto[]
+  can_prefill: boolean
+  fallback_required: boolean
+  expires_at: string
+}
+
+export interface RepeatBookingStartResponseDto {
+  status: 'started'
+  context: RepeatBookingContextDto
+}
+
 export interface BookingFunnelEventReceipt {
   event_id: string
   status: 'recorded' | 'duplicate'
@@ -308,7 +338,24 @@ export const useBarbershopDomain = () => {
       },
     })
   }
-  const createBooking = (payload: PublicBookingPayload) => api<BookingDto>('/public/bookings', { method: 'POST', body: payload })
+  const repeatBookingHeaders = (token: string) => ({
+    'X-Repeat-Booking-Token': token,
+  })
+  const createBooking = async (
+    payload: PublicBookingPayload,
+    repeatBookingToken?: string,
+  ): Promise<PublicBookingResult> => {
+    const response = await api.raw<BookingDto>('/public/bookings', {
+      method: 'POST',
+      body: payload,
+      headers: repeatBookingToken ? repeatBookingHeaders(repeatBookingToken) : undefined,
+    })
+
+    return {
+      booking: response._data as BookingDto,
+      browserSessionCreated: response.headers.get('x-customer-activity-session') === 'set',
+    }
+  }
   const getBookingAlternatives = (payload: BookingAlternativesPayload) =>
     api<BookingAlternativesResponseDto>('/public/booking-alternatives', { method: 'POST', body: payload })
   const createWaitlistRequest = (payload: PublicWaitlistPayload) =>
@@ -328,22 +375,35 @@ export const useBarbershopDomain = () => {
     })
   // Keep the opaque capability transport in one place. Its caller retains it
   // only in memory after reading a private SMS fragment.
-  const customerActivityHeaders = (token: string) => ({
-    'X-Customer-Activity-Token': token,
-  })
-  const resolveCustomerActivity = (token: string) =>
+  const customerActivityHeaders = (token?: string) => token
+    ? { 'X-Customer-Activity-Token': token }
+    : undefined
+  const resolveCustomerActivity = (token?: string) =>
     api<CustomerActivityResponseDto>('/public/customer-activity', {
       headers: customerActivityHeaders(token),
     })
-  const cancelCustomerActivityBooking = (publicId: string, token: string) =>
+  const cancelCustomerActivityBooking = (publicId: string, token?: string) =>
     api<void>(`/public/customer-activity/bookings/${encodeURIComponent(publicId)}/cancel`, {
       method: 'POST',
       headers: customerActivityHeaders(token),
     })
-  const cancelCustomerActivityWaitlist = (publicId: string, token: string) =>
+  const cancelCustomerActivityWaitlist = (publicId: string, token?: string) =>
     api<void>(`/public/customer-activity/waitlist/${encodeURIComponent(publicId)}/cancel`, {
       method: 'POST',
       headers: customerActivityHeaders(token),
+    })
+  const forgetCustomerActivityDevice = () =>
+    api<void>('/public/customer-activity/browser-session/forget', {
+      method: 'POST',
+    })
+  const resolveRepeatBooking = (token: string) =>
+    api<RepeatBookingContextDto>('/public/repeat-booking/context', {
+      headers: repeatBookingHeaders(token),
+    })
+  const startRepeatBooking = (token: string) =>
+    api<RepeatBookingStartResponseDto>('/public/repeat-booking/start', {
+      method: 'POST',
+      headers: repeatBookingHeaders(token),
     })
   const recordBookingFunnelEvent = (payload: BookingFunnelEventPayload) =>
     api<BookingFunnelEventReceipt>('/public/booking-funnel/events', {
@@ -393,6 +453,9 @@ export const useBarbershopDomain = () => {
     resolveCustomerActivity,
     cancelCustomerActivityBooking,
     cancelCustomerActivityWaitlist,
+    forgetCustomerActivityDevice,
+    resolveRepeatBooking,
+    startRepeatBooking,
     recordBookingFunnelEvent,
     resolveReviewRequest,
     recordReviewFormOpen,

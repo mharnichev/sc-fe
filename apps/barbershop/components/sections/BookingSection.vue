@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
-import type { BookingAlternativeSlotDto } from '~/domain/barbershop'
+import type { BookingAlternativeSlotDto, RepeatBookingContextDto } from '~/domain/barbershop'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 import { includesBookingStart, sameBookingInstant } from '~/utils/bookingSlots'
 import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
+import { buildGoogleCalendarUrl } from '~/utils/googleCalendar'
 import {
   addRecoveryCalendarDays,
   addRecoveryCalendarMonths,
@@ -20,11 +21,15 @@ const props = withDefaults(defineProps<{
   idPrefix?: string
   listenForExternalSelect?: boolean
   mode?: 'section' | 'drawer'
+  repeatBookingToken?: string
+  repeatBookingContext?: RepeatBookingContextDto | null
 }>(), {
   analyticsSource: 'home_booking',
   idPrefix: 'booking',
   listenForExternalSelect: true,
   mode: 'section',
+  repeatBookingToken: '',
+  repeatBookingContext: null,
 })
 
 const { locale, terms } = useTerms()
@@ -118,6 +123,9 @@ const state = reactive({
   error: '',
   successMasterName: '',
   successStartAt: '',
+  successServiceNames: [] as string[],
+  successDurationMinutes: 0,
+  browserSessionCreated: false,
 })
 const bookingSectionPhotos = ref('')
 const bookingSectionRoot = ref<HTMLElement | null>(null)
@@ -294,6 +302,24 @@ const selectedServiceCount = computed(() =>
 const selectedDurationMinutes = computed(() =>
   selectedServices.value.reduce((total, service) => total + Number(service.duration_minutes || 0), 0),
 )
+const googleCalendarUrl = computed(() => buildGoogleCalendarUrl({
+  startAt: state.successStartAt,
+  durationMinutes: state.successDurationMinutes,
+  masterName: state.successMasterName,
+  serviceNames: state.successServiceNames,
+  locale: locale.value === 'en' ? 'en' : 'uk',
+}))
+const googleCalendarCopy = computed(() => locale.value === 'en'
+  ? {
+      action: 'Add to Google Calendar',
+      hint: 'Save the appointment so the date and time stay close at hand.',
+    }
+  : {
+      action: 'Додати в Google Calendar',
+      hint: 'Збережіть запис, щоб дата й час завжди були під рукою.',
+    },
+)
+const browserSessionHint = 'Ми зберегли ваш запис на цьому пристрої на 30 днів. Він доступний у «Мої записи».'
 const selectedPromotionCodes = computed(() =>
   Array.from(new Set(selectedServices.value.flatMap((service) => {
     const promotion = servicePromotion(service)
@@ -359,6 +385,31 @@ const availableMasters = computed(() => {
 
 const selectedMaster = computed(() =>
   availableMasters.value.find(master => master.id === selectedMasterId.value) || null,
+)
+
+const repeatBookingPrefillApplied = ref(false)
+const applyRepeatBookingPrefill = () => {
+  const context = props.repeatBookingContext
+  if (repeatBookingPrefillApplied.value || !context || !context.can_prefill) return
+
+  const masterId = context.preferred_master.id
+  const serviceIds = context.services.map(service => service.id)
+  const master = publicMasters.value.find(item => item.id === masterId)
+  const activeIds = new Set(activeMasterServices(master?.services).map(service => service.id))
+
+  if (!master || !serviceIds.length || serviceIds.some(serviceId => !activeIds.has(serviceId))) return
+
+  selectedCatalogIds.value = []
+  selectedMasterId.value = master.id
+  selectedServiceIds.value = serviceIds
+  activeStepIndex.value = 2
+  repeatBookingPrefillApplied.value = true
+}
+
+watch(
+  [masters, () => props.repeatBookingContext],
+  applyRepeatBookingPrefill,
+  { immediate: true },
 )
 
 watch(selectedCatalogIds, () => {
@@ -1210,6 +1261,7 @@ const submit = async () => {
   state.loading = true
   state.success = ''
   state.error = ''
+  state.browserSessionCreated = false
   trackEvent('booking_submit', {
     source: props.analyticsSource,
     master_id: selectedMasterId.value,
@@ -1234,6 +1286,8 @@ const submit = async () => {
     })
     const bookedMasterName = masterName(selectedMaster.value)
     const bookedStartAt = selectedSlotStart.value
+    const bookedServiceNames = selectedServices.value.map(serviceName)
+    const bookedDurationMinutes = selectedDurationMinutes.value
     const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment)
     const bookingComment = [
       customerComment,
@@ -1247,7 +1301,7 @@ const submit = async () => {
       service_count: selectedServiceIds.value.length,
       duration_minutes: selectedDurationMinutes.value,
     }
-    await domain.createBooking({
+    const bookingResult = await domain.createBooking({
       master_id: selectedMasterId.value,
       service_id: selectedServiceIds.value[0],
       service_ids: selectedServiceIds.value,
@@ -1259,12 +1313,15 @@ const submit = async () => {
       start_at: selectedSlotStart.value,
       funnel_session_id: funnelSessionId,
       ...(selectedFromAlternative ? { recovery_source: 'alternative' as const } : {}),
-    })
+    }, props.repeatBookingToken || undefined)
 
     await resetBookingFlow()
     await refreshSlots()
     state.successMasterName = bookedMasterName
     state.successStartAt = bookedStartAt
+    state.successServiceNames = bookedServiceNames
+    state.successDurationMinutes = bookedDurationMinutes
+    state.browserSessionCreated = bookingResult.browserSessionCreated
     state.success = terms.value.home.booking.successLabel
     trackEvent('booking_success', bookingEventParams)
   }
@@ -1324,6 +1381,17 @@ const closeSuccess = () => {
   state.success = ''
   state.successMasterName = ''
   state.successStartAt = ''
+  state.successServiceNames = []
+  state.successDurationMinutes = 0
+  state.browserSessionCreated = false
+}
+
+const trackGoogleCalendarClick = () => {
+  trackEvent('booking_calendar_click', {
+    source: props.analyticsSource,
+    channel: 'web',
+    message_type: 'booking_success',
+  })
 }
 
 const loadBookingSectionPhoto = async () => {
@@ -1926,28 +1994,55 @@ onBeforeUnmount(() => {
             :show="Boolean(state.success)"
             :label="terms.home.booking.successLabel"
             :title="terms.home.booking.successTitle"
-            :action-label="terms.home.booking.successAction"
             tone="dark"
-            @action="closeSuccess"
           >
-            <div class="mt-6 grid gap-3 text-left sm:grid-cols-2">
-              <div class="border border-white/15 bg-white/[0.04] p-4">
+            <div class="mt-5 grid gap-2.5 text-left sm:mt-6 sm:grid-cols-2 sm:gap-3">
+              <div class="bg-white/[0.05] p-3 sm:p-4">
                 <p class="type-eyebrow text-xs text-white/45">
                   {{ terms.home.booking.steps[1] }}
                 </p>
-                <p class="mt-2 text-2xl font-semibold leading-tight text-white">
+                <p class="mt-2 text-xl font-semibold leading-tight text-white sm:text-2xl">
                   {{ state.successMasterName }}
                 </p>
               </div>
-              <div class="border border-white/15 bg-white/[0.04] p-4">
+              <div class="bg-white/[0.05] p-3 sm:p-4">
                 <p class="type-eyebrow text-xs text-white/45">
                   {{ terms.home.booking.steps[2] }}
                 </p>
-                <p class="mt-2 text-2xl font-semibold leading-tight text-white">
+                <p class="mt-2 text-xl font-semibold leading-tight text-white sm:text-2xl">
                   {{ formatBookingDateTime(state.successStartAt) }}
                 </p>
               </div>
             </div>
+            <p v-if="state.browserSessionCreated" class="mt-3 text-sm leading-5 text-white/76 sm:mt-4 sm:leading-6">
+              {{ browserSessionHint }}
+            </p>
+            <p v-if="googleCalendarUrl" class="mt-3 text-sm leading-5 text-white/68 sm:mt-4 sm:leading-6">
+              {{ googleCalendarCopy.hint }}
+            </p>
+            <template #actions>
+              <div class="mt-3 grid gap-2 sm:mt-5 sm:flex sm:justify-center sm:gap-3">
+                <BaseButton
+                  v-if="googleCalendarUrl"
+                  :href="googleCalendarUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="light"
+                  size="sm"
+                  class="booking-success-action"
+                  @click="trackGoogleCalendarClick"
+                >
+                  <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M5 4.5h10a1.5 1.5 0 0 1 1.5 1.5v8.7a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.6" />
+                    <path d="M6.5 3.8v2.4M13.5 3.8v2.4M3.8 8.1h12.4M10 10v4M8 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  </svg>
+                  {{ googleCalendarCopy.action }}
+                </BaseButton>
+                <BaseButton type="button" variant="outline-light" size="sm" class="booking-success-action" @click="closeSuccess">
+                  {{ terms.home.booking.successAction }}
+                </BaseButton>
+              </div>
+            </template>
           </FormStatusOverlay>
         </form>
 
@@ -2048,6 +2143,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.booking-success-action {
+  border: 0;
+}
+
 .booking-contact-field {
   position: relative;
 }

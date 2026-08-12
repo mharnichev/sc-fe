@@ -8,7 +8,9 @@ export const useApi = () => {
 
   return $fetch.create({
     baseURL: config.public.apiBase,
-    credentials: 'omit',
+    // Requests stay on our own Nitro boundary. The proxy decides which exact
+    // upstream endpoints may receive the browser's HttpOnly session cookie.
+    credentials: 'same-origin',
     retry: 0,
     onRequest({ request }) {
       if (!isRelativeApiPath(request)) {

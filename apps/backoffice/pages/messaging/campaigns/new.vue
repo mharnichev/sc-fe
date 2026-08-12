@@ -4,7 +4,14 @@ import type { AudienceEstimate, AudienceRule, CampaignPayload, CampaignType, Mes
 const api = useBackofficeApi()
 const router = useRouter()
 const toast = useBaseToastNotification()
-const { campaignTypes, channels, variables, sampleClient } = useMessagingUi()
+const {
+  campaignTypes,
+  channels,
+  variables,
+  sampleClient,
+  bookingActivityVariableNames,
+  missingTemplateVariables,
+} = useMessagingUi()
 const { apiErrorMessage } = useBookingFormatting()
 const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
 
@@ -79,8 +86,14 @@ watch(
 )
 
 const requiredMissingVariables = computed(() => {
-  if (form.type !== 'post_visit_review_request') return []
-  return ['{{client_name}}', '{{review_link}}'].filter(variable => !form.message_body.includes(variable))
+  if (form.type === 'booking_confirmation' && form.channel === 'sms') {
+    return missingTemplateVariables(form.message_body, bookingActivityVariableNames)
+      .map(name => `{${name}}`)
+  }
+  if (form.type === 'post_visit_review_request') {
+    return ['{{client_name}}', '{{review_link}}'].filter(variable => !form.message_body.includes(variable))
+  }
+  return []
 })
 
 const validationErrors = computed(() => {

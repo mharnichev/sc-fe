@@ -19,7 +19,15 @@ import type { Component } from 'vue'
 import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign } from '~/types/messaging'
 
 const api = useBackofficeApi()
-const { statusLabel, statusClass, campaignTypeLabel, sampleClient } = useMessagingUi()
+const {
+  statusLabel,
+  statusClass,
+  campaignTypeLabel,
+  sampleClient,
+  bookingActivityVariableNames,
+  missingTemplateVariables,
+  formatTemplateVariables,
+} = useMessagingUi()
 const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAccess()
 const { apiErrorMessage } = useBookingFormatting()
 const toast = useBaseToastNotification()
@@ -47,7 +55,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'booking_confirmation',
     locationKey: 'sms_booking_confirmation',
     trigger: 'Одразу після створення запису',
-    defaultBody: 'Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.',
+    defaultBody: 'Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\nПереглянути: {manage_url}\nСкасувати: {cancel_url}',
     metadata: { recipient: 'customer', trigger: 'booking_created' },
     icon: CheckCircleIcon,
     toneClass: 'messaging-tone-success',
@@ -152,6 +160,12 @@ const smsTypeOptions = [
 
 const scenarioBody = (definition: SmsScenarioDefinition, campaign: MessagingCampaign | null) =>
   campaign?.message_body || definition.defaultBody
+
+const requiredMissingVariables = computed(() =>
+  editing.value?.definition.key === 'booking_confirmation'
+    ? missingTemplateVariables(form.message_body, bookingActivityVariableNames)
+    : [],
+)
 
 const scenarioMetaNumber = (campaign: MessagingCampaign | null, key: 'lead_hours' | 'window_minutes', fallback: number) => {
   const raw = campaign?.metadata_json?.[key]
@@ -530,13 +544,20 @@ const runJob = async (job: SmsJob) => {
               <span class="font-medium text-slate-900">{appointment_time}</span>,
               <span class="font-medium text-slate-900">{appointment_end_time}</span>,
               <span class="font-medium text-slate-900">{barbershop_name}</span>,
+              <span class="font-medium text-slate-900">{manage_url}</span>,
+              <span class="font-medium text-slate-900">{cancel_url}</span>,
               <span class="font-medium text-slate-900" v-text="'{{review_link}}'" />.
+            </div>
+
+            <div v-if="requiredMissingVariables.length" class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+              Для підтвердження запису додайте обовʼязкові змінні:
+              {{ formatTemplateVariables(requiredMissingVariables) }}.
             </div>
 
             <div class="flex flex-wrap gap-3">
               <BaseButton
                 class="backoffice-modal-action-button backoffice-modal-action-success"
-                :disabled="saving || !form.name.trim() || !form.message_body.trim() || !canCreateMessagingDrafts"
+                :disabled="saving || !form.name.trim() || !form.message_body.trim() || requiredMissingVariables.length > 0 || !canCreateMessagingDrafts"
                 @click="saveScenario"
               >
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />

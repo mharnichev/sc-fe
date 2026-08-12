@@ -21,7 +21,15 @@ import {
 import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign, MessagingChannel } from '~/types/messaging'
 
 const api = useBackofficeApi()
-const { campaignTypes, channels, variables, sampleClient } = useMessagingUi()
+const {
+  campaignTypes,
+  channels,
+  variables,
+  sampleClient,
+  bookingActivityVariableNames,
+  missingTemplateVariables,
+  formatTemplateVariables,
+} = useMessagingUi()
 const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAccess()
 const { apiErrorMessage } = useBookingFormatting()
 const toast = useBaseToastNotification()
@@ -142,6 +150,12 @@ const campaignMessageBody = (campaign?: MessagingCampaign | null) =>
   || metadataText(campaign, 'message_body')
   || metadataText(campaign, 'body')
   || ''
+
+const campaignEditorRequiredMissingVariables = computed(() =>
+  campaignEditor.type === 'booking_confirmation' && campaignEditor.channel === 'sms'
+    ? missingTemplateVariables(campaignEditor.message_body, bookingActivityVariableNames)
+    : [],
+)
 
 const openCampaignEditor = (campaign: MessagingCampaign) => {
   campaignEditing.value = campaign
@@ -551,6 +565,16 @@ const insertCampaignVariable = (variable: string) => {
               </div>
             </BaseCard>
 
+            <BaseCard
+              v-if="campaignEditorRequiredMissingVariables.length"
+              variant="subtle"
+              padding="sm"
+              class="rounded-2xl text-sm text-rose-700"
+            >
+              Для підтвердження запису додайте:
+              {{ formatTemplateVariables(campaignEditorRequiredMissingVariables) }}.
+            </BaseCard>
+
             <label v-if="campaignEditor.type === 'post_visit_review_request'" class="grid gap-2 text-sm">
               <span class="inline-flex items-center gap-2 font-medium text-ui-secondary">
                 <LinkIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" />
@@ -563,7 +587,7 @@ const insertCampaignVariable = (variable: string) => {
               <BaseButton
                 variant="success"
                 :loading="campaignEditorSaving"
-                :disabled="campaignEditorSaving || !campaignEditor.name.trim() || !campaignEditor.message_body.trim() || !canCreateMessagingDrafts"
+                :disabled="campaignEditorSaving || !campaignEditor.name.trim() || !campaignEditor.message_body.trim() || campaignEditorRequiredMissingVariables.length > 0 || !canCreateMessagingDrafts"
                 @click="saveCampaignEditor"
               >
                 <CheckCircleIcon class="h-4 w-4" aria-hidden="true" />

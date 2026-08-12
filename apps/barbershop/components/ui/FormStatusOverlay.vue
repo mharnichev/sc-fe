@@ -39,15 +39,17 @@ const emit = defineEmits<{
             {{ message }}
           </p>
         </slot>
-        <BaseButton
-          v-if="actionLabel"
-          type="button"
-          :variant="tone === 'dark' ? 'light' : 'dark'"
-          class="mt-6"
-          @click="emit('action')"
-        >
-          {{ actionLabel }}
-        </BaseButton>
+        <slot name="actions">
+          <BaseButton
+            v-if="actionLabel"
+            type="button"
+            :variant="tone === 'dark' ? 'light' : 'dark'"
+            class="mt-6"
+            @click="emit('action')"
+          >
+            {{ actionLabel }}
+          </BaseButton>
+        </slot>
       </div>
     </div>
   </Transition>

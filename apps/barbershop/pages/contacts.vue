@@ -23,7 +23,8 @@ const form = reactive({
   note: '',
 })
 
-const state = reactive({ loading: false, success: '', error: '' })
+const state = reactive({ loading: false, success: '', error: '', browserSessionCreated: false })
+const browserSessionHint = 'Ми зберегли ваш запис на цьому пристрої на 30 днів. Він доступний у «Мої записи».'
 
 const slotUnavailableMessage = computed(() => locale.value === 'en'
   ? 'That time is no longer available. Please choose another available time.'
@@ -222,6 +223,7 @@ const submit = async () => {
   state.loading = true
   state.success = ''
   state.error = ''
+  state.browserSessionCreated = false
   trackEvent('booking_submit', {
     source: 'contacts_page',
     master_id: masterId,
@@ -255,7 +257,7 @@ const submit = async () => {
       masterId,
       serviceId: serviceIds[0],
     })
-    await domain.createBooking({
+    const bookingResult = await domain.createBooking({
       master_id: masterId,
       service_id: serviceIds[0],
       service_ids: serviceIds,
@@ -268,6 +270,7 @@ const submit = async () => {
       funnel_session_id: funnelSessionId,
     })
     state.success = terms.value.pages.contacts.success
+    state.browserSessionCreated = bookingResult.browserSessionCreated
     trackEvent('booking_success', {
       source: 'contacts_page',
       master_id: masterId,
@@ -459,6 +462,7 @@ const submit = async () => {
         {{ state.loading ? terms.pages.contacts.sending : terms.pages.contacts.sendRequest }}
       </BaseButton>
       <p v-if="state.success" class="text-sm text-emerald-700">{{ state.success }}</p>
+      <p v-if="state.success && state.browserSessionCreated" class="text-sm leading-6 text-emerald-700">{{ browserSessionHint }}</p>
       <p v-if="state.error" class="text-sm text-rose-700">{{ state.error }}</p>
     </form>
   </div>

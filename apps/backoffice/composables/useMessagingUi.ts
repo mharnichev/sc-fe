@@ -19,7 +19,21 @@ export const useMessagingUi = () => {
     '{appointment_time}',
     '{appointment_end_time}',
     '{barbershop_name}',
+    '{manage_url}',
+    '{cancel_url}',
   ]
+  const bookingActivityVariableNames = ['manage_url', 'cancel_url'] as const
+
+  const hasTemplateVariable = (body: string, name: string) =>
+    new RegExp(
+      `{{\\s*${name}\\s*}}|(?<!{){\\s*${name}\\s*}(?!})|(^|[^\\w/])#${name}\\b`,
+    ).test(body)
+
+  const missingTemplateVariables = (body: string, names: readonly string[]) =>
+    names.filter(name => !hasTemplateVariable(body, name))
+
+  const formatTemplateVariables = (names: readonly string[]) =>
+    names.map(name => `{${name}}`).join(', ')
 
   const campaignTypes: Array<{ value: CampaignType, label: string, helper: string }> = [
     { value: 'manual', label: 'Ручна кампанія', helper: 'Разова розсилка вибраній аудиторії.' },
@@ -95,10 +109,15 @@ export const useMessagingUi = () => {
     barbershop_name: 'Soul Cuts',
     review_link: 'https://g.page/r/example',
     discount_code: 'SOUL10',
+    manage_url: 'https://soulcuts.com.ua/booking/manage#secure-link',
+    cancel_url: 'https://soulcuts.com.ua/booking/cancel#secure-link',
   }
 
   return {
     variables,
+    bookingActivityVariableNames,
+    missingTemplateVariables,
+    formatTemplateVariables,
     campaignTypes,
     channels,
     campaignTypeLabel,

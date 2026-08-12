@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
       :class="
         inline
           ? 'block'
-          : 'hidden border border-white/15 bg-white/[0.04] p-3 md:block'
+          : 'hidden md:block'
       "
     >
       <div class="flex items-center justify-between gap-3">

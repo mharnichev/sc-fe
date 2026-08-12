@@ -124,8 +124,13 @@ onBeforeUnmount(() => {
         ]"
         @keydown="onKeydown"
       >
+        <div
+          class="base-modal__backdrop pointer-events-none absolute inset-0 bg-neutral-950/72 backdrop-blur-sm"
+          aria-hidden="true"
+        />
+
         <button
-          class="base-modal__overlay absolute inset-0 bg-neutral-950/72 backdrop-blur-sm"
+          class="base-modal__overlay absolute inset-0 bg-transparent"
           :class="{ 'base-modal__overlay--closeable': !blockClose }"
           type="button"
           :disabled="blockClose"
@@ -239,8 +244,8 @@ onBeforeUnmount(() => {
   }
 }
 
-.base-modal-enter-active .base-modal__overlay,
-.base-modal-leave-active .base-modal__overlay {
+.base-modal-enter-active .base-modal__backdrop,
+.base-modal-leave-active .base-modal__backdrop {
   transition: opacity 220ms ease;
 }
 
@@ -251,8 +256,8 @@ onBeforeUnmount(() => {
     transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.base-modal-enter-from .base-modal__overlay,
-.base-modal-leave-to .base-modal__overlay,
+.base-modal-enter-from .base-modal__backdrop,
+.base-modal-leave-to .base-modal__backdrop,
 .base-modal-enter-from.base-modal--default .base-modal__container,
 .base-modal-leave-to.base-modal--default .base-modal__container {
   opacity: 0;
@@ -299,8 +304,8 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .base-modal-enter-active .base-modal__overlay,
-  .base-modal-leave-active .base-modal__overlay,
+  .base-modal-enter-active .base-modal__backdrop,
+  .base-modal-leave-active .base-modal__backdrop,
   .base-modal-enter-active .base-modal__container,
   .base-modal-leave-active .base-modal__container {
     transition: none;

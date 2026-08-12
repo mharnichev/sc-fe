@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import myAppointmentsCalendarImage from '~/assets/images/customer-activity/my-appointments-calendar.webp'
 import bookEngImage from '~/assets/images/booking/booking-en.webp'
 import bookUaImage from '~/assets/images/booking/booking-ua.webp'
 
@@ -10,6 +11,7 @@ const {
   close: closeBookingDrawer,
 } = useFloatingBookingDrawer()
 
+const isCustomerActivityOpen = ref(false)
 const isTriggerOverBooking = ref(false)
 const triggerButton = ref<HTMLButtonElement | null>(null)
 let previousBodyOverflow = ''
@@ -65,6 +67,14 @@ const closeDrawer = () => {
   closeBookingDrawer()
 }
 
+const openCustomerActivity = () => {
+  isCustomerActivityOpen.value = true
+}
+
+const closeCustomerActivity = () => {
+  isCustomerActivityOpen.value = false
+}
+
 const updateOverlayCloseCursor = (event: PointerEvent) => {
   const overlay = event.currentTarget
   if (!(overlay instanceof HTMLElement)) return
@@ -116,25 +126,50 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <button
-    v-show="!isOpen"
-    ref="triggerButton"
-    type="button"
-    class="booking-trigger-button fixed bottom-4 right-4 z-[75] inline-flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70 sm:bottom-6 sm:right-6"
-    :class="{ 'booking-trigger-button--booking-overlap': isTriggerOverBooking }"
+  <div
+    v-show="!isOpen && !isCustomerActivityOpen"
+    class="floating-booking-actions fixed bottom-4 right-4 z-[75] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6"
     :style="isTriggerOverBooking ? { right: '-48px' } : undefined"
-    :aria-expanded="isOpen"
-    aria-controls="floating-booking-drawer"
-    :aria-label="triggerImageAlt"
-    @click="openDrawer"
   >
-    <img
-      :src="triggerImage"
-      :alt="triggerImageAlt"
-      class="booking-trigger-image h-[84px] w-[84px] object-contain"
-      draggable="false"
+    <button
+      type="button"
+      class="my-appointments-button group relative inline-flex h-14 w-14 items-center justify-center text-white outline-none focus-visible:ring-2 focus-visible:ring-[#ffca2b] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+      aria-label="Мої записи"
+      @click="openCustomerActivity"
     >
-  </button>
+      <span class="my-appointments-label pointer-events-none absolute right-full mr-2 hidden whitespace-nowrap rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow-md md:block md:group-hover:opacity-100 md:group-focus-visible:opacity-100">
+        Мої записи
+      </span>
+      <img
+        :src="myAppointmentsCalendarImage"
+        alt=""
+        class="object-contain drop-shadow-[0_6px_8px_rgb(0_0_0/0.24)]"
+        aria-hidden="true"
+      >
+    </button>
+
+    <button
+      ref="triggerButton"
+      type="button"
+      class="booking-trigger-button inline-flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70"
+      :aria-expanded="isOpen"
+      aria-controls="floating-booking-drawer"
+      :aria-label="triggerImageAlt"
+      @click="openDrawer"
+    >
+      <img
+        :src="triggerImage"
+        :alt="triggerImageAlt"
+        class="booking-trigger-image h-[84px] w-[84px] object-contain"
+        draggable="false"
+      >
+    </button>
+  </div>
+
+  <CustomerActivityModal
+    v-if="isCustomerActivityOpen"
+    @closed="closeCustomerActivity"
+  />
 
   <Transition name="booking-drawer-overlay">
     <div
@@ -197,6 +232,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.floating-booking-actions {
+  transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.my-appointments-button {
+  transition: transform 180ms ease;
+}
+
+.my-appointments-button:hover {
+  transform: translateY(-1px);
+}
+
+.my-appointments-label {
+  transition: opacity 160ms ease;
+}
+
 .booking-trigger-button {
   border: 6px solid rgb(255 202 43 / 0.32);
 
@@ -209,7 +260,6 @@ onBeforeUnmount(() => {
   transition:
     border-color 180ms ease,
     filter 180ms ease,
-    right 260ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 180ms ease;
 }
 
@@ -299,6 +349,9 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .floating-booking-actions,
+  .my-appointments-button,
+  .my-appointments-label,
   .booking-trigger-button {
     transition: none;
   }
