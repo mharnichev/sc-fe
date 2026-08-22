@@ -73,10 +73,12 @@ test('all backoffice booking confirmation editors require managed links', () => 
 
 
 test('SMS campaigns are split into customer and master recipient tables', () => {
-  assert.match(smsPanelSource, /recipient === 'master' \|\| recipient === 'barber'/)
   assert.match(smsPanelSource, /title: 'Повідомлення клієнтам'/)
   assert.match(smsPanelSource, /title: 'Повідомлення майстрам'/)
   assert.match(smsPanelSource, /v-for="group in campaignGroups"/)
+  assert.match(smsPanelSource, /getSmsCampaigns\(page\.value, pageSize, \{ status: statusFilter\.value, recipient: 'customer' \}\)/)
+  assert.match(smsPanelSource, /getSmsCampaigns\(page\.value, pageSize, \{ status: statusFilter\.value, recipient: 'master' \}\)/)
+  assert.doesNotMatch(smsPanelSource, /campaigns\.value\.filter\(campaign => campaignRecipient/)
 })
 
 

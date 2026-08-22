@@ -1,4 +1,5 @@
 export type MessagingChannel = 'telegram' | 'sms' | 'whatsapp' | 'email'
+export type CampaignRecipient = 'customer' | 'master'
 
 export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived'
 
@@ -77,6 +78,7 @@ export interface MessagingCampaign {
   type: CampaignType
   channel: MessagingChannel
   status: CampaignStatus
+  recipient: CampaignRecipient
   purpose?: 'marketing' | 'transactional' | 'review_request' | string | null
   template_id?: number | string | null
   audience_size: number
@@ -101,6 +103,7 @@ export interface CampaignPayload {
   type: CampaignType
   channel: MessagingChannel
   status: CampaignStatus
+  recipient?: CampaignRecipient
   purpose?: 'marketing' | 'transactional' | 'review_request' | string | null
   template_id?: number | string | null
   message_body: string

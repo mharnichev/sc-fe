@@ -879,6 +879,9 @@ export const useBackofficeApi = () => {
       type: campaign.type,
       channel: campaign.channel || 'telegram',
       status: campaign.status,
+      recipient: campaign.recipient === 'master' || metadata.recipient === 'master' || metadata.recipient === 'barber'
+        ? 'master'
+        : 'customer',
       purpose: campaign.purpose || null,
       template_id: campaign.template_id || null,
       audience_size: audienceSize,
@@ -920,6 +923,7 @@ export const useBackofficeApi = () => {
     type: payload.type,
     status: payload.status || 'draft',
     channel: payload.channel || 'telegram',
+    recipient: payload.recipient || 'customer',
     purpose: payload.purpose || campaignPurpose(payload.type),
     template_id: templateId ?? payload.template_id ?? null,
     scheduled_at: payload.schedule_mode === 'later' ? payload.scheduled_at || null : null,
@@ -932,6 +936,7 @@ export const useBackofficeApi = () => {
     location_key: payload.location_key || null,
     metadata_json: {
       ...(payload.metadata_json || {}),
+      recipient: payload.recipient || 'customer',
       message_body: payload.message_body,
       language_versions: payload.language_versions,
       audience_rules: payload.audience_rules || [],
@@ -1593,6 +1598,7 @@ export const useBackofficeApi = () => {
       date_from?: string
       date_to?: string
       barber_id?: number | null
+      recipient?: 'customer' | 'master'
     } = {},
   ) => {
     const backendStatus = ['draft', 'active', 'paused', 'completed', 'archived'].includes(filters.status || '') ? filters.status : undefined
@@ -1606,6 +1612,7 @@ export const useBackofficeApi = () => {
         date_from: filters.date_from || undefined,
         date_to: filters.date_to || undefined,
         barber_id: filters.barber_id ?? undefined,
+        recipient: filters.recipient || undefined,
       },
     }).then(normalizeCampaignPage)
   }
@@ -1616,13 +1623,14 @@ export const useBackofficeApi = () => {
   const getSmsCampaigns = (
     page = 1,
     pageSize = 20,
-    filters: { status?: string } = {},
+    filters: { status?: string, recipient?: 'customer' | 'master' } = {},
   ) =>
     api<PaginatedResponse<any>>('/backoffice/messaging/sms-campaigns', {
       query: {
         page,
         page_size: normalizePageSize(pageSize),
         status: filters.status || undefined,
+        recipient: filters.recipient || undefined,
       },
     }).then(normalizeCampaignPage)
 

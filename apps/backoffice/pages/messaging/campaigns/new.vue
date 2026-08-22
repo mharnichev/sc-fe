@@ -30,6 +30,7 @@ const form = reactive<CampaignPayload>({
   type: 'manual',
   channel: 'telegram',
   status: 'draft',
+  recipient: 'customer',
   template_id: null,
   message_body: '',
   language_versions: { uk: '', en: '' },

@@ -198,6 +198,7 @@ const saveCampaignEditor = async () => {
       type: campaignEditor.type,
       channel: campaignEditor.channel,
       status: campaignEditor.status,
+      recipient: campaign.recipient,
       purpose: campaign.purpose || undefined,
       template_id: campaign.template_id || null,
       message_body: campaignEditor.message_body,

@@ -16,7 +16,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import type { Component } from 'vue'
-import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign } from '~/types/messaging'
+import type { AudienceRule, CampaignPayload, CampaignRecipient, CampaignStatus, CampaignType, MessagingCampaign } from '~/types/messaging'
 
 const api = useBackofficeApi()
 const {
@@ -42,6 +42,7 @@ interface SmsScenarioDefinition {
   type: CampaignType
   locationKey: string
   trigger: string
+  recipient: CampaignRecipient
   defaultBody: string
   metadata: Record<string, unknown>
   icon: Component
@@ -55,6 +56,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'booking_confirmation',
     locationKey: 'sms_booking_confirmation',
     trigger: 'Одразу після створення запису',
+    recipient: 'customer',
     defaultBody: '✅ Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\n\n◉ Переглянути: {manage_url}\n\n❌ Скасувати: {cancel_url}',
     metadata: { recipient: 'customer', trigger: 'booking_created' },
     icon: CheckCircleIcon,
@@ -66,6 +68,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'appointment_reminder',
     locationKey: 'sms_booking_two_hour_reminder',
     trigger: 'За 2 години до запису, вікно 30 хв',
+    recipient: 'customer',
     defaultBody: 'Нагадуємо, сьогодні о {appointment_time} у вас візит до майстра {master_name}. Будемо раді бачити вас у {barbershop_name}.',
     metadata: { recipient: 'customer', trigger: 'booking_upcoming', lead_hours: 2, window_minutes: 30 },
     icon: BellAlertIcon,
@@ -77,6 +80,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'post_visit_review_request',
     locationKey: 'sms_post_visit_review_request',
     trigger: 'Через 2 години після завершення візиту',
+    recipient: 'customer',
     defaultBody: 'Як вам візит до {master_name}?\n\nОдна хвилина, і ми ще краще: {{review_link}} ★',
     metadata: {
       recipient: 'customer',
@@ -122,29 +126,36 @@ const form = reactive<{
 
 const { data, pending, error, refresh } = await useAsyncData(
   'messaging-sms-campaigns',
-  () => api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value }),
+  async () => {
+    const [customer, master] = await Promise.all([
+      api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'customer' }),
+      api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'master' }),
+    ])
+    return { customer, master }
+  },
   { watch: [page] },
 )
 
-const campaigns = computed(() => data.value?.items || [])
-const campaignRecipient = (campaign: MessagingCampaign) => {
-  const recipient = campaign.metadata_json?.recipient
-  return recipient === 'master' || recipient === 'barber' ? 'master' : 'customer'
-}
+const campaigns = computed(() => [
+  ...(data.value?.customer.items || []),
+  ...(data.value?.master.items || []),
+])
 const campaignGroups = computed(() => [
   {
     key: 'customer',
     title: 'Повідомлення клієнтам',
     caption: 'SMS кампанії для клієнтів',
     emptyTitle: 'Повідомлень для клієнтів за цими фільтрами немає',
-    campaigns: campaigns.value.filter(campaign => campaignRecipient(campaign) === 'customer'),
+    total: data.value?.customer.total || 0,
+    campaigns: data.value?.customer.items || [],
   },
   {
     key: 'master',
     title: 'Повідомлення майстрам',
     caption: 'SMS кампанії для майстрів',
     emptyTitle: 'Повідомлень для майстрів за цими фільтрами немає',
-    campaigns: campaigns.value.filter(campaign => campaignRecipient(campaign) === 'master'),
+    total: data.value?.master.total || 0,
+    campaigns: data.value?.master.items || [],
   },
 ])
 const scenarioByLocation = computed(() => new Map(campaigns.value.map(campaign => [campaign.location_key, campaign])))
@@ -239,6 +250,7 @@ const buildPayload = (): CampaignPayload => {
     type: form.type,
     channel: 'sms',
     status: form.status,
+    recipient: definition.recipient,
     template_id: editing.value!.campaign?.template_id || null,
     message_body: form.message_body,
     audience_rules: editing.value!.campaign?.audience_rules || [{ type: 'all_clients' } as AudienceRule],
@@ -437,7 +449,7 @@ const runJob = async (job: SmsJob) => {
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h3 class="font-semibold text-slate-900">{{ group.title }}</h3>
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {{ group.campaigns.length }}
+              {{ group.total }}
             </span>
           </div>
 
@@ -493,7 +505,7 @@ const runJob = async (job: SmsJob) => {
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page = Math.max(1, page - 1)">Попередня</BaseButton>
         <span class="text-sm text-slate-500">Сторінка {{ page }}</span>
-        <BaseButton :disabled="!data || page * pageSize >= data.total" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page += 1">Наступна</BaseButton>
+        <BaseButton :disabled="!data || (page * pageSize >= data.customer.total && page * pageSize >= data.master.total)" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page += 1">Наступна</BaseButton>
       </div>
     </section>
 
