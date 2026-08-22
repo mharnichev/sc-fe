@@ -775,9 +775,13 @@ main .text-slate-500,
 main .text-cyan-700,
 main .text-cyan-600,
 main .text-cyan-500,
+main .text-cyan-800,
+main .text-cyan-900,
 .liquid-glass .text-cyan-700,
 .liquid-glass .text-cyan-600,
-.liquid-glass .text-cyan-500 {
+.liquid-glass .text-cyan-500,
+.liquid-glass .text-cyan-800,
+.liquid-glass .text-cyan-900 {
   color: var(--accent-text) !important;
 }
 
@@ -1187,17 +1191,37 @@ main .text-rose-800 {
 }
 
 main .bg-amber-50 {
-  background: rgba(255, 214, 10, 0.13) !important;
+  background: var(--bo-warning-surface) !important;
 }
 
-main .text-amber-700 {
-  color: #ffe783 !important;
+main .border-amber-200,
+main .border-amber-300 {
+  border-color: color-mix(in srgb, var(--bo-warning) 30%, transparent) !important;
 }
 
-main .bg-indigo-50,
+main .text-amber-500,
+main .text-amber-600 {
+  color: var(--bo-warning) !important;
+}
+
+main .text-amber-700,
+main .text-amber-800,
+main .text-amber-900 {
+  color: var(--bo-warning-text) !important;
+}
+
+main .bg-indigo-50 {
+  background: rgba(255, 255, 255, 0.11) !important;
+}
+
 main .bg-cyan-50,
 main .bg-cyan-100 {
-  background: rgba(255, 255, 255, 0.11) !important;
+  background: var(--bo-info-surface) !important;
+}
+
+main .border-cyan-200,
+main .border-cyan-300 {
+  border-color: color-mix(in srgb, var(--bo-info) 28%, transparent) !important;
 }
 
 main .ring-slate-200,

@@ -65,8 +65,22 @@ test('booking confirmation preview renders both configurable activity links', ()
 
 
 test('all backoffice booking confirmation editors require managed links', () => {
-  assert.match(smsPanelSource, /Переглянути: \{manage_url\}\\nСкасувати: \{cancel_url\}/)
+  assert.ok(smsPanelSource.includes('✅ Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\\n\\n◉ Переглянути: {manage_url}\\n\\n❌ Скасувати: {cancel_url}'))
   assert.match(smsPanelSource, /requiredMissingVariables\.length > 0/)
   assert.match(campaignEditorSource, /campaignEditorRequiredMissingVariables\.length > 0/)
   assert.match(campaignWizardSource, /form\.type === 'booking_confirmation' && form\.channel === 'sms'/)
+})
+
+
+test('SMS campaigns are split into customer and master recipient tables', () => {
+  assert.match(smsPanelSource, /recipient === 'master' \|\| recipient === 'barber'/)
+  assert.match(smsPanelSource, /title: 'Повідомлення клієнтам'/)
+  assert.match(smsPanelSource, /title: 'Повідомлення майстрам'/)
+  assert.match(smsPanelSource, /v-for="group in campaignGroups"/)
+})
+
+
+test('SMS scenario defaults use provider-safe BMP symbols and copy', () => {
+  assert.ok(smsPanelSource.includes('Як вам візит до {master_name}?\\n\\nОдна хвилина, і ми ще краще: {{review_link}} ★'))
+  assert.doesNotMatch(smsPanelSource, /[👀🤔💪]/u)
 })

@@ -23,7 +23,7 @@ export interface PublicBookingPayload {
   customer_comment?: string | null
   promotion_code?: string | null
   start_at: string
-  funnel_session_id?: string
+  funnel_session_id: string
   recovery_source?: 'alternative'
 }
 

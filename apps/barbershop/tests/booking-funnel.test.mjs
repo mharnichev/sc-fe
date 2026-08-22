@@ -36,6 +36,30 @@ test('creates an anonymous attempt and stable event IDs for retries', () => {
   assert.deepEqual(retry, first)
 })
 
+test('creates a safe fallback ID when Web Crypto is unavailable or throws', () => {
+  const unavailable = funnel.createBookingFunnelId(
+    undefined,
+    () => 1_721_234_567_890,
+    ids(0.25, 0.75),
+  )
+  const throwingCrypto = {
+    randomUUID() {
+      throw new Error('Web Crypto unavailable')
+    },
+  }
+  const throwing = funnel.createBookingFunnelId(
+    throwingCrypto,
+    () => 1_721_234_567_891,
+    ids(0.125, 0.625),
+  )
+
+  assert.match(unavailable, /^fallback-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$/)
+  assert.match(throwing, /^fallback-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$/)
+  assert.notEqual(unavailable, throwing)
+  assert.ok(unavailable.length >= 16 && unavailable.length <= 128)
+  assert.ok(throwing.length >= 16 && throwing.length <= 128)
+})
+
 test('keeps pre-duration event keys stable for non-no-slot events', () => {
   const attempt = {
     anonymousSessionId: 'booking-session-id-123456',
@@ -216,7 +240,7 @@ test('public booking API contract records events and attributes server-side succ
   )
 
   assert.match(domainSource, /api<BookingFunnelEventReceipt>\('\/public\/booking-funnel\/events'/)
-  assert.match(domainSource, /funnel_session_id\?: string/)
+  assert.match(domainSource, /funnel_session_id: string/)
   assert.match(domainSource, /keepalive: true/)
   assert.match(domainSource, /retry: 2/)
   assert.match(funnelComposableSource, /window\.sessionStorage/)

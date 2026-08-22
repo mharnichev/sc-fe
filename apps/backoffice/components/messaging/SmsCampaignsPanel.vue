@@ -55,7 +55,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'booking_confirmation',
     locationKey: 'sms_booking_confirmation',
     trigger: 'Одразу після створення запису',
-    defaultBody: 'Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\nПереглянути: {manage_url}\nСкасувати: {cancel_url}',
+    defaultBody: '✅ Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\n\n◉ Переглянути: {manage_url}\n\n❌ Скасувати: {cancel_url}',
     metadata: { recipient: 'customer', trigger: 'booking_created' },
     icon: CheckCircleIcon,
     toneClass: 'messaging-tone-success',
@@ -77,7 +77,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
     type: 'post_visit_review_request',
     locationKey: 'sms_post_visit_review_request',
     trigger: 'Через 2 години після завершення візиту',
-    defaultBody: '#client, дякуємо за візит до Soul Cuts. Залиште чесний відгук про роботу майстра: {{review_link}}',
+    defaultBody: 'Як вам візит до {master_name}?\n\nОдна хвилина, і ми ще краще: {{review_link}} ★',
     metadata: {
       recipient: 'customer',
       trigger: 'booking_completed',
@@ -127,6 +127,26 @@ const { data, pending, error, refresh } = await useAsyncData(
 )
 
 const campaigns = computed(() => data.value?.items || [])
+const campaignRecipient = (campaign: MessagingCampaign) => {
+  const recipient = campaign.metadata_json?.recipient
+  return recipient === 'master' || recipient === 'barber' ? 'master' : 'customer'
+}
+const campaignGroups = computed(() => [
+  {
+    key: 'customer',
+    title: 'Повідомлення клієнтам',
+    caption: 'SMS кампанії для клієнтів',
+    emptyTitle: 'Повідомлень для клієнтів за цими фільтрами немає',
+    campaigns: campaigns.value.filter(campaign => campaignRecipient(campaign) === 'customer'),
+  },
+  {
+    key: 'master',
+    title: 'Повідомлення майстрам',
+    caption: 'SMS кампанії для майстрів',
+    emptyTitle: 'Повідомлень для майстрів за цими фільтрами немає',
+    campaigns: campaigns.value.filter(campaign => campaignRecipient(campaign) === 'master'),
+  },
+])
 const scenarioByLocation = computed(() => new Map(campaigns.value.map(campaign => [campaign.location_key, campaign])))
 const scenarioByName = computed(() => new Map(campaigns.value.map(campaign => [campaign.name, campaign])))
 const smsScenarios = computed(() =>
@@ -402,7 +422,7 @@ const runJob = async (job: SmsJob) => {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-semibold text-slate-900">Усі SMS кампанії</h2>
-          <p class="mt-1 text-sm text-slate-500">SMS кампанії з загального списку повідомлень.</p>
+          <p class="mt-1 text-sm text-slate-500">SMS кампанії розділені за отримувачем: клієнт або майстер.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <BaseSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
@@ -412,28 +432,36 @@ const runJob = async (job: SmsJob) => {
         </div>
       </div>
 
-      <BaseTable
-        caption="Усі SMS кампанії"
-        wrapper-class="mt-5"
-        min-width="72rem"
-        :loading="pending"
-        loading-label="Завантажуємо SMS кампанії…"
-        :empty="!campaigns.length"
-        empty-title="SMS кампаній за цими фільтрами немає"
-      >
-        <template #head>
-            <tr>
-              <th>Назва</th>
-              <th>Тип</th>
-              <th>Канал</th>
-              <th>Статус</th>
-              <th>Location</th>
-              <th>Sent / failed</th>
-              <th>Оновлено</th>
-              <th>Дії</th>
-            </tr>
-        </template>
-            <tr v-for="campaign in campaigns" :key="campaign.id">
+      <div class="mt-5 space-y-6">
+        <section v-for="group in campaignGroups" :key="group.key">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h3 class="font-semibold text-slate-900">{{ group.title }}</h3>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              {{ group.campaigns.length }}
+            </span>
+          </div>
+
+          <BaseTable
+            :caption="group.caption"
+            min-width="72rem"
+            :loading="pending"
+            loading-label="Завантажуємо SMS кампанії…"
+            :empty="!group.campaigns.length"
+            :empty-title="group.emptyTitle"
+          >
+            <template #head>
+              <tr>
+                <th>Назва</th>
+                <th>Тип</th>
+                <th>Канал</th>
+                <th>Статус</th>
+                <th>Location</th>
+                <th>Sent / failed</th>
+                <th>Оновлено</th>
+                <th>Дії</th>
+              </tr>
+            </template>
+            <tr v-for="campaign in group.campaigns" :key="campaign.id">
               <td class="font-medium text-ui-primary">{{ campaign.name }}</td>
               <td><MessagingCampaignTypeBadge :type="campaign.type" /></td>
               <td><MessagingChannelBadge :channel="campaign.channel" /></td>
@@ -458,7 +486,9 @@ const runJob = async (job: SmsJob) => {
                 </div>
               </td>
             </tr>
-      </BaseTable>
+          </BaseTable>
+        </section>
+      </div>
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <BaseButton :disabled="page === 1" class="rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50" @click="page = Math.max(1, page - 1)">Попередня</BaseButton>

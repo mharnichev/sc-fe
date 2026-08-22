@@ -123,7 +123,7 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
 
     <div
       v-else-if="!funnel"
-      class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
+      class="ui-status-warning mt-5 rounded-2xl p-5"
       role="status"
     >
       <p class="font-semibold">Воронка поки недоступна</p>
@@ -135,7 +135,7 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
     <template v-else>
       <div
         v-if="funnel.status === 'unavailable'"
-        class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
+        class="ui-status-warning mt-5 rounded-2xl p-5"
         role="status"
       >
         <p class="font-semibold">Конверсія воронки поки недоступна</p>
@@ -147,18 +147,16 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
           {{ funnel.tracking_gap_count.toLocaleString('uk-UA') }} переходів без попередньої події,
           {{ funnel.unattributed_booking_successes.toLocaleString('uk-UA') }} успішних записів без anonymous session.
         </p>
-        <p v-if="funnel.status_reason" class="mt-2 text-xs leading-5">{{ funnel.status_reason }}</p>
       </div>
 
       <div
         v-else-if="funnel.status === 'partial'"
-        class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"
+        class="ui-status-warning mt-5 rounded-2xl px-4 py-3 text-sm leading-6"
         role="status"
       >
         Частина телеметрії неповна: {{ funnel.tracking_gap_count.toLocaleString('uk-UA') }} переходів без попередньої події,
         {{ funnel.unattributed_booking_successes.toLocaleString('uk-UA') }} успішних записів без anonymous session.
         Відсотки нижче рахуються лише як перетини тих самих сесій.
-        <span v-if="funnel.status_reason" class="block text-xs">{{ funnel.status_reason }}</span>
       </div>
 
       <ol
@@ -287,13 +285,13 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
           </div>
           <span
             v-if="funnel.no_slot_unknown_date_count"
-            class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+            class="ui-status-warning rounded-full px-3 py-1 text-xs font-medium"
           >
             Дата не визначена: {{ funnel.no_slot_unknown_date_count.toLocaleString('uk-UA') }}
           </span>
           <span
             v-if="funnel.no_slot_contexts_truncated"
-            class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+            class="ui-status-warning rounded-full px-3 py-1 text-xs font-medium"
           >
             Показано перші {{ funnel.no_slot_context_limit.toLocaleString('uk-UA') }} контекстів
           </span>

@@ -54,6 +54,33 @@ export interface NoSlotObservationState {
 type RandomId = () => string
 const SAFE_IDENTIFIER = /^[A-Za-z0-9._:-]{8,128}$/
 
+export const createBookingFunnelId = (
+  cryptoApi: Crypto | undefined,
+  now: () => number = Date.now,
+  random: () => number = Math.random,
+) => {
+  try {
+    if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID()
+    if (typeof cryptoApi?.getRandomValues === 'function') {
+      const bytes = cryptoApi.getRandomValues(new Uint8Array(16))
+      return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+    }
+  }
+  catch {
+    // Some legacy WebViews expose Web Crypto but throw when it is used.
+  }
+
+  // This ID is correlation-only, contains no user data, and is keyed-hashed by
+  // the API. The fallback keeps attribution working in browsers without Web
+  // Crypto; timestamp plus two independent random parts makes collisions
+  // negligible for the two-hour attempt lifetime.
+  const timestamp = Math.max(0, Math.trunc(now())).toString(36)
+  const randomPart = () => Math.floor(random() * Number.MAX_SAFE_INTEGER)
+    .toString(36)
+    .padStart(11, '0')
+  return `fallback-${timestamp}-${randomPart()}-${randomPart()}`
+}
+
 export const shouldRecordNoSlotObservation = (state: NoSlotObservationState) =>
   state.canLoad
   && !state.isClosedDate

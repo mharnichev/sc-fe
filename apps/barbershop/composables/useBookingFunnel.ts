@@ -1,6 +1,7 @@
 import {
   bookingFunnelEventPayload,
   createBookingFunnelAttempt,
+  createBookingFunnelId,
   parseStoredBookingFunnelAttempt,
   type BookingFunnelClientEventType,
   type BookingFunnelEventContext,
@@ -12,13 +13,7 @@ const BOOKING_FUNNEL_ATTEMPT_TTL_MS = 2 * 60 * 60 * 1000
 
 const secureRandomId = () => {
   if (!import.meta.client) return null
-
-  const cryptoApi = globalThis.crypto
-  if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID()
-  if (typeof cryptoApi?.getRandomValues !== 'function') return null
-
-  const bytes = cryptoApi.getRandomValues(new Uint8Array(16))
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+  return createBookingFunnelId(globalThis.crypto)
 }
 
 export const useBookingFunnel = () => {
@@ -88,7 +83,11 @@ export const useBookingFunnel = () => {
     return attempt
   }
 
-  const sessionId = () => ensureAttempt()?.anonymousSessionId
+  const sessionId = () => {
+    const attempt = ensureAttempt()
+    if (!attempt) throw new Error('Booking funnel session is available only in the browser')
+    return attempt.anonymousSessionId
+  }
 
   const claimAnalyticsStart = () => {
     if (!ensureAttempt() || !storedAttempt.value || storedAttempt.value.analyticsStarted) return false

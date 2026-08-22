@@ -600,6 +600,7 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(bookingFunnelSource, /v-if="isRenderable"[\s\S]+aria-label="Кроки воронки/)
   assert.match(bookingFunnelSource, /Операційні сигнали за період залишаються доступними нижче/)
   assert.match(bookingFunnelSource, /funnel\.unattributed_booking_successes/)
+  assert.doesNotMatch(bookingFunnelSource, /\{\{ funnel\.status_reason \}\}/)
   assert.doesNotMatch(
     bookingFunnelSource,
     /v-else-if="!funnel \|\| funnel\.status === 'unavailable'"/,
