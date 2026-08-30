@@ -5,12 +5,14 @@ const props = withDefaults(defineProps<{
   step?: number
   disabled?: boolean
   ariaLabel?: string
+  variant?: 'default' | 'stacked'
 }>(), {
   min: 0,
   max: Number.POSITIVE_INFINITY,
   step: 1,
   disabled: false,
   ariaLabel: '',
+  variant: 'default',
 })
 
 const model = defineModel<number>({ default: 0 })
@@ -25,7 +27,10 @@ const update = (value: number) => {
 </script>
 
 <template>
-  <div class="base-quantity-stepper" :aria-label="resolvedAriaLabel">
+  <div
+    :class="['base-quantity-stepper', `base-quantity-stepper--${variant}`]"
+    :aria-label="resolvedAriaLabel"
+  >
     <button
       class="base-quantity-stepper__button"
       type="button"
@@ -57,3 +62,51 @@ const update = (value: number) => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.base-quantity-stepper--stacked {
+  grid-template-columns: 2.6rem 2rem;
+  grid-template-rows: repeat(2, 1.4rem);
+  border: 0;
+  border-radius: 0.75rem;
+  background: #f7f7f7;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__button {
+  height: 1.4rem;
+  background: transparent;
+  color: #0a0a0a;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__button:first-of-type {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__button:last-of-type {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__input {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  height: 2.8rem;
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__button:not(:disabled):hover,
+.base-quantity-stepper--stacked .base-quantity-stepper__button:not(:disabled):focus-visible {
+  background: rgb(10 10 10 / 0.06);
+  color: #0a0a0a;
+}
+
+.base-quantity-stepper--stacked .base-quantity-stepper__button:disabled {
+  background: transparent;
+}
+</style>

@@ -97,7 +97,7 @@ const skeletonWidths = ['4.5rem', '7rem', '5.5rem']
 .catalog-breadcrumbs__current {
   max-width: min(52vw, 18rem);
   overflow: hidden;
-  font-size: 0.875rem;
+  font-size: 12px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -64,6 +64,19 @@ test('booking confirmation preview renders both configurable activity links', ()
 })
 
 
+test('master schedule reminder is available in messaging with preview variables', () => {
+  const { campaignTypes, campaignTypeLabel, variables, sampleClient, interpolateMessage } = useMessagingUi()
+
+  assert.ok(campaignTypes.some(item => item.value === 'master_schedule_reminder'))
+  assert.equal(campaignTypeLabel('master_schedule_reminder'), 'Нагадування майстрам про графік')
+  assert.ok(variables.includes('{coverage_percent}'))
+  assert.equal(
+    interpolateMessage('{master_name}: {month_name}, {coverage_percent}% → {target_percent}%', sampleClient),
+    'Андрій: вересень, 22.5% → 50%',
+  )
+})
+
+
 test('all backoffice booking confirmation editors require managed links', () => {
   assert.ok(smsPanelSource.includes('✅ Ви записані до майстра {master_name} на {appointment_date} о {appointment_time}. Чекаємо у {barbershop_name}.\\n\\n◉ Переглянути: {manage_url}\\n\\n❌ Скасувати: {cancel_url}'))
   assert.match(smsPanelSource, /requiredMissingVariables\.length > 0/)
@@ -72,12 +85,13 @@ test('all backoffice booking confirmation editors require managed links', () => 
 })
 
 
-test('SMS campaigns are split into customer and master recipient tables', () => {
+test('customer SMS and all master campaigns are split into recipient tables', () => {
   assert.match(smsPanelSource, /title: 'Повідомлення клієнтам'/)
   assert.match(smsPanelSource, /title: 'Повідомлення майстрам'/)
   assert.match(smsPanelSource, /v-for="group in campaignGroups"/)
   assert.match(smsPanelSource, /getSmsCampaigns\(page\.value, pageSize, \{ status: statusFilter\.value, recipient: 'customer' \}\)/)
-  assert.match(smsPanelSource, /getSmsCampaigns\(page\.value, pageSize, \{ status: statusFilter\.value, recipient: 'master' \}\)/)
+  assert.match(smsPanelSource, /getMessagingCampaigns\(page\.value, pageSize, \{ status: statusFilter\.value, recipient: 'master' \}\)/)
+  assert.match(smsPanelSource, /caption: 'Кампанії для майстрів'/)
   assert.doesNotMatch(smsPanelSource, /campaigns\.value\.filter\(campaign => campaignRecipient/)
 })
 

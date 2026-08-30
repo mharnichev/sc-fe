@@ -791,7 +791,7 @@ export const useBackofficeApi = () => {
   }
   const campaignPurpose = (type?: string) => {
     if (type === 'post_visit_review_request') return 'review_request'
-    if (['booking_confirmation', 'appointment_reminder'].includes(type || '')) return 'transactional'
+    if (['booking_confirmation', 'appointment_reminder', 'master_schedule_reminder', 'master_booking_created', 'master_booking_cancelled'].includes(type || '')) return 'transactional'
     return 'marketing'
   }
 

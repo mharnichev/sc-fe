@@ -129,7 +129,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   async () => {
     const [customer, master] = await Promise.all([
       api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'customer' }),
-      api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'master' }),
+      api.getMessagingCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'master' }),
     ])
     return { customer, master }
   },
@@ -152,7 +152,7 @@ const campaignGroups = computed(() => [
   {
     key: 'master',
     title: 'Повідомлення майстрам',
-    caption: 'SMS кампанії для майстрів',
+    caption: 'Кампанії для майстрів',
     emptyTitle: 'Повідомлень для майстрів за цими фільтрами немає',
     total: data.value?.master.total || 0,
     campaigns: data.value?.master.items || [],
@@ -433,8 +433,8 @@ const runJob = async (job: SmsJob) => {
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold text-slate-900">Усі SMS кампанії</h2>
-          <p class="mt-1 text-sm text-slate-500">SMS кампанії розділені за отримувачем: клієнт або майстер.</p>
+          <h2 class="text-xl font-semibold text-slate-900">Кампанії за отримувачем</h2>
+          <p class="mt-1 text-sm text-slate-500">SMS для клієнтів та всі системні повідомлення для майстрів.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <BaseSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
@@ -457,7 +457,7 @@ const runJob = async (job: SmsJob) => {
             :caption="group.caption"
             min-width="72rem"
             :loading="pending"
-            loading-label="Завантажуємо SMS кампанії…"
+            loading-label="Завантажуємо кампанії…"
             :empty="!group.campaigns.length"
             :empty-title="group.emptyTitle"
           >

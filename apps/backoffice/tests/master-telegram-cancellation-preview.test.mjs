@@ -9,9 +9,8 @@ const messagingPageSource = await readFile(
 )
 
 
-test('messaging dashboard shows the master Telegram cancellation notification preview', () => {
-  assert.match(messagingPageSource, /Системні сповіщення/)
-  assert.match(messagingPageSource, /Коли клієнт скасовує запис на сайті або в Telegram-боті/)
-  assert.ok(messagingPageSource.includes('❗ Клієнт Іван скасував запис: Стрижка 01.01.2099 10:00'))
-  assert.match(messagingPageSource, /<MessagingMessagePreview :body="masterCancellationTelegramPreview" \/>/)
+test('messaging dashboard does not duplicate master messages in a Telegram-only card', () => {
+  assert.doesNotMatch(messagingPageSource, /Telegram · майстер/)
+  assert.doesNotMatch(messagingPageSource, /masterCancellationTelegramPreview/)
+  assert.doesNotMatch(messagingPageSource, /Системні сповіщення/)
 })

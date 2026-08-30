@@ -21,6 +21,11 @@ export const useMessagingUi = () => {
     '{barbershop_name}',
     '{manage_url}',
     '{cancel_url}',
+    '{month_name}',
+    '{month}',
+    '{coverage_percent}',
+    '{low_coverage_percent}',
+    '{target_percent}',
   ]
   const bookingActivityVariableNames = ['manage_url', 'cancel_url'] as const
 
@@ -44,6 +49,9 @@ export const useMessagingUi = () => {
     { value: 're_engagement', label: 'Повернення неактивних клієнтів', helper: 'Для клієнтів без візитів певний час.' },
     { value: 'first_visit_follow_up', label: 'Після першого візиту', helper: 'Підтримати контакт з новим клієнтом.' },
     { value: 'loyalty_vip', label: 'VIP повідомлення', helper: 'Персональні пропозиції для найцінніших клієнтів.' },
+    { value: 'master_schedule_reminder', label: 'Нагадування майстрам про графік', helper: 'Наприкінці місяця нагадує майстрам відкрити час на наступний місяць.' },
+    { value: 'master_booking_created', label: 'Новий запис для майстра', helper: 'Повідомляє майстра одразу після бронювання візиту.' },
+    { value: 'master_booking_cancelled', label: 'Скасування запису для майстра', helper: 'Повідомляє майстра, коли клієнт скасовує візит.' },
   ]
 
   const channels: Array<{ value: MessagingChannel, label: string, enabled: boolean }> = [
@@ -111,6 +119,11 @@ export const useMessagingUi = () => {
     discount_code: 'SOUL10',
     manage_url: 'https://soulcuts.com.ua/booking/manage#secure-link',
     cancel_url: 'https://soulcuts.com.ua/booking/cancel#secure-link',
+    month_name: 'вересень',
+    month: '09.2026',
+    coverage_percent: '22.5',
+    low_coverage_percent: '30',
+    target_percent: '50',
   }
 
   return {

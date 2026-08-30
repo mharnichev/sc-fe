@@ -199,25 +199,40 @@ useSeo(
         <aside class="checkout-card checkout-card--mobile">
           <h2>{{ terms.checkout.orderSummary }}</h2>
           <div v-if="cart.items.length" class="checkout-order-list">
-            <article v-for="item in cart.items" :key="item.product.id" class="checkout-order-list__item">
+            <template v-for="(item, index) in cart.items" :key="item.product.id">
+              <div v-if="index > 0" class="checkout-order-list__divider" aria-hidden="true">
+                <span class="checkout-order-list__divider-line" />
+              </div>
+              <article class="checkout-order-list__item">
               <img
                 :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
                 :alt="item.product.images[0]?.alt || item.product.name"
               >
-              <div>
-                <h3>{{ item.product.name }}</h3>
-                <BaseQuantityStepper
-                  class="checkout-order-list__stepper"
-                  :model-value="item.quantity"
-                  :min="0"
-                  :max="Math.max(1, item.product.stock)"
-                  :disabled="cart.syncing"
-                  :aria-label="terms.checkout.quantityFor(item.product.name)"
-                  @update:model-value="cart.update(item.product.id, $event)"
-                />
+              <div class="checkout-order-list__body">
+                <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
+                <div class="checkout-order-list__title-row">
+                  <div class="checkout-order-list__title-copy">
+                    <h3>{{ item.product.name }}</h3>
+                    <strong class="checkout-order-list__price">
+                      {{ formatPrice(Number(item.product.price) * item.quantity) }}
+                    </strong>
+                  </div>
+                  <div class="checkout-order-list__actions">
+                    <BaseQuantityStepper
+                      class="checkout-order-list__stepper"
+                      variant="stacked"
+                      :model-value="item.quantity"
+                      :min="0"
+                      :max="Math.max(1, item.product.stock)"
+                      :disabled="cart.syncing"
+                      :aria-label="terms.checkout.quantityFor(item.product.name)"
+                      @update:model-value="cart.update(item.product.id, $event)"
+                    />
+                  </div>
+                </div>
               </div>
-              <strong>{{ formatPrice(Number(item.product.price) * item.quantity) }}</strong>
-            </article>
+              </article>
+            </template>
           </div>
           <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
           <div class="checkout-total">
@@ -337,25 +352,40 @@ useSeo(
           <section class="checkout-card">
             <h2>{{ terms.checkout.orderSummary }}</h2>
             <div v-if="cart.items.length" class="checkout-order-list">
-              <article v-for="item in cart.items" :key="item.product.id" class="checkout-order-list__item">
+              <template v-for="(item, index) in cart.items" :key="item.product.id">
+                <div v-if="index > 0" class="checkout-order-list__divider" aria-hidden="true">
+                  <span class="checkout-order-list__divider-line" />
+                </div>
+                <article class="checkout-order-list__item">
                 <img
                   :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
                   :alt="item.product.images[0]?.alt || item.product.name"
                 >
-                <div>
-                  <h3>{{ item.product.name }}</h3>
-                  <BaseQuantityStepper
-                    class="checkout-order-list__stepper"
-                    :model-value="item.quantity"
-                    :min="0"
-                    :max="Math.max(1, item.product.stock)"
-                    :disabled="cart.syncing"
-                    :aria-label="terms.checkout.quantityFor(item.product.name)"
-                    @update:model-value="cart.update(item.product.id, $event)"
-                  />
+                <div class="checkout-order-list__body">
+                  <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
+                  <div class="checkout-order-list__title-row">
+                    <div class="checkout-order-list__title-copy">
+                      <h3>{{ item.product.name }}</h3>
+                      <strong class="checkout-order-list__price">
+                        {{ formatPrice(Number(item.product.price) * item.quantity) }}
+                      </strong>
+                    </div>
+                    <div class="checkout-order-list__actions">
+                      <BaseQuantityStepper
+                        class="checkout-order-list__stepper"
+                        variant="stacked"
+                        :model-value="item.quantity"
+                        :min="0"
+                        :max="Math.max(1, item.product.stock)"
+                        :disabled="cart.syncing"
+                        :aria-label="terms.checkout.quantityFor(item.product.name)"
+                        @update:model-value="cart.update(item.product.id, $event)"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <strong>{{ formatPrice(Number(item.product.price) * item.quantity) }}</strong>
-              </article>
+                </article>
+              </template>
             </div>
             <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
             <p v-if="cart.error" class="checkout-page__error">{{ cart.error }}</p>
@@ -461,33 +491,81 @@ useSeo(
 
 .checkout-order-list {
   display: grid;
-  gap: 0.75rem;
   max-height: calc(100vh - 20rem);
   overflow: auto;
 }
 
 .checkout-order-list__item {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
   gap: 0.75rem;
-  align-items: center;
-  border-bottom: 1px solid rgb(10 10 10 / 0.08);
-  padding-bottom: 0.75rem;
+  align-items: start;
+  background: #ffffff;
+  font-size: 0.8rem;
+  padding: 0.65rem;
+}
+
+.checkout-order-list__divider {
+  padding: 0.75rem 0.65rem;
+}
+
+.checkout-order-list__divider-line {
+  display: block;
+  height: 1px;
+  background: rgb(10 10 10 / 0.08);
 }
 
 .checkout-order-list__item img {
-  height: 4.5rem;
-  width: 4.5rem;
+  aspect-ratio: 1;
+  width: 100%;
   object-fit: cover;
 }
 
+.checkout-order-list__body,
+.checkout-order-list__title-copy {
+  min-width: 0;
+}
+
+.checkout-order-list__brand {
+  margin-bottom: 0.25rem;
+  color: rgb(82 82 82);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.checkout-order-list__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.checkout-order-list__title-copy {
+  flex: 1;
+}
+
 .checkout-order-list__item h3 {
-  font-size: 0.9rem;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: 800;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.checkout-order-list__price {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: inherit;
   font-weight: 800;
 }
 
-.checkout-order-list__stepper {
-  margin-top: 0.5rem;
+.checkout-order-list__actions {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
 }
 
 .checkout-total {
@@ -523,6 +601,11 @@ useSeo(
 }
 
 @media (min-width: 1024px) {
+  .checkout-choice-list {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+
   .checkout-page__body {
     grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.7fr);
     align-items: start;

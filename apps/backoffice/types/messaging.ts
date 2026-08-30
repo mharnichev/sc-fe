@@ -12,6 +12,9 @@ export type CampaignType =
   | 're_engagement'
   | 'first_visit_follow_up'
   | 'loyalty_vip'
+  | 'master_schedule_reminder'
+  | 'master_booking_created'
+  | 'master_booking_cancelled'
 
 export type AudienceRuleType =
   | 'all_clients'

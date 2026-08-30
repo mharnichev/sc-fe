@@ -96,8 +96,6 @@ const cards = computed(() => [
   { label: 'Доставка', value: `${data.value?.delivery_rate || 0}%` },
   { label: 'Запити відгуків', value: data.value?.review_requests_sent || 0 },
 ])
-const masterCancellationTelegramPreview = '❗ Клієнт Іван скасував запис: Стрижка 01.01.2099 10:00'
-
 const telegramConnectedTotal = computed(() =>
   Math.max((telegramAudience.value?.estimate.total || 0) - (telegramAudience.value?.estimate.missing_chat_id || 0), 0),
 )
@@ -319,23 +317,6 @@ const insertCampaignVariable = (variable: string) => {
     </div>
 
     <MessagingSmsCampaignsPanel @changed="refreshMessagingData" />
-
-    <BaseCard as="section">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="ui-eyebrow text-sm uppercase tracking-[0.22em]">Telegram · майстер</p>
-          <h2 class="mt-2 text-xl font-semibold text-ui-primary">Системні сповіщення</h2>
-          <p class="mt-1 text-sm text-ui-muted">
-            Коли клієнт скасовує запис на сайті або в Telegram-боті, майстер автоматично отримує це повідомлення.
-          </p>
-        </div>
-        <span class="messaging-tone-success rounded-full px-3 py-1 text-xs font-semibold">Автоматично</span>
-      </div>
-      <div class="mt-5 max-w-xl">
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-ui-muted">Приклад повідомлення про скасування</p>
-        <MessagingMessagePreview :body="masterCancellationTelegramPreview" />
-      </div>
-    </BaseCard>
 
     <section id="campaigns" ref="campaignsSectionRef" class="base-card rounded-[1.5rem] p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-4">

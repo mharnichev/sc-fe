@@ -372,7 +372,7 @@ useHead(() => ({
               <ProductStatusBadges :product="product" />
               <BaseBadge class="product-buy__badge--borderless" :tone="stockTone">{{ stockLabel }}</BaseBadge>
               <BaseBadge v-if="averageRating" tone="dark">{{ averageRating }}/5</BaseBadge>
-              <BaseBadge class="product-buy__badge--borderless" tone="neutral">
+              <BaseBadge v-if="reviewsCount > 0" class="product-buy__badge--borderless" tone="neutral">
                 {{ reviewsCount }} {{ terms.product.reviews }}
               </BaseBadge>
             </div>

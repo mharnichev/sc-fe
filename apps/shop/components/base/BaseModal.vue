@@ -147,9 +147,11 @@ defineExpose({
               <slot :close="forceClose" />
             </div>
 
-            <footer v-if="$slots['bottom-buttons']" class="base-modal__bottom-buttons">
-              <slot name="bottom-buttons" />
-            </footer>
+            <Transition name="base-modal-bottom-buttons">
+              <footer v-if="$slots['bottom-buttons']" class="base-modal__bottom-buttons">
+                <slot name="bottom-buttons" />
+              </footer>
+            </Transition>
           </section>
         </div>
       </Transition>
@@ -277,6 +279,19 @@ defineExpose({
   flex: 0 0 auto;
   background: #ffffff;
   padding: 1rem;
+}
+
+.base-modal-bottom-buttons-enter-active,
+.base-modal-bottom-buttons-leave-active {
+  transition:
+    opacity 220ms ease,
+    transform 300ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.base-modal-bottom-buttons-enter-from,
+.base-modal-bottom-buttons-leave-to {
+  opacity: 0;
+  transform: translateY(0.5rem);
 }
 
 .base-modal--inline {
@@ -440,7 +455,9 @@ defineExpose({
   .base-modal-enter-active .base-modal__overlay,
   .base-modal-leave-active .base-modal__overlay,
   .base-modal-enter-active .base-modal__container,
-  .base-modal-leave-active .base-modal__container {
+  .base-modal-leave-active .base-modal__container,
+  .base-modal-bottom-buttons-enter-active,
+  .base-modal-bottom-buttons-leave-active {
     transition: none;
   }
 }

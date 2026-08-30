@@ -49,26 +49,6 @@ const openAccount = () => modal.openModal(auth.isAuthenticated ? 'CabinetModal' 
 <template>
   <footer class="shop-footer" data-header-theme="dark">
     <div class="shop-footer__inner">
-      <section class="shop-footer__cta" aria-labelledby="shop-footer-title">
-        <div class="shop-footer__cta-copy">
-          <BaseSectionLabel>{{ terms.footer.eyebrow }}</BaseSectionLabel>
-          <h2 id="shop-footer-title" class="shop-footer__title">
-            {{ terms.footer.title }}
-          </h2>
-          <p class="shop-footer__text">
-            {{ terms.footer.text }}
-          </p>
-        </div>
-
-        <div class="shop-footer__cta-actions">
-          <BaseButton to="/catalog" variant="light" effect="waves">
-            {{ terms.footer.browseCatalog }}
-          </BaseButton>
-          <BaseButton to="/delivery-payment#delivery" variant="outline-light">
-            {{ terms.footer.deliveryDetails }}
-          </BaseButton>
-        </div>
-      </section>
 
       <div class="shop-footer__grid">
         <div class="shop-footer__brand">
