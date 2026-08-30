@@ -1,7 +1,91 @@
 <script setup lang="ts">
-import { ChevronDownIcon, FunnelIcon, LockOpenIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  LockOpenIcon,
+  PlusIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
-import type { Master, MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
+import type {
+  Booking,
+  Master,
+  MasterAvailabilityWindow,
+  Service,
+  TimeBlock,
+} from '~/composables/useBackofficeApi'
+
+interface CalendarDayColumn {
+  date: string
+  dayNumber: number
+  weekday: string
+  isToday: boolean
+}
+
+interface ScheduleEntry<T> {
+  item: T
+  label: string
+}
+
+interface MasterDaySchedule {
+  availability: ScheduleEntry<MasterAvailabilityWindow>[]
+  blocks: ScheduleEntry<TimeBlock>[]
+}
+
+interface MasterScheduleCell {
+  day: CalendarDayColumn
+  schedule: MasterDaySchedule
+}
+
+interface MasterScheduleRow {
+  stat: MasterMonthStat
+  cells: MasterScheduleCell[]
+}
+
+interface SelectedScheduleItem {
+  master: Master
+  date: string
+  startAt: string
+  endAt: string
+  kind: 'availability' | 'block'
+  reason?: string | null
+}
+
+interface TimeRange {
+  start: number
+  end: number
+}
+
+interface MasterPresentation {
+  master: Master
+  displayName: string
+  imageUrl: string
+  initials: string
+  position: string
+}
+
+interface MasterMonthStat extends MasterPresentation {
+  workDays: number
+  scheduledMinutes: number
+  bookedMinutes: number
+  blockedMinutes: number
+  capacityMinutes: number
+  freeMinutes: number
+  loadPercent: number
+}
+
+interface MasterMonthData {
+  availability: MasterAvailabilityWindow[]
+  blocks: TimeBlock[]
+  bookings: Booking[]
+  workDates: Set<string>
+}
+
+interface CalendarDataIndex {
+  schedules: Record<string, MasterDaySchedule>
+  byMaster: Map<number, MasterMonthData>
+}
 
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
@@ -10,59 +94,100 @@ const toast = useBaseToastNotification()
 const {
   todayInput,
   addDaysInput,
-  formatDateTime,
-  toKyivIso,
+  formatTime,
+  bookingStart,
+  bookingEnd,
+  bookingServiceIds,
+  bookingRedirectMasterId,
+  redirectedFromMasterId,
   masterName,
   normalizeItems,
   apiErrorMessage,
+  toKyivIso,
 } = useBookingFormatting()
 const calendar = useBookingCalendar()
 
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
-const filters = reactive({
-  date_from: todayInput(),
-  date_to: addDaysInput(todayInput(), 30),
-  master_id: '',
-})
+const today = todayInput()
+const anchorDate = ref(`${today.slice(0, 7)}-01`)
+const masterFilterId = ref('')
+const selectedMasterId = computed(() => masterFilterId.value ? Number(masterFilterId.value) : null)
 
-const [{ data, pending, error, refresh }, { data: masters }] = await Promise.all([
+const pad = (value: number) => String(value).padStart(2, '0')
+const dateInput = (year: number, monthIndex: number, day: number) =>
+  `${year}-${pad(monthIndex + 1)}-${pad(day)}`
+
+const monthStart = computed(() => `${anchorDate.value.slice(0, 7)}-01`)
+const monthEnd = computed(() => {
+  const [year, month] = monthStart.value.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(year, month, 0, 12)).getUTCDate()
+  return `${year}-${pad(month)}-${pad(lastDay)}`
+})
+const monthFormatter = new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' })
+const monthLabel = computed(() => {
+  const [year, month] = monthStart.value.split('-').map(Number)
+  return monthFormatter.format(new Date(Date.UTC(year, month - 1, 1, 12)))
+})
+const weekdayFormatter = new Intl.DateTimeFormat('uk-UA', { weekday: 'short', timeZone: 'Europe/Kyiv' })
+const selectedDayFormatter = new Intl.DateTimeFormat('uk-UA', { day: 'numeric', month: 'long', timeZone: 'Europe/Kyiv' })
+const monthRangeLabel = computed(() => `${monthStart.value} — ${monthEnd.value}`)
+
+const addMonthsInput = (date: string, offset: number) => {
+  const [year, month] = date.split('-').map(Number)
+  const next = new Date(Date.UTC(year, month - 1 + offset, 1, 12))
+  return dateInput(next.getUTCFullYear(), next.getUTCMonth(), 1)
+}
+
+const moveMonth = (offset: -1 | 1) => {
+  anchorDate.value = addMonthsInput(monthStart.value, offset)
+}
+
+const goToCurrentMonth = () => {
+  anchorDate.value = `${todayInput().slice(0, 7)}-01`
+}
+
+const [{ data, pending, error, refresh }, { data: masters }, { data: services }] = await Promise.all([
   useAsyncData(
-    'admin-time-blocks',
+    'admin-time-blocks-month',
     async () => {
-      const masterId = filters.master_id ? Number(filters.master_id) : null
-      const [timeBlocks, availability] = await Promise.all([
-        api.adminGetCalendarTimeBlocks({
-          date_from: toKyivIso(filters.date_from, '00:00'),
-          date_to: toKyivIso(addDaysInput(filters.date_to, 1), '00:00'),
-          master_id: masterId,
-        }),
-        api.adminGetAvailability({
-          date_from: toKyivIso(filters.date_from, calendar.workdayStart),
-          date_to: toKyivIso(filters.date_to, calendar.workdayEnd),
-          master_id: masterId,
-        }),
+      const range = {
+        date_from: toKyivIso(monthStart.value, '00:00'),
+        date_to: toKyivIso(addDaysInput(monthEnd.value, 1), '00:00'),
+        master_id: selectedMasterId.value,
+      }
+      const availabilityRange = {
+        date_from: toKyivIso(monthStart.value, calendar.workdayStart),
+        date_to: toKyivIso(monthEnd.value, calendar.workdayEnd),
+        master_id: selectedMasterId.value,
+      }
+      const [timeBlocks, availability, bookings] = await Promise.all([
+        api.adminGetCalendarTimeBlocks(range),
+        api.adminGetAvailability(availabilityRange),
+        api.adminGetCalendarBookings(range),
       ])
-      return { timeBlocks, availability }
+      return { timeBlocks, availability, bookings }
     },
+    { watch: [monthStart, selectedMasterId] },
   ),
   useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200)),
+  useAsyncData('time-block-service-options', () => api.getServices()),
 ])
 
 const blocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
-const availabilityWindows = computed<MasterAvailabilityWindow[]>(() =>
-  (data.value?.availability || []).filter(window => {
-    const date = window.start_at.slice(0, 10)
-    return (!filters.date_from || date >= filters.date_from) && (!filters.date_to || date <= filters.date_to)
-  }),
-)
-const masterOptions = computed(() => normalizeItems(masters.value))
+const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => normalizeItems(data.value?.availability))
+const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
+const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
+const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
+const servicesById = computed(() => new Map(serviceOptions.value.map(service => [Number(service.id), service])))
+const selectedMaster = computed(() => masterOptions.value.find(master => master.id === selectedMasterId.value) || null)
 const deletingId = ref<number | null>(null)
 const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 const availabilityModalOpen = ref(false)
+const availabilityToDelete = ref<MasterAvailabilityWindow | null>(null)
 const masterFilterOpen = ref(false)
 const masterFilterRef = ref<HTMLElement | null>(null)
-const selectedMaster = computed(() => masterOptions.value.find(master => String(master.id) === filters.master_id) || null)
+const selectedScheduleItem = ref<SelectedScheduleItem | null>(null)
 
 const masterDisplayName = (master?: Master | null) => {
   if (!master) return 'Усі майстри'
@@ -76,10 +201,237 @@ const masterImageUrl = (master?: Master | null) =>
 
 const masterInitials = (master?: Master | null) => initials(masterDisplayName(master)) || 'SC'
 
+const masterPresentations = computed<MasterPresentation[]>(() => masterOptions.value.map(master => {
+  const displayName = masterDisplayName(master)
+  return {
+    master,
+    displayName,
+    imageUrl: masterImageUrl(master),
+    initials: initials(displayName) || 'SC',
+    position: master.position_uk || 'Майстер',
+  }
+}))
+
 const selectMasterFilter = (masterId: string) => {
-  filters.master_id = masterId
+  masterFilterId.value = masterId
   masterFilterOpen.value = false
 }
+
+const monthDays = computed<CalendarDayColumn[]>(() => {
+  const [year, month] = monthStart.value.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(year, month, 0, 12)).getUTCDate()
+  return Array.from({ length: lastDay }, (_, index) => {
+    const date = addDaysInput(monthStart.value, index)
+    return {
+      date,
+      dayNumber: Number(date.slice(8, 10)),
+      weekday: weekdayFormatter.format(new Date(toKyivIso(date, '12:00'))).replace('.', ''),
+      isToday: date === today,
+    }
+  })
+})
+
+const intervalLabel = (startAt: string, endAt: string) => `${formatTime(startAt)}–${formatTime(endAt)}`
+
+const calendarDataIndex = computed<CalendarDataIndex>(() => {
+  const schedules: Record<string, MasterDaySchedule> = {}
+  const byMaster = new Map<number, MasterMonthData>()
+  const ensureSchedule = (masterId: number, date: string) => {
+    const key = `${masterId}:${date}`
+    schedules[key] ||= { availability: [], blocks: [] }
+    return schedules[key]
+  }
+  const dataForMaster = (masterId: number) => {
+    let masterData = byMaster.get(masterId)
+    if (!masterData) {
+      masterData = { availability: [], blocks: [], bookings: [], workDates: new Set<string>() }
+      byMaster.set(masterId, masterData)
+    }
+    return masterData
+  }
+
+  for (const window of availabilityWindows.value) {
+    const masterData = dataForMaster(window.master_id)
+    masterData.availability.push(window)
+    const date = calendar.dateInputFromDateTime(window.start_at)
+    if (date) {
+      masterData.workDates.add(date)
+      ensureSchedule(window.master_id, date).availability.push({
+        item: window,
+        label: intervalLabel(window.start_at, window.end_at),
+      })
+    }
+  }
+  for (const block of blocks.value) {
+    dataForMaster(block.master_id).blocks.push(block)
+    const date = calendar.dateInputFromDateTime(block.start_at)
+    if (date) {
+      ensureSchedule(block.master_id, date).blocks.push({
+        item: block,
+        label: intervalLabel(block.start_at, block.end_at),
+      })
+    }
+  }
+  for (const booking of bookings.value) {
+    const ownerMasterId = redirectedFromMasterId(booking) ?? booking.master_id
+    if (booking.status !== 'cancelled' && ownerMasterId != null) {
+      dataForMaster(ownerMasterId).bookings.push(booking)
+    }
+  }
+
+  for (const schedule of Object.values(schedules)) {
+    schedule.availability.sort((first, second) => first.item.start_at.localeCompare(second.item.start_at))
+    schedule.blocks.sort((first, second) => first.item.start_at.localeCompare(second.item.start_at))
+  }
+  return { schedules, byMaster }
+})
+
+const emptyDaySchedule: MasterDaySchedule = { availability: [], blocks: [] }
+
+const selectSchedule = (
+  master: Master,
+  date: string,
+  item: MasterAvailabilityWindow | TimeBlock,
+  kind: SelectedScheduleItem['kind'],
+) => {
+  selectedScheduleItem.value = {
+    master,
+    date,
+    startAt: item.start_at,
+    endAt: item.end_at,
+    kind,
+    reason: 'reason' in item ? item.reason : null,
+  }
+}
+
+const selectedScheduleLabel = computed(() => {
+  const selected = selectedScheduleItem.value
+  if (!selected) return 'Натисніть робочий інтервал або блокування в таблиці.'
+  const kindLabel = selected.kind === 'block' ? selected.reason || 'блокування' : 'робочий час'
+  const dateLabel = selectedDayFormatter.format(new Date(toKyivIso(selected.date, '12:00')))
+  return `${dateLabel} · ${masterDisplayName(selected.master)} · ${intervalLabel(selected.startAt, selected.endAt)} · ${kindLabel}`
+})
+
+watch([monthStart, selectedMasterId], () => {
+  selectedScheduleItem.value = null
+})
+
+const timestamp = (value?: string | null) => {
+  const time = value ? new Date(value).getTime() : Number.NaN
+  return Number.isFinite(time) ? time : null
+}
+
+const mergeRanges = (ranges: TimeRange[]) => {
+  const sorted = ranges
+    .filter(range => range.end > range.start)
+    .sort((first, second) => first.start - second.start)
+  if (!sorted.length) return []
+
+  const merged: TimeRange[] = []
+  let current = { ...sorted[0] }
+  for (const range of sorted.slice(1)) {
+    if (range.start <= current.end) {
+      current.end = Math.max(current.end, range.end)
+      continue
+    }
+    merged.push(current)
+    current = { ...range }
+  }
+  merged.push(current)
+  return merged
+}
+
+const minutesInRanges = (ranges: TimeRange[]) =>
+  Math.round(ranges.reduce((total, range) => total + range.end - range.start, 0) / 60000)
+
+const rangesFromItems = (items: Array<{ start_at?: string, end_at?: string }>) =>
+  items.map(item => ({ start: timestamp(item.start_at), end: timestamp(item.end_at) }))
+    .filter((range): range is TimeRange => range.start != null && range.end != null && range.end > range.start)
+
+const serviceDurationMinutes = (booking: Booking) => {
+  const ids = bookingServiceIds(booking)
+  const duration = ids.reduce((total, id) => total + Number(servicesById.value.get(id)?.duration_minutes || 0), 0)
+  return duration || Number(booking.service?.duration_minutes || 30)
+}
+
+const bookingRange = (booking: Booking): TimeRange | null => {
+  const start = timestamp(bookingStart(booking))
+  if (start == null || booking.status === 'cancelled') return null
+  const explicitEnd = timestamp(bookingEnd(booking))
+  return { start, end: explicitEnd && explicitEnd > start ? explicitEnd : start + serviceDurationMinutes(booking) * 60000 }
+}
+
+const overlapMinutes = (firstRanges: TimeRange[], secondRanges: TimeRange[]) => {
+  let firstIndex = 0
+  let secondIndex = 0
+  let overlapMilliseconds = 0
+
+  while (firstIndex < firstRanges.length && secondIndex < secondRanges.length) {
+    const first = firstRanges[firstIndex]
+    const second = secondRanges[secondIndex]
+    overlapMilliseconds += Math.max(0, Math.min(first.end, second.end) - Math.max(first.start, second.start))
+
+    if (first.end <= second.end) firstIndex += 1
+    else secondIndex += 1
+  }
+  return Math.round(overlapMilliseconds / 60000)
+}
+
+const formatHours = (minutes: number) => {
+  const hours = minutes / 60
+  return Number.isInteger(hours)
+    ? `${hours.toLocaleString('uk-UA')} год`
+    : `${hours.toLocaleString('uk-UA', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} год`
+}
+
+const visibleMasterPresentations = computed(() => selectedMasterId.value != null
+  ? masterPresentations.value.filter(presentation => presentation.master.id === selectedMasterId.value)
+  : masterPresentations.value.filter(presentation => presentation.master.is_active !== false))
+
+const calendarMasterId = (master: Master) => bookingRedirectMasterId(master) ?? master.id
+
+const masterStats = computed<MasterMonthStat[]>(() => {
+  return visibleMasterPresentations.value.map((presentation) => {
+    const { master } = presentation
+    const calendarMasterData = calendarDataIndex.value.byMaster.get(calendarMasterId(master))
+    const bookingMasterData = calendarDataIndex.value.byMaster.get(master.id)
+    const masterAvailability = calendarMasterData?.availability || []
+    const availabilityRanges = mergeRanges(rangesFromItems(masterAvailability))
+    const blockRanges = mergeRanges(rangesFromItems(calendarMasterData?.blocks || []))
+    const bookingRanges = mergeRanges((bookingMasterData?.bookings || []).map(bookingRange).filter((range): range is TimeRange => Boolean(range)))
+    const scheduledMinutes = minutesInRanges(availabilityRanges)
+    const blockedMinutes = overlapMinutes(availabilityRanges, blockRanges)
+    const capacityMinutes = Math.max(0, scheduledMinutes - blockedMinutes)
+    const bookedMinutes = minutesInRanges(bookingRanges)
+    const workDays = calendarMasterData?.workDates.size || 0
+    const loadPercent = capacityMinutes ? Math.round((bookedMinutes / capacityMinutes) * 100) : bookedMinutes ? 100 : 0
+
+    return {
+      ...presentation,
+      workDays,
+      scheduledMinutes,
+      bookedMinutes,
+      blockedMinutes,
+      capacityMinutes,
+      freeMinutes: Math.max(0, capacityMinutes - bookedMinutes),
+      loadPercent,
+    }
+  }).sort((first, second) => {
+    if (second.loadPercent !== first.loadPercent) return second.loadPercent - first.loadPercent
+    return first.displayName.localeCompare(second.displayName, 'uk')
+  })
+})
+
+const scheduleRows = computed<MasterScheduleRow[]>(() => masterStats.value.map(stat => ({
+  stat,
+  cells: monthDays.value.map(day => ({
+    day,
+    schedule: calendarDataIndex.value.schedules[`${calendarMasterId(stat.master)}:${day.date}`] || emptyDaySchedule,
+  })),
+})))
+
+const totalScheduledMinutes = computed(() => masterStats.value.reduce((total, stat) => total + stat.scheduledMinutes, 0))
+const totalBookedMinutes = computed(() => masterStats.value.reduce((total, stat) => total + stat.bookedMinutes, 0))
 
 const openCreateBlock = () => {
   timeBlockModalOpen.value = true
@@ -89,32 +441,36 @@ const openCreateAvailability = () => {
   availabilityModalOpen.value = true
 }
 
-const applyFilters = async () => {
-  masterFilterOpen.value = false
-  await refresh()
-}
-
-const handleBlockSaved = async (message: string) => {
+const handleSaved = async (message: string) => {
   toast.success(message)
   await refresh()
 }
 
-const handleBlockModalUpdate = (value: boolean) => {
-  timeBlockModalOpen.value = value
+const availabilityDeleteContextItems = computed(() => {
+  const window = availabilityToDelete.value
+  if (!window) return []
+  const master = window.master || masterOptions.value.find(option => option.id === window.master_id)
+  return [
+    { label: 'Майстер', value: masterDisplayName(master) },
+    { label: 'Дата', value: selectedDayFormatter.format(new Date(window.start_at)) },
+    { label: 'Робочий час', value: intervalLabel(window.start_at, window.end_at) },
+  ]
+})
+
+const openDeleteAvailabilityConfirm = (window: MasterAvailabilityWindow) => {
+  if (!isAdmin.value || deletingAvailabilityId.value != null) return
+  availabilityToDelete.value = window
 }
 
-const handleAvailabilityModalUpdate = (value: boolean) => {
-  availabilityModalOpen.value = value
+const handleAvailabilityDeleteConfirmUpdate = (value: boolean) => {
+  if (!value && deletingAvailabilityId.value == null) availabilityToDelete.value = null
 }
 
-const resolveMaster = (masterId?: number | null, embeddedMaster?: Master | null) =>
-  embeddedMaster || masterOptions.value.find(master => master.id === masterId) || null
-
-const deleteBlock = async (blockId: number) => {
-  if (!confirm(`Видалити time block #${blockId}?`)) return
-  deletingId.value = blockId
+const deleteBlock = async (block: TimeBlock) => {
+  if (!confirm(`Видалити блокування ${intervalLabel(block.start_at, block.end_at)}?`)) return
+  deletingId.value = block.id
   try {
-    await api.adminDeleteTimeBlock(blockId)
+    await api.adminDeleteTimeBlock(block.id)
     toast.success('Блокування часу видалено.')
     await refresh()
   }
@@ -126,16 +482,18 @@ const deleteBlock = async (blockId: number) => {
   }
 }
 
-const deleteAvailability = async (windowId: number) => {
-  if (!confirm(`Закрити доступність #${windowId}?`)) return
-  deletingAvailabilityId.value = windowId
+const confirmDeleteAvailability = async () => {
+  const window = availabilityToDelete.value
+  if (!window || deletingAvailabilityId.value != null) return
+  deletingAvailabilityId.value = window.id
   try {
-    await api.adminDeleteAvailabilityWindow(windowId)
-    toast.success('Доступність закрито.')
+    await api.adminDeleteAvailabilityWindow(window.id)
+    toast.success('Робочий інтервал видалено.')
+    availabilityToDelete.value = null
     await refresh()
   }
   catch (cause) {
-    toast.error(apiErrorMessage(cause, 'Не вдалося закрити доступність.'))
+    toast.error(apiErrorMessage(cause, 'Не вдалося видалити робочий інтервал.'))
   }
   finally {
     deletingAvailabilityId.value = null
@@ -153,17 +511,20 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
+  <div class="space-y-4 md:space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3 md:gap-4">
       <div>
-        <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Адмін</p>
-        <h1 class="mt-2 text-3xl font-semibold text-slate-900">Доступність майстрів</h1>
+        <p class="type-eyebrow ui-eyebrow text-xs md:text-sm">Календар</p>
+        <h1 class="type-page-title mt-1 text-2xl text-ui-primary md:mt-2 md:text-3xl">Графік майстрів</h1>
+        <p class="mt-1 text-sm text-ui-muted">Робочі дні, години та місячна завантаженість команди.</p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex w-full gap-2 sm:w-auto">
         <BaseButton
           type="button"
+          variant="success"
+          size="lg"
+          class="flex-1 sm:flex-none"
           :disabled="!isAdmin"
-          class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
           @click="openCreateAvailability"
         >
           <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
@@ -171,8 +532,10 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
         </BaseButton>
         <BaseButton
           type="button"
+          variant="create"
+          size="lg"
+          class="flex-1 sm:flex-none"
           :disabled="!isAdmin"
-          class="time-block-create-button inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-medium transition disabled:opacity-60"
           @click="openCreateBlock"
         >
           <PlusIcon class="h-4 w-4" aria-hidden="true" />
@@ -181,162 +544,303 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
       </div>
     </div>
 
-    <p v-if="!isAdmin" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      Для керування доступністю майстрів потрібен доступ адміністратора.
+    <p v-if="!isAdmin" class="ui-status-warning rounded-2xl px-4 py-3 text-sm">
+      Для керування графіком майстрів потрібен доступ адміністратора.
     </p>
 
-    <section class="relative z-30 space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="grid gap-3 md:grid-cols-4">
-        <BaseCalendar v-model="filters.date_from" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
-        <BaseCalendar v-model="filters.date_to" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
-        <div ref="masterFilterRef" class="relative z-40 min-w-0">
+    <BaseCard as="section" padding="sm" class="relative z-30 space-y-3 md:space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 sm:w-auto md:flex md:gap-2">
+          <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Попередній місяць" title="Попередній місяць" @click="moveMonth(-1)">
+            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+          <p class="min-w-0 text-center text-base font-semibold capitalize text-ui-primary md:min-w-48 md:text-left md:text-lg">{{ monthLabel }}</p>
+          <BaseButton type="button" variant="neutral" size="sm" @click="goToCurrentMonth">Цей місяць</BaseButton>
+          <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Наступний місяць" title="Наступний місяць" @click="moveMonth(1)">
+            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+        </div>
+
+        <div ref="masterFilterRef" class="relative w-full sm:w-72">
           <BaseButton
             type="button"
-            class="backoffice-select-trigger flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-300 px-4 py-2 text-left text-sm transition focus:outline-none"
+            class="base-control flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left text-sm"
             :aria-expanded="masterFilterOpen"
             aria-haspopup="listbox"
             @click="masterFilterOpen = !masterFilterOpen"
           >
             <span class="flex min-w-0 items-center gap-2">
-              <span class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200">
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
                 <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterDisplayName(selectedMaster)" class="h-full w-full object-cover">
                 <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
               </span>
-              <span class="min-w-0 truncate font-medium text-slate-900">{{ masterDisplayName(selectedMaster) }}</span>
+              <span class="min-w-0 truncate font-medium text-ui-primary">{{ masterDisplayName(selectedMaster) }}</span>
             </span>
-            <ChevronDownIcon class="backoffice-select-chevron h-4 w-4 shrink-0 transition" :class="{ 'rotate-180': masterFilterOpen }" aria-hidden="true" />
+            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
           </BaseButton>
-          <div
-            v-if="masterFilterOpen"
-            class="booking-select-menu absolute z-[300] mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:rounded-2xl"
-            role="listbox"
-          >
-            <BaseButton
-              type="button"
-              class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
-              :class="!filters.master_id ? 'bg-slate-50' : ''"
-              @click="selectMasterFilter('')"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">SC</span>
+          <div v-if="masterFilterOpen" class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full overflow-y-auto rounded-2xl p-1" role="listbox">
+            <BaseButton type="button" class="base-select__option flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm" :class="!masterFilterId ? 'is-selected' : ''" @click="selectMasterFilter('')">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ui bg-ui-subtle text-xs font-semibold text-ui-secondary">SC</span>
               <span class="min-w-0 truncate font-medium">Усі майстри</span>
             </BaseButton>
             <BaseButton
-              v-for="master in masterOptions"
-              :key="master.id"
+              v-for="presentation in masterPresentations"
+              :key="presentation.master.id"
               type="button"
-              class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm"
-              :class="filters.master_id === String(master.id) ? 'bg-slate-50' : ''"
-              @click="selectMasterFilter(String(master.id))"
+              class="base-select__option flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm"
+              :class="masterFilterId === String(presentation.master.id) ? 'is-selected' : ''"
+              @click="selectMasterFilter(String(presentation.master.id))"
             >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-                <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterDisplayName(master)" class="h-full w-full object-cover">
-                <span v-else>{{ masterInitials(master) }}</span>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-xs font-semibold text-ui-secondary">
+                <img v-if="presentation.imageUrl" :src="presentation.imageUrl" :alt="presentation.displayName" class="h-full w-full object-cover">
+                <span v-else>{{ presentation.initials }}</span>
               </span>
               <span class="min-w-0">
-                <span class="block truncate font-medium">{{ masterDisplayName(master) }}</span>
-                <span v-if="master.position_uk" class="block truncate text-xs text-slate-500">{{ master.position_uk }}</span>
+                <span class="block truncate font-medium">{{ presentation.displayName }}</span>
+                <span v-if="presentation.master.position_uk" class="block truncate text-xs text-ui-muted">{{ presentation.position }}</span>
               </span>
             </BaseButton>
           </div>
         </div>
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
       </div>
 
-      <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
-        {{ apiErrorMessage(error, 'Не вдалося завантажити доступність.') }}
+      <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
+        <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
+        <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
+      </div>
+
+      <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
+        {{ apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') }}
       </p>
-      <div v-if="pending" class="text-sm text-slate-500">Завантаження доступності...</div>
-    </section>
+      <BaseLoader v-if="pending" label="Завантаження графіка…" size="sm" />
+    </BaseCard>
 
-    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-slate-900">Відкрито для запису</h2>
-        <BaseButton
-          type="button"
-          :disabled="!isAdmin"
-          class="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
-          @click="openCreateAvailability"
-        >
-          <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
-          Додати
-        </BaseButton>
+    <BaseCard as="section" padding="none" class="overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4">
+        <div class="flex flex-wrap items-center gap-2 text-xs text-ui-secondary">
+          <BaseBadge tone="success" dot>Робочий час</BaseBadge>
+          <BaseBadge tone="danger" dot>Блокування</BaseBadge>
+          <BaseBadge tone="neutral" dot>Вихідний</BaseBadge>
+        </div>
+        <p class="text-xs text-ui-muted">Майстри закріплені зліва, дні прокручуються горизонтально</p>
       </div>
-      <div v-if="pending" class="text-sm text-slate-500">Завантаження відкритих інтервалів...</div>
-      <div v-else-if="!availabilityWindows.length" class="text-sm text-slate-500">У цьому діапазоні дат немає відкритих інтервалів.</div>
-      <div v-else class="divide-y divide-slate-100">
-        <article v-for="window in availabilityWindows" :key="window.id" class="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p class="font-medium text-slate-900">{{ masterName(resolveMaster(window.master_id, window.master)) }}</p>
-            <p class="text-sm text-slate-500">{{ formatDateTime(window.start_at) }} - {{ formatDateTime(window.end_at) }}</p>
-            <p class="text-xs text-emerald-700">Готовий приймати клієнтів</p>
-          </div>
-          <BaseButton
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-            :disabled="deletingAvailabilityId === window.id || !isAdmin"
-            :aria-label="deletingAvailabilityId === window.id ? 'Закриття доступності' : 'Закрити доступність'"
-            :title="deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити'"
-            @click="deleteAvailability(window.id)"
+
+      <div class="flex min-h-11 items-center gap-2 border-b border-ui bg-ui-subtle px-3 py-2 text-xs md:px-4 md:text-sm">
+        <span class="shrink-0 font-medium text-ui-muted">Вибрано</span>
+        <span class="min-w-0 truncate text-ui-primary">{{ selectedScheduleLabel }}</span>
+      </div>
+
+      <BaseEmptyState v-if="!masterStats.length" compact title="Немає майстрів для відображення" />
+      <BaseTable
+        v-else
+        caption="Графік робочого часу майстрів за днями місяця"
+        wrapper-class="rounded-none border-0"
+        scroll-class="max-h-[72dvh] overflow-auto"
+        min-width="max-content"
+        table-class="!border-separate border-spacing-0 text-left"
+      >
+        <template #head>
+          <tr>
+            <th class="schedule-matrix__header sticky left-0 top-0 z-[80] min-w-44 border-b border-r border-ui !px-3 !py-2 text-xs font-semibold uppercase tracking-[0.1em] text-ui-muted md:min-w-56 md:!px-4">
+              Майстер
+            </th>
+            <th
+              v-for="day in monthDays"
+              :key="day.date"
+              class="schedule-matrix__header sticky top-0 z-[60] min-w-36 border-b border-r border-ui !px-2 !py-2 !text-center"
+              :class="day.isToday ? 'schedule-matrix__today' : ''"
+            >
+              <span class="block text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ui-muted">{{ day.weekday }}</span>
+              <span class="mt-0.5 block text-sm font-semibold text-ui-primary">{{ day.dayNumber }}</span>
+            </th>
+            <th class="schedule-matrix__header sticky right-0 top-0 z-[80] min-w-44 border-b border-ui !px-3 !py-2 text-xs font-semibold uppercase tracking-[0.1em] text-ui-muted">
+              Завантаження
+            </th>
+          </tr>
+        </template>
+        <tr v-for="{ stat, cells } in scheduleRows" :key="stat.master.id" class="group">
+          <th scope="row" class="sticky left-0 z-40 min-w-44 border-b border-r border-ui bg-ui-surface px-3 py-2 text-left md:min-w-56 md:px-4">
+            <div class="flex min-w-0 items-center gap-2.5">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
+                <img v-if="stat.imageUrl" :src="stat.imageUrl" :alt="stat.displayName" class="h-full w-full object-cover">
+                <span v-else>{{ stat.initials }}</span>
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-ui-primary">{{ stat.displayName }}</span>
+                <span class="mt-0.5 block truncate text-[0.68rem] font-normal text-ui-muted">{{ stat.position }}</span>
+              </span>
+            </div>
+          </th>
+
+          <td
+            v-for="{ day, schedule } in cells"
+            :key="`${stat.master.id}-${day.date}`"
+            class="min-w-36 border-b border-r border-ui bg-ui-surface !p-1.5 !align-top"
+            :class="day.isToday ? 'schedule-matrix__today' : ''"
           >
-            <TrashIcon class="h-5 w-5" aria-hidden="true" />
-            <span class="sr-only">{{ deletingAvailabilityId === window.id ? 'Закриття...' : 'Закрити' }}</span>
-          </BaseButton>
+            <div v-if="schedule.availability.length || schedule.blocks.length" class="space-y-1">
+              <div
+                v-for="{ item: window, label } in schedule.availability"
+                :key="`availability-${window.id}`"
+                class="flex min-h-8 items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/12 px-1.5 py-1"
+              >
+                <BaseButton
+                  type="button"
+                  variant="unstyled"
+                  class="min-w-0 flex-1 whitespace-nowrap text-left text-[0.68rem] font-semibold text-emerald-700"
+                  :aria-label="`${stat.displayName}, ${day.date}, робочий час ${label}`"
+                  @click="selectSchedule(stat.master, day.date, window, 'availability')"
+                >
+                  {{ label }}
+                </BaseButton>
+                <BaseButton
+                  type="button"
+                  variant="unstyled"
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-emerald-700/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
+                  :disabled="!isAdmin || deletingAvailabilityId === window.id"
+                  :aria-label="`Закрити інтервал ${label}`"
+                  title="Закрити робочий інтервал"
+                  @click="openDeleteAvailabilityConfirm(window)"
+                >
+                  <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                </BaseButton>
+              </div>
+
+              <div
+                v-for="{ item: block, label } in schedule.blocks"
+                :key="`block-${block.id}`"
+                class="flex min-h-8 items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-1.5 py-1"
+              >
+                <BaseButton
+                  type="button"
+                  variant="unstyled"
+                  class="min-w-0 flex-1 text-left text-[0.68rem] font-semibold text-rose-600"
+                  :aria-label="`${stat.displayName}, ${day.date}, блокування ${label}`"
+                  @click="selectSchedule(stat.master, day.date, block, 'block')"
+                >
+                  <span class="block whitespace-nowrap">{{ label }}</span>
+                  <span class="mt-0.5 block truncate text-[0.62rem] font-normal text-rose-500">{{ block.reason || 'Блокування' }}</span>
+                </BaseButton>
+                <BaseButton
+                  type="button"
+                  variant="unstyled"
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-rose-600/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
+                  :disabled="!isAdmin || deletingId === block.id"
+                  :aria-label="`Видалити блокування ${label}`"
+                  title="Видалити блокування"
+                  @click="deleteBlock(block)"
+                >
+                  <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                </BaseButton>
+              </div>
+            </div>
+            <span v-else class="flex min-h-8 items-center justify-center text-sm text-ui-muted">—</span>
+          </td>
+
+          <td class="sticky right-0 z-40 min-w-44 border-b border-ui bg-ui-surface px-3 py-2">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="font-semibold text-ui-primary">{{ stat.loadPercent }}%</span>
+              <span class="text-ui-muted">{{ formatHours(stat.bookedMinutes) }}</span>
+            </div>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ui-subtle">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="stat.loadPercent >= 80 ? 'bg-emerald-500' : stat.loadPercent >= 50 ? 'bg-amber-500' : 'bg-cyan-500'"
+                :style="{ width: `${Math.min(100, stat.loadPercent)}%` }"
+              />
+            </div>
+            <p class="mt-1 text-[0.62rem] text-ui-muted">{{ stat.workDays }} дн. · {{ formatHours(stat.scheduledMinutes) }}</p>
+          </td>
+        </tr>
+      </BaseTable>
+    </BaseCard>
+
+    <BaseCard as="section" padding="none">
+      <div class="border-b border-ui px-4 py-3 md:px-5 md:py-4">
+        <h2 class="text-lg font-semibold text-ui-primary md:text-xl">Завантаження майстрів за місяць</h2>
+        <p class="mt-1 text-xs text-ui-muted md:text-sm">Завантаження = заброньований час / робочий час після блокувань. Скасовані записи не враховуються.</p>
+      </div>
+
+      <BaseEmptyState v-if="!masterStats.length" compact title="Немає майстрів для статистики" />
+      <div v-else class="divide-y divide-ui">
+        <article v-for="stat in masterStats" :key="stat.master.id" class="grid gap-3 px-4 py-4 md:grid-cols-[minmax(190px,1.2fr)_repeat(4,minmax(90px,0.65fr))_minmax(190px,1fr)] md:items-center md:px-5">
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-xs font-semibold text-ui-secondary">
+              <img v-if="stat.imageUrl" :src="stat.imageUrl" :alt="stat.displayName" class="h-full w-full object-cover">
+              <span v-else>{{ stat.initials }}</span>
+            </span>
+            <div class="min-w-0">
+              <p class="truncate font-semibold text-ui-primary">{{ stat.displayName }}</p>
+              <p class="truncate text-xs text-ui-muted">{{ stat.position }}</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-[0.65rem] uppercase tracking-[0.1em] text-ui-muted">Днів у графіку</p>
+            <p class="mt-1 font-semibold text-ui-primary">{{ stat.workDays }}</p>
+          </div>
+          <div>
+            <p class="text-[0.65rem] uppercase tracking-[0.1em] text-ui-muted">Годин у графіку</p>
+            <p class="mt-1 font-semibold text-ui-primary">{{ formatHours(stat.scheduledMinutes) }}</p>
+          </div>
+          <div>
+            <p class="text-[0.65rem] uppercase tracking-[0.1em] text-ui-muted">Заброньовано</p>
+            <p class="mt-1 font-semibold text-ui-primary">{{ formatHours(stat.bookedMinutes) }}</p>
+          </div>
+          <div>
+            <p class="text-[0.65rem] uppercase tracking-[0.1em] text-ui-muted">Блокування</p>
+            <p class="mt-1 font-semibold text-ui-primary">{{ formatHours(stat.blockedMinutes) }}</p>
+          </div>
+
+          <div class="min-w-0">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="font-medium text-ui-secondary">Завантаження</span>
+              <span class="font-semibold" :class="stat.loadPercent >= 80 ? 'text-emerald-600' : stat.loadPercent >= 50 ? 'text-amber-600' : 'text-ui-primary'">{{ stat.loadPercent }}%</span>
+            </div>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-ui-subtle">
+              <div class="h-full rounded-full transition-all" :class="stat.loadPercent >= 80 ? 'bg-emerald-500' : stat.loadPercent >= 50 ? 'bg-amber-500' : 'bg-cyan-500'" :style="{ width: `${Math.min(100, stat.loadPercent)}%` }" />
+            </div>
+            <p class="mt-1.5 text-[0.68rem] text-ui-muted">Вільно {{ formatHours(stat.freeMinutes) }} з {{ formatHours(stat.capacityMinutes) }}</p>
+          </div>
         </article>
       </div>
-    </section>
-
-    <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-slate-900">Блокування часу</h2>
-        <BaseButton
-          type="button"
-          :disabled="!isAdmin"
-          class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          @click="openCreateBlock"
-        >
-          <PlusIcon class="h-4 w-4" aria-hidden="true" />
-          Додати
-        </BaseButton>
-      </div>
-      <div v-if="pending" class="text-sm text-slate-500">Завантаження блокувань часу...</div>
-      <div v-else-if="!blocks.length" class="text-sm text-slate-500">У цьому діапазоні дат немає блокувань часу.</div>
-      <div v-else class="divide-y divide-slate-100">
-        <article v-for="block in blocks" :key="block.id" class="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p class="font-medium text-slate-900">{{ masterName(resolveMaster(block.master_id, block.master)) }}</p>
-            <p class="text-sm text-slate-500">{{ formatDateTime(block.start_at) }} - {{ formatDateTime(block.end_at) }}</p>
-            <p class="text-xs text-slate-500">{{ block.reason || 'Без причини' }}</p>
-          </div>
-          <BaseButton
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-300 text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-            :disabled="deletingId === block.id || !isAdmin"
-            :aria-label="deletingId === block.id ? 'Видалення блокування часу' : 'Видалити блокування часу'"
-            :title="deletingId === block.id ? 'Видалення...' : 'Видалити'"
-            @click="deleteBlock(block.id)"
-          >
-            <TrashIcon class="h-5 w-5" aria-hidden="true" />
-            <span class="sr-only">{{ deletingId === block.id ? 'Видалення...' : 'Видалити' }}</span>
-          </BaseButton>
-        </article>
-      </div>
-    </section>
+    </BaseCard>
 
     <AvailabilityWindowFormModal
       :model-value="availabilityModalOpen"
       admin
       :masters="masterOptions"
       :disabled="!isAdmin"
-      @saved="handleBlockSaved"
-      @update:model-value="handleAvailabilityModalUpdate"
+      @saved="handleSaved"
+      @update:model-value="availabilityModalOpen = $event"
     />
     <TimeBlockFormModal
       :model-value="timeBlockModalOpen"
       :masters="masterOptions"
       :disabled="!isAdmin"
-      @saved="handleBlockSaved"
-      @update:model-value="handleBlockModalUpdate"
+      @saved="handleSaved"
+      @update:model-value="timeBlockModalOpen = $event"
+    />
+    <ConfirmActionModal
+      :model-value="Boolean(availabilityToDelete)"
+      title="Видалити робочий час?"
+      message="Цей робочий інтервал буде видалено з графіка майстра. Після підтвердження дія набуде чинності одразу."
+      confirm-label="Так, видалити"
+      :context-items="availabilityDeleteContextItems"
+      :pending="deletingAvailabilityId != null"
+      destructive
+      @confirm="confirmDeleteAvailability"
+      @update:model-value="handleAvailabilityDeleteConfirmUpdate"
     />
   </div>
 </template>
+
+<style scoped>
+.schedule-matrix__header {
+  background: color-mix(in srgb, var(--bo-surface) 93%, var(--bo-text-primary) 7%);
+}
+
+.schedule-matrix__today {
+  background: color-mix(in srgb, var(--bo-surface) 88%, var(--bo-accent) 12%) !important;
+}
+</style>

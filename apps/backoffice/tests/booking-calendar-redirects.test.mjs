@@ -95,17 +95,62 @@ test('time blocks remain busy and expose their Kyiv time in calendar entries', (
   }])
 })
 
-test('time-block filters send an inclusive Kyiv date selection as a half-open datetime range', async () => {
+test('time-block month calendar sends the selected Kyiv month as a half-open datetime range', async () => {
   const source = await readFile(timeBlocksPage, 'utf8')
 
-  assert.match(source, /date_from: toKyivIso\(filters\.date_from, '00:00'\)/)
-  assert.match(source, /date_to: toKyivIso\(addDaysInput\(filters\.date_to, 1\), '00:00'\)/)
+  assert.match(source, /date_from: toKyivIso\(monthStart\.value, '00:00'\)/)
+  assert.match(source, /date_to: toKyivIso\(addDaysInput\(monthEnd\.value, 1\), '00:00'\)/)
   assert.match(source, /const blocks = computed<TimeBlock\[\]>\(\(\) => normalizeItems\(data\.value\?\.timeBlocks\)\)/)
-  assert.match(source, /api\.adminGetCalendarTimeBlocks\(\{/)
+  assert.match(source, /api\.adminGetCalendarTimeBlocks\(range\)/)
+  assert.match(source, /api\.adminGetCalendarBookings\(range\)/)
+  assert.match(source, /api\.adminGetAvailability\(availabilityRange\)/)
   assert.doesNotMatch(source, /api\.adminGetTimeBlocks\(1,/)
   assert.doesNotMatch(source, /date_from: filters\.date_from/)
   assert.doesNotMatch(source, /date_to: filters\.date_to/)
   assert.doesNotMatch(source, /block\.start_at\.slice\(0, 10\)/)
+})
+
+test('time-block month calendar scales as a master-by-day matrix', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+
+  assert.match(source, /const monthDays = computed<CalendarDayColumn\[\]>/)
+  assert.match(source, /const calendarDataIndex = computed<CalendarDataIndex>/)
+  assert.match(source, /const scheduleRows = computed<MasterScheduleRow\[\]>/)
+  assert.match(source, /const servicesById = computed\(\(\) => new Map/)
+  assert.match(source, /<BaseTable[\s\S]*caption="Графік робочого часу майстрів за днями місяця"/)
+  assert.match(source, /scroll-class="max-h-\[72dvh\] overflow-auto"/)
+  assert.match(source, /v-for="\{ stat, cells \} in scheduleRows"/)
+  assert.match(source, /v-for="\{ day, schedule \} in cells"/)
+  assert.match(source, /v-for="day in monthDays"/)
+  assert.match(source, /sticky left-0/)
+  assert.match(source, /sticky right-0/)
+  assert.match(source, /Завантаження майстрів за місяць/)
+  assert.doesNotMatch(source, /scheduleForMasterDay/)
+  assert.doesNotMatch(source, /availabilityWindows\.value\.filter\(window => window\.master_id/)
+  assert.doesNotMatch(source, /bookings\.value\.filter\(booking => booking\.master_id/)
+})
+
+test('time-block month calendar maps redirected schedules to the source master without reassigning bookings', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+
+  assert.match(source, /const calendarMasterId = \(master: Master\) => bookingRedirectMasterId\(master\) \?\? master\.id/)
+  assert.match(source, /const ownerMasterId = redirectedFromMasterId\(booking\) \?\? booking\.master_id/)
+  assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(calendarMasterId\(master\)\)/)
+  assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(master\.id\)/)
+  assert.match(source, /calendarDataIndex\.value\.schedules\[`\$\{calendarMasterId\(stat\.master\)\}:\$\{day\.date\}`\]/)
+})
+
+test('time-block month calendar confirms working-time deletion in the app modal', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+  const confirmationHandler = /const confirmDeleteAvailability = async \(\) => \{([\s\S]*?)\n\}/.exec(source)?.[1]
+
+  assert.ok(confirmationHandler)
+  assert.match(source, /const availabilityToDelete = ref<MasterAvailabilityWindow \| null>\(null\)/)
+  assert.match(source, /@click="openDeleteAvailabilityConfirm\(window\)"/)
+  assert.match(source, /<ConfirmActionModal[\s\S]*title="Видалити робочий час\?"/)
+  assert.match(source, /:context-items="availabilityDeleteContextItems"/)
+  assert.match(source, /@confirm="confirmDeleteAvailability"/)
+  assert.doesNotMatch(confirmationHandler, /\bconfirm\(/)
 })
 
 test('backoffice calendar covers the same 08:00-20:00 Kyiv workday as booking capacity', () => {
