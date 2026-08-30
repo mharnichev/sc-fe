@@ -130,6 +130,30 @@ test('time-block month calendar scales as a master-by-day matrix', async () => {
   assert.doesNotMatch(source, /bookings\.value\.filter\(booking => booking\.master_id/)
 })
 
+test('time-block month calendar renders one normalized block slot per master day', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+
+  assert.match(source, /const summarizeDayBlocks = \(blocks: TimeBlock\[\]\): BlockDaySummary \| null/)
+  assert.match(source, /schedule\.blockSummary = summarizeDayBlocks/)
+  assert.match(source, /v-if="schedule\.blockSummary"/)
+  assert.match(source, /selectBlockSummary\(stat\.master, day\.date, schedule\.blockSummary\)/)
+  assert.match(source, /openDeleteBlockConfirm\(schedule\.blockSummary\)/)
+  assert.match(source, /<ConfirmActionModal[\s\S]*title="Видалити блокування\?"/)
+  assert.match(source, /Promise\.allSettled\(summary\.items\.map\(block => api\.adminDeleteTimeBlock\(block\.id\)\)\)/)
+  assert.doesNotMatch(source, /v-for="\{ item: block, label \} in schedule\.blocks"/)
+  assert.doesNotMatch(source, /\bconfirm\(`/)
+})
+
+test('time-block month statistics only count bookings inside unblocked availability', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+
+  assert.match(source, /const blockRanges = intersectRanges\(availabilityRanges, rangesFromItems/)
+  assert.match(source, /const capacityRanges = subtractRanges\(availabilityRanges, blockRanges\)/)
+  assert.match(source, /const bookingRanges = intersectRanges\(capacityRanges, rawBookingRanges\)/)
+  assert.match(source, /const blockedMinutes = minutesInRanges\(blockRanges\)/)
+  assert.match(source, /const capacityMinutes = minutesInRanges\(capacityRanges\)/)
+})
+
 test('time-block month calendar maps redirected schedules to the source master without reassigning bookings', async () => {
   const source = await readFile(timeBlocksPage, 'utf8')
 
@@ -138,6 +162,8 @@ test('time-block month calendar maps redirected schedules to the source master w
   assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(calendarMasterId\(master\)\)/)
   assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(master\.id\)/)
   assert.match(source, /calendarDataIndex\.value\.schedules\[`\$\{calendarMasterId\(stat\.master\)\}:\$\{day\.date\}`\]/)
+  assert.match(source, /const countedCalendarIds = new Set<number>\(\)/)
+  assert.match(source, /if \(countedCalendarIds\.has\(calendarId\)\) return total/)
 })
 
 test('time-block month calendar confirms working-time deletion in the app modal', async () => {

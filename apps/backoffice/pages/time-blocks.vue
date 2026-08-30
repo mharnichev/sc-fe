@@ -15,6 +15,15 @@ import type {
   Service,
   TimeBlock,
 } from '~/composables/useBackofficeApi'
+import {
+  intersectRanges,
+  mergeRanges,
+  minutesInRanges,
+  rangesFromItems,
+  subtractRanges,
+  timestamp,
+  type TimeRange,
+} from '~/utils/scheduleIntervals'
 
 interface CalendarDayColumn {
   date: string
@@ -30,7 +39,17 @@ interface ScheduleEntry<T> {
 
 interface MasterDaySchedule {
   availability: ScheduleEntry<MasterAvailabilityWindow>[]
-  blocks: ScheduleEntry<TimeBlock>[]
+  blocks: TimeBlock[]
+  blockSummary: BlockDaySummary | null
+}
+
+interface BlockDaySummary {
+  items: TimeBlock[]
+  ranges: TimeRange[]
+  label: string
+  intervalsLabel: string
+  reasonsLabel: string
+  totalMinutes: number
 }
 
 interface MasterScheduleCell {
@@ -48,13 +67,9 @@ interface SelectedScheduleItem {
   date: string
   startAt: string
   endAt: string
+  intervalsLabel?: string
   kind: 'availability' | 'block'
   reason?: string | null
-}
-
-interface TimeRange {
-  start: number
-  end: number
 }
 
 interface MasterPresentation {
@@ -180,11 +195,12 @@ const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
 const servicesById = computed(() => new Map(serviceOptions.value.map(service => [Number(service.id), service])))
 const selectedMaster = computed(() => masterOptions.value.find(master => master.id === selectedMasterId.value) || null)
-const deletingId = ref<number | null>(null)
+const deletingBlockIds = ref<number[]>([])
 const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 const availabilityModalOpen = ref(false)
 const availabilityToDelete = ref<MasterAvailabilityWindow | null>(null)
+const blockSummaryToDelete = ref<BlockDaySummary | null>(null)
 const masterFilterOpen = ref(false)
 const masterFilterRef = ref<HTMLElement | null>(null)
 const selectedScheduleItem = ref<SelectedScheduleItem | null>(null)
@@ -233,12 +249,35 @@ const monthDays = computed<CalendarDayColumn[]>(() => {
 
 const intervalLabel = (startAt: string, endAt: string) => `${formatTime(startAt)}–${formatTime(endAt)}`
 
+const rangeLabel = (range: TimeRange) => intervalLabel(
+  new Date(range.start).toISOString(),
+  new Date(range.end).toISOString(),
+)
+
+const summarizeDayBlocks = (blocks: TimeBlock[]): BlockDaySummary | null => {
+  const items = [...new Map(blocks.map(block => [block.id, block])).values()]
+  const ranges = mergeRanges(rangesFromItems(items))
+  if (!ranges.length) return null
+
+  const totalMinutes = minutesInRanges(ranges)
+  const intervalsLabel = ranges.map(rangeLabel).join(', ')
+  const reasons = [...new Set(items.map(block => block.reason?.trim()).filter((reason): reason is string => Boolean(reason)))]
+  return {
+    items,
+    ranges,
+    label: ranges.length === 1 ? intervalsLabel : `${formatHours(totalMinutes)} · ${ranges.length} інтерв.`,
+    intervalsLabel,
+    reasonsLabel: reasons.join(', ') || 'Блокування',
+    totalMinutes,
+  }
+}
+
 const calendarDataIndex = computed<CalendarDataIndex>(() => {
   const schedules: Record<string, MasterDaySchedule> = {}
   const byMaster = new Map<number, MasterMonthData>()
   const ensureSchedule = (masterId: number, date: string) => {
     const key = `${masterId}:${date}`
-    schedules[key] ||= { availability: [], blocks: [] }
+    schedules[key] ||= { availability: [], blocks: [], blockSummary: null }
     return schedules[key]
   }
   const dataForMaster = (masterId: number) => {
@@ -266,10 +305,7 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
     dataForMaster(block.master_id).blocks.push(block)
     const date = calendar.dateInputFromDateTime(block.start_at)
     if (date) {
-      ensureSchedule(block.master_id, date).blocks.push({
-        item: block,
-        label: intervalLabel(block.start_at, block.end_at),
-      })
+      ensureSchedule(block.master_id, date).blocks.push(block)
     }
   }
   for (const booking of bookings.value) {
@@ -281,12 +317,13 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
 
   for (const schedule of Object.values(schedules)) {
     schedule.availability.sort((first, second) => first.item.start_at.localeCompare(second.item.start_at))
-    schedule.blocks.sort((first, second) => first.item.start_at.localeCompare(second.item.start_at))
+    schedule.blocks.sort((first, second) => first.start_at.localeCompare(second.start_at))
+    schedule.blockSummary = summarizeDayBlocks(schedule.blocks)
   }
   return { schedules, byMaster }
 })
 
-const emptyDaySchedule: MasterDaySchedule = { availability: [], blocks: [] }
+const emptyDaySchedule: MasterDaySchedule = { availability: [], blocks: [], blockSummary: null }
 
 const selectSchedule = (
   master: Master,
@@ -304,49 +341,32 @@ const selectSchedule = (
   }
 }
 
+const selectBlockSummary = (master: Master, date: string, summary: BlockDaySummary) => {
+  const firstRange = summary.ranges[0]
+  const lastRange = summary.ranges.at(-1) || firstRange
+  selectedScheduleItem.value = {
+    master,
+    date,
+    startAt: new Date(firstRange.start).toISOString(),
+    endAt: new Date(lastRange.end).toISOString(),
+    intervalsLabel: summary.intervalsLabel,
+    kind: 'block',
+    reason: summary.reasonsLabel,
+  }
+}
+
 const selectedScheduleLabel = computed(() => {
   const selected = selectedScheduleItem.value
   if (!selected) return 'Натисніть робочий інтервал або блокування в таблиці.'
   const kindLabel = selected.kind === 'block' ? selected.reason || 'блокування' : 'робочий час'
   const dateLabel = selectedDayFormatter.format(new Date(toKyivIso(selected.date, '12:00')))
-  return `${dateLabel} · ${masterDisplayName(selected.master)} · ${intervalLabel(selected.startAt, selected.endAt)} · ${kindLabel}`
+  const intervals = selected.intervalsLabel || intervalLabel(selected.startAt, selected.endAt)
+  return `${dateLabel} · ${masterDisplayName(selected.master)} · ${intervals} · ${kindLabel}`
 })
 
 watch([monthStart, selectedMasterId], () => {
   selectedScheduleItem.value = null
 })
-
-const timestamp = (value?: string | null) => {
-  const time = value ? new Date(value).getTime() : Number.NaN
-  return Number.isFinite(time) ? time : null
-}
-
-const mergeRanges = (ranges: TimeRange[]) => {
-  const sorted = ranges
-    .filter(range => range.end > range.start)
-    .sort((first, second) => first.start - second.start)
-  if (!sorted.length) return []
-
-  const merged: TimeRange[] = []
-  let current = { ...sorted[0] }
-  for (const range of sorted.slice(1)) {
-    if (range.start <= current.end) {
-      current.end = Math.max(current.end, range.end)
-      continue
-    }
-    merged.push(current)
-    current = { ...range }
-  }
-  merged.push(current)
-  return merged
-}
-
-const minutesInRanges = (ranges: TimeRange[]) =>
-  Math.round(ranges.reduce((total, range) => total + range.end - range.start, 0) / 60000)
-
-const rangesFromItems = (items: Array<{ start_at?: string, end_at?: string }>) =>
-  items.map(item => ({ start: timestamp(item.start_at), end: timestamp(item.end_at) }))
-    .filter((range): range is TimeRange => range.start != null && range.end != null && range.end > range.start)
 
 const serviceDurationMinutes = (booking: Booking) => {
   const ids = bookingServiceIds(booking)
@@ -359,22 +379,6 @@ const bookingRange = (booking: Booking): TimeRange | null => {
   if (start == null || booking.status === 'cancelled') return null
   const explicitEnd = timestamp(bookingEnd(booking))
   return { start, end: explicitEnd && explicitEnd > start ? explicitEnd : start + serviceDurationMinutes(booking) * 60000 }
-}
-
-const overlapMinutes = (firstRanges: TimeRange[], secondRanges: TimeRange[]) => {
-  let firstIndex = 0
-  let secondIndex = 0
-  let overlapMilliseconds = 0
-
-  while (firstIndex < firstRanges.length && secondIndex < secondRanges.length) {
-    const first = firstRanges[firstIndex]
-    const second = secondRanges[secondIndex]
-    overlapMilliseconds += Math.max(0, Math.min(first.end, second.end) - Math.max(first.start, second.start))
-
-    if (first.end <= second.end) firstIndex += 1
-    else secondIndex += 1
-  }
-  return Math.round(overlapMilliseconds / 60000)
 }
 
 const formatHours = (minutes: number) => {
@@ -397,11 +401,13 @@ const masterStats = computed<MasterMonthStat[]>(() => {
     const bookingMasterData = calendarDataIndex.value.byMaster.get(master.id)
     const masterAvailability = calendarMasterData?.availability || []
     const availabilityRanges = mergeRanges(rangesFromItems(masterAvailability))
-    const blockRanges = mergeRanges(rangesFromItems(calendarMasterData?.blocks || []))
-    const bookingRanges = mergeRanges((bookingMasterData?.bookings || []).map(bookingRange).filter((range): range is TimeRange => Boolean(range)))
+    const blockRanges = intersectRanges(availabilityRanges, rangesFromItems(calendarMasterData?.blocks || []))
+    const capacityRanges = subtractRanges(availabilityRanges, blockRanges)
+    const rawBookingRanges = (bookingMasterData?.bookings || []).map(bookingRange).filter((range): range is TimeRange => Boolean(range))
+    const bookingRanges = intersectRanges(capacityRanges, rawBookingRanges)
     const scheduledMinutes = minutesInRanges(availabilityRanges)
-    const blockedMinutes = overlapMinutes(availabilityRanges, blockRanges)
-    const capacityMinutes = Math.max(0, scheduledMinutes - blockedMinutes)
+    const blockedMinutes = minutesInRanges(blockRanges)
+    const capacityMinutes = minutesInRanges(capacityRanges)
     const bookedMinutes = minutesInRanges(bookingRanges)
     const workDays = calendarMasterData?.workDates.size || 0
     const loadPercent = capacityMinutes ? Math.round((bookedMinutes / capacityMinutes) * 100) : bookedMinutes ? 100 : 0
@@ -430,7 +436,15 @@ const scheduleRows = computed<MasterScheduleRow[]>(() => masterStats.value.map(s
   })),
 })))
 
-const totalScheduledMinutes = computed(() => masterStats.value.reduce((total, stat) => total + stat.scheduledMinutes, 0))
+const totalScheduledMinutes = computed(() => {
+  const countedCalendarIds = new Set<number>()
+  return masterStats.value.reduce((total, stat) => {
+    const calendarId = calendarMasterId(stat.master)
+    if (countedCalendarIds.has(calendarId)) return total
+    countedCalendarIds.add(calendarId)
+    return total + stat.scheduledMinutes
+  }, 0)
+})
 const totalBookedMinutes = computed(() => masterStats.value.reduce((total, stat) => total + stat.bookedMinutes, 0))
 
 const openCreateBlock = () => {
@@ -466,19 +480,59 @@ const handleAvailabilityDeleteConfirmUpdate = (value: boolean) => {
   if (!value && deletingAvailabilityId.value == null) availabilityToDelete.value = null
 }
 
-const deleteBlock = async (block: TimeBlock) => {
-  if (!confirm(`Видалити блокування ${intervalLabel(block.start_at, block.end_at)}?`)) return
-  deletingId.value = block.id
+const blockDeleteContextItems = computed(() => {
+  const summary = blockSummaryToDelete.value
+  if (!summary) return []
+  const firstBlock = summary.items[0]
+  const master = firstBlock.master || masterOptions.value.find(option => option.id === firstBlock.master_id)
+  return [
+    { label: 'Майстер', value: masterDisplayName(master) },
+    { label: 'Дата', value: selectedDayFormatter.format(new Date(firstBlock.start_at)) },
+    { label: 'Заблоковано', value: `${formatHours(summary.totalMinutes)} · ${summary.intervalsLabel}` },
+  ]
+})
+
+const blockDeleteMessage = computed(() => {
+  const count = blockSummaryToDelete.value?.items.length || 0
+  return count > 1
+    ? `Буде видалено всі записи блокування, об’єднані в цьому денному слоті (${count}).`
+    : 'Цей інтервал блокування буде видалено з графіка майстра.'
+})
+
+const openDeleteBlockConfirm = (summary: BlockDaySummary) => {
+  if (!isAdmin.value || deletingBlockIds.value.length) return
+  blockSummaryToDelete.value = summary
+}
+
+const handleBlockDeleteConfirmUpdate = (value: boolean) => {
+  if (!value && !deletingBlockIds.value.length) blockSummaryToDelete.value = null
+}
+
+const confirmDeleteBlockSummary = async () => {
+  const summary = blockSummaryToDelete.value
+  if (!summary || deletingBlockIds.value.length) return
+
+  deletingBlockIds.value = summary.items.map(block => block.id)
+  const results = await Promise.allSettled(summary.items.map(block => api.adminDeleteTimeBlock(block.id)))
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedResult = results.find(result => result.status === 'rejected')
+
   try {
-    await api.adminDeleteTimeBlock(block.id)
-    toast.success('Блокування часу видалено.')
     await refresh()
-  }
-  catch (cause) {
-    toast.error(apiErrorMessage(cause, 'Не вдалося видалити блокування часу.'))
+    blockSummaryToDelete.value = null
+    selectedScheduleItem.value = null
+    if (!failedResult) {
+      toast.success(summary.items.length > 1 ? 'Блокування дня видалено.' : 'Блокування часу видалено.')
+    }
+    else {
+      const fallback = deletedCount
+        ? `Видалено ${deletedCount} з ${summary.items.length} записів. Оновіть і повторіть спробу.`
+        : 'Не вдалося видалити блокування часу.'
+      toast.error(apiErrorMessage(failedResult.reason, fallback))
+    }
   }
   finally {
-    deletingId.value = null
+    deletingBlockIds.value = []
   }
 }
 
@@ -678,7 +732,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
             class="min-w-36 border-b border-r border-ui bg-ui-surface !p-1.5 !align-top"
             :class="day.isToday ? 'schedule-matrix__today' : ''"
           >
-            <div v-if="schedule.availability.length || schedule.blocks.length" class="space-y-1">
+            <div v-if="schedule.availability.length || schedule.blockSummary" class="space-y-1">
               <div
                 v-for="{ item: window, label } in schedule.availability"
                 :key="`availability-${window.id}`"
@@ -707,28 +761,27 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
               </div>
 
               <div
-                v-for="{ item: block, label } in schedule.blocks"
-                :key="`block-${block.id}`"
+                v-if="schedule.blockSummary"
                 class="flex min-h-8 items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-1.5 py-1"
               >
                 <BaseButton
                   type="button"
                   variant="unstyled"
-                  class="min-w-0 flex-1 text-left text-[0.68rem] font-semibold text-rose-600"
-                  :aria-label="`${stat.displayName}, ${day.date}, блокування ${label}`"
-                  @click="selectSchedule(stat.master, day.date, block, 'block')"
+                  class="min-w-0 flex-1 whitespace-nowrap text-left text-[0.68rem] font-semibold text-rose-600"
+                  :aria-label="`${stat.displayName}, ${day.date}, блокування ${schedule.blockSummary.intervalsLabel}`"
+                  :title="`${schedule.blockSummary.intervalsLabel} · ${schedule.blockSummary.reasonsLabel}`"
+                  @click="selectBlockSummary(stat.master, day.date, schedule.blockSummary)"
                 >
-                  <span class="block whitespace-nowrap">{{ label }}</span>
-                  <span class="mt-0.5 block truncate text-[0.62rem] font-normal text-rose-500">{{ block.reason || 'Блокування' }}</span>
+                  {{ schedule.blockSummary.label }}
                 </BaseButton>
                 <BaseButton
                   type="button"
                   variant="unstyled"
                   class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-rose-600/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
-                  :disabled="!isAdmin || deletingId === block.id"
-                  :aria-label="`Видалити блокування ${label}`"
-                  title="Видалити блокування"
-                  @click="deleteBlock(block)"
+                  :disabled="!isAdmin || deletingBlockIds.length > 0"
+                  :aria-label="`Видалити блокування ${schedule.blockSummary.intervalsLabel}`"
+                  title="Видалити блокування дня"
+                  @click="openDeleteBlockConfirm(schedule.blockSummary)"
                 >
                   <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
                 </BaseButton>
@@ -831,6 +884,17 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
       destructive
       @confirm="confirmDeleteAvailability"
       @update:model-value="handleAvailabilityDeleteConfirmUpdate"
+    />
+    <ConfirmActionModal
+      :model-value="Boolean(blockSummaryToDelete)"
+      title="Видалити блокування?"
+      :message="blockDeleteMessage"
+      confirm-label="Так, видалити"
+      :context-items="blockDeleteContextItems"
+      :pending="deletingBlockIds.length > 0"
+      destructive
+      @confirm="confirmDeleteBlockSummary"
+      @update:model-value="handleBlockDeleteConfirmUpdate"
     />
   </div>
 </template>
