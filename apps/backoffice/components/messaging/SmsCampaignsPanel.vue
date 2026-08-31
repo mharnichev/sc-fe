@@ -152,7 +152,7 @@ const campaignGroups = computed(() => [
   {
     key: 'master',
     title: 'Повідомлення майстрам',
-    caption: 'Кампанії для майстрів',
+    caption: 'Telegram та email кампанії для майстрів',
     emptyTitle: 'Повідомлень для майстрів за цими фільтрами немає',
     total: data.value?.master.total || 0,
     campaigns: data.value?.master.items || [],
@@ -434,7 +434,7 @@ const runJob = async (job: SmsJob) => {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-semibold text-slate-900">Кампанії за отримувачем</h2>
-          <p class="mt-1 text-sm text-slate-500">SMS для клієнтів та всі системні повідомлення для майстрів.</p>
+          <p class="mt-1 text-sm text-slate-500">SMS для клієнтів та Telegram- й email-повідомлення для майстрів.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <BaseSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
