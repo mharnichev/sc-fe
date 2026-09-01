@@ -102,7 +102,7 @@ const contentSecurityPolicy = [
     ...(isProduction ? [] : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']),
   ).join(' ')}`,
   `media-src 'self' https:`,
-  `frame-src https://tagassistant.google.com`,
+  `frame-src https://www.googletagmanager.com https://googletagmanager.com https://tagassistant.google.com`,
   `worker-src 'self' blob:`,
   `manifest-src 'self'`,
 ].join('; ')

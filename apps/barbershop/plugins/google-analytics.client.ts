@@ -2,6 +2,8 @@ import { isTokenizedReviewLocation } from '~/utils/reviews.js'
 
 const GA_MEASUREMENT_ID = 'G-YYYXH2R239'
 const GA_SCRIPT_ID = 'google-analytics-gtag'
+const GTM_CONTAINER_ID = 'GTM-5NK5VGXR'
+const GTM_SCRIPT_ID = 'google-tag-manager-container'
 
 const deniedConsent = {
   ad_personalization: 'denied',
@@ -90,6 +92,20 @@ export default defineNuxtPlugin(() => {
     document.head.appendChild(script)
   }
 
+  const loadGoogleTagManager = () => {
+    if (document.getElementById(GTM_SCRIPT_ID)) return
+
+    window.dataLayer?.push({
+      'gtm.start': Date.now(),
+      event: 'gtm.js',
+    })
+    const script = document.createElement('script')
+    script.id = GTM_SCRIPT_ID
+    script.async = true
+    script.src = `https://www.googletagmanager.com/gtm.js?id=${GTM_CONTAINER_ID}`
+    document.head.appendChild(script)
+  }
+
   const initializeGtag = () => {
     ensureGtagQueue()
 
@@ -102,6 +118,7 @@ export default defineNuxtPlugin(() => {
       isGtagInitialized = true
     }
 
+    loadGoogleTagManager()
     loadGtagScript()
   }
 
