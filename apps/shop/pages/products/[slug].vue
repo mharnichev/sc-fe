@@ -4,6 +4,7 @@ import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
+import { isProductUnavailable } from '~/utils/product-visibility'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -33,6 +34,12 @@ const { data: reviewsPage, pending: reviewsPending, refresh: refreshReviews } = 
   async () => product.value ? await domain.getProductReviews(product.value.id) : emptyReviews,
   { watch: [() => product.value?.id] },
 )
+
+const isNotFoundError = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { statusCode?: unknown, status?: unknown, data?: { statusCode?: unknown } }
+  return [candidate.statusCode, candidate.status, candidate.data?.statusCode].some(value => Number(value) === 404)
+}
 
 const selectedImage = ref('')
 const isGalleryModalOpen = ref(false)
@@ -165,6 +172,12 @@ watch(
     }
   },
 )
+
+watch(productError, error => {
+  if (import.meta.client && isNotFoundError(error)) {
+    recentlyViewed.removeBySlug(String(route.params.slug))
+  }
+}, { immediate: true })
 
 watch(galleryImages, images => {
   selectedImage.value = images[0]?.image || ''
@@ -441,7 +454,7 @@ useHead(() => ({
                 class="product-buy__button"
                 type="button"
                 :variant="isInCart ? 'outline-dark' : 'dark'"
-                :disabled="product.stock <= 0 && !isInCart"
+                :disabled="isProductUnavailable(product) && !isInCart"
                 block
                 @click="toggleCart"
               >

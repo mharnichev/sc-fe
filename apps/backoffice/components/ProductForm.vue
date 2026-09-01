@@ -355,57 +355,62 @@ const submit = () => {
             </option>
           </BaseSelect>
         </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">URL зображення</span>
-          <BaseInput v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
-        <div class="space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-slate-900">Галерея</h3>
-            <BaseButton
-              type="button"
-              class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-              @click="addGalleryUrl"
-            >
-              <PlusIcon class="h-4 w-4" aria-hidden="true" />
-              Додати
-            </BaseButton>
-          </div>
-          <div v-if="galleryUrls.length" class="space-y-3">
-            <div v-for="(_, index) in galleryUrls" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <BaseInput
-                v-model="galleryUrls[index]"
-                type="url"
-                placeholder="https://cdn.example.com/product.webp"
-                class="w-full rounded-2xl border border-slate-300 px-4 py-3"
-              />
-              <BaseButton
-                type="button"
-                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50"
-                aria-label="Видалити зображення з галереї"
-                title="Видалити"
-                @click="removeGalleryUrl(index)"
-              >
-                <TrashIcon class="h-4 w-4" aria-hidden="true" />
-              </BaseButton>
+        <details class="rounded-2xl border border-slate-200 p-4">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-900">Зовнішні URL / старі зображення</summary>
+          <div class="mt-4 space-y-4">
+            <label class="space-y-2 text-sm text-slate-700">
+              <span class="font-medium">URL зображення</span>
+              <BaseInput v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+            </label>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-slate-900">Галерея</h3>
+                <BaseButton
+                  type="button"
+                  class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  @click="addGalleryUrl"
+                >
+                  <PlusIcon class="h-4 w-4" aria-hidden="true" />
+                  Додати
+                </BaseButton>
+              </div>
+              <div v-if="galleryUrls.length" class="space-y-3">
+                <div v-for="(_, index) in galleryUrls" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <BaseInput
+                    v-model="galleryUrls[index]"
+                    type="url"
+                    placeholder="https://cdn.example.com/product.webp"
+                    class="w-full rounded-2xl border border-slate-300 px-4 py-3"
+                  />
+                  <BaseButton
+                    type="button"
+                    class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50"
+                    aria-label="Видалити зображення з галереї"
+                    title="Видалити"
+                    @click="removeGalleryUrl(index)"
+                  >
+                    <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                  </BaseButton>
+                </div>
+              </div>
+              <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                Додаткові зображення не задані.
+              </p>
+              <div v-if="galleryPreviewUrls.length" class="grid grid-cols-2 gap-3">
+                <a
+                  v-for="image in galleryPreviewUrls"
+                  :key="image"
+                  :href="image"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="group overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                >
+                  <img :src="image" alt="" class="h-28 w-full object-cover transition group-hover:scale-[1.02]">
+                </a>
+              </div>
             </div>
           </div>
-          <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            Додаткові зображення не задані.
-          </p>
-          <div v-if="galleryPreviewUrls.length" class="grid grid-cols-2 gap-3">
-            <a
-              v-for="image in galleryPreviewUrls"
-              :key="image"
-              :href="image"
-              target="_blank"
-              rel="noreferrer"
-              class="group overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
-            >
-              <img :src="image" alt="" class="h-28 w-full object-cover transition group-hover:scale-[1.02]">
-            </a>
-          </div>
-        </div>
+        </details>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Зовнішній URL</span>
           <BaseInput v-model="form.external_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />

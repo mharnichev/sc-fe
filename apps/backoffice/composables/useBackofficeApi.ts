@@ -66,6 +66,8 @@ export interface Category {
   description: string | null
   is_active: boolean
   parent_id: number | null
+  is_effectively_visible: boolean
+  hidden_reason: 'category' | 'parent_category' | null
 }
 
 export interface CategoryTreeNode extends Category {
@@ -93,6 +95,7 @@ export interface Product {
   stock_quantity: number
   is_active: boolean
   image_url: string | null
+  images: ProductImage[]
   external_url: string | null
   availability_status: string | null
   attributes_json: Record<string, unknown> | null
@@ -100,6 +103,18 @@ export interface Product {
   category_id: number | null
   brand?: Brand | null
   category?: Category | null
+  is_effectively_visible: boolean
+  hidden_reason: 'product' | 'category' | 'parent_category' | null
+}
+
+export interface ProductImage {
+  id: number
+  product_id: number
+  upload_id: number | null
+  image_url: string | null
+  alt: string | null
+  sort_order: number
+  is_active: boolean
 }
 
 export interface ProductPayload {
@@ -1009,6 +1024,46 @@ export const useBackofficeApi = () => {
       method: 'DELETE',
     })
 
+  const getProductImages = (productId: number | string) =>
+    api<ProductImage[]>(`/backoffice/products/${productId}/images`)
+
+  const uploadProductImage = (productId: number | string, file: File, alt?: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (alt?.trim()) formData.append('alt', alt.trim())
+    return api<ProductImage>(`/backoffice/products/${productId}/images`, {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
+  const replaceProductImage = (productId: number | string, imageId: number | string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api<ProductImage>(`/backoffice/products/${productId}/images/${imageId}/file`, {
+      method: 'PUT',
+      body: formData,
+    })
+  }
+
+  const updateProductImage = (
+    productId: number | string,
+    imageId: number | string,
+    payload: { alt?: string | null, is_active?: boolean | null },
+  ) => api<ProductImage>(`/backoffice/products/${productId}/images/${imageId}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+
+  const reorderProductImages = (productId: number | string, imageIds: Array<number | string>) =>
+    api<ProductImage[]>(`/backoffice/products/${productId}/images/reorder`, {
+      method: 'PATCH',
+      body: { image_ids: imageIds.map(Number) },
+    })
+
+  const deleteProductImage = (productId: number | string, imageId: number | string) =>
+    api(`/backoffice/products/${productId}/images/${imageId}`, { method: 'DELETE' })
+
   const getCategories = (
     page = 1,
     pageSize = 10,
@@ -1029,6 +1084,12 @@ export const useBackofficeApi = () => {
     })
 
   const getCategoryTree = () => api<CategoryTreeNode[]>('/backoffice/categories/tree')
+
+  const updateCategory = (categoryId: number | string, payload: { is_active: boolean }) =>
+    api<Category>(`/backoffice/categories/${categoryId}`, {
+      method: 'PUT',
+      body: payload,
+    })
 
   const getBrands = (page = 1, pageSize = 10) =>
     api<PaginatedResponse<Brand>>('/backoffice/brands', {
@@ -1932,8 +1993,15 @@ export const useBackofficeApi = () => {
     createProduct,
     updateProduct,
     deleteProduct,
+    getProductImages,
+    uploadProductImage,
+    replaceProductImage,
+    updateProductImage,
+    reorderProductImages,
+    deleteProductImage,
     getCategories,
     getCategoryTree,
+    updateCategory,
     getBrands,
     getOrders,
     getOrder,

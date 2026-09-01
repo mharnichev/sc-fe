@@ -1,4 +1,5 @@
 import type { ProductDto } from '@shared-types'
+import { isProductUnavailable } from '~/utils/product-visibility'
 
 interface CartItem {
   product: ProductDto
@@ -31,6 +32,8 @@ export const useCartStore = defineStore('cart', {
   getters: {
     count: state => state.items.reduce((sum, item) => sum + item.quantity, 0),
     total: state => state.items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0),
+    unavailableItems: state => state.items.filter(item => isProductUnavailable(item.product)),
+    hasUnavailableItems: state => state.items.some(item => isProductUnavailable(item.product)),
   },
   actions: {
     setItems(items: CartItem[]) {
@@ -46,6 +49,7 @@ export const useCartStore = defineStore('cart', {
       await this.add(product)
     },
     async add(product: ProductDto, quantity = 1) {
+      if (isProductUnavailable(product)) return
       upsertLocalItem(this.items, product, quantity, 'add')
       const auth = useCustomerAuthStore()
       const toast = useToastStore()
@@ -98,6 +102,7 @@ export const useCartStore = defineStore('cart', {
     async update(productId: number, quantity: number) {
       const item = this.items.find(entry => entry.product.id === productId)
       if (!item) return
+      if (isProductUnavailable(item.product) && quantity > item.quantity) return
       if (quantity <= 0) {
         await this.remove(productId)
         return

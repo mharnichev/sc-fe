@@ -85,6 +85,9 @@ interface PublicProductDto {
   stock_quantity?: number
   status?: string
   is_active?: boolean
+  is_effectively_visible: boolean
+  hidden_reason: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase: boolean
   seo_title?: string | null
   seo_description?: string | null
   meta_keywords?: string | null
@@ -129,6 +132,9 @@ interface PublicCartItem {
   product: PublicProductDto
   created_at: string
   updated_at: string
+  is_effectively_visible: boolean
+  hidden_reason: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase: boolean
 }
 
 interface PublicWishlistItem {
@@ -137,6 +143,9 @@ interface PublicWishlistItem {
   product: PublicProductDto
   created_at: string
   updated_at: string
+  is_effectively_visible: boolean
+  hidden_reason: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase: boolean
 }
 
 interface PublicReview {
@@ -346,6 +355,9 @@ const mapProduct = (product: PublicProductDto): ShopProductDto => ({
   compare_at_price: decimalString(product.compare_at_price ?? product.recommended_retail_price),
   stock: product.stock ?? product.stock_quantity ?? 0,
   status: resolveStatus(product.status, product.is_active),
+  is_effectively_visible: product.is_effectively_visible,
+  hidden_reason: product.hidden_reason ?? null,
+  is_available_for_purchase: product.is_available_for_purchase,
   seo_title: product.seo_title ?? null,
   seo_description: product.seo_description ?? null,
   meta_keywords: product.meta_keywords ?? null,
@@ -374,14 +386,29 @@ const mapProductPage = (response: PaginatedResponse<PublicProductDto>): Paginate
   items: response.items.map(mapProduct),
 })
 
+const mapPrivateProduct = (
+  product: PublicProductDto,
+  item: Pick<PublicCartItem, 'is_effectively_visible' | 'hidden_reason' | 'is_available_for_purchase'>,
+) => {
+  const mapped = mapProduct(product)
+  // The API currently exposes these on the product payload. Keeping the
+  // item-level fallback makes private responses forward-compatible too.
+  return {
+    ...mapped,
+    is_effectively_visible: item.is_effectively_visible ?? mapped.is_effectively_visible,
+    hidden_reason: item.hidden_reason ?? mapped.hidden_reason,
+    is_available_for_purchase: item.is_available_for_purchase ?? mapped.is_available_for_purchase,
+  }
+}
+
 const mapCartItem = (item: PublicCartItem): CustomerCartItemDto => ({
   ...item,
-  product: mapProduct(item.product),
+  product: mapPrivateProduct(item.product, item),
 })
 
 const mapWishlistItem = (item: PublicWishlistItem): CustomerWishlistItemDto => ({
   ...item,
-  product: mapProduct(item.product),
+  product: mapPrivateProduct(item.product, item),
 })
 
 const mapReview = (review: PublicReview): ProductReviewDto => ({

@@ -190,6 +190,7 @@ export const shopTerms = {
       orderSummary: 'Підсумок замовлення',
       quantityFor: (name: string) => `Кількість для ${name}`,
       cartEmpty: 'Кошик порожній.',
+      unavailableProducts: (names: string) => `Товари більше недоступні: ${names}. Видаліть їх із кошика, щоб продовжити.`,
       failed: 'Не вдалося оформити замовлення. Перевірте кошик і спробуйте ще раз.',
       deliveryOptions: {
         warehouse: 'Відділення Нової пошти',
@@ -232,6 +233,7 @@ export const shopTerms = {
       emptyTitle: 'Кошик порожній',
       emptyText: 'Додайте товари з каталогу, щоб перейти до оформлення.',
       browseCatalog: 'Переглянути каталог',
+      unavailable: 'Товар більше недоступний',
       decreaseQuantity: 'Зменшити кількість',
       increaseQuantity: 'Збільшити кількість',
     },
@@ -243,6 +245,7 @@ export const shopTerms = {
       saveFromCatalog: 'Зберігайте товари з каталогу, щоб порівняти їх пізніше.',
       openFavorites: 'Відкрити обране',
       addToCart: 'Додати в кошик',
+      unavailable: 'Товар більше недоступний',
     },
     toast: {
       cartAddedTitle: 'Додано в кошик',
@@ -543,6 +546,7 @@ export const shopTerms = {
       orderSummary: 'Order summary',
       quantityFor: (name: string) => `Quantity for ${name}`,
       cartEmpty: 'Cart is empty.',
+      unavailableProducts: (names: string) => `These products are no longer available: ${names}. Remove them from your cart to continue.`,
       failed: 'Checkout failed. Please review the cart and try again.',
       deliveryOptions: {
         warehouse: 'Nova Poshta warehouse',
@@ -585,6 +589,7 @@ export const shopTerms = {
       emptyTitle: 'Your basket is empty',
       emptyText: 'Add products from catalog to start checkout.',
       browseCatalog: 'Browse catalog',
+      unavailable: 'Product is no longer available',
       decreaseQuantity: 'Decrease quantity',
       increaseQuantity: 'Increase quantity',
     },
@@ -596,6 +601,7 @@ export const shopTerms = {
       saveFromCatalog: 'Save products from catalog to compare them later.',
       openFavorites: 'Open favorites',
       addToCart: 'Add to cart',
+      unavailable: 'Product is no longer available',
     },
     toast: {
       cartAddedTitle: 'Added to cart',

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import type { Product } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
+const assetUrl = useAssetUrl()
+const { apiErrorMessage } = useBookingFormatting()
 const page = ref(1)
 const pageSize = 20
 const filters = reactive({
@@ -33,6 +36,65 @@ const [{ data: categories }, { data: brands }] = await Promise.all([
 ])
 
 const pendingDeleteId = ref<number | null>(null)
+const pendingVisibilityIds = ref<Set<number>>(new Set())
+
+const isVisibilityPending = (productId: number) => pendingVisibilityIds.value.has(productId)
+const setVisibilityPending = (productId: number, pending: boolean) => {
+  const next = new Set(pendingVisibilityIds.value)
+  if (pending) next.add(productId)
+  else next.delete(productId)
+  pendingVisibilityIds.value = next
+}
+
+const productVisibilityLabel = (product: Product) => {
+  if (product.is_effectively_visible) return 'Показаний'
+  if (product.hidden_reason === 'category') return 'Прихований категорією'
+  if (product.hidden_reason === 'parent_category') return 'Прихований батьківською категорією'
+  return 'Прихований вручну'
+}
+
+const productVisibilityTone = (product: Product) => product.is_effectively_visible ? 'success' : 'neutral'
+
+const productMainImage = (product: Product) => {
+  if (Array.isArray(product.images) && product.images.length) {
+    const image = [...product.images]
+      .filter(item => item.is_active && item.image_url)
+      .sort((first, second) => first.sort_order - second.sort_order || first.id - second.id)[0]
+    return image?.image_url ? assetUrl(image.image_url) : ''
+  }
+  if (product.image_url?.trim()) return assetUrl(product.image_url)
+  const legacy = product.attributes_json?.image_urls
+  if (!Array.isArray(legacy)) return ''
+  const legacyMainImage = legacy.find(value => typeof value === 'string' && value.trim())
+  return typeof legacyMainImage === 'string' ? assetUrl(legacyMainImage.trim()) : ''
+}
+
+const productMainImages = computed(() => new Map(
+  (data.value?.items || []).map(product => [product.id, productMainImage(product)]),
+))
+
+const toggleProductVisibility = async (product: Product) => {
+  if (isVisibilityPending(product.id)) return
+  setVisibilityPending(product.id, true)
+  try {
+    await api.updateProduct(product.id, { is_active: !product.is_active })
+    toast.success(product.is_active ? 'Товар приховано.' : 'Товар показано.')
+    await refresh()
+  }
+  catch (cause) {
+    toast.error(apiErrorMessage(cause, 'Не вдалося оновити видимість товару.'))
+  }
+  finally {
+    setVisibilityPending(product.id, false)
+  }
+}
+
+const handleProductVisibilityChange = (product: Product, event: Event) => {
+  // BaseCheckbox emits after the native input has toggled. Restore the
+  // server-confirmed value immediately; the refreshed API row is authoritative.
+  (event.target as HTMLInputElement).checked = product.is_active
+  void toggleProductVisibility(product)
+}
 
 const applyFilters = async () => {
   page.value = 1
@@ -109,10 +171,10 @@ const prev = async () => {
           {{ brand.name }}
         </option>
       </BaseSelect>
-      <BaseSelect native v-model="filters.is_active" aria-label="Статус товару">
+      <BaseSelect native v-model="filters.is_active" aria-label="Ручна видимість товару">
         <option value="">Будь-який статус</option>
-        <option value="true">Активні</option>
-        <option value="false">Неактивні</option>
+        <option value="true">Показані</option>
+        <option value="false">Приховані</option>
       </BaseSelect>
       <div class="flex gap-3">
         <BaseButton variant="primary" class="flex-1" @click="applyFilters">
@@ -138,6 +200,7 @@ const prev = async () => {
     >
       <template #head>
         <tr>
+          <th>Фото</th>
           <th>Назва</th>
           <th>Категорія</th>
           <th>Бренд</th>
@@ -145,10 +208,15 @@ const prev = async () => {
           <th>Рекомендована роздрібна ціна</th>
           <th>Склад</th>
           <th>Статус</th>
+          <th>Видимість</th>
           <th>Дії</th>
         </tr>
       </template>
           <tr v-for="item in data?.items || []" :key="item.id">
+            <td data-label="Фото" class="px-4 py-3">
+              <img v-if="productMainImages.get(item.id)" :src="productMainImages.get(item.id)" :alt="item.name" class="h-12 w-12 rounded-xl object-cover">
+              <span v-else class="text-xs text-ui-muted">—</span>
+            </td>
             <td data-label="Назва" class="px-4 py-3">
               <p class="font-medium text-ui-primary">{{ item.name }}</p>
               <p class="text-xs text-ui-muted">{{ item.slug }}</p>
@@ -163,6 +231,20 @@ const prev = async () => {
               <BaseBadge :tone="item.is_active ? 'success' : 'neutral'">
                 {{ item.is_active ? 'активний' : 'неактивний' }}
               </BaseBadge>
+            </td>
+            <td data-label="Видимість" class="px-4 py-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <BaseBadge :tone="productVisibilityTone(item)">
+                  {{ productVisibilityLabel(item) }}
+                </BaseBadge>
+                <BaseCheckbox
+                  :checked="item.is_active"
+                  :disabled="isVisibilityPending(item.id)"
+                  :aria-label="`${item.is_active ? 'Приховати' : 'Показати'} товар ${item.name}`"
+                  @change="handleProductVisibilityChange(item, $event)"
+                />
+                <span v-if="isVisibilityPending(item.id)" class="text-xs text-ui-muted" aria-live="polite">Оновлення…</span>
+              </div>
             </td>
             <td data-label="Дії" class="px-4 py-3">
               <div class="flex flex-wrap gap-2">

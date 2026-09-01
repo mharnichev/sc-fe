@@ -1,4 +1,5 @@
 import type { ProductDto } from '@shared-types'
+import { isProductEffectivelyVisible } from '~/utils/product-visibility'
 
 interface RecentlyViewedSnapshot {
   version: 1
@@ -13,6 +14,19 @@ interface RecentlyViewedState {
 const STORAGE_KEY = 'shop-recently-viewed'
 const STORAGE_VERSION = 1
 const HISTORY_LIMIT = 12
+
+const persistProducts = (products: ProductDto[]) => {
+  try {
+    const snapshot: RecentlyViewedSnapshot = {
+      version: STORAGE_VERSION,
+      products,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+  }
+  catch (error) {
+    console.error('Failed to persist recently viewed products', error)
+  }
+}
 
 const isStoredProduct = (value: unknown): value is ProductDto => {
   if (!value || typeof value !== 'object') return false
@@ -47,6 +61,7 @@ export const useRecentlyViewedStore = defineStore('recently-viewed', {
 
         this.products = snapshot.products
           .filter(isStoredProduct)
+          .filter(isProductEffectivelyVisible)
           .filter((product, index, products) =>
             products.findIndex(candidate => candidate.id === product.id) === index,
           )
@@ -65,16 +80,15 @@ export const useRecentlyViewedStore = defineStore('recently-viewed', {
         ...this.products.filter(candidate => candidate.id !== product.id),
       ].slice(0, HISTORY_LIMIT)
 
-      try {
-        const snapshot: RecentlyViewedSnapshot = {
-          version: STORAGE_VERSION,
-          products: this.products,
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
-      }
-      catch (error) {
-        console.error('Failed to persist recently viewed products', error)
-      }
+      persistProducts(this.products)
+    },
+    removeBySlug(slug: string) {
+      if (!import.meta.client) return
+      this.hydrate()
+      const nextProducts = this.products.filter(product => product.slug !== slug)
+      if (nextProducts.length === this.products.length) return
+      this.products = nextProducts
+      persistProducts(this.products)
     },
   },
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ProductDto } from '@shared-types'
 import { getProductDiscount } from '~/utils/product-status'
+import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
 const props = defineProps<{
   product: ProductDto
@@ -19,6 +20,8 @@ const productCode = computed(() => props.product.sku || String(props.product.id)
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
 const discount = computed(() => getProductDiscount(props.product))
+const isHidden = computed(() => isProductHidden(props.product))
+const isUnavailable = computed(() => isProductUnavailable(props.product))
 
 const toggleFavorite = async () => {
   await favorites.toggle(props.product.id, props.product)
@@ -31,7 +34,13 @@ const toggleCart = async () => {
 
 <template>
   <article class="catalog-product-tile" itemscope itemtype="https://schema.org/Product">
-    <NuxtLink class="catalog-product-tile__link" :to="`/products/${product.slug}`" itemprop="url">
+    <component
+      :is="isHidden ? 'div' : 'NuxtLink'"
+      class="catalog-product-tile__link"
+      :to="isHidden ? undefined : `/products/${product.slug}`"
+      :aria-disabled="isHidden || undefined"
+      itemprop="url"
+    >
       <picture class="catalog-product-tile__media">
         <img
           class="catalog-product-tile__image"
@@ -64,8 +73,9 @@ const toggleCart = async () => {
             {{ product.reviews_count || 0 }}
           </span>
         </div>
+        <p v-if="isUnavailable" class="catalog-product-tile__unavailable">{{ terms.favorites.unavailable }}</p>
       </div>
-    </NuxtLink>
+    </component>
 
     <BaseButton
       class="catalog-product-tile__favorite"
@@ -101,7 +111,8 @@ const toggleCart = async () => {
         :class="{ 'catalog-product-tile__cart--active': isInCart }"
         type="button"
         size="xs"
-        :aria-label="isInCart ? terms.product.removeFromCart : terms.product.addToCart"
+        :disabled="isUnavailable"
+        :aria-label="isUnavailable ? terms.favorites.unavailable : (isInCart ? terms.product.removeFromCart : terms.product.addToCart)"
         @click="toggleCart"
       >
         <BaseIcon :name="isInCart ? 'check' : 'shopping-cart'" size="xxs" />
@@ -131,6 +142,10 @@ const toggleCart = async () => {
 .catalog-product-tile:focus-within {
   box-shadow: 0 1rem 1.5rem rgb(108 116 167 / 0.16);
   transform: translateY(-0.125rem);
+}
+
+.catalog-product-tile:has(.catalog-product-tile__unavailable) {
+  opacity: 0.68;
 }
 
 .catalog-product-tile__link {
@@ -179,6 +194,13 @@ const toggleCart = async () => {
   color: #737373;
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+.catalog-product-tile__unavailable {
+  padding-top: 0.375rem;
+  color: #a16207;
+  font-size: 0.7rem;
+  font-weight: 600;
 }
 
 .catalog-product-tile__rating {

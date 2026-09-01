@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ProductDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
 type BasketSidebarTab = 'basket' | 'recently-viewed'
 
@@ -40,6 +41,10 @@ const hideBasketModal = () => {
 
 const productImage = (product: ProductDto) =>
   product.images[0]?.image || product.images[0]?.image_url || 'https://placehold.co/160x160'
+
+const unavailableMessage = computed(() => terms.value.checkout.unavailableProducts(
+  cart.unavailableItems.map(item => item.product.name).join(', '),
+))
 </script>
 
 <template>
@@ -91,16 +96,22 @@ const productImage = (product: ProductDto) =>
             <div v-if="index > 0" class="basket-sidebar__divider" aria-hidden="true">
               <span class="basket-sidebar__divider-line" />
             </div>
-            <article class="basket-sidebar__item">
+            <article class="basket-sidebar__item" :class="{ 'basket-sidebar__item--unavailable': isProductUnavailable(item.product) }">
               <img :src="productImage(item.product)" :alt="item.product.name" class="basket-sidebar__image">
               <div class="basket-sidebar__body">
                 <div>
                   <p class="basket-sidebar__brand">{{ item.product.brand.name }}</p>
                   <div class="basket-sidebar__title-row">
                     <div class="basket-sidebar__title-copy">
-                      <NuxtLink :to="`/products/${item.product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
+                      <NuxtLink v-if="!isProductHidden(item.product)" :to="`/products/${item.product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
                         <BaseHoverUnderlineText>{{ item.product.name }}</BaseHoverUnderlineText>
                       </NuxtLink>
+                      <span v-else class="basket-sidebar__name basket-sidebar__name--unavailable" aria-disabled="true">
+                        {{ item.product.name }}
+                      </span>
+                      <p v-if="isProductUnavailable(item.product)" class="basket-sidebar__unavailable">
+                        {{ terms.basket.unavailable }}
+                      </p>
                       <div class="basket-sidebar__meta">
                         <span>{{ formatPrice(item.product.price) }}</span>
                       </div>
@@ -111,8 +122,9 @@ const productImage = (product: ProductDto) =>
                         variant="stacked"
                         :model-value="item.quantity"
                         :min="0"
-                        :max="Math.max(1, item.product.stock)"
+                        :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
                         :disabled="cart.syncing"
+                        :disable-increase="isProductUnavailable(item.product)"
                         :aria-label="terms.checkout.quantityFor(item.product.name)"
                         @update:model-value="cart.update(item.product.id, $event)"
                       />
@@ -192,7 +204,10 @@ const productImage = (product: ProductDto) =>
           <span>{{ terms.basket.beforeDelivery }}</span>
           <strong>{{ formatPrice(cart.total) }}</strong>
         </div>
-        <BaseButton to="/checkout/purchase" block @click="hideBasketModal">
+        <p v-if="cart.hasUnavailableItems" class="basket-sidebar__unavailable-summary" role="alert">
+          {{ unavailableMessage }}
+        </p>
+        <BaseButton :to="cart.hasUnavailableItems ? undefined : '/checkout/purchase'" block :disabled="cart.hasUnavailableItems" @click="hideBasketModal">
           {{ terms.common.checkout }}
         </BaseButton>
       </div>
@@ -295,6 +310,10 @@ const productImage = (product: ProductDto) =>
   padding: 0.65rem;
 }
 
+.basket-sidebar__item--unavailable {
+  opacity: 0.72;
+}
+
 .basket-sidebar__divider {
   padding: 0.75rem 0.65rem;
 }
@@ -375,6 +394,17 @@ const productImage = (product: ProductDto) =>
   -webkit-line-clamp: 2;
 }
 
+.basket-sidebar__name--unavailable,
+.basket-sidebar__unavailable {
+  color: #a16207;
+}
+
+.basket-sidebar__unavailable {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .basket-sidebar__meta {
   margin-top: 0.3rem;
   font-size: 0.85rem;
@@ -412,5 +442,11 @@ const productImage = (product: ProductDto) =>
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.9rem;
+}
+
+.basket-sidebar__unavailable-summary {
+  color: #a16207;
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 </style>

@@ -64,6 +64,10 @@ export interface ProductDto {
   is_top?: boolean | null
   is_popular?: boolean | null
   parameters: Record<string, string>
+  /** Effective visibility is computed by the backend from the product/category tree. */
+  is_effectively_visible?: boolean
+  hidden_reason?: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase?: boolean
 }
 
 export interface ProductSearchResponseDto {
@@ -161,6 +165,9 @@ export interface CustomerCartItemDto {
   product: ProductDto
   created_at: string
   updated_at: string
+  is_effectively_visible?: boolean
+  hidden_reason?: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase?: boolean
 }
 
 export interface CustomerWishlistItemDto {
@@ -169,6 +176,9 @@ export interface CustomerWishlistItemDto {
   product: ProductDto
   created_at: string
   updated_at: string
+  is_effectively_visible?: boolean
+  hidden_reason?: 'product' | 'category' | 'parent_category' | null
+  is_available_for_purchase?: boolean
 }
 
 export interface DeliveryListResponseDto {

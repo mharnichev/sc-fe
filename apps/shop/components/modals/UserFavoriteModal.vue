@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
 const props = defineProps<{
   modelValue: boolean
@@ -39,16 +40,20 @@ const isInCart = (productId: number) =>
 
     <div class="favorite-sidebar">
       <div v-if="favorites.products.length" class="favorite-sidebar__list">
-        <article v-for="product in favorites.products" :key="product.id" class="favorite-sidebar__item">
+        <article v-for="product in favorites.products" :key="product.id" class="favorite-sidebar__item" :class="{ 'favorite-sidebar__item--unavailable': isProductUnavailable(product) }">
           <img :src="productImage(product)" :alt="product.name" class="favorite-sidebar__image">
           <div class="favorite-sidebar__body">
             <p class="favorite-sidebar__brand">{{ product.brand.name }}</p>
-            <NuxtLink :to="`/products/${product.slug}`" class="favorite-sidebar__name" @click="hideFavoriteModal">
+            <NuxtLink v-if="!isProductHidden(product)" :to="`/products/${product.slug}`" class="favorite-sidebar__name" @click="hideFavoriteModal">
               <BaseHoverUnderlineText>{{ product.name }}</BaseHoverUnderlineText>
             </NuxtLink>
+            <span v-else class="favorite-sidebar__name favorite-sidebar__name--unavailable" aria-disabled="true">
+              {{ product.name }}
+            </span>
             <strong class="favorite-sidebar__price">{{ formatPrice(product.price) }}</strong>
+            <p v-if="isProductUnavailable(product)" class="favorite-sidebar__unavailable">{{ terms.favorites.unavailable }}</p>
             <div class="favorite-sidebar__actions">
-              <BaseButton type="button" variant="text" @click="cart.toggle(product)">
+              <BaseButton type="button" variant="text" :disabled="isProductUnavailable(product)" @click="cart.toggle(product)">
                 {{ isInCart(product.id) ? terms.product.removeFromCart : terms.favorites.addToCart }}
               </BaseButton>
               <BaseButton type="button" variant="text" @click="favorites.remove(product.id)">
@@ -94,6 +99,10 @@ const isInCart = (productId: number) =>
   padding: 0.65rem;
 }
 
+.favorite-sidebar__item--unavailable {
+  opacity: 0.72;
+}
+
 .favorite-sidebar__image {
   aspect-ratio: 1;
   width: 100%;
@@ -122,6 +131,16 @@ const isInCart = (productId: number) =>
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.favorite-sidebar__name--unavailable,
+.favorite-sidebar__unavailable {
+  color: #a16207;
+}
+
+.favorite-sidebar__unavailable {
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .favorite-sidebar__price {

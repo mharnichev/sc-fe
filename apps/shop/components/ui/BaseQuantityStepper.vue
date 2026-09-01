@@ -4,6 +4,7 @@ const props = withDefaults(defineProps<{
   max?: number
   step?: number
   disabled?: boolean
+  disableIncrease?: boolean
   ariaLabel?: string
   variant?: 'default' | 'stacked'
 }>(), {
@@ -11,6 +12,7 @@ const props = withDefaults(defineProps<{
   max: Number.POSITIVE_INFINITY,
   step: 1,
   disabled: false,
+  disableIncrease: false,
   ariaLabel: '',
   variant: 'default',
 })
@@ -54,7 +56,7 @@ const update = (value: number) => {
     <button
       class="base-quantity-stepper__button"
       type="button"
-      :disabled="disabled || model >= max"
+      :disabled="disabled || disableIncrease || model >= max"
       :aria-label="terms.quantity.increase"
       @click="update(model + step)"
     >

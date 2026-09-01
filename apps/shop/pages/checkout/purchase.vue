@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isProductUnavailable } from '~/utils/product-visibility'
+
 const cart = useCartStore()
 const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
@@ -53,12 +55,17 @@ const isDeliveryValid = computed(() => {
 const canSubmit = computed(() =>
   Boolean(
     cart.items.length
+    && !cart.hasUnavailableItems
     && form.firstName.trim()
     && form.lastName.trim()
     && form.phoneNumber.trim()
     && isDeliveryValid.value,
   ),
 )
+const unavailableItems = computed(() => cart.items.filter(item => isProductUnavailable(item.product)))
+const unavailableMessage = computed(() => terms.value.checkout.unavailableProducts(
+  unavailableItems.value.map(item => item.product.name).join(', '),
+))
 
 const readDeliveryField = (item: Record<string, unknown>, keys: string[]) => {
   for (const key of keys) {
@@ -164,6 +171,10 @@ watch(() => delivery.selectedWarehouse, value => {
 })
 
 const submit = async () => {
+  if (unavailableItems.value.length) {
+    state.error = unavailableMessage.value
+    return
+  }
   if (!canSubmit.value) return
   state.loading = true
   state.error = ''
@@ -213,6 +224,9 @@ useSeo(
                 <div class="checkout-order-list__title-row">
                   <div class="checkout-order-list__title-copy">
                     <h3>{{ item.product.name }}</h3>
+                    <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
+                      {{ terms.basket.unavailable }}
+                    </p>
                     <strong class="checkout-order-list__price">
                       {{ formatPrice(Number(item.product.price) * item.quantity) }}
                     </strong>
@@ -223,8 +237,9 @@ useSeo(
                       variant="stacked"
                       :model-value="item.quantity"
                       :min="0"
-                      :max="Math.max(1, item.product.stock)"
+                      :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
                       :disabled="cart.syncing"
+                      :disable-increase="isProductUnavailable(item.product)"
                       :aria-label="terms.checkout.quantityFor(item.product.name)"
                       @update:model-value="cart.update(item.product.id, $event)"
                     />
@@ -242,6 +257,9 @@ useSeo(
         </aside>
 
         <form class="checkout-form" @submit.prevent="submit">
+          <p v-if="unavailableItems.length" class="checkout-page__error checkout-page__unavailable" role="alert">
+            {{ unavailableMessage }}
+          </p>
           <section class="checkout-card">
             <div class="checkout-card__head">
               <span>1</span>
@@ -366,6 +384,9 @@ useSeo(
                   <div class="checkout-order-list__title-row">
                     <div class="checkout-order-list__title-copy">
                       <h3>{{ item.product.name }}</h3>
+                      <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
+                        {{ terms.basket.unavailable }}
+                      </p>
                       <strong class="checkout-order-list__price">
                         {{ formatPrice(Number(item.product.price) * item.quantity) }}
                       </strong>
@@ -376,8 +397,9 @@ useSeo(
                         variant="stacked"
                         :model-value="item.quantity"
                         :min="0"
-                        :max="Math.max(1, item.product.stock)"
+                        :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
                         :disabled="cart.syncing"
+                        :disable-increase="isProductUnavailable(item.product)"
                         :aria-label="terms.checkout.quantityFor(item.product.name)"
                         @update:model-value="cart.update(item.product.id, $event)"
                       />
@@ -587,6 +609,17 @@ useSeo(
 
 .checkout-page__error {
   color: #be123c;
+  font-weight: 700;
+}
+
+.checkout-page__unavailable {
+  margin: 0;
+}
+
+.checkout-page__item-unavailable {
+  margin-top: 0.2rem;
+  color: #a16207;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 

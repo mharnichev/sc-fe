@@ -1,4 +1,5 @@
 import type { ProductDto } from '@shared-types'
+import { isProductUnavailable } from '~/utils/product-visibility'
 
 interface FavoritesState {
   items: number[]
@@ -37,6 +38,7 @@ export const useFavoritesStore = defineStore('favorites', {
       }
     },
     async add(id: number, product?: ProductDto) {
+      if (product && isProductUnavailable(product)) return
       const auth = useCustomerAuthStore()
       const toast = useToastStore()
       if (!auth.isAuthenticated) {

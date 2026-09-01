@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PencilIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
-import type { ProductPayload } from '~/composables/useBackofficeApi'
+import type { ProductImage, ProductPayload } from '~/composables/useBackofficeApi'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,20 +26,33 @@ const [{ data: productResult, refresh: refreshProduct }, { data: categories }, {
 ])
 
 const product = computed(() => productResult.value?.product ?? null)
+const assetUrl = useAssetUrl()
+const managedImages = ref<ProductImage[]>([])
 
-const galleryImages = computed(() => {
+watch(() => product.value?.images, value => {
+  managedImages.value = Array.isArray(value) ? [...value] : []
+}, { immediate: true, deep: true })
+
+const legacyGalleryImages = computed(() => {
   const images = new Set<string>()
-
   if (product.value?.image_url) images.add(product.value.image_url)
-
   const fromAttributes = product.value?.attributes_json?.image_urls
   if (Array.isArray(fromAttributes)) {
     for (const image of fromAttributes) {
-      if (typeof image === 'string' && image.trim()) images.add(image)
+      if (typeof image === 'string' && image.trim()) images.add(image.trim())
     }
   }
-
   return Array.from(images)
+})
+
+const galleryImages = computed(() => {
+  if (managedImages.value.length) {
+    return managedImages.value
+      .filter(image => image.is_active && image.image_url)
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+      .map(image => ({ url: assetUrl(image.image_url!), alt: image.alt || product.value?.name || 'Фотографія товару' }))
+  }
+  return legacyGalleryImages.value.map(url => ({ url: assetUrl(url), alt: product.value?.name || 'Фотографія товару' }))
 })
 
 const attributeEntries = computed(() => {
@@ -124,6 +137,9 @@ const submit = async (payload: ProductPayload) => {
         submit-label="Створити товар"
         @submit="submit"
       />
+      <p class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+        Спочатку збережіть товар, потім додайте фотографії.
+      </p>
     </template>
 
     <template v-else-if="product">
@@ -154,6 +170,13 @@ const submit = async (payload: ProductPayload) => {
         </div>
       </div>
 
+      <ProductImagesManager
+        :product-id="product.id"
+        :initial-images="managedImages"
+        :legacy-image-urls="legacyGalleryImages"
+        @change="managedImages = $event"
+      />
+
       <ProductForm
         v-if="editMode"
         :categories="categories?.items || []"
@@ -171,13 +194,13 @@ const submit = async (payload: ProductPayload) => {
           <div v-if="galleryImages.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <a
                 v-for="image in galleryImages"
-                :key="image"
-                :href="image"
+                :key="image.url"
+                :href="image.url"
                 target="_blank"
                 rel="noreferrer"
                 class="group overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-50"
             >
-              <img :src="image" :alt="product.name" class="h-64 w-full object-cover transition group-hover:scale-[1.02]">
+                <img :src="image.url" :alt="image.alt" class="h-64 w-full object-cover transition group-hover:scale-[1.02]">
             </a>
           </div>
           <p v-else class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
