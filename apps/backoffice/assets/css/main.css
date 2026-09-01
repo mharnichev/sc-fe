@@ -14,30 +14,34 @@
   --bo-text-muted: rgba(255, 255, 255, 0.52);
   --bo-border: rgba(255, 255, 255, 0.10);
   --bo-border-strong: rgba(255, 255, 255, 0.22);
-  --bo-accent: #8be9f7;
-  --bo-accent-hover: #b4f4ff;
-  --bo-accent-active: #67d9ea;
-  --bo-on-accent: #06272d;
-  --bo-success: #30d158;
-  --bo-success-surface: rgba(48, 209, 88, 0.14);
-  --bo-success-text: #8df0a5;
+  --bo-accent: #6fa77f;
+  --bo-accent-hover: #7fb68e;
+  --bo-accent-active: #5d936d;
+  --bo-on-accent: #0b1710;
+  --bo-action: #6fa77f;
+  --bo-action-hover: #7fb68e;
+  --bo-action-active: #5d936d;
+  --bo-on-action: #0b1710;
+  --bo-success: #6fa77f;
+  --bo-success-surface: rgba(111, 167, 127, 0.14);
+  --bo-success-text: #acd7b7;
   --bo-warning: #ffd60a;
   --bo-warning-surface: rgba(255, 214, 10, 0.14);
   --bo-warning-text: #ffe66b;
   --bo-danger: #ff453a;
   --bo-danger-surface: rgba(255, 69, 58, 0.14);
   --bo-danger-text: #ff9b94;
-  --bo-info: #64d2ff;
-  --bo-info-surface: rgba(100, 210, 255, 0.14);
-  --bo-info-text: #a7e7ff;
+  --bo-info: #60a5fa;
+  --bo-info-surface: rgba(96, 165, 250, 0.14);
+  --bo-info-text: #bfdbfe;
   --bo-control: rgba(255, 255, 255, 0.12);
   --bo-control-hover: rgba(255, 255, 255, 0.17);
   --bo-control-active: rgba(255, 255, 255, 0.21);
   --bo-disabled-bg: rgba(255, 255, 255, 0.06);
   --bo-disabled-text: rgba(255, 255, 255, 0.34);
   --bo-disabled-border: rgba(255, 255, 255, 0.08);
-  --bo-focus-border: rgba(139, 233, 247, 0.74);
-  --bo-focus-ring: rgba(100, 210, 255, 0.22);
+  --bo-focus-border: rgba(111, 167, 127, 0.74);
+  --bo-focus-ring: rgba(111, 167, 127, 0.22);
   --bo-overlay: rgba(0, 0, 0, 0.66);
   --bo-shadow-color: rgba(0, 0, 0, 0.32);
   --bo-help-surface: #0f172a;
@@ -45,7 +49,7 @@
   --bo-help-text: #e2e8f0;
   --bo-help-text-secondary: #cbd5e1;
   --bo-help-text-muted: #94a3b8;
-  --bo-help-accent: #67e8f9;
+  --bo-help-accent: #9bcbaa;
   --bo-help-shadow: rgba(15, 23, 42, 0.28);
 
   /* Legacy aliases keep existing screens themed while they migrate to --bo-* tokens. */
@@ -110,10 +114,10 @@
   --stat-card-tone-dark-bg: rgba(255, 255, 255, 0.085);
   --stat-card-tone-dark-text: rgba(255, 255, 255, 0.96);
   --stat-card-tone-dark-muted: rgba(255, 255, 255, 0.62);
-  --stat-card-tone-cyan-bg: rgba(255, 255, 255, 0.07);
+  --stat-card-tone-cyan-bg: rgba(96, 165, 250, 0.12);
   --stat-card-tone-cyan-text: rgba(255, 255, 255, 0.96);
-  --stat-card-tone-cyan-muted: rgba(255, 255, 255, 0.62);
-  --stat-card-tone-emerald-bg: rgba(48, 209, 88, 0.12);
+  --stat-card-tone-cyan-muted: rgba(219, 234, 254, 0.72);
+  --stat-card-tone-emerald-bg: rgba(111, 167, 127, 0.12);
   --stat-card-tone-emerald-text: rgba(255, 255, 255, 0.96);
   --stat-card-tone-emerald-muted: rgba(255, 255, 255, 0.66);
   --stat-card-tone-amber-bg: rgba(255, 214, 10, 0.12);
@@ -147,30 +151,34 @@ html[data-backoffice-theme="light"] {
   --bo-text-muted: rgba(71, 85, 105, 0.62);
   --bo-border: rgba(15, 23, 42, 0.11);
   --bo-border-strong: rgba(15, 23, 42, 0.20);
-  --bo-accent: #0e7490;
-  --bo-accent-hover: #155e75;
-  --bo-accent-active: #164e63;
+  --bo-accent: #477a57;
+  --bo-accent-hover: #3c694b;
+  --bo-accent-active: #31583f;
   --bo-on-accent: #ffffff;
-  --bo-success: #248a3d;
-  --bo-success-surface: rgba(36, 138, 61, 0.11);
-  --bo-success-text: #166534;
+  --bo-action: #477a57;
+  --bo-action-hover: #3c694b;
+  --bo-action-active: #31583f;
+  --bo-on-action: #ffffff;
+  --bo-success: #477a57;
+  --bo-success-surface: rgba(71, 122, 87, 0.11);
+  --bo-success-text: #356346;
   --bo-warning: #b77900;
   --bo-warning-surface: rgba(183, 121, 0, 0.12);
   --bo-warning-text: #854d0e;
   --bo-danger: #d70015;
   --bo-danger-surface: rgba(215, 0, 21, 0.09);
   --bo-danger-text: #a50011;
-  --bo-info: #087ea4;
-  --bo-info-surface: rgba(8, 126, 164, 0.10);
-  --bo-info-text: #155e75;
+  --bo-info: #2563eb;
+  --bo-info-surface: rgba(37, 99, 235, 0.10);
+  --bo-info-text: #1d4ed8;
   --bo-control: rgba(15, 23, 42, 0.055);
   --bo-control-hover: rgba(15, 23, 42, 0.085);
   --bo-control-active: rgba(15, 23, 42, 0.12);
   --bo-disabled-bg: rgba(15, 23, 42, 0.04);
   --bo-disabled-text: rgba(71, 85, 105, 0.46);
   --bo-disabled-border: rgba(15, 23, 42, 0.08);
-  --bo-focus-border: rgba(14, 116, 144, 0.72);
-  --bo-focus-ring: rgba(8, 145, 178, 0.18);
+  --bo-focus-border: rgba(71, 122, 87, 0.72);
+  --bo-focus-ring: rgba(71, 122, 87, 0.18);
   --bo-overlay: rgba(15, 23, 42, 0.52);
   --bo-shadow-color: rgba(15, 23, 42, 0.12);
   --bo-help-surface: #0f172a;
@@ -178,7 +186,7 @@ html[data-backoffice-theme="light"] {
   --bo-help-text: #e2e8f0;
   --bo-help-text-secondary: #cbd5e1;
   --bo-help-text-muted: #94a3b8;
-  --bo-help-accent: #67e8f9;
+  --bo-help-accent: #568c66;
   --bo-help-shadow: rgba(15, 23, 42, 0.28);
 
   --bg-main: var(--bo-page);
@@ -242,12 +250,12 @@ html[data-backoffice-theme="light"] {
   --stat-card-tone-dark-bg: #0f172a;
   --stat-card-tone-dark-text: #ffffff;
   --stat-card-tone-dark-muted: rgba(255, 255, 255, 0.72);
-  --stat-card-tone-cyan-bg: rgba(8, 145, 178, 0.13);
-  --stat-card-tone-cyan-text: #083344;
-  --stat-card-tone-cyan-muted: #155e75;
-  --stat-card-tone-emerald-bg: rgba(22, 163, 74, 0.13);
-  --stat-card-tone-emerald-text: #052e16;
-  --stat-card-tone-emerald-muted: #166534;
+  --stat-card-tone-cyan-bg: rgba(37, 99, 235, 0.11);
+  --stat-card-tone-cyan-text: #172554;
+  --stat-card-tone-cyan-muted: #1d4ed8;
+  --stat-card-tone-emerald-bg: rgba(71, 122, 87, 0.13);
+  --stat-card-tone-emerald-text: #183522;
+  --stat-card-tone-emerald-muted: #356346;
   --stat-card-tone-amber-bg: rgba(217, 119, 6, 0.16);
   --stat-card-tone-amber-text: #451a03;
   --stat-card-tone-amber-muted: #92400e;
@@ -420,18 +428,19 @@ body {
 }
 
 .base-button--primary {
-  border-color: color-mix(in srgb, var(--bo-accent) 58%, transparent);
-  background: var(--bo-accent);
-  color: var(--bo-on-accent) !important;
+  border-color: color-mix(in srgb, var(--bo-action) 62%, transparent);
+  background: var(--bo-action);
+  color: var(--bo-on-action) !important;
 }
 
 .base-button--primary:hover:not(:disabled) {
-  background: var(--bo-accent-hover);
-  border-color: var(--bo-accent-hover);
+  background: var(--bo-action-hover);
+  border-color: var(--bo-action-hover);
 }
 
 .base-button--primary:active:not(:disabled) {
-  background: var(--bo-accent-active);
+  background: var(--bo-action-active);
+  border-color: var(--bo-action-active);
 }
 
 .base-button--success {
@@ -550,6 +559,231 @@ html[data-backoffice-theme="light"] .base-button--success {
 
 .base-checkbox__label {
   color: var(--bo-text-secondary);
+}
+
+.base-toggle__root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+}
+
+.base-toggle__root--disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.base-toggle__root--loading {
+  cursor: progress;
+}
+
+.base-toggle__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.base-toggle__track {
+  position: relative;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  border: 1px solid var(--bo-border-strong);
+  border-radius: 9999px;
+  background: var(--bo-control);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.base-toggle__thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.1875rem;
+  border-radius: 9999px;
+  background: var(--bo-text-muted);
+  box-shadow: 0 1px 3px var(--bo-shadow-color);
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.base-toggle__loader {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  min-height: 0;
+  width: 100%;
+  gap: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--bo-surface) 90%, transparent);
+  padding: 0;
+}
+
+.base-toggle__loader .base-loader__spinner {
+  border-color: color-mix(in srgb, var(--bo-action) 24%, transparent);
+  border-top-color: var(--bo-action);
+}
+
+.base-toggle__input:checked + .base-toggle__track {
+  border-color: var(--bo-action);
+  background: var(--bo-action);
+}
+
+.base-toggle__input:checked + .base-toggle__track .base-toggle__thumb {
+  background: var(--bo-on-action);
+  transform: translateX(1.25rem);
+}
+
+.base-toggle__input:focus-visible + .base-toggle__track {
+  border-color: var(--bo-focus-border);
+  box-shadow: 0 0 0 3px var(--bo-focus-ring);
+}
+
+.base-toggle__input:disabled + .base-toggle__track {
+  border-color: var(--bo-disabled-border);
+  background: var(--bo-disabled-bg);
+}
+
+.base-toggle__label {
+  color: var(--bo-text-secondary);
+  font-size: 0.875rem;
+}
+
+.base-tabs__list {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border: 1px solid var(--bo-border);
+  border-radius: 1rem;
+  background: var(--bo-control);
+  padding: 0.25rem;
+}
+
+.base-tabs__tab {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 9rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  color: var(--bo-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.base-tabs__tab:hover:not(:disabled) {
+  background: var(--bo-control-hover);
+  color: var(--bo-text-primary);
+}
+
+.base-tabs__tab.is-active {
+  border-color: var(--bo-border-strong);
+  background: var(--bo-surface-elevated);
+  color: var(--bo-text-primary);
+  box-shadow: 0 4px 14px var(--bo-shadow-color);
+}
+
+.base-tabs__tab:focus-visible {
+  border-color: var(--bo-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--bo-focus-ring);
+}
+
+.base-tabs__description {
+  margin-top: 0.125rem;
+  color: var(--bo-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.category-tree-node {
+  position: relative;
+  border: 1px solid var(--bo-border);
+  border-radius: 1rem;
+  background: var(--bo-surface-elevated);
+  padding: 0.875rem;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bo-shadow-color) 45%, transparent);
+}
+
+.category-tree-node.is-root {
+  border-color: var(--bo-border-strong);
+  background: var(--bo-surface);
+}
+
+.category-tree-node.is-muted {
+  opacity: 0.68;
+}
+
+.category-tree-node__icon {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 32%, var(--bo-border));
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+  color: var(--bo-accent);
+}
+
+.category-tree-node__level {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: var(--bo-control);
+  padding: 0.125rem 0.5rem;
+  color: var(--bo-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.category-tree-children {
+  position: relative;
+  margin-top: 0.875rem;
+  margin-left: 0.25rem;
+  display: grid;
+  gap: 0.625rem;
+  border-left: 2px solid color-mix(in srgb, var(--bo-accent) 34%, var(--bo-border));
+  padding-left: 0.875rem;
+}
+
+.category-tree-children > .category-tree-node::before {
+  position: absolute;
+  top: 1.5rem;
+  left: -1rem;
+  width: 0.875rem;
+  border-top: 2px solid color-mix(in srgb, var(--bo-accent) 34%, var(--bo-border));
+  content: '';
+}
+
+.category-tree-children__label {
+  color: var(--bo-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .category-tree-children {
+    margin-left: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .category-tree-children > .category-tree-node::before {
+    left: -1.625rem;
+    width: 1.5rem;
+  }
 }
 
 .base-select__menu {
@@ -772,16 +1006,14 @@ main .text-slate-500,
   color: var(--text-secondary) !important;
 }
 
-main .text-cyan-700,
-main .text-cyan-600,
-main .text-cyan-500,
-main .text-cyan-800,
-main .text-cyan-900,
-.liquid-glass .text-cyan-700,
-.liquid-glass .text-cyan-600,
-.liquid-glass .text-cyan-500,
-.liquid-glass .text-cyan-800,
-.liquid-glass .text-cyan-900 {
+.text-cyan-500,
+.text-cyan-600,
+.text-cyan-700,
+.text-cyan-800,
+.text-cyan-900,
+.text-cyan-950,
+[class~="hover:text-cyan-700"]:hover,
+[class~="hover:text-cyan-900"]:hover {
   color: var(--accent-text) !important;
 }
 
@@ -1171,13 +1403,13 @@ main table:not(.base-table) tbody td:last-child {
 }
 
 main .bg-emerald-50 {
-  background: rgba(48, 209, 88, 0.13) !important;
+  background: var(--bo-success-surface) !important;
 }
 
 main .text-emerald-700,
 main .text-emerald-800,
 main .text-emerald-900 {
-  color: #8ff0a8 !important;
+  color: var(--bo-success-text) !important;
 }
 
 main .bg-rose-50 {
@@ -1214,14 +1446,40 @@ main .bg-indigo-50 {
   background: rgba(255, 255, 255, 0.11) !important;
 }
 
-main .bg-cyan-50,
-main .bg-cyan-100 {
-  background: var(--bo-info-surface) !important;
+.bg-cyan-50,
+.bg-cyan-100,
+[class~="bg-cyan-50/50"],
+[class~="bg-cyan-500/15"],
+[class~="hover:bg-cyan-50"]:hover,
+[class~="hover:bg-cyan-100"]:hover {
+  background: color-mix(in srgb, var(--bo-accent) 12%, transparent) !important;
 }
 
-main .border-cyan-200,
-main .border-cyan-300 {
-  border-color: color-mix(in srgb, var(--bo-info) 28%, transparent) !important;
+.bg-cyan-500,
+.bg-cyan-600,
+.bg-cyan-700,
+[class~="hover:bg-cyan-700"]:hover {
+  background-color: var(--bo-accent) !important;
+}
+
+.border-cyan-100,
+.border-cyan-200,
+.border-cyan-300,
+.border-cyan-400,
+.border-cyan-700,
+[class~="hover:border-cyan-300"]:hover,
+[class~="hover:border-cyan-700"]:hover {
+  border-color: color-mix(in srgb, var(--bo-accent) 42%, transparent) !important;
+}
+
+[class~="focus:ring-cyan-500"]:focus,
+[class~="focus:ring-cyan-600"]:focus,
+[class~="focus-visible:ring-cyan-600"]:focus-visible {
+  --tw-ring-color: var(--bo-focus-border) !important;
+}
+
+.decoration-cyan-300 {
+  text-decoration-color: color-mix(in srgb, var(--bo-accent) 55%, transparent) !important;
 }
 
 main .ring-slate-200,
@@ -1265,15 +1523,15 @@ main .ring-indigo-200 {
 }
 
 html[data-backoffice-theme="light"] .backoffice-booking-redirect-card {
-  border-color: rgba(14, 116, 144, 0.18);
-  background: rgba(8, 145, 178, 0.075) !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 9%, transparent) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.78),
     0 8px 22px rgba(15, 23, 42, 0.07);
 }
 
 html[data-backoffice-theme="light"] .backoffice-booking-redirect-label {
-  color: #155e75 !important;
+  color: var(--bo-accent-active) !important;
 }
 
 .backoffice-modal-close-button {
@@ -1335,25 +1593,25 @@ html[data-backoffice-theme="light"] .backoffice-booking-redirect-label {
 }
 
 .backoffice-modal-action-primary {
-  border: 1px solid rgba(48, 209, 88, 0.36);
-  background: #16a34a;
-  color: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--bo-action) 62%, transparent);
+  background: var(--bo-action);
+  color: var(--bo-on-action) !important;
 }
 
 .backoffice-modal-action-primary:hover:not(:disabled) {
-  background: #15803d;
-  color: #ffffff !important;
+  background: var(--bo-action-hover);
+  color: var(--bo-on-action) !important;
 }
 
 .backoffice-modal-action-success {
-  border: 1px solid rgba(48, 209, 88, 0.36);
-  background: #16a34a;
-  color: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--bo-success) 62%, transparent);
+  background: var(--bo-success);
+  color: var(--bo-on-action) !important;
 }
 
 .backoffice-modal-action-success:hover:not(:disabled) {
-  background: #15803d;
-  color: #ffffff !important;
+  background: var(--bo-action-hover);
+  color: var(--bo-on-action) !important;
 }
 
 .backoffice-modal-action-danger {
@@ -1527,9 +1785,9 @@ main :is(section, article, form):has(.dashboard-metric-help__tooltip) {
 }
 
 .booking-status-menu .text-emerald-100 {
-  background: rgba(48, 209, 88, 0.20) !important;
-  color: #b8ffc7 !important;
-  --tw-ring-color: rgba(48, 209, 88, 0.34) !important;
+  background: color-mix(in srgb, var(--bo-success) 20%, transparent) !important;
+  color: var(--bo-success-text) !important;
+  --tw-ring-color: color-mix(in srgb, var(--bo-success) 34%, transparent) !important;
 }
 
 .booking-status-menu .text-red-100 {
@@ -1545,9 +1803,9 @@ html[data-backoffice-theme="light"] .booking-status-menu span[class*="rounded-fu
 }
 
 html[data-backoffice-theme="light"] .booking-status-menu .text-emerald-100 {
-  background: rgba(36, 138, 61, 0.12) !important;
-  color: #16652c !important;
-  --tw-ring-color: rgba(36, 138, 61, 0.24) !important;
+  background: var(--bo-success-surface) !important;
+  color: var(--bo-success-text) !important;
+  --tw-ring-color: color-mix(in srgb, var(--bo-success) 24%, transparent) !important;
 }
 
 html[data-backoffice-theme="light"] .booking-status-menu .text-red-100 {
@@ -1664,9 +1922,9 @@ html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="bg-white/"
 }
 
 html[data-backoffice-theme="light"] .customer-service-chip {
-  border-color: rgba(14, 116, 144, 0.18);
-  background: rgba(8, 145, 178, 0.08);
-  color: #155e75 !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+  color: var(--bo-accent-active) !important;
 }
 
 .service-selection-chip {
@@ -1789,38 +2047,38 @@ html[data-backoffice-theme="light"] .customer-service-chip {
 }
 
 html[data-backoffice-theme="light"] .service-selection-chip {
-  border-color: rgba(14, 116, 144, 0.20);
-  background: rgba(8, 145, 178, 0.09);
-  color: #155e75 !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 26%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 11%, transparent);
+  color: var(--bo-accent-active) !important;
   box-shadow: none;
 }
 
 html[data-backoffice-theme="light"] .service-selection-chip-remove {
-  background: rgba(8, 145, 178, 0.08);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
 }
 
 html[data-backoffice-theme="light"] .service-selection-chip-remove:hover {
-  background: rgba(8, 145, 178, 0.15) !important;
-  color: #164e63 !important;
+  background: color-mix(in srgb, var(--bo-accent) 17%, transparent) !important;
+  color: var(--bo-accent-active) !important;
 }
 
 html[data-backoffice-theme="light"] .service-option-selected {
-  background: rgba(8, 145, 178, 0.08) !important;
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent) !important;
 }
 
 html[data-backoffice-theme="light"] .multi-select-option:hover {
-  border-color: rgba(8, 145, 178, 0.16);
-  background: rgba(8, 145, 178, 0.06) !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 8%, transparent) !important;
 }
 
 html[data-backoffice-theme="light"] .multi-select-option.is-selected {
-  border-color: rgba(8, 145, 178, 0.26);
-  background: rgba(8, 145, 178, 0.10) !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 32%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 12%, transparent) !important;
 }
 
 html[data-backoffice-theme="light"] .multi-select-option.is-selected:hover {
-  border-color: rgba(8, 145, 178, 0.36);
-  background: rgba(8, 145, 178, 0.14) !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 16%, transparent) !important;
 }
 
 html[data-backoffice-theme="light"] .booking-select-menu .multi-select-checkbox {
@@ -1829,13 +2087,13 @@ html[data-backoffice-theme="light"] .booking-select-menu .multi-select-checkbox 
 }
 
 html[data-backoffice-theme="light"] .booking-select-menu .multi-select-checkbox:checked {
-  background-color: #0891b2 !important;
-  border-color: #0891b2 !important;
+  background-color: var(--bo-accent) !important;
+  border-color: var(--bo-accent) !important;
 }
 
 html[data-backoffice-theme="light"] .service-option-check.is-selected {
-  border-color: #0891b2;
-  background: #0891b2;
+  border-color: var(--bo-accent);
+  background: var(--bo-accent);
   color: #ffffff !important;
 }
 
@@ -1890,9 +2148,9 @@ html[data-backoffice-theme="light"] .booking-money-card {
 }
 
 html[data-backoffice-theme="light"] .booking-promotion-chip {
-  border-color: rgba(22, 163, 74, 0.22) !important;
-  background: rgba(22, 163, 74, 0.09) !important;
-  color: #166534 !important;
+  border-color: color-mix(in srgb, var(--bo-success) 28%, transparent) !important;
+  background: color-mix(in srgb, var(--bo-success) 11%, transparent) !important;
+  color: var(--bo-success-text) !important;
   box-shadow: none;
 }
 
@@ -1982,9 +2240,9 @@ html[data-backoffice-theme="light"] .customer-info-item {
 }
 
 html[data-backoffice-theme="light"] .customer-info-badge-active {
-  border-color: rgba(22, 163, 74, 0.22);
-  background: rgba(22, 163, 74, 0.10);
-  color: #166534 !important;
+  border-color: color-mix(in srgb, var(--bo-success) 28%, transparent);
+  background: color-mix(in srgb, var(--bo-success) 12%, transparent);
+  color: var(--bo-success-text) !important;
 }
 
 html[data-backoffice-theme="light"] .customer-info-badge-muted {
@@ -2013,9 +2271,9 @@ html[data-backoffice-theme="light"] .customer-import-stat {
 }
 
 html[data-backoffice-theme="light"] .customer-import-status-new {
-  border-color: rgba(14, 116, 144, 0.18);
-  background: rgba(8, 145, 178, 0.08);
-  color: #155e75 !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 10%, transparent);
+  color: var(--bo-accent-active) !important;
 }
 
 html[data-backoffice-theme="light"] .customer-import-status-current {
@@ -2043,16 +2301,16 @@ html[data-backoffice-theme="light"] .customer-import-status-current {
 
 html[data-backoffice-theme="light"] .time-block-create-button,
 html[data-backoffice-theme="light"] .backoffice-page-create-button {
-  border-color: rgba(8, 145, 178, 0.22);
-  background: rgba(8, 145, 178, 0.09);
-  color: #155e75 !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 11%, transparent);
+  color: var(--bo-accent-active) !important;
 }
 
 html[data-backoffice-theme="light"] .time-block-create-button:hover:not(:disabled),
 html[data-backoffice-theme="light"] .backoffice-page-create-button:hover:not(:disabled) {
-  border-color: rgba(8, 145, 178, 0.34);
-  background: rgba(8, 145, 178, 0.15);
-  color: #0e7490 !important;
+  border-color: color-mix(in srgb, var(--bo-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 17%, transparent);
+  color: var(--bo-accent-hover) !important;
 }
 
 .backoffice-login .primary-login-button:hover:not(:disabled) {
@@ -2139,11 +2397,11 @@ html[data-backoffice-theme="light"] .backoffice-login .primary-login-button:hove
 
 html[data-backoffice-theme="light"] main .bg-emerald-400\/12,
 html[data-backoffice-theme="light"] main .bg-emerald-400\/14 {
-  background: rgba(36, 138, 61, 0.12) !important;
+  background: var(--bo-success-surface) !important;
 }
 
 html[data-backoffice-theme="light"] main .text-emerald-100 {
-  color: #1f7a36 !important;
+  color: var(--bo-success-text) !important;
 }
 
 html[data-backoffice-theme="light"] main .bg-red-400\/12,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { FunnelIcon } from '@heroicons/vue/24/outline'
+import { Bars3BottomLeftIcon, FunnelIcon, QueueListIcon } from '@heroicons/vue/24/outline'
+import type { BaseTabValue } from '~/components/BaseTabs.vue'
 import type { Category } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -9,6 +10,26 @@ const filters = reactive({
   search: '',
   is_active: '',
 })
+const categoryStatusOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Показані' },
+  { value: 'false', label: 'Приховані' },
+]
+const activeView = ref<BaseTabValue>('flat')
+const categoryViewTabs = [
+  {
+    value: 'flat',
+    label: 'Плоский список',
+    description: 'Таблиця всіх категорій',
+    icon: Bars3BottomLeftIcon,
+  },
+  {
+    value: 'tree',
+    label: 'Дерево',
+    description: 'Ієрархія та вкладеність',
+    icon: QueueListIcon,
+  },
+]
 
 const [{ data, refresh }, { data: tree, refresh: refreshTree }] = await Promise.all([
   useAsyncData('backoffice-categories', () =>
@@ -71,6 +92,12 @@ const requestCategoryVisibility = (category: Category) => {
   void updateCategoryVisibility(category)
 }
 
+const handleCategoryVisibilityChange = (category: Category, event: Event) => {
+  // Keep the server-confirmed state visible while the confirmation or request is pending.
+  (event.target as HTMLInputElement).checked = category.is_active
+  requestCategoryVisibility(category)
+}
+
 const confirmHideCategory = async () => {
   if (!categoryToHide.value) return
   const category = categoryToHide.value
@@ -88,41 +115,44 @@ const applyFilters = async () => {
       <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Категорії</h1>
     </div>
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_220px_160px]">
-      <BaseInput v-model="filters.search" placeholder="Пошук категорій" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" />
-      <BaseSelect native v-model="filters.is_active" aria-label="Ручна видимість категорії" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Будь-який статус</option>
-        <option value="true">Показані</option>
-        <option value="false">Приховані</option>
-      </BaseSelect>
-      <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
-        <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-        <span>Застосувати</span>
-      </BaseButton>
-    </section>
-
-    <div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <section class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <h2 class="text-lg font-semibold text-slate-900">Плоский список</h2>
-        </div>
-        <BaseTable
-          caption="Плоский список категорій"
-          wrapper-class="rounded-none border-0"
-          min-width="48rem"
-          :empty="!data?.items.length"
-          empty-title="Категорій не знайдено"
+    <BaseTabs v-model="activeView" :tabs="categoryViewTabs" aria-label="Вигляд категорій">
+      <template #default="{ activeTab, panelId, tabId }">
+        <div
+          v-if="activeTab === 'flat'"
+          :id="panelId"
+          role="tabpanel"
+          :aria-labelledby="tabId"
+          class="mt-5 space-y-5"
         >
-          <template #head>
-            <tr>
-              <th>Назва</th>
-              <th>Slug</th>
-              <th>Батьківська категорія</th>
-              <th>Статус</th>
-              <th>Видимість</th>
-              <th>Дія</th>
-            </tr>
-          </template>
+          <BaseCard as="section" class="grid gap-4 md:grid-cols-[1fr_220px_160px]">
+            <BaseInput v-model="filters.search" placeholder="Пошук категорій" />
+            <BaseSelect
+              v-model="filters.is_active"
+              :options="categoryStatusOptions"
+              aria-label="Ручна видимість категорії"
+            />
+            <BaseButton variant="primary" @click="applyFilters">
+              <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+              <span>Застосувати</span>
+            </BaseButton>
+          </BaseCard>
+
+          <BaseTable
+            caption="Таблиця категорій"
+            min-width="48rem"
+            :empty="!data?.items.length"
+            empty-title="Категорій не знайдено"
+          >
+            <template #head>
+              <tr>
+                <th>Назва</th>
+                <th>Slug</th>
+                <th>Батьківська категорія</th>
+                <th>Статус</th>
+                <th>Видимість</th>
+                <th>Дія</th>
+              </tr>
+            </template>
             <tr v-for="item in data?.items || []" :key="item.id" :class="{ 'opacity-65': !item.is_effectively_visible }">
               <td>
                 <p class="font-medium text-ui-primary">{{ item.name }}</p>
@@ -141,35 +171,44 @@ const applyFilters = async () => {
                 </BaseBadge>
               </td>
               <td>
-                <BaseButton
-                  type="button"
-                  variant="neutral"
-                  size="sm"
+                <BaseToggle
+                  :checked="item.is_active"
                   :loading="isCategoryPending(item.id)"
-                  :loading-label="item.is_active ? 'Приховуємо…' : 'Показуємо…'"
-                  :aria-label="item.is_active ? 'Приховати категорію' : 'Показати категорію'"
-                  @click="requestCategoryVisibility(item)"
-                >
-                  {{ item.is_active ? 'Приховати' : 'Показати' }}
-                </BaseButton>
+                  :aria-label="`${item.is_active ? 'Приховати' : 'Показати'} категорію ${item.name}`"
+                  @change="handleCategoryVisibilityChange(item, $event)"
+                />
               </td>
             </tr>
-        </BaseTable>
-      </section>
-
-      <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-semibold text-slate-900">Дерево</h2>
-        <div class="mt-4 space-y-3">
-          <CategoryTreeItem
-            v-for="node in tree || []"
-            :key="node.id"
-            :node="node"
-            :pending-ids="pendingCategoryIds"
-            @toggle="requestCategoryVisibility"
-          />
+          </BaseTable>
         </div>
-      </section>
-    </div>
+
+        <BaseCard
+          v-else
+          :id="panelId"
+          as="section"
+          role="tabpanel"
+          :aria-labelledby="tabId"
+          class="mt-5 space-y-4"
+        >
+          <div>
+            <h2 class="text-lg font-semibold text-ui-primary">Дерево категорій</h2>
+            <p class="mt-1 text-sm text-ui-secondary">Лінії показують зв’язок із батьківською категорією, а номер рівня — глибину вкладеності.</p>
+          </div>
+          <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
+            Перемикач батьківської категорії впливає на видимість усієї її гілки, але зберігає власні налаштування дочірніх категорій.
+          </BaseCard>
+          <div class="space-y-3">
+            <CategoryTreeItem
+              v-for="node in tree || []"
+              :key="node.id"
+              :node="node"
+              :pending-ids="pendingCategoryIds"
+              @toggle="requestCategoryVisibility"
+            />
+          </div>
+        </BaseCard>
+      </template>
+    </BaseTabs>
   </div>
   <ConfirmActionModal
     v-model="isHideConfirmOpen"

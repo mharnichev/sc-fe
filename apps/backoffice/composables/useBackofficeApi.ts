@@ -79,6 +79,7 @@ export interface Brand {
   name: string
   slug: string
   description: string | null
+  is_active: boolean
 }
 
 export interface Product {
@@ -1096,6 +1097,12 @@ export const useBackofficeApi = () => {
       query: { page, page_size: normalizePageSize(pageSize) },
     })
 
+  const updateBrand = (brandId: number | string, payload: { is_active: boolean }) =>
+    api<Brand>(`/backoffice/brands/${brandId}`, {
+      method: 'PUT',
+      body: payload,
+    })
+
   const getOrders = (page = 1, pageSize = 10) =>
     api<PaginatedResponse<OrderSummary>>('/backoffice/orders', {
       query: { page, page_size: normalizePageSize(pageSize) },
@@ -2003,6 +2010,7 @@ export const useBackofficeApi = () => {
     getCategoryTree,
     updateCategory,
     getBrands,
+    updateBrand,
     getOrders,
     getOrder,
     updateOrderStatus,

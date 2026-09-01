@@ -3,15 +3,20 @@ import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, XMarkIcon } from '@heroicons
 import type { Product } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
+const route = useRoute()
 const toast = useBaseToastNotification()
 const assetUrl = useAssetUrl()
 const { apiErrorMessage } = useBookingFormatting()
 const page = ref(1)
 const pageSize = 20
+const normalizeBrandQuery = (value: string | (string | null)[] | null | undefined) => {
+  const candidate = Array.isArray(value) ? value[0] : value
+  return typeof candidate === 'string' && /^\d+$/.test(candidate) ? candidate : ''
+}
 const filters = reactive({
   search: '',
   category_id: '',
-  brand_id: '',
+  brand_id: normalizeBrandQuery(route.query.brand_id),
   is_active: '',
 })
 
@@ -34,6 +39,20 @@ const [{ data: categories }, { data: brands }] = await Promise.all([
   useAsyncData('product-categories-options', () => api.getCategories(1, 200)),
   useAsyncData('product-brands-options', () => api.getBrands(1, 200)),
 ])
+
+const categoryOptions = computed(() => [
+  { value: '', label: 'Усі категорії' },
+  ...(categories.value?.items || []).map(category => ({ value: String(category.id), label: category.name })),
+])
+const brandOptions = computed(() => [
+  { value: '', label: 'Усі бренди' },
+  ...(brands.value?.items || []).map(brand => ({ value: String(brand.id), label: brand.name })),
+])
+const visibilityOptions = [
+  { value: '', label: 'Будь-який статус' },
+  { value: 'true', label: 'Показані' },
+  { value: 'false', label: 'Приховані' },
+]
 
 const pendingDeleteId = ref<number | null>(null)
 const pendingVisibilityIds = ref<Set<number>>(new Set())
@@ -90,16 +109,25 @@ const toggleProductVisibility = async (product: Product) => {
 }
 
 const handleProductVisibilityChange = (product: Product, event: Event) => {
-  // BaseCheckbox emits after the native input has toggled. Restore the
+  // BaseToggle emits after the native input has toggled. Restore the
   // server-confirmed value immediately; the refreshed API row is authoritative.
   (event.target as HTMLInputElement).checked = product.is_active
   void toggleProductVisibility(product)
 }
 
-const applyFilters = async () => {
+watch(() => route.query.brand_id, async value => {
+  const brandId = normalizeBrandQuery(value)
+  if (brandId === filters.brand_id) return
+  const shouldRefreshImmediately = page.value === 1
+  filters.brand_id = brandId
   page.value = 1
-  if (page.value !== 1) return
-  await refresh()
+  if (shouldRefreshImmediately) await refresh()
+})
+
+const applyFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
+  page.value = 1
+  if (shouldRefreshImmediately) await refresh()
 }
 
 const clearFilters = async () => {
@@ -157,36 +185,26 @@ const prev = async () => {
       </NuxtLink>
     </div>
 
-    <BaseCard as="section" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <BaseInput v-model="filters.search" placeholder="Пошук за назвою" />
-      <BaseSelect native v-model="filters.category_id" aria-label="Категорія">
-        <option value="">Усі категорії</option>
-        <option v-for="category in categories?.items || []" :key="category.id" :value="String(category.id)">
-          {{ category.name }}
-        </option>
-      </BaseSelect>
-      <BaseSelect native v-model="filters.brand_id" aria-label="Бренд">
-        <option value="">Усі бренди</option>
-        <option v-for="brand in brands?.items || []" :key="brand.id" :value="String(brand.id)">
-          {{ brand.name }}
-        </option>
-      </BaseSelect>
-      <BaseSelect native v-model="filters.is_active" aria-label="Ручна видимість товару">
-        <option value="">Будь-який статус</option>
-        <option value="true">Показані</option>
-        <option value="false">Приховані</option>
-      </BaseSelect>
-      <div class="flex gap-3">
-        <BaseButton variant="primary" class="flex-1" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-        <BaseButton variant="neutral" class="flex-1" @click="clearFilters">
-          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Очистити</span>
-        </BaseButton>
-      </div>
-    </BaseCard>
+    <form @submit.prevent="applyFilters">
+      <BaseCard class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <div class="grid min-w-0 gap-4 md:grid-cols-2">
+          <BaseInput v-model="filters.search" type="search" placeholder="Пошук за назвою" />
+          <BaseSelect v-model="filters.category_id" :options="categoryOptions" aria-label="Категорія" />
+          <BaseSelect v-model="filters.brand_id" :options="brandOptions" aria-label="Бренд" />
+          <BaseSelect v-model="filters.is_active" :options="visibilityOptions" aria-label="Ручна видимість товару" />
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap xl:justify-end">
+          <BaseButton type="submit" variant="primary" class="w-full xl:w-auto">
+            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+            <span>Застосувати</span>
+          </BaseButton>
+          <BaseButton type="button" variant="neutral" class="w-full xl:w-auto" @click="clearFilters">
+            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+            <span>Очистити</span>
+          </BaseButton>
+        </div>
+      </BaseCard>
+    </form>
 
     <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
       Total: {{ data?.total || 0 }}
@@ -237,13 +255,12 @@ const prev = async () => {
                 <BaseBadge :tone="productVisibilityTone(item)">
                   {{ productVisibilityLabel(item) }}
                 </BaseBadge>
-                <BaseCheckbox
+                <BaseToggle
                   :checked="item.is_active"
-                  :disabled="isVisibilityPending(item.id)"
+                  :loading="isVisibilityPending(item.id)"
                   :aria-label="`${item.is_active ? 'Приховати' : 'Показати'} товар ${item.name}`"
                   @change="handleProductVisibilityChange(item, $event)"
                 />
-                <span v-if="isVisibilityPending(item.id)" class="text-xs text-ui-muted" aria-live="polite">Оновлення…</span>
               </div>
             </td>
             <td data-label="Дії" class="px-4 py-3">

@@ -32,21 +32,25 @@ interface CalendarDayColumn {
   isToday: boolean
 }
 
-interface ScheduleEntry<T> {
-  item: T
-  label: string
-}
-
 interface MasterDaySchedule {
-  availability: ScheduleEntry<MasterAvailabilityWindow>[]
+  availability: MasterAvailabilityWindow[]
+  availabilitySummary: AvailabilityDaySummary | null
   blocks: TimeBlock[]
   blockSummary: BlockDaySummary | null
+}
+
+interface AvailabilityDaySummary {
+  items: MasterAvailabilityWindow[]
+  scheduledRanges: TimeRange[]
+  ranges: TimeRange[]
+  scheduledIntervalsLabel: string
+  intervalsLabel: string
+  totalMinutes: number
 }
 
 interface BlockDaySummary {
   items: TimeBlock[]
   ranges: TimeRange[]
-  label: string
   intervalsLabel: string
   reasonsLabel: string
   totalMinutes: number
@@ -70,6 +74,7 @@ interface SelectedScheduleItem {
   intervalsLabel?: string
   kind: 'availability' | 'block'
   reason?: string | null
+  totalMinutes?: number
 }
 
 interface MasterPresentation {
@@ -265,10 +270,29 @@ const summarizeDayBlocks = (blocks: TimeBlock[]): BlockDaySummary | null => {
   return {
     items,
     ranges,
-    label: ranges.length === 1 ? intervalsLabel : `${formatHours(totalMinutes)} · ${ranges.length} інтерв.`,
     intervalsLabel,
     reasonsLabel: reasons.join(', ') || 'Блокування',
     totalMinutes,
+  }
+}
+
+const summarizeDayAvailability = (
+  availability: MasterAvailabilityWindow[],
+  blocks: TimeBlock[],
+): AvailabilityDaySummary | null => {
+  const items = [...new Map(availability.map(window => [window.id, window])).values()]
+  const scheduledRanges = mergeRanges(rangesFromItems(items))
+  if (!scheduledRanges.length) return null
+
+  const blockedRanges = intersectRanges(scheduledRanges, rangesFromItems(blocks))
+  const ranges = subtractRanges(scheduledRanges, blockedRanges)
+  return {
+    items,
+    scheduledRanges,
+    ranges,
+    scheduledIntervalsLabel: scheduledRanges.map(rangeLabel).join(', '),
+    intervalsLabel: ranges.length ? ranges.map(rangeLabel).join(', ') : 'Немає доступного часу',
+    totalMinutes: minutesInRanges(ranges),
   }
 }
 
@@ -277,7 +301,7 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
   const byMaster = new Map<number, MasterMonthData>()
   const ensureSchedule = (masterId: number, date: string) => {
     const key = `${masterId}:${date}`
-    schedules[key] ||= { availability: [], blocks: [], blockSummary: null }
+    schedules[key] ||= { availability: [], availabilitySummary: null, blocks: [], blockSummary: null }
     return schedules[key]
   }
   const dataForMaster = (masterId: number) => {
@@ -295,10 +319,7 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
     const date = calendar.dateInputFromDateTime(window.start_at)
     if (date) {
       masterData.workDates.add(date)
-      ensureSchedule(window.master_id, date).availability.push({
-        item: window,
-        label: intervalLabel(window.start_at, window.end_at),
-      })
+      ensureSchedule(window.master_id, date).availability.push(window)
     }
   }
   for (const block of blocks.value) {
@@ -316,30 +337,15 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
   }
 
   for (const schedule of Object.values(schedules)) {
-    schedule.availability.sort((first, second) => first.item.start_at.localeCompare(second.item.start_at))
+    schedule.availability.sort((first, second) => first.start_at.localeCompare(second.start_at))
     schedule.blocks.sort((first, second) => first.start_at.localeCompare(second.start_at))
+    schedule.availabilitySummary = summarizeDayAvailability(schedule.availability, schedule.blocks)
     schedule.blockSummary = summarizeDayBlocks(schedule.blocks)
   }
   return { schedules, byMaster }
 })
 
-const emptyDaySchedule: MasterDaySchedule = { availability: [], blocks: [], blockSummary: null }
-
-const selectSchedule = (
-  master: Master,
-  date: string,
-  item: MasterAvailabilityWindow | TimeBlock,
-  kind: SelectedScheduleItem['kind'],
-) => {
-  selectedScheduleItem.value = {
-    master,
-    date,
-    startAt: item.start_at,
-    endAt: item.end_at,
-    kind,
-    reason: 'reason' in item ? item.reason : null,
-  }
-}
+const emptyDaySchedule: MasterDaySchedule = { availability: [], availabilitySummary: null, blocks: [], blockSummary: null }
 
 const selectBlockSummary = (master: Master, date: string, summary: BlockDaySummary) => {
   const firstRange = summary.ranges[0]
@@ -352,16 +358,32 @@ const selectBlockSummary = (master: Master, date: string, summary: BlockDaySumma
     intervalsLabel: summary.intervalsLabel,
     kind: 'block',
     reason: summary.reasonsLabel,
+    totalMinutes: summary.totalMinutes,
+  }
+}
+
+const selectAvailabilitySummary = (master: Master, date: string, summary: AvailabilityDaySummary) => {
+  const firstRange = summary.ranges[0] || summary.scheduledRanges[0]
+  const lastRange = summary.ranges.at(-1) || summary.scheduledRanges.at(-1) || firstRange
+  selectedScheduleItem.value = {
+    master,
+    date,
+    startAt: new Date(firstRange.start).toISOString(),
+    endAt: new Date(lastRange.end).toISOString(),
+    intervalsLabel: summary.intervalsLabel,
+    kind: 'availability',
+    totalMinutes: summary.totalMinutes,
   }
 }
 
 const selectedScheduleLabel = computed(() => {
   const selected = selectedScheduleItem.value
   if (!selected) return 'Натисніть робочий інтервал або блокування в таблиці.'
-  const kindLabel = selected.kind === 'block' ? selected.reason || 'блокування' : 'робочий час'
+  const kindLabel = selected.kind === 'block' ? selected.reason || 'блокування' : 'доступно'
   const dateLabel = selectedDayFormatter.format(new Date(toKyivIso(selected.date, '12:00')))
   const intervals = selected.intervalsLabel || intervalLabel(selected.startAt, selected.endAt)
-  return `${dateLabel} · ${masterDisplayName(selected.master)} · ${intervals} · ${kindLabel}`
+  const duration = selected.totalMinutes != null ? ` · ${formatHours(selected.totalMinutes)}` : ''
+  return `${dateLabel} · ${masterDisplayName(selected.master)} · ${kindLabel} ${intervals}${duration}`
 })
 
 watch([monthStart, selectedMasterId], () => {
@@ -443,6 +465,15 @@ const totalScheduledMinutes = computed(() => {
     if (countedCalendarIds.has(calendarId)) return total
     countedCalendarIds.add(calendarId)
     return total + stat.scheduledMinutes
+  }, 0)
+})
+const totalCapacityMinutes = computed(() => {
+  const countedCalendarIds = new Set<number>()
+  return masterStats.value.reduce((total, stat) => {
+    const calendarId = calendarMasterId(stat.master)
+    if (countedCalendarIds.has(calendarId)) return total
+    countedCalendarIds.add(calendarId)
+    return total + stat.capacityMinutes
   }, 0)
 })
 const totalBookedMinutes = computed(() => masterStats.value.reduce((total, stat) => total + stat.bookedMinutes, 0))
@@ -539,6 +570,7 @@ const confirmDeleteBlockSummary = async () => {
 const confirmDeleteAvailability = async () => {
   const window = availabilityToDelete.value
   if (!window || deletingAvailabilityId.value != null) return
+
   deletingAvailabilityId.value = window.id
   try {
     await api.adminDeleteAvailabilityWindow(window.id)
@@ -660,7 +692,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
 
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
         <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
-        <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
+        <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
       </div>
 
       <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
@@ -672,8 +704,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
     <BaseCard as="section" padding="none" class="overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4">
         <div class="flex flex-wrap items-center gap-2 text-xs text-ui-secondary">
-          <BaseBadge tone="success" dot>Робочий час</BaseBadge>
-          <BaseBadge tone="danger" dot>Блокування</BaseBadge>
+          <BaseBadge tone="success" dot>Доступно після блокувань</BaseBadge>
+          <BaseBadge tone="danger" dot>Заблокований час</BaseBadge>
           <BaseBadge tone="neutral" dot>Вихідний</BaseBadge>
         </div>
         <p class="text-xs text-ui-muted">Майстри закріплені зліва, дні прокручуються горизонтально</p>
@@ -732,32 +764,56 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
             class="min-w-36 border-b border-r border-ui bg-ui-surface !p-1.5 !align-top"
             :class="day.isToday ? 'schedule-matrix__today' : ''"
           >
-            <div v-if="schedule.availability.length || schedule.blockSummary" class="space-y-1">
+            <div v-if="schedule.availabilitySummary || schedule.blockSummary" class="space-y-1">
               <div
-                v-for="{ item: window, label } in schedule.availability"
-                :key="`availability-${window.id}`"
-                class="flex min-h-8 items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/12 px-1.5 py-1"
+                v-if="schedule.availabilitySummary"
+                class="flex min-h-10 items-start gap-1 rounded-lg border px-1.5 py-1.5"
+                :class="schedule.availabilitySummary.ranges.length
+                  ? 'border-emerald-500/20 bg-emerald-500/12'
+                  : 'border-amber-500/25 bg-amber-500/10'"
               >
                 <BaseButton
                   type="button"
                   variant="unstyled"
-                  class="min-w-0 flex-1 whitespace-nowrap text-left text-[0.68rem] font-semibold text-emerald-700"
-                  :aria-label="`${stat.displayName}, ${day.date}, робочий час ${label}`"
-                  @click="selectSchedule(stat.master, day.date, window, 'availability')"
+                  class="min-w-0 flex-1 text-left"
+                  :class="schedule.availabilitySummary.ranges.length ? 'text-emerald-700' : 'text-amber-700'"
+                  :aria-label="`${stat.displayName}, ${day.date}, доступно ${schedule.availabilitySummary.intervalsLabel}`"
+                  :title="schedule.availabilitySummary.intervalsLabel"
+                  @click="selectAvailabilitySummary(stat.master, day.date, schedule.availabilitySummary)"
                 >
-                  {{ label }}
+                  <span class="block text-[0.58rem] font-semibold uppercase tracking-[0.08em] opacity-75">
+                    {{ schedule.availabilitySummary.ranges.length ? `Доступно · ${formatHours(schedule.availabilitySummary.totalMinutes)}` : 'Доступного часу немає' }}
+                  </span>
+                  <span v-if="schedule.availabilitySummary.ranges.length" class="mt-0.5 block space-y-0.5 text-[0.68rem] font-semibold leading-tight">
+                    <span v-for="range in schedule.availabilitySummary.ranges" :key="`${range.start}-${range.end}`" class="block whitespace-nowrap">
+                      {{ rangeLabel(range) }}
+                    </span>
+                  </span>
+                  <span v-else class="mt-0.5 block text-[0.68rem] font-semibold leading-tight">Заблоковано повністю</span>
                 </BaseButton>
-                <BaseButton
-                  type="button"
-                  variant="unstyled"
-                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-emerald-700/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
-                  :disabled="!isAdmin || deletingAvailabilityId === window.id"
-                  :aria-label="`Закрити інтервал ${label}`"
-                  title="Закрити робочий інтервал"
-                  @click="openDeleteAvailabilityConfirm(window)"
-                >
-                  <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
-                </BaseButton>
+                <details v-if="isAdmin" class="group/manage relative shrink-0 text-[0.62rem] text-ui-muted">
+                  <summary class="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full transition hover:bg-emerald-500/10 hover:text-emerald-700" title="Керувати відкритим часом">
+                    <span class="sr-only">Керувати відкритим часом</span>
+                    <ChevronDownIcon class="h-3.5 w-3.5 transition group-open/manage:rotate-180" aria-hidden="true" />
+                  </summary>
+                  <div class="absolute right-0 top-6 z-50 w-36 space-y-1 rounded-lg border border-ui bg-ui-surface p-1.5 shadow-lg">
+                    <p class="px-1 text-[0.56rem] font-semibold uppercase tracking-[0.08em] text-ui-muted">Записи графіка</p>
+                    <div v-for="window in schedule.availabilitySummary.items" :key="`availability-source-${window.id}`" class="flex items-center gap-1 rounded-md bg-ui-subtle px-1 py-0.5">
+                      <span class="min-w-0 flex-1 whitespace-nowrap text-ui-secondary">{{ intervalLabel(window.start_at, window.end_at) }}</span>
+                      <BaseButton
+                        type="button"
+                        variant="unstyled"
+                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ui-muted transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
+                        :disabled="deletingAvailabilityId === window.id"
+                        :aria-label="`Закрити інтервал ${intervalLabel(window.start_at, window.end_at)}`"
+                        title="Закрити робочий інтервал"
+                        @click="openDeleteAvailabilityConfirm(window)"
+                      >
+                        <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
+                      </BaseButton>
+                    </div>
+                  </div>
+                </details>
               </div>
 
               <div
@@ -767,12 +823,17 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
                 <BaseButton
                   type="button"
                   variant="unstyled"
-                  class="min-w-0 flex-1 whitespace-nowrap text-left text-[0.68rem] font-semibold text-rose-600"
+                  class="min-w-0 flex-1 text-left text-rose-600"
                   :aria-label="`${stat.displayName}, ${day.date}, блокування ${schedule.blockSummary.intervalsLabel}`"
                   :title="`${schedule.blockSummary.intervalsLabel} · ${schedule.blockSummary.reasonsLabel}`"
                   @click="selectBlockSummary(stat.master, day.date, schedule.blockSummary)"
                 >
-                  {{ schedule.blockSummary.label }}
+                  <span class="block text-[0.58rem] font-semibold uppercase tracking-[0.08em] opacity-75">Заблоковано · {{ formatHours(schedule.blockSummary.totalMinutes) }}</span>
+                  <span class="mt-0.5 block space-y-0.5 text-[0.68rem] font-semibold leading-tight">
+                    <span v-for="range in schedule.blockSummary.ranges" :key="`${range.start}-${range.end}`" class="block whitespace-nowrap">
+                      {{ rangeLabel(range) }}
+                    </span>
+                  </span>
                 </BaseButton>
                 <BaseButton
                   type="button"

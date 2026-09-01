@@ -49,3 +49,17 @@ test('schedule capacity excludes blocks and only counts bookings inside bookable
   assert.equal(intervals.minutesInRanges(capacity), 2.5 * 60)
   assert.equal(intervals.minutesInRanges(bookedInsideCapacity), 1.5 * 60)
 })
+
+test('effective availability merges adjacent windows before subtracting blocked time', () => {
+  const adjacentAvailability = [
+    range('08:30', '09:00'),
+    range('09:00', '20:00'),
+  ]
+  const fullDayAvailability = [range('08:00', '20:00')]
+
+  assert.deepEqual(intervals.subtractRanges(adjacentAvailability, []), [range('08:30', '20:00')])
+  assert.deepEqual(
+    intervals.subtractRanges(fullDayAvailability, [range('10:00', '20:00')]),
+    [range('08:00', '10:00')],
+  )
+})

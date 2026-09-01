@@ -512,8 +512,8 @@ const submitLabel = computed(() => {
 
 <style scoped>
 .availability-preset-panel {
-  background: rgba(48, 209, 88, 0.10);
-  border-color: rgba(48, 209, 88, 0.24);
+  background: var(--bo-success-surface);
+  border-color: color-mix(in srgb, var(--bo-success) 28%, transparent);
 }
 
 .availability-preset-option {
@@ -602,54 +602,54 @@ const submitLabel = computed(() => {
 
 :global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active {
   background:
-    linear-gradient(180deg, rgba(48, 209, 88, 0.18), rgba(48, 209, 88, 0.10)) !important;
-  border-color: #30d158 !important;
+    linear-gradient(180deg, color-mix(in srgb, var(--bo-success) 18%, transparent), color-mix(in srgb, var(--bo-success) 10%, transparent)) !important;
+  border-color: var(--bo-success) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 0 0 1px rgba(48, 209, 88, 0.72),
-    0 0 0 4px rgba(48, 209, 88, 0.10),
-    0 14px 32px rgba(48, 209, 88, 0.16) !important;
+    0 0 0 1px color-mix(in srgb, var(--bo-success) 72%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--bo-success) 10%, transparent),
+    0 14px 32px color-mix(in srgb, var(--bo-success) 16%, transparent) !important;
 }
 
 :global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active .availability-preset-icon {
-  background: rgba(48, 209, 88, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(48, 209, 88, 0.48);
+  background: color-mix(in srgb, var(--bo-success) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bo-success) 48%, transparent);
 }
 
 :global(html:not([data-backoffice-theme="light"])) .availability-preset-option.is-active .availability-preset-icon svg {
-  color: #30d158 !important;
+  color: var(--bo-success) !important;
   stroke: currentColor;
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-panel {
-  background: rgba(22, 163, 74, 0.08);
-  border-color: rgba(22, 163, 74, 0.18);
+  background: var(--bo-success-surface);
+  border-color: color-mix(in srgb, var(--bo-success) 24%, transparent);
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-option {
   background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(22, 163, 74, 0.20);
+  border-color: color-mix(in srgb, var(--bo-success) 26%, transparent);
   color: rgba(15, 23, 42, 0.92);
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active {
-  background: linear-gradient(180deg, #f0fdf4, #ffffff);
-  border-color: rgba(22, 163, 74, 0.76);
-  color: #166534;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bo-success) 10%, #ffffff), #ffffff);
+  border-color: color-mix(in srgb, var(--bo-success) 76%, transparent);
+  color: var(--bo-success-text);
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active .availability-preset-icon {
-  background: rgba(22, 163, 74, 0.13);
+  background: color-mix(in srgb, var(--bo-success) 13%, transparent);
   box-shadow: none;
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-option.is-active .availability-preset-icon svg {
-  color: #166534;
+  color: var(--bo-success-text);
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-check {
-  background: #166534;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+  background: var(--bo-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bo-success) 16%, transparent);
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-check::after {
@@ -657,6 +657,6 @@ const submitLabel = computed(() => {
 }
 
 :global(html[data-backoffice-theme="light"]) .availability-preset-summary {
-  color: #166534;
+  color: var(--bo-success-text);
 }
 </style>

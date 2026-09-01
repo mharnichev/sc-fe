@@ -144,6 +144,19 @@ test('time-block month calendar renders one normalized block slot per master day
   assert.doesNotMatch(source, /\bconfirm\(`/)
 })
 
+test('time-block month calendar renders effective availability instead of raw windows', async () => {
+  const source = await readFile(timeBlocksPage, 'utf8')
+
+  assert.match(source, /const summarizeDayAvailability = \(/)
+  assert.match(source, /const scheduledRanges = mergeRanges\(rangesFromItems\(items\)\)/)
+  assert.match(source, /const blockedRanges = intersectRanges\(scheduledRanges, rangesFromItems\(blocks\)\)/)
+  assert.match(source, /const ranges = subtractRanges\(scheduledRanges, blockedRanges\)/)
+  assert.match(source, /schedule\.availabilitySummary = summarizeDayAvailability\(schedule\.availability, schedule\.blocks\)/)
+  assert.match(source, /Доступно · \$\{formatHours\(schedule\.availabilitySummary\.totalMinutes\)\}/)
+  assert.match(source, /v-for="range in schedule\.availabilitySummary\.ranges"/)
+  assert.doesNotMatch(source, /v-for="\{ item: window, label \} in schedule\.availability"/)
+})
+
 test('time-block month statistics only count bookings inside unblocked availability', async () => {
   const source = await readFile(timeBlocksPage, 'utf8')
 

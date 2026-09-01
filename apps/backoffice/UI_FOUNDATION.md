@@ -8,6 +8,8 @@ The active theme is stored in `localStorage` under `soulcuts-backoffice-theme` a
 
 Theme values live only in `assets/css/main.css`. Feature components must not add hex, RGB/HSL values, or Tailwind palette classes such as `text-slate-700`, `bg-white`, `border-cyan-200`, or `dark:*`.
 
+The application accent is green in both themes. Legacy `cyan-*` utility names are retained only as migration aliases and resolve to the green accent; informational UI uses the separate blue `--bo-info-*` palette.
+
 Use these core tokens in component CSS:
 
 | Purpose | Token |
@@ -19,6 +21,7 @@ Use these core tokens in component CSS:
 | Primary / secondary / muted text | `--bo-text-primary`, `--bo-text-secondary`, `--bo-text-muted` |
 | Border / strong border | `--bo-border`, `--bo-border-strong` |
 | Accent and accent interaction | `--bo-accent`, `--bo-accent-hover`, `--bo-accent-active`, `--bo-on-accent` |
+| Primary actions and active toggles | `--bo-action`, `--bo-action-hover`, `--bo-action-active`, `--bo-on-action` |
 | Status colors | `--bo-success-*`, `--bo-warning-*`, `--bo-danger-*`, `--bo-info-*` |
 | Controls | `--bo-control`, `--bo-control-hover`, `--bo-control-active` |
 | Disabled state | `--bo-disabled-bg`, `--bo-disabled-text`, `--bo-disabled-border` |
@@ -37,11 +40,15 @@ Nuxt auto-imports components from `components/`.
 <BaseSelect v-model="form.status" label="Статус" :options="statusOptions" />
 <BaseTextarea v-model="form.notes" label="Нотатки" hint="Видно лише команді" />
 <BaseCheckbox v-model="form.active" label="Активний" />
+<BaseToggle v-model="form.visible" label="Показувати на сайті" :loading="savingVisibility" />
+<BaseTabs v-model="activeTab" :tabs="tabs" aria-label="Розділи сторінки" />
 ```
 
 - `BaseButton`: use `primary`, `secondary`, `neutral`, `outline`, `ghost`, `icon`, `success`, `danger`, or `danger-outline`. Prefer `loading` over replacing the label manually.
 - `BaseInput`, `BaseSelect`, `BaseTextarea`: pass `label`, `hint`, and `error` where applicable. They wire labels, description IDs, invalid state, disabled state, and visible focus automatically.
 - `BaseCheckbox`: use its label prop or default slot so the full label remains clickable.
+- `BaseToggle`: use for immediate binary on/off state such as visibility; pass `loading` while persisting the value so the fixed-size loader overlay blocks repeated changes without shifting surrounding UI. It exposes native checkbox semantics with `role="switch"`.
+- `BaseTabs`: use to switch between peer page views. It provides `tablist`/`tab` semantics, arrow-key navigation, and IDs for the active `tabpanel` through its default slot.
 - `BaseModal`: use `v-model`, the `head`/`body` slots, and `ModalCloseButton`. It locks scroll, restores focus, traps Tab navigation, closes on Escape/backdrop, and exposes `close` to slots.
 - `BaseBadge`: use semantic `tone` values; do not construct status color classes in the feature.
 - `BaseCard`: use `surface`, `elevated`, or `subtle`; keep grid and spacing concerns in the caller.
