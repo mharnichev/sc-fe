@@ -31,11 +31,19 @@ const {
   formatPrice,
   formatMoney,
   formatTime,
+  masterName,
+  normalizeItems,
 } = useBookingFormatting()
 
 const customerId = computed(() => route.params.id as string)
+const bookingPage = ref(1)
+const bookingPageSize = 100
 
-const [{ data: customer, refresh: refreshCustomer }, { data: orders }, { data: bookings }, { data: stats }] = await Promise.all([
+watch(customerId, () => {
+  bookingPage.value = 1
+})
+
+const [{ data: customer, refresh: refreshCustomer }, { data: orders }, { data: bookings }, { data: stats }, { data: masters }] = await Promise.all([
   useAsyncData(
     () => `customer-${customerId.value}`,
     () => api.getCustomer(customerId.value),
@@ -47,15 +55,16 @@ const [{ data: customer, refresh: refreshCustomer }, { data: orders }, { data: b
     { watch: [customerId] },
   ),
   useAsyncData(
-    () => `customer-bookings-${customerId.value}`,
-    () => api.getCustomerBookings(customerId.value, 1, 50),
-    { watch: [customerId] },
+    () => `customer-bookings-${customerId.value}-${bookingPage.value}`,
+    () => api.getCustomerBookings(customerId.value, bookingPage.value, bookingPageSize),
+    { watch: [customerId, bookingPage] },
   ),
   useAsyncData(
     () => `customer-stats-${customerId.value}`,
     () => api.getCustomerStats(customerId.value),
     { watch: [customerId] },
   ),
+  useAsyncData('customer-history-masters', () => api.adminGetMasters(1, 100)),
 ])
 
 const fullName = computed(() => {
@@ -65,6 +74,7 @@ const fullName = computed(() => {
 
 const topServices = computed(() => stats.value?.most_used_services || [])
 const customerBookings = computed<Booking[]>(() => bookings.value?.items || [])
+const masterById = computed(() => new Map(normalizeItems(masters.value).map(master => [master.id, master])))
 const { isAdmin } = useBackofficeAccess()
 const editModalOpen = ref(false)
 
@@ -97,6 +107,35 @@ const bookingPromotionLabel = (booking: Booking) => {
   const code = booking.promotion_code ? ` (${booking.promotion_code})` : ''
   const percent = booking.promotion_discount_percent ? ` · ${booking.promotion_discount_percent}%` : ''
   return `${name}${code}${percent}`
+}
+
+const bookingMasterLabel = (booking: Booking) => {
+  const master = booking.master
+    || booking.barber
+    || (booking.master_id ? masterById.value.get(booking.master_id) : null)
+
+  return master
+    ? masterName(master)
+    : booking.master_id
+      ? `Майстер #${booking.master_id}`
+      : 'Не призначено'
+}
+
+const bookingStatusTone = (status: Booking['status']): 'neutral' | 'success' | 'warning' | 'danger' | 'info' => {
+  if (status === 'completed') return 'success'
+  if (status === 'cancelled') return 'danger'
+  if (status === 'confirmed') return 'info'
+  if (status === 'pending') return 'warning'
+  return 'neutral'
+}
+
+const nextBookingPage = () => {
+  if (!bookings.value || bookingPage.value * bookingPageSize >= bookings.value.total) return
+  bookingPage.value += 1
+}
+
+const previousBookingPage = () => {
+  bookingPage.value = Math.max(1, bookingPage.value - 1)
 }
 
 const bookingServiceLines = (booking: Booking) => {
@@ -263,44 +302,119 @@ const bookingServiceLines = (booking: Booking) => {
             Немає даних про послуги.
           </p>
         </div>
-
-        <div class="mt-6">
-          <p class="text-sm font-medium text-slate-900">Історія послуг</p>
-          <div v-if="customerBookings.length" class="mt-3 space-y-3">
-            <article v-for="booking in customerBookings" :key="`stats-${booking.id}`" class="rounded-2xl bg-slate-50 p-4">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p class="font-semibold text-slate-900">{{ formatDate(bookingStart(booking)) }} · {{ formatTime(bookingStart(booking)) }}</p>
-                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-700">{{ formatBookingStatus(booking.status) }}</p>
-                </div>
-                <div class="sm:text-right">
-                  <p class="text-xs text-slate-500">До сплати</p>
-                  <p class="font-semibold text-slate-900">{{ formatMoney(bookingTotal(booking)) }}</p>
-                </div>
-              </div>
-              <div class="mt-3 space-y-2">
-                <div v-for="service in bookingServiceLines(booking)" :key="`${booking.id}-${service.name}`" class="booking-money-card flex items-start justify-between gap-3 rounded-xl px-3 py-2 text-sm">
-                  <span class="min-w-0 break-words font-medium text-slate-900">{{ service.name }}</span>
-                  <span class="shrink-0 text-slate-600">{{ service.price || '—' }}</span>
-                </div>
-              </div>
-              <div class="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                <p class="booking-money-card rounded-xl px-3 py-2 text-slate-600">Послуги: <span class="font-semibold text-slate-900">{{ formatMoney(bookingSubtotal(booking)) }}</span></p>
-                <p class="booking-money-card rounded-xl px-3 py-2 text-slate-600">Знижка: <span class="font-semibold" :class="bookingDiscount(booking) > 0 ? 'text-emerald-700' : 'text-slate-900'">-{{ formatMoney(bookingDiscount(booking)) }}</span></p>
-                <p class="booking-money-card rounded-xl px-3 py-2 text-slate-600">Майстер: <span class="font-semibold text-slate-900">#{{ booking.master_id }}</span></p>
-              </div>
-              <p v-if="bookingHasPromotion(booking)" class="booking-promotion-chip mt-3 inline-flex max-w-full items-start gap-2 rounded-full px-3 py-1.5 text-xs font-semibold">
-                <ReceiptPercentIcon class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span class="min-w-0 break-words">Стрижка за акцією: {{ bookingPromotionLabel(booking) }}</span>
-              </p>
-            </article>
-          </div>
-          <p v-else class="mt-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-            Історії послуг ще немає.
-          </p>
-        </div>
       </section>
     </div>
+
+    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-900">Історія послуг</h2>
+          <p class="mt-1 text-sm text-slate-500">Коли, які послуги, за якою ціною та у якого майстра отримував клієнт.</p>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          {{ bookings?.total || 0 }} візитів
+        </span>
+      </div>
+
+      <BaseTable
+        caption="Історія послуг клієнта"
+        min-width="68rem"
+        wrapper-class="mt-5"
+        :empty="!customerBookings.length"
+        empty-title="Історії послуг ще немає"
+      >
+        <template #head>
+          <tr>
+            <th>Візит</th>
+            <th>Послуги</th>
+            <th>Ціна послуг</th>
+            <th>Майстер</th>
+            <th>Розрахунок</th>
+            <th>Статус</th>
+          </tr>
+        </template>
+        <tr v-for="booking in customerBookings" :key="`history-${booking.id}`">
+          <td data-label="Візит" class="min-w-44">
+            <p class="font-semibold text-ui-primary">{{ formatDate(bookingStart(booking)) }}</p>
+            <p class="mt-1 text-xs text-ui-muted">
+              {{ formatTime(bookingStart(booking)) }}–{{ formatTime(bookingEnd(booking)) }} · #{{ booking.id }}
+            </p>
+            <p v-if="booking.completed_at" class="mt-1 text-xs text-ui-muted">
+              Завершено: {{ formatDateTime(booking.completed_at) }}
+            </p>
+          </td>
+          <td data-label="Послуги" class="min-w-64">
+            <div class="space-y-2">
+              <p
+                v-for="(service, index) in bookingServiceLines(booking)"
+                :key="`${booking.id}-service-${index}`"
+                class="font-medium text-ui-primary"
+              >
+                {{ service.name }}
+              </p>
+            </div>
+          </td>
+          <td data-label="Ціна послуг" class="min-w-36">
+            <div class="space-y-2">
+              <p
+                v-for="(service, index) in bookingServiceLines(booking)"
+                :key="`${booking.id}-price-${index}`"
+                class="font-semibold text-ui-primary"
+              >
+                {{ service.price || '—' }}
+              </p>
+            </div>
+          </td>
+          <td data-label="Майстер" class="min-w-48">
+            <p class="font-semibold text-ui-primary">{{ bookingMasterLabel(booking) }}</p>
+            <p v-if="booking.master_id" class="mt-1 text-xs text-ui-muted">Майстер #{{ booking.master_id }}</p>
+          </td>
+          <td data-label="Розрахунок" class="min-w-52">
+            <dl class="space-y-1 text-xs">
+              <div class="flex items-center justify-between gap-4">
+                <dt class="text-ui-muted">Послуги</dt>
+                <dd class="font-medium text-ui-primary">{{ formatMoney(bookingSubtotal(booking)) }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <dt class="text-ui-muted">Знижка</dt>
+                <dd class="font-medium" :class="bookingDiscount(booking) > 0 ? 'text-emerald-700' : 'text-ui-primary'">
+                  -{{ formatMoney(bookingDiscount(booking)) }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between gap-4 border-t border-ui pt-1">
+                <dt class="font-medium text-ui-secondary">До сплати</dt>
+                <dd class="font-semibold text-ui-primary">{{ formatMoney(bookingTotal(booking)) }}</dd>
+              </div>
+            </dl>
+            <p v-if="bookingHasPromotion(booking)" class="mt-2 text-xs font-medium text-emerald-700">
+              {{ bookingPromotionLabel(booking) }}
+            </p>
+          </td>
+          <td data-label="Статус" class="min-w-40">
+            <BaseBadge :tone="bookingStatusTone(booking.status)" dot>
+              {{ formatBookingStatus(booking.status) }}
+            </BaseBadge>
+            <p v-if="booking.cancelled_at" class="mt-2 text-xs text-ui-muted">
+              {{ formatDateTime(booking.cancelled_at) }}
+            </p>
+          </td>
+        </tr>
+      </BaseTable>
+
+      <div v-if="(bookings?.total || 0) > bookingPageSize" class="mt-4 flex flex-wrap items-center gap-3">
+        <BaseButton variant="neutral" :disabled="bookingPage === 1" @click="previousBookingPage">
+          Попередня
+        </BaseButton>
+        <span class="text-sm text-ui-muted">Сторінка {{ bookingPage }}</span>
+        <BaseButton
+          variant="neutral"
+          :disabled="!bookings || bookingPage * bookingPageSize >= bookings.total"
+          @click="nextBookingPage"
+        >
+          Наступна
+        </BaseButton>
+      </div>
+    </section>
 
     <MessagingClientCommunicationPanel v-if="isAdmin" :customer-id="customer.id" />
 

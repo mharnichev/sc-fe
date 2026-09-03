@@ -130,7 +130,7 @@ const prev = async () => {
           <th>Нотатки</th>
           <th>Telegram</th>
           <th>Верифікація</th>
-          <th>Дії</th>
+          <th class="customers-actions-column customers-actions-column--header">Дії</th>
         </tr>
       </template>
           <tr v-for="item in data?.items || []" :key="item.id">
@@ -162,10 +162,10 @@ const prev = async () => {
                 {{ item.is_verified ? 'верифіковано' : 'не верифіковано' }}
               </BaseBadge>
             </td>
-            <td data-label="Дії" class="px-4 py-3">
+            <td data-label="Дії" class="customers-actions-column px-4 py-3">
               <NuxtLink
                 :to="`/customers/${item.id}`"
-                class="base-button base-button--icon h-8 w-8 p-0"
+                class="customers-view-button base-button base-button--icon h-8 w-8 p-0"
                 aria-label="Переглянути клієнта"
                 title="Переглянути"
               >
@@ -183,3 +183,38 @@ const prev = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 767px) {
+  .customers-actions-column {
+    position: sticky;
+    right: 0;
+    z-index: 40;
+    width: 4.75rem;
+    min-width: 4.75rem;
+    background: var(--bo-surface);
+    background-clip: padding-box;
+    box-shadow:
+      -1px 0 0 var(--bo-border),
+      -14px 0 18px -18px rgb(15 23 42 / 0.55);
+  }
+
+  .customers-actions-column--header {
+    z-index: 50;
+    background:
+      linear-gradient(var(--bo-control), var(--bo-control)),
+      var(--bo-surface);
+  }
+
+  tr:hover > .customers-actions-column {
+    background:
+      linear-gradient(var(--bo-surface-hover), var(--bo-surface-hover)),
+      var(--bo-surface);
+  }
+
+  .customers-view-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+</style>
