@@ -72,6 +72,10 @@ const queryMasterId = Number(route.query.master_id)
 const selectedMasterId = ref<number | null>(
   Number.isInteger(queryMasterId) && queryMasterId > 0 ? queryMasterId : null,
 )
+const activeFilterCount = computed(() => [
+  selectedPreset.value !== 'today' ? selectedPreset.value : '',
+  selectedMasterId.value,
+].filter(Boolean).length)
 const rangeError = ref('')
 
 const persistRange = () => router.replace({
@@ -117,13 +121,7 @@ const { data: mastersData } = await useAsyncData(
   'admin-dashboard-master-options',
   () => api.adminGetMasters(1, 200, { is_active: true }),
 )
-const masterOptions = computed(() => [
-  { value: null, label: 'Усі майстри' },
-  ...normalizeItems<Master>(mastersData.value).map(master => ({
-    value: master.id,
-    label: barberName(master),
-  })),
-])
+const masters = computed<Master[]>(() => normalizeItems<Master>(mastersData.value))
 watch(selectedMasterId, () => persistRange())
 
 const dashboardAsyncDataKey = computed(() => [
@@ -188,6 +186,7 @@ const {
 )
 
 const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery()])
+const applyDashboardFilters = () => selectedPreset.value === 'custom' ? applyRange() : refreshAll()
 const errorStatus = computed(() => {
   if (typeof error.value !== 'object' || !error.value) return undefined
   if ('statusCode' in error.value) return Number((error.value as { statusCode?: number }).statusCode)
@@ -308,60 +307,80 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
       </BaseButton>
     </header>
 
-    <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="dashboard-period-title">
+    <BaseFilterPanel
+      fields-class="!block"
+      :active-count="activeFilterCount"
+      mobile-title="Період аналізу"
+      :loading="pending || reviewMetricsPending || bookingRecoveryPending"
+      :show-clear="false"
+      aria-label="Період аналізу"
+      @apply="applyDashboardFilters"
+    >
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="dashboard-period-title" class="flex items-center gap-2 text-base font-semibold text-slate-900">
+          <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
             <CalendarDaysIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
             Період аналізу
           </h2>
           <p class="mt-1 text-sm text-slate-500">{{ periodLabel }} · часовий пояс Europe/Kyiv</p>
           <p v-if="comparisonPeriodLabel" class="mt-1 text-xs text-slate-400">Порівняння: {{ comparisonPeriodLabel }}</p>
         </div>
-        <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-          <input v-model="compareToPrevious" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-cyan-700 focus:ring-cyan-600" @change="updateComparison">
-          Попередній рівний період
-        </label>
       </div>
 
       <div class="mt-4 flex flex-wrap gap-2" aria-label="Швидкий вибір періоду">
-        <button
+        <BaseButton
           v-for="option in presetOptions"
           :key="option.value"
           type="button"
-          class="dashboard-period-option min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
-          :class="selectedPreset === option.value ? 'dashboard-period-option--active' : 'dashboard-period-option--inactive'"
+          :variant="selectedPreset === option.value ? 'primary' : 'neutral'"
+          size="sm"
+          class="!h-9 !min-h-9 self-start !py-1.5"
           :aria-pressed="selectedPreset === option.value"
           @click="selectPreset(option.value)"
         >
           {{ option.label }}
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           type="button"
-          class="dashboard-period-option min-h-10 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
-          :class="selectedPreset === 'custom' ? 'dashboard-period-option--active' : 'dashboard-period-option--inactive'"
+          :variant="selectedPreset === 'custom' ? 'primary' : 'neutral'"
+          size="sm"
+          class="!h-9 !min-h-9 self-start !py-1.5"
           :aria-pressed="selectedPreset === 'custom'"
           @click="selectCustom"
         >
           Власний період
-        </button>
+        </BaseButton>
       </div>
 
-      <form v-if="selectedPreset === 'custom'" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_auto] lg:items-end" @submit.prevent="applyRange">
-        <BaseInput v-model="customDateFrom" type="date" label="Дата від" :max="customDateTo || undefined" />
-        <BaseInput v-model="customDateTo" type="date" label="Дата до" :min="customDateFrom || undefined" />
-        <BaseButton type="submit" variant="primary">Застосувати</BaseButton>
-      </form>
+      <div v-if="selectedPreset === 'custom'" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_auto] lg:items-end">
+        <BaseDateRange
+          v-model:date-from="customDateFrom"
+          v-model:date-to="customDateTo"
+          from-label="Дата від"
+          to-label="Дата до"
+          class="sm:col-span-2 lg:col-span-2"
+        />
+        <BaseButton type="submit" variant="primary" :disabled="pending || reviewMetricsPending || bookingRecoveryPending">Застосувати</BaseButton>
+      </div>
       <div class="mt-4 max-w-sm">
-        <BaseSelect
+        <MasterSelect
           v-model="selectedMasterId"
           label="Майстер"
-          :options="masterOptions"
-          placeholder="Усі майстри"
+          :masters="masters"
+          all-label="Усі майстри"
+          value-type="number"
+          compact
         />
       </div>
       <p v-if="rangeError" class="mt-3 text-sm text-rose-600" role="alert">{{ rangeError }}</p>
-    </section>
+
+      <template #actions>
+        <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
+          <input v-model="compareToPrevious" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-cyan-700 focus:ring-cyan-600" @change="updateComparison">
+          Попередній рівний період
+        </label>
+      </template>
+    </BaseFilterPanel>
 
     <section
       v-if="error"
@@ -463,6 +482,11 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
 
       <DashboardBookingFunnelSection
         :funnel="dashboard?.booking_funnel"
+        :loading="pending"
+      />
+
+      <DashboardTelegramBookingsSection
+        :summary="dashboard?.telegram_bookings"
         :loading="pending"
       />
 

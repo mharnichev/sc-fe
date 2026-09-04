@@ -96,7 +96,15 @@ const refreshAll = () => refresh()
       />
     </div>
 
-    <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end xl:gap-3 xl:rounded-[1.75rem] xl:p-4">
+    <BaseFilterPanel
+      padding="sm"
+      :active-count="selectedBarberId ? 1 : 0"
+      :show-clear="false"
+      aria-label="Перехід до статистики майстра"
+      mobile-title="Статистика майстра"
+      mobile-trigger-label="Майстер"
+      fields-class="md:grid-cols-1"
+    >
       <MasterSelect
         v-model="selectedBarberId"
         :masters="masters"
@@ -113,15 +121,17 @@ const refreshAll = () => refresh()
           <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
         </template>
       </MasterSelect>
-      <NuxtLink
-        :to="selectedBarberPath || '/admin/statistics'"
-        class="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
-        :class="selectedBarberPath ? 'border-cyan-200 bg-cyan-50 text-cyan-800 hover:border-cyan-300 hover:bg-cyan-100' : 'pointer-events-none border-slate-300 bg-slate-100 text-slate-400 opacity-70'"
-      >
-        <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
-        Переглянути майстра
-      </NuxtLink>
-    </section>
+      <template #actions>
+        <NuxtLink
+          :to="selectedBarberPath || '/admin/statistics'"
+          class="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition md:w-auto xl:min-h-11 xl:px-5 xl:py-2.5 xl:text-sm"
+          :class="selectedBarberPath ? 'border-cyan-200 bg-cyan-50 text-cyan-800 hover:border-cyan-300 hover:bg-cyan-100' : 'pointer-events-none border-slate-300 bg-slate-100 text-slate-400 opacity-70'"
+        >
+          <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+          Переглянути майстра
+        </NuxtLink>
+      </template>
+    </BaseFilterPanel>
 
     <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
       <StatisticsPopularServicesChart

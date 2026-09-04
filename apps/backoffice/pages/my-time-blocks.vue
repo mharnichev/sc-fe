@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChatBubbleLeftRightIcon, ClockIcon, FunnelIcon, LockOpenIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleLeftRightIcon, LockOpenIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { MasterAvailabilityWindow, TimeBlock } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -27,6 +27,10 @@ const filters = reactive({
   date_from: todayInput(),
   date_to: addDaysInput(todayInput(), 30),
 })
+const activeFilterCount = computed(() => [
+  filters.date_from !== todayInput() ? filters.date_from : '',
+  filters.date_to !== addDaysInput(todayInput(), 30) ? filters.date_to : '',
+].filter(Boolean).length)
 
 const { data, pending, error, refresh } = await useAsyncData(
   'my-time-blocks',
@@ -181,43 +185,30 @@ const deleteAvailability = async (windowId: number) => {
       </div>
     </section>
 
-    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
-      <div class="flex flex-wrap items-end justify-between gap-3 xl:gap-4">
-        <h2 class="text-base font-semibold text-slate-900 xl:text-xl">Період</h2>
-        <div class="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:w-auto sm:grid-cols-[auto_auto_auto] xl:gap-3">
-          <label class="min-w-0 space-y-1 text-xs text-slate-600">
-            <span class="inline-flex items-center gap-1.5">
-              <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
-              Від
-            </span>
-            <span class="relative block">
-              <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
-              <BaseCalendar v-model="filters.date_from" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm" />
-            </span>
-          </label>
-          <label class="min-w-0 space-y-1 text-xs text-slate-600">
-            <span class="inline-flex items-center gap-1.5">
-              <ClockIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
-              До
-            </span>
-            <span class="relative block">
-              <ClockIcon class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55 xl:left-3" aria-hidden="true" />
-              <BaseCalendar v-model="filters.date_to" class="min-h-9 min-w-0 w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-2 text-xs xl:rounded-2xl xl:py-2 xl:pl-9 xl:pr-3 xl:text-sm" />
-            </span>
-          </label>
-          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary col-span-2 sm:col-span-1" @click="applyFilters">
-            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span>Застосувати</span>
-          </BaseButton>
-        </div>
-      </div>
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри блокувань часу"
+      :show-clear="false"
+      padding="sm"
+      fields-class="md:grid-cols-[minmax(0,1fr)]"
+      @apply="applyFilters"
+    >
+      <BaseDateRange
+        v-model:date-from="filters.date_from"
+        v-model:date-to="filters.date_to"
+        from-label="Період від"
+        to-label="Період до"
+        field-class="space-y-1 text-xs text-slate-600 xl:text-sm"
+        input-class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
+      />
+    </BaseFilterPanel>
 
-      <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-        {{ apiErrorMessage(error, 'Не вдалося завантажити доступність.') }}
-      </p>
+    <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
+      {{ apiErrorMessage(error, 'Не вдалося завантажити доступність.') }}
+    </p>
 
-      <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження доступності...</div>
-    </section>
+    <div v-if="pending" class="text-xs text-slate-500 xl:text-sm">Завантаження доступності...</div>
 
     <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-5 xl:rounded-[1.75rem] xl:p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">

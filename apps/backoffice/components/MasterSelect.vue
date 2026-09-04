@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<{
   modelValue?: string | number | null
   masters?: Master[]
   label?: string
+  ariaLabel?: string
   hint?: string
   error?: string
   placeholder?: string
@@ -82,6 +83,7 @@ const emitValue = (value: BaseSelectValue) => {
     :model-value="modelValue"
     :options="masterOptions"
     :label="label"
+    :aria-label="ariaLabel"
     :hint="hint"
     :error="error"
     :placeholder="placeholder"

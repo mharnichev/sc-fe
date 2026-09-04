@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { EyeIcon, FunnelIcon, PencilIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const route = useRoute()
+const router = useRouter()
 const toast = useBaseToastNotification()
 const assetUrl = useAssetUrl()
 const { apiErrorMessage } = useBookingFormatting()
@@ -19,8 +20,14 @@ const filters = reactive({
   brand_id: normalizeBrandQuery(route.query.brand_id),
   is_active: '',
 })
+const activeFilterCount = computed(() => [
+  filters.search.trim(),
+  filters.category_id,
+  filters.brand_id,
+  filters.is_active,
+].filter(Boolean).length)
 
-const { data, refresh } = await useAsyncData(
+const { data, pending, refresh } = await useAsyncData(
   'backoffice-products',
   () =>
     api.getProducts(page.value, pageSize, {
@@ -66,10 +73,14 @@ const setVisibilityPending = (productId: number, pending: boolean) => {
 }
 
 const productVisibilityLabel = (product: Product) => {
-  if (product.is_effectively_visible) return 'Показаний'
-  if (product.hidden_reason === 'category') return 'Прихований категорією'
-  if (product.hidden_reason === 'parent_category') return 'Прихований батьківською категорією'
-  return 'Прихований вручну'
+  return product.is_effectively_visible ? 'Активний' : 'Прихований'
+}
+
+const productVisibilityReason = (product: Product) => {
+  if (product.is_effectively_visible) return null
+  if (product.hidden_reason === 'category') return 'Причина: прихована категорія'
+  if (product.hidden_reason === 'parent_category') return 'Причина: прихована батьківська категорія'
+  return 'Причина: вимкнений вручну'
 }
 
 const productVisibilityTone = (product: Product) => product.is_effectively_visible ? 'success' : 'neutral'
@@ -137,6 +148,11 @@ const clearFilters = async () => {
   filters.brand_id = ''
   filters.is_active = ''
   page.value = 1
+  if (route.query.brand_id !== undefined) {
+    const query = { ...route.query }
+    delete query.brand_id
+    await router.replace({ query })
+  }
   if (shouldRefreshImmediately) {
     await refresh()
   }
@@ -185,26 +201,19 @@ const prev = async () => {
       </NuxtLink>
     </div>
 
-    <form @submit.prevent="applyFilters">
-      <BaseCard class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <div class="grid min-w-0 gap-4 md:grid-cols-2">
-          <BaseInput v-model="filters.search" type="search" placeholder="Пошук за назвою" />
-          <BaseSelect v-model="filters.category_id" :options="categoryOptions" aria-label="Категорія" />
-          <BaseSelect v-model="filters.brand_id" :options="brandOptions" aria-label="Бренд" />
-          <BaseSelect v-model="filters.is_active" :options="visibilityOptions" aria-label="Ручна видимість товару" />
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap xl:justify-end">
-          <BaseButton type="submit" variant="primary" class="w-full xl:w-auto">
-            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span>Застосувати</span>
-          </BaseButton>
-          <BaseButton type="button" variant="neutral" class="w-full xl:w-auto" @click="clearFilters">
-            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-            <span>Очистити</span>
-          </BaseButton>
-        </div>
-      </BaseCard>
-    </form>
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри товарів"
+      fields-class="md:grid-cols-2"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" type="search" placeholder="Пошук за назвою" aria-label="Пошук товарів за назвою" />
+      <BaseSelect v-model="filters.category_id" :options="categoryOptions" aria-label="Категорія" />
+      <BaseSelect v-model="filters.brand_id" :options="brandOptions" aria-label="Бренд" />
+      <BaseSelect v-model="filters.is_active" :options="visibilityOptions" aria-label="Ручна видимість товару" />
+    </BaseFilterPanel>
 
     <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
       Total: {{ data?.total || 0 }}
@@ -212,7 +221,7 @@ const prev = async () => {
 
     <BaseTable
       caption="Каталог товарів"
-      min-width="68rem"
+      min-width="64rem"
       :empty="!data?.items.length"
       empty-title="Товарів не знайдено"
     >
@@ -225,8 +234,7 @@ const prev = async () => {
           <th>Ціна</th>
           <th>Рекомендована роздрібна ціна</th>
           <th>Склад</th>
-          <th>Статус</th>
-          <th>Видимість</th>
+          <th class="min-w-64">Видимість</th>
           <th>Дії</th>
         </tr>
       </template>
@@ -245,17 +253,18 @@ const prev = async () => {
             <td data-label="Ціна" class="text-ui-secondary">{{ item.price }}</td>
             <td data-label="Рекомендована ціна" class="text-ui-secondary">{{ item.recommended_retail_price }}</td>
             <td data-label="Склад" class="text-ui-secondary">{{ item.stock_quantity }}</td>
-            <td data-label="Статус" class="px-4 py-3">
-              <BaseBadge :tone="item.is_active ? 'success' : 'neutral'">
-                {{ item.is_active ? 'активний' : 'неактивний' }}
-              </BaseBadge>
-            </td>
-            <td data-label="Видимість" class="px-4 py-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <BaseBadge :tone="productVisibilityTone(item)">
-                  {{ productVisibilityLabel(item) }}
-                </BaseBadge>
+            <td data-label="Видимість" class="min-w-64 px-4 py-3">
+              <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0">
+                  <BaseBadge :tone="productVisibilityTone(item)">
+                    {{ productVisibilityLabel(item) }}
+                  </BaseBadge>
+                  <p v-if="productVisibilityReason(item)" class="mt-1 text-xs leading-5 text-ui-muted">
+                    {{ productVisibilityReason(item) }}
+                  </p>
+                </div>
                 <BaseToggle
+                  class="shrink-0"
                   :checked="item.is_active"
                   :loading="isVisibilityPending(item.id)"
                   :aria-label="`${item.is_active ? 'Приховати' : 'Показати'} товар ${item.name}`"

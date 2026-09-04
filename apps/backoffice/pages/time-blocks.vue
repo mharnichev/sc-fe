@@ -151,6 +151,10 @@ const monthLabel = computed(() => {
 const weekdayFormatter = new Intl.DateTimeFormat('uk-UA', { weekday: 'short', timeZone: 'Europe/Kyiv' })
 const selectedDayFormatter = new Intl.DateTimeFormat('uk-UA', { day: 'numeric', month: 'long', timeZone: 'Europe/Kyiv' })
 const monthRangeLabel = computed(() => `${monthStart.value} — ${monthEnd.value}`)
+const activeFilterCount = computed(() => [
+  masterFilterId.value,
+  monthStart.value !== `${todayInput().slice(0, 7)}-01` ? monthStart.value : '',
+].filter(Boolean).length)
 
 const addMonthsInput = (date: string, offset: number) => {
   const [year, month] = date.split('-').map(Number)
@@ -199,15 +203,12 @@ const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
 const servicesById = computed(() => new Map(serviceOptions.value.map(service => [Number(service.id), service])))
-const selectedMaster = computed(() => masterOptions.value.find(master => master.id === selectedMasterId.value) || null)
 const deletingBlockIds = ref<number[]>([])
 const deletingAvailabilityId = ref<number | null>(null)
 const timeBlockModalOpen = ref(false)
 const availabilityModalOpen = ref(false)
 const availabilityToDelete = ref<MasterAvailabilityWindow | null>(null)
 const blockSummaryToDelete = ref<BlockDaySummary | null>(null)
-const masterFilterOpen = ref(false)
-const masterFilterRef = ref<HTMLElement | null>(null)
 const selectedScheduleItem = ref<SelectedScheduleItem | null>(null)
 
 const masterDisplayName = (master?: Master | null) => {
@@ -220,8 +221,6 @@ const masterDisplayName = (master?: Master | null) => {
 const masterImageUrl = (master?: Master | null) =>
   master ? assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url) : ''
 
-const masterInitials = (master?: Master | null) => initials(masterDisplayName(master)) || 'SC'
-
 const masterPresentations = computed<MasterPresentation[]>(() => masterOptions.value.map(master => {
   const displayName = masterDisplayName(master)
   return {
@@ -233,10 +232,6 @@ const masterPresentations = computed<MasterPresentation[]>(() => masterOptions.v
   }
 }))
 
-const selectMasterFilter = (masterId: string) => {
-  masterFilterId.value = masterId
-  masterFilterOpen.value = false
-}
 
 const monthDays = computed<CalendarDayColumn[]>(() => {
   const [year, month] = monthStart.value.split('-').map(Number)
@@ -586,14 +581,6 @@ const confirmDeleteAvailability = async () => {
   }
 }
 
-const closeMasterFilterOnOutsideClick = (event: MouseEvent) => {
-  const target = event.target
-  if (!(target instanceof Node) || masterFilterRef.value?.contains(target)) return
-  masterFilterOpen.value = false
-}
-
-onMounted(() => document.addEventListener('click', closeMasterFilterOnOutsideClick))
-onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnOutsideClick))
 </script>
 
 <template>
@@ -634,72 +621,58 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMasterFilterOnO
       Для керування графіком майстрів потрібен доступ адміністратора.
     </p>
 
-    <BaseCard as="section" padding="sm" class="relative z-30 space-y-3 md:space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 sm:w-auto md:flex md:gap-2">
-          <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Попередній місяць" title="Попередній місяць" @click="moveMonth(-1)">
-            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
-          </BaseButton>
-          <p class="min-w-0 text-center text-base font-semibold capitalize text-ui-primary md:min-w-48 md:text-left md:text-lg">{{ monthLabel }}</p>
-          <BaseButton type="button" variant="neutral" size="sm" @click="goToCurrentMonth">Цей місяць</BaseButton>
-          <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Наступний місяць" title="Наступний місяць" @click="moveMonth(1)">
-            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
-          </BaseButton>
-        </div>
+    <BaseFilterPanel
+      padding="sm"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри графіка майстрів"
+      card-class="relative z-30"
+      fields-class="!block"
+      actions-class="justify-stretch xl:justify-end"
+      :loading="pending"
+      :show-clear="false"
+      aria-label="Фільтри графіка майстрів"
+      @apply="refresh"
+    >
+      <MasterSelect
+        v-model="masterFilterId"
+        :masters="masterOptions"
+        label="Майстер"
+        all-label="Усі майстри"
+        value-type="string"
+        compact
+        menu-class="z-[260]"
+      />
 
-        <div ref="masterFilterRef" class="relative w-full sm:w-72">
-          <BaseButton
-            type="button"
-            class="base-control flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left text-sm"
-            :aria-expanded="masterFilterOpen"
-            aria-haspopup="listbox"
-            @click="masterFilterOpen = !masterFilterOpen"
-          >
-            <span class="flex min-w-0 items-center gap-2">
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
-                <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterDisplayName(selectedMaster)" class="h-full w-full object-cover">
-                <span v-else>{{ selectedMaster ? masterInitials(selectedMaster) : 'SC' }}</span>
-              </span>
-              <span class="min-w-0 truncate font-medium text-ui-primary">{{ masterDisplayName(selectedMaster) }}</span>
-            </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
-          </BaseButton>
-          <div v-if="masterFilterOpen" class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full overflow-y-auto rounded-2xl p-1" role="listbox">
-            <BaseButton type="button" class="base-select__option flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm" :class="!masterFilterId ? 'is-selected' : ''" @click="selectMasterFilter('')">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ui bg-ui-subtle text-xs font-semibold text-ui-secondary">SC</span>
-              <span class="min-w-0 truncate font-medium">Усі майстри</span>
+      <template #actions>
+        <div class="w-full space-y-3 sm:w-auto">
+          <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 md:flex md:gap-2">
+            <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Попередній місяць" title="Попередній місяць" @click="moveMonth(-1)">
+              <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
             </BaseButton>
-            <BaseButton
-              v-for="presentation in masterPresentations"
-              :key="presentation.master.id"
-              type="button"
-              class="base-select__option flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm"
-              :class="masterFilterId === String(presentation.master.id) ? 'is-selected' : ''"
-              @click="selectMasterFilter(String(presentation.master.id))"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-xs font-semibold text-ui-secondary">
-                <img v-if="presentation.imageUrl" :src="presentation.imageUrl" :alt="presentation.displayName" class="h-full w-full object-cover">
-                <span v-else>{{ presentation.initials }}</span>
-              </span>
-              <span class="min-w-0">
-                <span class="block truncate font-medium">{{ presentation.displayName }}</span>
-                <span v-if="presentation.master.position_uk" class="block truncate text-xs text-ui-muted">{{ presentation.position }}</span>
-              </span>
+            <p class="min-w-0 text-center text-base font-semibold capitalize text-ui-primary md:min-w-48 md:text-left md:text-lg">{{ monthLabel }}</p>
+            <BaseButton type="button" variant="neutral" size="sm" @click="goToCurrentMonth">Цей місяць</BaseButton>
+            <BaseButton type="button" variant="icon" class="h-9 w-9" aria-label="Наступний місяць" title="Наступний місяць" @click="moveMonth(1)">
+              <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
             </BaseButton>
           </div>
+          <BaseButton type="submit" variant="primary" block class="md:hidden">Застосувати</BaseButton>
         </div>
-      </div>
+      </template>
 
-      <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
-        <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
-        <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
-      </div>
+      <template #summary>
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
+          <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
+          <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
+        </div>
+      </template>
 
-      <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
-        {{ apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') }}
-      </p>
-      <BaseLoader v-if="pending" label="Завантаження графіка…" size="sm" />
-    </BaseCard>
+      <template #after>
+        <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
+          {{ apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') }}
+        </p>
+        <BaseLoader v-if="pending" label="Завантаження графіка…" size="sm" />
+      </template>
+    </BaseFilterPanel>
 
     <BaseCard as="section" padding="none" class="overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4">

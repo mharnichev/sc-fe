@@ -102,6 +102,7 @@ const scenarioDefinitions: SmsScenarioDefinition[] = [
 const page = ref(1)
 const pageSize = 20
 const statusFilter = ref('')
+const activeFilterCount = computed(() => statusFilter.value ? 1 : 0)
 const saving = ref(false)
 const runningJob = ref<SmsJob | null>(null)
 const editing = ref<{ definition: SmsScenarioDefinition, campaign: MessagingCampaign | null } | null>(null)
@@ -289,9 +290,20 @@ const saveScenario = async () => {
   }
 }
 
-const applyFilters = async () => {
+const refreshFirstPage = async () => {
+  if (page.value === 1) {
+    await refresh()
+    return
+  }
   page.value = 1
-  await refresh()
+  await nextTick()
+}
+
+const applyFilters = () => refreshFirstPage()
+
+const clearFilters = async () => {
+  statusFilter.value = ''
+  await refreshFirstPage()
 }
 
 const runJob = async (job: SmsJob) => {
@@ -431,18 +443,27 @@ const runJob = async (job: SmsJob) => {
     </section>
 
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
         <div>
           <h2 class="text-xl font-semibold text-slate-900">Кампанії за отримувачем</h2>
           <p class="mt-1 text-sm text-slate-500">SMS для клієнтів та Telegram- й email-повідомлення для майстрів.</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <BaseSelect v-model="statusFilter" :options="statusOptions" menu-class="z-[220]" />
-          <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
-            Застосувати
-          </BaseButton>
-        </div>
       </div>
+
+      <BaseFilterPanel
+        class="mt-5"
+        variant="subtle"
+        padding="sm"
+        aria-label="Фільтри SMS кампаній"
+        :loading="pending"
+        :active-count="activeFilterCount"
+        mobile-title="Фільтри SMS кампаній"
+        fields-class="sm:grid-cols-[minmax(0,16rem)]"
+        @apply="applyFilters"
+        @clear="clearFilters"
+      >
+        <BaseSelect v-model="statusFilter" :options="statusOptions" aria-label="Статус SMS кампанії" menu-class="z-[220]" />
+      </BaseFilterPanel>
 
       <div class="mt-5 space-y-6">
         <section v-for="group in campaignGroups" :key="group.key">

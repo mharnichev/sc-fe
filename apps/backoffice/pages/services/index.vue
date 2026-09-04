@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, FunnelIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, LanguageIcon, NoSymbolIcon, PencilIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
 import type { BaseService } from '~/composables/useBackofficeApi'
 
 definePageMeta({
@@ -28,6 +28,7 @@ const {
 const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
+const activeFilterCount = computed(() => [filters.search.trim(), filters.is_active].filter(Boolean).length)
 const activeStatusOptions = [
   { value: '', label: 'Будь-який статус' },
   { value: 'true', label: 'Активні' },
@@ -127,8 +128,17 @@ const deleteService = async (service: BaseService) => {
 }
 
 const applyFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
   page.value = 1
-  if (page.value === 1) await refresh()
+  if (shouldRefreshImmediately) await refresh()
+}
+
+const clearFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
+  filters.search = ''
+  filters.is_active = ''
+  page.value = 1
+  if (shouldRefreshImmediately) await refresh()
 }
 </script>
 
@@ -145,15 +155,20 @@ const applyFilters = async () => {
       </BaseButton>
     </div>
 
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри послуг"
+      padding="sm"
+      fields-class="md:grid-cols-[minmax(0,1fr)_180px]"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" placeholder="Пошук базових послуг" aria-label="Пошук базових послуг" />
+      <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус базової послуги" menu-class="z-[220]" />
+    </BaseFilterPanel>
+
     <BaseCard as="section" padding="sm" class="space-y-3 xl:space-y-4">
-      <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <BaseInput v-model="filters.search" placeholder="Пошук базових послуг" />
-        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
-        <BaseButton variant="primary" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-      </div>
       <p v-if="error" class="ui-status-danger rounded-xl px-3 py-2 text-xs xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити базові послуги з /backoffice/admin/services.') }}
       </p>

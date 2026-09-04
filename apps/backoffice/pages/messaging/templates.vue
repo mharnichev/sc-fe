@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, DocumentDuplicateIcon, FunnelIcon, PencilIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, DocumentDuplicateIcon, PencilIcon } from '@heroicons/vue/24/outline'
 import type { MessageTemplate, MessageTemplatePayload } from '~/types/messaging'
 
 const api = useBackofficeApi()
@@ -9,10 +9,29 @@ const { canCreateMessagingDrafts, canSendMessagingCampaigns } = useBackofficeAcc
 const page = ref(1)
 const pageSize = 20
 const filters = reactive({ search: '', campaign_type: '', channel: '', language: '', is_active: null as boolean | null })
+const activeFilterCount = computed(() => [
+  filters.search.trim(),
+  filters.campaign_type,
+  filters.channel,
+  filters.language,
+].filter(Boolean).length + Number(filters.is_active !== null))
 const editorOpen = ref(false)
 const editingId = ref<number | string | null>(null)
 const saving = ref(false)
 const deleting = ref<MessageTemplate | null>(null)
+const campaignTypeOptions = computed(() => [
+  { value: '', label: 'Усі типи' },
+  ...campaignTypes.map(type => ({ value: type.value, label: type.label })),
+])
+const channelOptions = computed(() => [
+  { value: '', label: 'Усі канали' },
+  ...channels.map(channel => ({ value: channel.value, label: channel.label })),
+])
+const languageOptions = [
+  { value: '', label: 'Усі мови' },
+  { value: 'uk', label: 'Українська' },
+  { value: 'en', label: 'English' },
+]
 
 const emptyTemplate = (): MessageTemplatePayload => ({
   name: '',
@@ -29,9 +48,20 @@ const templateForm = ref<MessageTemplatePayload>(emptyTemplate())
 
 const { data, pending, error, refresh } = await useAsyncData('messaging-templates', () => api.getMessageTemplates(page.value, pageSize, filters), { watch: [page] })
 
-const applyFilters = async () => {
+const refreshFirstPage = async () => {
+  if (page.value === 1) {
+    await refresh()
+    return
+  }
   page.value = 1
-  await refresh()
+  await nextTick()
+}
+
+const applyFilters = () => refreshFirstPage()
+
+const clearFilters = async () => {
+  Object.assign(filters, { search: '', campaign_type: '', channel: '', language: '', is_active: null })
+  await refreshFirstPage()
 }
 
 const openCreate = () => {
@@ -95,26 +125,19 @@ const closeDeleteConfirm = (value: boolean) => {
       <BaseButton v-if="canCreateMessagingDrafts" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white" @click="openCreate">Новий шаблон</BaseButton>
     </div>
 
-    <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-5">
-      <BaseInput v-model="filters.search" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm" placeholder="Пошук шаблону" />
-      <BaseSelect native v-model="filters.campaign_type" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі типи</option>
-        <option v-for="type in campaignTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-      </BaseSelect>
-      <BaseSelect native v-model="filters.channel" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі канали</option>
-        <option v-for="channel in channels" :key="channel.value" :value="channel.value">{{ channel.label }}</option>
-      </BaseSelect>
-      <BaseSelect native v-model="filters.language" class="rounded-2xl border border-slate-300 px-4 py-3 text-sm">
-        <option value="">Усі мови</option>
-        <option value="uk">Українська</option>
-        <option value="en">English</option>
-      </BaseSelect>
-      <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
-        <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-        <span>Застосувати</span>
-      </BaseButton>
-    </section>
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри шаблонів"
+      fields-class="md:grid-cols-2 xl:grid-cols-4"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" type="search" placeholder="Пошук шаблону" aria-label="Пошук шаблонів" />
+      <BaseSelect v-model="filters.campaign_type" :options="campaignTypeOptions" aria-label="Тип кампанії шаблону" />
+      <BaseSelect v-model="filters.channel" :options="channelOptions" aria-label="Канал шаблону" />
+      <BaseSelect v-model="filters.language" :options="languageOptions" aria-label="Мова шаблону" />
+    </BaseFilterPanel>
 
     <div v-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити шаблони.</div>
     <BaseTable

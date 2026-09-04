@@ -199,6 +199,20 @@ const backendDashboardFixture = () => ({
     },
     latest_weekly_digest: null,
   },
+  telegram_bookings: {
+    calculation_version: 1,
+    timezone: 'Europe/Kyiv',
+    period_basis: 'booking_created_at',
+    created_bookings: { current: 4, previous: 2, percent_change: '100.00' },
+    unique_clients: { current: 3, previous: 2, percent_change: '50.00' },
+    status_counts: {
+      pending: 1,
+      confirmed: 2,
+      completed: 0,
+      cancelled: 1,
+    },
+    historical_data_status: 'partial_before_source_tracking',
+  },
   actionable_signals: [{
     severity: 'warning',
     code: 'pending_bookings',
@@ -432,6 +446,8 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.equal(response.booking_funnel.no_slot_contexts[0].duration_minutes, 90)
   assert.equal(response.booking_funnel.no_slot_unknown_date_count, 3)
   assert.equal(response.booking_funnel.recommended_action.recommended_backoffice_route, '/bookings')
+  assert.equal(response.telegram_bookings.created_bookings.current, 4)
+  assert.equal(response.telegram_bookings.status_counts.confirmed, 2)
   assert.equal(response.actionable_signals[0].recommended_backoffice_route, '/bookings?status=pending')
   assert.throws(
     () => contract.parseAdminDashboardResponse({ ...backendDashboardFixture(), executive: undefined }),
@@ -442,6 +458,12 @@ test('BE dashboard fixture is runtime-validated before rendering', () => {
   assert.throws(
     () => contract.parseAdminDashboardResponse(unsafeRoute),
     /recommended_backoffice_route/,
+  )
+  const malformedTelegram = backendDashboardFixture()
+  malformedTelegram.telegram_bookings.status_counts.confirmed = -1
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(malformedTelegram),
+    /telegram_bookings\.status_counts\.confirmed/,
   )
   const malformedFunnel = backendDashboardFixture()
   malformedFunnel.booking_funnel.step_to_step_conversion[0].conversion_percent = null
@@ -569,6 +591,7 @@ test('dashboard page uses the single typed business endpoint without legacy metr
     reviewsSource,
     metricHelpSource,
     bookingFunnelSource,
+    telegramBookingsSource,
   ] = await Promise.all([
     readFile(new URL('../composables/useBackofficeApi.ts', import.meta.url), 'utf8'),
     readFile(new URL('../pages/admin/dashboards/barbershop.vue', import.meta.url), 'utf8'),
@@ -576,6 +599,7 @@ test('dashboard page uses the single typed business endpoint without legacy metr
     readFile(new URL('../pages/reviews/index.vue', import.meta.url), 'utf8'),
     readFile(new URL('../components/dashboard/MetricHelp.vue', import.meta.url), 'utf8'),
     readFile(new URL('../components/dashboard/BookingFunnelSection.vue', import.meta.url), 'utf8'),
+    readFile(new URL('../components/dashboard/TelegramBookingsSection.vue', import.meta.url), 'utf8'),
   ])
 
   assert.match(apiSource, /api<unknown>\('\/backoffice\/statistics\/admin\/dashboard'/)
@@ -596,6 +620,11 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.doesNotMatch(pageSource, /label="Унікальні клієнти"/)
   assert.match(pageSource, /dashboard\?\.capacity_and_leakage\.available_minutes/)
   assert.match(pageSource, /dashboard\?\.booking_funnel/)
+  assert.match(pageSource, /dashboard\?\.telegram_bookings/)
+  assert.match(telegramBookingsSource, /Записи через Telegram/)
+  assert.match(telegramBookingsSource, /summary\?\.created_bookings\.current/)
+  assert.match(telegramBookingsSource, /summary\?\.status_counts\.confirmed/)
+  assert.match(telegramBookingsSource, /Історія до запуску обліку джерела відновлена лише частково/)
   assert.match(bookingFunnelSource, /funnel\.no_slot_unknown_date_count/)
   assert.match(bookingFunnelSource, /v-if="isRenderable"[\s\S]+aria-label="Кроки воронки/)
   assert.match(bookingFunnelSource, /Операційні сигнали за період залишаються доступними нижче/)

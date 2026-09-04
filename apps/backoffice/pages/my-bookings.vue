@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
@@ -29,6 +29,11 @@ const filters = reactive({
   date_to: addDaysInput(todayInput(), 14),
   status: '',
 })
+const activeFilterCount = computed(() => [
+  filters.date_from !== todayInput() ? filters.date_from : '',
+  filters.date_to !== addDaysInput(todayInput(), 14) ? filters.date_to : '',
+  filters.status,
+].filter(Boolean).length)
 
 const { data, pending, error, refresh } = await useAsyncData(
   'my-bookings',
@@ -45,6 +50,10 @@ const selected = ref<Booking | null>(null)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingDelete = ref(false)
+const statusOptions = computed(() => [
+  { value: '', label: 'Будь-який статус' },
+  ...statuses.map(status => ({ value: status, label: formatBookingStatus(status) })),
+])
 
 const bookings = computed(() => normalizeItems(data.value))
 const serviceOptions = computed(() => normalizeItems(services.value))
@@ -117,7 +126,15 @@ const deleteSelectedBooking = async () => {
       <p class="mt-1 text-xs text-slate-500 xl:mt-2 xl:text-sm">Ваш список записів у часовому поясі Europe/Kyiv.</p>
     </div>
 
-    <section class="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-2 xl:grid-cols-4 xl:gap-4 xl:rounded-[1.75rem] xl:p-5">
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри моїх бронювань"
+      padding="sm"
+      fields-class="md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
       <BaseDateRange
         v-model:date-from="filters.date_from"
         v-model:date-to="filters.date_to"
@@ -125,26 +142,9 @@ const deleteSelectedBooking = async () => {
         to-label="До"
         field-class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm"
         input-class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3"
-        class="md:col-span-2"
       />
-      <label class="space-y-1 text-xs text-slate-700 xl:space-y-2 xl:text-sm">
-        <span class="font-medium">Статус</span>
-        <BaseSelect native v-model="filters.status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm xl:rounded-2xl xl:px-4 xl:py-3">
-          <option value="">Будь-який статус</option>
-          <option v-for="status in statuses" :key="status" :value="status">{{ formatBookingStatus(status) }}</option>
-        </BaseSelect>
-      </label>
-      <div class="flex items-end gap-2 xl:gap-3">
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary flex-1" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-neutral flex-1" @click="clearFilters">
-          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Очистити</span>
-        </BaseButton>
-      </div>
-    </section>
+      <BaseSelect v-model="filters.status" :options="statusOptions" label="Статус" aria-label="Статус бронювання" />
+    </BaseFilterPanel>
 
     <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
       {{ apiErrorMessage(error, 'Не вдалося завантажити ваші бронювання. TODO: підтвердити підтримку endpoint /masters/me/bookings у бекенді.') }}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon, FunnelIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, NoSymbolIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
 import type { MasterRatingStatistics } from '~/types/reviews'
@@ -15,6 +15,7 @@ const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.rol
 const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
+const activeFilterCount = computed(() => [filters.search.trim(), filters.is_active].filter(Boolean).length)
 const activeStatusOptions = [
   { value: '', label: 'Будь-який статус' },
   { value: 'true', label: 'Активні' },
@@ -136,8 +137,18 @@ const confirmToggleMaster = async () => {
 
 const applyFilters = async () => {
   if (!isAdmin.value) return
+  const shouldRefreshImmediately = page.value === 1
   page.value = 1
-  if (page.value === 1) await refresh()
+  if (shouldRefreshImmediately) await refresh()
+}
+
+const clearFilters = async () => {
+  if (!isAdmin.value) return
+  const shouldRefreshImmediately = page.value === 1
+  filters.search = ''
+  filters.is_active = ''
+  page.value = 1
+  if (shouldRefreshImmediately) await refresh()
 }
 </script>
 
@@ -165,15 +176,21 @@ const applyFilters = async () => {
       Для керування майстрами потрібен доступ адміністратора.
     </p>
 
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри майстрів"
+      :disabled="!isAdmin"
+      padding="lg"
+      fields-class="md:grid-cols-[minmax(0,1fr)_180px]"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" placeholder="Пошук майстрів" aria-label="Пошук майстрів" :disabled="!isAdmin" />
+      <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус майстра" menu-class="z-[220]" :disabled="!isAdmin" />
+    </BaseFilterPanel>
+
     <BaseCard as="section" padding="lg" class="space-y-5">
-      <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <BaseInput v-model="filters.search" placeholder="Пошук майстрів" />
-        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" menu-class="z-[220]" />
-        <BaseButton variant="primary" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-      </div>
       <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити майстрів.') }}
       </p>

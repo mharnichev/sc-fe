@@ -5,8 +5,39 @@ import type { Brand } from '~/composables/useBackofficeApi'
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
 const { apiErrorMessage } = useBookingFormatting()
-const { data, refresh } = await useAsyncData('backoffice-brands', () => api.getBrands(1, 50))
+const brandPageSize = 200
+const loadAllBrands = async () => {
+  const firstPage = await api.getBrands(1, brandPageSize)
+  const pageCount = Math.ceil(firstPage.total / brandPageSize)
+  if (pageCount <= 1) return firstPage
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, index) => api.getBrands(index + 2, brandPageSize)),
+  )
+  return {
+    ...firstPage,
+    page_size: firstPage.total,
+    items: [firstPage, ...remainingPages].flatMap(page => page.items),
+  }
+}
+const { data, pending, refresh } = await useAsyncData('backoffice-brands', loadAllBrands)
 const pendingBrandIds = ref<Set<number>>(new Set())
+const search = ref('')
+const appliedSearch = ref('')
+const visibleBrands = computed(() => {
+  const query = appliedSearch.value.toLocaleLowerCase('uk-UA')
+  if (!query) return data.value?.items || []
+  return (data.value?.items || []).filter(brand => brand.name.toLocaleLowerCase('uk-UA').includes(query))
+})
+
+const applySearch = () => {
+  appliedSearch.value = search.value.trim()
+}
+
+const clearSearch = () => {
+  search.value = ''
+  appliedSearch.value = ''
+}
 
 const isBrandActive = (brand: Brand) => brand.is_active !== false
 const isBrandPending = (brandId: number) => pendingBrandIds.value.has(brandId)
@@ -45,8 +76,24 @@ const toggleBrandVisibility = async (brand: Brand) => {
       <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Каталог</p>
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Бренди</h1>
     </div>
+
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="appliedSearch ? 1 : 0"
+      mobile-title="Пошук брендів"
+      fields-class="md:grid-cols-1"
+      @apply="applySearch"
+      @clear="clearSearch"
+    >
+      <BaseInput
+        v-model="search"
+        placeholder="Пошук за назвою бренду"
+        aria-label="Пошук брендів за назвою"
+      />
+    </BaseFilterPanel>
+
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="item in data?.items || []" :key="item.id" class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" :class="{ 'opacity-65': !isBrandActive(item) }">
+      <article v-for="item in visibleBrands" :key="item.id" class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" :class="{ 'opacity-65': !isBrandActive(item) }">
         <h2 class="text-lg font-semibold text-slate-900">{{ item.name }}</h2>
         <p class="mt-1 text-xs text-slate-500">{{ item.slug }}</p>
         <p class="mt-4 text-sm leading-7 text-slate-600">{{ item.description || 'Без опису' }}</p>
@@ -73,5 +120,10 @@ const toggleBrandVisibility = async (brand: Brand) => {
         </div>
       </article>
     </div>
+    <BaseEmptyState
+      v-if="!pending && !visibleBrands.length"
+      title="Брендів не знайдено"
+      description="Спробуйте змінити пошуковий запит."
+    />
   </div>
 </template>

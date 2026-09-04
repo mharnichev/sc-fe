@@ -8,7 +8,6 @@ import {
   DocumentTextIcon,
   EyeIcon,
   ExclamationTriangleIcon,
-  FunnelIcon,
   LinkIcon,
   PaperAirplaneIcon,
   PauseIcon,
@@ -36,6 +35,7 @@ const toast = useBaseToastNotification()
 
 const { data, pending, error, refresh } = await useAsyncData('messaging-dashboard', () => api.getMessagingDashboard())
 const route = useRoute()
+const router = useRouter()
 const campaignsPage = ref(1)
 const campaignsPageSize = 20
 const campaignsSectionRef = ref<HTMLElement | null>(null)
@@ -56,6 +56,14 @@ const campaignFilters = reactive({
   date_to: '',
   barber_id: null as number | null,
 })
+const activeCampaignFilterCount = computed(() => [
+  campaignFilters.status,
+  campaignFilters.type,
+  campaignFilters.channel,
+  campaignFilters.date_from,
+  campaignFilters.date_to,
+  campaignFilters.barber_id,
+].filter(Boolean).length)
 const [
   { data: campaignsData, pending: campaignsPending, error: campaignsError, refresh: refreshCampaigns },
   { data: masters },
@@ -228,9 +236,25 @@ const refreshMessagingData = async () => {
   await Promise.all([refresh(), refreshCampaigns(), refreshTelegramAudience()])
 }
 
-const applyCampaignFilters = async () => {
+const refreshCampaignsFirstPage = async () => {
+  if (campaignsPage.value === 1) {
+    await refreshCampaigns()
+    return
+  }
   campaignsPage.value = 1
-  await refreshCampaigns()
+  await nextTick()
+}
+
+const persistCampaignStatusQuery = () => {
+  const query = { ...route.query }
+  if (campaignFilters.status) query.status = campaignFilters.status
+  else delete query.status
+  return router.replace({ query })
+}
+
+const applyCampaignFilters = async () => {
+  await persistCampaignStatusQuery()
+  await refreshCampaignsFirstPage()
 }
 
 const clearCampaignFilters = async () => {
@@ -240,8 +264,8 @@ const clearCampaignFilters = async () => {
   campaignFilters.date_from = ''
   campaignFilters.date_to = ''
   campaignFilters.barber_id = null
-  campaignsPage.value = 1
-  await refreshCampaigns()
+  await persistCampaignStatusQuery()
+  await refreshCampaignsFirstPage()
 }
 
 const viewFailedCampaigns = async () => {
@@ -251,8 +275,8 @@ const viewFailedCampaigns = async () => {
   campaignFilters.date_from = ''
   campaignFilters.date_to = ''
   campaignFilters.barber_id = null
-  campaignsPage.value = 1
-  await refreshCampaigns()
+  await persistCampaignStatusQuery()
+  await refreshCampaignsFirstPage()
   await nextTick()
   campaignsSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
@@ -326,32 +350,33 @@ const insertCampaignVariable = (variable: string) => {
         </div>
       </div>
 
-      <BaseCard variant="subtle" padding="sm" class="mt-5 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <BaseSelect v-model="campaignFilters.status" :options="campaignStatusOptions" menu-class="z-[220]" />
-        <BaseSelect v-model="campaignFilters.type" :options="campaignTypeOptions" menu-class="z-[220]" />
-        <BaseSelect v-model="campaignFilters.channel" :options="campaignChannelOptions" menu-class="z-[220]" />
+      <BaseFilterPanel
+        class="mt-5"
+        variant="subtle"
+        padding="sm"
+        aria-label="Фільтри кампаній"
+        :loading="campaignsPending"
+        :active-count="activeCampaignFilterCount"
+        mobile-title="Фільтри кампаній"
+        fields-class="md:grid-cols-3 xl:grid-cols-6"
+        @apply="applyCampaignFilters"
+        @clear="clearCampaignFilters"
+      >
+        <BaseSelect v-model="campaignFilters.status" :options="campaignStatusOptions" aria-label="Статус кампанії" menu-class="z-[220]" />
+        <BaseSelect v-model="campaignFilters.type" :options="campaignTypeOptions" aria-label="Тип кампанії" menu-class="z-[220]" />
+        <BaseSelect v-model="campaignFilters.channel" :options="campaignChannelOptions" aria-label="Канал кампанії" menu-class="z-[220]" />
         <BaseDateRange
           v-model:date-from="campaignFilters.date_from"
           v-model:date-to="campaignFilters.date_to"
-          from-label=""
-          to-label=""
+          from-label="Дата від"
+          to-label="Дата до"
           from-placeholder="Початок дати"
           to-placeholder="Кінець дати"
           input-class="base-control px-4 py-3 text-sm"
           class="md:col-span-2 xl:col-span-2"
         />
-        <MasterSelect v-model="campaignFilters.barber_id" :masters="masterItems" value-type="number" all-label="Усі майстри" compact menu-class="z-[220]" />
-        <div class="flex flex-wrap gap-3 md:col-span-3 xl:col-span-6">
-          <BaseButton variant="primary" @click="applyCampaignFilters">
-            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span>Застосувати</span>
-          </BaseButton>
-          <BaseButton variant="neutral" @click="clearCampaignFilters">
-            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-            <span>Очистити</span>
-          </BaseButton>
-        </div>
-      </BaseCard>
+        <MasterSelect v-model="campaignFilters.barber_id" :masters="masterItems" label="Майстер" value-type="number" all-label="Усі майстри" compact menu-class="z-[220]" />
+      </BaseFilterPanel>
 
       <div v-if="campaignsError" class="ui-status-danger mt-5 rounded-[1.25rem] p-5 text-sm">
         Не вдалося завантажити кампанії.

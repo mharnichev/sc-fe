@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bars3BottomLeftIcon, FunnelIcon, QueueListIcon } from '@heroicons/vue/24/outline'
+import { Bars3BottomLeftIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import type { BaseTabValue } from '~/components/BaseTabs.vue'
 import type { Category } from '~/composables/useBackofficeApi'
 
@@ -10,6 +10,7 @@ const filters = reactive({
   search: '',
   is_active: '',
 })
+const activeFilterCount = computed(() => [filters.search.trim(), filters.is_active].filter(Boolean).length)
 const categoryStatusOptions = [
   { value: '', label: 'Будь-який статус' },
   { value: 'true', label: 'Показані' },
@@ -31,7 +32,7 @@ const categoryViewTabs = [
   },
 ]
 
-const [{ data, refresh }, { data: tree, refresh: refreshTree }] = await Promise.all([
+const [{ data, pending, refresh }, { data: tree, refresh: refreshTree }] = await Promise.all([
   useAsyncData('backoffice-categories', () =>
     api.getCategories(1, 200, {
       search: filters.search || undefined,
@@ -105,7 +106,13 @@ const confirmHideCategory = async () => {
 }
 
 const applyFilters = async () => {
-  await refreshCategories()
+  await refresh()
+}
+
+const clearFilters = async () => {
+  filters.search = ''
+  filters.is_active = ''
+  await refresh()
 }
 </script>
 
@@ -124,18 +131,21 @@ const applyFilters = async () => {
           :aria-labelledby="tabId"
           class="mt-5 space-y-5"
         >
-          <BaseCard as="section" class="grid gap-4 md:grid-cols-[1fr_220px_160px]">
-            <BaseInput v-model="filters.search" placeholder="Пошук категорій" />
+          <BaseFilterPanel
+            :loading="pending"
+            :active-count="activeFilterCount"
+            mobile-title="Фільтри категорій"
+            fields-class="md:grid-cols-[minmax(0,1fr)_220px]"
+            @apply="applyFilters"
+            @clear="clearFilters"
+          >
+            <BaseInput v-model="filters.search" placeholder="Пошук категорій" aria-label="Пошук категорій" />
             <BaseSelect
               v-model="filters.is_active"
               :options="categoryStatusOptions"
               aria-label="Ручна видимість категорії"
             />
-            <BaseButton variant="primary" @click="applyFilters">
-              <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-              <span>Застосувати</span>
-            </BaseButton>
-          </BaseCard>
+          </BaseFilterPanel>
 
           <BaseTable
             caption="Таблиця категорій"

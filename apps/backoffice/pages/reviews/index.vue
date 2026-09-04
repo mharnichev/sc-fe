@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowPathIcon, EyeIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, EyeIcon } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
 import type { ReviewFilters } from '~/types/reviews'
 import { formatModerationDuration, formatRating, formatReviewConversionRate, reviewModerationLabels, reviewRequestStateLabels, safeBookingReference } from '~/utils/reviews'
@@ -13,6 +13,7 @@ definePageMeta({
 
 const api = useBackofficeApi()
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const { apiErrorMessage, formatDateTime, masterName, normalizeItems } = useBookingFormatting()
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
@@ -39,6 +40,19 @@ const metricDraft = reactive({
 })
 const appliedMetricFilters = ref({ ...metricDraft })
 const metricPeriodError = ref('')
+const metricFilterCount = computed(() => [
+  metricDraft.date_from,
+  metricDraft.date_to,
+  metricDraft.master_id,
+].filter(Boolean).length)
+const listFilterCount = computed(() => [
+  filters.moderation_status,
+  filters.master_id,
+  filters.rating,
+  filters.submitted_from,
+  filters.submitted_to,
+  filters.request_state,
+].filter(Boolean).length)
 
 const moderationOptions = [
   { value: '', label: 'Усі статуси модерації' },
@@ -67,10 +81,7 @@ const [{ data, pending, error, refresh }, { data: mastersData }, { data: metrics
 
 const reviews = computed(() => data.value?.items || [])
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0) / pageSize)))
-const masterOptions = computed(() => [
-  { value: null, label: 'Усі майстри' },
-  ...normalizeItems(mastersData.value).map(master => ({ value: master.id, label: masterName(master) })),
-])
+const masters = computed<Master[]>(() => normalizeItems<Master>(mastersData.value))
 const permissionDenied = computed(() => !isAdmin.value || (typeof error.value === 'object' && error.value && 'response' in error.value && (error.value as { response?: { status?: number } }).response?.status === 403))
 const metricsDateFormatter = new Intl.DateTimeFormat('uk-UA', {
   day: 'numeric',
@@ -115,17 +126,30 @@ const metricCards = computed(() => [
   { label: 'Час модерації', value: formatModerationDuration(metrics.value?.average_moderation_time_minutes) },
 ])
 
-const applyFilters = async () => {
+const refreshListFirstPage = async () => {
+  if (page.value === 1) {
+    await refresh()
+    return
+  }
   page.value = 1
-  await refresh()
+  await nextTick()
 }
-const resetFilters = async () => {
+const persistListFilterQuery = () => {
+  const query = { ...route.query }
+  if (filters.moderation_status) query.moderation_status = filters.moderation_status
+  else delete query.moderation_status
+  if (filters.request_state) query.request_state = filters.request_state
+  else delete query.request_state
+  return router.replace({ query })
+}
+const applyFilters = async () => {
+  await persistListFilterQuery()
+  await refreshListFirstPage()
+}
+const clearListFilters = async () => {
   Object.assign(filters, { moderation_status: '', master_id: null, rating: null, submitted_from: '', submitted_to: '', request_state: '' })
-  Object.assign(metricDraft, { date_from: '', date_to: '', master_id: null })
-  appliedMetricFilters.value = { ...metricDraft }
-  metricPeriodError.value = ''
-  page.value = 1
-  await Promise.all([refresh(), refreshMetrics()])
+  await persistListFilterQuery()
+  await refreshListFirstPage()
 }
 const refreshAll = () => Promise.all([refresh(), refreshMetrics()])
 const validIsoDate = (value: string) => {
@@ -187,12 +211,35 @@ const reviewStatusTone = (status: string): ReviewBadgeTone => {
         <BaseLoader v-if="metricsPending" label="Завантаження метрик відгуків…" />
         <p v-else-if="metricsError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(metricsError, 'Метрики відгуків недоступні: потрібен backend metrics contract.') }}</p>
         <template v-else>
-          <div class="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_minmax(0,16rem)_auto]">
-            <BaseInput v-model="metricDraft.date_from" type="date" aria-label="Дата запланованого візиту для метрик від" />
-            <BaseInput v-model="metricDraft.date_to" type="date" aria-label="Дата запланованого візиту для метрик до" />
-            <BaseSelect v-model="metricDraft.master_id" :options="masterOptions" aria-label="Майстер для метрик" />
-            <BaseButton variant="neutral" :disabled="metricsPending" @click="applyMetricPeriod">Застосувати до метрик</BaseButton>
-          </div>
+          <BaseFilterPanel
+            class="mb-3"
+            variant="subtle"
+            padding="sm"
+            aria-label="Фільтри метрик відгуків"
+            :loading="metricsPending"
+            :active-count="metricFilterCount"
+            mobile-title="Фільтри метрик відгуків"
+            mobile-trigger-label="Метрики"
+            :show-clear="false"
+            apply-label="Застосувати до метрик"
+            fields-class="md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+            @apply="applyMetricPeriod"
+          >
+            <BaseDateRange
+              v-model:date-from="metricDraft.date_from"
+              v-model:date-to="metricDraft.date_to"
+              from-label="Дата запланованого візиту від"
+              to-label="Дата запланованого візиту до"
+            />
+            <MasterSelect
+              v-model="metricDraft.master_id"
+              :masters="masters"
+              label="Майстер для метрик"
+              all-label="Усі майстри"
+              value-type="number"
+              compact
+            />
+          </BaseFilterPanel>
           <p v-if="metricPeriodError" class="ui-status-danger mb-3 rounded-2xl px-4 py-3 text-sm" role="alert">{{ metricPeriodError }}</p>
           <p class="mb-3 text-xs leading-5 text-ui-muted">
             {{ metricScopeLabel }}. Поля вище є чернеткою до натискання кнопки. Фільтри дати подання нижче застосовуються лише до списку вже поданих відгуків.
@@ -221,18 +268,36 @@ const reviewStatusTone = (status: string): ReviewBadgeTone => {
         </template>
       </section>
 
-      <BaseCard as="section" class="space-y-5">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <BaseSelect v-model="filters.moderation_status" :options="moderationOptions" />
-          <BaseSelect v-model="filters.master_id" :options="masterOptions" />
-          <BaseSelect v-model="filters.rating" :options="ratingOptions" />
-          <BaseSelect v-model="filters.request_state" :options="requestStateOptions" />
-          <BaseInput v-model="filters.submitted_from" type="date" aria-label="Дата подання від" />
-          <BaseInput v-model="filters.submitted_to" type="date" aria-label="Дата подання до" />
-          <BaseButton variant="primary" @click="applyFilters"><FunnelIcon class="h-4 w-4" />Застосувати</BaseButton>
-          <BaseButton variant="neutral" @click="resetFilters">Очистити</BaseButton>
-        </div>
+      <BaseFilterPanel
+        :loading="pending"
+        :active-count="listFilterCount"
+        mobile-title="Фільтри списку відгуків"
+        aria-label="Фільтри списку відгуків"
+        fields-class="md:grid-cols-2 xl:grid-cols-4"
+        @apply="applyFilters"
+        @clear="clearListFilters"
+      >
+        <BaseSelect v-model="filters.moderation_status" :options="moderationOptions" aria-label="Статус модерації відгуку" />
+        <MasterSelect
+          v-model="filters.master_id"
+          :masters="masters"
+          aria-label="Майстер відгуку"
+          all-label="Усі майстри"
+          value-type="number"
+          compact
+        />
+        <BaseSelect v-model="filters.rating" :options="ratingOptions" aria-label="Оцінка відгуку" />
+        <BaseSelect v-model="filters.request_state" :options="requestStateOptions" aria-label="Стан запиту відгуку" />
+        <BaseDateRange
+          v-model:date-from="filters.submitted_from"
+          v-model:date-to="filters.submitted_to"
+          from-label="Дата подання від"
+          to-label="Дата подання до"
+          class="md:col-span-2"
+        />
+      </BaseFilterPanel>
 
+      <BaseCard as="section" class="space-y-5">
         <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(error, 'Не вдалося завантажити відгуки. Потрібен backend review list contract.') }}</p>
         <BaseTable
           caption="Відгуки після візиту"

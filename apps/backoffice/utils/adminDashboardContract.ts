@@ -55,6 +55,23 @@ export interface DashboardExecutiveMetrics {
   promotion_discount_amount: DashboardComparableMetric
 }
 
+export interface DashboardTelegramBookingStatusCounts {
+  pending: number
+  confirmed: number
+  completed: number
+  cancelled: number
+}
+
+export interface DashboardTelegramBookings {
+  calculation_version: 1
+  timezone: 'Europe/Kyiv'
+  period_basis: 'booking_created_at'
+  created_bookings: DashboardComparableMetric<number>
+  unique_clients: DashboardComparableMetric<number>
+  status_counts: DashboardTelegramBookingStatusCounts
+  historical_data_status: 'partial_before_source_tracking'
+}
+
 export interface DashboardRateMetric {
   current: DashboardDecimal
   previous: DashboardDecimal | null
@@ -291,6 +308,7 @@ export interface AdminDashboardResponse {
   masters: DashboardMasterBreakdownItem[]
   services: DashboardServiceBreakdownItem[]
   booking_funnel: DashboardBookingFunnel
+  telegram_bookings: DashboardTelegramBookings
   actionable_signals: DashboardActionSignal[]
 }
 
@@ -351,12 +369,35 @@ const comparableMetricAt = (value: unknown, path: string) => {
   if (metric.percent_change !== null) numberAt(metric.percent_change, `${path}.percent_change`)
 }
 
+const comparableCountMetricAt = (value: unknown, path: string) => {
+  const metric = recordAt(value, path)
+  nonNegativeIntegerAt(metric.current, `${path}.current`)
+  if (metric.previous !== null) nonNegativeIntegerAt(metric.previous, `${path}.previous`)
+  if (metric.percent_change !== null) numberAt(metric.percent_change, `${path}.percent_change`)
+}
+
 const repeatMetricAt = (value: unknown, path: string) => {
   const metric = recordAt(value, path)
   numberAt(metric.window_days, `${path}.window_days`)
   numberAt(metric.repeated_clients, `${path}.repeated_clients`)
   numberAt(metric.eligible_clients, `${path}.eligible_clients`)
   if (metric.repeat_rate !== null) numberAt(metric.repeat_rate, `${path}.repeat_rate`)
+}
+
+const telegramBookingsAt = (value: unknown, path: string) => {
+  const telegram = recordAt(value, path)
+  if (telegram.calculation_version !== 1) fail(`${path}.calculation_version`)
+  if (telegram.timezone !== 'Europe/Kyiv') fail(`${path}.timezone`)
+  if (telegram.period_basis !== 'booking_created_at') fail(`${path}.period_basis`)
+  if (telegram.historical_data_status !== 'partial_before_source_tracking') {
+    fail(`${path}.historical_data_status`)
+  }
+  comparableCountMetricAt(telegram.created_bookings, `${path}.created_bookings`)
+  comparableCountMetricAt(telegram.unique_clients, `${path}.unique_clients`)
+  const statuses = recordAt(telegram.status_counts, `${path}.status_counts`)
+  for (const key of ['pending', 'confirmed', 'completed', 'cancelled']) {
+    nonNegativeIntegerAt(statuses[key], `${path}.status_counts.${key}`)
+  }
 }
 
 const funnelStepMetricAt = (value: unknown, path: string) => {
@@ -954,6 +995,7 @@ export const parseAdminDashboardResponse = (value: unknown): AdminDashboardRespo
   }
 
   funnelAt(response.booking_funnel, 'booking_funnel')
+  telegramBookingsAt(response.telegram_bookings, 'telegram_bookings')
 
   for (const [index, rawSignal] of arrayAt(response.actionable_signals, 'actionable_signals').entries()) {
     const signal = recordAt(rawSignal, `actionable_signals.${index}`)

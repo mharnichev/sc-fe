@@ -154,14 +154,19 @@ const updateMenuPosition = () => {
     viewportPadding,
     Math.min(rect.left, window.innerWidth - rect.width - viewportPadding),
   )
-  const availableBelow = Math.max(160, window.innerHeight - rect.bottom - viewportPadding - 8)
+  const menuGap = 8
+  const availableBelow = Math.max(0, window.innerHeight - rect.bottom - viewportPadding - menuGap)
+  const availableAbove = Math.max(0, rect.top - viewportPadding - menuGap)
+  const opensAbove = availableBelow < 160 && availableAbove > availableBelow
+  const availableHeight = opensAbove ? availableAbove : availableBelow
 
   menuStyle.value = {
     position: 'fixed',
-    top: `${rect.bottom + 8}px`,
+    top: opensAbove ? 'auto' : `${rect.bottom + menuGap}px`,
+    bottom: opensAbove ? `${window.innerHeight - rect.top + menuGap}px` : 'auto',
     left: `${left}px`,
     width: `${rect.width}px`,
-    maxHeight: `${Math.min(288, availableBelow)}px`,
+    maxHeight: `${Math.max(48, Math.min(288, availableHeight))}px`,
   }
 }
 

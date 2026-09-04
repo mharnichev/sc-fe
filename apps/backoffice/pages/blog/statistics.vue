@@ -22,6 +22,10 @@ const { addDaysInput, apiErrorMessage, formatDate, formatDateTime, todayInput } 
 
 const periodEndInput = ref(todayInput())
 const periodStartInput = ref(addDaysInput(periodEndInput.value, -30))
+const activeFilterCount = computed(() => [
+  periodStartInput.value !== addDaysInput(todayInput(), -30) ? periodStartInput.value : '',
+  periodEndInput.value !== todayInput() ? periodEndInput.value : '',
+].filter(Boolean).length)
 
 const toPeriodStartIso = (value: string) => new Date(`${value}T00:00:00`).toISOString()
 const toPeriodEndIso = (value: string) => new Date(`${value}T23:59:59.999`).toISOString()
@@ -132,7 +136,15 @@ const refreshAll = () => refresh()
       </BaseButton>
     </div>
 
-    <section class="grid gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+    <BaseFilterPanel
+      fields-class="!block"
+      :active-count="activeFilterCount"
+      mobile-title="Період статистики підписок"
+      :loading="pending"
+      :show-clear="false"
+      aria-label="Період статистики підписок"
+      @apply="refreshAll"
+    >
       <BaseDateRange
         v-model:date-from="periodStartInput"
         v-model:date-to="periodEndInput"
@@ -140,13 +152,14 @@ const refreshAll = () => refresh()
         to-label="Кінець періоду"
         field-class="grid gap-1.5 text-sm font-medium text-slate-700"
         input-class="min-h-11 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900"
-        class="md:col-span-2"
       />
-      <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        <span class="block text-xs uppercase tracking-[0.16em] text-slate-400">Поточний період</span>
-        <span class="mt-1 block font-medium text-slate-900">{{ formatDate(statistics?.period_start) }} - {{ formatDate(statistics?.period_end) }}</span>
-      </div>
-    </section>
+      <template #actions>
+        <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <span class="block text-xs uppercase tracking-[0.16em] text-slate-400">Поточний період</span>
+          <span class="mt-1 block font-medium text-slate-900">{{ formatDate(statistics?.period_start) }} - {{ formatDate(statistics?.period_end) }}</span>
+        </div>
+      </template>
+    </BaseFilterPanel>
 
     <p v-if="error" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
       {{ apiErrorMessage(error, 'Не вдалося завантажити статистику блогу. Перевірте доступність sc-be blog API.') }}

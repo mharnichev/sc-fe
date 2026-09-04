@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import {
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  FunnelIcon,
   EyeIcon,
-  ScissorsIcon,
-  UserCircleIcon,
-  XMarkIcon,
 } from '@heroicons/vue/24/outline'
-import { initials } from '@shared-utils'
 import type {
   Booking,
   CalendarCapacityBooking,
@@ -35,8 +29,8 @@ import type {
 
 const api = useBackofficeApi()
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
-const assetUrl = useAssetUrl()
 const calendar = useBookingCalendar()
 const toastNotification = useBaseToastNotification()
 const {
@@ -55,6 +49,7 @@ const {
   serviceName,
   bookingServiceIds,
   bookingServicesLabel,
+  formatBookingStatus,
   formatDateTime,
   formatTime,
   toKyivIso,
@@ -91,12 +86,6 @@ const pendingPricing = ref(false)
 const pendingDelete = ref(false)
 const actionPending = ref(false)
 const deletingBlock = ref(false)
-const masterFilterOpen = ref(false)
-const serviceFilterOpen = ref(false)
-const statusFilterOpen = ref(false)
-const masterFilterRef = ref<HTMLElement | null>(null)
-const serviceFilterRef = ref<HTMLElement | null>(null)
-const statusFilterRef = ref<HTMLElement | null>(null)
 
 const [{ data: masters }, { data: services }] = await Promise.all([
   useAsyncData('booking-calendar-master-options', () =>
@@ -143,9 +132,20 @@ const selectedMaster = computed(() =>
 const selectedMasterLabel = computed(() =>
   selectedMaster.value ? masterName(selectedMaster.value) : selectedMasterId.value ? `Майстер #${selectedMasterId.value}` : 'Майстра не вибрано',
 )
-const selectedStatusFilter = computed(() =>
-  bookingFilterStatuses.includes(filters.status as BookingStatus) ? filters.status as BookingStatus : '',
-)
+const activeFilterCount = computed(() => {
+  const defaultMasterId = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
+  return [
+    filters.master_id !== defaultMasterId ? filters.master_id : '',
+    filters.service_id,
+    filters.status,
+    anchorDate.value !== todayInput() ? anchorDate.value : '',
+    viewMode.value !== 'week' ? viewMode.value : '',
+  ].filter(Boolean).length
+})
+const statusFilterOptions = computed(() => [
+  { value: '', label: 'Будь-який статус', meta: null },
+  ...bookingFilterStatuses.map(status => ({ value: status, label: formatBookingStatus(status), meta: status })),
+])
 
 const rangeEnd = computed(() => addDaysInput(anchorDate.value, calendar.daysInView(viewMode.value) - 1))
 const queryDateFrom = computed(() => toKyivIso(anchorDate.value, '00:00'))
@@ -294,12 +294,10 @@ const bookingServiceOptions = computed(() => {
   if (!selectedMasterId.value) return serviceOptions.value
   return serviceOptions.value.filter(service => !service.barber_id || Number(service.barber_id) === selectedMasterId.value)
 })
-const selectedServiceFilter = computed(() =>
-  filters.service_id ? bookingServiceOptions.value.find(service => service.id === Number(filters.service_id)) || null : null,
-)
-const masterImageUrl = (master: Master) =>
-  assetUrl(master.avatar || master.avatar_url || master.photo || master.photo_url)
-const masterInitials = (master: Master) => initials(masterName(master)) || 'SC'
+const bookingServiceFilterOptions = computed(() => [
+  { value: '', label: 'Усі послуги' },
+  ...bookingServiceOptions.value.map(service => ({ value: String(service.id), label: serviceName(service) })),
+])
 
 const resolveMaster = (booking: Booking) =>
   booking.master || booking.barber || masterOptions.value.find(master => master.id === booking.master_id) || null
@@ -348,63 +346,33 @@ const goToToday = () => {
   anchorDate.value = todayInput()
 }
 
+const persistStatusQuery = () => {
+  const query = { ...route.query }
+  if (filters.status) query.status = filters.status
+  else delete query.status
+  return router.replace({ query })
+}
+
 const applyFilters = async () => {
   actionError.value = ''
-  masterFilterOpen.value = false
-  serviceFilterOpen.value = false
-  statusFilterOpen.value = false
+  await persistStatusQuery()
   await refresh()
 }
 
 const clearFilters = async () => {
-  filters.master_id = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
+  const defaultMasterId = !isAdmin.value && linkedMaster.value ? String(linkedMaster.value.id) : ''
+  const watchedFilterChanged = filters.master_id !== defaultMasterId
+    || anchorDate.value !== todayInput()
+    || viewMode.value !== 'week'
+  filters.master_id = defaultMasterId
   filters.service_id = ''
   filters.status = ''
-  masterFilterOpen.value = false
-  serviceFilterOpen.value = false
-  statusFilterOpen.value = false
   anchorDate.value = todayInput()
   viewMode.value = 'week'
-  await refresh()
+  await persistStatusQuery()
+  if (watchedFilterChanged) await nextTick()
+  else await refresh()
 }
-
-const selectMasterFilter = (masterId: string) => {
-  filters.master_id = masterId
-  filters.service_id = ''
-  masterFilterOpen.value = false
-}
-
-const selectServiceFilter = (serviceId: string) => {
-  filters.service_id = serviceId
-  serviceFilterOpen.value = false
-}
-
-const selectStatusFilter = (status: BookingStatus | '') => {
-  filters.status = status
-  statusFilterOpen.value = false
-}
-
-const handleFilterClickOutside = (event: MouseEvent) => {
-  const target = event.target
-  if (!(target instanceof Node)) return
-  if (masterFilterOpen.value && !masterFilterRef.value?.contains(target)) {
-    masterFilterOpen.value = false
-  }
-  if (serviceFilterOpen.value && !serviceFilterRef.value?.contains(target)) {
-    serviceFilterOpen.value = false
-  }
-  if (statusFilterOpen.value && !statusFilterRef.value?.contains(target)) {
-    statusFilterOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('mousedown', handleFilterClickOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleFilterClickOutside)
-})
 
 const openActionModal = (selection: CalendarSelection) => {
   actionError.value = ''
@@ -787,197 +755,66 @@ const deleteSelectedBlock = async () => {
       </div>
     </div>
 
-    <BaseCard as="section" padding="sm" class="relative z-[140] space-y-3 md:space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-2 md:gap-3">
-        <BaseSegmentedControl
-          :model-value="viewMode"
-          :options="calendarViewOptions"
-          aria-label="Режим календаря"
-          container-class="grid grid-cols-3 gap-1 rounded-2xl bg-ui-subtle p-1"
-          option-class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
-          @update:model-value="handleViewModeUpdate"
-        />
+    <BaseFilterPanel
+      padding="sm"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри календаря"
+      card-class="relative z-[140]"
+      fields-class="grid-cols-2 gap-2 md:gap-3 xl:grid-cols-5"
+      :loading="pending"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseSegmentedControl
+        class="col-span-2 xl:col-span-2"
+        :model-value="viewMode"
+        :options="calendarViewOptions"
+        aria-label="Режим календаря"
+        container-class="grid grid-cols-3 gap-1 rounded-2xl bg-ui-subtle p-1"
+        option-class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
+        @update:model-value="handleViewModeUpdate"
+      />
 
-        <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 sm:w-auto md:flex md:flex-wrap md:gap-2">
-          <BaseButton
-            type="button"
-            variant="icon"
-            class="h-9 w-9 md:h-10 md:w-10"
-            aria-label="Попередній період"
-            title="Попередній період"
-            @click="moveRange(-1)"
-          >
-            <ChevronLeftIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
-          </BaseButton>
-          <BaseCalendar v-model="anchorDate" class="base-control min-h-9 min-w-0 rounded-xl px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm" />
-          <BaseButton type="button" variant="neutral" size="sm" @click="goToToday">
-            Сьогодні
-          </BaseButton>
-          <BaseButton
-            type="button"
-            variant="icon"
-            class="h-9 w-9 md:h-10 md:w-10"
-            aria-label="Наступний період"
-            title="Наступний період"
-            @click="moveRange(1)"
-          >
-            <ChevronRightIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
-          </BaseButton>
-        </div>
+      <div class="col-span-2 grid grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-end gap-1.5 xl:col-span-3">
+        <BaseButton type="button" variant="icon" class="h-9 w-9 md:h-10 md:w-10" aria-label="Попередній період" title="Попередній період" @click="moveRange(-1)">
+          <ChevronLeftIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
+        </BaseButton>
+        <BaseCalendar v-model="anchorDate" label="Опорна дата" input-class="min-h-9 min-w-0 rounded-xl px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm" />
+        <BaseButton type="button" variant="neutral" size="sm" class="!h-9 !min-h-9 self-end !py-1.5 md:!h-10 md:!min-h-10" @click="goToToday">Сьогодні</BaseButton>
+        <BaseButton type="button" variant="icon" class="h-9 w-9 md:h-10 md:w-10" aria-label="Наступний період" title="Наступний період" @click="moveRange(1)">
+          <ChevronRightIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
+        </BaseButton>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-5">
-        <div v-if="isAdmin" ref="masterFilterRef" class="relative min-w-0 space-y-1 text-xs text-ui-secondary md:space-y-2 md:text-sm">
-          <span class="inline-flex items-center gap-1.5 font-medium">
-            <UserCircleIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
-            Майстер
-          </span>
-          <BaseButton
-            type="button"
-            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
-            :aria-expanded="masterFilterOpen"
-            @click="masterFilterOpen = !masterFilterOpen"
-          >
-            <span class="flex min-w-0 items-center gap-2">
-              <span v-if="selectedMaster" class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
-                <img v-if="masterImageUrl(selectedMaster)" :src="masterImageUrl(selectedMaster)" :alt="masterName(selectedMaster)" class="h-full w-full object-cover">
-                <span v-else>{{ masterInitials(selectedMaster) }}</span>
-              </span>
-              <span class="min-w-0 truncate" :class="selectedMaster ? 'text-ui-primary' : 'text-ui-muted'">
-                {{ selectedMaster ? masterName(selectedMaster) : 'Усі майстри' }}
-              </span>
-            </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="masterFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
-          </BaseButton>
-          <div
-            v-if="masterFilterOpen"
-            class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl p-1 md:rounded-2xl"
-          >
-            <BaseButton
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition"
-              :class="!filters.master_id ? 'is-selected' : ''"
-              @click="selectMasterFilter('')"
-            >
-              <span class="h-7 w-7 shrink-0 rounded-full border border-ui bg-ui-subtle" />
-              <span class="min-w-0 truncate">Усі майстри</span>
-            </BaseButton>
-            <BaseButton
-              v-for="master in masterOptions"
-              :key="master.id"
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition"
-              :class="filters.master_id === String(master.id) ? 'is-selected' : ''"
-              @click="selectMasterFilter(String(master.id))"
-            >
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
-                <img v-if="masterImageUrl(master)" :src="masterImageUrl(master)" :alt="masterName(master)" class="h-full w-full object-cover">
-                <span v-else>{{ masterInitials(master) }}</span>
-              </span>
-              <span class="min-w-0 truncate">{{ masterName(master) }}</span>
-            </BaseButton>
-          </div>
-        </div>
+      <MasterSelect
+        v-if="isAdmin"
+        v-model="filters.master_id"
+        :masters="masterOptions"
+        label="Майстер"
+        all-label="Усі майстри"
+        value-type="string"
+        compact
+        @update:model-value="filters.service_id = ''"
+      />
+      <BaseSelect v-model="filters.status" :options="statusFilterOptions" label="Статус">
+        <template #selected="{ option, label }">
+          <BookingStatusBadge v-if="option?.meta" :status="option.meta" />
+          <span v-else>{{ label }}</span>
+        </template>
+        <template #option="{ option }">
+          <BookingStatusBadge v-if="option.meta" :status="option.meta" />
+          <span v-else>{{ option.label }}</span>
+        </template>
+      </BaseSelect>
+      <BaseSelect v-model="filters.service_id" :options="bookingServiceFilterOptions" label="Послуга" />
 
-        <div ref="statusFilterRef" class="relative min-w-0 space-y-1 text-xs text-ui-secondary md:space-y-2 md:text-sm">
-          <span class="inline-flex items-center gap-1.5 font-medium">
-            <FunnelIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
-            Статус
-          </span>
-          <BaseButton
-            type="button"
-            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
-            :aria-expanded="statusFilterOpen"
-            @click="statusFilterOpen = !statusFilterOpen"
-          >
-            <span class="min-w-0 overflow-hidden">
-              <BookingStatusBadge v-if="selectedStatusFilter" :status="selectedStatusFilter" />
-              <span v-else class="block truncate text-ui-muted">Будь-який статус</span>
-            </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="statusFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
-          </BaseButton>
-          <div
-            v-if="statusFilterOpen"
-            class="booking-select-menu booking-status-menu base-select__menu absolute z-[180] mt-1 w-full min-w-0 overflow-hidden rounded-xl p-1 md:rounded-2xl"
-          >
-            <BaseButton
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
-              :class="!selectedStatusFilter ? 'is-selected' : ''"
-              @click="selectStatusFilter('')"
-            >
-              <span class="min-w-0 truncate">Будь-який статус</span>
-            </BaseButton>
-            <BaseButton
-              v-for="status in bookingFilterStatuses"
-              :key="status"
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left transition"
-              :class="selectedStatusFilter === status ? 'is-selected' : ''"
-              @click="selectStatusFilter(status)"
-            >
-              <BookingStatusBadge :status="status" />
-            </BaseButton>
-          </div>
-        </div>
-
-        <div ref="serviceFilterRef" class="relative col-span-2 min-w-0 space-y-1 text-xs text-ui-secondary md:col-span-1 md:space-y-2 md:text-sm">
-          <span class="inline-flex items-center gap-1.5 font-medium">
-            <ScissorsIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />
-            Послуга
-          </span>
-          <BaseButton
-            type="button"
-            class="base-control flex min-h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-left text-sm md:min-h-12 md:rounded-2xl md:px-4 md:py-3"
-            :aria-expanded="serviceFilterOpen"
-            @click="serviceFilterOpen = !serviceFilterOpen"
-          >
-            <span class="min-w-0 truncate" :class="selectedServiceFilter ? 'text-ui-primary' : 'text-ui-muted'">
-              {{ selectedServiceFilter ? serviceName(selectedServiceFilter) : 'Усі послуги' }}
-            </span>
-            <ChevronDownIcon class="h-4 w-4 shrink-0 text-ui-muted transition" :class="serviceFilterOpen ? 'rotate-180' : ''" aria-hidden="true" />
-          </BaseButton>
-          <div
-            v-if="serviceFilterOpen"
-            class="booking-select-menu base-select__menu absolute z-[180] mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl p-1 md:rounded-2xl"
-          >
-            <BaseButton
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
-              :class="!filters.service_id ? 'is-selected' : ''"
-              @click="selectServiceFilter('')"
-            >
-              <span class="min-w-0 truncate">Усі послуги</span>
-            </BaseButton>
-            <BaseButton
-              v-for="service in bookingServiceOptions"
-              :key="service.id"
-              type="button"
-              class="base-select__option flex w-full min-w-0 items-center rounded-lg px-2.5 py-2 text-left text-sm transition"
-              :class="filters.service_id === String(service.id) ? 'is-selected' : ''"
-              @click="selectServiceFilter(String(service.id))"
-            >
-              <span class="min-w-0 truncate">{{ serviceName(service) }}</span>
-            </BaseButton>
-          </div>
-        </div>
-
-        <div class="order-last col-span-2 min-w-0 rounded-xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:col-span-2 md:rounded-2xl md:px-4 md:py-3 md:text-sm xl:col-span-5">
+      <template #summary>
+        <div class="min-w-0 rounded-xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:rounded-2xl md:px-4 md:py-3 md:text-sm">
           <p class="font-medium text-ui-primary">{{ anchorDate }} - {{ rangeEnd }}</p>
           <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }} · Відкритих інтервалів: {{ availabilityWindows.length }}</p>
         </div>
-        <div class="col-span-2 flex min-w-0 items-end gap-2 md:col-span-1 md:gap-3">
-          <BaseButton type="button" variant="primary" class="flex-1" @click="applyFilters">
-            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span class="truncate">Застосувати</span>
-          </BaseButton>
-          <BaseButton type="button" variant="neutral" class="flex-1" @click="clearFilters">
-            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-            <span class="truncate">Очистити</span>
-          </BaseButton>
-        </div>
-      </div>
-    </BaseCard>
+      </template>
+    </BaseFilterPanel>
 
     <div class="space-y-2 md:space-y-3">
       <p v-if="error" class="ui-status-danger rounded-xl px-3 py-2 text-xs md:rounded-2xl md:px-4 md:py-3 md:text-sm">

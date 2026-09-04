@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon } from '@heroicons/vue/24/outline'
 
 const api = useBackofficeApi()
 const { formatDateTime, formatMoney } = useBookingFormatting()
@@ -13,6 +13,13 @@ const filters = reactive({
   sort_by: 'created_at',
   sort_order: 'desc',
 })
+const activeFilterCount = computed(() => [
+  filters.search.trim(),
+  filters.is_active,
+  filters.is_verified,
+  filters.telegram_connected,
+  filters.sort_by !== 'created_at' ? filters.sort_by : '',
+].filter(Boolean).length)
 
 const activeStatusOptions = [
   { value: '', label: 'Будь-який статус' },
@@ -41,7 +48,7 @@ const sortOptions = [
   { value: 'id', label: 'ID' },
 ]
 
-const { data, refresh } = await useAsyncData(
+const { data, pending, refresh } = await useAsyncData(
   'backoffice-customers',
   () =>
     api.getCustomers(page.value, pageSize, {
@@ -56,9 +63,9 @@ const { data, refresh } = await useAsyncData(
 )
 
 const applyFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
   page.value = 1
-  if (page.value !== 1) return
-  await refresh()
+  if (shouldRefreshImmediately) await refresh()
 }
 
 const clearFilters = async () => {
@@ -92,23 +99,20 @@ const prev = async () => {
       <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Клієнти</h1>
     </div>
 
-    <BaseCard as="section" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <BaseInput v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" />
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри клієнтів"
+      fields-class="md:grid-cols-2 xl:grid-cols-3"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" placeholder="Пошук за телефоном, email або ім’ям" aria-label="Пошук клієнтів" />
       <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус клієнта" menu-class="z-[220]" />
       <BaseSelect v-model="filters.is_verified" :options="verificationOptions" aria-label="Верифікація клієнта" menu-class="z-[220]" />
       <BaseSelect v-model="filters.telegram_connected" :options="telegramOptions" aria-label="Telegram клієнта" menu-class="z-[220]" />
       <BaseSelect v-model="filters.sort_by" :options="sortOptions" aria-label="Сортування клієнтів" menu-class="z-[220]" />
-      <div class="flex gap-3 md:col-span-2 xl:col-span-5 xl:justify-end">
-        <BaseButton variant="primary" class="flex-1 xl:flex-none" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-        <BaseButton variant="neutral" class="flex-1 xl:flex-none" @click="clearFilters">
-          <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Очистити</span>
-        </BaseButton>
-      </div>
-    </BaseCard>
+    </BaseFilterPanel>
 
     <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
       Усього клієнтів: {{ data?.total || 0 }}

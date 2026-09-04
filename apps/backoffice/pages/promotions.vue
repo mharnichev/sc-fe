@@ -29,6 +29,7 @@ const { apiErrorMessage, formatDateTime, normalizeItems, normalizeTotal } = useB
 const page = ref(1)
 const pageSize = 100
 const filters = reactive({ search: '', is_active: '' })
+const activeFilterCount = computed(() => [filters.search.trim(), filters.is_active].filter(Boolean).length)
 const editing = ref<Promotion | null>(null)
 const promotionModalOpen = ref(false)
 const togglingPromotion = ref<Promotion | null>(null)
@@ -107,8 +108,17 @@ const handlePromotionModalUpdate = (value: boolean) => {
 }
 
 const applyFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
   page.value = 1
-  if (page.value === 1) await refresh()
+  if (shouldRefreshImmediately) await refresh()
+}
+
+const clearFilters = async () => {
+  const shouldRefreshImmediately = page.value === 1
+  filters.search = ''
+  filters.is_active = ''
+  page.value = 1
+  if (shouldRefreshImmediately) await refresh()
 }
 
 const toggleContextItems = computed(() => {
@@ -213,16 +223,20 @@ const confirmDeletePromotion = async () => {
       </article>
     </section>
 
-    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
-      <div class="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <BaseInput v-model="filters.search" placeholder="Пошук за кодом або назвою" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm xl:rounded-2xl xl:px-4" />
-        <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус акції" menu-class="z-[220]" />
-        <BaseButton class="backoffice-modal-action-button backoffice-modal-action-primary" @click="applyFilters">
-          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span>Застосувати</span>
-        </BaseButton>
-      </div>
+    <BaseFilterPanel
+      :loading="pending"
+      :active-count="activeFilterCount"
+      mobile-title="Фільтри акцій"
+      padding="sm"
+      fields-class="md:grid-cols-[minmax(0,1fr)_180px]"
+      @apply="applyFilters"
+      @clear="clearFilters"
+    >
+      <BaseInput v-model="filters.search" placeholder="Пошук за кодом або назвою" aria-label="Пошук акцій за кодом або назвою" />
+      <BaseSelect v-model="filters.is_active" :options="activeStatusOptions" aria-label="Статус акції" menu-class="z-[220]" />
+    </BaseFilterPanel>
 
+    <section class="space-y-3 rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm xl:space-y-4 xl:rounded-[1.5rem] xl:p-4">
       <p v-if="error" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
         {{ apiErrorMessage(error, 'Не вдалося завантажити акції з /backoffice/promotions.') }}
       </p>
