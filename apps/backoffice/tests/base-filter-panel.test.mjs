@@ -62,6 +62,7 @@ test('BaseFilterPanel collapses to an accessible mobile modal with filter state'
   assert.match(source, /base-filter-panel-out 220ms cubic-bezier/)
   assert.match(source, /prefers-reduced-motion: reduce/)
   assert.match(source, /h-\[90dvh\] max-h-\[90dvh\]/)
+  assert.match(source, /mobileVisible \? 'liquid-glass relative z-10/)
   assert.match(source, /base-filter-panel__mobile-trigger--active/)
   assert.match(source, /color: var\(--bo-success-text\) !important/)
   assert.doesNotMatch(source, /!bg-cyan-50|!text-cyan-900/)

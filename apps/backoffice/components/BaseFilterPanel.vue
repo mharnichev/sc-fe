@@ -241,7 +241,7 @@ const handleClear = () => {
           class="base-filter-panel"
           :class="[
             rootClass,
-            mobileVisible ? 'relative z-10 h-[90dvh] max-h-[90dvh] w-full overflow-hidden rounded-t-[1.5rem]' : '',
+            mobileVisible ? 'liquid-glass relative z-10 h-[90dvh] max-h-[90dvh] w-full overflow-hidden rounded-t-[1.5rem]' : '',
           ]"
           :aria-label="ariaLabel"
           :aria-busy="loading || undefined"
