@@ -349,6 +349,102 @@ const installBackend = async (page: Page, requests: Request[] = []) => {
 
 const apiRequests = (requests: Request[], path: string) => requests.filter(request => new URL(request.url()).pathname.endsWith(path))
 
+test('mobile menu contains scrolling and restores the page on close and desktop resize', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 })
+  await installBackend(page)
+  await page.goto('/customers')
+  await expect(page.getByRole('button', { name: 'Відкрити меню', exact: true })).toBeVisible()
+  await page.locator('main').evaluate(element => { element.style.minHeight = '3000px' })
+  await page.evaluate(() => window.scrollTo(0, 300))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
+  // Open from an already-scrolled page, without auto-scrolling the trigger into view.
+  await page.getByRole('button', { name: 'Відкрити меню', exact: true }).evaluate((element: HTMLButtonElement) => element.click())
+  const menu = page.locator('#backoffice-mobile-menu')
+  await expect(menu).toBeVisible()
+  await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('fixed')
+  const mainTop = await page.locator('main').evaluate(element => element.getBoundingClientRect().top)
+  await expect.poll(() => menu.evaluate(element => Math.round(element.getBoundingClientRect().bottom))).toBe(700)
+  await menu.evaluate(element => { element.scrollTop = element.scrollHeight })
+  await expect(menu.getByRole('button', { name: 'Вийти', exact: true })).toBeVisible()
+  await menu.hover()
+  await page.mouse.wheel(0, 2000)
+  await expect.poll(() => page.locator('main').evaluate(element => element.getBoundingClientRect().top)).toBe(mainTop)
+  await expect(page.getByRole('button', { name: 'Закрити меню', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Закрити меню', exact: true }).click()
+  await expect(menu).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
+  await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('')
+
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.getByRole('button', { name: 'Відкрити меню', exact: true }).click()
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(menu).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('')
+  await page.setViewportSize({ width: 390, height: 700 })
+  await page.getByRole('button', { name: 'Відкрити меню', exact: true }).click()
+  await menu.getByRole('link', { name: 'Бренди', exact: true }).click()
+  await expect(page).toHaveURL(/\/brands$/)
+  await expect(menu).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('')
+})
+
+test('brands: effective visibility includes all product pages and toggle failures preserve state', async ({ page }) => {
+  await installBackend(page)
+  const brands = ['Видимий', 'Закрита категорія', 'Закритий предок', 'Неактивні товари', 'Порожній', 'Вручну', 'Змішані категорії']
+    .map((name, index) => ({ id: index + 1, name, slug: `brand-${index + 1}`, description: null, is_active: index !== 5 }))
+  const product = (brand_id: number, is_active: boolean, hidden_reason: string | null) => ({
+    brand_id, is_active, hidden_reason, is_effectively_visible: is_active && hidden_reason === null,
+  })
+  const productPages = [
+    [product(1, false, 'product'), product(2, true, 'category'), product(3, true, 'parent_category'), product(4, false, 'product')],
+    [product(1, true, null), product(6, true, null), product(7, true, 'category'), product(7, true, 'parent_category')],
+  ]
+  const loadedPages: number[] = []
+  await page.route('**/backoffice/products?*', route => {
+    const currentPage = Number(new URL(route.request().url()).searchParams.get('page'))
+    loadedPages.push(currentPage)
+    return route.fulfill({ json: { items: productPages[currentPage - 1], total: 8, page: currentPage, page_size: 4 } })
+  })
+  await page.route('**/backoffice/brands?*', route => route.fulfill({
+    json: { items: brands, total: brands.length, page: 1, page_size: 200 },
+  }))
+  let failUpdate = false
+  await page.route('**/backoffice/brands/2', async route => {
+    expect(route.request().method()).toBe('PUT')
+    if (failUpdate) return route.fulfill({ status: 500, json: { detail: 'Test update failure' } })
+    brands[1]!.is_active = route.request().postDataJSON().is_active
+    await route.fulfill({ json: brands[1] })
+  })
+
+  await page.goto('/brands')
+  const card = (name: string) => page.locator('article').filter({ has: page.getByRole('heading', { name, exact: true }) })
+  await expect(card('Видимий')).toContainText('Показаний у магазині')
+  expect(loadedPages).toEqual([1, 2])
+  await expect(card('Закрита категорія')).toContainText('Активні товари приховані через закриті категорії.')
+  await expect(card('Закритий предок')).toContainText('Активні товари приховані через закриті батьківські категорії.')
+  await expect(card('Неактивні товари')).toContainText('Усі товари бренду неактивні.')
+  await expect(card('Порожній')).toContainText('У бренду ще немає товарів.')
+  await expect(card('Вручну')).toContainText('Приховано вручну.')
+  await expect(card('Змішані категорії')).toContainText('закриті категорії та закриті батьківські категорії')
+
+  const categoryCard = card('Закрита категорія')
+  await categoryCard.getByText('Показувати бренд', { exact: true }).click()
+  await expect(categoryCard.getByRole('switch')).not.toBeChecked()
+  await expect(categoryCard).toContainText('Приховано вручну.')
+  await expect(categoryCard.getByRole('switch')).toBeEnabled()
+  await categoryCard.getByText('Показувати бренд', { exact: true }).click()
+  await expect(categoryCard.getByRole('switch')).toBeChecked()
+  await expect(categoryCard).toContainText('Прихований у магазині')
+  await expect(categoryCard).toContainText('Активні товари приховані через закриті категорії.')
+
+  failUpdate = true
+  await expect(categoryCard.getByRole('switch')).toBeEnabled()
+  await categoryCard.getByText('Показувати бренд', { exact: true }).click()
+  await expect(page.getByText('Test update failure', { exact: true })).toBeVisible()
+  await expect(categoryCard.getByRole('switch')).toBeChecked()
+  await expect(categoryCard.getByRole('switch')).toBeEnabled()
+})
+
 const assertSingleRequest = async (
   requests: Request[],
   path: string,

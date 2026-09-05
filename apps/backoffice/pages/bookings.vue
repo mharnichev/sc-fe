@@ -760,30 +760,32 @@ const deleteSelectedBlock = async () => {
       :active-count="activeFilterCount"
       mobile-title="Фільтри календаря"
       card-class="relative z-[140]"
-      fields-class="grid-cols-2 gap-2 md:gap-3 xl:grid-cols-5"
+      layout-class="booking-filter-layout"
+      fields-class="!grid-cols-1 md:!contents"
+      actions-class="booking-filter-actions"
       :loading="pending"
       @apply="applyFilters"
       @clear="clearFilters"
     >
-      <BaseSegmentedControl
-        class="col-span-2 xl:col-span-2"
-        :model-value="viewMode"
-        :options="calendarViewOptions"
-        aria-label="Режим календаря"
-        container-class="grid grid-cols-3 gap-1 rounded-2xl bg-ui-subtle p-1"
-        option-class="min-h-8 rounded-xl px-2 py-1.5 text-xs font-medium transition md:min-h-10 md:px-3 md:py-2 md:text-sm"
-        @update:model-value="handleViewModeUpdate"
-      />
-
-      <div class="col-span-2 grid grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-end gap-1.5 xl:col-span-3">
-        <BaseButton type="button" variant="icon" class="h-9 w-9 md:h-10 md:w-10" aria-label="Попередній період" title="Попередній період" @click="moveRange(-1)">
-          <ChevronLeftIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
-        </BaseButton>
-        <BaseCalendar v-model="anchorDate" label="Опорна дата" input-class="min-h-9 min-w-0 rounded-xl px-2 py-1.5 text-xs md:min-h-10 md:rounded-2xl md:px-3 md:py-2 md:text-sm" />
-        <BaseButton type="button" variant="neutral" size="sm" class="!h-9 !min-h-9 self-end !py-1.5 md:!h-10 md:!min-h-10" @click="goToToday">Сьогодні</BaseButton>
-        <BaseButton type="button" variant="icon" class="h-9 w-9 md:h-10 md:w-10" aria-label="Наступний період" title="Наступний період" @click="moveRange(1)">
-          <ChevronRightIcon class="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
-        </BaseButton>
+      <div class="booking-filter-period">
+        <BaseSegmentedControl
+          :model-value="viewMode"
+          :options="calendarViewOptions"
+          aria-label="Режим календаря"
+          container-class="booking-filter-modes grid grid-cols-3 gap-1 rounded-2xl bg-ui-subtle p-1"
+          option-class="min-h-9 rounded-xl px-3 py-2 text-sm font-medium transition"
+          @update:model-value="handleViewModeUpdate"
+        />
+        <div class="booking-filter-date">
+          <BaseButton type="button" variant="icon" class="!h-11 !w-11" aria-label="Попередній період" title="Попередній період" @click="moveRange(-1)">
+            <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+          <BaseCalendar v-model="anchorDate" label="Опорна дата" field-class="booking-filter-date-input min-w-0" input-class="w-full min-h-11 min-w-0 rounded-xl px-3 py-2 text-sm" />
+          <BaseButton type="button" variant="icon" class="!h-11 !w-11" aria-label="Наступний період" title="Наступний період" @click="moveRange(1)">
+            <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+          <BaseButton type="button" variant="neutral" size="sm" class="!h-11 !min-h-11 !px-3 !py-2" @click="goToToday">Сьогодні</BaseButton>
+        </div>
       </div>
 
       <MasterSelect
@@ -809,9 +811,13 @@ const deleteSelectedBlock = async () => {
       <BaseSelect v-model="filters.service_id" :options="bookingServiceFilterOptions" label="Послуга" />
 
       <template #summary>
-        <div class="min-w-0 rounded-xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:rounded-2xl md:px-4 md:py-3 md:text-sm">
-          <p class="font-medium text-ui-primary">{{ anchorDate }} - {{ rangeEnd }}</p>
-          <p class="mt-0.5 md:mt-1">Бронювань: {{ visibleBookings.length }} · Блокувань: {{ visibleBlocks.length }} · Відкритих інтервалів: {{ availabilityWindows.length }}</p>
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ui pt-3 text-xs text-ui-secondary">
+          <p class="font-medium text-ui-primary">{{ anchorDate }} — {{ rangeEnd }}</p>
+          <div class="flex flex-wrap gap-x-4 gap-y-1">
+            <span>Бронювань: <strong class="font-semibold text-ui-primary">{{ visibleBookings.length }}</strong></span>
+            <span>Блокувань: <strong class="font-semibold text-ui-primary">{{ visibleBlocks.length }}</strong></span>
+            <span>Відкритих інтервалів: <strong class="font-semibold text-ui-primary">{{ availabilityWindows.length }}</strong></span>
+          </div>
         </div>
       </template>
     </BaseFilterPanel>
@@ -952,3 +958,71 @@ const deleteSelectedBlock = async () => {
     </BaseModal>
   </div>
 </template>
+
+
+<style scoped>
+:deep(.booking-filter-layout) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: end;
+}
+
+.booking-filter-period {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+
+.booking-filter-modes {
+  width: 100%;
+}
+
+.booking-filter-date {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem auto;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+}
+
+/* Keep the date label available without adding a second toolbar baseline. */
+:deep(.booking-filter-date-input > .base-field__label) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  :deep(.booking-filter-layout) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .booking-filter-modes {
+    width: 18rem;
+  }
+
+  .booking-filter-date {
+    width: 23rem;
+  }
+
+  :deep(.booking-filter-actions) {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 1536px) {
+  :deep(.booking-filter-layout) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  }
+
+  :deep(.booking-filter-actions) {
+    grid-column: auto;
+  }
+}
+</style>

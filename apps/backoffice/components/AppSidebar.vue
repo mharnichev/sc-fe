@@ -39,6 +39,46 @@ const { isLightTheme, themeLabel, themeToggleLabel, toggleTheme } = useBackoffic
 const menuOpen = ref(false)
 const bottomNavHidden = ref(false)
 const lastScrollY = ref(0)
+let restorePageScroll: (() => void) | undefined
+let desktopMedia: MediaQueryList | undefined
+
+watch(menuOpen, (isOpen) => {
+  if (!import.meta.client) return
+  if (!isOpen) {
+    restorePageScroll?.()
+    restorePageScroll = undefined
+    return
+  }
+
+  const { body, documentElement } = document
+  const scrollX = window.scrollX
+  const scrollY = window.scrollY
+  const previous = {
+    overflow: body.style.overflow,
+    position: body.style.position,
+    top: body.style.top,
+    left: body.style.left,
+    width: body.style.width,
+  }
+  const documentOverflow = documentElement.style.overflow
+  documentElement.style.overflow = 'hidden'
+  Object.assign(body.style, {
+    overflow: 'hidden', position: 'fixed', top: `-${scrollY}px`, left: `-${scrollX}px`, width: '100%',
+  })
+  restorePageScroll = () => {
+    Object.assign(body.style, previous)
+    documentElement.style.overflow = documentOverflow
+    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' })
+    lastScrollY.value = scrollY
+  }
+}, { flush: 'sync' })
+
+const closeDesktopMenu = () => {
+  if (desktopMedia?.matches) menuOpen.value = false
+}
+const handleMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') menuOpen.value = false
+}
 
 const { data: publicMasters } = await useAsyncData('sidebar-public-masters', () => api.getPublicMasters())
 const masterList = computed(() => publicMasters.value || [])
@@ -132,6 +172,7 @@ watch(
 )
 
 const handleScroll = () => {
+  if (menuOpen.value) return
   const currentScrollY = window.scrollY
   const delta = currentScrollY - lastScrollY.value
 
@@ -144,10 +185,16 @@ const handleScroll = () => {
 onMounted(() => {
   lastScrollY.value = window.scrollY
   window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('keydown', handleMenuKeydown)
+  desktopMedia = window.matchMedia('(min-width: 1280px)')
+  desktopMedia.addEventListener('change', closeDesktopMenu)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('keydown', handleMenuKeydown)
+  desktopMedia?.removeEventListener('change', closeDesktopMenu)
+  restorePageScroll?.()
 })
 
 const logout = () => {
@@ -158,78 +205,83 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="backoffice-shell-surface sticky top-0 z-[220] h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden">
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-xs uppercase tracking-[0.3em] text-white/55">Soul Cuts</p>
-        <p v-if="auth.user" class="mt-1 truncate text-xs text-white/45">{{ auth.user.email }}</p>
-      </div>
-      <div class="flex shrink-0 items-center gap-2">
-        <BaseButton
-          type="button"
-          class="theme-toggle-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
-          :aria-label="themeToggleLabel"
-          :title="themeToggleLabel"
-          @click="toggleTheme"
-        >
-          <MoonIcon v-if="isLightTheme" class="h-5 w-5" aria-hidden="true" />
-          <SunIcon v-else class="h-5 w-5" aria-hidden="true" />
-        </BaseButton>
-        <BaseButton
-          type="button"
-          class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
-          :aria-expanded="menuOpen"
-          aria-controls="backoffice-mobile-menu"
-          @click="menuOpen = !menuOpen"
-        >
-          <XMarkIcon v-if="menuOpen" class="h-6 w-6" aria-hidden="true" />
-          <Bars3Icon v-else class="h-6 w-6" aria-hidden="true" />
-          <span class="sr-only">{{ menuOpen ? 'Закрити меню' : 'Відкрити меню' }}</span>
-        </BaseButton>
-      </div>
-    </div>
-
-    <div
-      v-if="menuOpen"
-      id="backoffice-mobile-menu"
-      class="backoffice-menu-surface absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-white/10 bg-black/90 px-4 pb-5 pt-4 shadow-2xl backdrop-blur-2xl"
+  <div class="sticky top-0 z-[220] h-[4.5rem] min-h-[4.5rem] xl:hidden">
+    <header
+      class="backoffice-shell-surface top-0 z-[220] h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden"
+      :class="menuOpen ? 'fixed inset-x-0' : 'relative'"
     >
-      <div v-if="auth.user" class="mb-4 flex flex-wrap items-center gap-2">
-        <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/75">{{ roleLabel }}</span>
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-xs uppercase tracking-[0.3em] text-white/55">Soul Cuts</p>
+          <p v-if="auth.user" class="mt-1 truncate text-xs text-white/45">{{ auth.user.email }}</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <BaseButton
+            type="button"
+            class="theme-toggle-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+            :aria-label="themeToggleLabel"
+            :title="themeToggleLabel"
+            @click="toggleTheme"
+          >
+            <MoonIcon v-if="isLightTheme" class="h-5 w-5" aria-hidden="true" />
+            <SunIcon v-else class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+          <BaseButton
+            type="button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+            :aria-expanded="menuOpen"
+            aria-controls="backoffice-mobile-menu"
+            @click="menuOpen = !menuOpen"
+          >
+            <XMarkIcon v-if="menuOpen" class="h-6 w-6" aria-hidden="true" />
+            <Bars3Icon v-else class="h-6 w-6" aria-hidden="true" />
+            <span class="sr-only">{{ menuOpen ? 'Закрити меню' : 'Відкрити меню' }}</span>
+          </BaseButton>
+        </div>
       </div>
-      <nav class="grid gap-4">
-        <section
-          v-for="section in menuSections"
-          :key="section.title"
-          class="border-t border-white/10 pt-4 first:border-t-0 first:pt-0"
-        >
-          <p class="type-eyebrow mb-2 px-3 text-[0.7rem] text-white/35">
-            {{ section.title }}
-          </p>
-          <div class="grid gap-2">
-            <NuxtLink
-              v-for="link in section.links"
-              :key="link.to"
-              :to="link.to"
-              class="flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition"
-              :class="isActive(link.to) ? 'bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]' : 'text-white/58 hover:bg-white/7 hover:text-white'"
-            >
-              <component :is="link.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span>{{ link.label }}</span>
-            </NuxtLink>
-          </div>
-        </section>
-      </nav>
-      <BaseButton
-        v-if="auth.user"
-        class="mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-        @click="logout"
+
+      <div
+        v-if="menuOpen"
+        id="backoffice-mobile-menu"
+        class="backoffice-menu-surface absolute inset-x-0 top-[4.5rem] z-50 h-[calc(100dvh-4.5rem)] overflow-y-auto overscroll-contain border-t border-white/10 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl"
       >
-        <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span>Вийти</span>
-      </BaseButton>
-    </div>
-  </header>
+        <div v-if="auth.user" class="mb-4 flex flex-wrap items-center gap-2">
+          <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/75">{{ roleLabel }}</span>
+        </div>
+        <nav class="grid gap-4">
+          <section
+            v-for="section in menuSections"
+            :key="section.title"
+            class="border-t border-white/10 pt-4 first:border-t-0 first:pt-0"
+          >
+            <p class="type-eyebrow mb-2 px-3 text-[0.7rem] text-white/35">
+              {{ section.title }}
+            </p>
+            <div class="grid gap-2">
+              <NuxtLink
+                v-for="link in section.links"
+                :key="link.to"
+                :to="link.to"
+                class="flex min-h-11 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition"
+                :class="isActive(link.to) ? 'bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]' : 'text-white/58 hover:bg-white/7 hover:text-white'"
+              >
+                <component :is="link.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{{ link.label }}</span>
+              </NuxtLink>
+            </div>
+          </section>
+        </nav>
+        <BaseButton
+          v-if="auth.user"
+          class="mt-4 flex min-h-11 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+          @click="logout"
+        >
+          <ArrowRightOnRectangleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span>Вийти</span>
+        </BaseButton>
+      </div>
+    </header>
+  </div>
 
   <aside
     class="backoffice-shell-surface hidden border-r border-white/10 bg-black/35 py-5 text-white backdrop-blur-2xl transition-[padding] duration-200 xl:block"

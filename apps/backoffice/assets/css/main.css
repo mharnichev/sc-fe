@@ -1858,7 +1858,7 @@ html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b
 }
 
 .backoffice-menu-surface {
-  background: var(--sidebar-menu-bg) !important;
+  background: var(--bo-surface) !important;
   border-color: var(--border) !important;
 }
 
