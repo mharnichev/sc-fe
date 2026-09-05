@@ -33,6 +33,7 @@ const topServiceName = (row: BarberComparisonItem) =>
       description="У вибраному місяці немає завершених записів для порівняння."
     />
     <BaseTable
+      sticky-actions
       v-else
       caption="Порівняння майстрів за місяць"
       wrapper-class="statistics-comparison-table mt-4 rounded-2xl"

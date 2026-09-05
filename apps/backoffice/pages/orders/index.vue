@@ -38,6 +38,7 @@ const prev = async () => {
     </BaseCard>
 
     <BaseTable
+      sticky-actions
       caption="Замовлення магазину"
       min-width="1120px"
       :empty="!data?.items.length"

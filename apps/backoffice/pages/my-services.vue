@@ -162,6 +162,7 @@ const deleteService = async (service: MasterService) => {
         {{ apiErrorMessage(error, 'Не вдалося завантажити послуги майстра.') }}
       </p>
       <BaseTable
+        sticky-actions
         dense
         caption="Мої послуги"
         table-class="service-table"

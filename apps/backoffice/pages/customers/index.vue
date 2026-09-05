@@ -119,6 +119,7 @@ const prev = async () => {
     </BaseCard>
 
     <BaseTable
+      sticky-actions
       caption="Список клієнтів"
       min-width="72rem"
       :empty="!data?.items.length"
@@ -134,7 +135,7 @@ const prev = async () => {
           <th>Нотатки</th>
           <th>Telegram</th>
           <th>Верифікація</th>
-          <th class="customers-actions-column customers-actions-column--header">Дії</th>
+          <th class="customers-actions-column">Дії</th>
         </tr>
       </template>
           <tr v-for="item in data?.items || []" :key="item.id">
@@ -191,29 +192,8 @@ const prev = async () => {
 <style scoped>
 @media (max-width: 767px) {
   .customers-actions-column {
-    position: sticky;
-    right: 0;
-    z-index: 40;
     width: 4.75rem;
     min-width: 4.75rem;
-    background: var(--bo-surface);
-    background-clip: padding-box;
-    box-shadow:
-      -1px 0 0 var(--bo-border),
-      -14px 0 18px -18px rgb(15 23 42 / 0.55);
-  }
-
-  .customers-actions-column--header {
-    z-index: 50;
-    background:
-      linear-gradient(var(--bo-control), var(--bo-control)),
-      var(--bo-surface);
-  }
-
-  tr:hover > .customers-actions-column {
-    background:
-      linear-gradient(var(--bo-surface-hover), var(--bo-surface-hover)),
-      var(--bo-surface);
   }
 
   .customers-view-button {

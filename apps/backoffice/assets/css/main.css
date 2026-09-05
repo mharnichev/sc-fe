@@ -887,6 +887,29 @@ main :is(.grid, .flex) > :has(.base-table) {
   padding: 0.625rem 0.75rem;
 }
 
+.base-table--sticky-actions > thead > tr > th:last-child,
+.base-table--sticky-actions > tbody > tr > td:last-child:not([colspan]) {
+  position: sticky;
+  right: 0;
+  z-index: 20;
+  background: var(--bo-surface);
+  background-clip: padding-box;
+  box-shadow: -1px 0 0 var(--bo-border), -14px 0 18px -18px rgb(15 23 42 / 0.55);
+}
+
+.base-table--sticky-actions > thead > tr > th:last-child {
+  z-index: 30;
+  background: linear-gradient(var(--bo-control), var(--bo-control)), var(--bo-surface);
+}
+
+.base-table--sticky-actions > tbody > tr:hover > td:last-child:not([colspan]) {
+  background: linear-gradient(var(--bo-surface-hover), var(--bo-surface-hover)), var(--bo-surface);
+}
+
+.base-table--sticky-actions > tbody > tr.is-selected > td:last-child:not([colspan]) {
+  background: linear-gradient(var(--bo-info-surface), var(--bo-info-surface)), var(--bo-surface);
+}
+
 .base-table__sort {
   color: inherit;
 }

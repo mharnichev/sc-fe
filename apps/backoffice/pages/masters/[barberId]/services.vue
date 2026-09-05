@@ -175,6 +175,7 @@ const syncDefaults = async () => {
           {{ apiErrorMessage(error, 'Не вдалося завантажити послуги майстра.') }}
         </p>
         <BaseTable
+          sticky-actions
           dense
           caption="Послуги майстра"
           min-width="64rem"

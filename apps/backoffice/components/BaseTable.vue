@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
   scrollClass?: string
   minWidth?: string
   tableClass?: string
+  stickyActions?: boolean
 }>(), {
   loadingLabel: 'Завантаження даних…',
   emptyTitle: 'Немає даних',
@@ -68,7 +69,7 @@ const attrsStyle = computed(() => attrs.style)
       <table
         v-bind="passthroughAttrs"
         class="base-table text-sm"
-        :class="[dense ? 'base-table--dense' : '', tableClass, attrsClass]"
+        :class="[dense ? 'base-table--dense' : '', stickyActions ? 'base-table--sticky-actions' : '', tableClass, attrsClass]"
         :style="[attrsStyle, { minWidth }]"
       >
         <caption v-if="caption" :id="captionId" class="sr-only">{{ caption }}</caption>

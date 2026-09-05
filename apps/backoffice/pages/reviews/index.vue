@@ -300,6 +300,7 @@ const reviewStatusTone = (status: string): ReviewBadgeTone => {
       <BaseCard as="section" class="space-y-5">
         <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">{{ apiErrorMessage(error, 'Не вдалося завантажити відгуки. Потрібен backend review list contract.') }}</p>
         <BaseTable
+          sticky-actions
           caption="Відгуки після візиту"
           min-width="900px"
           :loading="pending"

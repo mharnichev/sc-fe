@@ -382,6 +382,7 @@ const insertCampaignVariable = (variable: string) => {
         Не вдалося завантажити кампанії.
       </div>
       <BaseTable
+        sticky-actions
         wrapper-class="mt-5"
         caption="Кампанії"
         min-width="72rem"

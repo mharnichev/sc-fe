@@ -100,6 +100,7 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
       description="Backend не повернув майстрів для вибраного періоду."
     />
     <BaseTable
+      sticky-actions
       v-else
       caption="Порівняння майстрів"
       wrapper-class="mt-4 rounded-2xl"

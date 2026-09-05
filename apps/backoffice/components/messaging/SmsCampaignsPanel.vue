@@ -475,6 +475,7 @@ const runJob = async (job: SmsJob) => {
           </div>
 
           <BaseTable
+            sticky-actions
             :caption="group.caption"
             min-width="72rem"
             :loading="pending"

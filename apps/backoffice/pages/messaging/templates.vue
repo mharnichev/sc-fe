@@ -141,6 +141,7 @@ const closeDeleteConfirm = (value: boolean) => {
 
     <div v-if="error" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Не вдалося завантажити шаблони.</div>
     <BaseTable
+      sticky-actions
       caption="Шаблони повідомлень"
       min-width="56rem"
       :loading="pending"

@@ -7,6 +7,7 @@ const emit = defineEmits<{ retry: [log: SendLog] }>()
 
 <template>
   <BaseTable
+    sticky-actions
     caption="Журнал відправок"
     min-width="60rem"
     :loading="pending"

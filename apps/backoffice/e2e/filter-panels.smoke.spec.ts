@@ -493,6 +493,41 @@ test('mobile filters: portalled select stays usable and Apply exposes active sta
   await expect(trigger).toHaveCSS('color', 'rgb(172, 215, 183)')
 })
 
+for (const width of [390, 1024]) {
+  test(`sticky actions remain accessible while scrolling at ${width}px`, async ({ page }) => {
+    await installBackend(page, [])
+    await page.route('**/backoffice/products?*', route => route.fulfill({
+      json: pageFixture(new URL(route.request().url()), [{
+        id: 1, name: 'Тестовий товар', price: 500, stock_quantity: 10, is_active: true,
+      }]),
+    }))
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/products')
+    const table = page.getByRole('table')
+    const scroll = page.getByRole('region', { name: 'Каталог товарів' })
+    const action = table.getByRole('link', { name: 'Переглянути товар' })
+    await expect(action).toBeVisible()
+    for (const theme of ['dark', 'light']) {
+      await page.evaluate(theme => document.documentElement.dataset.backofficeTheme = theme, theme)
+      for (const fraction of [0, 0.5, 1]) {
+        await scroll.evaluate((element, fraction) => {
+          element.scrollLeft = (element.scrollWidth - element.clientWidth) * fraction
+        }, fraction)
+        const bounds = await scroll.boundingBox()
+        expect(bounds).not.toBeNull()
+        for (const cell of [table.locator('thead th').last(), table.locator('tbody tr').first().locator('td').last()]) {
+          const box = await cell.boundingBox()
+          expect(box).not.toBeNull()
+          expect(Math.abs(box!.x + box!.width - (bounds!.x + bounds!.width))).toBeLessThan(3)
+          await expect(cell).toHaveCSS('background-color', theme === 'dark' ? 'rgb(17, 17, 17)' : 'rgb(255, 255, 255)')
+        }
+        await action.click({ trial: true })
+      }
+    }
+    await page.screenshot({ path: `/tmp/backoffice-sticky-actions-${width}.png` })
+  })
+}
+
 test('products: Apply, Enter, pagination reset and Clear keep the request contract', async ({ page }) => {
   const requests: Request[] = []
   await installBackend(page, requests)

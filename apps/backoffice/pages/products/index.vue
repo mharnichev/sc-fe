@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { EyeIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
+import { categoryPathLabels } from '~/utils/categoryPaths'
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -47,9 +48,10 @@ const [{ data: categories }, { data: brands }] = await Promise.all([
   useAsyncData('product-brands-options', () => api.getBrands(1, 200)),
 ])
 
+const categoryLabels = computed(() => categoryPathLabels(categories.value?.items || []))
 const categoryOptions = computed(() => [
   { value: '', label: 'Усі категорії' },
-  ...(categories.value?.items || []).map(category => ({ value: String(category.id), label: category.name })),
+  ...(categories.value?.items || []).map(category => ({ value: String(category.id), label: categoryLabels.value.get(category.id) || category.name })),
 ])
 const brandOptions = computed(() => [
   { value: '', label: 'Усі бренди' },
@@ -220,6 +222,7 @@ const prev = async () => {
     </BaseCard>
 
     <BaseTable
+      sticky-actions
       caption="Каталог товарів"
       min-width="64rem"
       :empty="!data?.items.length"
@@ -248,7 +251,7 @@ const prev = async () => {
               <p class="text-xs text-ui-muted">{{ item.slug }}</p>
               <p v-if="item.sku" class="text-xs text-ui-muted">SKU: {{ item.sku }}</p>
             </td>
-            <td data-label="Категорія" class="text-ui-secondary">{{ item.category?.name || '—' }}</td>
+            <td data-label="Категорія" class="text-ui-secondary">{{ categoryLabels.get(item.category_id ?? -1) || item.category?.name || '—' }}</td>
             <td data-label="Бренд" class="text-ui-secondary">{{ item.brand?.name || '—' }}</td>
             <td data-label="Ціна" class="text-ui-secondary">{{ item.price }}</td>
             <td data-label="Рекомендована ціна" class="text-ui-secondary">{{ item.recommended_retail_price }}</td>

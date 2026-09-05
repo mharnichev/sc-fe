@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { categoryPathLabels } from '~/utils/categoryPaths'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import { slugify } from '@shared-utils'
 import type { Brand, Category, ProductPayload } from '~/composables/useBackofficeApi'
@@ -18,6 +19,8 @@ const props = defineProps<{
   submitLabel?: string
   loading?: boolean
 }>()
+
+const categoryLabels = computed(() => categoryPathLabels(props.categories))
 
 const emit = defineEmits<{
   submit: [value: ProductPayload]
@@ -342,7 +345,7 @@ const submit = () => {
           <BaseSelect native v-model="form.category_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
             <option :value="null">Без категорії</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">
-              {{ category.name }}
+              {{ categoryLabels.get(category.id) || category.name }}
             </option>
           </BaseSelect>
         </label>

@@ -242,6 +242,7 @@ const confirmDeletePromotion = async () => {
       </p>
 
       <BaseTable
+        sticky-actions
         dense
         caption="Акції"
         table-class="service-table"

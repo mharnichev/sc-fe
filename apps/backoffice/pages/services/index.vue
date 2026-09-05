@@ -174,6 +174,7 @@ const clearFilters = async () => {
       </p>
       <BaseCard variant="subtle" padding="sm" class="text-xs text-ui-secondary xl:text-sm">Total: {{ total }}</BaseCard>
       <BaseTable
+        sticky-actions
         dense
         caption="Базові послуги"
         table-class="service-table"

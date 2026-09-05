@@ -148,6 +148,7 @@ const clearFilters = async () => {
           </BaseFilterPanel>
 
           <BaseTable
+            sticky-actions
             caption="Таблиця категорій"
             min-width="48rem"
             :empty="!data?.items.length"
