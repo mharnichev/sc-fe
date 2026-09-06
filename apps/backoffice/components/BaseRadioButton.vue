@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<{
   inputClass?: string
   labelClass?: string
 }>(), {
+  checked: undefined,
   value: true,
   inputClass: 'h-4 w-4',
   labelClass: 'inline-flex items-center gap-2 text-sm text-slate-700',

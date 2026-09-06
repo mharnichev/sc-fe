@@ -30,6 +30,8 @@ const props = withDefaults(defineProps<{
   fieldClass?: string
   triggerClass?: string
 }>(), {
+  modelValue: undefined,
+  value: undefined,
   options: () => [],
   placeholder: 'Оберіть значення',
   menuClass: 'z-[220]',

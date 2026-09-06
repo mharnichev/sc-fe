@@ -17,6 +17,7 @@ import {
   TagIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
+import { isNotificationType } from '~/utils/campaignAudience.mjs'
 import type { AudienceRule, CampaignPayload, CampaignStatus, CampaignType, MessagingCampaign, MessagingChannel } from '~/types/messaging'
 
 const api = useBackofficeApi()
@@ -36,6 +37,8 @@ const toast = useBaseToastNotification()
 const { data, pending, error, refresh } = await useAsyncData('messaging-dashboard', () => api.getMessagingDashboard())
 const route = useRoute()
 const router = useRouter()
+const communicationsView = computed(() => route.path === '/messaging/notifications' ? 'notifications' as const : 'campaigns' as const)
+const isNotifications = computed(() => communicationsView.value === 'notifications')
 const campaignsPage = ref(1)
 const campaignsPageSize = 20
 const campaignsSectionRef = ref<HTMLElement | null>(null)
@@ -68,7 +71,7 @@ const [
   { data: campaignsData, pending: campaignsPending, error: campaignsError, refresh: refreshCampaigns },
   { data: masters },
 ] = await Promise.all([
-  useAsyncData('messaging-main-campaigns', () => api.getMessagingCampaigns(campaignsPage.value, campaignsPageSize, campaignFilters), { watch: [campaignsPage] }),
+  useAsyncData(() => `messaging-main-${communicationsView.value}`, () => api.getMessagingCampaigns(campaignsPage.value, campaignsPageSize, { ...campaignFilters, view: communicationsView.value }), { watch: [campaignsPage, communicationsView] }),
   useAsyncData('messaging-main-campaign-masters', () => api.adminGetMasters(1, 100)),
 ])
 const telegramAudienceRules: AudienceRule[] = [{ type: 'all_clients' }]
@@ -113,13 +116,13 @@ const telegramConnectedRecipients = computed(() =>
 const masterItems = computed(() => Array.isArray(masters.value) ? masters.value : masters.value?.items || [])
 const campaignTypeOptions = computed(() => [
   { value: '', label: 'Усі типи' },
-  ...campaignTypes.map(type => ({ value: type.value, label: type.label })),
+  ...campaignTypes.filter(type => isNotificationType(type.value) === isNotifications.value).map(type => ({ value: type.value, label: type.label })),
 ])
 const campaignChannelOptions = computed(() => [
   { value: '', label: 'Усі канали' },
   ...channels.map(channel => ({ value: channel.value, label: channel.label })),
 ])
-const campaignEditorTypeOptions = computed(() => campaignTypes.map(type => ({ value: type.value, label: type.label })))
+const campaignEditorTypeOptions = computed(() => campaignTypes.filter(type => isNotificationType(type.value) === isNotifications.value).map(type => ({ value: type.value, label: type.label })))
 const campaignEditorStatusOptions = [
   { value: 'draft', label: 'Чернетка' },
   { value: 'active', label: 'Активна' },
@@ -165,6 +168,7 @@ const campaignEditorRequiredMissingVariables = computed(() =>
 )
 
 const openCampaignEditor = (campaign: MessagingCampaign) => {
+  if (!isNotificationType(campaign.type)) { navigateTo(`/messaging/campaigns/${campaign.id}`); return }
   campaignEditing.value = campaign
   campaignEditor.name = campaign.name
   campaignEditor.type = campaign.type
@@ -315,20 +319,22 @@ const insertCampaignVariable = (variable: string) => {
   <div class="messaging-page space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Messaging</p>
-        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Комунікації з клієнтами</h1>
+        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Комунікації</p>
+        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">{{ isNotifications ? 'Сповіщення' : 'Кампанії' }}</h1>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-ui-muted">
-          Telegram та SMS сценарії, автоматичні запити відгуків, шаблони та контроль відправок.
+          {{ isNotifications ? 'Сервісні повідомлення за подіями: підтвердження, нагадування, скасування та запити відгуків.' : 'Маркетингові повідомлення: аудиторія, текст, канали, розклад і результати запусків.' }}
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <NuxtLink to="/messaging/campaigns/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
+        <NuxtLink v-if="canCreateMessagingDrafts" :to="isNotifications ? '/messaging/campaigns/new?kind=notifications' : '/messaging/campaigns/new'" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
           <PlusIcon class="h-5 w-5" />
-          Створити кампанію
+          {{ isNotifications ? 'Створити сповіщення' : 'Створити кампанію' }}
         </NuxtLink>
       </div>
     </div>
 
+    <nav aria-label="Розділи комунікацій" class="flex flex-wrap gap-3"><NuxtLink to="/messaging/campaigns" class="base-button" :aria-current="!isNotifications ? 'page' : undefined">Кампанії</NuxtLink><NuxtLink to="/messaging/notifications" class="base-button" :aria-current="isNotifications ? 'page' : undefined">Сповіщення</NuxtLink><NuxtLink to="/messaging/templates" class="base-button">Шаблони</NuxtLink><NuxtLink to="/messaging/settings" class="base-button">Налаштування</NuxtLink></nav>
+    <p class="text-xs text-ui-muted">Загальні показники всіх комунікацій (кампанії та сповіщення):</p>
     <BaseLoader v-if="pending" label="Завантаження комунікацій…" />
     <div v-else-if="error" class="ui-status-danger rounded-[1.25rem] p-5 text-sm">
       Не вдалося завантажити dashboard. <BaseButton class="font-semibold underline" @click="refresh()">Спробувати ще раз</BaseButton>
@@ -340,13 +346,13 @@ const insertCampaignVariable = (variable: string) => {
       </BaseCard>
     </div>
 
-    <MessagingSmsCampaignsPanel @changed="refreshMessagingData" />
+    <MessagingSmsCampaignsPanel v-if="isNotifications" @changed="refreshMessagingData" />
 
     <section id="campaigns" ref="campaignsSectionRef" class="base-card rounded-[1.5rem] p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-xl font-semibold text-ui-primary">Кампанії</h2>
-          <p class="mt-1 text-sm text-ui-muted">Усі Telegram та SMS кампанії з фільтрами, статусами й діями.</p>
+          <h2 class="text-xl font-semibold text-ui-primary">{{ isNotifications ? 'Подієві сповіщення' : 'Кампанії' }}</h2>
+          <p class="mt-1 text-sm text-ui-muted">{{ isNotifications ? 'Налаштування подій і журнал доставки існуючих сповіщень.' : 'Маркетингові кампанії та історичні відправки з фільтрами, статусами й діями.' }}</p>
         </div>
       </div>
 
@@ -393,7 +399,7 @@ const insertCampaignVariable = (variable: string) => {
       >
         <template #head>
           <tr>
-            <th>Назва</th><th>Тип</th><th>Канал</th><th>Статус</th><th>Аудиторія</th><th>Sent / failed</th><th>Заплановано</th><th>Автор</th><th>Дії</th>
+            <th>Назва</th><th>Тип</th><th>Канал</th><th>Статус</th><th v-if="!isNotifications">Аудиторія</th><th>Sent / failed</th><th>Заплановано</th><th>Автор</th><th>Дії</th>
           </tr>
         </template>
             <tr v-for="campaign in campaignsData?.items || []" :key="campaign.id">
@@ -401,7 +407,7 @@ const insertCampaignVariable = (variable: string) => {
               <td data-label="Тип" class="px-4 py-3"><MessagingCampaignTypeBadge :type="campaign.type" /></td>
               <td data-label="Канал" class="px-4 py-3"><MessagingChannelBadge :channel="campaign.channel" /></td>
               <td data-label="Статус" class="px-4 py-3"><MessagingCampaignStatusBadge :status="campaign.status" /></td>
-              <td data-label="Аудиторія" class="text-ui-secondary">{{ campaign.audience_size }}</td>
+              <td v-if="!isNotifications" data-label="Аудиторія" class="text-ui-secondary">{{ campaign.audience_size }}</td>
               <td data-label="Sent / failed" class="text-ui-secondary">{{ campaign.sent_count }} / {{ campaign.failed_count }}</td>
               <td data-label="Заплановано" class="text-ui-secondary">{{ campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString('uk-UA') : '—' }}</td>
               <td data-label="Автор" class="text-ui-secondary">{{ campaign.created_by }}</td>
@@ -410,7 +416,7 @@ const insertCampaignVariable = (variable: string) => {
                   <NuxtLink :to="`/messaging/campaigns/${campaign.id}`" class="base-button base-button--icon h-9 w-9 p-0" title="Деталі"><EyeIcon class="h-4 w-4" /></NuxtLink>
                   <BaseButton v-if="canCreateMessagingDrafts" variant="icon" class="h-9 w-9" title="Редагувати повідомлення" @click="openCampaignEditor(campaign)"><PencilIcon class="h-4 w-4" /></BaseButton>
                   <BaseButton v-if="canCreateMessagingDrafts" variant="icon" class="h-9 w-9" title="Дублювати" @click="duplicateCampaign(campaign)"><DocumentDuplicateIcon class="h-4 w-4" /></BaseButton>
-                  <BaseButton v-if="canSendMessagingCampaigns" variant="icon" class="h-9 w-9" :title="campaign.status === 'paused' ? 'Активувати' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
+                  <BaseButton v-if="canSendMessagingCampaigns && (isNotifications || ['active', 'paused'].includes(campaign.status))" variant="icon" class="h-9 w-9" :title="campaign.status === 'paused' ? 'Поновити' : 'Пауза'" @click="confirmCampaignAction = { campaign, action: campaign.status === 'paused' ? 'active' : 'paused' }">
                     <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" />
                   </BaseButton>
                   <BaseButton v-if="canSendMessagingCampaigns" variant="icon" class="h-9 w-9" title="Архів" @click="confirmCampaignAction = { campaign, action: 'archived' }"><ArchiveBoxIcon class="h-4 w-4" /></BaseButton>

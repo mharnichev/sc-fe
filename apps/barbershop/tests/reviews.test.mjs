@@ -30,6 +30,18 @@ test('recognizes tokenized review entry only on masters and legacy review routes
   assert.equal(isTokenizedReviewLocation('/masters', '#team'), false)
 })
 
+test('accepts short review links and legacy links with the same privacy handling', () => {
+  for (const token of ['Ab3dE6gH9_-x', 'a'.repeat(43), 'a'.repeat(200)]) {
+    assert.equal(reviewTokenFromHash(`#${token}`), token)
+    assert.equal(isTokenizedReviewLocation('/masters', `#${token}`), true)
+    assert.equal(isTokenizedReviewLocation('/review', `#${token}`), true)
+  }
+  for (const token of ['a'.repeat(11), 'a'.repeat(201), 'Ab3dE6gH9_!x']) {
+    assert.equal(reviewTokenFromHash(`#${token}`), '')
+    assert.equal(isTokenizedReviewLocation('/masters', `#${token}`), false)
+  }
+})
+
 test('accepts integer ratings from one through five only', () => {
   assert.equal(isValidReviewRating(1), true)
   assert.equal(isValidReviewRating(5), true)

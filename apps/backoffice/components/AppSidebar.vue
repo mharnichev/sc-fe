@@ -104,8 +104,10 @@ const barberShopLinks = computed(() => [
         { label: 'Доступність', to: '/time-blocks', icon: ClockIcon },
         { label: 'Акції', to: '/promotions', icon: TicketIcon },
         { label: 'Клієнти', to: '/customers', icon: UsersIcon },
+        { label: 'Сегменти', to: '/customers/segments', icon: UserGroupIcon },
         { label: 'Відгуки', to: '/reviews', icon: StarIcon },
-        { label: 'Повідомлення', to: '/messaging', icon: ChatBubbleLeftRightIcon },
+        { label: 'Кампанії', to: '/messaging/campaigns', icon: ChatBubbleLeftRightIcon },
+        { label: 'Сповіщення', to: '/messaging/notifications', icon: ChatBubbleLeftRightIcon },
       ]
     : []),
 ])
@@ -144,19 +146,21 @@ const barberBottomLinks = computed(() =>
 const menuSections = computed(() => {
   const allBarbershopLinks = barberShopLinks.value
   const findLinks = (labels: string[]) => allBarbershopLinks.filter(link => labels.includes(link.label))
-  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Акції', 'Клієнти', 'Відгуки'])
-  const systemLabels = ['Повідомлення']
-  const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && !systemLabels.includes(link.label))
+  const managementLinks = findLinks(['Майстри', 'Базові послуги', 'Мої послуги', 'Доступність', 'Моя доступність', 'Акції', 'Відгуки'])
+  const customerLabels = ['Клієнти', 'Сегменти']
+  const systemLabels = ['Кампанії', 'Сповіщення']
+  const generalLinks = allBarbershopLinks.filter(link => !managementLinks.includes(link) && !systemLabels.includes(link.label) && !customerLabels.includes(link.label))
 
   return [
     { title: 'General', links: generalLinks },
     { title: 'Management', links: managementLinks },
+    { title: 'Клієнти', links: findLinks(customerLabels) },
     { title: 'Business', links: [...onlineStoreLinks.value, ...blogLinks.value] },
-    { title: 'System', links: allBarbershopLinks.filter(link => systemLabels.includes(link.label)) },
+    { title: 'Комунікації', links: allBarbershopLinks.filter(link => systemLabels.includes(link.label)) },
   ].filter(section => section.links.length > 0)
 })
 
-const isActive = (to: string) => route.path === to || (to !== '/' && route.path.startsWith(`${to}/`))
+const isActive = (to: string) => route.path === to || (to === '/customers' ? /^\/customers\/\d+(?:\/|$)/.test(route.path) : to !== '/' && route.path.startsWith(`${to}/`))
 const isCollapsed = computed(() => Boolean(props.collapsed))
 
 const toggleCollapsed = () => {

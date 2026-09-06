@@ -5,7 +5,7 @@ import type { Master as BackofficeMaster, Service as BackofficeService } from '~
 const props = defineProps<{
   modelValue: AudienceRule[]
   masters?: BackofficeMaster[]
-  services?: BackofficeService[]
+  services?: Pick<BackofficeService, 'id' | 'name'>[]
   estimate?: AudienceEstimate | null
   loading?: boolean
 }>()

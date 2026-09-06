@@ -1,6 +1,6 @@
 export const REVIEW_TEXT_MAX_LENGTH = 1000
 
-const REVIEW_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,200}$/
+const REVIEW_TOKEN_PATTERN = /^[A-Za-z0-9_-]{12,200}$/
 
 export const reviewTokenFromHash = (hash) => {
   if (typeof hash !== 'string') return ''

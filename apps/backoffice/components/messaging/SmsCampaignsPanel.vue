@@ -129,8 +129,8 @@ const { data, pending, error, refresh } = await useAsyncData(
   'messaging-sms-campaigns',
   async () => {
     const [customer, master] = await Promise.all([
-      api.getSmsCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'customer' }),
-      api.getMessagingCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'master' }),
+      api.getMessagingCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'customer', channel: 'sms', view: 'notifications' }),
+      api.getMessagingCampaigns(page.value, pageSize, { status: statusFilter.value, recipient: 'master', view: 'notifications' }),
     ])
     return { customer, master }
   },

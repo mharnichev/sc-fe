@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
   inputClass?: string
   labelClass?: string
 }>(), {
+  checked: undefined,
   value: true,
   inputClass: 'base-checkbox',
   labelClass: 'base-checkbox__label inline-flex items-center gap-2 text-sm',

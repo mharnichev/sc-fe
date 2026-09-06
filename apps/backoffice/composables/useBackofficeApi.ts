@@ -1,4 +1,9 @@
 import type {
+  CustomerSegment, SegmentList, SegmentCreate, SegmentUpdate, SegmentMemberQuery,
+  SegmentPreviewRequest, SegmentPreviewResponse, CampaignAudiencePreview,
+  CampaignRun, CampaignRunCreate, CampaignRunDetail, CampaignRunMember,
+} from '~/types/segments'
+import type {
   AudienceEstimate,
   AudienceRule,
   CampaignPayload,
@@ -885,7 +890,8 @@ export const useBackofficeApi = () => {
   const normalizeCampaign = (campaign: any): MessagingCampaign => {
     const metadata = campaign.metadata_json || {}
     const messageBody = campaign.message_body || campaign.template_body || metadata.message_body || ''
-    const audienceRules = campaign.audience_rules || metadata.audience_rules || fromBackendAudience(campaign.audience)
+    const audienceRules = campaign.audience_rules?.length ? campaign.audience_rules
+      : metadata.audience_rules?.length ? metadata.audience_rules : fromBackendAudience(campaign.audience)
     const sent = campaign.sent_count || campaign.metrics?.sent || 0
     const failed = campaign.failed_count || campaign.metrics?.failed || 0
     const audienceSize = campaign.audience_size || campaign.metrics?.total_recipients || 0
@@ -918,9 +924,15 @@ export const useBackofficeApi = () => {
         delivery_rate: audienceSize ? Math.round((sent / audienceSize) * 100) : 0,
       },
       review_link: campaign.review_link || campaign.review_url || null,
+      promo_code: campaign.promo_code ?? campaign.discount_code ?? null,
       timezone: campaign.timezone || 'Europe/Kyiv',
       location_key: campaign.location_key || null,
       metadata_json: metadata,
+      segment_ids: campaign.segment_ids ?? metadata.segment_ids ?? [],
+      channel_strategy: campaign.channel_strategy ?? metadata.channel_strategy ?? 'single',
+      exclude_returned_since_snapshot: campaign.exclude_returned_since_snapshot ?? metadata.exclude_returned_since_snapshot ?? false,
+      exclude_upcoming_booking: campaign.exclude_upcoming_booking ?? metadata.exclude_upcoming_booking ?? false,
+      marketing_frequency_days: campaign.marketing_frequency_days ?? metadata.marketing_frequency_days ?? 7,
     }
   }
 
@@ -955,7 +967,7 @@ export const useBackofficeApi = () => {
       recipient: payload.recipient || 'customer',
       message_body: payload.message_body,
       language_versions: payload.language_versions,
-      audience_rules: payload.audience_rules || [],
+      audience_rules: payload.audience_rules,
       inline_button_text: payload.inline_button_text,
       schedule_mode: payload.schedule_mode,
       max_messages_per_minute: payload.max_messages_per_minute,
@@ -964,8 +976,36 @@ export const useBackofficeApi = () => {
       quiet_hours_to: payload.quiet_hours_to,
       duplicate_protection_days: payload.duplicate_protection_days,
     },
-    audience: toBackendAudience(payload.audience_rules || []),
+    ...(payload.segment_ids !== undefined ? { segment_ids: payload.segment_ids } : {}),
+    channel_strategy: payload.channel_strategy,
+    exclude_returned_since_snapshot: payload.exclude_returned_since_snapshot,
+    exclude_upcoming_booking: payload.exclude_upcoming_booking,
+    marketing_frequency_days: payload.marketing_frequency_days,
+    // Segment unions are evaluated by the backend; never also send inline filters.
+    ...(payload.segment_ids?.length || payload.audience_rules === undefined
+      ? {} : { audience: toBackendAudience(payload.audience_rules || []) }),
   })
+
+  // CampaignUpdate is sparse. Defaults belong to creation, never to an edit of
+  // an existing audience, schedule, template, or notification configuration.
+  const campaignUpdatePayload = (payload: Partial<CampaignPayload>, existingMetadata: Record<string, unknown> = {}) => {
+    const body: Record<string, unknown> = campaignPayload(payload)
+    const fields: Record<string, keyof CampaignPayload> = {
+      name: 'name', type: 'type', status: 'status', channel: 'channel', recipient: 'recipient', purpose: 'purpose',
+      template_id: 'template_id', scheduled_at: 'schedule_mode', timezone: 'timezone',
+      review_delay_minutes: 'automation_delay', follow_up_delay_days: 'follow_up_after_days',
+      review_platform: 'review_platform', review_url: 'review_link', discount_code: 'promo_code', location_key: 'location_key',
+    }
+    for (const [field, input] of Object.entries(fields)) {
+      if (payload[input] === undefined) delete body[field]
+    }
+    const metadata: Record<string, unknown> = { ...existingMetadata, ...payload.metadata_json }
+    for (const key of ['recipient', 'message_body', 'language_versions', 'audience_rules', 'inline_button_text', 'schedule_mode', 'max_messages_per_minute', 'quiet_hours_enabled', 'quiet_hours_from', 'quiet_hours_to', 'duplicate_protection_days'] as const) {
+      if (payload[key] !== undefined) metadata[key] = payload[key]
+    }
+    body.metadata_json = metadata
+    return body
+  }
 
   const login = (email: string, password: string) =>
     $fetch<TokenResponse>('/backoffice/auth/login', {
@@ -1656,11 +1696,42 @@ export const useBackofficeApi = () => {
       delivery_rate: normalizeDeliveryRate(data.delivery_rate),
     }))
 
+  const getSegments = (query: { status?: 'active' | 'archived', limit?: number, offset?: number } = {}) =>
+    api<SegmentList>('/backoffice/segments', { query })
+  const getSegment = (id: number | string) => api<CustomerSegment>(`/backoffice/segments/${id}`)
+  const createSegment = (body: SegmentCreate) =>
+    api<CustomerSegment>('/backoffice/segments', { method: 'POST', body })
+  const updateSegment = (id: number | string, body: SegmentUpdate) =>
+    api<CustomerSegment>(`/backoffice/segments/${id}`, { method: 'PATCH', body })
+  const archiveSegment = (id: number | string) =>
+    api<CustomerSegment>(`/backoffice/segments/${id}/archive`, { method: 'POST' })
+  const previewSegment = (body: SegmentPreviewRequest) =>
+    api<SegmentPreviewResponse>('/backoffice/segments/preview', { method: 'POST', body })
+  const getSegmentMembers = (id: number | string, query: SegmentMemberQuery = {}) =>
+    api<SegmentPreviewResponse>(`/backoffice/segments/${id}/members`, { query })
+  const previewCampaignAudience = (id: number | string, page = 1, pageSize = 50) =>
+    api<CampaignAudiencePreview>(`/backoffice/messaging/campaigns/${id}/audience-preview`, {
+      method: 'POST', query: { page, page_size: normalizePageSize(pageSize) },
+    })
+  const createCampaignRun = (id: number | string, body: CampaignRunCreate) =>
+    api<CampaignRun>(`/backoffice/messaging/campaigns/${id}/runs`, { method: 'POST', body })
+  const getCampaignRuns = (id: number | string, page = 1, pageSize = 50) =>
+    api<PaginatedResponse<CampaignRun>>(`/backoffice/messaging/campaigns/${id}/runs`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+  const getCampaignRun = (id: number | string, runId: number | string) =>
+    api<CampaignRunDetail>(`/backoffice/messaging/campaigns/${id}/runs/${runId}`)
+  const getCampaignRunMembers = (id: number | string, runId: number | string, page = 1, pageSize = 50) =>
+    api<PaginatedResponse<CampaignRunMember>>(`/backoffice/messaging/campaigns/${id}/runs/${runId}/members`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
   const getMessagingCampaigns = (
     page = 1,
     pageSize = 20,
     filters: {
       status?: string
+      view?: 'campaigns' | 'notifications'
       type?: string
       channel?: string
       date_from?: string
@@ -1675,6 +1746,7 @@ export const useBackofficeApi = () => {
         page,
         page_size: normalizePageSize(pageSize),
         status: backendStatus,
+        view: filters.view,
         type: filters.type || undefined,
         channel: filters.channel || undefined,
         date_from: filters.date_from || undefined,
@@ -1707,15 +1779,8 @@ export const useBackofficeApi = () => {
 
   const ensureCampaignTemplate = async (payload: Partial<CampaignPayload>) => {
     if (payload.template_id) {
-      if (payload.message_body) {
-        await updateMessageTemplate(payload.template_id, {
-          name: payload.name,
-          channel: payload.channel || 'telegram',
-          language: 'uk',
-          message_body: payload.message_body,
-          is_active: true,
-        })
-      }
+      // Inline campaign text is authoritative; selecting a shared template must
+      // not rename or edit that template for other campaigns.
       return payload.template_id
     }
     if (!payload.message_body) return null
@@ -1741,10 +1806,10 @@ export const useBackofficeApi = () => {
   }
 
   const updateMessagingCampaign = async (campaignId: number | string, payload: Partial<CampaignPayload>) => {
-    const templateId = await ensureCampaignTemplate(payload)
+    const metadata = payload.metadata_json ?? (await getMessagingCampaign(campaignId)).metadata_json ?? {}
     return api<any>(`/backoffice/messaging/campaigns/${campaignId}`, {
       method: 'PUT',
-      body: campaignPayload(payload, templateId),
+      body: campaignUpdatePayload(payload, metadata),
     }).then(normalizeCampaign)
   }
 
@@ -1862,8 +1927,10 @@ export const useBackofficeApi = () => {
       items: page.items.map(log => ({
         id: log.id,
         client_id: log.customer_id,
-        client_name: `Client #${log.customer_id}`,
+        client_name: log.customer_name || `Клієнт №${log.customer_id}`,
         phone: '',
+        campaign_id: log.campaign_id,
+        channel: log.channel,
         telegram_status: log.status,
         sent_at: log.created_at || null,
         failure_reason: log.error_reason,
@@ -1921,7 +1988,8 @@ export const useBackofficeApi = () => {
       body: {
         telegram_chat_id: payload.telegram_chat_id,
         preferred_language: payload.preferred_language,
-        marketing_consent: payload.marketing_consent ? 'opted_in' : payload.opt_out ? 'opted_out' : undefined,
+        marketing_consent: payload.marketing_consent === true ? 'opted_in'
+          : payload.marketing_consent === false || payload.opt_out === true ? 'opted_out' : undefined,
         do_not_contact: payload.opt_out,
       },
     })
@@ -2083,6 +2151,18 @@ export const useBackofficeApi = () => {
     getBlogSubscriptions,
     getBlogSubscriptionEvents,
     getMessagingDashboard,
+    getSegments,
+    getSegment,
+    createSegment,
+    updateSegment,
+    archiveSegment,
+    previewSegment,
+    getSegmentMembers,
+    previewCampaignAudience,
+    createCampaignRun,
+    getCampaignRuns,
+    getCampaignRun,
+    getCampaignRunMembers,
     getMessagingCampaigns,
     getMessagingCampaign,
     getSmsCampaigns,

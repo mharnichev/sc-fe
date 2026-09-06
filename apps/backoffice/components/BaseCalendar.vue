@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { useId } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -33,8 +34,26 @@ const emit = defineEmits<{
 }>()
 
 const rootRef = ref<HTMLElement | null>(null)
+const inputRef = ref<{ focus: () => void } | null>(null)
+let restoringFocus = false
 const attrs = useAttrs()
+const generatedId = useId()
+const fieldId = computed(() => String(attrs.id || `base-calendar-${generatedId}`))
+const labelId = computed(() => `${fieldId.value}-label`)
+const hintId = computed(() => props.hint ? `${fieldId.value}-hint` : undefined)
+const errorId = computed(() => props.error ? `${fieldId.value}-error` : undefined)
+const passthroughAttrs = computed(() => {
+  const { class: _class, id: _id, ...rest } = attrs
+  return rest
+})
 const open = ref(false)
+const closeWithFocus = async () => {
+  open.value = false
+  await nextTick()
+  restoringFocus = true
+  inputRef.value?.focus()
+  restoringFocus = false
+}
 const today = new Date()
 const viewYear = ref(today.getFullYear())
 const viewMonth = ref(today.getMonth())
@@ -159,6 +178,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
 
 <template>
   <BaseField
+    :id="fieldId"
+    :label-id="labelId"
+    :hint-id="hintId"
+    :error-id="errorId"
     :label="label"
     :hint="hint"
     :error="error"
@@ -178,10 +201,20 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
       ref="rootRef"
       class="relative min-w-0"
       :style="open ? { zIndex: 50000 } : undefined"
+      @keydown.esc.stop.prevent="closeWithFocus()"
     >
       <div class="relative">
         <CalendarDaysIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
         <BaseInput
+          ref="inputRef"
+          v-bind="passthroughAttrs"
+          :id="fieldId"
+          :aria-labelledby="label || $slots.label ? labelId : undefined"
+          :aria-describedby="errorId || hintId"
+          :aria-invalid="error ? true : undefined"
+          aria-haspopup="dialog"
+          :aria-expanded="open && !disabled"
+          :aria-controls="`${fieldId}-popup`"
           :model-value="displayValue"
           readonly
           :disabled="disabled"
@@ -190,14 +223,16 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
           :input-class="resolvedInputClass"
           field-class=""
           style="padding-left: 2.5rem;"
-          @focus="open = true"
+          @focus="!restoringFocus && (open = true)"
           @click="open = true"
-          @keydown.esc="open = false"
         />
       </div>
 
       <div
         v-if="open && !disabled"
+        :id="`${fieldId}-popup`"
+        role="dialog"
+        :aria-label="label || 'Вибір дати'"
         class="booking-select-menu absolute mt-2 w-full min-w-[18rem] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
         :class="menuClass"
         style="z-index: 50010;"

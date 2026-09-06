@@ -1,3 +1,5 @@
+import type { CampaignSegmentOptions } from './segments'
+
 export type MessagingChannel = 'telegram' | 'sms' | 'whatsapp' | 'email'
 export type CampaignRecipient = 'customer' | 'master'
 
@@ -75,7 +77,7 @@ export interface CampaignActivity {
   created_at: string
 }
 
-export interface MessagingCampaign {
+export interface MessagingCampaign extends CampaignSegmentOptions {
   id: number | string
   name: string
   type: CampaignType
@@ -96,12 +98,13 @@ export interface MessagingCampaign {
   audience_estimate?: AudienceEstimate | null
   metrics?: CampaignMetrics | null
   review_link?: string | null
+  promo_code?: string | null
   timezone?: string | null
   location_key?: string | null
   metadata_json?: Record<string, unknown>
 }
 
-export interface CampaignPayload {
+export interface CampaignPayload extends CampaignSegmentOptions {
   name: string
   type: CampaignType
   channel: MessagingChannel
@@ -183,6 +186,8 @@ export interface SendLog {
   client_id: number | string
   client_name: string
   phone: string
+  campaign_id?: number | string | null
+  channel?: MessagingChannel | string | null
   telegram_status: 'queued' | 'sent' | 'delivered' | 'failed' | 'skipped'
   sent_at: string | null
   failure_reason?: string | null
