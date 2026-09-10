@@ -94,6 +94,7 @@ export interface Product {
   name: string
   slug: string
   description: string | null
+  ingredients: string | null
   short_description: string | null
   price: string
   recommended_retail_price: string | null
@@ -127,6 +128,7 @@ export interface ProductPayload {
   name: string
   slug: string
   description: string | null
+  ingredients: string | null
   short_description: string | null
   price: number
   recommended_retail_price: number | null

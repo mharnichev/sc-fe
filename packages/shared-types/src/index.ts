@@ -46,6 +46,7 @@ export interface ProductDto {
   sku: string
   short_description: string | null
   description: string
+  ingredients?: string | null
   price: string
   compare_at_price: string | null
   stock: number

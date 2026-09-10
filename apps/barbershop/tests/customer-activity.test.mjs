@@ -13,8 +13,27 @@ const activity = await import(`data:text/javascript;base64,${Buffer.from(utility
 test('customer activity accepts only opaque fragment tokens', () => {
   const token = 'a'.repeat(40)
   assert.equal(activity.customerActivityTokenFromHash(`#${token}`), token)
+  const shortToken = 'Ab09_-xyZ123'
+  assert.equal(activity.customerActivityTokenFromHash(`#${shortToken}`), shortToken)
+  assert.equal(activity.customerActivityTokenFromHash(`#${'a'.repeat(11)}`), '')
+  assert.equal(activity.customerActivityTokenFromHash(`#${'a'.repeat(13)}`), '')
   assert.equal(activity.customerActivityTokenFromHash('#short'), '')
   assert.equal(activity.customerActivityTokenFromHash('#token with spaces'), '')
+})
+
+test('router never treats short or legacy activity credentials as DOM anchors', async () => {
+  const source = await read('../app/router.options.ts')
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText
+  const { default: router } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+  for (const token of ['Ab09_-xyZ123', 'a'.repeat(43)]) {
+    assert.equal(activity.customerActivityTokenFromHash(`#${token}`), token)
+    assert.deepEqual(router.scrollBehavior({ hash: `#${token}` }), { left: 0, top: 0 })
+  }
+  assert.deepEqual(router.scrollBehavior({ hash: '#services' }), { el: '#services' })
+  const saved = { left: 0, top: 80 }
+  assert.equal(router.scrollBehavior({ hash: '#Ab09_-xyZ123' }, {}, saved), saved)
 })
 
 test('customer activity routes and API keep the capability private', async () => {

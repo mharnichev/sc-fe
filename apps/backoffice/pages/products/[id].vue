@@ -66,6 +66,7 @@ const initialValue = computed<ProductPayload | undefined>(() => {
     name: product.value.name,
     slug: product.value.slug,
     description: product.value.description,
+    ingredients: product.value.ingredients,
     short_description: product.value.short_description,
     price: Number(product.value.price),
     recommended_retail_price: product.value.recommended_retail_price ? Number(product.value.recommended_retail_price) : null,
@@ -227,7 +228,7 @@ const submit = async (payload: ProductPayload) => {
             </p>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Склад</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">На складі</p>
             <p class="mt-2 text-2xl font-semibold text-slate-900">{{ product.stock_quantity }}</p>
           </div>
         </div>
@@ -243,6 +244,12 @@ const submit = async (payload: ProductPayload) => {
             <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Опис</p>
             <p class="rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700 whitespace-pre-line">
               {{ product.description || 'Без опису' }}
+            </p>
+          </div>
+          <div class="space-y-2 md:col-span-2">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Склад</p>
+            <p class="rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700 whitespace-pre-line">
+              {{ product.ingredients || 'Склад не вказано' }}
             </p>
           </div>
         </div>

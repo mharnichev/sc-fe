@@ -1,7 +1,7 @@
 import type { RouterConfig } from '@nuxt/schema'
 
 const opaqueCapabilityHash = (hash: string) =>
-  /^#[A-Za-z0-9_-]{32,512}$/.test(hash)
+  /^#(?:[A-Za-z0-9_-]{12}|[A-Za-z0-9_-]{32,512})$/.test(hash)
 
 export default <RouterConfig>{
   scrollBehavior(to, _from, savedPosition) {

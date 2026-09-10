@@ -30,6 +30,7 @@ const form = reactive<ProductPayload>({
   name: props.initialValue?.name ?? '',
   slug: props.initialValue?.slug ?? '',
   description: props.initialValue?.description ?? null,
+  ingredients: props.initialValue?.ingredients ?? null,
   short_description: props.initialValue?.short_description ?? null,
   price: props.initialValue?.price ?? 0,
   recommended_retail_price: props.initialValue?.recommended_retail_price ?? null,
@@ -265,6 +266,7 @@ const submit = () => {
     slug: form.slug.trim(),
     name: form.name.trim(),
     description: normalizeText(form.description ?? ''),
+    ingredients: normalizeText(form.ingredients ?? ''),
     short_description: normalizeText(form.short_description ?? ''),
     sku: normalizeText(form.sku ?? ''),
     image_url: normalizeText(form.image_url ?? ''),
@@ -335,6 +337,10 @@ const submit = () => {
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Опис</span>
           <BaseTextarea v-model="form.description" rows="7" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">Склад</span>
+          <BaseTextarea v-model="form.ingredients" rows="5" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
       </section>
 

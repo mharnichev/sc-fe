@@ -1,4 +1,4 @@
-const CUSTOMER_ACTIVITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32,256}$/
+const CUSTOMER_ACTIVITY_TOKEN_PATTERN = /^(?:[A-Za-z0-9_-]{12}|[A-Za-z0-9_-]{32,256})$/
 
 /** Reads an opaque magic token from an SMS fragment, never from a query. */
 export const customerActivityTokenFromHash = (hash: string) => {
