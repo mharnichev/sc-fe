@@ -20,6 +20,7 @@ const route = useRoute()
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
+const { offers } = useBookingPromotions()
 
 const publicAssetUrl = (value: MasterDto['photo']) => {
   if (typeof value === 'string') return value.trim()
@@ -124,6 +125,8 @@ if (!service) {
 }
 
 const servicePath = serviceSeoPath(service)
+const firstVisitOffer = computed(() => firstVisitOffers(offers.value)
+  .find(offer => offer.applies_to_all_masters && offerAppliesToService(offer, serviceStableId(service))) || null)
 const serviceName = computed(() => localizedService.serviceName(service))
 const serviceDescription = computed(() => localizedService.serviceDescription(service))
 const indexableMasters = computed(() => indexablePublicMasters(masters.value))
@@ -155,7 +158,7 @@ const barberOffers = computed(() =>
       master,
       name: localizedMasterName(master),
       path,
-      price: offer.active_promotion?.promotional_price ?? offer.price,
+      price: offer.price,
     }]
   }),
 )
@@ -173,7 +176,7 @@ const sortedUniqueValues = (values: Array<number | null>) =>
     .sort((first, second) => first - second)
 
 const offerPrices = sortedUniqueValues(service.barber_services.map(offer =>
-  numberValue(offer.active_promotion?.promotional_price ?? offer.price),
+  numberValue(offer.price),
 ))
 const offerDurations = sortedUniqueValues(service.barber_services.map(offer =>
   offer.duration_minutes > 0 ? offer.duration_minutes : null,
@@ -292,7 +295,7 @@ useServiceStructuredData(() => ({
       name: master
         ? `${serviceName.value} — ${localizedMasterName(master)}`
         : serviceName.value,
-      price: offer.active_promotion?.promotional_price ?? offer.price,
+      price: offer.price,
     }
   }),
 }))
@@ -326,6 +329,7 @@ if (faqItems.value.length) {
             <p class="mt-6 max-w-3xl text-lg leading-8 text-stone-700">
               {{ serviceDescription }}
             </p>
+            <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-2xl" />
 
             <dl class="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
               <div v-if="priceSummary" class="border-t border-stone-300 pt-4">

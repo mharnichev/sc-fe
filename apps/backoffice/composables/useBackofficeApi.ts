@@ -528,7 +528,8 @@ export interface ServicePayload {
 export type BaseServicePayload = ServicePayload
 
 export type PromotionDiscountType = 'percent'
-export type PromotionEligibilityType = 'all_customers' | 'inactive_customers' | 'military_customers'
+export type PromotionApplicationMode = 'code' | 'automatic'
+export type PromotionEligibilityType = 'all_customers' | 'inactive_customers' | 'military_customers' | 'first_visit'
 
 export interface Promotion {
   id: number
@@ -541,6 +542,7 @@ export interface Promotion {
   description_en: string | null
   discount_type: PromotionDiscountType
   discount_percent: number
+  application_mode: PromotionApplicationMode
   eligibility_type: PromotionEligibilityType
   inactive_days: number | null
   starts_at: string | null
@@ -550,6 +552,7 @@ export interface Promotion {
   applies_to_all_services: boolean
   base_service_ids: number[]
   is_active: boolean
+  is_public: boolean
 }
 
 export interface PromotionPayload {
@@ -560,6 +563,7 @@ export interface PromotionPayload {
   description_en: string | null
   discount_type: PromotionDiscountType
   discount_percent: number
+  application_mode: PromotionApplicationMode
   eligibility_type: PromotionEligibilityType
   inactive_days: number | null
   starts_at: string | null
@@ -569,6 +573,7 @@ export interface PromotionPayload {
   applies_to_all_services: boolean
   base_service_ids: number[]
   is_active: boolean
+  is_public: boolean
 }
 
 export interface MasterServicePayload {

@@ -46,7 +46,7 @@ const numericPrice = (value: string | number) => {
 const servicePriceLabel = (service: PublicServiceCatalogItemDto) => {
   const prices = [...new Set(
     service.barber_services
-      .map(item => numericPrice(item.active_promotion?.promotional_price ?? item.price))
+      .map(item => numericPrice(item.price))
       .filter((price): price is number => price !== null),
   )].sort((first, second) => first - second)
 

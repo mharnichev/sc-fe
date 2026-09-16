@@ -24,7 +24,7 @@ const structuredServices = computed(() =>
   activeServices.value.map(service => ({
     name: localizedService.serviceName(service),
     description: localizedService.serviceDescription(service),
-    price: service.active_promotion?.promotional_price ?? service.price,
+    price: service.price,
     durationMinutes: service.duration_minutes,
   })),
 )

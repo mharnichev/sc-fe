@@ -65,6 +65,11 @@ body {
   @apply bg-stone-100 text-neutral-950 antialiased;
 }
 
+body.sc-modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

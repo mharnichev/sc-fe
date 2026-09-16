@@ -1,21 +1,38 @@
-import type { MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
+import type { MasterDto, ServiceCatalogBarberServiceDto, ServiceCatalogItemDto, ServiceDto, ServicePromotionDto } from '@shared-types'
 import { activeBaseCatalogItems, activeMasterServices } from '~/composables/useActiveServiceCatalog'
 
 type SluggedEntity = {
   slug?: string | null
 }
 
-export type PublicServiceDto = ServiceDto & {
+export type PublicServicePromotionDto = Omit<ServicePromotionDto, 'code'> & {
+  code: string
+  application_mode?: 'automatic' | 'code'
+  eligibility_type?: 'first_visit' | 'all_customers' | 'inactive_customers' | 'military_customers'
+  conditional?: boolean
+  applies_to_all_masters?: boolean
+  master_ids?: number[]
+  applies_to_all_services?: boolean
+  base_service_ids?: number[]
+}
+
+export type PublicServiceDto = Omit<ServiceDto, 'active_promotion'> & {
   base_service_id?: number | null
   barber_id?: number
   created_at?: string
   source_type?: 'base' | 'custom'
   updated_at?: string
+  active_promotion?: PublicServicePromotionDto | null
 }
 
-export type PublicServiceCatalogItemDto = ServiceCatalogItemDto & SluggedEntity
+export type PublicServiceCatalogItemDto = Omit<ServiceCatalogItemDto, 'active_promotion' | 'barber_services'> & SluggedEntity & {
+  active_promotion?: PublicServicePromotionDto | null
+  barber_services: Array<Omit<ServiceCatalogBarberServiceDto, 'active_promotion'> & {
+    active_promotion?: PublicServicePromotionDto | null
+  }>
+}
 
-export type PublicMasterDto = MasterDto & SluggedEntity & {
+export type PublicMasterDto = Omit<MasterDto, 'services'> & SluggedEntity & {
   created_at?: string
   updated_at?: string
   services?: PublicServiceDto[]

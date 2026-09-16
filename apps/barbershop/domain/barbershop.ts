@@ -1,5 +1,5 @@
-import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, PageDto, PaginatedResponse, ServicePromotionDto } from '@shared-types'
-import type { PublicMasterDto, PublicServiceCatalogItemDto, PublicServiceDto } from '~/utils/seoRoutes'
+import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, PageDto, PaginatedResponse } from '@shared-types'
+import type { PublicMasterDto, PublicServiceCatalogItemDto, PublicServiceDto, PublicServicePromotionDto } from '~/utils/seoRoutes'
 import type { BookingFunnelEventPayload } from '~/utils/bookingFunnel'
 
 interface PublicBrandDto {
@@ -14,6 +14,7 @@ interface PublicBrandDto {
 
 export interface PublicBookingPayload {
   master_id: number
+  expected_total_amount?: number
   service_id: number
   service_ids?: number[]
   duration_minutes?: number
@@ -201,7 +202,7 @@ export interface SubmitPublicReviewResponseDto {
   submitted_at: string
 }
 
-const publicPromotion = (promotion?: ServicePromotionDto | null) => promotion
+const publicPromotion = (promotion?: PublicServicePromotionDto | null): PublicServicePromotionDto | null => promotion
   ? {
       id: promotion.id,
       code: promotion.code,
@@ -210,6 +211,13 @@ const publicPromotion = (promotion?: ServicePromotionDto | null) => promotion
       discount_percent: promotion.discount_percent,
       discount_amount: promotion.discount_amount,
       promotional_price: promotion.promotional_price,
+      application_mode: promotion.application_mode,
+      eligibility_type: promotion.eligibility_type,
+      conditional: promotion.conditional,
+      applies_to_all_masters: promotion.applies_to_all_masters,
+      master_ids: promotion.master_ids,
+      applies_to_all_services: promotion.applies_to_all_services,
+      base_service_ids: promotion.base_service_ids,
     }
   : null
 

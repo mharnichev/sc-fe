@@ -26,6 +26,7 @@ const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
 const route = useRoute()
+const { offers } = useBookingPromotions()
 const servicesSection = ref<HTMLElement | null>(null)
 const hasRequestedServices = ref(props.services.length > 0)
 let serviceCatalogObserver: IntersectionObserver | null = null
@@ -119,13 +120,23 @@ const displaySectionTitle = computed(() => props.sectionTitle || terms.value.hom
 const displaySectionDescription = computed(() => props.sectionDescription || terms.value.home.services.description)
 
 const formatServicePrice = (service: ServiceCatalogItemDto) =>
-  localizedService.servicePrice(service.active_promotion?.promotional_price ?? service.price, { from: props.priceFrom })
-const formatServiceRegularPrice = (service: ServiceCatalogItemDto) =>
   localizedService.servicePrice(service.price, { from: props.priceFrom })
 const formatServiceDuration = (service: ServiceCatalogItemDto) =>
   localizedService.serviceDuration(service.duration_minutes)
+const servicesFirstVisitOffer = computed(() => firstVisitOffers(offers.value)
+  .find(offer => offer.applies_to_all_masters && baseServices.value
+    .some(service => offerAppliesToService(offer, serviceStableId(service)))) || null)
 const promotionLabel = (service: ServiceCatalogItemDto) =>
   service.active_promotion ? `-${service.active_promotion.discount_percent}%` : ''
+const isLegacyCodePromotion = (service: ServiceCatalogItemDto) => {
+  const promotion = service.active_promotion
+  if (!promotion) return false
+  const metadata = promotion as typeof promotion & {
+    application_mode?: string
+    eligibility_type?: string
+  }
+  return metadata.application_mode !== 'automatic' && metadata.eligibility_type !== 'first_visit'
+}
 
 const selectService = async (service: ServiceCatalogItemDto) => {
   trackEvent('service_cta_click', {
@@ -179,6 +190,14 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         </div>
       </div>
 
+      <BookingPromotionNotice
+        v-if="servicesFirstVisitOffer"
+        :offer="servicesFirstVisitOffer"
+        theme="light"
+        compact
+        class="mb-5 max-w-2xl md:mb-7"
+      />
+
       <div
         v-if="showServicesSkeleton"
         class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5"
@@ -216,7 +235,6 @@ const selectService = async (service: ServiceCatalogItemDto) => {
           v-for="(service, index) in baseServices"
           :key="service.catalog_id"
           class="service-card relative grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
-          :class="service.active_promotion ? 'service-card--promotion is-promoted-service' : ''"
           data-reveal="soft"
           :data-reveal-delay="Math.min(index, 5) * 70"
         >
@@ -229,10 +247,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
               <h3 class="min-w-0 text-xl font-semibold text-neutral-950">
                 {{ localizedService.serviceName(service) }}
               </h3>
-              <p class="flex shrink-0 flex-col items-end gap-0.5 text-sm font-semibold text-neutral-950">
-                <span v-if="service.active_promotion" class="text-xs font-medium text-neutral-500 line-through">{{ formatServiceRegularPrice(service) }}</span>
-                <span>{{ formatServicePrice(service) }}</span>
-              </p>
+              <p class="shrink-0 text-sm font-semibold text-neutral-950">{{ formatServicePrice(service) }}</p>
             </div>
             <p class="text-sm leading-6 text-neutral-600 md:leading-7">
               {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
@@ -254,7 +269,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             <span>{{ route.path === '/' ? terms.home.services.choose : bookingLabel }}</span>
           </button>
           <span
-            v-if="service.active_promotion"
+            v-if="isLegacyCodePromotion(service)"
             class="service-army-strip flex items-center justify-between gap-2 overflow-hidden px-3 py-2 text-neutral-950"
           >
             <span class="flex min-w-0 items-center gap-2">
@@ -264,7 +279,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
                 class="h-5 w-5 shrink-0 object-contain"
                 aria-hidden="true"
               >
-              <span class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.08em]">{{ service.active_promotion.name_uk }}</span>
+              <span class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.08em]">{{ service.active_promotion?.name_uk }}</span>
             </span>
             <span class="service-army-discount shrink-0 text-xs font-bold leading-none text-white">{{ promotionLabel(service) }}</span>
           </span>
@@ -305,15 +320,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
   text-decoration: none;
 }
 
-.service-card--promotion {
-  padding-bottom: 3.25rem;
-}
-
 .service-army-strip {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   background-image:
     linear-gradient(90deg, rgb(255 255 255 / 0.82), rgb(255 255 255 / 0.3)),
     url('~/assets/images/services/light-bg-army.webp');
@@ -351,4 +358,5 @@ const selectService = async (service: ServiceCatalogItemDto) => {
   border-radius: 9999px;
   background: rgb(0 0 0 / 0.08);
 }
+
 </style>

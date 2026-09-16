@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { MasterDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import type { PublicMasterDto } from '~/utils/seoRoutes'
 
-type LocalizedMasterDto = MasterDto & {
+type LocalizedMasterDto = PublicMasterDto & {
   title_uk?: string | null
   title_en?: string | null
   description_uk?: string | null

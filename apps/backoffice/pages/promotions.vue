@@ -60,6 +60,9 @@ const promotionName = (promotion: Promotion) =>
   promotion.name_uk || promotion.name_en || promotion.code
 
 const eligibilityLabel = (promotion: Promotion) => {
+  if (promotion.eligibility_type === 'first_visit') {
+    return 'Перший візит до барбершопу'
+  }
   if (promotion.eligibility_type === 'inactive_customers') {
     return `Неактивні ${promotion.inactive_days || 90}+ днів`
   }
@@ -68,6 +71,9 @@ const eligibilityLabel = (promotion: Promotion) => {
   }
   return 'Усі клієнти'
 }
+
+const applicationModeLabel = (promotion: Promotion) =>
+  promotion.application_mode === 'automatic' ? 'Автоматично' : 'За кодом'
 
 const promotionScopeLabel = (promotion: Promotion) => {
   const masters = promotion.applies_to_all_masters
@@ -256,6 +262,7 @@ const confirmDeletePromotion = async () => {
             <tr>
               <th>Акція</th>
               <th>Знижка</th>
+              <th>Застосування</th>
               <th>Аудиторія</th>
               <th>Область</th>
               <th>Період</th>
@@ -287,6 +294,11 @@ const confirmDeletePromotion = async () => {
                 </BaseBadge>
               </td>
               <td class="text-ui-secondary">
+                <BaseBadge :tone="promotion.application_mode === 'automatic' ? 'success' : 'neutral'">
+                  {{ applicationModeLabel(promotion) }}
+                </BaseBadge>
+              </td>
+              <td class="text-ui-secondary">
                 <span class="inline-flex items-center gap-1.5 text-sm">
                   <UserGroupIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />
                   {{ eligibilityLabel(promotion) }}
@@ -305,9 +317,14 @@ const confirmDeletePromotion = async () => {
                 </span>
               </td>
               <td>
-                <BaseBadge :tone="promotion.is_active ? 'success' : 'neutral'">
-                  {{ promotion.is_active ? 'активна' : 'неактивна' }}
-                </BaseBadge>
+                <div class="flex flex-wrap gap-1.5">
+                  <BaseBadge :tone="promotion.is_active ? 'success' : 'neutral'">
+                    {{ promotion.is_active ? 'активна' : 'неактивна' }}
+                  </BaseBadge>
+                  <BaseBadge :tone="promotion.is_public ? 'info' : 'neutral'">
+                    {{ promotion.is_public ? 'публічна' : 'приватна' }}
+                  </BaseBadge>
+                </div>
               </td>
               <td class="service-actions">
                 <div class="flex flex-wrap gap-1.5">

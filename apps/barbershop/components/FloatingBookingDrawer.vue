@@ -2,6 +2,7 @@
 import myAppointmentsCalendarImage from '~/assets/images/customer-activity/my-appointments-calendar.webp'
 import bookEngImage from '~/assets/images/booking/booking-en.webp'
 import bookUaImage from '~/assets/images/booking/booking-ua.webp'
+import { acquireBodyScrollLock, releaseBodyScrollLock } from '~/utils/bodyScrollLock'
 
 const { locale, terms } = useTerms()
 const { trackEvent } = useAnalytics()
@@ -14,7 +15,7 @@ const {
 const isCustomerActivityOpen = ref(false)
 const isTriggerOverBooking = ref(false)
 const triggerButton = ref<HTMLButtonElement | null>(null)
-let previousBodyOverflow = ''
+let bodyScrollLock: symbol | null = null
 let triggerPositionFrame = 0
 
 const closeLabel = computed(() => locale.value === 'en' ? 'Close booking' : 'Закрити запис')
@@ -93,13 +94,13 @@ watch(isOpen, (open) => {
   if (!import.meta.client) return
 
   if (open) {
-    previousBodyOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    bodyScrollLock ??= acquireBodyScrollLock()
     isTriggerOverBooking.value = false
     return
   }
 
-  document.body.style.overflow = previousBodyOverflow
+  releaseBodyScrollLock(bodyScrollLock)
+  bodyScrollLock = null
   nextTick(scheduleTriggerPositionUpdate)
 })
 
@@ -120,7 +121,8 @@ onBeforeUnmount(() => {
   }
 
   if (import.meta.client) {
-    document.body.style.overflow = previousBodyOverflow
+    releaseBodyScrollLock(bodyScrollLock)
+    bodyScrollLock = null
   }
 })
 </script>

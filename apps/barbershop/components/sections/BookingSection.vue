@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import type { BookingAlternativeSlotDto, RepeatBookingContextDto } from '~/domain/barbershop'
+import { createBookingQuoteReview, isPromotionConflict, type BookingQuote, type BookingQuoteRequest, type QuoteReviewState } from '~/utils/bookingQuote'
+import type { PublicServicePromotionDto } from '~/utils/seoRoutes'
+import { firstVisitOffers, offerAppliesToMaster, offerAppliesToService } from '~/utils/bookingPromotions'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 import { includesBookingStart, sameBookingInstant } from '~/utils/bookingSlots'
 import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
 import { buildGoogleCalendarUrl } from '~/utils/googleCalendar'
+import {
+  BOOKING_CUSTOMER_STORAGE_KEY,
+  BOOKING_CUSTOMER_UPDATED_EVENT,
+  readSavedBookingCustomer,
+  saveBookingCustomer,
+  type SavedBookingCustomer,
+} from '~/utils/bookingCustomer'
 import {
   addRecoveryCalendarDays,
   addRecoveryCalendarMonths,
@@ -34,6 +44,8 @@ const props = withDefaults(defineProps<{
 
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
+const quoteApi = useApi()
+const { offers: bookingOffers } = useBookingPromotions()
 const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
@@ -95,6 +107,45 @@ const form = reactive({
   promotion_code: '',
 })
 
+const applySavedBookingCustomer = (
+  customer: SavedBookingCustomer | null,
+  options: { onlyEmpty?: boolean } = {},
+) => {
+  if (!customer) return
+  if (options.onlyEmpty && (form.customer_name.trim() || form.customer_phone.trim())) return
+
+  form.customer_name = customer.name
+  form.customer_phone = formatPhoneInput(customer.phone)
+}
+
+const restoreSavedBookingCustomer = (options: { onlyEmpty?: boolean } = {}) => {
+  try {
+    applySavedBookingCustomer(readSavedBookingCustomer(window.localStorage), options)
+  }
+  catch {
+    // Accessing localStorage itself may be blocked by the browser.
+  }
+}
+
+const syncSavedBookingCustomer = () => {
+  restoreSavedBookingCustomer({ onlyEmpty: true })
+}
+
+const persistBookingCustomer = (customer: SavedBookingCustomer) => {
+  try {
+    if (saveBookingCustomer(window.localStorage, customer)) {
+      window.dispatchEvent(new Event(BOOKING_CUSTOMER_UPDATED_EVENT))
+    }
+  }
+  catch {
+    // Local persistence must never turn a confirmed booking into an error.
+  }
+}
+
+const handleBookingCustomerStorage = (event: StorageEvent) => {
+  if (event.key === BOOKING_CUSTOMER_STORAGE_KEY) syncSavedBookingCustomer()
+}
+
 const recovery = reactive({
   loading: false,
   error: '',
@@ -126,6 +177,7 @@ const state = reactive({
   successServiceNames: [] as string[],
   successDurationMinutes: 0,
   browserSessionCreated: false,
+  successTotal: null as number | string | null,
 })
 const bookingSectionPhotos = ref('')
 const bookingSectionRoot = ref<HTMLElement | null>(null)
@@ -193,17 +245,15 @@ const serviceDescription = (service?: SelectableService | null) => localizedServ
 const serviceHasMultiplePrices = (service?: SelectableService | null) =>
   isCatalogService(service)
   && new Set(service.barber_services.map(item => String(item.price))).size > 1
-const servicePromotion = (service?: SelectableService | null) => service?.active_promotion || null
-const servicePromotionApplied = (service?: SelectableService | null) =>
-  Boolean(servicePromotion(service) && promotionConfirmed.value)
+const servicePromotion = (service?: SelectableService | null): PublicServicePromotionDto | null => service?.active_promotion || null
+const serviceHasMilitaryPromotion = (service: SelectableService) => {
+  const promotion = servicePromotion(service)
+  return Boolean(promotion?.code && promotion.application_mode !== 'automatic'
+    && (!promotion.eligibility_type || promotion.eligibility_type === 'military_customers'))
+}
 const serviceRegularPrice = (service?: SelectableService | null) =>
   localizedService.servicePrice(service?.price, { from: serviceHasMultiplePrices(service) })
-const servicePrice = (service?: SelectableService | null) => {
-  const promotion = servicePromotion(service)
-  if (!servicePromotionApplied(service) || !promotion) return serviceRegularPrice(service)
-
-  return localizedService.servicePrice(promotion.promotional_price, { from: serviceHasMultiplePrices(service) })
-}
+const servicePrice = serviceRegularPrice
 const serviceDuration = (service?: SelectableService | null) =>
   localizedService.serviceDuration(service?.duration_minutes)
 
@@ -323,7 +373,9 @@ const browserSessionHint = 'Ми зберегли ваш запис на цьо�
 const selectedPromotionCodes = computed(() =>
   Array.from(new Set(selectedServices.value.flatMap((service) => {
     const promotion = servicePromotion(service)
-    return promotion?.code ? [promotion.code] : []
+    return promotion?.code && promotion.application_mode !== 'automatic'
+      && (!promotion.eligibility_type || promotion.eligibility_type === 'military_customers')
+      ? [promotion.code] : []
   }))),
 )
 const selectedPromotionCode = computed(() => selectedPromotionCodes.value[0] || '')
@@ -656,6 +708,9 @@ const handleExternalServiceSelect = (event: Event) => {
 
 onMounted(() => {
   startServiceSearchPlaceholderAnimation()
+  restoreSavedBookingCustomer()
+  window.addEventListener(BOOKING_CUSTOMER_UPDATED_EVENT, syncSavedBookingCustomer)
+  window.addEventListener('storage', handleBookingCustomerStorage)
 
   if (!props.listenForExternalSelect) return
 
@@ -664,6 +719,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopServiceSearchPlaceholderAnimation()
+  window.removeEventListener(BOOKING_CUSTOMER_UPDATED_EVENT, syncSavedBookingCustomer)
+  window.removeEventListener('storage', handleBookingCustomerStorage)
 
   if (serviceSearchDebounceTimer) {
     clearTimeout(serviceSearchDebounceTimer)
@@ -1108,6 +1165,92 @@ const isTimeComplete = computed(() => Boolean(selectedDate.value && !isSelectedD
 const isContactComplete = computed(() =>
   Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
 )
+const firstVisitBookingOffer = computed(() => firstVisitOffers(bookingOffers.value).find(offer =>
+  (!selectedMasterId.value ? offer.applies_to_all_masters : offerAppliesToMaster(offer, selectedMasterId.value))
+  && (selectedServices.value.length
+    ? selectedServices.value.some(service => offerAppliesToService(offer, 'base_service_id' in service && typeof service.base_service_id === 'number' ? service.base_service_id : null))
+    : offer.applies_to_all_services),
+) || null)
+const quoteCopy = computed(() => locale.value === 'en' ? {
+  checking: 'Checking eligibility and price…',
+  failed: 'We could not verify the price. Check any promo code you entered and try again before booking.',
+  subtotal: 'Regular subtotal',
+  discount: 'Discount',
+  firstVisit: 'First-visit discount',
+  total: 'Total',
+  customerRequired: 'Enter your contact details to check eligibility.',
+  provisional: 'Eligibility is checked across all masters and again when booking. This quote does not reserve the offer.',
+  changed: 'The price has changed. Review the updated total before booking.',
+  review: 'Review the total below before booking.',
+  approve: 'I approve the displayed total.',
+  showDetails: 'Discount details',
+  hideDetails: 'Hide details',
+} : {
+  checking: 'Перевіряємо доступність знижки та ціну…',
+  failed: 'Не вдалося перевірити ціну. Перевірте введений промокод, якщо він є, та спробуйте ще раз перед записом.',
+  subtotal: 'Вартість без знижки',
+  discount: 'Знижка',
+  firstVisit: 'Знижка на перший візит',
+  total: 'До сплати',
+  customerRequired: 'Вкажіть контактні дані для перевірки доступності знижки.',
+  provisional: 'Право на знижку перевіряється серед усіх майстрів і повторно під час запису. Розрахунок не резервує пропозицію.',
+  changed: 'Ціна змінилася. Перегляньте оновлену суму перед записом.',
+  review: 'Перегляньте підсумкову вартість нижче перед записом.',
+  approve: 'Я погоджуюся з показаною підсумковою вартістю.',
+  showDetails: 'Деталі знижки',
+  hideDetails: 'Сховати деталі',
+})
+const quoteReview = shallowRef<QuoteReviewState>({
+  quote: null, pending: false, failed: false, accepted: false, changed: false,
+})
+const quoteController = createBookingQuoteReview(
+  payload => quoteApi<BookingQuote>('/public/bookings/quote', { method: 'POST', body: payload }),
+  next => { quoteReview.value = next },
+)
+const priceApproved = computed({
+  get: () => quoteReview.value.accepted,
+  set: (accepted: boolean) => quoteController.accept(accepted),
+})
+const quotePayload = computed<BookingQuoteRequest | null>(() =>
+  selectedMasterId.value && selectedServiceIds.value.length && selectedSlotStart.value && isContactComplete.value
+    ? { master_id: selectedMasterId.value, service_ids: [...selectedServiceIds.value],
+        start_at: selectedSlotStart.value, customer_phone: formatPhoneForSubmit(form.customer_phone),
+        promotion_code: effectivePromotionCode.value || null }
+    : null,
+)
+const quoteInputKey = computed(() => JSON.stringify(quotePayload.value))
+let quoteTimer: ReturnType<typeof setTimeout> | null = null
+const verifyPrice = async () => {
+  if (quoteTimer) clearTimeout(quoteTimer)
+  const payload = quotePayload.value
+  if (!payload) return false
+  return quoteController.verify(payload)
+}
+watch([quoteInputKey, () => JSON.stringify(bookingOffers.value)], () => {
+  if (quoteTimer) clearTimeout(quoteTimer)
+  quoteController.invalidate()
+  if (quotePayload.value) quoteTimer = setTimeout(() => { void verifyPrice() }, 400)
+}, { flush: 'sync', immediate: true })
+onBeforeUnmount(() => {
+  if (quoteTimer) clearTimeout(quoteTimer)
+  quoteController.invalidate()
+})
+const quoteDetailsOpen = ref(false)
+watch(
+  () => [quoteReview.value.quote, quoteReview.value.changed] as const,
+  ([quote, changed], [previousQuote]) => {
+    if (changed) quoteDetailsOpen.value = true
+    else if (quote !== previousQuote) quoteDetailsOpen.value = false
+  },
+)
+const quoteDiscountLabel = computed(() => {
+  const promotion = quoteReview.value.quote?.applied_promotion
+  if (!promotion) return quoteCopy.value.discount
+  const label = promotion.eligibility_type === 'first_visit'
+    ? quoteCopy.value.firstVisit
+    : (locale.value === 'en' ? promotion.name_en : promotion.name_uk)
+  return `${label} −${promotion.discount_percent}%`
+})
 const stepCompletion = computed(() => [
   isServiceComplete.value,
   isMasterComplete.value,
@@ -1213,7 +1356,7 @@ const handleTextInput = (
   form[field] = field === 'promotion_code' ? value.toUpperCase().replace(/\s+/g, '') : value
 }
 
-const resetBookingFlow = async () => {
+const resetBookingFlow = async (customer: SavedBookingCustomer | null = null) => {
   isResettingAfterSubmit.value = true
   selectedCatalogIds.value = []
   selectedServiceIds.value = []
@@ -1224,6 +1367,7 @@ const resetBookingFlow = async () => {
   form.customer_phone = ''
   form.customer_comment = ''
   form.promotion_code = ''
+  applySavedBookingCustomer(customer)
   promotionConfirmed.value = false
   activeStepIndex.value = 0
   submitAttempted.value = false
@@ -1237,6 +1381,7 @@ const errorMessage = (error: unknown) => {
   const status = (error as { response?: { status?: number }, status?: number })?.response?.status
     || (error as { status?: number })?.status
 
+  if (status === 409 && isPromotionConflict(error)) return quoteCopy.value.changed
   if (status === 409) {
     return locale.value === 'en'
       ? 'That time has just been taken. We refreshed the available times so you can choose another one.'
@@ -1251,12 +1396,21 @@ const errorMessage = (error: unknown) => {
 }
 
 const submit = async () => {
+  if (state.loading || quoteReview.value.pending) return
   submitAttempted.value = true
 
   if (!canSubmit.value || !selectedMasterId.value || !selectedServiceIds.value.length || !selectedSlotStart.value) {
     goToStep(firstIncompleteStepIndex.value)
     return
   }
+
+  const reviewedInput = quoteInputKey.value
+  if (!await verifyPrice() || reviewedInput !== quoteInputKey.value) {
+    goToStep(lastStepIndex.value)
+    return
+  }
+  const expectedTotalAmount = quoteController.approvedTotal()
+  if (expectedTotalAmount === null) return
 
   state.loading = true
   state.success = ''
@@ -1288,6 +1442,10 @@ const submit = async () => {
     const bookedStartAt = selectedSlotStart.value
     const bookedServiceNames = selectedServices.value.map(serviceName)
     const bookedDurationMinutes = selectedDurationMinutes.value
+    const bookedCustomer = {
+      name: constrainFormInput(form.customer_name, FORM_FIELD_LIMITS.fullName).trim(),
+      phone: formatPhoneForSubmit(form.customer_phone),
+    }
     const customerComment = sanitizeFormText(form.customer_comment, FORM_FIELD_LIMITS.comment)
     const bookingComment = [
       customerComment,
@@ -1302,12 +1460,13 @@ const submit = async () => {
       duration_minutes: selectedDurationMinutes.value,
     }
     const bookingResult = await domain.createBooking({
+      expected_total_amount: expectedTotalAmount,
       master_id: selectedMasterId.value,
       service_id: selectedServiceIds.value[0],
       service_ids: selectedServiceIds.value,
       duration_minutes: selectedDurationMinutes.value,
-      customer_name: sanitizeFormText(form.customer_name, FORM_FIELD_LIMITS.fullName),
-      customer_phone: formatPhoneForSubmit(form.customer_phone),
+      customer_name: sanitizeFormText(bookedCustomer.name, FORM_FIELD_LIMITS.fullName),
+      customer_phone: bookedCustomer.phone,
       customer_comment: bookingComment,
       promotion_code: effectivePromotionCode.value || null,
       start_at: selectedSlotStart.value,
@@ -1315,8 +1474,10 @@ const submit = async () => {
       ...(selectedFromAlternative ? { recovery_source: 'alternative' as const } : {}),
     }, props.repeatBookingToken || undefined)
 
-    await resetBookingFlow()
+    persistBookingCustomer(bookedCustomer)
+    await resetBookingFlow(bookedCustomer)
     await refreshSlots()
+    state.successTotal = bookingResult.booking.total_amount ?? null
     state.successMasterName = bookedMasterName
     state.successStartAt = bookedStartAt
     state.successServiceNames = bookedServiceNames
@@ -1336,7 +1497,12 @@ const submit = async () => {
         serviceId: selectedServiceIds.value[0],
       })
     }
-    if (status === 409) {
+    if (status === 409 && isPromotionConflict(error)) {
+      quoteController.invalidate()
+      await verifyPrice()
+      goToStep(lastStepIndex.value)
+    }
+    else if (status === 409) {
       await refreshSlots()
       goToStep(2)
       if (selectedFromAlternative) recovery.stale = recoveryCopy.value.stale
@@ -1379,6 +1545,7 @@ const handleBookingAction = async () => {
 
 const closeSuccess = () => {
   state.success = ''
+  state.successTotal = null
   state.successMasterName = ''
   state.successStartAt = ''
   state.successServiceNames = []
@@ -1475,6 +1642,7 @@ onBeforeUnmount(() => {
           :data-reveal-delay="isDrawerMode ? undefined : '140'"
           @submit.prevent="submit"
         >
+          <BookingPromotionNotice v-if="firstVisitBookingOffer && activeStepIndex !== lastStepIndex" :offer="firstVisitBookingOffer" compact class="m-3 text-white" />
           <div class="booking-stepper flex gap-1.5 p-2 sm:grid sm:grid-cols-4 sm:gap-2 sm:p-3">
             <button
               v-for="(step, index) in bookingStepState"
@@ -1569,7 +1737,7 @@ onBeforeUnmount(() => {
                             type="button"
                             class="booking-service__item relative isolate flex min-h-24 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-2 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-32 sm:p-2.5"
                             :class="[
-                              servicePromotion(service) ? 'is-army-service' : '',
+                              serviceHasMilitaryPromotion(service) ? 'is-army-service' : '',
                               serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
                               serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
                             ]"
@@ -1633,7 +1801,6 @@ onBeforeUnmount(() => {
                               </span>
                               <span v-else aria-hidden="true" />
                               <span class="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold text-white">
-                                <span v-if="servicePromotionApplied(service)" class="text-white/45 line-through">{{ serviceRegularPrice(service) }}</span>
                                 <span>{{ servicePrice(service) }}</span>
                                 <span class="text-white/45">/</span>
                                 <span class="inline-flex items-center gap-1 text-white/75">
@@ -1646,7 +1813,7 @@ onBeforeUnmount(() => {
                               </span>
                             </span>
                             <span
-                              v-if="servicePromotion(service)"
+                              v-if="serviceHasMilitaryPromotion(service)"
                               class="booking-service-army-strip z-10 flex items-center justify-between gap-2 overflow-hidden px-2 py-1.5 text-white"
                             >
                               <span class="flex min-w-0 items-center gap-1.5">
@@ -1929,6 +2096,59 @@ onBeforeUnmount(() => {
                 </AppTransition>
               </div>
 
+              <AppTransition mode="default">
+              <section
+                v-if="activeStepIndex === lastStepIndex && isContactComplete"
+                class="booking-price-review mt-3 p-3 text-sm text-white sm:mt-4 sm:p-4"
+                :class="quoteReview.quote?.applied_promotion ? 'booking-price-review--promotion' : ''"
+                aria-live="polite"
+                aria-atomic="true"
+                :aria-busy="quoteReview.pending"
+              >
+                <BookingPromotionNotice v-if="firstVisitBookingOffer && !quoteReview.quote" :offer="firstVisitBookingOffer" compact class="mb-3" />
+                <p v-if="quoteReview.pending" role="status">{{ quoteCopy.checking }}</p>
+                <p v-else-if="quoteReview.failed" role="alert" class="text-rose-200">{{ quoteCopy.failed }}</p>
+                <template v-else-if="quoteReview.quote">
+                  <p v-if="quoteReview.changed" class="mb-3 font-semibold text-amber-200">{{ quoteCopy.changed }}</p>
+                  <p v-if="quoteReview.quote.eligibility.status === 'customer_required'" class="mb-3">{{ quoteCopy.customerRequired }}</p>
+                  <Transition name="booking-accordion-appear" appear>
+                    <BaseAccordion
+                      v-if="quoteReview.quote.applied_promotion"
+                      v-model="quoteDetailsOpen"
+                      summary-class="w-full items-center gap-3 py-1 text-left focus-visible:ring-2 focus-visible:ring-white/70"
+                      content-class="mt-3 bg-black/10 p-3 sm:mt-4 sm:p-4"
+                    >
+                    <template #summary="{ open }">
+                      <span class="flex items-center justify-between gap-3">
+                        <span>
+                          <span class="block text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/55">{{ open ? quoteCopy.hideDetails : quoteCopy.showDetails }}</span>
+                          <span class="mt-0.5 block text-base font-semibold sm:text-lg">{{ quoteCopy.total }}</span>
+                        </span>
+                        <strong class="shrink-0 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
+                      </span>
+                    </template>
+                    <dl class="space-y-2 text-[0.82rem] sm:text-sm">
+                      <div class="flex justify-between gap-4"><dt>{{ quoteCopy.subtotal }}</dt><dd class="shrink-0">{{ localizedService.servicePrice(quoteReview.quote.subtotal_amount) }}</dd></div>
+                      <div v-if="quoteReview.quote.applied_promotion" class="flex justify-between gap-4"><dt>{{ quoteDiscountLabel }}</dt><dd class="shrink-0">−{{ localizedService.servicePrice(quoteReview.quote.discount_amount) }}</dd></div>
+                    </dl>
+                    <p v-if="quoteReview.quote.applied_promotion" class="mt-3 text-[0.7rem] leading-4 text-white/70 sm:text-xs sm:leading-5">{{ quoteCopy.provisional }}</p>
+                    </BaseAccordion>
+                  </Transition>
+                  <div v-if="!quoteReview.quote.applied_promotion" class="flex flex-col gap-3 py-1">
+                    <div class="flex items-center justify-between gap-4">
+                      <span class="text-base font-semibold sm:text-lg">{{ quoteCopy.total }}</span>
+                      <strong class="shrink-0 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
+                    </div>
+                  </div>
+                  <label v-if="quoteReview.quote.eligibility.status !== 'customer_required'" class="mt-4 flex cursor-pointer items-start gap-3 text-sm">
+                    <input v-model="priceApproved" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400">
+                    <span>{{ quoteCopy.approve }}</span>
+                  </label>
+                </template>
+                <p v-else>{{ isContactComplete ? quoteCopy.review : quoteCopy.customerRequired }}</p>
+              </section>
+              </AppTransition>
+
               <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-[10px] leading-5 text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
                 <NuxtLink class="transition hover:text-white" to="/terms">
@@ -1953,7 +2173,7 @@ onBeforeUnmount(() => {
 
                 <BaseButton
                   type="button"
-                  :disabled="state.loading || (activeStepIndex === lastStepIndex && !canSubmit)"
+                  :disabled="state.loading || quoteReview.pending || (activeStepIndex === lastStepIndex && !canSubmit)"
                   variant="light"
                   size="sm"
                   class="h-11 flex-[1.35] sm:h-12 sm:flex-none"
@@ -2014,6 +2234,7 @@ onBeforeUnmount(() => {
                 </p>
               </div>
             </div>
+            <p v-if="state.successTotal !== null" class="mt-4 text-lg font-semibold text-white" role="status">{{ quoteCopy.total }}: {{ localizedService.servicePrice(state.successTotal) }}</p>
             <p v-if="state.browserSessionCreated" class="mt-3 text-sm leading-5 text-white/76 sm:mt-4 sm:leading-6">
               {{ browserSessionHint }}
             </p>
@@ -2515,6 +2736,66 @@ onBeforeUnmount(() => {
 .booking-guided-action {
   border: 1px solid rgb(115 115 115 / 0.7);
   animation: booking-guided-border 2.1s ease-in-out infinite;
+}
+
+.booking-price-review {
+  background: rgb(255 255 255 / 0.055);
+}
+
+.booking-accordion-appear-enter-active,
+.booking-accordion-appear-leave-active {
+  max-height: 40rem;
+  overflow: hidden;
+  transition:
+    opacity 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    transform 420ms cubic-bezier(0.3, 1, 0.3, 1),
+    max-height 420ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.booking-accordion-appear-leave-active {
+  pointer-events: none;
+}
+
+.booking-accordion-appear-enter-from,
+.booking-accordion-appear-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(0.65rem);
+}
+
+.booking-price-review--promotion {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(110 231 183 / 0.12), transparent 45%),
+    linear-gradient(
+      120deg,
+      rgb(255 255 255 / 0.055),
+      rgb(30 74 63 / 0.3),
+      rgb(70 37 77 / 0.24),
+      rgb(87 35 42 / 0.22),
+      rgb(255 255 255 / 0.055)
+    );
+  background-size: 220% 220%, 320% 320%;
+  animation: booking-price-background 14s ease-in-out infinite;
+}
+
+@keyframes booking-price-background {
+  0%,
+  100% {
+    background-position: 100% 0%, 0% 50%;
+  }
+
+  50% {
+    background-position: 72% 24%, 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-accordion-appear-enter-active,
+  .booking-accordion-appear-leave-active,
+  .booking-price-review--promotion {
+    animation: none;
+    transition: none;
+  }
 }
 
 :deep(.booking-recovery-action) {

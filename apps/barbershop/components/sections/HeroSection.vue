@@ -4,9 +4,18 @@ import heroImageOneMobile from '~/assets/images/hero/2020-12-05-mobile.jpg'
 
 type AssetModule = { default: string }
 
-const { terms } = useTerms()
+const { locale, terms } = useTerms()
 const { trackContactClick, trackEvent } = useAnalytics()
 const { open: openBookingDrawer } = useFloatingBookingDrawer()
+const { offers } = useBookingPromotions()
+const firstVisitOffer = computed(() => firstVisitOffers(offers.value)
+  .at(0) || null)
+const firstVisitBadge = computed(() => {
+  if (!firstVisitOffer.value) return ''
+  return locale.value === 'en'
+    ? `−${firstVisitOffer.value.discount_percent}% on your first visit`
+    : `−${firstVisitOffer.value.discount_percent}% на перший візит`
+})
 
 const handleBookingClick = () => {
   openBookingDrawer()
@@ -273,10 +282,20 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="max-w-3xl flex w-full flex-col gap-3 sm:flex-row">
-        <BaseButton variant="light" effect="waves" block @click="handleBookingClick">{{ terms.home.hero.primaryCta }}</BaseButton>
-        <BaseButton to="#services" variant="dark" block @click="trackEvent('view_services', { source: 'hero_cta' })">
-          {{ terms.home.hero.secondaryCta }}
-        </BaseButton>
+        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span
+            v-if="firstVisitBadge"
+            class="hero-offer-badge self-center px-2.5 py-1 text-[0.68rem] font-bold uppercase leading-none tracking-[0.06em] text-white sm:self-start"
+          >
+            {{ firstVisitBadge }}
+          </span>
+          <BaseButton variant="light" effect="waves" block @click="handleBookingClick">{{ terms.home.hero.primaryCta }}</BaseButton>
+        </div>
+        <div class="flex min-w-0 flex-1 flex-col justify-end">
+          <BaseButton to="#services" variant="dark" block @click="trackEvent('view_services', { source: 'hero_cta' })">
+            {{ terms.home.hero.secondaryCta }}
+          </BaseButton>
+        </div>
       </div>
 
       <div class="mt-5 flex flex-col items-center gap-1 text-white/65" aria-hidden="true">
@@ -286,3 +305,10 @@ onBeforeUnmount(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.hero-offer-badge {
+  background: linear-gradient(110deg, rgb(153 27 27), rgb(239 68 68), rgb(185 28 28));
+  box-shadow: 0 5px 16px rgb(69 10 10 / 0.25);
+}
+</style>

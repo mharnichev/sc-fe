@@ -43,6 +43,7 @@ const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
 const { locale } = useTerms()
 const { masterFullName } = useMasterDisplay()
+const { offers } = useBookingPromotions()
 
 const requestedSlug = Array.isArray(route.params.slug)
   ? route.params.slug[0]
@@ -123,6 +124,12 @@ const { data: trust } = await useAsyncData<BarberTrust>(
 
 const fullName = computed(() => masterFullName(master))
 const photoUrl = assetUrl(master.photo_url || master.avatar_url || '')
+const firstVisitOffer = computed(() => firstVisitOffers(offers.value)
+  .find(offer => offerAppliesToMasterServices(
+    offer,
+    master.id,
+    (master.services || []).map(service => service.base_service_id),
+  )) || null)
 
 const role = computed(() => {
   if (locale.value === 'en') {
@@ -185,7 +192,7 @@ const services = computed<BarberService[]>(() => {
       id: service.id,
       name,
       path: catalogService ? serviceSeoPath(catalogService) : undefined,
-      price: service.active_promotion?.promotional_price ?? service.price,
+      price: service.price,
       durationMinutes: service.duration_minutes,
     }]
   })
@@ -541,6 +548,7 @@ useBarberStructuredData(() => ({
               <p v-if="profileDescription" class="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">
                 {{ profileDescription }}
               </p>
+              <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-xl" />
             </div>
 
             <div v-if="rating" class="flex flex-wrap items-center gap-2 text-sm">

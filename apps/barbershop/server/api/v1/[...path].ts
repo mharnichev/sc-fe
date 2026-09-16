@@ -81,6 +81,10 @@ export default defineEventHandler(async (event) => {
   if (responseContentType) setHeader(event, 'content-type', responseContentType)
   if (cacheControl) setHeader(event, 'cache-control', cacheControl)
   if (etag) setHeader(event, 'etag', etag)
+  if (apiPath === 'public/bookings/quote') {
+    setHeader(event, 'cache-control', 'no-store, private')
+    setHeader(event, 'pragma', 'no-cache')
+  }
   for (const setCookie of setCookieHeaders) {
     appendResponseHeader(event, 'set-cookie', setCookie)
   }

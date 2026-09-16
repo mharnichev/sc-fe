@@ -11,7 +11,7 @@ import {
   TicketIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
-import type { BaseService, Master, Promotion, PromotionEligibilityType, PromotionPayload } from '~/composables/useBackofficeApi'
+import type { BaseService, Master, Promotion, PromotionApplicationMode, PromotionEligibilityType, PromotionPayload } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
   modelValue: boolean
@@ -27,9 +27,10 @@ const api = useBackofficeApi()
 const toast = useBaseToastNotification()
 const { apiErrorMessage, normalizeItems } = useBookingFormatting()
 
-type PromotionForm = Omit<PromotionPayload, 'starts_at' | 'ends_at'> & {
+type PromotionForm = Omit<PromotionPayload, 'starts_at' | 'ends_at' | 'discount_percent'> & {
   starts_at: string
   ends_at: string
+  discount_percent: number | null
 }
 
 const form = reactive<PromotionForm>({
@@ -39,7 +40,8 @@ const form = reactive<PromotionForm>({
   description_uk: null,
   description_en: null,
   discount_type: 'percent',
-  discount_percent: 15,
+  discount_percent: null,
+  application_mode: 'code',
   eligibility_type: 'all_customers',
   inactive_days: null,
   starts_at: '',
@@ -49,6 +51,7 @@ const form = reactive<PromotionForm>({
   applies_to_all_services: true,
   base_service_ids: [],
   is_active: true,
+  is_public: true,
 })
 const formError = ref('')
 const saving = ref(false)
@@ -57,11 +60,16 @@ const masterOptions = ref<Master[]>([])
 const baseServiceOptions = ref<BaseService[]>([])
 
 const editing = computed(() => props.promotion || null)
-const eligibilityOptions: { value: PromotionEligibilityType, label: string }[] = [
+const applicationModeOptions: { value: PromotionApplicationMode, label: string }[] = [
+  { value: 'code', label: 'За кодом' },
+  { value: 'automatic', label: 'Автоматично' },
+]
+const eligibilityOptions = computed<{ value: PromotionEligibilityType, label: string }[]>(() => [
   { value: 'all_customers', label: 'Усі клієнти' },
   { value: 'inactive_customers', label: 'Неактивні клієнти' },
-  { value: 'military_customers', label: 'Військові клієнти' },
-]
+  { value: 'first_visit', label: 'Перший візит до барбершопу' },
+  ...(form.application_mode === 'code' ? [{ value: 'military_customers' as const, label: 'Військові клієнти' }] : []),
+])
 
 const normalizeNumberIds = (values?: Array<number | string> | null) =>
   Array.from(new Set((values || []).map(value => Number(value)).filter(Number.isFinite)))
@@ -115,7 +123,8 @@ const fillForm = (promotion?: Promotion | null) => {
   form.description_uk = promotion?.description_uk || null
   form.description_en = promotion?.description_en || null
   form.discount_type = promotion?.discount_type || 'percent'
-  form.discount_percent = promotion?.discount_percent || 15
+  form.discount_percent = promotion?.discount_percent ?? null
+  form.application_mode = promotion?.application_mode || 'code'
   form.eligibility_type = promotion?.eligibility_type || 'all_customers'
   form.inactive_days = promotion?.inactive_days ?? (form.eligibility_type === 'inactive_customers' ? 90 : null)
   form.starts_at = toDateTimeLocal(promotion?.starts_at)
@@ -125,6 +134,7 @@ const fillForm = (promotion?: Promotion | null) => {
   form.applies_to_all_services = promotion?.applies_to_all_services ?? true
   form.base_service_ids = normalizeNumberIds(promotion?.base_service_ids)
   form.is_active = promotion?.is_active ?? true
+  form.is_public = promotion?.is_public ?? true
   formError.value = ''
 }
 
@@ -138,7 +148,10 @@ const validate = () => {
   if (!/^[A-Z0-9_-]+$/.test(code)) return 'Код може містити лише A-Z, 0-9, "_" і "-".'
   if (!form.name_uk.trim()) return 'Назва українською обов’язкова.'
   if (!form.name_en.trim()) return 'Назва англійською обов’язкова.'
-  if (!form.discount_percent || form.discount_percent < 1 || form.discount_percent > 100) return 'Знижка має бути від 1 до 100%.'
+  if (typeof form.discount_percent !== 'number' || !Number.isInteger(form.discount_percent) || form.discount_percent < 1 || form.discount_percent > 100) return 'Знижка має бути цілим числом від 1 до 100%.'
+  if (form.application_mode === 'automatic' && form.eligibility_type === 'military_customers') {
+    return 'Автоматична акція не може бути доступною лише для військових клієнтів.'
+  }
   if (form.eligibility_type === 'inactive_customers' && (!form.inactive_days || form.inactive_days < 1)) {
     return 'Для неактивних клієнтів вкажіть кількість днів без візиту.'
   }
@@ -158,6 +171,7 @@ const promotionPayload = (): PromotionPayload => ({
   description_en: form.description_en?.trim() || null,
   discount_type: 'percent',
   discount_percent: Number(form.discount_percent),
+  application_mode: form.application_mode,
   eligibility_type: form.eligibility_type,
   inactive_days: form.eligibility_type === 'inactive_customers' ? Number(form.inactive_days || 90) : null,
   starts_at: toIsoOrNull(form.starts_at),
@@ -167,6 +181,7 @@ const promotionPayload = (): PromotionPayload => ({
   applies_to_all_services: form.applies_to_all_services,
   base_service_ids: form.applies_to_all_services ? [] : normalizeNumberIds(form.base_service_ids),
   is_active: form.is_active,
+  is_public: form.is_public,
 })
 
 const submit = async () => {
@@ -206,6 +221,15 @@ watch(
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => form.application_mode,
+  value => {
+    if (value === 'automatic' && form.eligibility_type === 'military_customers') {
+      form.eligibility_type = 'all_customers'
+    }
+  },
 )
 
 watch(
@@ -253,12 +277,13 @@ watch(
           <label class="space-y-2 text-sm text-slate-700">
             <span class="inline-flex items-center gap-2 font-medium">
               <TicketIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
-              Код
+              {{ form.application_mode === 'automatic' ? 'Внутрішній ідентифікатор' : 'Код' }}
             </span>
             <span class="relative block">
               <TicketIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
               <BaseInput v-model="form.code" required placeholder="COMEBACK15" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4 uppercase" />
             </span>
+            <span v-if="form.application_mode === 'automatic'" class="block text-xs leading-5 text-slate-500">Обов’язковий внутрішній ідентифікатор. Клієнту не потрібно вводити код.</span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="inline-flex items-center gap-2 font-medium">
@@ -305,7 +330,14 @@ watch(
           </label>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="inline-flex items-center gap-2 font-medium">
+              <TicketIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              Спосіб застосування
+            </span>
+            <BaseSelect v-model="form.application_mode" :options="applicationModeOptions" aria-label="Спосіб застосування акції" menu-class="z-[260]" />
+          </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="inline-flex items-center gap-2 font-medium">
               <ReceiptPercentIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -313,7 +345,7 @@ watch(
             </span>
             <span class="relative block">
               <ReceiptPercentIcon class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-current opacity-55" aria-hidden="true" />
-              <BaseInput v-model.number="form.discount_percent" required type="number" min="1" max="100" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
+              <BaseInput v-model.number="form.discount_percent" required type="number" min="1" max="100" step="1" class="w-full rounded-2xl border border-slate-300 py-3 pl-11 pr-4" />
             </span>
           </label>
           <label class="space-y-2 text-sm text-slate-700">
@@ -335,6 +367,13 @@ watch(
               :disabled="form.eligibility_type !== 'inactive_customers'"
               class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
+        </div>
+
+        <div class="space-y-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm leading-6 text-slate-700">
+          <p v-if="form.eligibility_type === 'first_visit'">
+            Право на перший візит перевіряється в усьому барбершопі серед усіх майстрів. Вибір іншого майстра не поновлює знижку. Обмеження майстрів і послуг визначають, де діє акція, а не історію клієнта.
+          </p>
+          <p>Уже підтверджені записи зберігають зафіксовані ціни після зміни відсотка або вимкнення акції.</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -408,6 +447,12 @@ watch(
           <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
           <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
           <span class="min-w-0">Акція активна</span>
+        </label>
+
+        <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+          <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+          <BaseCheckbox v-model="form.is_public" class="h-4 w-4 rounded border-slate-300" />
+          <span class="min-w-0">Показувати в публічному каталозі</span>
         </label>
 
         <div class="backoffice-modal-actions">

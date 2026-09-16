@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { acquireBodyScrollLock, releaseBodyScrollLock } from '~/utils/bodyScrollLock'
+
 type ModalType = 'default' | 'right'
 
 const props = withDefaults(defineProps<{
@@ -18,7 +20,7 @@ const emit = defineEmits<{
 
 const dialog = ref<HTMLElement | null>(null)
 let previousActiveElement: HTMLElement | null = null
-let previousBodyOverflow = ''
+let bodyScrollLock: symbol | null = null
 
 const focusableSelector = [
   'a[href]',
@@ -93,13 +95,13 @@ watch(
       previousActiveElement = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
-      previousBodyOverflow = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
+      bodyScrollLock ??= acquireBodyScrollLock()
       await focusDialog()
       return
     }
 
-    document.body.style.overflow = previousBodyOverflow
+    releaseBodyScrollLock(bodyScrollLock)
+    bodyScrollLock = null
     previousActiveElement?.focus()
     previousActiveElement = null
   },
@@ -108,7 +110,8 @@ watch(
 
 onBeforeUnmount(() => {
   if (!import.meta.client) return
-  document.body.style.overflow = previousBodyOverflow
+  releaseBodyScrollLock(bodyScrollLock)
+  bodyScrollLock = null
   previousActiveElement?.focus()
 })
 </script>

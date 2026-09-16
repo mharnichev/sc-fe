@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { acquireBodyScrollLock, releaseBodyScrollLock } from '~/utils/bodyScrollLock'
+
 type LocaleCode = 'uk' | 'en'
 
 type CalendarDay = {
@@ -28,7 +30,7 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = ref(false)
-let previousBodyOverflow = ''
+let bodyScrollLock: symbol | null = null
 
 const dateLocale = computed(() => props.locale === 'en' ? 'en-US' : 'uk-UA')
 
@@ -218,12 +220,12 @@ watch(
     if (!import.meta.client) return
 
     if (open) {
-      previousBodyOverflow = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
+      bodyScrollLock ??= acquireBodyScrollLock()
       return
     }
 
-    document.body.style.overflow = previousBodyOverflow
+    releaseBodyScrollLock(bodyScrollLock)
+    bodyScrollLock = null
   },
   { flush: 'post' },
 )
@@ -236,7 +238,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
 
   if (import.meta.client && isOpen.value) {
-    document.body.style.overflow = previousBodyOverflow
+    releaseBodyScrollLock(bodyScrollLock)
+    bodyScrollLock = null
   }
 })
 </script>
