@@ -295,13 +295,11 @@ const promotionDiscountLabels = computed(() => locale.value === 'en'
   ? {
       title: 'I am a defender of Ukraine',
       description: 'Apply the active discount to eligible services. Confirmation may be requested during the visit.',
-      badge: 'Gratitude discount',
       bookingNote: 'Confirmed defender discount in booking form.',
     }
   : {
       title: 'Я захисник України',
       description: 'Застосувати активну знижку до доступних послуг. Підтвердження може знадобитися під час візиту.',
-      badge: 'Активувати знижку',
       bookingNote: 'Підтверджено знижку для захисників у формі запису.',
     },
 )
@@ -1182,7 +1180,6 @@ const quoteCopy = computed(() => locale.value === 'en' ? {
   provisional: 'Eligibility is checked across all masters and again when booking. This quote does not reserve the offer.',
   changed: 'The price has changed. Review the updated total before booking.',
   review: 'Review the total below before booking.',
-  approve: 'I approve the displayed total.',
   showDetails: 'Discount details',
   hideDetails: 'Hide details',
 } : {
@@ -1196,7 +1193,6 @@ const quoteCopy = computed(() => locale.value === 'en' ? {
   provisional: 'Право на знижку перевіряється серед усіх майстрів і повторно під час запису. Розрахунок не резервує пропозицію.',
   changed: 'Ціна змінилася. Перегляньте оновлену суму перед записом.',
   review: 'Перегляньте підсумкову вартість нижче перед записом.',
-  approve: 'Я погоджуюся з показаною підсумковою вартістю.',
   showDetails: 'Деталі знижки',
   hideDetails: 'Сховати деталі',
 })
@@ -1207,10 +1203,6 @@ const quoteController = createBookingQuoteReview(
   payload => quoteApi<BookingQuote>('/public/bookings/quote', { method: 'POST', body: payload }),
   next => { quoteReview.value = next },
 )
-const priceApproved = computed({
-  get: () => quoteReview.value.accepted,
-  set: (accepted: boolean) => quoteController.accept(accepted),
-})
 const quotePayload = computed<BookingQuoteRequest | null>(() =>
   selectedMasterId.value && selectedServiceIds.value.length && selectedSlotStart.value && isContactComplete.value
     ? { master_id: selectedMasterId.value, service_ids: [...selectedServiceIds.value],
@@ -1249,7 +1241,7 @@ const quoteDiscountLabel = computed(() => {
   const label = promotion.eligibility_type === 'first_visit'
     ? quoteCopy.value.firstVisit
     : (locale.value === 'en' ? promotion.name_en : promotion.name_uk)
-  return `${label} −${promotion.discount_percent}%`
+  return label
 })
 const stepCompletion = computed(() => [
   isServiceComplete.value,
@@ -1405,6 +1397,7 @@ const submit = async () => {
   }
 
   const reviewedInput = quoteInputKey.value
+  quoteController.accept(true)
   if (!await verifyPrice() || reviewedInput !== quoteInputKey.value) {
     goToStep(lastStepIndex.value)
     return
@@ -2059,7 +2052,7 @@ onBeforeUnmount(() => {
                   </div>
                   <label
                     v-if="selectedServicesHavePromotion"
-                    class="glass-control glass-control--dark booking-army-toggle mt-3 flex cursor-pointer flex-col items-start justify-between gap-3 overflow-hidden px-3 py-2.5 text-white sm:flex-row sm:items-center"
+                    class="glass-control glass-control--dark booking-army-toggle mt-3 flex cursor-pointer items-center justify-between gap-3 overflow-hidden px-3 py-2.5 text-white"
                     :class="promotionConfirmed ? 'is-confirmed' : ''"
                   >
                     <span class="flex min-w-0 items-center gap-2.5">
@@ -2070,12 +2063,11 @@ onBeforeUnmount(() => {
                         aria-hidden="true"
                       >
                       <span class="min-w-0">
-                        <span class="block truncate text-sm font-semibold leading-tight">{{ promotionDiscountLabels.title }}</span>
+                        <span class="block text-sm font-semibold leading-tight">{{ promotionDiscountLabels.title }}</span>
                         <span class="mt-0.5 block line-clamp-2 text-[0.68rem] leading-4 text-white/68">{{ promotionDiscountLabels.description }}</span>
                       </span>
                     </span>
-                    <span class="flex w-full shrink-0 items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                      <span class="hidden text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-white/70 min-[380px]:inline">{{ promotionDiscountLabels.badge }}</span>
+                    <span class="flex shrink-0 items-center">
                       <input
                         v-model="promotionConfirmed"
                         type="checkbox"
@@ -2119,17 +2111,34 @@ onBeforeUnmount(() => {
                       content-class="mt-3 bg-black/10 p-3 sm:mt-4 sm:p-4"
                     >
                     <template #summary="{ open }">
-                      <span class="flex items-center justify-between gap-3">
-                        <span>
+                      <span class="flex min-w-0 items-center justify-between gap-3">
+                        <span class="min-w-0">
                           <span class="block text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/55">{{ open ? quoteCopy.hideDetails : quoteCopy.showDetails }}</span>
-                          <span class="mt-0.5 block text-base font-semibold sm:text-lg">{{ quoteCopy.total }}</span>
+                          <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="text-base font-semibold sm:text-lg">{{ quoteCopy.total }}</span>
+                            <span class="booking-price-discount-badge text-[0.72rem]">−{{ quoteReview.quote.applied_promotion.discount_percent }}%</span>
+                          </span>
                         </span>
-                        <strong class="shrink-0 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
+                        <span class="flex shrink-0 flex-col items-end leading-tight">
+                          <span class="sr-only">{{ quoteCopy.subtotal }}: </span>
+                          <del class="text-xs font-medium text-white/60 sm:text-sm">{{ localizedService.servicePrice(quoteReview.quote.subtotal_amount) }}</del>
+                          <strong class="mt-0.5 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
+                        </span>
                       </span>
                     </template>
                     <dl class="space-y-2 text-[0.82rem] sm:text-sm">
                       <div class="flex justify-between gap-4"><dt>{{ quoteCopy.subtotal }}</dt><dd class="shrink-0">{{ localizedService.servicePrice(quoteReview.quote.subtotal_amount) }}</dd></div>
-                      <div v-if="quoteReview.quote.applied_promotion" class="flex justify-between gap-4"><dt>{{ quoteDiscountLabel }}</dt><dd class="shrink-0">−{{ localizedService.servicePrice(quoteReview.quote.discount_amount) }}</dd></div>
+                      <div v-if="quoteReview.quote.applied_promotion" class="flex items-start justify-between gap-4">
+                        <dt class="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span>{{ quoteDiscountLabel }}</span>
+                          <span
+                            v-if="quoteReview.quote.applied_promotion.eligibility_type === 'first_visit'"
+                            class="booking-price-discount-badge"
+                          >−{{ quoteReview.quote.applied_promotion.discount_percent }}%</span>
+                          <span v-else>−{{ quoteReview.quote.applied_promotion.discount_percent }}%</span>
+                        </dt>
+                        <dd class="shrink-0">−{{ localizedService.servicePrice(quoteReview.quote.discount_amount) }}</dd>
+                      </div>
                     </dl>
                     <p v-if="quoteReview.quote.applied_promotion" class="mt-3 text-[0.7rem] leading-4 text-white/70 sm:text-xs sm:leading-5">{{ quoteCopy.provisional }}</p>
                     </BaseAccordion>
@@ -2140,16 +2149,12 @@ onBeforeUnmount(() => {
                       <strong class="shrink-0 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
                     </div>
                   </div>
-                  <label v-if="quoteReview.quote.eligibility.status !== 'customer_required'" class="mt-4 flex cursor-pointer items-start gap-3 text-sm">
-                    <input v-model="priceApproved" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400">
-                    <span>{{ quoteCopy.approve }}</span>
-                  </label>
                 </template>
                 <p v-else>{{ isContactComplete ? quoteCopy.review : quoteCopy.customerRequired }}</p>
               </section>
               </AppTransition>
 
-              <p v-if="activeStepIndex === lastStepIndex" class="mt-3 text-[10px] leading-5 text-white/55">
+              <p v-if="activeStepIndex === lastStepIndex" class="mt-3 mb-1 text-[10px] leading-[14px] text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
                 <NuxtLink class="transition hover:text-white" to="/terms">
                   <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
@@ -2742,6 +2747,23 @@ onBeforeUnmount(() => {
   background: rgb(255 255 255 / 0.055);
 }
 
+.booking-price-discount-badge {
+  display: inline-flex;
+  padding: 0.08rem 0.38rem;
+  color: white;
+  font-weight: 700;
+  white-space: nowrap;
+  background: linear-gradient(110deg, rgb(127 29 29), rgb(239 68 68), rgb(153 27 27));
+  background-size: 220% 100%;
+  animation: booking-price-discount-glow 5s ease-in-out infinite;
+}
+
+@keyframes booking-price-discount-glow {
+  0%,
+  100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 .booking-accordion-appear-enter-active,
 .booking-accordion-appear-leave-active {
   max-height: 40rem;
@@ -2792,6 +2814,7 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .booking-accordion-appear-enter-active,
   .booking-accordion-appear-leave-active,
+  .booking-price-discount-badge,
   .booking-price-review--promotion {
     animation: none;
     transition: none;

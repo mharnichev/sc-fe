@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile, realpath } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import ts from 'typescript'
 
@@ -11,49 +10,30 @@ const payload = { master_id: 1, service_ids: [10], start_at: '2026-10-06T12:00:0
 const quote = (percent = 20) => ({ subtotal_amount: 1000, discount_amount: percent * 10, total_amount: 1000 - percent * 10, applied_promotion: { id: 1, code: null, name_uk: 'Перший візит', name_en: 'First visit', discount_percent: percent, application_mode: 'automatic', eligibility_type: 'first_visit' }, eligibility: { status: 'applied', explanation: 'Checked again when booking.' } })
 const regular = () => ({ subtotal_amount: 1000, discount_amount: 0, total_amount: 1000, applied_promotion: null, eligibility: { status: 'not_available', explanation: 'Unavailable.' } })
 
-test('component checkbox binding approves the displayed price and requires changed-price reapproval', async () => {
+test('booking action approves the displayed price without a checkbox and still revalidates it', async () => {
   const component = await readFile(new URL('../components/sections/BookingSection.vue', import.meta.url), 'utf8')
-  const requireNuxt = createRequire(await realpath(new URL('../node_modules/nuxt/package.json', import.meta.url)))
-  const { computed, shallowRef } = requireNuxt('vue')
-  const binding = component.match(/const priceApproved = computed\(\{[\s\S]*?\n\}\)/)?.[0]
-  assert.ok(binding, 'The component must expose a two-way price approval binding')
-  assert.match(component, /<input\b[^>]*v-model="priceApproved"[^>]*type="checkbox"/)
-  assert.match(component, /<span>\{\{ quoteCopy\.approve \}\}<\/span>/)
-  const js = ts.transpileModule(binding, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  let result = quote()
-  const quoteReview = shallowRef()
-  const controller = createBookingQuoteReview(async () => result, next => { quoteReview.value = next })
-  const approval = new Function('computed', 'quoteReview', 'quoteController', `${js}; return priceApproved`)(computed, quoteReview, controller)
+  const submission = component.slice(component.indexOf('const submit = async () => {'))
+  assert.doesNotMatch(component, /priceApproved|quoteCopy\.approve|Я погоджуюся з показаною підсумковою вартістю/)
+  assert.match(submission, /const reviewedInput = quoteInputKey\.value\s+quoteController\.accept\(true\)\s+if \(!await verifyPrice\(\) \|\| reviewedInput !== quoteInputKey\.value\)/)
+  assert.match(submission, /const expectedTotalAmount = quoteController\.approvedTotal\(\)/)
+  assert.match(submission, /domain\.createBooking\(\{\s+expected_total_amount: expectedTotalAmount,/)
 
+  let result = quote()
+  let state
+  const controller = createBookingQuoteReview(async () => result, next => { state = next })
   await controller.verify(payload)
-  assert.equal(quoteReview.value.quote.total_amount, 800)
-  assert.equal(approval.value, false)
-  assert.equal(controller.approvedTotal(), null)
-  approval.value = true // The component's checkbox v-model setter, not a direct controller call.
-  assert.equal(quoteReview.value.accepted, true)
+  controller.accept(true) // The booking button approves the price currently visible to the guest.
   assert.equal(await controller.verify(payload), true)
   assert.equal(controller.approvedTotal(), 800)
-  assert.match(component, /const expectedTotalAmount = quoteController\.approvedTotal\(\)/)
-  assert.match(component, /domain\.createBooking\(\{\s+expected_total_amount: expectedTotalAmount,/)
 
   result = quote(25)
-  assert.equal(await controller.verify(payload), false)
-  assert.equal(quoteReview.value.quote.total_amount, 750)
-  assert.equal(approval.value, false)
+  controller.accept(true)
+  assert.equal(await controller.verify(payload), false, 'A new amount stops this submission')
+  assert.equal(state.quote.total_amount, 750)
   assert.equal(controller.approvedTotal(), null)
-  assert.equal(await controller.verify(payload), false, 'An unchanged refresh cannot approve an unseen price')
-  approval.value = true
+  controller.accept(true) // The next click acts on the updated displayed quote.
   assert.equal(await controller.verify(payload), true)
   assert.equal(controller.approvedTotal(), 750)
-
-  controller.invalidate() // price_changed response: even an identical replacement needs consent.
-  await controller.verify(payload)
-  assert.equal(approval.value, false)
-  assert.equal(controller.approvedTotal(), null)
-  approval.value = true
-  assert.equal(await controller.verify(payload), true)
-  approval.value = false
-  assert.equal(controller.approvedTotal(), null)
 })
 
 test('eligible customer reviews backend amounts; unchanged revalidation preserves approval', async () => {

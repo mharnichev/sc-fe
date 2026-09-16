@@ -51,7 +51,7 @@ const scope = computed(() => {
         {{ titleSuffix }}
       </strong>
       <span v-if="!compact && description" class="mt-0.5 block text-sm leading-5 text-current/75">{{ description }}</span>
-      <span class="block text-xs leading-5 text-current/70">{{ compact ? compactTerms : automaticTerms }}</span>
+      <span class="booking-promotion-notice__terms block text-xs leading-5 text-current/70">{{ compact ? compactTerms : automaticTerms }}</span>
       <span v-if="scope" class="block text-xs font-medium leading-5 text-current/70">{{ scope }}</span>
     </span>
   </aside>
@@ -102,6 +102,14 @@ const scope = computed(() => {
   background-size: 220% 100%;
   box-shadow: 0 4px 14px rgb(127 29 29 / 0.22);
   animation: booking-discount-glow 5s ease-in-out infinite;
+}
+
+@media (max-width: 570px) {
+  .booking-promotion-notice__terms {
+    font-size: 10px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
 }
 
 @keyframes booking-discount-glow {
