@@ -90,6 +90,8 @@ const actionAttemptedStepIndex = ref<number | null>(null)
 const isResettingAfterSubmit = ref(false)
 const promotionConfirmed = ref(false)
 const bookingForm = ref<HTMLFormElement | null>(null)
+const contactNameInput = ref<HTMLInputElement | null>(null)
+const contactPhoneInput = ref<HTMLInputElement | null>(null)
 const bookingStepKeys = ['service', 'master', 'time', 'contact']
 const bookingStepIds = computed(() => bookingStepKeys.map(step => `${props.idPrefix}-${step}`))
 const activeStepKey = computed(() => bookingStepKeys[activeStepIndex.value] || bookingStepKeys[0])
@@ -1179,7 +1181,6 @@ const quoteCopy = computed(() => locale.value === 'en' ? {
   customerRequired: 'Enter your contact details to check eligibility.',
   provisional: 'Eligibility is checked across all masters and again when booking. This quote does not reserve the offer.',
   changed: 'The price has changed. Review the updated total before booking.',
-  review: 'Review the total below before booking.',
   showDetails: 'Discount details',
   hideDetails: 'Hide details',
 } : {
@@ -1192,7 +1193,6 @@ const quoteCopy = computed(() => locale.value === 'en' ? {
   customerRequired: 'Вкажіть контактні дані для перевірки доступності знижки.',
   provisional: 'Право на знижку перевіряється серед усіх майстрів і повторно під час запису. Розрахунок не резервує пропозицію.',
   changed: 'Ціна змінилася. Перегляньте оновлену суму перед записом.',
-  review: 'Перегляньте підсумкову вартість нижче перед записом.',
   showDetails: 'Деталі знижки',
   hideDetails: 'Сховати деталі',
 })
@@ -1325,6 +1325,19 @@ const goToStep = (index: number) => {
 
 const handlePhoneInput = (event: Event) => {
   form.customer_phone = formatPhoneInput((event.target as HTMLInputElement).value)
+}
+
+const syncAutofilledContact = () => {
+  if (contactNameInput.value && contactNameInput.value.value !== form.customer_name) {
+    form.customer_name = constrainFormInput(contactNameInput.value.value, FORM_FIELD_LIMITS.fullName)
+  }
+  if (contactPhoneInput.value && contactPhoneInput.value.value !== form.customer_phone) {
+    form.customer_phone = formatPhoneInput(contactPhoneInput.value.value)
+  }
+}
+
+const handleContactAutofill = (event: AnimationEvent) => {
+  if (event.animationName === 'booking-contact-autofill') syncAutofilledContact()
 }
 
 const handlePhonePasteEvent = (event: ClipboardEvent) => {
@@ -1986,7 +1999,7 @@ onBeforeUnmount(() => {
                   </div>
                 </section>
 
-                <section v-else key="booking-contact">
+                <section v-else key="booking-contact" @focusin="syncAutofilledContact" @focusout="syncAutofilledContact">
                   <div class="grid gap-3 md:grid-cols-2">
                     <div class="booking-contact-field">
                       <svg class="booking-contact-field__icon" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1994,6 +2007,7 @@ onBeforeUnmount(() => {
                       </svg>
                       <input
                         v-model="form.customer_name"
+                        ref="contactNameInput"
                         required
                         autocomplete="name"
                         placeholder="Ім'я"
@@ -2002,6 +2016,8 @@ onBeforeUnmount(() => {
                         class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
                         :class="shouldShowStepIssue(3) && !form.customer_name.trim() ? 'glass-control--invalid' : ''"
                         @input="handleTextInput('customer_name', FORM_FIELD_LIMITS.fullName)"
+                        @change="syncAutofilledContact"
+                        @animationstart="handleContactAutofill"
                       >
                     </div>
                     <div class="booking-contact-field">
@@ -2010,6 +2026,7 @@ onBeforeUnmount(() => {
                       </svg>
                       <input
                         v-model="form.customer_phone"
+                        ref="contactPhoneInput"
                         required
                         type="tel"
                         inputmode="tel"
@@ -2020,6 +2037,8 @@ onBeforeUnmount(() => {
                         class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
                         :class="shouldShowStepIssue(3) && !isValidPhoneNumber(form.customer_phone) ? 'glass-control--invalid' : ''"
                         @input="handlePhoneInput"
+                        @change="syncAutofilledContact"
+                        @animationstart="handleContactAutofill"
                         @paste="handlePhonePasteEvent"
                       >
                     </div>
@@ -2088,19 +2107,21 @@ onBeforeUnmount(() => {
                 </AppTransition>
               </div>
 
-              <AppTransition mode="default">
+              <AppTransition name="booking-quote-panel" mode="default" appear>
               <section
                 v-if="activeStepIndex === lastStepIndex && isContactComplete"
                 class="booking-price-review mt-3 p-3 text-sm text-white sm:mt-4 sm:p-4"
                 :class="quoteReview.quote?.applied_promotion ? 'booking-price-review--promotion' : ''"
                 aria-live="polite"
                 aria-atomic="true"
-                :aria-busy="quoteReview.pending"
+                :aria-busy="quoteReview.pending || (!quoteReview.quote && !quoteReview.failed)"
               >
-                <BookingPromotionNotice v-if="firstVisitBookingOffer && !quoteReview.quote" :offer="firstVisitBookingOffer" compact class="mb-3" />
-                <p v-if="quoteReview.pending" role="status">{{ quoteCopy.checking }}</p>
-                <p v-else-if="quoteReview.failed" role="alert" class="text-rose-200">{{ quoteCopy.failed }}</p>
-                <template v-else-if="quoteReview.quote">
+                <Transition name="booking-quote-state" mode="out-in">
+                <div v-if="quoteReview.failed" key="failed" role="alert" class="text-rose-200">{{ quoteCopy.failed }}</div>
+                <div v-else-if="!quoteReview.quote" key="checking" role="status">
+                  <p>{{ quoteCopy.checking }}</p>
+                </div>
+                <div v-else key="quoted">
                   <p v-if="quoteReview.changed" class="mb-3 font-semibold text-amber-200">{{ quoteCopy.changed }}</p>
                   <p v-if="quoteReview.quote.eligibility.status === 'customer_required'" class="mb-3">{{ quoteCopy.customerRequired }}</p>
                   <Transition name="booking-accordion-appear" appear>
@@ -2149,8 +2170,8 @@ onBeforeUnmount(() => {
                       <strong class="shrink-0 text-lg sm:text-xl">{{ localizedService.servicePrice(quoteReview.quote.total_amount) }}</strong>
                     </div>
                   </div>
-                </template>
-                <p v-else>{{ isContactComplete ? quoteCopy.review : quoteCopy.customerRequired }}</p>
+                </div>
+                </Transition>
               </section>
               </AppTransition>
 
@@ -2747,6 +2768,45 @@ onBeforeUnmount(() => {
   background: rgb(255 255 255 / 0.055);
 }
 
+.booking-contact-field__input:-webkit-autofill {
+  animation-name: booking-contact-autofill;
+  animation-duration: 1ms;
+}
+
+@keyframes booking-contact-autofill {
+  from,
+  to { opacity: 1; }
+}
+
+.booking-quote-panel-enter-active,
+.booking-quote-panel-leave-active,
+.booking-quote-state-enter-active,
+.booking-quote-state-leave-active {
+  overflow: hidden;
+  transition:
+    opacity 320ms cubic-bezier(0.3, 1, 0.3, 1),
+    transform 320ms cubic-bezier(0.3, 1, 0.3, 1),
+    max-height 320ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.booking-quote-panel-enter-active,
+.booking-quote-panel-leave-active { max-height: 45rem; }
+
+.booking-quote-state-enter-active,
+.booking-quote-state-leave-active { max-height: 40rem; }
+
+.booking-quote-panel-enter-from,
+.booking-quote-panel-leave-to,
+.booking-quote-state-enter-from,
+.booking-quote-state-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(0.5rem);
+}
+
+.booking-quote-panel-leave-active,
+.booking-quote-state-leave-active { pointer-events: none; }
+
 .booking-price-discount-badge {
   display: inline-flex;
   padding: 0.08rem 0.38rem;
@@ -2812,6 +2872,10 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .booking-quote-panel-enter-active,
+  .booking-quote-panel-leave-active,
+  .booking-quote-state-enter-active,
+  .booking-quote-state-leave-active,
   .booking-accordion-appear-enter-active,
   .booking-accordion-appear-leave-active,
   .booking-price-discount-badge,
