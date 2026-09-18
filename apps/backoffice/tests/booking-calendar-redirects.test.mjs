@@ -192,10 +192,10 @@ test('time-block month calendar confirms working-time deletion in the app modal'
   assert.doesNotMatch(confirmationHandler, /\bconfirm\(/)
 })
 
-test('backoffice calendar covers the same 08:00-20:00 Kyiv workday as booking capacity', () => {
-  assert.match(calendarSource, /const workdayStart = '08:00'/)
+test('backoffice calendar covers the 09:30-20:00 Kyiv workday', () => {
+  assert.match(calendarSource, /const workdayStart = '09:30'/)
   assert.match(calendarSource, /const workdayEnd = '20:00'/)
-  assert.match(calendarSource, /const workdayStartMinutes = 8 \* 60/)
+  assert.match(calendarSource, /const workdayStartMinutes = 9 \* 60 \+ 30/)
   assert.match(calendarSource, /const workdayEndMinutes = 20 \* 60/)
 })
 

@@ -304,7 +304,7 @@ export const blogTerms = {
       email: 'Soulcutsplace@gmail.com',
       hoursLabel: 'Графік',
       hours: [
-        ['Вт-Нд', '09:00 - 20:00'],
+        ['Вт-Нд', '09:30 - 20:00'],
         ['Понеділок', 'Зачинено'],
       ],
       mapLabel: 'Відкрити на мапі',
@@ -481,7 +481,7 @@ export const blogTerms = {
       email: 'Soulcutsplace@gmail.com',
       hoursLabel: 'Hours',
       hours: [
-        ['Tue-Sun', '09:00 - 20:00'],
+        ['Tue-Sun', '09:30 - 20:00'],
         ['Monday', 'Closed'],
       ],
       mapLabel: 'Open in maps',

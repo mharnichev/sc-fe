@@ -109,7 +109,7 @@ export const useLocalBusinessStructuredData = () => {
       {
         '@type': 'OpeningHoursSpecification',
         dayOfWeek: ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-        opens: '09:00',
+        opens: '09:30',
         closes: '20:00',
       },
     ],

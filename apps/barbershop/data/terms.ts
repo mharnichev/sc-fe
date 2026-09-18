@@ -276,7 +276,7 @@ export const termsDictionary = {
               },
               {
                 question: 'Який у вас графік роботи?',
-                answer: ['Працюємо з вівторка по неділю з 09:00 до 20:00. Понеділок - вихідний.'],
+                answer: ['Працюємо з вівторка по неділю з 09:30 до 20:00. Понеділок - вихідний.'],
                 note: 'Графік роботи не завжди дорівнює доступності конкретного майстра, тому перевіряйте вільні слоти під час запису.',
               },
               {
@@ -396,7 +396,7 @@ export const termsDictionary = {
         phone: '+380636995730',
         email: 'Soulcutsplace@gmail.com',
         hours: [
-          ['Вт-Нд', '09:00 - 20:00'],
+          ['Вт-Нд', '09:30 - 20:00'],
           ['Понеділок', 'Зачинено'],
         ],
       },
@@ -417,7 +417,7 @@ export const termsDictionary = {
         phoneLabel: 'Телефон:',
         phone: '+380636995730',
         hoursLabel: 'Графік:',
-        hours: 'Вт-Нд 09:00-20:00, Пн зачинено',
+        hours: 'Вт-Нд 09:30-20:00, Пн зачинено',
         emailLabel: 'Email:',
         email: 'Soulcutsplace@gmail.com',
         placeholders: {
@@ -730,7 +730,7 @@ export const termsDictionary = {
               },
               {
                 question: 'What are your opening hours?',
-                answer: ['We are open Tuesday to Sunday from 09:00 to 20:00. Monday is closed.'],
+                answer: ['We are open Tuesday to Sunday from 09:30 to 20:00. Monday is closed.'],
                 note: 'Opening hours do not always equal a specific barberʼs availability, so check open slots during booking.',
               },
               {
@@ -850,7 +850,7 @@ export const termsDictionary = {
         phone: '+380636995730',
         email: 'Soulcutsplace@gmail.com',
         hours: [
-          ['Tue-Sun', '09:00 - 20:00'],
+          ['Tue-Sun', '09:30 - 20:00'],
           ['Monday', 'Closed'],
         ],
       },
@@ -871,7 +871,7 @@ export const termsDictionary = {
         phoneLabel: 'Phone:',
         phone: '+380636995730',
         hoursLabel: 'Hours:',
-        hours: 'Tue-Sun 09:00-20:00, Mon closed',
+        hours: 'Tue-Sun 09:30-20:00, Mon closed',
         emailLabel: 'Email:',
         email: 'Soulcutsplace@gmail.com',
         placeholders: {

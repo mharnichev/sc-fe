@@ -86,10 +86,10 @@ export const calendarViewLabels: Record<CalendarViewMode, string> = {
   month: '30 днів',
 }
 
-const workdayStart = '08:00'
+const workdayStart = '09:30'
 const workdayEnd = '20:00'
 const slotMinutes = 30
-const workdayStartMinutes = 8 * 60
+const workdayStartMinutes = 9 * 60 + 30
 const workdayEndMinutes = 20 * 60
 
 const pad = (value: number) => String(value).padStart(2, '0')
