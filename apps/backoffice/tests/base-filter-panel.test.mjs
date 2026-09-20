@@ -19,7 +19,6 @@ const migratedFilterFiles = [
   '../components/messaging/SmsCampaignsPanel.vue',
   '../pages/reviews/index.vue',
   '../pages/my-bookings.vue',
-  '../pages/my-time-blocks.vue',
   '../pages/bookings.vue',
   '../pages/time-blocks.vue',
   '../pages/admin/dashboards/barbershop.vue',

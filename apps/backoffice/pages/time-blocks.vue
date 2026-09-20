@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import {
+  ChartBarSquareIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EyeIcon,
   LockOpenIcon,
   PlusIcon,
+  UserIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
@@ -210,6 +213,7 @@ const availabilityModalOpen = ref(false)
 const availabilityToDelete = ref<MasterAvailabilityWindow | null>(null)
 const blockSummaryToDelete = ref<BlockDaySummary | null>(null)
 const selectedScheduleItem = ref<SelectedScheduleItem | null>(null)
+const selectedMasterIdentity = ref<MasterMonthStat | null>(null)
 
 const masterDisplayName = (master?: Master | null) => {
   if (!master) return 'Усі майстри'
@@ -481,6 +485,10 @@ const openCreateAvailability = () => {
   availabilityModalOpen.value = true
 }
 
+const openMasterIdentity = (stat: MasterMonthStat) => {
+  selectedMasterIdentity.value = stat
+}
+
 const handleSaved = async (message: string) => {
   toast.success(message)
   await refresh()
@@ -690,52 +698,59 @@ const confirmDeleteAvailability = async () => {
       </div>
 
       <BaseEmptyState v-if="!masterStats.length" compact title="Немає майстрів для відображення" />
-      <BaseTable
+      <ScheduleMatrixTable
         v-else
         caption="Графік робочого часу майстрів за днями місяця"
-        wrapper-class="rounded-none border-0"
-        scroll-class="max-h-[72dvh] overflow-auto"
-        min-width="max-content"
-        table-class="!border-separate border-spacing-0 text-left"
+        :days="monthDays"
+        leading-size="compact"
       >
-        <template #head>
-          <tr>
-            <th class="schedule-matrix__header sticky left-0 top-0 z-[80] min-w-44 border-b border-r border-ui !px-3 !py-2 text-xs font-semibold uppercase tracking-[0.1em] text-ui-muted md:min-w-56 md:!px-4">
-              Майстер
-            </th>
-            <th
-              v-for="day in monthDays"
-              :key="day.date"
-              class="schedule-matrix__header sticky top-0 z-[60] min-w-36 border-b border-r border-ui !px-2 !py-2 !text-center"
-              :class="day.isToday ? 'schedule-matrix__today' : ''"
-            >
-              <span class="block text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ui-muted">{{ day.weekday }}</span>
-              <span class="mt-0.5 block text-sm font-semibold text-ui-primary">{{ day.dayNumber }}</span>
-            </th>
-            <th class="schedule-matrix__header sticky right-0 top-0 z-[80] min-w-44 border-b border-ui !px-3 !py-2 text-xs font-semibold uppercase tracking-[0.1em] text-ui-muted">
-              Завантаження
-            </th>
-          </tr>
+        <template #leading-header>
+          <span class="inline-flex md:hidden">
+            <UserIcon class="h-5 w-5" aria-hidden="true" />
+            <span class="sr-only">Майстер</span>
+          </span>
+          <span class="hidden md:inline">Майстер</span>
         </template>
-        <tr v-for="{ stat, cells } in scheduleRows" :key="stat.master.id" class="group">
-          <th scope="row" class="sticky left-0 z-40 min-w-44 border-b border-r border-ui bg-ui-surface px-3 py-2 text-left md:min-w-56 md:px-4">
-            <div class="flex min-w-0 items-center gap-2.5">
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">
-                <img v-if="stat.imageUrl" :src="stat.imageUrl" :alt="stat.displayName" class="h-full w-full object-cover">
+        <template #day-header="{ day }">
+          <span class="block text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ui-muted">{{ day.weekday }}</span>
+          <span class="mt-0.5 block text-sm font-semibold text-ui-primary">{{ day.dayNumber }}</span>
+        </template>
+        <template #trailing-header>
+          <span class="inline-flex md:hidden">
+            <ChartBarSquareIcon class="h-5 w-5" aria-hidden="true" />
+            <span class="sr-only">Завантаження</span>
+          </span>
+          <span class="hidden md:inline">Завантаження</span>
+        </template>
+
+        <template #default="{ leadingCellClass, dayCellClass, trailingCellClass, todayCellClass }">
+          <tr v-for="{ stat, cells } in scheduleRows" :key="stat.master.id" class="group">
+          <th scope="row" :class="leadingCellClass">
+            <div class="flex min-w-0 flex-col items-center gap-0.5 md:items-start md:gap-1">
+              <div class="flex flex-col items-center gap-0.5 md:flex-row md:gap-1.5">
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.6rem] font-semibold text-ui-secondary md:h-9 md:w-9 md:text-[0.65rem]">
+                <img v-if="stat.imageUrl" :src="stat.imageUrl" alt="" class="h-full w-full object-cover">
                 <span v-else>{{ stat.initials }}</span>
               </span>
-              <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold text-ui-primary">{{ stat.displayName }}</span>
-                <span class="mt-0.5 block truncate text-[0.68rem] font-normal text-ui-muted">{{ stat.position }}</span>
-              </span>
+              <BaseButton
+                type="button"
+                variant="unstyled"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ui-muted transition hover:bg-ui-subtle hover:text-ui-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary md:h-7 md:w-7"
+                :aria-label="`Показати майстра ${stat.displayName}`"
+                :title="`Показати майстра ${stat.displayName}`"
+                @click="openMasterIdentity(stat)"
+              >
+                <EyeIcon class="h-4 w-4" aria-hidden="true" />
+              </BaseButton>
+              </div>
+              <span class="hidden w-full truncate text-[0.62rem] font-normal leading-tight text-ui-muted md:block">{{ stat.position }}</span>
             </div>
           </th>
 
           <td
             v-for="{ day, schedule } in cells"
             :key="`${stat.master.id}-${day.date}`"
-            class="min-w-36 border-b border-r border-ui bg-ui-surface !p-1.5 !align-top"
-            :class="day.isToday ? 'schedule-matrix__today' : ''"
+            :class="[dayCellClass, day.isToday ? todayCellClass : '']"
           >
             <div v-if="schedule.availabilitySummary || schedule.blockSummary" class="space-y-1">
               <div
@@ -765,7 +780,7 @@ const confirmDeleteAvailability = async () => {
                   <span v-else class="mt-0.5 block text-[0.68rem] font-semibold leading-tight">Заблоковано повністю</span>
                 </BaseButton>
                 <details v-if="isAdmin" class="group/manage relative shrink-0 text-[0.62rem] text-ui-muted">
-                  <summary class="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full transition hover:bg-emerald-500/10 hover:text-emerald-700" title="Керувати відкритим часом">
+                  <summary class="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full transition hover:bg-emerald-500/10 hover:text-emerald-700 md:h-5 md:w-5" title="Керувати відкритим часом">
                     <span class="sr-only">Керувати відкритим часом</span>
                     <ChevronDownIcon class="h-3.5 w-3.5 transition group-open/manage:rotate-180" aria-hidden="true" />
                   </summary>
@@ -776,7 +791,7 @@ const confirmDeleteAvailability = async () => {
                       <BaseButton
                         type="button"
                         variant="unstyled"
-                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ui-muted transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
+                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ui-muted transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40 md:h-5 md:w-5"
                         :disabled="deletingAvailabilityId === window.id"
                         :aria-label="`Закрити інтервал ${intervalLabel(window.start_at, window.end_at)}`"
                         title="Закрити робочий інтервал"
@@ -811,7 +826,7 @@ const confirmDeleteAvailability = async () => {
                 <BaseButton
                   type="button"
                   variant="unstyled"
-                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-rose-600/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-rose-600/65 transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40 md:h-5 md:w-5"
                   :disabled="!isAdmin || deletingBlockIds.length > 0"
                   :aria-label="`Видалити блокування ${schedule.blockSummary.intervalsLabel}`"
                   title="Видалити блокування дня"
@@ -824,22 +839,24 @@ const confirmDeleteAvailability = async () => {
             <span v-else class="flex min-h-8 items-center justify-center text-sm text-ui-muted">—</span>
           </td>
 
-          <td class="sticky right-0 z-40 min-w-44 border-b border-ui bg-ui-surface px-3 py-2">
-            <div class="flex items-center justify-between gap-2 text-xs">
+          <td :class="trailingCellClass">
+            <span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ stat.loadPercent }}%</span>
+            <div class="hidden items-center justify-between gap-2 text-xs md:flex">
               <span class="font-semibold text-ui-primary">{{ stat.loadPercent }}%</span>
               <span class="text-ui-muted">{{ formatHours(stat.bookedMinutes) }}</span>
             </div>
-            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ui-subtle">
+            <div class="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-ui-subtle md:block">
               <div
                 class="h-full rounded-full transition-all"
                 :class="stat.loadPercent >= 80 ? 'bg-emerald-500' : stat.loadPercent >= 50 ? 'bg-amber-500' : 'bg-cyan-500'"
                 :style="{ width: `${Math.min(100, stat.loadPercent)}%` }"
               />
             </div>
-            <p class="mt-1 text-[0.62rem] text-ui-muted">{{ stat.workDays }} дн. · {{ formatHours(stat.scheduledMinutes) }}</p>
+            <p class="mt-1 hidden text-[0.62rem] text-ui-muted md:block">{{ stat.workDays }} дн. · {{ formatHours(stat.scheduledMinutes) }}</p>
           </td>
-        </tr>
-      </BaseTable>
+          </tr>
+        </template>
+      </ScheduleMatrixTable>
     </BaseCard>
 
     <BaseCard as="section" padding="none">
@@ -908,6 +925,34 @@ const confirmDeleteAvailability = async () => {
       @saved="handleSaved"
       @update:model-value="timeBlockModalOpen = $event"
     />
+    <BaseModal
+      :model-value="Boolean(selectedMasterIdentity)"
+      max-width-class="max-w-sm"
+      aria-label="Деталі майстра"
+      @update:model-value="selectedMasterIdentity = null"
+    >
+      <template #head="{ close, titleId }">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="ui-eyebrow text-sm uppercase tracking-[0.25em]">Майстер</p>
+            <h2 :id="titleId" class="mt-2 text-2xl font-semibold text-ui-primary">Деталі майстра</h2>
+          </div>
+          <ModalCloseButton @click="close" />
+        </div>
+      </template>
+      <template #body>
+        <div v-if="selectedMasterIdentity" class="flex items-center gap-3">
+          <span class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-sm font-semibold text-ui-secondary">
+            <img v-if="selectedMasterIdentity.imageUrl" :src="selectedMasterIdentity.imageUrl" :alt="selectedMasterIdentity.displayName" class="h-full w-full object-cover">
+            <span v-else>{{ selectedMasterIdentity.initials }}</span>
+          </span>
+          <div class="min-w-0">
+            <p class="break-words text-lg font-semibold text-ui-primary">{{ selectedMasterIdentity.displayName }}</p>
+            <p class="mt-1 text-sm text-ui-muted">{{ selectedMasterIdentity.position }}</p>
+          </div>
+        </div>
+      </template>
+    </BaseModal>
     <ConfirmActionModal
       :model-value="Boolean(availabilityToDelete)"
       title="Видалити робочий час?"
@@ -932,13 +977,3 @@ const confirmDeleteAvailability = async () => {
     />
   </div>
 </template>
-
-<style scoped>
-.schedule-matrix__header {
-  background: color-mix(in srgb, var(--bo-surface) 93%, var(--bo-text-primary) 7%);
-}
-
-.schedule-matrix__today {
-  background: color-mix(in srgb, var(--bo-surface) 88%, var(--bo-accent) 12%) !important;
-}
-</style>
