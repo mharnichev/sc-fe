@@ -93,7 +93,7 @@ const save = async () => {
         <label class="grid gap-2 text-sm"><span>Стратегія каналів</span><BaseSelect native v-model="strategy"><option value="single">Лише вибраний канал</option><option value="telegram_then_sms">Telegram, інакше SMS</option><option value="sms_then_telegram">SMS, інакше Telegram</option></BaseSelect></label>
       </div>
       <p class="text-xs text-ui-muted">Кожен клієнт отримує повідомлення лише одним каналом. Резервний канал обирається за доступністю адреси, а не через непрочитання чи помилку провайдера.</p>
-      <label v-if="canUseSegments" class="flex items-center gap-2 text-sm"><BaseCheckbox v-model="useSegments" /> Використовувати збережені сегменти</label>
+      <BaseToggle v-if="canUseSegments" v-model="useSegments" label="Використовувати збережені сегменти" />
       <MessagingSegmentCampaignAudience v-if="useSegments" v-model="segmentIds" :disabled="!isEditable || saving" @valid="valid = $event" />
       <p v-else class="text-sm text-ui-muted">{{ inlineIsAllCustomers ? 'Поточні фільтри охоплюють усіх клієнтів; доступність відправки перевіряється окремо.' : 'Використовуються наявні фільтри цієї кампанії.' }} {{ canUseSegments ? 'Можна перейти на збережені сегменти.' : 'Сегменти підтримуються для ручних кампаній і повернення клієнтів.' }}</p>
       <label v-if="switchingToInline" class="ui-status-warning flex items-start gap-2 rounded-xl p-3 text-sm"><BaseCheckbox v-model="confirmInlineAudience" /> {{ inlineIsAllCustomers ? 'Розумію: вимкнення сегментів розширює аудиторію до всіх клієнтів. Перевірю її перед запуском.' : 'Повернути попередні фільтри цієї кампанії замість сегментів.' }}</label>

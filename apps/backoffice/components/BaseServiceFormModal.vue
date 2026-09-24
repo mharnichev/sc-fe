@@ -195,11 +195,9 @@ watch(
             </span>
           </label>
         </div>
-        <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
-          <span class="min-w-0">Послуга активна</span>
-        </label>
+        <div class="rounded-2xl border border-slate-200 px-4 py-3">
+          <BaseToggle v-model="form.is_active" label="Послуга активна" />
+        </div>
         <div class="backoffice-modal-actions">
           <BaseButton type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <CheckIcon v-if="!saving" class="h-4 w-4" aria-hidden="true" />

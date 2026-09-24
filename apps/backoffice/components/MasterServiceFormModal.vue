@@ -231,10 +231,9 @@ watch(
             <BaseInput v-model.number="form.price" :required="form.mode === 'custom'" type="number" min="0" step="0.01" :placeholder="form.mode === 'base' && !editing ? 'Базове значення' : ''" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
         </div>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
-          Послуга активна
-        </label>
+        <div class="rounded-2xl border border-slate-200 px-4 py-3">
+          <BaseToggle v-model="form.is_active" label="Послуга активна" />
+        </div>
         <p v-if="editing?.base_service" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
           Зміни цієї послуги впливають лише на особисту копію майстра. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>

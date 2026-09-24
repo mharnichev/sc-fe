@@ -56,7 +56,7 @@ const summaryLabels = computed(() => ({
       <p v-if="!options.length" class="text-sm text-ui-muted">Довідник порожній або ще завантажується.</p>
     </div>
     <BaseSelect v-if="rule.type === 'received_campaign'" :model-value="rule.campaign_id" label="Кампанія" :options="campaigns.some(option => option.value === rule.campaign_id) || !rule.campaign_id ? campaigns : [{value:rule.campaign_id,label:`Кампанія #${rule.campaign_id}`}, ...campaigns]" @update:model-value="patch('campaign_id', $event)" />
-    <BaseCheckbox v-if="optionalPeriod" :model-value="Boolean(rule.period)" label="Обмежити періодом" @update:model-value="patch('period', $event ? defaultPeriod() : null)" />
+    <BaseToggle v-if="optionalPeriod" :model-value="Boolean(rule.period)" label="Обмежити періодом" @update:model-value="patch('period', $event ? defaultPeriod() : null)" />
     <SegmentPeriodEditor v-if="rule.period" :model-value="rule.period" @update:model-value="patch('period', $event)" />
     <p class="text-sm text-ui-secondary">{{ summarizeCondition(modelValue, summaryLabels) }}</p>
   </fieldset>

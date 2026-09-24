@@ -443,17 +443,13 @@ watch(
           </fieldset>
         </div>
 
-        <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
-          <span class="min-w-0">Акція активна</span>
-        </label>
+        <div class="rounded-2xl border border-slate-200 px-4 py-3">
+          <BaseToggle v-model="form.is_active" label="Акція активна" />
+        </div>
 
-        <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-          <CheckCircleIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          <BaseCheckbox v-model="form.is_public" class="h-4 w-4 rounded border-slate-300" />
-          <span class="min-w-0">Показувати в публічному каталозі</span>
-        </label>
+        <div class="rounded-2xl border border-slate-200 px-4 py-3">
+          <BaseToggle v-model="form.is_public" label="Показувати в публічному каталозі" />
+        </div>
 
         <div class="backoffice-modal-actions">
           <BaseButton type="submit" :disabled="saving" class="backoffice-modal-action-button backoffice-modal-action-primary">

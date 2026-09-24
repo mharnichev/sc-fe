@@ -66,14 +66,8 @@ const insertVariable = (variable: string) => {
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <BaseCheckbox  :checked="form.is_active" @change="update({ is_active: ($event.target as HTMLInputElement).checked })" />
-          Активний
-        </label>
-        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <BaseCheckbox  :checked="form.is_default" @change="update({ is_default: ($event.target as HTMLInputElement).checked })" />
-          Шаблон за замовчуванням
-        </label>
+        <BaseToggle :checked="form.is_active" label="Активний" @change="update({ is_active: ($event.target as HTMLInputElement).checked })" />
+        <BaseToggle :checked="form.is_default" label="Шаблон за замовчуванням" @change="update({ is_default: ($event.target as HTMLInputElement).checked })" />
       </div>
     </div>
 

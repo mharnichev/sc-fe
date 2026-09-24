@@ -392,9 +392,7 @@ const nextStep = () => {
               <BaseInput v-model.number="form.duplicate_protection_days" min="0" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
             </label>
           </div>
-          <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-            <BaseCheckbox v-model="form.quiet_hours_enabled" /> Не надсилати вночі
-          </label>
+          <BaseToggle v-model="form.quiet_hours_enabled" label="Не надсилати вночі" />
           <div v-if="form.quiet_hours_enabled" class="grid max-w-md gap-4 sm:grid-cols-2">
             <BaseInput v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
             <BaseInput v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />

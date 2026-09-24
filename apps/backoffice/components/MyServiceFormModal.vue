@@ -306,11 +306,9 @@ watch(
             </span>
           </label>
         </div>
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 xl:gap-3 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
-          <CheckCircleIcon class="h-4 w-4 shrink-0 text-cyan-700 xl:h-5 xl:w-5" aria-hidden="true" />
-          <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
-          <span class="min-w-0">Послуга активна</span>
-        </label>
+        <div class="rounded-xl border border-slate-200 px-3 py-2 xl:rounded-2xl xl:px-4 xl:py-3">
+          <BaseToggle v-model="form.is_active" label="Послуга активна" />
+        </div>
         <p v-if="editing?.base_service" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 xl:rounded-2xl xl:px-4 xl:py-3 xl:text-sm">
           Зміни цієї послуги впливають лише на вашу особисту копію. Базова послуга: {{ serviceName(editing.base_service) }}.
         </p>

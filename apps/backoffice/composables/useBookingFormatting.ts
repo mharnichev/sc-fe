@@ -257,15 +257,36 @@ export const useBookingFormatting = () => {
     statusLabels[status as BookingStatus] || status
 
   const apiErrorMessage = (error: unknown, fallback: string) => {
+    const formatDetail = (detail: unknown): string | null => {
+      if (typeof detail === 'string' && detail.trim()) return detail
+      if (!Array.isArray(detail)) return null
+
+      const messages = detail.map((item) => {
+        if (typeof item === 'string') return item
+        if (!item || typeof item !== 'object') return null
+        const value = item as { msg?: unknown, loc?: unknown }
+        const message = typeof value.msg === 'string' ? value.msg : null
+        if (!message) return null
+        const location = Array.isArray(value.loc)
+          ? value.loc.filter((part): part is string | number => typeof part === 'string' || typeof part === 'number').join('.')
+          : ''
+        return location ? `${location}: ${message}` : message
+      }).filter((item): item is string => Boolean(item))
+
+      return messages.length ? messages.join('; ') : null
+    }
+
+    if (typeof error === 'object' && error && 'data' in error) {
+      const data = (error as { data?: { detail?: unknown, message?: unknown } }).data
+      const detail = formatDetail(data?.detail)
+      if (detail) return detail
+      if (typeof data?.message === 'string' && data.message.trim()) return data.message
+    }
     if (typeof error === 'object' && error && 'response' in error) {
       const status = (error as { response?: { status?: number } }).response?.status
       if (status === 403) return 'У вас немає прав для цієї дії.'
-      if (status === 404) return 'Запитаний ресурс бронювання не знайдено.'
-      if (status === 409) return 'Це бронювання конфліктує з іншою зміною в календарі.'
-    }
-    if (typeof error === 'object' && error && 'data' in error) {
-      const data = (error as { data?: { detail?: unknown } }).data
-      if (data?.detail) return String(data.detail)
+      if (status === 404) return 'Запитаний ресурс не знайдено.'
+      if (status === 409) return 'Операцію відхилено через конфлікт з наявними даними.'
     }
     return fallback
   }

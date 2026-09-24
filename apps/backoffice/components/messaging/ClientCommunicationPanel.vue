@@ -172,7 +172,7 @@ const copyConnectLink = async () => {
       <template #body>
         <div class="space-y-4">
           <label class="inline-flex items-center gap-2 text-sm"><BaseCheckbox v-model="preferences.marketing_consent" /> Є маркетингова згода</label>
-          <label class="inline-flex items-center gap-2 text-sm"><BaseCheckbox v-model="preferences.opt_out" /> Opt-out</label>
+          <BaseToggle v-model="preferences.opt_out" label="Opt-out" />
           <label class="grid gap-2 text-sm">
             <span class="font-medium text-slate-700">Мова</span>
             <BaseSelect native v-model="preferences.preferred_language" class="rounded-2xl border border-slate-300 px-4 py-3">

@@ -375,10 +375,7 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
       <p v-if="rangeError" class="mt-3 text-sm text-rose-600" role="alert">{{ rangeError }}</p>
 
       <template #actions>
-        <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700">
-          <input v-model="compareToPrevious" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-cyan-700 focus:ring-cyan-600" @change="updateComparison">
-          Попередній рівний період
-        </label>
+        <BaseToggle v-model="compareToPrevious" label="Попередній рівний період" @change="updateComparison" />
       </template>
     </BaseFilterPanel>
 

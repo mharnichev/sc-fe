@@ -179,9 +179,7 @@ const saveReviewSettings = async () => {
           <span class="font-medium text-slate-700">Admin test recipient chat_id</span>
           <BaseInput v-model="form.test_recipient_chat_id" class="rounded-2xl border border-slate-300 px-4 py-3" />
         </label>
-        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <BaseCheckbox v-model="form.multi_location_enabled" /> Multi-location режим
-        </label>
+        <BaseToggle v-model="form.multi_location_enabled" label="Multi-location режим" />
       </div>
 
       <div class="space-y-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
@@ -215,7 +213,7 @@ const saveReviewSettings = async () => {
       <p v-else-if="reviewError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{{ apiErrorMessage(reviewError, 'Конфігурація запитів відгуків недоступна: потрібен backend settings contract.') }}</p>
       <div v-else class="grid gap-5 xl:grid-cols-2">
         <div class="space-y-4">
-          <label class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700"><span>Автоматичні запити увімкнено</span><BaseCheckbox v-model="reviewForm.enabled" /></label>
+          <div class="rounded-2xl bg-slate-50 px-4 py-3"><BaseToggle v-model="reviewForm.enabled" label="Автоматичні запити увімкнено" /></div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm">
               <p class="font-medium text-cyan-950">Щоденна відправка о {{ reviewForm.send_time }}</p>
@@ -223,7 +221,7 @@ const saveReviewSettings = async () => {
             </div>
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Основний канал</span><BaseInput value="SMS" disabled class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-700"><BaseCheckbox v-model="reviewForm.quiet_hours_enabled" /> Дотримуватися quiet hours</label>
+          <BaseToggle v-model="reviewForm.quiet_hours_enabled" label="Дотримуватися quiet hours" />
           <div v-if="reviewForm.quiet_hours_enabled" class="grid gap-4 sm:grid-cols-2">
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">Від</span><BaseInput v-model="reviewForm.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
             <label class="grid gap-2 text-sm"><span class="font-medium text-slate-700">До</span><BaseInput v-model="reviewForm.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" /></label>
