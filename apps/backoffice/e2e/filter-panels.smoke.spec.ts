@@ -786,3 +786,118 @@ test('statistics: month selection auto-applies and refresh preserves parameters'
   expect(requestUrl.searchParams.get('month')).toBe('1')
   expect(requestUrl.searchParams.get('year')).toMatch(/^20\d{2}$/)
 })
+
+const noSlotMaster = { master_id: 7, master_name: 'Андрій Віканов', unique_sessions: 3, observations: 58, contexts: 52, checked_dates: 28, date_from: '2026-09-01', date_to: '2026-09-28', last_observed_at: '2026-09-28T12:00:00Z', unattributed_observations: 0 }
+const noSlotAttempts = [38, 10, 10].map((observations, index) => ({
+  attempt_id: `opaque-attempt-${index}`, observations, contexts: index ? 10 : 32,
+  services: [{service_id: 11, service_name: 'Стрижка'}], durations_minutes: [60], checked_dates: 28,
+  date_from: '2026-09-01', date_to: '2026-09-28', first_observed_at: '2026-09-01T12:00:00Z', last_observed_at: '2026-09-28T12:00:00Z',
+  later_time_selection: index === 0, later_booking_same_master: index === 0, later_booking_other_master: index === 1, later_booking_unknown_master: false, rapid_checks: index === 0 ? 12 : 0,
+}))
+const noSlotDashboard = () => ({...dashboardFixture, booking_funnel: {...dashboardFixture.booking_funnel, no_slot_masters: [noSlotMaster], no_slot_snapshot_id: 58, no_slot_contexts_truncated: true}})
+const installNoSlots = async (page: Page) => {
+  await installBackend(page)
+  await page.route('**/backoffice/statistics/admin/dashboard?*', route => route.fulfill({json: noSlotDashboard()}))
+}
+const attemptsResponse = { items: noSlotAttempts, total: 3, offset: 0, limit: 10, has_more: false, snapshot_id: 58 }
+for (const width of [390, 1440]) {
+  test(`no slots: compact summary and progressive evidence at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width, height: 900})
+    await installNoSlots(page)
+    const requests: URL[] = []
+    let fail = true
+    await page.route('**/backoffice/statistics/admin/booking-no-slots?*', route => {
+      const url = new URL(route.request().url()); requests.push(url)
+      if (!url.searchParams.has('attempt_id')) {
+        if (fail) { fail = false; return route.fulfill({status: 400, json: {detail: 'Unavailable'}}) }
+        return route.fulfill({json: attemptsResponse})
+      }
+      const offset = Number(url.searchParams.get('offset'))
+      return route.fulfill({json: {items: Array.from({length: Math.min(10, 38 - offset)}, (_, i) => ({target_date: `2026-09-${String((offset + i) % 28 + 1).padStart(2, '0')}`, services: [{service_id: 11, service_name: 'Стрижка'}], duration_minutes: 60, observed_at: '2026-09-28T12:00:00Z'})), total: 38, offset, limit: 10, has_more: offset + 10 < 38, snapshot_id: 58}})
+    })
+    await page.goto('/admin/dashboards/barbershop?preset=custom&date_from=2026-09-01&date_to=2026-09-28')
+    const section = page.locator('.no-slots')
+    await expect(section.getByTestId('no-slot-master')).toHaveCount(1)
+    await expect(section).toContainText('3 сесії')
+    await expect(section).toContainText('58 перевірок · 52 контексти')
+    await expect(section.getByTestId('no-slot-attempt')).toHaveCount(0)
+    expect(requests).toHaveLength(0)
+    await section.scrollIntoViewIfNeeded()
+    await section.screenshot({path: `/tmp/no-slots-summary-${width}.png`})
+    await section.getByRole('button', {name: 'Розгорнути спроби: Андрій Віканов'}).click()
+    await expect(section.getByRole('alert')).toContainText('Не вдалося')
+    await section.getByRole('button', {name: 'Повторити', exact: true}).click()
+    await expect(section.getByTestId('no-slot-attempt')).toHaveCount(3)
+    await expect(section).toContainText('Пізніше записано до цього майстра')
+    await expect(section).toContainText('Пізніше записано до іншого майстра')
+    await expect(section.getByTestId('no-slot-check')).toHaveCount(0)
+    await section.getByRole('button', {name: 'Переглянути перевірки', exact: true}).first().click()
+    await expect(section.getByTestId('no-slot-check')).toHaveCount(10)
+    await section.getByRole('button', {name: 'Показати ще перевірки'}).click()
+    await expect(section.getByTestId('no-slot-check')).toHaveCount(20)
+    await expect(section).toContainText('58 перевірок · 52 контексти')
+    expect(requests.at(-1)!.searchParams.get('offset')).toBe('10')
+    expect(requests.at(-1)!.searchParams.get('snapshot_id')).toBe('58')
+    expect(requests[0].searchParams.get('date_from')).toBe('2026-09-01')
+    expect(requests[0].searchParams.get('date_to')).toBe('2026-09-28')
+    expect(requests[0].searchParams.get('master_id')).toBe('7')
+    await expect(section).not.toContainText('opaque-attempt')
+    expect(await section.evaluate(el => [...el.querySelectorAll('*'), el].filter(node => {const style = getComputedStyle(node); return ['auto','scroll'].includes(style.overflowY) && node.scrollHeight > node.clientHeight}).length)).toBe(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await section.screenshot({path: `/tmp/no-slots-expanded-${width}.png`})
+  })
+}
+
+test('no slots: changing master discards pending details and forwards new filters', async ({ page }) => {
+  await page.setViewportSize({width: 1440, height: 900})
+  await installNoSlots(page)
+  let pending: Route | undefined
+  await page.route('**/backoffice/statistics/admin/booking-no-slots?*', route => { pending = route })
+  await page.goto('/admin/dashboards/barbershop?preset=custom&date_from=2026-09-01&date_to=2026-09-28')
+  const section = page.locator('.no-slots')
+  await section.getByRole('button', {name: 'Розгорнути спроби: Андрій Віканов'}).click()
+  await expect(section.getByRole('status')).toContainText('Завантаження спроб')
+  await expect.poll(() => Boolean(pending)).toBe(true)
+  const panel = page.getByTestId('base-filter-panel')
+  await panel.locator('.base-select__trigger').filter({hasText: 'Усі майстри'}).click()
+  const filtered = page.waitForRequest(request => request.url().includes('/statistics/admin/dashboard?') && new URL(request.url()).searchParams.get('master_id') === '7')
+  await page.getByRole('option').filter({hasText: 'Тест Майстер'}).click()
+  await filtered
+  await expect(section.getByRole('button', {name: 'Розгорнути спроби: Андрій Віканов'})).toHaveAttribute('aria-expanded', 'false')
+  await pending!.fulfill({json: attemptsResponse})
+  await expect(section.getByTestId('no-slot-attempt')).toHaveCount(0)
+  await page.unroute('**/backoffice/statistics/admin/booking-no-slots?*')
+  await page.route('**/backoffice/statistics/admin/booking-no-slots?*', route => {
+    const query = new URL(route.request().url()).searchParams
+    expect(query.get('master_id')).toBe('7')
+    expect(query.get('snapshot_id')).toBe('58')
+    expect(query.get('offset')).toBe('0')
+    return route.fulfill({json: attemptsResponse})
+  })
+  await section.getByRole('button', {name: 'Розгорнути спроби: Андрій Віканов'}).click()
+  await expect(section.getByTestId('no-slot-attempt')).toHaveCount(3)
+})
+
+test('no slots: checks without session identifiers remain inspectable without inventing sessions', async ({ page }) => {
+  await installNoSlots(page)
+  await page.route('**/backoffice/statistics/admin/dashboard?*', route => {
+    const dashboard = noSlotDashboard()
+    dashboard.booking_funnel.no_slot_masters = [{...noSlotMaster, unique_sessions: 0, observations: 2, unattributed_observations: 2}]
+    return route.fulfill({json: dashboard})
+  })
+  await page.route('**/backoffice/statistics/admin/booking-no-slots?*', route => {
+    const query = new URL(route.request().url()).searchParams
+    const items = query.get('unattributed') === 'true' ? [{target_date: null, services: [], duration_minutes: null, observed_at: '2026-09-28T12:00:00Z'}, {target_date: '2026-09-28', services: [], duration_minutes: null, observed_at: '2026-09-28T12:00:01Z'}] : []
+    expect(query.has('attempt_id')).toBe(false)
+    return route.fulfill({json: {...attemptsResponse, items, total: items.length}})
+  })
+  await page.goto('/admin/dashboards/barbershop?preset=custom&date_from=2026-09-01&date_to=2026-09-28')
+  const section = page.locator('.no-slots')
+  await expect(section).toContainText('0 сесії')
+  await section.getByRole('button', {name: 'Розгорнути спроби: Андрій Віканов'}).click()
+  await expect(section).toContainText('Перевірки без ідентифікатора сесії · 2')
+  await expect(section.getByRole('heading', {name: /Анонімна спроба/})).toHaveCount(0)
+  await section.getByRole('button', {name: 'Переглянути перевірки', exact: true}).click()
+  await expect(section.getByTestId('no-slot-check')).toHaveCount(2)
+  await expect(section).toContainText('Дата не визначена')
+})

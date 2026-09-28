@@ -625,7 +625,9 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(telegramBookingsSource, /summary\?\.created_bookings\.current/)
   assert.match(telegramBookingsSource, /summary\?\.status_counts\.confirmed/)
   assert.match(telegramBookingsSource, /Історія до запуску обліку джерела відновлена лише частково/)
-  assert.match(bookingFunnelSource, /funnel\.no_slot_unknown_date_count/)
+  assert.match(bookingFunnelSource, /DashboardBookingNoSlots/)
+  assert.match(bookingFunnelSource, /:masters="funnel\?\.no_slot_masters"/)
+  assert.match(bookingFunnelSource, /:unknown-date-count="funnel\?\.no_slot_unknown_date_count"/)
   assert.match(bookingFunnelSource, /v-if="isRenderable"[\s\S]+aria-label="Кроки воронки/)
   assert.match(bookingFunnelSource, /Операційні сигнали за період залишаються доступними нижче/)
   assert.match(bookingFunnelSource, /funnel\.unattributed_booking_successes/)
@@ -647,4 +649,22 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(metricHelpSource, /aria-expanded/)
   assert.match(metricHelpSource, /role="tooltip"/)
   assert.match(metricHelpSource, /event\.key === 'Escape'/)
+})
+
+test('no-slot master summaries preserve complete deduplicated totals independently of capped contexts', () => {
+  const fixture = backendDashboardFixture()
+  assert.equal(contract.parseAdminDashboardResponse(fixture).booking_funnel.no_slot_masters, undefined)
+  fixture.booking_funnel.no_slot_masters = []
+  assert.deepEqual(contract.parseAdminDashboardResponse(fixture).booking_funnel.no_slot_masters, [])
+  const summary = {master_id: 7, master_name: 'Андрій Віканов', unique_sessions: 3, observations: 58, contexts: 52, checked_dates: 28, date_from: '2026-09-01', date_to: '2026-09-28', last_observed_at: '2026-09-28T12:00:00Z', unattributed_observations: 0}
+  fixture.booking_funnel.no_slot_masters = [summary, {...summary, master_id: 8}]
+  fixture.booking_funnel.no_slot_snapshot_id = 58
+  fixture.booking_funnel.no_slot_contexts = []
+  fixture.booking_funnel.no_slot_contexts_truncated = true
+  const parsed = contract.parseAdminDashboardResponse(fixture).booking_funnel
+  assert.deepEqual(parsed.no_slot_masters.map(master => master.unique_sessions), [3, 3])
+  assert.equal(parsed.no_slot_masters[0].observations, 58)
+  assert.equal(parsed.no_slot_snapshot_id, 58)
+  fixture.booking_funnel.no_slot_masters.push(summary)
+  assert.throws(() => contract.parseAdminDashboardResponse(fixture))
 })

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   ArrowRightIcon,
-  CalendarDaysIcon,
   ChartBarSquareIcon,
   ExclamationTriangleIcon,
   LightBulbIcon,
@@ -21,11 +20,12 @@ import {
 const props = defineProps<{
   funnel?: DashboardBookingFunnel | null
   loading?: boolean
+  dateFrom: string
+  dateTo: string
 }>()
 
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
-const noSlotContexts = computed(() => props.funnel?.no_slot_contexts ?? [])
 const bottleneckLabel = computed(() => bookingFunnelBottleneckLabel(props.funnel))
 const displayState = computed(() => bookingFunnelDisplayState(props.funnel))
 const isRenderable = computed(() =>
@@ -44,30 +44,6 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
   props.funnel
     ? bookingFunnelAlertTriggerExplanation(code, props.funnel.alert_thresholds)
     : 'Поріг сигналу недоступний.'
-const targetDateFormatter = new Intl.DateTimeFormat('uk-UA', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
-const observedAtFormatter = new Intl.DateTimeFormat('uk-UA', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Kyiv',
-})
-const formatTargetDate = (value: string) =>
-  targetDateFormatter.format(new Date(`${value}T00:00:00.000Z`))
-const formatObservedAt = (value: string) => observedAtFormatter.format(new Date(value))
-const noSlotMasterLabel = (masterId: number | null, masterName: string | null) =>
-  masterName || (masterId ? `Майстер #${masterId}` : 'Майстра не визначено')
-const noSlotServicesLabel = (services: DashboardBookingFunnel['no_slot_contexts'][number]['services']) =>
-  services.length
-    ? services.map(service => service.service_name || `Послуга #${service.service_id}`).join(', ')
-    : 'Послуги не визначено'
-const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][number]) =>
-  `${item.target_date}:${item.master_id ?? 'unknown'}:${item.services.map(service => service.service_id).join(',')}:${item.duration_minutes ?? 'unknown'}`
 </script>
 
 <template>
@@ -257,99 +233,6 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
         </article>
       </div>
 
-      <section
-        v-if="noSlotContexts.length || funnel.no_slot_unknown_date_count"
-        class="booking-funnel__no-slot-dates mt-4 overflow-hidden rounded-2xl border"
-        aria-labelledby="booking-funnel-no-slot-dates-title"
-      >
-        <div class="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
-          <div class="flex items-start gap-3">
-            <CalendarDaysIcon class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
-            <div>
-              <h3
-                id="booking-funnel-no-slot-dates-title"
-                class="flex items-center gap-1 text-sm font-semibold text-slate-900"
-              >
-                Історичні пошуки без доступних слотів
-                <DashboardMetricHelp
-                  title="Історичні пошуки без доступних слотів"
-                  summary="Показує історичні моменти, коли перевірений сервером запит повернув 0 доступних для запису початків. Це не стан календаря зараз."
-                  formula="Одне спостереження на анонімну спробу, майстра, повний набір послуг, їх загальну тривалість та дату пошуку."
-                  note="Враховуються записи, блокування, активні утримання листа очікування, тривалість і час, що вже минув. Помилки мережі, понеділки, минулі дати та дати поза горизонтом запису сюди не потрапляють."
-                />
-              </h3>
-              <p class="mt-1 text-xs leading-5 text-slate-500">
-                Це зафіксований результат «0 доступних початків» у вказаний момент, а не поточний стан календаря.
-              </p>
-            </div>
-          </div>
-          <span
-            v-if="funnel.no_slot_unknown_date_count"
-            class="ui-status-warning rounded-full px-3 py-1 text-xs font-medium"
-          >
-            Дата не визначена: {{ funnel.no_slot_unknown_date_count.toLocaleString('uk-UA') }}
-          </span>
-          <span
-            v-if="funnel.no_slot_contexts_truncated"
-            class="ui-status-warning rounded-full px-3 py-1 text-xs font-medium"
-          >
-            Показано перші {{ funnel.no_slot_context_limit.toLocaleString('uk-UA') }} контекстів
-          </span>
-        </div>
-
-        <BaseTable
-          v-if="noSlotContexts.length"
-          caption="Історичні перевірені запити, що повернули 0 доступних для запису початків"
-          min-width="64rem"
-          wrapper-class="!rounded-none !border-x-0 !border-b-0"
-        >
-          <template #head>
-            <tr class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <th class="px-4 py-3 font-medium">Бажана дата</th>
-              <th class="px-4 py-3 font-medium">Майстер</th>
-              <th class="px-4 py-3 font-medium">Послуги</th>
-              <th class="px-4 py-3 text-right font-medium">Тривалість</th>
-              <th class="px-4 py-3 text-right font-medium">Спостереження</th>
-              <th class="px-4 py-3 text-right font-medium">Сесії</th>
-              <th class="px-4 py-3 font-medium">Вперше помітили</th>
-              <th class="px-4 py-3 font-medium">Востаннє помітили</th>
-            </tr>
-          </template>
-          <tr v-for="item in noSlotContexts" :key="noSlotContextKey(item)">
-            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
-              <time :datetime="item.target_date">{{ formatTargetDate(item.target_date) }}</time>
-            </td>
-            <td class="px-4 py-3 text-slate-700">
-              {{ noSlotMasterLabel(item.master_id, item.master_name) }}
-            </td>
-            <td class="max-w-xs px-4 py-3 text-slate-700">
-              {{ noSlotServicesLabel(item.services) }}
-            </td>
-            <td class="whitespace-nowrap px-4 py-3 text-right text-slate-700">
-              {{ item.duration_minutes ? `${item.duration_minutes} хв` : 'Невідомо' }}
-            </td>
-            <td class="px-4 py-3 text-right font-semibold text-slate-900">
-              {{ item.observations.toLocaleString('uk-UA') }}
-            </td>
-            <td class="px-4 py-3 text-right text-slate-700">
-              {{ item.unique_sessions.toLocaleString('uk-UA') }}
-            </td>
-            <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-              <time :datetime="item.first_observed_at">{{ formatObservedAt(item.first_observed_at) }}</time>
-            </td>
-            <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-              <time :datetime="item.last_observed_at">{{ formatObservedAt(item.last_observed_at) }}</time>
-            </td>
-          </tr>
-        </BaseTable>
-        <p
-          v-else
-          class="border-t border-slate-200 px-4 py-3 text-sm leading-6 text-slate-500"
-        >
-          Для старих подій вибрану дату відновити неможливо, тому вони показані лише загальним числом.
-        </p>
-      </section>
-
       <div v-if="alerts.length" class="mt-4" aria-labelledby="booking-funnel-alerts-title">
         <h3 id="booking-funnel-alerts-title" class="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" aria-hidden="true" />
@@ -384,6 +267,15 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
         </ul>
       </div>
     </template>
+    <DashboardBookingNoSlots
+      :key="`${dateFrom}:${dateTo}`"
+      :masters="funnel?.no_slot_masters"
+      :snapshot-id="funnel?.no_slot_snapshot_id"
+      :unknown-date-count="funnel?.no_slot_unknown_date_count"
+      :date-from="dateFrom"
+      :date-to="dateTo"
+      :loading="loading"
+    />
   </section>
 </template>
 
@@ -444,8 +336,4 @@ const noSlotContextKey = (item: DashboardBookingFunnel['no_slot_contexts'][numbe
   color: var(--bo-warning-text);
 }
 
-.booking-funnel__no-slot-dates {
-  border-color: color-mix(in srgb, var(--warning) 24%, var(--border));
-  background: color-mix(in srgb, var(--warning) 5%, var(--glass));
-}
 </style>

@@ -228,6 +228,19 @@ export interface DashboardBookingFunnelNoSlotContext {
   last_observed_at: string
 }
 
+export interface DashboardNoSlotMaster {
+  master_id: number | null
+  master_name: string | null
+  unique_sessions: number
+  observations: number
+  contexts: number
+  checked_dates: number
+  date_from: string | null
+  date_to: string | null
+  last_observed_at: string
+  unattributed_observations: number
+}
+
 export type DashboardBookingFunnelActionCode =
   | 'review_availability'
   | 'refresh_schedule'
@@ -273,6 +286,8 @@ export interface DashboardBookingFunnel {
   alert_thresholds: DashboardBookingFunnelAlertThresholds
   no_slot_dates: DashboardBookingFunnelNoSlotDate[]
   no_slot_contexts: DashboardBookingFunnelNoSlotContext[]
+  no_slot_masters?: DashboardNoSlotMaster[]
+  no_slot_snapshot_id?: number | null
   no_slot_context_limit: number
   no_slot_contexts_truncated: boolean
   no_slot_unknown_date_count: number
@@ -773,6 +788,28 @@ const funnelAt = (value: unknown, path: string) => {
     }
   }
   funnelNoSlotDateListAt(funnel.no_slot_dates, `${path}.no_slot_dates`)
+  // Older servers cannot supply deduplicated totals; never derive them from capped contexts.
+  if (funnel.no_slot_masters !== undefined) {
+    const seen = new Set<number | null>()
+    arrayAt(funnel.no_slot_masters, `${path}.no_slot_masters`).forEach((value, index) => {
+      const itemPath = `${path}.no_slot_masters.${index}`
+      const item = recordAt(value, itemPath)
+      const id = item.master_id === null ? null : nonNegativeIntegerAt(item.master_id, `${itemPath}.master_id`)
+      if (id === 0 || seen.has(id)) fail(`${itemPath}.master_id`)
+      seen.add(id)
+      nullableStringAt(item.master_name, `${itemPath}.master_name`)
+      for (const key of ['unique_sessions', 'observations', 'contexts', 'checked_dates', 'unattributed_observations']) {
+        nonNegativeIntegerAt(item[key], `${itemPath}.${key}`)
+      }
+      for (const key of ['date_from', 'date_to']) {
+        if (item[key] !== null) isoDateAt(item[key], `${itemPath}.${key}`)
+      }
+      isoDateTimeAt(item.last_observed_at, `${itemPath}.last_observed_at`)
+    })
+  }
+  if (funnel.no_slot_snapshot_id !== undefined && funnel.no_slot_snapshot_id !== null) {
+    nonNegativeIntegerAt(funnel.no_slot_snapshot_id, `${path}.no_slot_snapshot_id`)
+  }
   const noSlotContextLimit = nonNegativeIntegerAt(
     funnel.no_slot_context_limit,
     `${path}.no_slot_context_limit`,

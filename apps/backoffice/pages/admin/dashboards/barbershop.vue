@@ -478,6 +478,9 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
       </section>
 
       <DashboardBookingFunnelSection
+        :key="dashboardAsyncDataKey"
+        :date-from="appliedDateFrom"
+        :date-to="appliedDateTo"
         :funnel="dashboard?.booking_funnel"
         :loading="pending"
       />
