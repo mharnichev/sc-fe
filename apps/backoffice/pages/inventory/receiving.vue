@@ -222,6 +222,7 @@ watch([reason, comment], () => {
 })
 
 watch(receiptIdFromRoute, async (id) => {
+  if (id && receipt.value?.id === id) return
   ++receiptLoadRequest
   createKey.value = ''
   postKey.value = ''
@@ -239,7 +240,6 @@ watch(receiptIdFromRoute, async (id) => {
     loadingReceipt.value = false
     return
   }
-  if (receipt.value?.id === id) return
   receipt.value = null
   await loadReceipt(id)
 }, { immediate: true })
