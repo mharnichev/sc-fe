@@ -123,6 +123,8 @@ const markOrdered = async () => {
       <NuxtLink to="/inventory/receiving" class="base-button base-button--primary min-h-11 px-5 py-3 text-sm">Почати приймання</NuxtLink>
     </div>
 
+    <InventorySectionNav />
+
     <div v-if="error" class="ui-status-danger rounded-2xl p-4 text-sm" role="alert">
       {{ inventoryApiErrorMessage(error, 'Не вдалося завантажити чергу.') }} <BaseButton variant="neutral" size="sm" @click="refresh()">Повторити</BaseButton>
     </div>

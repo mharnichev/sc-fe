@@ -91,10 +91,8 @@ const applyMovementFilters = () => updateQuery({
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Рух товару</h1><p class="mt-2 text-sm text-ui-secondary">Незмінна історія операцій для одного вибраного товару.</p></div>
-      <NuxtLink to="/inventory" class="base-button base-button--neutral min-h-10 px-4 py-2 text-sm">До складу</NuxtLink>
-    </div>
+    <div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Рух товару</h1><p class="mt-2 text-sm text-ui-secondary">Незмінна історія операцій для одного вибраного товару.</p></div>
+    <InventorySectionNav />
 
     <BaseCard as="section" padding="sm" class="space-y-4">
       <form class="flex flex-wrap gap-3" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" class="min-w-[min(100%,22rem)] flex-1" placeholder="Знайти товар за назвою або SKU" aria-label="Пошук товару" /><BaseButton type="submit" variant="primary" :loading="productsPending">Знайти</BaseButton></form>

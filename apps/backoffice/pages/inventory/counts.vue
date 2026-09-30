@@ -174,7 +174,8 @@ watch(countIdFromRoute, async (id) => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4"><div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Інвентаризація</h1><p class="mt-2 text-sm text-ui-secondary">Внесіть фактичну кількість для кожного товару. Повторне сканування оновлює кількість, а не підсумовує її.</p></div><NuxtLink to="/inventory/procurement" class="base-button base-button--neutral min-h-11 px-5 py-3 text-sm">Черга закупівель</NuxtLink></div>
+    <div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Інвентаризація</h1><p class="mt-2 text-sm text-ui-secondary">Внесіть фактичну кількість для кожного товару. Повторне сканування оновлює кількість, а не підсумовує її.</p></div>
+    <InventorySectionNav />
     <p v-if="loading" role="status" class="text-sm text-ui-muted">Завантаження інвентаризації…</p>
     <div v-if="errorMessage" role="alert" class="ui-status-danger rounded-2xl p-4 text-sm">{{ errorMessage }} <BaseButton v-if="countIdFromRoute" variant="neutral" size="sm" @click="loadCount()">Повторити</BaseButton></div>
     <BaseCard v-if="isPosted" variant="subtle" padding="sm" class="text-sm text-ui-secondary"><BaseBadge tone="success">Проведено</BaseBadge><span class="ml-2">Інвентаризацію #{{ count?.id }} проведено {{ count?.posted_at || '' }}. Редагування недоступне.</span></BaseCard>

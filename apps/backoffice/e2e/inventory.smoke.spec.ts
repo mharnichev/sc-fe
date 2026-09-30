@@ -94,6 +94,36 @@ test('admin session, permissions and private inventory fields stay protected', a
   await expect(page.getByRole('heading', { name: 'Склад', exact: true })).toBeVisible()
 })
 
+test('inventory section navigation consolidates the sidebar and adapts to desktop and mobile', async ({ page }, testInfo) => {
+  const productId = state.seed.products.available.id
+
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`/inventory/receiving?product_id=${productId}`)
+  const desktopNavigation = page.getByRole('navigation', { name: 'Розділи складу' })
+  await expect(desktopNavigation).toBeVisible()
+  await expect(desktopNavigation.getByRole('link')).toHaveCount(6)
+  await expect(desktopNavigation.getByRole('link', { name: /^Приймання/ })).toHaveAttribute('aria-current', 'page')
+  await expect(page).toHaveURL(new RegExp(`/inventory/receiving\\?product_id=${productId}$`))
+
+  const desktopSidebar = page.locator('aside')
+  await expect(desktopSidebar.getByRole('link', { name: 'Склад', exact: true })).toHaveClass(/bg-white\/14/)
+  await expect(desktopSidebar.getByRole('link', { name: 'Приймання', exact: true })).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath('inventory-navigation-desktop.png'), fullPage: true, animations: 'disabled' })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/inventory/movements?product_id=${productId}`)
+  await expect(desktopNavigation).toBeHidden()
+  const sectionSelector = page.getByRole('button', { name: 'Розділ складу' })
+  await expect(sectionSelector).toBeVisible()
+  await expect(sectionSelector).toContainText('Рух товарів')
+  await sectionSelector.click()
+  await page.getByRole('option', { name: 'Операції', exact: true }).click()
+  await expect(page).toHaveURL(/\/inventory\/operations$/)
+  await expect(page.getByRole('heading', { name: 'Ручна операція', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('inventory-navigation-mobile.png'), fullPage: true, animations: 'disabled' })
+})
+
 test('overview search and stock filters navigate to product settings and surface duplicate barcodes', async ({ page, request }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/inventory')

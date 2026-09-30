@@ -95,11 +95,9 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
         <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Склад</h1>
         <p class="mt-2 text-sm text-ui-secondary">Фактичний залишок, резерв і потреба в закупівлі з поточних даних API.</p>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <NuxtLink to="/inventory/movements" class="base-button base-button--neutral min-h-10 px-4 py-2 text-sm">Рух товарів</NuxtLink>
-        <NuxtLink to="/inventory/operations" class="base-button base-button--primary min-h-10 px-4 py-2 text-sm">Операція складу</NuxtLink>
-      </div>
     </div>
+
+    <InventorySectionNav />
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <BaseCard v-for="item in [

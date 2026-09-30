@@ -259,7 +259,8 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4"><div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Приймання товару</h1><p class="mt-2 text-sm text-ui-secondary">До проведення можна додавати позиції. Повторне додавання такого самого товару збільшує рядок; API не підтримує зменшення або видалення рядка чернетки.</p></div><NuxtLink to="/inventory/procurement" class="base-button base-button--neutral min-h-11 px-5 py-3 text-sm">Черга закупівель</NuxtLink></div>
+    <div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Приймання товару</h1><p class="mt-2 text-sm text-ui-secondary">До проведення можна додавати позиції. Повторне додавання такого самого товару збільшує рядок; API не підтримує зменшення або видалення рядка чернетки.</p></div>
+    <InventorySectionNav />
     <p v-if="loadingReceipt" role="status" class="text-sm text-ui-muted">Завантаження приймання…</p>
     <div v-if="errorMessage" role="alert" class="ui-status-danger rounded-2xl p-4 text-sm">{{ errorMessage }} <BaseButton v-if="receiptIdFromRoute" variant="neutral" size="sm" @click="loadReceipt()">Повторити</BaseButton></div>
     <BaseCard v-if="isPosted" variant="subtle" padding="sm" class="text-sm text-ui-secondary"><BaseBadge tone="success">Проведено</BaseBadge><span class="ml-2">Приймання #{{ receipt?.id }} проведено {{ receipt?.posted_at || '' }}. Редагування недоступне.</span></BaseCard>
