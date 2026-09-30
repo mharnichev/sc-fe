@@ -271,6 +271,7 @@ export interface Master {
   position_en?: string | null
   phone?: string | null
   email?: string | null
+  telegram_chat_id?: string | null
   description?: string | null
   photo_url?: string | null
   photo_upload_id?: number | null

@@ -103,6 +103,21 @@ pnpm dev:shop
 pnpm dev:backoffice
 ```
 
+### Test the barbershop site on a phone
+
+Connect the computer and phone to the same local network, start the backend on
+port `8000`, then expose the Nuxt development server to the network:
+
+```bash
+pnpm dev:barbershop:network
+```
+
+Open the `Network` URL printed by Nuxt (for example,
+`http://192.168.1.25:3000`) on the phone. In this mode the browser sends API
+requests to the Nuxt server, which proxies them to the backend running on the
+computer. If the page does not open, allow incoming connections for Node.js in
+the system firewall and make sure the Wi-Fi network does not isolate clients.
+
 ## API Notes
 
 The FastAPI backend in [`mharnichev/sc-be`](https://github.com/mharnichev/sc-be) exposes:

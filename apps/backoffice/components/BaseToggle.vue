@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   rootClass?: string
   labelClass?: string
 }>(), {
+  checked: undefined,
   loading: false,
   loadingLabel: 'Оновлення…',
 })

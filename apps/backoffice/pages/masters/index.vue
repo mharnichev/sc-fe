@@ -57,6 +57,11 @@ const allKnownMasters = computed(() => {
 const total = computed(() => normalizeTotal(data.value))
 const ratingsByMaster = computed(() => new Map((ratingData.value || []).map(item => [item.master_id, item])))
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
+const isMasterTelegramConnected = (master: Master) => Boolean(master.telegram_chat_id?.trim())
+const masterReviewsRoute = (master: Master, moderationStatus: 'approved' | 'pending') => ({
+  path: '/reviews',
+  query: { master_id: String(master.id), moderation_status: moderationStatus },
+})
 const masterRedirectId = (master: Master) => master.bookingRedirectMasterId ?? master.booking_redirect_master_id ?? null
 const masterRedirectLabel = (master: Master) => {
   const redirectId = masterRedirectId(master)
@@ -219,14 +224,33 @@ const clearFilters = async () => {
               <p class="text-xs text-ui-muted">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
               <p v-if="ratingsByMaster.get(master.id)" class="mt-2 text-xs text-ui-secondary">
                 <span class="font-semibold ui-status-warning rounded-full px-2 py-0.5">{{ formatRating(ratingsByMaster.get(master.id)?.approved_average_rating) }} ★</span>
-                · {{ ratingsByMaster.get(master.id)?.approved_review_count }} схвалено
-                · {{ ratingsByMaster.get(master.id)?.pending_review_count }} очікують
+                ·
+                <NuxtLink
+                  v-if="ratingsByMaster.get(master.id)?.approved_review_count"
+                  :to="masterReviewsRoute(master, 'approved')"
+                  class="font-medium underline decoration-current/40 underline-offset-2 transition-colors hover:text-ui-primary"
+                >
+                  {{ ratingsByMaster.get(master.id)?.approved_review_count }} схвалено
+                </NuxtLink>
+                <span v-else>0 схвалено</span>
+                ·
+                <NuxtLink
+                  v-if="ratingsByMaster.get(master.id)?.pending_review_count"
+                  :to="masterReviewsRoute(master, 'pending')"
+                  class="font-medium underline decoration-current/40 underline-offset-2 transition-colors hover:text-ui-primary"
+                >
+                  {{ ratingsByMaster.get(master.id)?.pending_review_count }} очікують
+                </NuxtLink>
+                <span v-else>0 очікують</span>
               </p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <BaseBadge :tone="isMasterActive(master) ? 'success' : 'neutral'">
               {{ isMasterActive(master) ? 'активний' : 'неактивний' }}
+            </BaseBadge>
+            <BaseBadge :tone="isMasterTelegramConnected(master) ? 'info' : 'neutral'">
+              {{ isMasterTelegramConnected(master) ? 'TG підключено' : 'немає TG' }}
             </BaseBadge>
             <NuxtLink class="base-button base-button--neutral min-h-8 px-3 py-1.5 text-xs" :to="`/masters/${master.id}/services`">Послуги</NuxtLink>
             <BaseButton

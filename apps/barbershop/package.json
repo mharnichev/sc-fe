@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "TMPDIR=/tmp nuxt dev --port 3000",
+    "dev:network": "TMPDIR=/tmp NUXT_PUBLIC_API_BASE=/api/v1 NUXT_API_UPSTREAM_BASE=http://127.0.0.1:8000/api/v1 nuxt dev --host 0.0.0.0 --port 3000",
     "build": "nuxt build",
     "start": "nuxt start",
     "lint": "nuxi typecheck",

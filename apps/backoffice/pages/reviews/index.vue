@@ -21,11 +21,13 @@ const page = ref(1)
 const pageSize = 20
 const routeModerationStatus = String(route.query.moderation_status || '')
 const routeRequestState = String(route.query.request_state || '')
+const parsedRouteMasterId = Number.parseInt(String(route.query.master_id || ''), 10)
+const routeMasterId = Number.isInteger(parsedRouteMasterId) && parsedRouteMasterId > 0 ? parsedRouteMasterId : null
 const filters = reactive<ReviewFilters>({
   moderation_status: ['pending', 'approved', 'rejected'].includes(routeModerationStatus)
     ? routeModerationStatus as ReviewFilters['moderation_status']
     : '',
-  master_id: null,
+  master_id: routeMasterId,
   rating: null,
   submitted_from: '',
   submitted_to: '',
@@ -140,6 +142,8 @@ const persistListFilterQuery = () => {
   else delete query.moderation_status
   if (filters.request_state) query.request_state = filters.request_state
   else delete query.request_state
+  if (filters.master_id) query.master_id = String(filters.master_id)
+  else delete query.master_id
   return router.replace({ query })
 }
 const applyFilters = async () => {
