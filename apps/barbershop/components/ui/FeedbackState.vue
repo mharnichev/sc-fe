@@ -105,6 +105,33 @@ const selectedFace = computed<FeedbackFaceName>(() => {
   gap: 0.75rem;
 }
 
+.feedback-state:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__face {
+  width: min(7.65rem, 30.6vw);
+}
+
+.feedback-state:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__title {
+  font-size: clamp(1.1rem, 1.7vw, 1.5rem);
+}
+
+.feedback-state:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__description {
+  font-size: 0.85rem;
+}
+
 .feedback-state--compact {
   min-height: 0;
   gap: 0.65rem;
@@ -121,6 +148,34 @@ const selectedFace = computed<FeedbackFaceName>(() => {
 
 .feedback-state--compact .feedback-state__description {
   font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.feedback-state--compact:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__face {
+  width: min(4.4625rem, 20.4vw);
+}
+
+.feedback-state--compact:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__title {
+  font-size: 0.875rem;
+}
+
+.feedback-state--compact:is(
+  .feedback-state--empty,
+  .feedback-state--search,
+  .feedback-state--error,
+  .feedback-state--unavailable
+) .feedback-state__description {
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 

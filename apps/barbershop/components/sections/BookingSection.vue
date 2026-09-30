@@ -1642,13 +1642,19 @@ onBeforeUnmount(() => {
         <form
           :id="bookingStepperId"
           ref="bookingForm"
-          class="booking-form relative scroll-mt-24 overflow-hidden bg-white/[0.03] lg:scroll-mt-28"
+          class="booking-form relative scroll-mt-24 overflow-hidden bg-transparent sm:bg-white/[0.03] lg:scroll-mt-28"
           :class="isDrawerMode ? 'booking-form--drawer flex-1' : 'booking-form--section self-start p-2'"
           :data-reveal="isDrawerMode ? undefined : 'soft'"
           :data-reveal-delay="isDrawerMode ? undefined : '140'"
           @submit.prevent="submit"
         >
-          <BookingPromotionNotice v-if="firstVisitBookingOffer && activeStepIndex !== lastStepIndex" :offer="firstVisitBookingOffer" compact class="m-3 text-white" />
+          <BookingPromotionNotice
+            v-if="firstVisitBookingOffer && activeStepIndex !== lastStepIndex"
+            :offer="firstVisitBookingOffer"
+            compact
+            mobile-tight
+            class="mx-3 my-1 text-white sm:m-3"
+          />
           <div class="booking-stepper flex gap-1.5 p-2 sm:grid sm:grid-cols-4 sm:gap-2 sm:p-3">
             <button
               v-for="(step, index) in bookingStepState"
@@ -1737,19 +1743,15 @@ onBeforeUnmount(() => {
                           :key="serviceResultsKey"
                           class="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-2"
                         >
-                          <button
+                          <article
                             v-for="service in filteredActiveServices"
                             :key="serviceKey(service)"
-                            type="button"
-                            class="booking-service__item relative isolate flex min-h-24 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-2 text-left transition hover:bg-white/[0.075] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60 sm:min-h-32 sm:p-2.5"
+                            class="booking-service__item relative isolate flex min-h-24 w-full flex-col justify-between overflow-visible bg-white/[0.045] p-2 text-left transition hover:bg-white/[0.075] hover:text-white sm:min-h-32 sm:p-2.5"
                             :class="[
                               serviceHasMilitaryPromotion(service) ? 'is-army-service' : '',
                               serviceSelected(service) ? 'bg-white/[0.09] text-white' : 'text-white/72',
                               serviceSelectionLimitReached && !serviceSelected(service) ? 'cursor-not-allowed opacity-45' : '',
                             ]"
-                            :disabled="serviceSelectionLimitReached && !serviceSelected(service)"
-                            :aria-pressed="serviceSelected(service)"
-                            @click="selectService(service)"
                           >
                             <Transition name="booking-service-scribble" :duration="{ enter: 560, leave: 410 }">
                               <svg
@@ -1769,13 +1771,20 @@ onBeforeUnmount(() => {
                                 />
                               </svg>
                             </Transition>
+                            <button
+                              type="button"
+                              class="relative isolate flex w-full flex-1 flex-col justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/60"
+                              :disabled="serviceSelectionLimitReached && !serviceSelected(service)"
+                              :aria-pressed="serviceSelected(service)"
+                              @click="selectService(service)"
+                            >
                             <span class="relative z-10">
                               <span class="flex items-center gap-2 text-sm font-semibold leading-snug sm:text-base">
                                 <span class="min-w-0">{{ serviceName(service) }}</span>
                               </span>
                               <span class="sr-only">{{ serviceSelected(service) ? terms.home.booking.selected : terms.home.booking.continue }}</span>
                               <span
-                                class="mt-1 block line-clamp-2 text-xs leading-5 sm:leading-5"
+                                class="mt-1 hidden text-xs leading-5 sm:block"
                                 :class="serviceSelected(service) ? 'text-white/70' : 'text-white/55'"
                               >
                                 {{ serviceDescription(service) }}
@@ -1818,6 +1827,12 @@ onBeforeUnmount(() => {
                                 </span>
                               </span>
                             </span>
+                            </button>
+                            <ServiceDescriptionAccordion
+                              class="relative z-10 mt-1 sm:hidden"
+                              :description="serviceDescription(service)"
+                              theme="dark"
+                            />
                             <span
                               v-if="serviceHasMilitaryPromotion(service)"
                               class="booking-service-army-strip z-10 flex items-center justify-between gap-2 overflow-hidden px-2 py-1.5 text-white"
@@ -1833,7 +1848,7 @@ onBeforeUnmount(() => {
                               </span>
                               <span class="booking-service-army-discount shrink-0 text-xs font-bold leading-none">-{{ servicePromotion(service)?.discount_percent }}%</span>
                             </span>
-                          </button>
+                          </article>
                           <p v-if="servicesPending" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.loading }}</p>
                           <p v-else-if="!activeServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ terms.home.services.empty }}</p>
                           <p v-else-if="!filteredActiveServices.length" class="text-sm text-white/55 sm:col-span-2 xl:col-span-3">{{ serviceSearchLabels.noResults }}</p>
@@ -1910,16 +1925,16 @@ onBeforeUnmount(() => {
                       :aria-label="recoveryCopy.title"
                     >
                       <div class="flex items-start gap-2">
-                        <span class="mt-0.5 block h-14 w-14 shrink-0 overflow-hidden" aria-hidden="true">
+                        <span class="mt-0.5 flex h-12 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-stone-100 p-[1px] text-neutral-950" aria-hidden="true">
                           <FeedbackFace
                             name="sad-droopy-face"
-                            class="h-full w-full text-amber-200/85"
-                            style="--feedback-face-cutout: #0a0a0a"
+                            class="h-[2.4rem] w-[2.4rem]"
+                            style="--feedback-face-cutout: #f5f5f4"
                           />
                         </span>
                         <div class="min-w-0">
-                          <p class="text-[14px] font-semibold leading-5 text-white">{{ recoveryCopy.title }}</p>
-                          <p class="text-[13px] leading-[1.35] text-white/65">{{ recoveryCopy.description }}</p>
+                          <p class="text-xs font-semibold leading-4 text-white">{{ recoveryCopy.title }}</p>
+                          <p class="text-[11px] leading-[1.35] text-white/65">{{ recoveryCopy.description }}</p>
                         </div>
                       </div>
                       <p v-if="recovery.loading" class="mt-3 text-sm text-white/55">{{ recoveryCopy.loading }}</p>
@@ -1986,12 +2001,12 @@ onBeforeUnmount(() => {
                         </div>
                       </section>
 
-                      <div class="mt-4 flex flex-wrap gap-2">
-                        <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action" :disabled="recovery.loading" @click="openWaitlist">
-                          <span class="mr-1.5 text-[0.9em] leading-none" aria-hidden="true">🔔</span>
+                      <div class="mt-2 grid grid-cols-2 gap-1.5 sm:mt-4 sm:flex sm:flex-wrap sm:gap-2">
+                        <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action w-full sm:w-auto" :disabled="recovery.loading" @click="openWaitlist">
+                          <span class="text-[0.85em] leading-none" aria-hidden="true">🔔</span>
                           {{ recoveryCopy.waitlist }}
                         </BaseButton>
-                        <BaseButton type="button" variant="outline-light" size="sm" class="booking-recovery-action" @click="goToStep(1)">
+                        <BaseButton type="button" variant="outline-light" size="sm" class="booking-recovery-action w-full sm:w-auto" @click="goToStep(1)">
                           {{ recoveryCopy.chooseAnother }}
                         </BaseButton>
                       </div>
@@ -2299,76 +2314,105 @@ onBeforeUnmount(() => {
           :close-label="recoveryCopy.close"
           type="right"
         >
-          <form class="mx-auto w-full max-w-xl p-6 pt-14 sm:p-8 sm:pt-14" @submit.prevent="submitWaitlist">
-            <p class="type-eyebrow text-xs text-neutral-500">{{ recoveryCopy.waitlist }}</p>
-            <h2 class="mt-3 text-2xl font-semibold leading-tight text-neutral-950">{{ recoveryCopy.waitlistTitle }}</h2>
-            <p class="mt-3 text-sm leading-6 text-neutral-600">{{ recoveryCopy.waitlistDescription }}</p>
+          <template #header>
+            <div class="flex min-w-0 items-center gap-3">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] bg-neutral-950 text-white" aria-hidden="true">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+                  <path d="M6.2 8.1a3.8 3.8 0 1 1 7.6 0c0 4 1.7 4.5 1.7 4.5h-11S6.2 12.1 6.2 8.1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                  <path d="M8.2 15a2 2 0 0 0 3.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+              </span>
+              <p class="min-w-0 text-sm font-semibold leading-5 text-neutral-950">{{ recoveryCopy.waitlist }}</p>
+            </div>
+          </template>
+
+          <form class="mx-auto w-full max-w-xl p-4 pt-5 sm:p-8 sm:pt-6" @submit.prevent="submitWaitlist">
+            <h2 class="text-xl font-semibold leading-tight text-neutral-950 sm:text-2xl">{{ recoveryCopy.waitlistTitle }}</h2>
+            <p class="mt-2 text-sm leading-5 text-neutral-600 sm:leading-6">{{ recoveryCopy.waitlistDescription }}</p>
 
             <template v-if="waitlistState === 'form' || waitlistState === 'submitting'">
-              <div v-if="waitlistNeedsName || waitlistNeedsPhone" class="mt-6 grid gap-3">
-                <label v-if="waitlistNeedsName" class="grid gap-1.5 text-sm font-semibold text-neutral-800">
-                  {{ recoveryCopy.name }}
-                  <input
-                    v-model="waitlistForm.customer_name"
-                    required
-                    autocomplete="name"
-                    minlength="2"
-                    :maxlength="FORM_FIELD_LIMITS.fullName"
-                    class="border border-neutral-300 bg-white px-3 py-2.5 outline-none transition focus:border-neutral-950 focus:ring-2 focus:ring-neutral-950/20"
-                    @input="waitlistForm.customer_name = constrainFormInput(waitlistForm.customer_name, FORM_FIELD_LIMITS.fullName)"
-                  >
-                </label>
-                <label v-if="waitlistNeedsPhone" class="grid gap-1.5 text-sm font-semibold text-neutral-800">
-                  {{ recoveryCopy.phone }}
-                  <input
-                    v-model="waitlistForm.customer_phone"
-                    required
-                    type="tel"
-                    inputmode="tel"
-                    autocomplete="tel"
-                    maxlength="17"
-                    class="border border-neutral-300 bg-white px-3 py-2.5 outline-none transition focus:border-neutral-950 focus:ring-2 focus:ring-neutral-950/20"
-                    @input="waitlistForm.customer_phone = formatPhoneInput(waitlistForm.customer_phone)"
-                    @paste="handleWaitlistPhonePaste"
-                  >
-                </label>
+              <div v-if="waitlistNeedsName || waitlistNeedsPhone" class="mt-5 grid gap-3 sm:grid-cols-2">
+                <BaseInput
+                  v-if="waitlistNeedsName"
+                  v-model="waitlistForm.customer_name"
+                  :label="recoveryCopy.name"
+                  required
+                  autocomplete="name"
+                  minlength="2"
+                  :maxlength="FORM_FIELD_LIMITS.fullName"
+                  @input="waitlistForm.customer_name = constrainFormInput(waitlistForm.customer_name, FORM_FIELD_LIMITS.fullName)"
+                >
+                  <template #icon>
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6.5" r="3" stroke="currentColor" stroke-width="1.5" /><path d="M4.8 16c.7-3 2.4-4.5 5.2-4.5s4.5 1.5 5.2 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                  </template>
+                </BaseInput>
+                <BaseInput
+                  v-if="waitlistNeedsPhone"
+                  v-model="waitlistForm.customer_phone"
+                  :label="recoveryCopy.phone"
+                  required
+                  type="tel"
+                  phone-mask
+                  inputmode="tel"
+                  autocomplete="tel"
+                  placeholder="+380 __ ___ __ __"
+                  maxlength="17"
+                  pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
+                  @paste="handleWaitlistPhonePaste"
+                >
+                  <template #icon>
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><path d="M6.2 3.5h2l1 3-1.5 1.3a11 11 0 0 0 4.5 4.5l1.3-1.5 3 1v2c0 1.1-.9 2-2 2-5.8 0-10.5-4.7-10.5-10.5 0-1.1.9-2 2-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>
+                  </template>
+                </BaseInput>
               </div>
-              <p v-else class="mt-6 border border-neutral-200 bg-neutral-50 p-3 text-sm leading-6 text-neutral-600">{{ recoveryCopy.contactSaved }}</p>
+              <p v-else class="mt-5 flex items-center gap-2 border border-neutral-200 bg-neutral-50 p-3 text-sm leading-5 text-neutral-600">
+                <svg class="h-4 w-4 shrink-0 text-neutral-950" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4.5 10 3.3 3.3 7.7-7.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                {{ recoveryCopy.contactSaved }}
+              </p>
 
-              <fieldset class="mt-6">
-                <legend class="text-sm font-semibold text-neutral-800">{{ recoveryCopy.masterPreference }}</legend>
-                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
-                  <input v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="false" type="radio">
-                  {{ recoveryCopy.onlyThisMaster }}
-                </label>
-                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
-                  <input v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="true" type="radio">
-                  {{ recoveryCopy.anotherMaster }}
-                </label>
+              <fieldset class="mt-5">
+                <legend class="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="6" r="3" stroke="currentColor" stroke-width="1.5" /><path d="M4.8 16c.7-3 2.4-4.5 5.2-4.5s4.5 1.5 5.2 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                  {{ recoveryCopy.masterPreference }}
+                </legend>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <BaseRadio v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="false" :label="recoveryCopy.onlyThisMaster">
+                    <template #icon><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6.2" r="2.7" stroke="currentColor" stroke-width="1.5" /><path d="M5.2 15.7c.7-2.8 2.3-4.2 4.8-4.2s4.1 1.4 4.8 4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></template>
+                  </BaseRadio>
+                  <BaseRadio v-model="waitlistForm.another_master_acceptable" :name="`${props.idPrefix}-waitlist-master-preference`" :value="true" :label="recoveryCopy.anotherMaster">
+                    <template #icon><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><circle cx="7" cy="6.5" r="2.3" stroke="currentColor" stroke-width="1.4" /><circle cx="13.5" cy="7.5" r="1.8" stroke="currentColor" stroke-width="1.4" /><path d="M3.5 15.5c.5-2.7 1.8-4 3.9-4 2.2 0 3.6 1.4 4.1 4M12 12c2.4-.4 3.9.8 4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" /></svg></template>
+                  </BaseRadio>
+                </div>
               </fieldset>
 
               <fieldset class="mt-5">
-                <legend class="text-sm font-semibold text-neutral-800">{{ recoveryCopy.datePreference }}</legend>
-                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
-                  <input v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="false" type="radio">
-                  {{ recoveryCopy.onlyThisDate }}
-                </label>
-                <label class="mt-2 flex cursor-pointer items-center gap-3 border border-neutral-200 p-3 text-sm text-neutral-700">
-                  <input v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="true" type="radio">
-                  {{ recoveryCopy.nearbyDates }}
-                </label>
+                <legend class="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M6.5 3v3M13.5 3v3M3.8 8h12.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                  {{ recoveryCopy.datePreference }}
+                </legend>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <BaseRadio v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="false" :label="recoveryCopy.onlyThisDate">
+                    <template #icon><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M6.5 3v3M13.5 3v3M3.8 8h12.4M10 10.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></template>
+                  </BaseRadio>
+                  <BaseRadio v-model="waitlistForm.nearby_dates_acceptable" :name="`${props.idPrefix}-waitlist-date-preference`" :value="true" :label="recoveryCopy.nearbyDates">
+                    <template #icon><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M6.5 3v3M13.5 3v3M3.8 8h12.4M7 11h1M10 11h1M13 11h1M7 14h1M10 14h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></template>
+                  </BaseRadio>
+                </div>
               </fieldset>
 
-              <label class="mt-5 flex cursor-pointer items-start gap-3 border border-neutral-200 p-3 text-sm leading-5 text-neutral-700">
-                <input v-model="waitlistForm.notification_consent" type="checkbox" class="mt-0.5">
-                <span>{{ recoveryCopy.consent }}</span>
-              </label>
+              <BaseCheckbox v-model="waitlistForm.notification_consent" class="mt-5" :label="recoveryCopy.consent" required>
+                <template #icon>
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><path d="M6.2 8.1a3.8 3.8 0 1 1 7.6 0c0 4 1.7 4.5 1.7 4.5h-11S6.2 12.1 6.2 8.1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /><path d="M8.2 15a2 2 0 0 0 3.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                </template>
+              </BaseCheckbox>
               <p v-if="waitlistError" class="mt-3 text-sm leading-6 text-rose-700">{{ waitlistError }}</p>
-              <div class="mt-6 flex flex-wrap gap-3">
+              <div class="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
                 <BaseButton type="submit" variant="dark" size="sm" :disabled="waitlistState === 'submitting' || !waitlistForm.notification_consent">
+                  <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.2 8.1a3.8 3.8 0 1 1 7.6 0c0 4 1.7 4.5 1.7 4.5h-11S6.2 12.1 6.2 8.1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /><path d="M8.2 15a2 2 0 0 0 3.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
                   {{ waitlistState === 'submitting' ? recoveryCopy.sending : recoveryCopy.submit }}
                 </BaseButton>
                 <BaseButton type="button" variant="outline-dark" size="sm" @click="returnToSelection">
+                  <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.8 5-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
                   {{ recoveryCopy.back }}
                 </BaseButton>
               </div>
@@ -2379,6 +2423,7 @@ onBeforeUnmount(() => {
                 {{ waitlistState === 'success' ? recoveryCopy.success : waitlistError }}
               </p>
               <BaseButton type="button" variant="dark" size="sm" class="mt-6" @click="returnToSelection">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.8 5-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
                 {{ recoveryCopy.back }}
               </BaseButton>
             </div>
@@ -2888,6 +2933,19 @@ onBeforeUnmount(() => {
 :deep(.booking-recovery-action) {
   border-color: transparent;
   box-shadow: none;
+}
+
+:deep(.booking-recovery-action .sc-button__text) {
+  gap: 0.125rem;
+}
+
+@media (max-width: 639px) {
+  :deep(.booking-recovery-action) {
+    min-height: 2.25rem;
+    padding: 0.4rem 0.35rem;
+    font-size: 0.625rem;
+    line-height: 1.15;
+  }
 }
 
 .booking-action-content-enter-active,

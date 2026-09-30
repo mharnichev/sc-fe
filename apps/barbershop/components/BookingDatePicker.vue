@@ -267,7 +267,7 @@ onBeforeUnmount(() => {
     <div
       :class="
         inline
-          ? 'block'
+          ? 'booking-calendar--inline block'
           : 'hidden md:block'
       "
     >
@@ -302,21 +302,21 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="grid grid-cols-7 text-center font-semibold uppercase text-white/40"
+        class="booking-calendar__weekdays grid grid-cols-7 text-center font-semibold uppercase text-white/40"
         :class="inline ? 'mt-3 gap-0.5 text-[0.58rem] tracking-[0.08em]' : 'mt-4 gap-1 text-[0.62rem] tracking-[0.12em]'"
       >
         <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
       </div>
 
       <div
-        class="grid grid-cols-7"
+        class="booking-calendar__days grid grid-cols-7"
         :class="inline ? 'mt-1.5 gap-0.5' : 'mt-2 gap-1'"
       >
         <button
           v-for="day in calendarDays"
           :key="day.value"
           type="button"
-          class="relative flex items-center justify-center rounded-[4px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          class="booking-calendar__day relative flex items-center justify-center rounded-[4px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           :class="[
             inline ? 'h-8 text-xs' : 'aspect-square min-h-9 text-sm',
             day.selected
@@ -451,6 +451,20 @@ onBeforeUnmount(() => {
 
 .booking-calendar-overlay {
   cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .booking-calendar--inline .booking-calendar__weekdays {
+    margin-top: 0.375rem;
+  }
+
+  .booking-calendar--inline .booking-calendar__days {
+    margin-top: 0.1875rem;
+  }
+
+  .booking-calendar--inline .booking-calendar__day {
+    height: 1.44rem;
+  }
 }
 
 @media (pointer: fine) {

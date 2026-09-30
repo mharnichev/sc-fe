@@ -249,10 +249,10 @@ const selectService = async (service: ServiceCatalogItemDto) => {
               </h3>
               <p class="shrink-0 text-sm font-semibold text-neutral-950">{{ formatServicePrice(service) }}</p>
             </div>
-            <p class="text-sm leading-6 text-neutral-600 md:leading-7">
-              {{ localizedService.serviceDescription(service) || terms.home.services.noDescription }}
-            </p>
           </button>
+          <ServiceDescriptionAccordion
+            :description="localizedService.serviceDescription(service) || terms.home.services.noDescription"
+          />
           <NuxtLink
             v-if="serviceDetailPath(service)"
             :to="serviceDetailPath(service)"

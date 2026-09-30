@@ -5,9 +5,11 @@ const props = withDefaults(defineProps<{
   offer: PublicBookingPromotion
   compact?: boolean
   theme?: 'dark' | 'light'
+  mobileTight?: boolean
 }>(), {
   compact: false,
   theme: 'dark',
+  mobileTight: false,
 })
 
 const { locale } = useTerms()
@@ -41,6 +43,7 @@ const scope = computed(() => {
     class="booking-promotion-notice"
     :class="[
       compact ? 'booking-promotion-notice--compact' : '',
+      mobileTight ? 'booking-promotion-notice--mobile-tight' : '',
       `booking-promotion-notice--${theme}`,
     ]"
     aria-live="polite"
@@ -105,6 +108,11 @@ const scope = computed(() => {
 }
 
 @media (max-width: 570px) {
+  .booking-promotion-notice--mobile-tight {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
   .booking-promotion-notice__terms {
     font-size: 10px;
     line-height: 1.3;

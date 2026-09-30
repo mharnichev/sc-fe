@@ -66,7 +66,10 @@ test('booking price details use the base accordion', async () => {
 })
 
 test('first-visit promotion highlights only the backend discount and uses special-offer wording', async () => {
-  const notice = await readFile(new URL('../components/ui/BookingPromotionNotice.vue', import.meta.url), 'utf8')
+  const [notice, booking] = await Promise.all([
+    readFile(new URL('../components/ui/BookingPromotionNotice.vue', import.meta.url), 'utf8'),
+    readFile(new URL('../components/sections/BookingSection.vue', import.meta.url), 'utf8'),
+  ])
   assert.match(notice, /booking-promotion-notice__discount/)
   assert.match(notice, /−\{\{ offer\.discount_percent \}\}%/)
   assert.match(notice, /animation: booking-discount-glow/)
@@ -79,6 +82,10 @@ test('first-visit promotion highlights only the backend discount and uses specia
   assert.match(notice, /color: white/)
   assert.match(notice, /clip-path: polygon\(0 8%, 7% 2%, 15% 7%/)
   assert.match(notice, /booking-promotion-notice--compact \{[\s\S]*padding: 0\.7rem 1rem 0\.55rem/)
+  assert.match(notice, /booking-promotion-notice--mobile-tight \{[\s\S]*padding-top: 4px;[\s\S]*padding-bottom: 4px/)
+  assert.doesNotMatch(notice, /booking-promotion-notice--mobile-tight \{[\s\S]*?background: transparent/)
+  assert.match(booking, /mobile-tight[\s\S]*class="mx-3 my-1 text-white sm:m-3"/)
+  assert.match(booking, /booking-form relative[^\"]*bg-transparent sm:bg-white\/\[0\.03\]/)
   assert.match(notice, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(notice, /color: white/)
   assert.match(notice, /спеціальної пропозиції/)

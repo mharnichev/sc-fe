@@ -316,14 +316,14 @@ if (faqItems.value.length) {
               </NuxtLink>
             </li>
             <li aria-hidden="true">/</li>
-            <li class="text-stone-950" aria-current="page">{{ serviceName }}</li>
+            <li class="service-name-wrap min-w-0 text-stone-950" aria-current="page">{{ serviceName }}</li>
           </ol>
         </nav>
 
         <div class="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(18rem,0.28fr)] lg:items-start">
-          <div class="max-w-4xl">
+          <div class="min-w-0 max-w-4xl">
             <SectionLabel>{{ terms.home.services.label }}</SectionLabel>
-            <h1 class="type-page-title mt-4 text-4xl text-stone-950 md:text-6xl">
+            <h1 class="service-name-wrap type-page-title mt-4 text-4xl leading-[1.08] text-stone-950 md:text-6xl">
               {{ serviceName }}
             </h1>
             <p class="mt-6 max-w-3xl text-lg leading-8 text-stone-700">
@@ -419,6 +419,12 @@ if (faqItems.value.length) {
 </template>
 
 <style scoped>
+.service-name-wrap {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+}
+
 .service-booking-card {
   box-shadow: 0 1.25rem 3rem rgb(28 25 23 / 0.06);
 }

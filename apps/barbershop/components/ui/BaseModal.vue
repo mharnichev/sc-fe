@@ -169,6 +169,13 @@ onBeforeUnmount(() => {
             </BaseButton>
           </div>
 
+          <header
+            v-if="$slots.header"
+            class="base-modal__header shrink-0 border-b border-neutral-200 bg-white px-4 py-3 pr-14 sm:px-6 sm:py-4 sm:pr-16"
+          >
+            <slot name="header" />
+          </header>
+
           <div class="min-h-0 flex-1 overflow-y-auto">
             <slot />
           </div>
@@ -180,14 +187,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .base-modal--default {
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   padding: 0;
 }
 
-.base-modal--default .base-modal__container {
+.base-modal--default .base-modal__container,
+.base-modal--right .base-modal__container {
   width: 100vw;
-  max-height: 100svh;
+  border-radius: 0.5rem 0.5rem 0 0;
 }
 
 .base-modal--right {
@@ -195,11 +203,16 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.base-modal--right .base-modal__container {
-  width: 100vw;
-  height: calc(100svh - 60px);
-  max-height: calc(100svh - 60px);
-  border-radius: 0.5rem 0.5rem 0 0;
+@media (max-width: 767px) {
+  .base-modal--default .base-modal__container,
+  .base-modal--right .base-modal__container {
+    position: absolute;
+    inset: 10svh 0 0;
+    inset-block-start: 10dvh;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
 }
 
 .base-modal__overlay {
@@ -276,18 +289,19 @@ onBeforeUnmount(() => {
   transform: translateY(100%);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .base-modal--default {
+    align-items: center;
     padding: 1.5rem;
   }
 
   .base-modal--default .base-modal__container {
     width: min(94vw, 64rem);
+    height: auto;
     max-height: calc(100svh - 3rem);
+    border-radius: 0;
   }
-}
 
-@media (min-width: 768px) {
   .base-modal--right {
     align-items: stretch;
     justify-content: flex-end;
