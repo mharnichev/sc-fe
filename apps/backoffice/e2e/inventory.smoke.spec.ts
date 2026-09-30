@@ -102,7 +102,10 @@ test('inventory section navigation consolidates the sidebar and adapts to deskto
   const desktopNavigation = page.getByRole('navigation', { name: 'Розділи складу' })
   await expect(desktopNavigation).toBeVisible()
   await expect(desktopNavigation.getByRole('link')).toHaveCount(6)
-  await expect(desktopNavigation.getByRole('link', { name: /^Приймання/ })).toHaveAttribute('aria-current', 'page')
+  const activeDesktopSection = desktopNavigation.getByRole('link', { name: /^Приймання/ })
+  await expect(activeDesktopSection).toHaveAttribute('aria-current', 'page')
+  await expect(page).toHaveURL(new RegExp(`/inventory/receiving\\?product_id=${productId}$`))
+  await activeDesktopSection.click()
   await expect(page).toHaveURL(new RegExp(`/inventory/receiving\\?product_id=${productId}$`))
 
   const desktopSidebar = page.locator('aside')
@@ -157,14 +160,20 @@ test('overview search and stock filters navigate to product settings and surface
   await page.screenshot({ path: testInfo.outputPath('inventory-settings-duplicate-barcode.png'), fullPage: true, animations: 'disabled' })
 
   await settings.getByLabel('Штрихкод', { exact: true }).fill(' qa-backorder-updated-004 ')
-  await settings.getByRole('button', { name: 'Зберегти налаштування складу', exact: true }).click()
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes(`/inventory/products/${state.seed.products.backorder.id}/settings`) && response.request().method() === 'PATCH'),
+    settings.getByRole('button', { name: 'Зберегти налаштування складу', exact: true }).click(),
+  ])
   await expect(settings.getByRole('alert')).toHaveCount(0)
   await expect(settings.getByLabel('Штрихкод', { exact: true })).toHaveValue('QA-BACKORDER-UPDATED-004')
   const inspection = await json(await request.get(`${sandboxURL}/__sandbox/inspect`))
   await expect.soft(inspection.products.find((item: { id: number }) => item.id === state.seed.products.backorder.id))
     .toMatchObject({ allow_backorder: true })
   await settings.getByLabel('Штрихкод', { exact: true }).fill('')
-  await settings.getByRole('button', { name: 'Зберегти налаштування складу', exact: true }).click()
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes(`/inventory/products/${state.seed.products.backorder.id}/settings`) && response.request().method() === 'PATCH'),
+    settings.getByRole('button', { name: 'Зберегти налаштування складу', exact: true }).click(),
+  ])
   await expect(settings.getByRole('alert')).toHaveCount(0)
   const cleared = await json(await request.get(`${sandboxURL}/__sandbox/inspect`))
   expect(cleared.products.find((item: { id: number }) => item.id === state.seed.products.backorder.id))

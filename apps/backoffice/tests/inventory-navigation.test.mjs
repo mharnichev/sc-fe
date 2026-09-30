@@ -35,6 +35,7 @@ test('inventory navigation keeps six deep links and adapts without horizontal mo
   assert.equal(destinations.length, 6)
   assert.match(navigation, /aria-label="Розділи складу"/)
   assert.match(navigation, /aria-current=/)
+  assert.match(navigation, /isActive\(section\.to\) \? route\.fullPath : section\.to/)
   assert.match(navigation, /class="md:hidden"/)
   assert.match(navigation, /aria-label="Розділ складу"/)
   assert.match(navigation, /class="hidden md:block"/)

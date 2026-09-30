@@ -87,7 +87,7 @@ const navigate = (value: string | number | boolean | null) => {
         <NuxtLink
           v-for="section in sections"
           :key="section.to"
-          :to="section.to"
+          :to="isActive(section.to) ? route.fullPath : section.to"
           class="group flex min-h-20 items-center gap-3 rounded-2xl border px-3 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
           :class="isActive(section.to)
             ? 'border-[var(--bo-border-strong)] bg-ui-subtle text-ui-primary shadow-sm'
