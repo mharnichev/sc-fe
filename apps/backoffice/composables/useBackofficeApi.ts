@@ -25,9 +25,25 @@ import type {
   ReviewRequestSettings,
   ReviewRequestSettingsUpdate,
 } from '~/types/reviews'
+import type {
+  InventoryCount,
+  InventoryCountCreate,
+  InventoryCountItemUpsert,
+  InventoryManualOperationCreate,
+  InventoryMovement,
+  InventoryProduct,
+  InventoryReceipt,
+  InventoryReceiptCreate,
+  InventoryReceiptItemCreate,
+  ManualInventoryOperationType,
+  ProcurementQueueItem,
+  ProcurementStatus,
+  ProductInventorySettingsUpdate,
+} from '~/types/inventory'
 import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
 import { parseBookingRecoverySummary, type BookingRecoverySummary } from '~/utils/bookingRecoveryContract'
 import { parseReviewMetricsResponse } from '~/utils/reviews'
+import { createInventoryIdempotencyKey } from '~/utils/inventory'
 
 export interface TokenResponse {
   access_token: string
@@ -92,6 +108,8 @@ export interface Product {
   created_at: string
   updated_at: string
   name: string
+  model_name: string | null
+  package_size: string | null
   slug: string
   description: string | null
   ingredients: string | null
@@ -100,12 +118,18 @@ export interface Product {
   recommended_retail_price: string | null
   sku: string | null
   stock_quantity: number
+  reserved_quantity: number
+  available_quantity: number
+  barcode: string | null
+  allow_backorder: boolean
   is_active: boolean
   image_url: string | null
   images: ProductImage[]
   external_url: string | null
   availability_status: string | null
   attributes_json: Record<string, unknown> | null
+  variant_group_key: string | null
+  volume_ml: number | null
   brand_id: number | null
   category_id: number | null
   brand?: Brand | null
@@ -149,6 +173,9 @@ export interface OrderSummary {
   customer_name: string
   customer_phone: string | null
   customer_email: string | null
+  subtotal_amount: string
+  discount_amount: string
+  promo_code: string | null
   shipping_company?: string | null
   shipping_method?: string | null
   shipping_city?: string | null
@@ -163,10 +190,19 @@ export interface OrderItemResponse {
   id: number
   product_id: number
   quantity: number
+  base_price: string | null
   price: string
+  discount_amount: string
+  shop_promotion_id: number | null
+  promotion_name: string | null
+  promotion_code: string | null
   product_name: string | null
   product_sku: string | null
   total_price: string | null
+  quantity_from_stock: number
+  quantity_to_order: number
+  quantity_received_for_order: number
+  procurement_status: ProcurementStatus
 }
 
 export interface OrderResponse {
@@ -192,11 +228,111 @@ export interface OrderResponse {
   external_id: string | null
   external_sync_status: string | null
   external_sync_error: string | null
+  subtotal_amount: string
+  discount_amount: string
+  promo_code: string | null
   total_amount: string
   status: string
   items: OrderItemResponse[]
   created_at?: string
   updated_at?: string
+}
+
+export type ShopPromotionDiscountType = 'percent' | 'fixed_amount' | 'fixed_price'
+export type ShopPromotionTrigger = 'automatic' | 'promocode'
+export type ShopPromotionStatus = 'scheduled' | 'active' | 'expired' | 'disabled'
+
+export interface ShopPromotionPayload {
+  name: string
+  description: string | null
+  trigger: ShopPromotionTrigger
+  code: string | null
+  discount_type: ShopPromotionDiscountType
+  discount_value: string | number
+  priority: number
+  starts_at: string | null
+  ends_at: string | null
+  usage_limit: number | null
+  usage_limit_per_customer: number | null
+  applies_to_all_products: boolean
+  include_subcategories: boolean
+  product_ids: number[]
+  category_ids: number[]
+  brand_ids: number[]
+  is_active: boolean
+}
+
+export interface ShopPromotionResponse {
+  id: number
+  created_at: string
+  updated_at: string
+  name: string
+  description: string | null
+  trigger: ShopPromotionTrigger
+  code: string | null
+  discount_type: ShopPromotionDiscountType
+  discount_value: string | number
+  priority: number
+  starts_at: string | null
+  ends_at: string | null
+  usage_limit: number | null
+  usage_limit_per_customer: number | null
+  applies_to_all_products: boolean
+  include_subcategories: boolean
+  product_ids: number[]
+  category_ids: number[]
+  brand_ids: number[]
+  is_active: boolean
+  status: ShopPromotionStatus
+}
+
+export type ShopPromotion = ShopPromotionResponse
+
+export interface ShopPromotionPreviewPromotion {
+  id: number | null
+  name: string
+  code: string | null
+  trigger: ShopPromotionTrigger
+  price: string | number
+}
+
+export interface ShopPromotionPreviewConflict {
+  promotion_id: number
+  name: string
+  trigger: ShopPromotionTrigger
+  priority: number
+  price: string | number
+}
+
+export interface ShopPromotionPreviewProduct {
+  product_id: number
+  product_name: string
+  base_price: string | number
+  new_price: string | number
+  discount_amount: string | number
+  currently_applied_promotion: ShopPromotionPreviewPromotion | null
+  applied_promotion: ShopPromotionPreviewPromotion | null
+  conflicts: ShopPromotionPreviewConflict[]
+}
+
+export interface ShopPromotionPreviewResponse {
+  evaluated_at: string
+  affected_products_count: number
+  products: ShopPromotionPreviewProduct[]
+}
+
+export interface ShopPromotionProduct {
+  product_id: number
+  product_name: string
+  sku: string | null
+  base_price: string | number
+  is_effectively_visible: boolean
+  hidden_reason: string | null
+}
+
+export interface ShopPromotionProductsResponse {
+  affected_products_count: number
+  products: ShopPromotionProduct[]
 }
 
 export interface CustomerSummary {
@@ -279,6 +415,9 @@ export interface Master {
   avatar_url?: string | null
   avatar_upload_id?: number | null
   avatar?: string | UploadAsset | null
+  passport_photo_url?: string | null
+  passport_photo_upload_id?: number | null
+  passport_photo?: string | UploadAsset | null
   is_active?: boolean
   showOnMasterBlock?: boolean
   show_on_master_block?: boolean
@@ -779,6 +918,7 @@ export interface MasterPayload {
   photo_upload_id?: number | null
   avatar_url?: string | null
   avatar_upload_id?: number | null
+  passport_photo_upload_id?: number | null
   bookingRedirectMasterId?: number | null
   is_active: boolean
   showOnMasterBlock: boolean
@@ -789,6 +929,7 @@ export interface MasterPayload {
 export type MasterFormPayload = Partial<MasterPayload> & {
   photo?: File | null
   avatar?: File | null
+  passport_photo?: File | null
 }
 
 export interface BookingFilters {
@@ -1165,6 +1306,120 @@ export const useBackofficeApi = () => {
       body: { status },
     })
 
+  const getInventoryStock = (
+    page = 1,
+    pageSize = 10,
+    filters: { search?: string } = {},
+  ) =>
+    api<PaginatedResponse<InventoryProduct>>('/backoffice/inventory/stock', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        search: filters.search?.trim() || undefined,
+      },
+    })
+
+  const lookupInventoryProductByBarcode = (barcode: string) =>
+    api<InventoryProduct>(`/backoffice/inventory/products/barcode/${encodeURIComponent(barcode.trim())}`)
+
+  const getInventoryProduct = async (productId: number | string): Promise<InventoryProduct> => {
+    const product = await api<Product>(`/backoffice/products/${productId}`)
+    return {
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode,
+      on_hand: product.stock_quantity,
+      reserved: product.reserved_quantity,
+      available: product.available_quantity,
+      allow_backorder: product.allow_backorder,
+    }
+  }
+
+  const updateProductInventorySettings = (productId: number | string, payload: ProductInventorySettingsUpdate) =>
+    api<InventoryProduct>(`/backoffice/inventory/products/${productId}/settings`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
+  const getProcurementQueue = (statuses?: ProcurementStatus[]) =>
+    api<ProcurementQueueItem[]>('/backoffice/inventory/procurement', {
+      query: { status: statuses?.length ? statuses : undefined },
+    })
+
+  const markProcurementOrdered = (orderItemIds: number[]) =>
+    api<void>('/backoffice/inventory/procurement/mark-ordered', {
+      method: 'POST',
+      body: { order_item_ids: orderItemIds },
+    })
+
+  const idempotencyHeaders = (idempotencyKey = createInventoryIdempotencyKey()) => ({
+    'Idempotency-Key': idempotencyKey,
+  })
+
+  const createInventoryReceipt = (payload: InventoryReceiptCreate, idempotencyKey = createInventoryIdempotencyKey()) =>
+    api<InventoryReceipt>('/backoffice/inventory/receipts', {
+      method: 'POST',
+      body: payload,
+      headers: idempotencyHeaders(idempotencyKey),
+    })
+
+  const getInventoryReceipt = (receiptId: number | string) =>
+    api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}`)
+
+  const addInventoryReceiptItem = (receiptId: number | string, payload: InventoryReceiptItemCreate) =>
+    api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/items`, {
+      method: 'POST',
+      body: payload,
+    })
+
+  const postInventoryReceipt = (receiptId: number | string, idempotencyKey = createInventoryIdempotencyKey()) =>
+    api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/post`, {
+      method: 'POST',
+      headers: idempotencyHeaders(idempotencyKey),
+    })
+
+  const createInventoryOperation = (
+    operation: ManualInventoryOperationType,
+    payload: InventoryManualOperationCreate,
+    idempotencyKey = createInventoryIdempotencyKey(),
+  ) =>
+    api<InventoryMovement>(`/backoffice/inventory/operations/${operation}`, {
+      method: 'POST',
+      body: payload,
+      headers: idempotencyHeaders(idempotencyKey),
+    })
+
+  const getProductInventoryMovements = (productId: number | string, page = 1, pageSize = 10) =>
+    api<PaginatedResponse<InventoryMovement>>(`/backoffice/inventory/products/${productId}/movements`, {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
+  const createInventoryCount = (payload: InventoryCountCreate, idempotencyKey = createInventoryIdempotencyKey()) =>
+    api<InventoryCount>('/backoffice/inventory/counts', {
+      method: 'POST',
+      body: payload,
+      headers: idempotencyHeaders(idempotencyKey),
+    })
+
+  const getInventoryCount = (countId: number | string) =>
+    api<InventoryCount>(`/backoffice/inventory/counts/${countId}`)
+
+  const setInventoryCountItem = (countId: number | string, payload: InventoryCountItemUpsert) =>
+    api<InventoryCount>(`/backoffice/inventory/counts/${countId}/items`, {
+      method: 'PUT',
+      body: payload,
+    })
+
+  const postInventoryCount = (countId: number | string, idempotencyKey = createInventoryIdempotencyKey()) =>
+    api<InventoryCount>(`/backoffice/inventory/counts/${countId}/post`, {
+      method: 'POST',
+      headers: idempotencyHeaders(idempotencyKey),
+    })
+
+  const getOrderFulfillment = (orderId: number | string) =>
+    api<Pick<OrderResponse, 'id' | 'status' | 'items'>>(`/backoffice/orders/${orderId}/fulfillment`)
+
   const getCustomers = (
     page = 1,
     pageSize = 10,
@@ -1399,11 +1654,11 @@ export const useBackofficeApi = () => {
     })
 
   const masterPayloadBody = (payload: MasterFormPayload) => {
-    const { photo: _photo, avatar: _avatar, ...body } = payload
+    const { photo: _photo, avatar: _avatar, passport_photo: _passportPhoto, ...body } = payload
     return body
   }
 
-  const uploadMasterImage = (masterId: number | string, kind: 'photo' | 'avatar', file: File) => {
+  const uploadMasterImage = (masterId: number | string, kind: 'photo' | 'avatar' | 'passport-photo', file: File) => {
     const formData = new FormData()
     formData.append('file', file)
     return api<Master>(`/backoffice/masters/${masterId}/${kind}`, {
@@ -1419,6 +1674,9 @@ export const useBackofficeApi = () => {
     }
     if (payload.avatar) {
       result = await uploadMasterImage(result.id, 'avatar', payload.avatar)
+    }
+    if (payload.passport_photo) {
+      result = await uploadMasterImage(result.id, 'passport-photo', payload.passport_photo)
     }
     return result
   }
@@ -1513,6 +1771,64 @@ export const useBackofficeApi = () => {
   const adminDeletePromotion = (promotionId: number | string) =>
     api(`/backoffice/promotions/${promotionId}`, {
       method: 'DELETE',
+    })
+
+  const adminGetShopPromotions = (
+    page = 1,
+    pageSize = 100,
+    filters: {
+      is_active?: boolean | null
+      trigger?: ShopPromotionTrigger | string | null
+      search?: string
+      product_id?: number | null
+      category_id?: number | null
+      brand_id?: number | null
+      status?: ShopPromotionStatus | string | null
+      period?: ShopPromotionStatus | string | null
+    } = {},
+  ) =>
+    api<PaginatedResponse<ShopPromotionResponse>>('/backoffice/shop-promotions', {
+      query: {
+        page,
+        page_size: normalizePageSize(pageSize),
+        is_active: filters.is_active ?? undefined,
+        trigger: filters.trigger ?? undefined,
+        search: filters.search || undefined,
+        product_id: filters.product_id ?? undefined,
+        category_id: filters.category_id ?? undefined,
+        brand_id: filters.brand_id ?? undefined,
+        status: filters.status ?? undefined,
+        period: filters.period ?? undefined,
+      },
+    })
+
+  const adminGetShopPromotion = (promotionId: number | string) =>
+    api<ShopPromotionResponse>(`/backoffice/shop-promotions/${promotionId}`)
+
+  const adminGetShopPromotionProducts = (promotionId: number | string) =>
+    api<ShopPromotionProductsResponse>(`/backoffice/shop-promotions/${promotionId}/products`)
+
+  const adminCreateShopPromotion = (payload: ShopPromotionPayload) =>
+    api<ShopPromotionResponse>('/backoffice/shop-promotions', {
+      method: 'POST',
+      body: payload,
+    })
+
+  const adminUpdateShopPromotion = (promotionId: number | string, payload: Partial<ShopPromotionPayload>) =>
+    api<ShopPromotionResponse>(`/backoffice/shop-promotions/${promotionId}`, {
+      method: 'PATCH',
+      body: payload,
+    })
+
+  const adminDeleteShopPromotion = (promotionId: number | string) =>
+    api(`/backoffice/shop-promotions/${promotionId}`, {
+      method: 'DELETE',
+    })
+
+  const adminPreviewShopPromotion = (payload: ShopPromotionPayload) =>
+    api<ShopPromotionPreviewResponse>('/backoffice/shop-promotions/preview', {
+      method: 'POST',
+      body: payload,
     })
 
   const getMasterServices = (barberId: number | string) =>
@@ -2090,6 +2406,23 @@ export const useBackofficeApi = () => {
     getOrders,
     getOrder,
     updateOrderStatus,
+    getInventoryStock,
+    lookupInventoryProductByBarcode,
+    getInventoryProduct,
+    updateProductInventorySettings,
+    getProcurementQueue,
+    markProcurementOrdered,
+    createInventoryReceipt,
+    getInventoryReceipt,
+    addInventoryReceiptItem,
+    postInventoryReceipt,
+    createInventoryOperation,
+    getProductInventoryMovements,
+    createInventoryCount,
+    getInventoryCount,
+    setInventoryCountItem,
+    postInventoryCount,
+    getOrderFulfillment,
     getCustomers,
     getCustomer,
     updateCustomer,
@@ -2135,6 +2468,13 @@ export const useBackofficeApi = () => {
     adminCreatePromotion,
     adminUpdatePromotion,
     adminDeletePromotion,
+    adminGetShopPromotions,
+    adminGetShopPromotion,
+    adminGetShopPromotionProducts,
+    adminCreateShopPromotion,
+    adminUpdateShopPromotion,
+    adminDeleteShopPromotion,
+    adminPreviewShopPromotion,
     getMasterServices,
     createMasterService,
     updateMasterService,

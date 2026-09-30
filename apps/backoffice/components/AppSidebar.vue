@@ -2,6 +2,7 @@
 import {
   HomeIcon,
   CubeIcon,
+  ArchiveBoxIcon,
   TagIcon,
   BuildingStorefrontIcon,
   ShoppingBagIcon,
@@ -117,6 +118,13 @@ const onlineStoreLinks = computed(() => [
     ? [
         { label: 'Дашборд магазину', to: '/admin/dashboards/store', icon: HomeIcon },
         { label: 'Товари', to: '/products', icon: CubeIcon },
+        { label: 'Склад', to: '/inventory', icon: ArchiveBoxIcon },
+        { label: 'Потрібно замовити', to: '/inventory/procurement', icon: ShoppingBagIcon },
+        { label: 'Приймання', to: '/inventory/receiving', icon: ArchiveBoxIcon },
+        { label: 'Інвентаризація', to: '/inventory/counts', icon: ArchiveBoxIcon },
+        { label: 'Рух товарів', to: '/inventory/movements', icon: ArchiveBoxIcon },
+        { label: 'Операції складу', to: '/inventory/operations', icon: ArchiveBoxIcon },
+        { label: 'Акції товарів', to: '/shop-promotions', icon: TicketIcon },
         { label: 'Категорії', to: '/categories', icon: TagIcon },
         { label: 'Бренди', to: '/brands', icon: BuildingStorefrontIcon },
         { label: 'Замовлення', to: '/orders', icon: ShoppingBagIcon },
@@ -160,7 +168,9 @@ const menuSections = computed(() => {
   ].filter(section => section.links.length > 0)
 })
 
-const isActive = (to: string) => route.path === to || (to === '/customers' ? /^\/customers\/\d+(?:\/|$)/.test(route.path) : to !== '/' && route.path.startsWith(`${to}/`))
+const isActive = (to: string) => route.path === to || (to === '/customers'
+  ? /^\/customers\/\d+(?:\/|$)/.test(route.path)
+  : to !== '/inventory' && to !== '/' && route.path.startsWith(`${to}/`))
 const isCollapsed = computed(() => Boolean(props.collapsed))
 
 const toggleCollapsed = () => {

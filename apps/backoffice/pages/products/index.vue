@@ -234,7 +234,7 @@ const prev = async () => {
           <th>Назва</th>
           <th>Категорія</th>
           <th>Бренд</th>
-          <th>Ціна</th>
+          <th>Ціноутворення</th>
           <th>Рекомендована роздрібна ціна</th>
           <th>Склад</th>
           <th class="min-w-64">Видимість</th>
@@ -253,7 +253,11 @@ const prev = async () => {
             </td>
             <td data-label="Категорія" class="text-ui-secondary">{{ categoryLabels.get(item.category_id ?? -1) || item.category?.name || '—' }}</td>
             <td data-label="Бренд" class="text-ui-secondary">{{ item.brand?.name || '—' }}</td>
-            <td data-label="Ціна" class="text-ui-secondary">{{ item.price }}</td>
+            <td data-label="Ціноутворення" class="min-w-56 text-ui-secondary">
+              <p>Базова ціна: {{ item.price }}</p>
+              <p class="mt-1 text-xs text-ui-muted">Промоційна ціна не повертається backoffice endpoint.</p>
+              <NuxtLink :to="`/shop-promotions?product_id=${item.id}`" class="mt-2 inline-block text-xs font-medium text-cyan-700 hover:underline">Акції товару</NuxtLink>
+            </td>
             <td data-label="Рекомендована ціна" class="text-ui-secondary">{{ item.recommended_retail_price }}</td>
             <td data-label="Склад" class="text-ui-secondary">{{ item.stock_quantity }}</td>
             <td data-label="Видимість" class="min-w-64 px-4 py-3">

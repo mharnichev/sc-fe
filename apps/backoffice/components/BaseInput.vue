@@ -4,7 +4,7 @@ import { useId } from 'vue'
 defineOptions({ inheritAttrs: false })
 
 type InputValue = string | number | null
-type InputType = 'text' | 'number' | 'email' | 'password' | 'search' | 'tel' | 'time' | 'date' | 'url' | 'file'
+type InputType = 'text' | 'number' | 'email' | 'password' | 'search' | 'tel' | 'time' | 'date' | 'datetime-local' | 'url' | 'file'
 type ClassValue = string | Record<string, boolean> | unknown[]
 
 const props = withDefaults(defineProps<{

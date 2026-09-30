@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { PencilIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
-import type { ProductImage, ProductPayload } from '~/composables/useBackofficeApi'
+import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } from '~/composables/useBackofficeApi'
 
 const route = useRoute()
 const router = useRouter()
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
+const { apiErrorMessage, formatDateTime } = useBookingFormatting()
 
 const productId = computed(() => route.params.id as string)
 const isNewProduct = computed(() => productId.value === 'new')
@@ -26,6 +27,44 @@ const [{ data: productResult, refresh: refreshProduct }, { data: categories }, {
 ])
 
 const product = computed(() => productResult.value?.product ?? null)
+const shopPromotionModalOpen = ref(false)
+const selectedShopPromotion = ref<ShopPromotion | null>(null)
+
+const { data: shopPromotionResult, pending: shopPromotionsPending, error: shopPromotionsError, refresh: refreshShopPromotions } = await useAsyncData(
+  () => `product-shop-promotions-${productId.value}`,
+  async (): Promise<PaginatedResponse<ShopPromotion>> => isNewProduct.value
+    ? { total: 0, page: 1, page_size: 100, items: [] }
+    : await api.adminGetShopPromotions(1, 100, { product_id: Number(productId.value) }),
+  { watch: [productId] },
+)
+
+const shopPromotions = computed(() => shopPromotionResult.value?.items || [])
+const activeShopPromotions = computed(() => shopPromotions.value.filter(promotion => promotion.status === 'active'))
+const scheduledShopPromotions = computed(() => shopPromotions.value.filter(promotion => promotion.status === 'scheduled'))
+const expiredShopPromotions = computed(() => shopPromotions.value.filter(promotion => promotion.status === 'expired'))
+const shopPromotionPeriod = (promotion: ShopPromotion) => {
+  if (!promotion.starts_at && !promotion.ends_at) return 'Без обмеження'
+  if (promotion.starts_at && promotion.ends_at) return `${formatDateTime(promotion.starts_at)} — ${formatDateTime(promotion.ends_at)}`
+  if (promotion.starts_at) return `З ${formatDateTime(promotion.starts_at)}`
+  return `До ${formatDateTime(promotion.ends_at)}`
+}
+const shopPromotionDiscount = (promotion: ShopPromotion) => promotion.discount_type === 'percent'
+  ? `${promotion.discount_value}%`
+  : `${promotion.discount_type}: ${promotion.discount_value}`
+const groupTone = (tone: string): 'success' | 'info' | 'neutral' => tone as 'success' | 'info' | 'neutral'
+const openShopPromotionForm = () => {
+  selectedShopPromotion.value = null
+  shopPromotionModalOpen.value = true
+}
+const editShopPromotion = (promotion: ShopPromotion) => {
+  selectedShopPromotion.value = promotion
+  shopPromotionModalOpen.value = true
+}
+const handleShopPromotionSaved = async (message: string) => {
+  toast.success(message)
+  selectedShopPromotion.value = null
+  await refreshShopPromotions()
+}
 const assetUrl = useAssetUrl()
 const managedImages = ref<ProductImage[]>([])
 
@@ -178,6 +217,57 @@ const submit = async (payload: ProductPayload) => {
         @change="managedImages = $event"
       />
 
+      <InventorySettingsPanel
+        :product-id="product.id"
+        :barcode="product.barcode"
+        :allow-backorder="product.allow_backorder"
+        @saved="refreshProduct"
+      />
+
+      <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-sm uppercase tracking-[0.25em] text-cyan-700">Онлайн-магазин</p>
+            <h2 class="mt-2 text-2xl font-semibold text-slate-900">Акції товара</h2>
+            <p class="mt-1 text-sm text-slate-500">Ціни й конфлікти для цього товару визначає backend.</p>
+          </div>
+          <BaseButton variant="primary" class="gap-2" @click="openShopPromotionForm">Створити акцію для цього товару</BaseButton>
+        </div>
+
+        <p v-if="shopPromotionsError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {{ apiErrorMessage(shopPromotionsError, 'Не вдалося завантажити акції товара.') }}
+        </p>
+        <p v-else-if="shopPromotionsPending" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Завантаження акцій…</p>
+        <p v-else-if="!shopPromotions.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Для цього товару акцій не знайдено.</p>
+
+        <div v-else class="grid gap-4 lg:grid-cols-3">
+          <div v-for="group in [
+            { title: 'Активні', items: activeShopPromotions, tone: 'success' },
+            { title: 'Заплановані', items: scheduledShopPromotions, tone: 'info' },
+            { title: 'Завершені', items: expiredShopPromotions, tone: 'neutral' },
+          ]" :key="group.title" class="space-y-3 rounded-2xl bg-slate-50 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-semibold text-slate-900">{{ group.title }}</h3>
+              <BaseBadge :tone="groupTone(group.tone)">{{ group.items.length }}</BaseBadge>
+            </div>
+            <article v-for="promotion in group.items" :key="promotion.id" class="rounded-xl border border-slate-200 bg-white p-3">
+              <div class="flex items-start justify-between gap-3">
+                <p class="font-medium text-slate-900">{{ promotion.name }}</p>
+                <BaseButton variant="unstyled" class="text-xs font-medium text-cyan-700 hover:underline" @click="editShopPromotion(promotion)">Редагувати</BaseButton>
+              </div>
+              <dl class="mt-3 space-y-2 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Знижка</dt><dd class="font-medium text-slate-900">{{ shopPromotionDiscount(promotion) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Період</dt><dd class="text-right text-slate-700">{{ shopPromotionPeriod(promotion) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Промокод</dt><dd class="font-medium text-slate-900">{{ promotion.code || '—' }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Пріоритет</dt><dd class="font-medium text-slate-900">{{ promotion.priority }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Статус</dt><dd class="text-slate-700">{{ promotion.status }}</dd></div>
+              </dl>
+            </article>
+            <p v-if="!group.items.length" class="text-sm text-slate-500">Немає акцій у цій групі.</p>
+          </div>
+        </div>
+      </section>
+
       <ProductForm
         v-if="editMode"
         :categories="categories?.items || []"
@@ -230,6 +320,14 @@ const submit = async (payload: ProductPayload) => {
           <div class="rounded-2xl bg-slate-50 p-4">
             <p class="text-xs uppercase tracking-[0.2em] text-slate-500">На складі</p>
             <p class="mt-2 text-2xl font-semibold text-slate-900">{{ product.stock_quantity }}</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Зарезервовано</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ product.reserved_quantity }}</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Доступно</p>
+            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ product.available_quantity }}</p>
           </div>
         </div>
 
@@ -313,6 +411,12 @@ const submit = async (payload: ProductPayload) => {
         </div>
       </section>
       </div>
+      <ShopPromotionFormModal
+        v-model="shopPromotionModalOpen"
+        :promotion="selectedShopPromotion"
+        :initial-product-ids="[product.id]"
+        @saved="handleShopPromotionSaved"
+      />
     </template>
 
     <BaseEmptyState

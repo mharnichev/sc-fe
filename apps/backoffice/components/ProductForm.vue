@@ -325,10 +325,9 @@ const submit = () => {
             <span class="font-medium">Кількість на складі</span>
             <BaseInput v-model.number="form.stock_quantity" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
-          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
-            <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
-            Товар активний
-          </label>
+          <div class="rounded-2xl border border-slate-200 px-4 py-3">
+            <BaseToggle v-model="form.is_active" label="Товар активний" />
+          </div>
         </div>
         <label class="space-y-2 text-sm text-slate-700">
           <span class="font-medium">Короткий опис</span>

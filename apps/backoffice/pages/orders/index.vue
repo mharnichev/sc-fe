@@ -82,7 +82,10 @@ const prev = async () => {
               {{ order.external_sync_status || '—' }}
             </td>
             <td data-label="Усього" class="font-medium text-ui-primary">
-              {{ formatMoney(order.total_amount) }}
+              <p>Разом: {{ formatMoney(order.total_amount) }}</p>
+              <p class="mt-1 text-xs font-normal text-ui-muted">Підсумок: {{ formatMoney(order.subtotal_amount) }}</p>
+              <p class="text-xs font-normal text-ui-muted">Знижка: {{ formatMoney(order.discount_amount) }}</p>
+              <p v-if="order.promo_code" class="text-xs font-normal text-ui-muted">Промокод: {{ order.promo_code }}</p>
             </td>
             <td data-label="Статус" class="px-4 py-3">
               <BaseBadge tone="neutral" class="uppercase tracking-[0.15em]">

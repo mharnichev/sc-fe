@@ -432,10 +432,7 @@ onBeforeUnmount(() => {
           </label>
           <div class="flex flex-wrap items-center justify-between gap-2">
             <BaseButton type="button" variant="neutral" class="px-3 py-2 text-xs" :disabled="reorderInProgress || updatePending.has(image.id) || replacePending.has(image.id) || pendingDeleteId === image.id" @click="saveAlt(image)">Зберегти alt</BaseButton>
-            <label class="flex items-center gap-2 text-xs text-slate-600">
-              <BaseCheckbox :checked="image.is_active" :disabled="reorderInProgress || updatePending.has(image.id) || replacePending.has(image.id) || pendingDeleteId === image.id" @change="toggleActive(image, $event)" />
-              Показувати
-            </label>
+            <BaseToggle :checked="image.is_active" :disabled="reorderInProgress || updatePending.has(image.id) || replacePending.has(image.id) || pendingDeleteId === image.id" label="Показувати" label-class="!text-xs text-slate-600" @change="toggleActive(image, $event)" />
           </div>
           <p v-if="altErrors[image.id]" class="text-xs text-rose-600" role="alert">{{ altErrors[image.id] }}</p>
           <p v-if="replacementDrafts[image.id]?.error" class="text-xs text-rose-600" role="alert">{{ replacementDrafts[image.id]?.error }}</p>

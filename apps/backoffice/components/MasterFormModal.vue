@@ -58,8 +58,10 @@ const formError = ref('')
 const saving = ref(false)
 const photoFile = ref<File | null>(null)
 const avatarFile = ref<File | null>(null)
+const passportPhotoFile = ref<File | null>(null)
 const photoPreviewUrl = ref('')
 const avatarPreviewUrl = ref('')
+const passportPhotoPreviewUrl = ref('')
 const imagePreviewUrl = ref('')
 const imagePreviewAlt = ref('')
 const fileInputKey = ref(0)
@@ -77,11 +79,13 @@ const positionOptions: Array<{ value: MasterPosition, label: string }> = [
 const editing = computed(() => props.master || null)
 const existingPhotoUrl = computed(() => assetUrl(editing.value?.photo || editing.value?.photo_url))
 const existingAvatarUrl = computed(() => assetUrl(editing.value?.avatar || editing.value?.avatar_url))
+const existingPassportPhotoUrl = computed(() => assetUrl(editing.value?.passport_photo || editing.value?.passport_photo_url))
 const displayedPhotoUrl = computed(() => {
   if (photoPreviewUrl.value) return photoPreviewUrl.value
   return existingPhotoUrl.value
 })
 const displayedAvatarUrl = computed(() => avatarPreviewUrl.value || existingAvatarUrl.value)
+const displayedPassportPhotoUrl = computed(() => passportPhotoPreviewUrl.value || existingPassportPhotoUrl.value)
 const isMasterActive = (master: Master) => Boolean(master.is_active ?? master.status !== 'неактивний')
 const selectedPositionOption = computed(() =>
   positionOptions.find(option => option.value === form.position) || positionOptions[0],
@@ -181,10 +185,13 @@ const revokeObjectUrl = (url: string) => {
 const resetFiles = () => {
   revokeObjectUrl(photoPreviewUrl.value)
   revokeObjectUrl(avatarPreviewUrl.value)
+  revokeObjectUrl(passportPhotoPreviewUrl.value)
   photoFile.value = null
   avatarFile.value = null
+  passportPhotoFile.value = null
   photoPreviewUrl.value = ''
   avatarPreviewUrl.value = ''
+  passportPhotoPreviewUrl.value = ''
   fileInputKey.value += 1
 }
 
@@ -229,13 +236,18 @@ const closeImagePreview = () => {
   imagePreviewAlt.value = ''
 }
 
-const setFilePreview = (event: Event, kind: 'photo' | 'avatar') => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0] || null
+const setFilePreview = (file: File | null, kind: 'photo' | 'avatar' | 'passport_photo') => {
   if (kind === 'photo') {
     revokeObjectUrl(photoPreviewUrl.value)
     photoFile.value = file
     photoPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+    return
+  }
+
+  if (kind === 'passport_photo') {
+    revokeObjectUrl(passportPhotoPreviewUrl.value)
+    passportPhotoFile.value = file
+    passportPhotoPreviewUrl.value = file ? URL.createObjectURL(file) : ''
     return
   }
 
@@ -259,6 +271,7 @@ const validate = () => {
   if (form.phone?.trim() && !isCompletePhone(form.phone)) return 'Введіть повний український номер у форматі +380 XX XXX XX XX.'
   if (photoFile.value && photoFile.value.type !== 'image/webp') return 'Фото має бути у форматі .webp.'
   if (avatarFile.value && avatarFile.value.type !== 'image/webp') return 'Avatar має бути у форматі .webp.'
+  if (passportPhotoFile.value && passportPhotoFile.value.type !== 'image/webp') return 'Фото паспорта має бути у форматі .webp.'
   return ''
 }
 
@@ -281,6 +294,7 @@ const submit = async () => {
     description: form.description?.trim() || null,
     photo: photoFile.value,
     avatar: avatarFile.value,
+    passport_photo: passportPhotoFile.value,
     bookingRedirectMasterId: formBookingRedirectMasterId.value,
   }
 
@@ -509,22 +523,17 @@ onBeforeUnmount(() => {
           <span>Пароль для входу задається лише під час створення майстра. Для зміни наявного пароля потрібен backend endpoint керування користувачами.</span>
         </p>
         <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-1.5 text-sm text-slate-700">
-            <span class="flex items-center gap-2 font-medium">
-              <PhotoIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              Фото
-            </span>
-            <BaseInput :key="`photo-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'photo')" />
-          </label>
-          <label class="space-y-1.5 text-sm text-slate-700">
-            <span class="flex items-center gap-2 font-medium">
-              <UserCircleIcon class="h-4 w-4 text-cyan-700" aria-hidden="true" />
-              Avatar
-            </span>
-            <BaseInput :key="`avatar-${fileInputKey}`" type="file" accept=".webp,image/webp" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white sm:px-4 sm:file:mr-4" @change="setFilePreview($event, 'avatar')" />
-          </label>
+          <BaseFileInput :key="`photo-${fileInputKey}`" :model-value="photoFile" label="Фото" hint="WebP" accept=".webp,image/webp" @update:model-value="setFilePreview($event, 'photo')">
+            <template #icon><PhotoIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" /></template>
+          </BaseFileInput>
+          <BaseFileInput :key="`avatar-${fileInputKey}`" :model-value="avatarFile" label="Avatar" hint="WebP" accept=".webp,image/webp" @update:model-value="setFilePreview($event, 'avatar')">
+            <template #icon><UserCircleIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" /></template>
+          </BaseFileInput>
+          <BaseFileInput :key="`passport-photo-${fileInputKey}`" :model-value="passportPhotoFile" label="Фото паспорта" hint="WebP" accept=".webp,image/webp" @update:model-value="setFilePreview($event, 'passport_photo')">
+            <template #icon><IdentificationIcon class="h-4 w-4 text-ui-accent" aria-hidden="true" /></template>
+          </BaseFileInput>
         </div>
-        <div v-if="displayedPhotoUrl || displayedAvatarUrl" class="grid gap-4 rounded-xl bg-slate-50 p-3 sm:p-4 md:grid-cols-2">
+        <div v-if="displayedPhotoUrl || displayedAvatarUrl || displayedPassportPhotoUrl" class="grid gap-4 rounded-xl bg-slate-50 p-3 sm:p-4 md:grid-cols-3">
           <div v-if="displayedPhotoUrl" class="space-y-1.5">
             <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото' : 'Попередній перегляд фото' }}</p>
             <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
@@ -543,6 +552,15 @@ onBeforeUnmount(() => {
               </span>
             </BaseButton>
           </div>
+          <div v-if="displayedPassportPhotoUrl" class="space-y-1.5">
+            <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото паспорта' : 'Попередній перегляд фото паспорта' }}</p>
+            <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPassportPhotoUrl, 'Фото паспорта')">
+              <img :src="displayedPassportPhotoUrl" alt="Фото паспорта" class="h-32 w-full object-contain sm:h-44">
+              <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
+                <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
+              </span>
+            </BaseButton>
+          </div>
         </div>
         <label class="mt-2 space-y-1.5 text-sm text-slate-700">
           <span class="flex items-center gap-2 font-medium">
@@ -556,16 +574,14 @@ onBeforeUnmount(() => {
           <span>Після створення майстра активні базові послуги копіюються автоматично. Використовуйте дію «Послуги» у списку, щоб керувати особистими послугами майстра.</span>
         </p>
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-            <BaseCheckbox v-model="form.is_active" class="h-4 w-4 rounded border-slate-300" />
+          <BaseToggle v-model="form.is_active" label-class="inline-flex items-center gap-2">
             <CheckCircleIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
             <span>Майстер активний</span>
-          </label>
-          <label class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 sm:px-4">
-            <BaseCheckbox v-model="form.showOnMasterBlock" class="h-4 w-4 rounded border-slate-300" />
+          </BaseToggle>
+          <BaseToggle v-model="form.showOnMasterBlock" label-class="inline-flex items-center gap-2">
             <EyeIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
             <span>Показувати у блоці майстрів</span>
-          </label>
+          </BaseToggle>
         </div>
         <div class="backoffice-modal-actions">
           <BaseButton type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">

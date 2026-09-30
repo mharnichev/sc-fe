@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeftIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
+import { procurementStatusLabel } from '~/utils/inventory'
 
 const route = useRoute()
 const api = useBackofficeApi()
@@ -16,6 +17,16 @@ const {
 } = await useAsyncData(
   () => `backoffice-order-${orderId.value}`,
   () => api.getOrder(orderId.value),
+  { watch: [orderId] },
+)
+
+const {
+  data: fulfillment,
+  error: fulfillmentError,
+  refresh: refreshFulfillment,
+} = await useAsyncData(
+  () => `backoffice-order-fulfillment-${orderId.value}`,
+  () => api.getOrderFulfillment(orderId.value),
   { watch: [orderId] },
 )
 
@@ -45,6 +56,12 @@ const displayValue = (value?: string | number | null) => {
   if (value === null || value === undefined || value === '') return '—'
   return String(value)
 }
+
+const snapshotMoney = (value?: string | number | null) =>
+  value === null || value === undefined ? 'Недоступно' : formatMoney(value)
+
+const snapshotValue = (value?: string | number | null) =>
+  value === null || value === undefined || value === '' ? 'Недоступно' : String(value)
 
 const fullCustomerName = computed(() => {
   if (!order.value) return '—'
@@ -86,6 +103,12 @@ const shippingPayloadEntries = computed(() => {
   return Object.entries(payload)
 })
 
+const orderItems = computed(() => fulfillment.value?.items || order.value?.items || [])
+
+const hasOutstandingProcurement = computed(() => orderItems.value.some(item =>
+  item.quantity_to_order > item.quantity_received_for_order,
+) || false)
+
 watch(
   () => order.value?.status,
   value => {
@@ -104,6 +127,7 @@ const updateStatus = async () => {
     order.value = await api.updateOrderStatus(order.value.id, statusDraft.value)
     toast.success('Статус замовлення оновлено.')
     await refresh()
+    await refreshFulfillment()
   }
   catch (err: unknown) {
     statusError.value = apiErrorMessage(err, 'Не вдалося оновити статус замовлення.')
@@ -156,6 +180,15 @@ const updateStatus = async () => {
           <span class="text-sm text-slate-500">
             Разом: <strong class="font-semibold text-slate-900">{{ formatMoney(order.total_amount) }}</strong>
           </span>
+          <span class="text-sm text-slate-500">
+            Підсумок: <strong class="font-semibold text-slate-900">{{ snapshotMoney(order.subtotal_amount) }}</strong>
+          </span>
+          <span class="text-sm text-slate-500">
+            Знижка: <strong class="font-semibold text-slate-900">{{ snapshotMoney(order.discount_amount) }}</strong>
+          </span>
+          <span v-if="order.promo_code" class="text-sm text-slate-500">
+            Промокод: <strong class="font-semibold text-slate-900">{{ order.promo_code }}</strong>
+          </span>
         </div>
         <form class="grid gap-3 sm:grid-cols-[minmax(12rem,16rem)_auto]" @submit.prevent="updateStatus">
           <BaseSelect
@@ -184,32 +217,57 @@ const updateStatus = async () => {
         {{ statusError }}
       </p>
 
+      <p v-if="fulfillmentError" class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+        Не вдалося оновити окремий статус виконання: {{ apiErrorMessage(fulfillmentError, 'показано дані замовлення.') }}
+      </p>
+
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]">
         <section class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 class="text-xl font-semibold text-slate-900">Позиції</h2>
+          <p v-if="hasOutstandingProcurement" class="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+            Частина товарів ще очікує надходження для виконання замовлення. Статус клієнтського замовлення змінюється окремо.
+          </p>
           <BaseTable
             caption="Позиції замовлення"
             wrapper-class="mt-4 rounded-2xl"
-            min-width="720px"
+            min-width="1240px"
           >
             <template #head>
                 <tr>
                   <th>Товар</th>
                   <th>SKU</th>
-                  <th>К-сть</th>
-                  <th>Ціна</th>
-                  <th>Сума</th>
+                  <th>Замовлено</th>
+                  <th>Зі складу</th>
+                  <th>Під закупівлю</th>
+                  <th>Отримано</th>
+                  <th>Статус закупівлі</th>
+                  <th>Базова ціна</th>
+                  <th>Фінальна ціна</th>
+                  <th>Знижка snapshot</th>
+                  <th>Promotion snapshot</th>
+                  <th>Сума snapshot</th>
                 </tr>
             </template>
-                <tr v-for="item in order.items" :key="item.id">
+                <tr v-for="item in orderItems" :key="item.id">
                   <td>
                     <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
                     <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
                   </td>
                   <td class="text-ui-secondary">{{ item.product_sku || '—' }}</td>
                   <td class="text-ui-secondary">{{ item.quantity }}</td>
-                  <td class="text-ui-secondary">{{ formatMoney(item.price) }}</td>
-                  <td class="font-medium text-ui-primary">{{ formatMoney(item.total_price || Number(item.price) * item.quantity) }}</td>
+                  <td class="text-ui-secondary">{{ item.quantity_from_stock }}</td>
+                  <td class="text-ui-secondary">{{ item.quantity_to_order }}</td>
+                  <td class="text-ui-secondary">{{ item.quantity_received_for_order }}</td>
+                  <td class="text-ui-secondary">{{ procurementStatusLabel(item.procurement_status) }}</td>
+                  <td class="text-ui-secondary">{{ snapshotMoney(item.base_price) }}</td>
+                  <td class="text-ui-secondary">{{ snapshotMoney(item.price) }}</td>
+                  <td class="text-ui-secondary">{{ snapshotMoney(item.discount_amount) }}</td>
+                  <td class="text-ui-secondary">
+                    <p>ID: {{ snapshotValue(item.shop_promotion_id) }}</p>
+                    <p class="mt-1">Назва: {{ snapshotValue(item.promotion_name) }}</p>
+                    <p class="mt-1">Код: {{ snapshotValue(item.promotion_code) }}</p>
+                  </td>
+                  <td class="font-medium text-ui-primary">{{ snapshotMoney(item.total_price) }}</td>
                 </tr>
           </BaseTable>
         </section>

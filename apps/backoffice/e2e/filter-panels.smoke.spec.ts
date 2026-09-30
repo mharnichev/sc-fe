@@ -483,6 +483,21 @@ const migratedRoutes = [
   '/admin/statistics',
 ] as const
 
+test('master media uploads use the themed file picker', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await installBackend(page)
+  await page.goto('/masters')
+  await page.getByRole('button', { name: 'Створити майстра' }).click()
+
+  const uploaders = page.locator('.base-file-input')
+  await expect(uploaders).toHaveCount(3)
+  await uploaders.first().scrollIntoViewIfNeeded()
+  await expect(uploaders.first()).toContainText('Завантажити файл')
+  await expect(uploaders.first()).toContainText('Натисніть або перетягніть сюди')
+  await expect(uploaders.first().locator('input[type="file"]')).toHaveClass(/sr-only/)
+  await uploaders.first().screenshot({ path: '/tmp/backoffice-base-file-input.png' })
+})
+
 test.describe('migrated filter panels', () => {
   test.beforeEach(async ({ page }) => {
     await installBackend(page)

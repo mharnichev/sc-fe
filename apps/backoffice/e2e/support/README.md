@@ -86,3 +86,62 @@ The expanded September 6 verification also used
 `soulcuts-segments-fulltest-20260906`; its final logs and screenshots are under
 `output/segments-full-test/`, with coverage and limitations in
 `docs/segments-full-test-report.md`.
+
+## Inventory browser sandbox
+
+`inventory.smoke.spec.ts` exercises the real inventory, procurement, receiving,
+count, order-fulfillment, product and movement routes against PostgreSQL. It
+does not mock successful inventory responses. The seed is entirely synthetic:
+an administrator, available/out-of-stock/missing-barcode/backorder products and
+one pending customer order with a three-unit procurement shortage.
+
+Start the dedicated disposable database (never use the normal port 5432):
+
+```sh
+docker run --rm --name soulcuts-fe-inventory-smoke \
+  -e POSTGRES_USER=inventory_test -e POSTGRES_PASSWORD=inventory_test \
+  -e POSTGRES_DB=inventory_test -p 127.0.0.1:55440:5432 -d postgres:16
+```
+
+Start the isolated backend from the frontend repository root, replacing the
+backend path when the checkouts are elsewhere:
+
+```sh
+INVENTORY_BACKEND_PATH=/Users/markgarnicev/sc/sc-be \
+INVENTORY_TEST_DATABASE_URL=postgresql+asyncpg://inventory_test:inventory_test@127.0.0.1:55440/inventory_test \
+python3 apps/backoffice/e2e/support/inventory-sandbox.py
+```
+
+The harness listens only on `127.0.0.1:58002`. It rejects non-loopback hosts,
+database names without `test`, the default PostgreSQL port, and missing explicit
+configuration. It creates a random `inventory_browser_test_*` schema, overrides
+the production database dependency, never starts the production lifespan, and
+drops only its own schema on graceful shutdown. `POST /__sandbox/reset` and
+`GET /__sandbox/inspect` are test-only endpoints and must never be deployed.
+
+Start the dedicated frontend in another terminal:
+
+```sh
+NUXT_PUBLIC_API_BASE=http://127.0.0.1:58002/api/v1 TMPDIR=/tmp \
+pnpm --filter @apps/backoffice exec nuxt dev --host 127.0.0.1 --port 4042
+```
+
+Run the suite serially so a reset cannot race another test:
+
+```sh
+INVENTORY_SANDBOX_URL=http://127.0.0.1:58002 PLAYWRIGHT_PORT=4042 \
+NUXT_PUBLIC_API_BASE=http://127.0.0.1:58002/api/v1 \
+pnpm --filter @apps/backoffice exec playwright test inventory.smoke.spec.ts --workers=1
+```
+
+The suite covers admin session rejection, private-field isolation, overview
+search and local stock filters, duplicate barcode validation, procurement and
+order fulfillment, scanner/repeat/manual-quantity receipt entry, allocations,
+posting and read-only reload, count upsert/difference/post/reload, all supported
+manual operation types, the product-scoped movement journal and idempotent
+retries. Screenshots are attached to the Playwright test output.
+
+Known API limitations remain explicit: there is no generic manual adjustment
+operation (inventory counts are the reconciliation path), no global movement
+endpoint, and movement type/date filters operate on the currently loaded
+product page rather than server-side across the full ledger.
