@@ -61,13 +61,19 @@ const {
 const today = todayInput()
 const bookingFilterStatuses: BookingStatus[] = ['pending', ...statuses]
 const routeStatus = String(route.query.status || '')
+const routeDate = typeof route.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(route.query.date)
+  ? route.query.date
+  : ''
+const routeBookingId = typeof route.query.booking_id === 'string'
+  ? Number.parseInt(route.query.booking_id, 10)
+  : 0
 const initialStatus: BookingStatus | '' = bookingFilterStatuses.includes(routeStatus as BookingStatus)
   ? routeStatus as BookingStatus
   : ''
-const viewMode = ref<CalendarViewMode>('week')
+const viewMode = ref<CalendarViewMode>(routeDate ? 'today' : 'week')
 const calendarViewOptions = (['today', 'week', 'month'] as CalendarViewMode[])
   .map(mode => ({ value: mode, label: calendarViewLabels[mode] }))
-const anchorDate = ref(today)
+const anchorDate = ref(routeDate || today)
 const filters = reactive({
   master_id: '',
   service_id: '',
@@ -220,6 +226,14 @@ const { data, pending, error, refresh } = await useAsyncData(
 )
 
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
+const routeBookingOpened = ref(false)
+watch(bookings, (items) => {
+  if (routeBookingOpened.value || !Number.isInteger(routeBookingId) || routeBookingId <= 0) return
+  const booking = items.find(item => item.id === routeBookingId)
+  if (!booking) return
+  selected.value = booking
+  routeBookingOpened.value = true
+}, { immediate: true })
 const timeBlocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
 const calendarCapacityBookings = computed<CalendarCapacityBooking[]>(() => normalizeItems(data.value?.capacity))
 const calendarHoldRecords = computed<CalendarHold[]>(() => normalizeItems(data.value?.holds))
