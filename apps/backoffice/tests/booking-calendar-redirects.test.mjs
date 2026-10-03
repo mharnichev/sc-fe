@@ -20,6 +20,13 @@ const compiledAccess = ts.transpileModule(accessSource, {
 }).outputText
 const access = await import(`data:text/javascript;base64,${Buffer.from(compiledAccess).toString('base64')}`)
 
+test('booking calendar defers touch slot selection until a deliberate tap finishes', () => {
+  assert.match(calendarGridSource, /if \(event\.pointerType !== 'mouse'\) return/)
+  assert.match(calendarGridSource, /if \(gesture\.moved \|\| slotGestureScrolled\(gesture\)\)/)
+  assert.match(calendarGridSource, /if \(gesture\.pointerType !== 'mouse'\) \{[\s\S]*?startSelection\(slot\)/)
+  assert.match(calendarGridSource, /gesture\.pointerType !== 'mouse' && movedByPointer > slotScrollCancelThreshold/)
+})
+
 test('booking calendar keeps time blocks returned for a redirected master', async () => {
   const source = await readFile(bookingsPage, 'utf8')
 

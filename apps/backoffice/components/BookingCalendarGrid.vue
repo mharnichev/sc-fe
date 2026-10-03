@@ -59,9 +59,14 @@ const activeEntryTap = ref<{
 } | null>(null)
 const lastEntryTapCancelAt = ref(0)
 const activeSlotGesture = ref<{
+  slotId: string
   pointerId: number
+  pointerType: string
+  startX: number
+  startY: number
   startScrollTop: number
   startScrollLeft: number
+  moved: boolean
 } | null>(null)
 
 const {
@@ -187,10 +192,18 @@ const beginSlotSelection = (slot: CalendarSlot, event: PointerEvent) => {
     event.preventDefault()
   }
   activeSlotGesture.value = {
+    slotId: slot.id,
     pointerId: event.pointerId,
+    pointerType: event.pointerType,
+    startX: event.clientX,
+    startY: event.clientY,
     startScrollTop: scrollRef.value?.scrollTop || 0,
     startScrollLeft: scrollRef.value?.scrollLeft || 0,
+    moved: false,
   }
+  // Touch and pen gestures may become native scrolling. Defer selection until
+  // pointerup so merely starting a swipe cannot trigger slot feedback.
+  if (event.pointerType !== 'mouse') return
   if (!startSelection(slot)) {
     activeSlotGesture.value = null
   }
@@ -200,13 +213,19 @@ const extendSlotSelection = (slot: CalendarSlot) => {
   extendSelection(slot)
 }
 
-const endSlotSelection = () => {
+const endSlotSelection = (event: PointerEvent) => {
   const gesture = activeSlotGesture.value
+  if (!gesture || gesture.pointerId !== event.pointerId) return
   activeSlotGesture.value = null
 
-  if (gesture && slotGestureScrolled(gesture)) {
+  if (gesture.moved || slotGestureScrolled(gesture)) {
     clearSelection()
     return
+  }
+
+  if (gesture.pointerType !== 'mouse') {
+    const slot = slotById.value.get(gesture.slotId)
+    if (!slot || !startSelection(slot)) return
   }
 
   const selection = finishSelection()
@@ -228,9 +247,17 @@ const slotGestureScrolled = (gesture: NonNullable<typeof activeSlotGesture.value
 }
 
 const handlePointerMove = (event: PointerEvent) => {
-  if (!isSelecting.value) return
   const gesture = activeSlotGesture.value
-  if (gesture?.pointerId === event.pointerId && slotGestureScrolled(gesture)) {
+  if (!gesture || gesture.pointerId !== event.pointerId) return
+
+  const movedByPointer = Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY)
+  if ((gesture.pointerType !== 'mouse' && movedByPointer > slotScrollCancelThreshold) || slotGestureScrolled(gesture)) {
+    gesture.moved = true
+  }
+
+  if (gesture.pointerType !== 'mouse') return
+  if (!isSelecting.value) return
+  if (gesture.moved) {
     cancelSlotSelection(event)
     return
   }
