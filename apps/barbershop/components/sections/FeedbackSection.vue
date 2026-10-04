@@ -101,7 +101,7 @@ const submit = () => {
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.feedback.label }}</SectionLabel>
         <h2 class="section-title mt-4 uppercase md:text-4xl">{{ terms.home.feedback.title }}</h2>
-        <p class="mt-5 max-w-md text-base leading-7 text-neutral-600 md:leading-8">
+        <p class="mt-5 max-w-md text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
           {{ terms.home.feedback.description }}
         </p>
       </div>

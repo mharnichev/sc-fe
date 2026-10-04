@@ -84,7 +84,7 @@ test('first-visit promotion highlights only the backend discount and uses specia
   assert.match(notice, /booking-promotion-notice--compact \{[\s\S]*padding: 0\.7rem 1rem 0\.55rem/)
   assert.match(notice, /booking-promotion-notice--mobile-tight \{[\s\S]*padding-top: 4px;[\s\S]*padding-bottom: 4px/)
   assert.doesNotMatch(notice, /booking-promotion-notice--mobile-tight \{[\s\S]*?background: transparent/)
-  assert.match(booking, /mobile-tight[\s\S]*class="mx-3 my-1 text-white sm:m-3"/)
+  assert.match(booking, /mobile-tight[\s\S]*class="mx-2 my-0 text-white lg:m-3"/)
   assert.match(booking, /booking-form relative[^\"]*bg-transparent sm:bg-white\/\[0\.03\]/)
   assert.match(notice, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(notice, /color: white/)

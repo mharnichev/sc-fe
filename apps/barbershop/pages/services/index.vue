@@ -45,7 +45,7 @@ useServiceCatalogStructuredData(structuredServices)
           <h1 class="type-page-title mt-4 text-4xl text-stone-950 md:text-6xl">
             {{ terms.pages.services.title }}
           </h1>
-          <p class="mt-5 max-w-3xl text-base leading-8 text-stone-700 md:text-lg">
+          <p class="mt-5 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
             {{ pageIntro }}
           </p>
         </div>

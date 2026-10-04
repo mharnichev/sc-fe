@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
               <p
                 v-for="paragraph in visibleIntroText"
                 :key="paragraph"
-                class="mt-3 text-base leading-7 text-white/60 first:mt-0 md:mt-4 md:leading-8"
+                class="mt-3 text-sm leading-6 text-white/60 first:mt-0 md:mt-4 md:text-base md:leading-8"
               >
                 {{ paragraph }}
               </p>
@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
                 <p
                   v-for="paragraph in accordionIntroText"
                   :key="paragraph"
-                  class="mt-3 text-base leading-7 text-white/60 md:mt-4 md:leading-8"
+                  class="mt-3 text-sm leading-6 text-white/60 md:mt-4 md:text-base md:leading-8"
                 >
                   {{ paragraph }}
                 </p>

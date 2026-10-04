@@ -10,12 +10,12 @@ useSeo(
 <template>
   <div class="grid gap-8 lg:grid-cols-2 lg:items-center">
     <div class="space-y-5" data-reveal="soft">
-      <p class="type-eyebrow type-eyebrow--wide text-sm text-amber-700">{{ terms.pages.about.label }}</p>
+      <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">{{ terms.pages.about.label }}</p>
       <h1 class="type-page-title text-5xl text-stone-900">{{ terms.pages.about.title }}</h1>
-      <p class="text-lg leading-8 text-stone-600">
+      <p class="text-sm leading-6 text-stone-600 md:text-lg md:leading-8">
         {{ terms.pages.about.firstText }}
       </p>
-      <p class="text-base leading-8 text-stone-600">
+      <p class="text-sm leading-6 text-stone-600 md:text-base md:leading-8">
         {{ terms.pages.about.secondText }}
       </p>
     </div>

@@ -326,7 +326,7 @@ if (faqItems.value.length) {
             <h1 class="service-name-wrap type-page-title mt-4 text-4xl leading-[1.08] text-stone-950 md:text-6xl">
               {{ serviceName }}
             </h1>
-            <p class="mt-6 max-w-3xl text-lg leading-8 text-stone-700">
+            <p class="mt-6 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
               {{ serviceDescription }}
             </p>
             <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-2xl" />
@@ -393,7 +393,7 @@ if (faqItems.value.length) {
         <div class="mt-8 divide-y divide-stone-300 border-y border-stone-300">
           <article v-for="item in faqItems" :key="item.question" class="py-6">
             <h3 class="text-xl font-semibold text-stone-950">{{ item.question }}</h3>
-            <p class="mt-3 text-base leading-7 text-stone-700">{{ item.answer }}</p>
+            <p class="mt-3 text-sm leading-6 text-stone-700 md:text-base md:leading-7">{{ item.answer }}</p>
           </article>
         </div>
       </div>

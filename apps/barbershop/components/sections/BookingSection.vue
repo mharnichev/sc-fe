@@ -1622,7 +1622,7 @@ onBeforeUnmount(() => {
               <h2 class="section-title-inverse mt-4">
                 {{ terms.home.booking.title }}
               </h2>
-              <p class="mt-4 text-base leading-7 text-white/65 md:mt-6 md:leading-8">
+              <p class="mt-4 text-sm leading-6 text-white/65 md:mt-6 md:text-base md:leading-8">
                 {{ terms.home.booking.description }}
               </p>
             </div>
@@ -1653,7 +1653,7 @@ onBeforeUnmount(() => {
             :offer="firstVisitBookingOffer"
             compact
             mobile-tight
-            class="mx-3 my-1 text-white sm:m-3"
+            class="mx-2 my-0 text-white lg:m-3"
           />
           <div class="booking-stepper flex gap-1.5 p-2 sm:grid sm:grid-cols-4 sm:gap-2 sm:p-3">
             <button
@@ -1704,7 +1704,7 @@ onBeforeUnmount(() => {
 
           <div
             :id="bookingStepIds[activeStepIndex]"
-            class="booking-step-panel scroll-mt-28 px-3 pb-3"
+            class="booking-step-panel scroll-mt-28 px-2 pb-2 sm:px-3 sm:pb-3"
             :class="`booking-step-panel--${activeStepKey}`"
           >
             <div>
@@ -1858,25 +1858,29 @@ onBeforeUnmount(() => {
                   </section>
 
                   <section v-else-if="activeStepIndex === 1" key="booking-master">
-                  <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="grid grid-cols-2 gap-1">
                     <button
                       v-for="master in availableMasters"
                       :key="master.id"
                       type="button"
-                      class="grid grid-cols-[3.5rem_1fr] gap-4 p-2.5 text-left transition sm:p-3"
-                      :class="selectedMasterId === master.id ? 'bg-white text-neutral-950' : 'bg-white/[0.035] text-white/75 hover:bg-white/[0.07] hover:text-white'"
+                      class="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 px-2 py-1 text-left transition sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-4 sm:p-3"
+                      :class="selectedMasterId === master.id ? 'bg-white text-neutral-950' : 'text-white/75 hover:text-white'"
                       @click="selectMaster(master.id)"
                     >
-                      <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-14 w-14 object-cover object-top">
-                      <span class="self-center">
-                        <span class="block text-sm font-semibold">{{ masterName(master) }}</span>
-                        <span class="mt-1 block text-xs leading-5 opacity-70">{{ masterPosition(master) }}</span>
-                      </span>
+                      <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-16 w-16 object-cover object-top sm:h-20 sm:w-20">
+                      <div class="min-w-0 self-center">
+                        <span class="block text-[0.6875rem] font-semibold leading-4">{{ masterName(master) }}</span>
+                        <span class="mt-0.5 block text-[0.625rem] leading-4 opacity-70">{{ masterPosition(master) }}</span>
+                      </div>
                       <MasterRatingBlock
                         :master-id="master.id"
                         :tone="selectedMasterId === master.id ? 'light' : 'dark'"
-                        compact
-                        class="col-span-2"
+                        :show-summary-details="false"
+                        :review-limit="2"
+                        show-review-count
+                        show-reviews
+                        hide-empty
+                        class="booking-master-rating col-span-2 mt-1"
                       />
                     </button>
                     <p v-if="mastersPending" class="text-sm text-white/55">Завантажуємо майстрів...</p>
@@ -2419,7 +2423,7 @@ onBeforeUnmount(() => {
             </template>
 
             <div v-else class="mt-8">
-              <p class="text-base leading-7 text-neutral-700">
+              <p class="text-sm leading-6 text-neutral-700 md:text-base md:leading-7">
                 {{ waitlistState === 'success' ? recoveryCopy.success : waitlistError }}
               </p>
               <BaseButton type="button" variant="dark" size="sm" class="mt-6" @click="returnToSelection">
@@ -2539,6 +2543,26 @@ onBeforeUnmount(() => {
   }
 }
 
+.booking-step-panel--master :deep(.booking-master-rating [role='img']) {
+  gap: 0.125rem;
+  font-size: 0.6875rem;
+}
+
+.booking-step-panel--master :deep(.booking-master-rating .text-sm) {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.booking-step-panel--master :deep(.booking-master-rating .text-xs) {
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  line-height: 0.875rem;
+}
+
+.booking-step-panel--master :deep(.booking-master-rating .h-3) {
+  height: 0.625rem;
+}
+
 .booking-form .booking-step-panel {
   display: flex;
   min-height: 0;
@@ -2562,6 +2586,12 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.25rem;
+}
+
+@media (max-width: 639.98px) {
+  .booking-form .booking-step-content {
+    gap: 0.5rem;
+  }
 }
 
 .booking-form .booking-step-actions {

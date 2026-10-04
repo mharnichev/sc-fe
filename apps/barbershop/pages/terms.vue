@@ -149,8 +149,8 @@ useSeo(
 .legal-copy :deep(p),
 .legal-copy :deep(li) {
   color: rgb(82 82 82);
-  font-size: 1rem;
-  line-height: 1.85;
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
 .legal-copy :deep(p) {
@@ -190,6 +190,12 @@ useSeo(
 @media (min-width: 640px) {
   .legal-copy :deep(h2) {
     font-size: 1.8rem;
+  }
+
+  .legal-copy :deep(p),
+  .legal-copy :deep(li) {
+    font-size: 1rem;
+    line-height: 1.85;
   }
 }
 

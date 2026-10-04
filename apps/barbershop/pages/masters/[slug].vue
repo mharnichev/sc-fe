@@ -545,7 +545,7 @@ useBarberStructuredData(() => ({
               <h1 class="mt-3 max-w-4xl text-4xl font-semibold leading-tight md:text-6xl">
                 {{ fullName }}
               </h1>
-              <p v-if="profileDescription" class="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">
+              <p v-if="profileDescription" class="mt-5 max-w-2xl text-sm leading-6 text-neutral-700 md:text-lg md:leading-8">
                 {{ profileDescription }}
               </p>
               <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-xl" />

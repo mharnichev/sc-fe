@@ -3,6 +3,32 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import ts from 'typescript'
 
+test('booking master cards use regular photos in a transparent two-column mobile layout', async () => {
+  const source = await readFile(new URL('../components/sections/BookingSection.vue', import.meta.url), 'utf8')
+
+  assert.doesNotMatch(source, /const masterPassportPhoto/)
+  assert.match(source, /key="booking-master"[\s\S]*?class="grid grid-cols-2 gap-1"/)
+  assert.match(source, /grid-cols-\[4rem_minmax\(0,1fr\)\][^"\n]*px-2 py-1[^"\n]*sm:p-3/)
+  assert.match(source, /class="booking-step-panel scroll-mt-28 px-2 pb-2 sm:px-3 sm:pb-3"/)
+  assert.match(source, /@media \(max-width: 639\.98px\) \{[\s\S]*?\.booking-form \.booking-step-content \{[\s\S]*?gap: 0\.5rem;/)
+  assert.match(source, /:src="masterPhoto\(master\)"/)
+  assert.match(source, /masterPhoto\(master\)[^>]*class="h-16 w-16 object-cover object-top sm:h-20 sm:w-20"/)
+  assert.match(source, /class="block text-\[0\.6875rem\] font-semibold leading-4">\{\{ masterName\(master\) \}\}/)
+  assert.match(source, /class="mt-0\.5 block text-\[0\.625rem\] leading-4 opacity-70">\{\{ masterPosition\(master\) \}\}/)
+  assert.match(source, /booking-step-panel--master :deep\(\.booking-master-rating \[role='img'\]\)[\s\S]*?font-size: 0\.6875rem/)
+  assert.match(source, /selectedMasterId === master\.id \? 'bg-white text-neutral-950' : 'text-white\/75 hover:text-white'/)
+  assert.match(source, /:tone="selectedMasterId === master\.id \? 'light' : 'dark'"/)
+  assert.match(source, /class="booking-master-rating col-span-2 mt-1"/)
+  assert.match(source, /:show-summary-details="false"[\s\S]*?:review-limit="2"[\s\S]*?show-review-count[\s\S]*?show-reviews[\s\S]*?hide-empty/)
+  assert.doesNotMatch(source, /show-reviews[\s\S]*?hide-empty[\s\S]*?compact/)
+
+  const ratingSource = await readFile(new URL('../components/ui/MasterRatingBlock.vue', import.meta.url), 'utf8')
+  assert.match(ratingSource, /hideEmpty\?: boolean/)
+  assert.match(ratingSource, /!hasRating && !hideEmpty/)
+  assert.match(ratingSource, /v-else-if="hasRating"/)
+
+})
+
 const utilitySource = await readFile(new URL('../utils/bookingCustomer.ts', import.meta.url), 'utf8')
 const utilityCompiled = ts.transpileModule(utilitySource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },

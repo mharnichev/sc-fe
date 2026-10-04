@@ -17,7 +17,7 @@ const botLink = 'https://t.me/SoulcutsBot'
             <h2 class="mt-5 text-2xl font-semibold uppercase leading-none tracking-normal text-white sm:text-2xl md:text-4xl">
               {{ terms.home.bot.title }}
             </h2>
-            <p class="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg md:leading-8">
+            <p class="mt-5 max-w-2xl text-sm leading-6 text-white/68 md:text-lg md:leading-8">
               {{ terms.home.bot.description }}
             </p>
           </div>

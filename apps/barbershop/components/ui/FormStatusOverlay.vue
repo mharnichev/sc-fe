@@ -35,7 +35,7 @@ const emit = defineEmits<{
           {{ title }}
         </h3>
         <slot>
-          <p v-if="message" class="mt-4 text-base leading-7" :class="tone === 'dark' ? 'text-white/68' : 'text-neutral-600'">
+          <p v-if="message" class="mt-4 text-sm leading-6 sm:text-base sm:leading-7" :class="tone === 'dark' ? 'text-white/68' : 'text-neutral-600'">
             {{ message }}
           </p>
         </slot>

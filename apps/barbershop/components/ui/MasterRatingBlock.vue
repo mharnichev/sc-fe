@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
   summaryLabel?: string
   showSummaryDetails?: boolean
   showReviewCount?: boolean
+  hideEmpty?: boolean
 }>(), {
   showReviews: false,
   reviewLimit: 2,
@@ -18,6 +19,7 @@ const props = withDefaults(defineProps<{
   summaryLabel: '',
   showSummaryDetails: true,
   showReviewCount: false,
+  hideEmpty: false,
 })
 
 const { locale } = useTerms()
@@ -115,7 +117,7 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
       compact ? 'master-rating-block--compact' : '',
     ]"
   >
-    <div v-if="pending || error || !hasRating" class="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div v-if="pending || error || (!hasRating && !hideEmpty)" class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span v-if="summaryLabel" class="type-meta type-eyebrow--wide text-xs">
         {{ summaryLabel }}
       </span>
@@ -129,7 +131,7 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
         {{ labels.empty }}
       </p>
     </div>
-    <template v-else>
+    <template v-else-if="hasRating">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span class="flex items-center gap-1 text-amber-500" role="img" :aria-label="`${trust?.summary.average_rating?.toFixed(1)} / 5`">
           <span aria-hidden="true">★</span>

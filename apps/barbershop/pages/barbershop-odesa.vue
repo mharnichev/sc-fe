@@ -346,7 +346,7 @@ useFaqStructuredData(() =>
           <h1 class="text-4xl font-semibold leading-tight text-stone-950 md:text-6xl">
             {{ page.heading }}
           </h1>
-          <p class="max-w-3xl text-lg leading-8 text-stone-700">
+          <p class="max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
             {{ page.intro }}
           </p>
           <div class="flex flex-col gap-3 sm:flex-row">
@@ -364,7 +364,7 @@ useFaqStructuredData(() =>
         <div data-reveal="soft">
           <SectionLabel>{{ page.locationLabel }}</SectionLabel>
           <h2 class="section-title mt-4 md:text-4xl">{{ page.locationTitle }}</h2>
-          <p class="mt-5 max-w-xl text-base leading-8 text-neutral-600">
+          <p class="mt-5 max-w-xl text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
             {{ page.locationIntro }}
           </p>
 
@@ -410,7 +410,7 @@ useFaqStructuredData(() =>
           <div>
             <SectionLabel>{{ terms.common.book }}</SectionLabel>
             <h2 class="mt-4 text-3xl font-semibold text-neutral-950">{{ page.bookingTitle }}</h2>
-            <p class="mt-4 max-w-2xl text-base leading-8 text-neutral-600">
+            <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
               {{ page.bookingIntro }}
             </p>
           </div>
@@ -453,7 +453,7 @@ useFaqStructuredData(() =>
           <div class="max-w-3xl" data-reveal="soft">
             <SectionLabel>{{ page.servicesLabel }}</SectionLabel>
             <h2 class="section-title mt-4 md:text-4xl">{{ page.servicesTitle }}</h2>
-            <p class="mt-5 text-base leading-8 text-neutral-600">
+            <p class="mt-5 text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
               {{ page.servicesIntro }}
             </p>
           </div>
@@ -505,7 +505,7 @@ useFaqStructuredData(() =>
           <div class="max-w-3xl" data-reveal="soft">
             <SectionLabel class="text-white/65">{{ page.teamLabel }}</SectionLabel>
             <h2 class="section-title-inverse mt-4 md:text-4xl">{{ page.teamTitle }}</h2>
-            <p class="mt-5 text-base leading-8 text-white/65">
+            <p class="mt-5 text-sm leading-6 text-white/65 md:text-base md:leading-8">
               {{ page.teamIntro }}
             </p>
           </div>
@@ -575,7 +575,7 @@ useFaqStructuredData(() =>
             </h2>
           </div>
           <div>
-            <p class="text-base leading-8 text-neutral-600">
+            <p class="text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
               {{ page.journalIntro }}
             </p>
             <p class="mt-3 text-sm leading-7 text-neutral-500">

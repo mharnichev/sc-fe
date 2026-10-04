@@ -177,7 +177,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
           </h2>
         </div>
         <div class="max-w-md">
-          <p class="text-base leading-7 text-neutral-600 md:leading-8">
+          <p class="text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
             {{ displaySectionDescription }}
           </p>
           <NuxtLink
