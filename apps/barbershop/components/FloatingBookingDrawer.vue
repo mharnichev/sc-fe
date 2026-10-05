@@ -14,7 +14,7 @@ const {
 
 const isCustomerActivityOpen = ref(false)
 const isTriggerOverBooking = ref(false)
-const triggerButton = ref<HTMLButtonElement | null>(null)
+const actionsContainer = ref<HTMLDivElement | null>(null)
 let bodyScrollLock: symbol | null = null
 let triggerPositionFrame = 0
 
@@ -33,7 +33,7 @@ const updateTriggerPosition = () => {
   if (!import.meta.client) return
 
   const bookingSection = document.getElementById('booking')
-  const trigger = triggerButton.value
+  const trigger = actionsContainer.value
 
   if (!bookingSection || !trigger || isOpen.value) {
     isTriggerOverBooking.value = false
@@ -129,9 +129,10 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    ref="actionsContainer"
     v-show="!isOpen && !isCustomerActivityOpen"
     class="floating-booking-actions fixed bottom-4 right-4 z-[75] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6"
-    :style="isTriggerOverBooking ? { right: '-48px' } : undefined"
+    :class="{ 'floating-booking-actions--over-booking': isTriggerOverBooking }"
   >
     <button
       type="button"
@@ -151,7 +152,6 @@ onBeforeUnmount(() => {
     </button>
 
     <button
-      ref="triggerButton"
       type="button"
       class="booking-trigger-button inline-flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700/70"
       :aria-expanded="isOpen"
@@ -235,7 +235,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .floating-booking-actions {
-  transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floating-booking-actions--over-booking {
+  /* Keep geometry stable for overlap detection while clearing clicks and focus. */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .my-appointments-button {

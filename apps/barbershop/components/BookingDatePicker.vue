@@ -11,6 +11,7 @@ type CalendarDay = {
   disabled: boolean
   selected: boolean
   today: boolean
+  availability: string
 }
 
 const props = withDefaults(defineProps<{
@@ -20,9 +21,11 @@ const props = withDefaults(defineProps<{
   locale: LocaleCode
   disabledWeekdays?: number[]
   inline?: boolean
+  availability?: Record<string, 'unknown' | 'loading' | 'available' | 'unavailable' | 'error'>
 }>(), {
   disabledWeekdays: () => [],
   inline: false,
+  availability: () => ({}),
 })
 
 const emit = defineEmits<{
@@ -43,6 +46,7 @@ const copy = computed(() => props.locale === 'en'
       next: 'Next month',
       unavailable: 'Unavailable',
       today: 'Today',
+      states: { unknown: 'Not checked', loading: 'Checking availability', available: 'Times available', unavailable: 'No times available', error: 'Availability check failed' },
     }
   : {
       open: 'Обрати дату',
@@ -52,6 +56,7 @@ const copy = computed(() => props.locale === 'en'
       next: 'Наступний місяць',
       unavailable: 'Недоступно',
       today: 'Сьогодні',
+      states: { unknown: 'Ще не перевірено', loading: 'Перевіряємо час', available: 'Є вільний час', unavailable: 'Вільного часу немає', error: 'Помилка перевірки' },
     },
 )
 
@@ -145,7 +150,8 @@ const calendarDays = computed<CalendarDay[]>(() => {
 
     return {
       value,
-      label: `${formatFullDate(date)}${disabled ? `, ${copy.value.unavailable}` : ''}`,
+      label: `${formatFullDate(date)}, ${disabled ? copy.value.unavailable : copy.value.states[props.availability[value] || 'unknown']}`,
+      availability: props.availability[value] || 'unknown',
       day: date.getDate(),
       currentMonth: date.getMonth() === visibleMonth.value.getMonth(),
       disabled,
@@ -245,6 +251,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <p class="mb-2 text-xs text-white/65" role="status">{{ locale === 'en' ? 'Green: times available · Grey: no times · Amber: check failed · Pulsing: checking · Outline: not checked' : 'Зелений: є час · Сірий: немає · Жовтий: помилка · Пульсація: перевірка · Контур: не перевірено' }}</p>
   <div class="booking-date-picker">
     <button
       v-if="!inline"
@@ -329,10 +336,18 @@ onBeforeUnmount(() => {
           ]"
           :disabled="day.disabled"
           :aria-label="day.label"
+          :data-availability="day.availability"
           :aria-current="day.today ? 'date' : undefined"
           @click="selectDate(day)"
         >
           <span>{{ day.day }}</span>
+          <span v-if="!day.disabled" class="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full" :class="{
+            'bg-emerald-400': day.availability === 'available',
+            'bg-neutral-500': day.availability === 'unavailable',
+            'bg-amber-400': day.availability === 'error',
+            'bg-white/60 animate-pulse': day.availability === 'loading',
+            'border border-white/40': day.availability === 'unknown',
+          }" aria-hidden="true" />
           <span v-if="day.today && !day.selected" class="absolute bottom-1 h-0.5 w-3 bg-red-700" aria-hidden="true" />
         </button>
       </div>
@@ -426,10 +441,18 @@ onBeforeUnmount(() => {
                   ]"
                   :disabled="day.disabled"
                   :aria-label="day.label"
+          :data-availability="day.availability"
                   :aria-current="day.today ? 'date' : undefined"
                   @click="selectDate(day)"
                 >
                   <span>{{ day.day }}</span>
+          <span v-if="!day.disabled" class="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full" :class="{
+            'bg-emerald-400': day.availability === 'available',
+            'bg-neutral-500': day.availability === 'unavailable',
+            'bg-amber-400': day.availability === 'error',
+            'bg-white/60 animate-pulse': day.availability === 'loading',
+            'border border-white/40': day.availability === 'unknown',
+          }" aria-hidden="true" />
                   <span v-if="day.today && !day.selected" class="absolute bottom-1 h-0.5 w-3 bg-red-700" aria-hidden="true" />
                 </button>
               </div>

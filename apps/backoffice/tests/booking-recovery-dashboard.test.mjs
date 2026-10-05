@@ -58,3 +58,33 @@ test('recovery dashboard remains global and never renders secure waitlist tokens
   assert.doesNotMatch(component, /token|claim_url|booking_link/i)
   assert.match(page, /adminGetBookingRecoverySummary/)
 })
+
+
+test('legacy returned counts never become historical views', () => {
+  const parsed = contract.parseBookingRecoverySummary(summaryFixture())
+  assert.equal(parsed.alternative_slots_returned, 22)
+  assert.equal(parsed.alternative_slots_viewed, undefined)
+  assert.equal(parsed.alternative_cohort_completion_rate_percent, undefined)
+})
+
+test('cohort session denominators and collection date are validated independently', () => {
+  const metrics = {
+    alternative_slots_viewed: 7,
+    alternative_cohort_requested_sessions: 4,
+    alternative_cohort_viewed_sessions: 3,
+    alternative_cohort_selected_sessions: 2,
+    alternative_cohort_completed_sessions: 1,
+    alternative_cohort_selection_rate_percent: '66.67',
+    alternative_cohort_completion_rate_percent: '25.00',
+    alternative_engagement_collection_started_at: '2026-10-04T12:00:00+03:00',
+  }
+  const parsed = contract.parseBookingRecoverySummary(summaryFixture(metrics))
+  assert.equal(parsed.alternative_cohort_requested_sessions, 4)
+  assert.equal(parsed.alternative_cohort_viewed_sessions, 3)
+  for (const invalid of [
+    { alternative_slots_viewed: -1 },
+    { alternative_cohort_requested_sessions: 0.5 },
+    { alternative_cohort_selection_rate_percent: 101 },
+    { alternative_engagement_collection_started_at: 'yesterday' },
+  ]) assert.throws(() => contract.parseBookingRecoverySummary(summaryFixture({ ...metrics, ...invalid })))
+})

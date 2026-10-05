@@ -23,6 +23,22 @@ test('slot matching compares timestamps instead of ISO string formatting', () =>
   assert.equal(bookingSlots.includesBookingStart(slots, '2026-08-09T09:00:00Z'), true)
 })
 
+test('an off-grid availability start remains selectable in the API representation', () => {
+  const slots = [{ start_at: '2026-10-06T10:07:00+03:00' }]
+
+  assert.equal(bookingSlots.includesBookingStart(slots, '2026-10-06T07:07:00Z'), true)
+  assert.equal(bookingSlots.matchingBookingSlotStart(slots, '2026-10-06T07:07:00Z'), '2026-10-06T10:07:00+03:00')
+})
+
+test('the booking section displays and submits the exact API slot start', async () => {
+  const source = await read('../components/sections/BookingSection.vue')
+
+  assert.match(source, /const selectedStart = matchingBookingSlotStart\(visibleSlots\.value, slotStart\)/)
+  assert.match(source, /selectedSlotStart\.value = selectedStart/)
+  assert.match(source, /\{\{ formatTime\(slot\.start_at\) \}\}/)
+  assert.match(source, /start_at: selectedSlotStart\.value/)
+})
+
 test('contacts booking validates availability and keeps the required email in its payload', async () => {
   const source = await read('../pages/contacts.vue')
 
@@ -90,7 +106,7 @@ test('no-slot recovery maps alternatives through the normal booking flow and cla
     notification_consent: true,
   })
 
-  assert.match(source, /sameMaster = response\.same_master\.slice\(0, 3\)/)
+  assert.match(source, /sameMaster = response\.same_master/)
   assert.match(source, /await refreshSlots\(\)/)
   assert.match(source, /recovery_source: 'alternative'/)
   assert.match(source, /status === 409 \? 'duplicate' : 'error'/)

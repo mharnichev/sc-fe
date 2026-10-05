@@ -168,5 +168,5 @@ test('booking promotion conflict revokes approval and requotes without changing 
   assert.match(promotionBranch, /await verifyPrice\(\)/)
   assert.match(promotionBranch, /goToStep\(lastStepIndex\.value\)/)
   assert.doesNotMatch(promotionBranch, /refreshSlots/)
-  assert.match(conflictBranch, /else if \(status === 409\) \{\s+await refreshSlots\(\)/)
+  assert.match(conflictBranch, /else if \(status === 409\) \{\s+selectedSlotStart\.value = ''\s+await refreshSlots\(\)/)
 })

@@ -6,6 +6,14 @@ export interface BookingRecoverySummary {
   alternatives_requested: number
   alternatives_returned: number
   alternative_slots_returned: number
+  alternative_slots_viewed?: number
+  alternative_cohort_requested_sessions?: number
+  alternative_cohort_viewed_sessions?: number
+  alternative_cohort_selected_sessions?: number
+  alternative_cohort_completed_sessions?: number
+  alternative_cohort_selection_rate_percent?: number | string | null
+  alternative_cohort_completion_rate_percent?: number | string | null
+  alternative_engagement_collection_started_at?: string | null
   alternative_slots_selected: number
   bookings_after_alternative: number
   alternative_recovery_rate_percent: number | string | null
@@ -78,5 +86,12 @@ export const parseBookingRecoverySummary = (value: unknown): BookingRecoverySumm
     throw new TypeError('Invalid booking recovery refill duration')
   }
 
+  const cohortCounts = ['alternative_slots_viewed', 'alternative_cohort_requested_sessions', 'alternative_cohort_viewed_sessions', 'alternative_cohort_selected_sessions', 'alternative_cohort_completed_sessions']
+  if (cohortCounts.some(field => summary[field] !== undefined && !isNonNegativeInteger(summary[field]))) throw new TypeError('Invalid recovery cohort counter')
+  for (const field of ['alternative_cohort_selection_rate_percent', 'alternative_cohort_completion_rate_percent']) {
+    if (summary[field] !== undefined && !isNullablePercentage(summary[field])) throw new TypeError('Invalid recovery cohort rate')
+  }
+  const startedAt = summary.alternative_engagement_collection_started_at
+  if (startedAt !== undefined && startedAt !== null && (typeof startedAt !== 'string' || Number.isNaN(Date.parse(startedAt)))) throw new TypeError('Invalid recovery collection date')
   return summary as unknown as BookingRecoverySummary
 }

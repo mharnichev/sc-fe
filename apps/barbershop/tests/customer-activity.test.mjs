@@ -147,7 +147,7 @@ test('customer activity never persists or logs its credential', async () => {
   }
 })
 
-test('floating actions include an accessible calendar shortcut and move together', async () => {
+test('floating actions include an accessible calendar shortcut and yield to the booking form', async () => {
   const floating = await read('../components/FloatingBookingDrawer.vue')
 
   assert.match(floating, /my-appointments-calendar\.webp/)
@@ -170,7 +170,9 @@ test('floating actions include an accessible calendar shortcut and move together
   assert.match(imageClasses, /(?:^|\s)drop-shadow-/)
   assert.match(floating, /v-show="!isOpen && !isCustomerActivityOpen"/)
   assert.match(floating, /floating-booking-actions/)
-  assert.match(floating, /isTriggerOverBooking \? \{ right: '-48px' \}/)
+  assert.match(floating, /ref="actionsContainer"/)
+  assert.match(floating, /'floating-booking-actions--over-booking': isTriggerOverBooking/)
+  assert.match(floating, /\.floating-booking-actions--over-booking\s*\{[^}]*visibility: hidden;[^}]*pointer-events: none;/)
   assert.match(floating, /group-hover:opacity-100/)
   assert.match(floating, /prefers-reduced-motion: reduce/)
 })

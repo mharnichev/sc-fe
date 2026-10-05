@@ -4,8 +4,9 @@ import type { BookingAlternativeSlotDto, RepeatBookingContextDto } from '~/domai
 import { createBookingQuoteReview, isPromotionConflict, type BookingQuote, type BookingQuoteRequest, type QuoteReviewState } from '~/utils/bookingQuote'
 import type { PublicServicePromotionDto } from '~/utils/seoRoutes'
 import { firstVisitOffers, offerAppliesToMaster, offerAppliesToService } from '~/utils/bookingPromotions'
+import { bookingContextKey, createBookingRequest } from '~/utils/bookingRequest'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
-import { includesBookingStart, sameBookingInstant } from '~/utils/bookingSlots'
+import { includesBookingStart, matchingBookingSlotStart, sameBookingInstant } from '~/utils/bookingSlots'
 import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
 import { buildGoogleCalendarUrl } from '~/utils/googleCalendar'
 import {
@@ -60,6 +61,8 @@ type BarberServiceOption = {
 type RecoverySelection = {
   masterId: number
   startAt: string
+  searchContextId?: string
+  offerId?: string
 }
 
 const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-services-catalog' : `${props.idPrefix}-service-catalog`
@@ -153,6 +156,9 @@ const recovery = reactive({
   error: '',
   stale: '',
   loadedKey: '',
+  searchContextId: '',
+  nextOffset: null as number | null,
+  pageLoading: false,
   sameMaster: [] as BookingAlternativeSlotDto[],
   otherMasters: [] as BookingAlternativeSlotDto[],
 })
@@ -678,15 +684,16 @@ const selectMaster = (masterId: number) => {
 }
 
 const selectSlot = (slotStart: string) => {
-  if (!selectedMasterId.value || !selectedServiceIds.value.length) return
+  const selectedStart = matchingBookingSlotStart(visibleSlots.value, slotStart)
+  if (!selectedMasterId.value || !selectedServiceIds.value.length || !selectedStart) return
 
   recordReachedMasterStep(selectedMasterId.value, selectedServiceIds.value[0])
-  selectedSlotStart.value = slotStart
+  selectedSlotStart.value = selectedStart
   trackEvent('select_time', {
     source: props.analyticsSource,
     master_id: selectedMasterId.value,
     appointment_date: selectedDate.value,
-    appointment_hour: formatTime(slotStart),
+    appointment_hour: formatTime(selectedStart),
     service_count: selectedServiceCount.value,
     duration_minutes: selectedDurationMinutes.value,
   })
@@ -753,45 +760,102 @@ watch(selectedPromotionCodes, (codes) => {
 const isSelectedDateClosed = computed(() => isMondayDateInput(selectedDate.value))
 const canLoadSlots = computed(() => Boolean(selectedMasterId.value && selectedServiceIds.value.length && selectedDate.value))
 
-const slotsKey = computed(() =>
-  canLoadSlots.value && !isSelectedDateClosed.value
-    ? `${props.idPrefix}-slots-${selectedMasterId.value}-${selectedServiceIds.value.join('-')}-${selectedDate.value}`
-    : `${props.idPrefix}-slots-empty`,
-)
+const requestContextKey = computed(() => bookingContextKey(
+  selectedMasterId.value, selectedServiceIds.value, selectedDate.value, selectedDurationMinutes.value,
+))
+const slotsKey = requestContextKey
 const loadedSlotsKey = ref('')
+const slots = ref<AvailableSlotDto[]>([])
+const slotsPending = ref(false)
+const slotsError = ref<unknown>(null)
+const slotRequest = createBookingRequest()
+const recoveryRequest = createBookingRequest()
+const selectionRequest = createBookingRequest()
+const selectingAlternative = ref(false)
+const showAllAlternatives = ref(false)
 
-const {
-  data: slots,
-  pending: slotsPending,
-  error: slotsError,
-  refresh: refreshSlots,
-} = await useAsyncData(
-  slotsKey,
-  () => {
-    const masterId = selectedMasterId.value
-    const serviceIds = selectedServiceIds.value
-    const date = selectedDate.value
-
-    if (!masterId || !serviceIds.length || !date || isSelectedDateClosed.value) {
-      return Promise.resolve([])
-    }
-
-    const requestedKey = slotsKey.value
-    return domain.getAvailableSlots(masterId, serviceIds, date, selectedDurationMinutes.value)
-      .then((result) => {
-        loadedSlotsKey.value = requestedKey
-        return result
-      })
-  },
-  {
-    watch: [selectedServiceIds, selectedMasterId, selectedDate],
-    default: () => [],
-  },
-)
+const refreshSlots = async () => {
+  const ticket = slotRequest.begin()
+  const key = requestContextKey.value
+  const masterId = selectedMasterId.value
+  const serviceIds = [...selectedServiceIds.value]
+  const day = selectedDate.value
+  const duration = selectedDurationMinutes.value
+  slots.value = []
+  loadedSlotsKey.value = ''
+  slotsError.value = null
+  slotsPending.value = Boolean(key && !isSelectedDateClosed.value)
+  if (!key || !masterId || isSelectedDateClosed.value) return
+  try {
+    const result = await domain.getAvailableSlots(masterId, serviceIds, day, duration, ticket.signal)
+    if (!ticket.current()) return
+    slots.value = result
+    loadedSlotsKey.value = key
+    if (selectedSlotStart.value && !includesBookingStart(result, selectedSlotStart.value)) selectedSlotStart.value = ''
+  }
+  catch (error) {
+    if (ticket.current()) slotsError.value = error
+  }
+  finally {
+    if (ticket.current()) slotsPending.value = false
+  }
+}
+watch(requestContextKey, () => {
+  slotRequest.cancel()
+  recoveryRequest.cancel()
+  selectionRequest.cancel()
+  selectingAlternative.value = false
+  slots.value = []
+  loadedSlotsKey.value = ''
+  selectedSlotStart.value = ''
+  recoverySelection.value = null
+  recovery.sameMaster = []
+  recovery.otherMasters = []
+  recovery.loadedKey = ''
+  recovery.searchContextId = ''
+  recovery.nextOffset = null
+  recovery.pageLoading = false
+  recovery.loading = false
+  recovery.error = ''
+  showAllAlternatives.value = false
+}, { flush: 'sync' })
+watch(requestContextKey, () => { void refreshSlots() }, { immediate: true })
+onBeforeUnmount(() => { slotRequest.cancel(); recoveryRequest.cancel(); selectionRequest.cancel() })
 
 const visibleSlots = computed<AvailableSlotDto[]>(() =>
-  isSelectedDateClosed.value ? [] : slots.value || [],
+  !slotsPending.value && !slotsError.value && loadedSlotsKey.value === requestContextKey.value
+    && !isSelectedDateClosed.value ? slots.value : [],
 )
+
+type DayAvailability = 'unknown' | 'loading' | 'available' | 'unavailable' | 'error'
+const dateAvailability = ref<Record<string, DayAvailability>>({})
+const dateExplicitlySelected = ref(false)
+const rangeRequest = createBookingRequest()
+const rangeContextKey = computed(() => bookingContextKey(selectedMasterId.value, selectedServiceIds.value, today, selectedDurationMinutes.value))
+const loadDateAvailability = async () => {
+  const ticket = rangeRequest.begin()
+  const masterId = selectedMasterId.value
+  dateAvailability.value = {}
+  if (!masterId || !rangeContextKey.value) return
+  const days: string[] = []
+  for (let day = today; day <= maxBookableDate; day = addRecoveryCalendarDays(day, 1)) days.push(day)
+  dateAvailability.value = Object.fromEntries(days.map(day => [day, 'loading']))
+  try {
+    const response = await domain.getAvailabilityRange(masterId, [...selectedServiceIds.value], today, maxBookableDate, selectedDurationMinutes.value, ticket.signal)
+    if (!ticket.current()) return
+    dateAvailability.value = Object.fromEntries(response.days.map(day => [day.date, day.status]))
+  }
+  catch {
+    if (ticket.current()) dateAvailability.value = Object.fromEntries(days.map(day => [day, 'error']))
+  }
+}
+watch(rangeContextKey, () => { void loadDateAvailability() }, { immediate: true })
+onBeforeUnmount(rangeRequest.cancel)
+const nearestAvailableDate = computed(() => !dateExplicitlySelected.value
+  && dateAvailability.value[selectedDate.value] === 'unavailable'
+  ? Object.keys(dateAvailability.value).sort().find(day => day >= selectedDate.value && dateAvailability.value[day] === 'available')
+  : undefined)
+const selectBookingDate = (day: string) => { dateExplicitlySelected.value = true; selectedDate.value = day }
 
 const alternativeServiceIds = (masterId: number) => {
   if (masterId === selectedMasterId.value) return [...selectedServiceIds.value]
@@ -812,10 +876,14 @@ const alternativeServiceIds = (masterId: number) => {
 
 const canSelectAlternative = (slot: BookingAlternativeSlotDto) =>
   Boolean(
+    recovery.loadedKey === requestContextKey.value
+    && !recovery.loading
+    && !selectingAlternative.value
+    &&
     slot.date
     && slot.start_at
     && mastersById.value.has(slot.master.id)
-    && alternativeServiceIds(slot.master.id)?.length === selectedServiceIds.value.length,
+    && (slot.service_ids || alternativeServiceIds(slot.master.id))?.length === selectedServiceIds.value.length,
   )
 
 const recoveryCopy = computed(() => locale.value === 'en'
@@ -887,13 +955,9 @@ const recoveryCopy = computed(() => locale.value === 'en'
     },
 )
 
-const recoveryRequestKey = computed(() =>
-  canLoadSlots.value && !isSelectedDateClosed.value
-    ? `${selectedMasterId.value}:${selectedServiceIds.value.join(',')}:${selectedDate.value}:${selectedDurationMinutes.value}`
-    : '',
-)
+const recoveryRequestKey = requestContextKey
 
-const recordRecoveryEvent = (eventType: 'alternative_slot_selected' | 'waitlist_opened', masterId?: number) => {
+const recordRecoveryEvent = (eventType: 'alternative_slot_selected' | 'waitlist_opened' | 'alternative_slot_viewed', masterId?: number, searchContextId?: string, offerId?: string) => {
   const anonymousSessionId = bookingFunnel.sessionId()
   const eventId = recoveryEventId()
   if (!anonymousSessionId || !eventId) return
@@ -902,6 +966,8 @@ const recordRecoveryEvent = (eventType: 'alternative_slot_selected' | 'waitlist_
     event_id: eventId,
     anonymous_session_id: anonymousSessionId,
     event_type: eventType,
+    ...(searchContextId ? { search_context_id: searchContextId } : {}),
+    ...(offerId ? { offer_id: offerId } : {}),
     ...(masterId ? { master_id: masterId } : {}),
     ...(selectedServiceIds.value[0] ? { service_id: selectedServiceIds.value[0] } : {}),
   }).catch(() => {
@@ -909,57 +975,128 @@ const recordRecoveryEvent = (eventType: 'alternative_slot_selected' | 'waitlist_
   })
 }
 
+// An impression requires >=50% visibility for 250ms in the current, active time step.
+const viewedOffers = new Set<string>()
+const impressionCleanups = new WeakMap<HTMLElement, () => void>()
+const vRecoveryImpression = {
+  mounted(element: HTMLElement, binding: { value: BookingAlternativeSlotDto }) {
+    const slot = binding.value
+    const contextKey = recovery.loadedKey
+    const searchContextId = recovery.searchContextId
+    if (!slot.offer_id || !searchContextId || typeof IntersectionObserver === 'undefined') return
+    const eventKey = `${bookingFunnel.sessionId()}:${searchContextId}:${slot.offer_id}`
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const cancel = () => { if (timer) clearTimeout(timer); timer = undefined }
+    const isCurrent = () => activeStepIndex.value === 2 && document.visibilityState === 'visible'
+      && recovery.loadedKey === contextKey && requestContextKey.value === contextKey
+      && recovery.searchContextId === searchContextId && !recovery.loading
+      && !slotsPending.value && !slotsError.value && visibleSlots.value.length === 0
+    const observer = new IntersectionObserver((entries) => {
+      cancel()
+      if (!entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= 0.5) || !isCurrent() || viewedOffers.has(eventKey)) return
+      timer = setTimeout(() => {
+        if (!isCurrent() || viewedOffers.has(eventKey)) return
+        const rect = element.getBoundingClientRect()
+        const center = document.elementFromPoint(Math.max(0, Math.min(innerWidth - 1, rect.x + rect.width / 2)), Math.max(0, Math.min(innerHeight - 1, rect.y + rect.height / 2)))
+        if (!center || !element.contains(center)) return
+        viewedOffers.add(eventKey)
+        recordRecoveryEvent('alternative_slot_viewed', slot.master.id, searchContextId, slot.offer_id)
+      }, 250)
+    }, { threshold: [0, 0.5, 1] })
+    const visibilityChanged = () => { cancel(); observer.unobserve(element); observer.observe(element) }
+    observer.observe(element)
+    document.addEventListener('visibilitychange', visibilityChanged)
+    impressionCleanups.set(element, () => { cancel(); observer.disconnect(); document.removeEventListener('visibilitychange', visibilityChanged) })
+  },
+  unmounted(element: HTMLElement) { impressionCleanups.get(element)?.(); impressionCleanups.delete(element) },
+}
+
 const loadRecoveryAlternatives = async (force = false) => {
   const requestKey = recoveryRequestKey.value
-  if (!requestKey || recovery.loading || (!force && recovery.loadedKey === requestKey)) return
-
   const masterId = selectedMasterId.value
-  if (!masterId) return
+  if (!requestKey || !masterId || (!force && recovery.loadedKey === requestKey)) return
+  const ticket = recoveryRequest.begin()
   recovery.loading = true
+  recovery.pageLoading = false
+  recovery.nextOffset = null
   recovery.error = ''
-  if (force) recovery.loadedKey = ''
-
+  recovery.loadedKey = ''
+  recovery.sameMaster = []
+  recovery.otherMasters = []
   try {
     const response = await domain.getBookingAlternatives(bookingAlternativesPayload({
-      masterId,
-      serviceIds: selectedServiceIds.value,
-      desiredDate: selectedDate.value,
-      durationMinutes: selectedDurationMinutes.value,
-      funnelSessionId: bookingFunnel.sessionId(),
-    }))
-    if (recoveryRequestKey.value !== requestKey) return
-    recovery.sameMaster = response.same_master.slice(0, 3)
+      masterId, serviceIds: [...selectedServiceIds.value], desiredDate: selectedDate.value,
+      durationMinutes: selectedDurationMinutes.value, funnelSessionId: bookingFunnel.sessionId(),
+    }), ticket.signal)
+    if (!ticket.current() || recoveryRequestKey.value !== requestKey) return
+    recovery.sameMaster = response.same_master
     recovery.otherMasters = response.other_masters
+    recovery.searchContextId = response.search_context_id
+    recovery.nextOffset = response.next_offset ?? null
     recovery.loadedKey = requestKey
   }
   catch {
-    if (recoveryRequestKey.value === requestKey) {
-      recovery.sameMaster = []
-      recovery.otherMasters = []
-      recovery.error = recoveryCopy.value.unavailable
-      recovery.loadedKey = requestKey
-    }
+    if (ticket.current()) recovery.error = recoveryCopy.value.unavailable
   }
   finally {
-    recovery.loading = false
+    if (ticket.current()) recovery.loading = false
   }
 }
 
-const sameMasterAlternatives = computed(() => recovery.sameMaster.filter(canSelectAlternative).slice(0, 3))
+const loadMoreAlternatives = async () => {
+  showAllAlternatives.value = true
+  const offset = recovery.nextOffset
+  const key = recoveryRequestKey.value
+  const masterId = selectedMasterId.value
+  if (offset === null || recovery.pageLoading || recovery.loading || !masterId || recovery.loadedKey !== key) return
+  const ticket = recoveryRequest.begin()
+  recovery.pageLoading = true
+  recovery.error = ''
+  try {
+    const response = await domain.getBookingAlternatives({
+      ...bookingAlternativesPayload({ masterId, serviceIds: [...selectedServiceIds.value], desiredDate: selectedDate.value,
+        durationMinutes: selectedDurationMinutes.value, funnelSessionId: bookingFunnel.sessionId() }),
+      offset, page_size: 50,
+    }, ticket.signal)
+    if (!ticket.current() || recovery.loadedKey !== key) return
+    if (response.search_context_id !== recovery.searchContextId) return
+    const appendUnique = (existing: BookingAlternativeSlotDto[], page: BookingAlternativeSlotDto[]) => {
+      const ids = new Set(existing.map(slot => slot.offer_id))
+      return [...existing, ...page.filter(slot => !ids.has(slot.offer_id))]
+    }
+    recovery.sameMaster = appendUnique(recovery.sameMaster, response.same_master)
+    recovery.otherMasters = appendUnique(recovery.otherMasters, response.other_masters)
+    recovery.nextOffset = response.next_offset ?? null
+  }
+  catch {
+    if (ticket.current()) recovery.error = recoveryCopy.value.unavailable
+  }
+  finally {
+    if (ticket.current()) recovery.pageLoading = false
+  }
+}
+
+const alternativeChanges = (slot: BookingAlternativeSlotDto) => {
+  const currentPrice = selectedServices.value.reduce((total, service) => total + Number(service.price || 0), 0)
+  const changes: string[] = []
+  if (slot.master.id !== selectedMasterId.value) changes.push(locale.value === 'en' ? 'Different barber' : 'Інший майстер')
+  if (slot.duration_minutes !== selectedDurationMinutes.value) changes.push(`${selectedDurationMinutes.value} → ${slot.duration_minutes} ${locale.value === 'en' ? 'min' : 'хв'}`)
+  if (Number(slot.price) !== currentPrice) changes.push(`${currentPrice} → ${slot.price} ₴`)
+  return changes.join(' · ')
+}
+
+const recommendedAlternatives = (items: BookingAlternativeSlotDto[]) =>
+  items.filter(slot => canSelectAlternative(slot) && (showAllAlternatives.value || slot.recommended !== false))
+const sameMasterAlternatives = computed(() => recommendedAlternatives(recovery.sameMaster))
 const sameDayOtherMasterAlternatives = computed(() =>
-  recovery.otherMasters.filter(slot => slot.date === selectedDate.value && canSelectAlternative(slot)),
+  recommendedAlternatives(recovery.otherMasters).filter(slot => slot.date === selectedDate.value),
 )
-const nearbyDateAlternatives = computed(() => {
-  const slots = recovery.otherMasters
-    .filter(slot => slot.date !== selectedDate.value && canSelectAlternative(slot))
-  const seen = new Set<string>()
-  return slots.filter((slot) => {
-    const key = `${slot.master.id}:${slot.start_at}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  }).slice(0, 6)
-})
+const nearbyDateAlternatives = computed(() =>
+  recommendedAlternatives(recovery.otherMasters).filter(slot => slot.date !== selectedDate.value),
+)
+const hasMoreAlternatives = computed(() =>
+  recovery.nextOffset !== null || [...recovery.sameMaster, ...recovery.otherMasters].some(slot => slot.recommended === false),
+)
 
 const openWaitlist = () => {
   waitlistForm.customer_name = waitlistForm.customer_name || form.customer_name
@@ -1018,50 +1155,43 @@ const returnToSelection = () => {
 }
 
 const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
-  const serviceIds = alternativeServiceIds(slot.master.id)
-  if (!serviceIds?.length || recovery.loading) return
-
-  recovery.loading = true
+  if (!canSelectAlternative(slot)) return
+  const serviceIds = slot.service_ids || alternativeServiceIds(slot.master.id)
+  if (!serviceIds?.length) return
+  const searchContextId = recovery.searchContextId
   recovery.stale = ''
   recovery.error = ''
-  recoverySelection.value = null
   selectedMasterId.value = slot.master.id
-  selectedServiceIds.value = serviceIds
+  selectedServiceIds.value = [...serviceIds]
   selectedDate.value = slot.date
-
+  await nextTick()
+  const key = requestContextKey.value
+  const ticket = selectionRequest.begin()
+  selectingAlternative.value = true
   try {
-    await nextTick()
     await refreshSlots()
-    const isStillAvailable = includesBookingStart(slots.value || [], slot.start_at)
-    if (!isStillAvailable) {
+    if (!ticket.current() || requestContextKey.value !== key) return
+    if (slotsError.value) return
+    if (!includesBookingStart(visibleSlots.value, slot.start_at)) {
       recovery.stale = recoveryCopy.value.stale
-      bookingFunnel.recordInBackground('stale_schedule', {
-        masterId: slot.master.id,
-        serviceId: serviceIds[0],
-      })
-      recovery.loading = false
+      bookingFunnel.recordInBackground('stale_schedule', { masterId: slot.master.id, serviceId: serviceIds[0] })
       await loadRecoveryAlternatives(true)
       return
     }
-
     selectedSlotStart.value = slot.start_at
-    recoverySelection.value = { masterId: slot.master.id, startAt: slot.start_at }
-    recordRecoveryEvent('alternative_slot_selected', slot.master.id)
+    recoverySelection.value = { masterId: slot.master.id, startAt: slot.start_at, searchContextId, offerId: slot.offer_id }
+    recordRecoveryEvent('alternative_slot_selected', slot.master.id, searchContextId, slot.offer_id)
     selectSlot(slot.start_at)
   }
-  catch {
-    recovery.stale = recoveryCopy.value.stale
-    recovery.loading = false
-    await loadRecoveryAlternatives(true)
-  }
   finally {
-    recovery.loading = false
+    if (ticket.current()) selectingAlternative.value = false
   }
 }
 
 watch(
-  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate],
+  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate, activeStepIndex],
   () => {
+    if (activeStepIndex.value !== 2) return
     if (!shouldRecordNoSlotObservation({
       canLoad: canLoadSlots.value,
       isClosedDate: isSelectedDateClosed.value,
@@ -1156,7 +1286,7 @@ const alternativeMasterPhoto = (slot: BookingAlternativeSlotDto) =>
   masterPhoto(mastersById.value.get(slot.master.id))
 
 const selectedSlot = computed(() =>
-  visibleSlots.value.find(slot => slot.start_at === selectedSlotStart.value) || null,
+  visibleSlots.value.find(slot => sameBookingInstant(slot.start_at, selectedSlotStart.value)) || null,
 )
 
 const isServiceComplete = computed(() => selectedServiceCount.value > 0)
@@ -1362,6 +1492,7 @@ const handleTextInput = (
 }
 
 const resetBookingFlow = async (customer: SavedBookingCustomer | null = null) => {
+  dateExplicitlySelected.value = false
   isResettingAfterSubmit.value = true
   selectedCatalogIds.value = []
   selectedServiceIds.value = []
@@ -1477,7 +1608,7 @@ const submit = async () => {
       promotion_code: effectivePromotionCode.value || null,
       start_at: selectedSlotStart.value,
       funnel_session_id: funnelSessionId,
-      ...(selectedFromAlternative ? { recovery_source: 'alternative' as const } : {}),
+      ...(selectedFromAlternative ? { recovery_source: 'alternative' as const, recovery_search_context_id: recoverySelection.value?.searchContextId, recovery_offer_id: recoverySelection.value?.offerId } : {}),
     }, props.repeatBookingToken || undefined)
 
     persistBookingCustomer(bookedCustomer)
@@ -1509,6 +1640,7 @@ const submit = async () => {
       goToStep(lastStepIndex.value)
     }
     else if (status === 409) {
+      selectedSlotStart.value = ''
       await refreshSlots()
       goToStep(2)
       if (selectedFromAlternative) recovery.stale = recoveryCopy.value.stale
@@ -1891,13 +2023,21 @@ onBeforeUnmount(() => {
                 <section v-else-if="activeStepIndex === 2" key="booking-time" class="booking-time-step grid gap-4 md:grid-cols-[18rem_1fr] md:gap-5">
                   <div class="booking-date-control">
                     <BookingDatePicker
-                      v-model="selectedDate"
+                      :model-value="selectedDate"
+                      :availability="dateAvailability"
+                      @update:model-value="selectBookingDate"
                       :min="today"
                       :max="maxBookableDate"
                       :locale="locale"
                       :disabled-weekdays="closedWeekdays"
                       :inline="isDrawerMode"
                     />
+                    <button v-if="nearestAvailableDate" type="button" class="mt-3 text-sm underline" @click="selectBookingDate(nearestAvailableDate)">
+                      {{ locale === 'en' ? 'Nearest available date:' : 'Найближча вільна дата:' }} {{ nearestAvailableDate }}
+                    </button>
+                    <button v-if="Object.values(dateAvailability).includes('error')" type="button" class="mt-3 text-sm underline" @click="loadDateAvailability">
+                      {{ locale === 'en' ? 'Retry calendar availability' : 'Повторити перевірку календаря' }}
+                    </button>
                   </div>
 
                   <div class="booking-slots-column">
@@ -1920,8 +2060,11 @@ onBeforeUnmount(() => {
                     <p v-else-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
                       {{ terms.home.booking.closedOnMonday }}
                     </p>
-                    <p v-else-if="slotsPending" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
-                    <p v-else-if="slotsError" class="mt-4 text-sm text-rose-200">{{ bookingTimeLabels.slotsError }}</p>
+                    <p v-else-if="slotsPending" role="status" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
+                    <div v-else-if="slotsError" class="mt-4 text-sm text-rose-200" role="alert">
+                      <p>{{ bookingTimeLabels.slotsError }}</p>
+                      <button type="button" class="mt-2 underline" @click="refreshSlots">{{ locale === 'en' ? 'Try again' : 'Спробувати ще раз' }}</button>
+                    </div>
                     <div
                       v-else-if="!visibleSlots.length"
                       class="booking-recovery"
@@ -1941,8 +2084,12 @@ onBeforeUnmount(() => {
                           <p class="text-[11px] leading-[1.35] text-white/65">{{ recoveryCopy.description }}</p>
                         </div>
                       </div>
-                      <p v-if="recovery.loading" class="mt-3 text-sm text-white/55">{{ recoveryCopy.loading }}</p>
-                      <p v-else-if="recovery.error" class="mt-3 text-sm text-rose-200">{{ recovery.error }}</p>
+                      <p v-if="recovery.loading" role="status" class="mt-3 text-sm text-white/55">{{ recoveryCopy.loading }}</p>
+                      <div v-else-if="recovery.error" class="mt-3 text-sm text-rose-200" role="alert">
+                        <p>{{ recovery.error }}</p>
+                        <button type="button" class="mt-2 underline" @click="loadRecoveryAlternatives(true)">{{ locale === 'en' ? 'Try again' : 'Спробувати ще раз' }}</button>
+                      </div>
+                      <button v-if="hasMoreAlternatives && !showAllAlternatives" type="button" class="mt-3 underline" @click="loadMoreAlternatives">{{ locale === 'en' ? 'Show all times' : 'Показати весь час' }}</button>
 
                       <section v-if="sameMasterAlternatives.length" class="mt-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">
@@ -1951,14 +2098,16 @@ onBeforeUnmount(() => {
                         <div class="mt-2 flex flex-wrap gap-2">
                           <button
                             v-for="slot in sameMasterAlternatives"
-                            :key="`${slot.master.id}-${slot.start_at}`"
+                            v-recovery-impression="slot"
+                            :key="`${recovery.searchContextId}-${slot.offer_id || slot.start_at}`"
                             type="button"
                             class="bg-white/[0.055] px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-white hover:text-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                            :disabled="recovery.loading"
+                            :disabled="recovery.loading || selectingAlternative"
+                            :data-offer-id="slot.offer_id"
                             @click="selectRecoveryAlternative(slot)"
                           >
                             <span class="block">{{ formatRecoveryDate(slot.date) }}</span>
-                            <span class="mt-0.5 block text-xs opacity-70">{{ formatTime(slot.start_at) }} · {{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                            <span class="mt-0.5 block text-xs opacity-70">{{ formatTime(slot.start_at) }} · {{ recoveryCopy.duration(slot.duration_minutes) }} · {{ slot.price }} ₴</span>
                           </button>
                         </div>
                       </section>
@@ -1968,10 +2117,12 @@ onBeforeUnmount(() => {
                         <div class="mt-2 grid gap-2">
                           <button
                             v-for="slot in sameDayOtherMasterAlternatives"
-                            :key="`${slot.master.id}-${slot.start_at}`"
+                            v-recovery-impression="slot"
+                            :key="`${recovery.searchContextId}-${slot.offer_id || slot.start_at}`"
                             type="button"
                             class="grid grid-cols-[3.5rem_1fr_auto] items-center gap-4 bg-white/[0.045] p-2.5 text-left transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                            :disabled="recovery.loading"
+                            :disabled="recovery.loading || selectingAlternative"
+                            :data-offer-id="slot.offer_id"
                             @click="selectRecoveryAlternative(slot)"
                           >
                             <img :src="alternativeMasterPhoto(slot)" :alt="slot.master.name" class="h-14 w-14 object-cover object-top">
@@ -1982,8 +2133,9 @@ onBeforeUnmount(() => {
                             </span>
                             <span class="text-right text-sm font-semibold text-white">
                               <span class="block">{{ formatTime(slot.start_at) }}</span>
-                              <span class="mt-0.5 block text-xs font-normal text-white/60">{{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                              <span class="mt-0.5 block text-xs font-normal text-white/60">{{ recoveryCopy.duration(slot.duration_minutes) }} · {{ slot.price }} ₴</span>
                             </span>
+                            <span v-if="alternativeChanges(slot)" class="col-span-3 text-xs text-amber-100">{{ alternativeChanges(slot) }}</span>
                           </button>
                         </div>
                       </section>
@@ -1993,20 +2145,26 @@ onBeforeUnmount(() => {
                         <div class="mt-2 grid gap-2 sm:grid-cols-2">
                           <button
                             v-for="slot in nearbyDateAlternatives"
-                            :key="`${slot.master.id}-${slot.start_at}`"
+                            v-recovery-impression="slot"
+                            :key="`${recovery.searchContextId}-${slot.offer_id || slot.start_at}`"
                             type="button"
                             class="bg-white/[0.045] p-2.5 text-left transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                            :disabled="recovery.loading"
+                            :disabled="recovery.loading || selectingAlternative"
+                            :data-offer-id="slot.offer_id"
                             @click="selectRecoveryAlternative(slot)"
                           >
                             <span class="block text-sm font-semibold text-white">{{ formatRecoveryDate(slot.date) }} · {{ formatTime(slot.start_at) }}</span>
-                            <span class="mt-1 block text-xs text-white/60">{{ slot.master.name }} · {{ recoveryCopy.duration(slot.duration_minutes) }}</span>
+                            <span class="mt-1 block text-xs text-white/60">{{ slot.master.name }} · {{ recoveryCopy.duration(slot.duration_minutes) }} · {{ slot.price }} ₴</span>
+                            <span v-if="alternativeChanges(slot)" class="mt-1 block text-xs text-amber-100">{{ alternativeChanges(slot) }}</span>
                           </button>
                         </div>
                       </section>
 
+                      <button v-if="showAllAlternatives && recovery.nextOffset !== null" type="button" class="mt-3 underline" :disabled="recovery.pageLoading" @click="loadMoreAlternatives">
+                        {{ recovery.pageLoading ? (locale === 'en' ? 'Loading…' : 'Завантажуємо…') : (locale === 'en' ? 'More times' : 'Ще варіанти часу') }}
+                      </button>
                       <div class="mt-2 grid grid-cols-2 gap-1.5 sm:mt-4 sm:flex sm:flex-wrap sm:gap-2">
-                        <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action w-full sm:w-auto" :disabled="recovery.loading" @click="openWaitlist">
+                        <BaseButton type="button" variant="light" size="sm" class="booking-recovery-action w-full sm:w-auto" :disabled="recovery.loading || selectingAlternative" @click="openWaitlist">
                           <span class="text-[0.85em] leading-none" aria-hidden="true">🔔</span>
                           {{ recoveryCopy.waitlist }}
                         </BaseButton>
@@ -2029,7 +2187,8 @@ onBeforeUnmount(() => {
                         ref="contactNameInput"
                         required
                         autocomplete="name"
-                        placeholder="Ім'я"
+                        :placeholder="recoveryCopy.name"
+                        :aria-label="recoveryCopy.name"
                         minlength="2"
                         :maxlength="FORM_FIELD_LIMITS.fullName"
                         class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
@@ -2050,7 +2209,8 @@ onBeforeUnmount(() => {
                         type="tel"
                         inputmode="tel"
                         autocomplete="tel"
-                        placeholder="Телефон"
+                        :placeholder="recoveryCopy.phone"
+                        :aria-label="recoveryCopy.phone"
                         maxlength="17"
                         pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
                         class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
@@ -2070,7 +2230,8 @@ onBeforeUnmount(() => {
                       v-model="form.customer_comment"
                       type="text"
                       autocomplete="off"
-                      placeholder="Коментар"
+                      :placeholder="locale === 'en' ? 'Comment' : 'Коментар'"
+                      :aria-label="locale === 'en' ? 'Comment' : 'Коментар'"
                       :maxlength="FORM_FIELD_LIMITS.comment"
                       class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white outline-none placeholder:text-white/35"
                       @input="handleTextInput('customer_comment', FORM_FIELD_LIMITS.comment)"
@@ -2082,7 +2243,8 @@ onBeforeUnmount(() => {
                       v-model="form.promotion_code"
                       autocomplete="off"
                       inputmode="text"
-                      placeholder="Промокод"
+                      :placeholder="locale === 'en' ? 'Promo code' : 'Промокод'"
+                      :aria-label="locale === 'en' ? 'Promo code' : 'Промокод'"
                       maxlength="50"
                       class="glass-control glass-control--dark booking-contact-field__input py-2.5 pr-3 text-white uppercase outline-none placeholder:normal-case placeholder:text-white/35"
                       @input="handleTextInput('promotion_code', 50)"

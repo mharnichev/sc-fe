@@ -1,3 +1,4 @@
+import { withBookingTimeout } from '~/utils/bookingTimeout'
 import type { AvailableSlotDto, BookingDto, BrandDto, GoogleBusinessReviewsResponseDto, PageDto, PaginatedResponse } from '@shared-types'
 import type { PublicMasterDto, PublicServiceCatalogItemDto, PublicServiceDto, PublicServicePromotionDto } from '~/utils/seoRoutes'
 import type { BookingFunnelEventPayload } from '~/utils/bookingFunnel'
@@ -26,6 +27,8 @@ export interface PublicBookingPayload {
   start_at: string
   funnel_session_id: string
   recovery_source?: 'alternative'
+  recovery_search_context_id?: string
+  recovery_offer_id?: string
 }
 
 export interface PublicBookingResult {
@@ -60,7 +63,7 @@ export interface RepeatBookingStartResponseDto {
 
 export interface BookingFunnelEventReceipt {
   event_id: string
-  status: 'recorded' | 'duplicate'
+  status: 'recorded' | 'duplicate' | 'unavailable'
 }
 
 export interface BookingAlternativeMasterDto {
@@ -78,14 +81,23 @@ export interface BookingAlternativeSlotDto {
   end_at: string
   date: string
   duration_minutes: number
+  service_ids: number[]
+  price: string | number
+  recommended: boolean
+  offer_id: string
 }
 
 export interface BookingAlternativesResponseDto {
+  next_offset?: number | null
+  total_count?: number
+  search_context_id: string
   same_master: BookingAlternativeSlotDto[]
   other_masters: BookingAlternativeSlotDto[]
 }
 
 export interface BookingAlternativesPayload {
+  offset?: number
+  page_size?: number
   master_id: number
   service_ids: number[]
   desired_date: string
@@ -116,7 +128,9 @@ export interface PublicWaitlistResponseDto {
 export interface BookingRecoveryEventPayload {
   event_id: string
   anonymous_session_id: string
-  event_type: 'alternative_slot_selected' | 'waitlist_opened'
+  event_type: 'alternative_slot_selected' | 'waitlist_opened' | 'alternative_slot_viewed'
+  search_context_id?: string
+  offer_id?: string
   master_id?: number
   service_id?: number
 }
@@ -335,16 +349,17 @@ export const useBarbershopDomain = () => {
       status: brand.status ?? 'active',
     }))
   }
-  const getAvailableSlots = (masterId: number, serviceId: number | number[], date: string, durationMinutes?: number) => {
+  const getAvailableSlots = (masterId: number, serviceId: number | number[], date: string, durationMinutes?: number, signal?: AbortSignal) => {
     const serviceIds = Array.isArray(serviceId) ? serviceId : [serviceId]
-    return api<AvailableSlotDto[]>(`/public/masters/${masterId}/available-slots`, {
+    return withBookingTimeout(requestSignal => api<AvailableSlotDto[]>(`/public/masters/${masterId}/available-slots`, {
+      signal: requestSignal, retry: 0,
       query: {
         service_id: serviceIds[0],
         service_ids: serviceIds,
         duration_minutes: durationMinutes,
         date,
       },
-    })
+    }), 15000, signal)
   }
   const repeatBookingHeaders = (token: string) => ({
     'X-Repeat-Booking-Token': token,
@@ -364,8 +379,13 @@ export const useBarbershopDomain = () => {
       browserSessionCreated: response.headers.get('x-customer-activity-session') === 'set',
     }
   }
-  const getBookingAlternatives = (payload: BookingAlternativesPayload) =>
-    api<BookingAlternativesResponseDto>('/public/booking-alternatives', { method: 'POST', body: payload })
+  const getBookingAlternatives = (payload: BookingAlternativesPayload, signal?: AbortSignal) =>
+    withBookingTimeout(requestSignal => api<BookingAlternativesResponseDto>('/public/booking-alternatives', { method: 'POST', body: payload, signal: requestSignal, retry: 0 }), 20000, signal)
+  const getAvailabilityRange = (masterId: number, serviceIds: number[], startDate: string, endDate: string, durationMinutes: number, signal?: AbortSignal) =>
+    withBookingTimeout(requestSignal => api<{ days: { date: string, status: 'available' | 'unavailable' }[] }>(`/public/masters/${masterId}/availability-range`, {
+      query: { service_ids: serviceIds, start_date: startDate, end_date: endDate, duration_minutes: durationMinutes },
+      signal: requestSignal, retry: 0,
+    }), 20000, signal)
   const createWaitlistRequest = (payload: PublicWaitlistPayload) =>
     api<PublicWaitlistResponseDto>('/public/waitlist', { method: 'POST', body: payload })
   const recordBookingRecoveryEvent = (payload: BookingRecoveryEventPayload) =>
@@ -453,6 +473,7 @@ export const useBarbershopDomain = () => {
     getReviews,
     getBrands,
     getAvailableSlots,
+    getAvailabilityRange,
     createBooking,
     getBookingAlternatives,
     createWaitlistRequest,

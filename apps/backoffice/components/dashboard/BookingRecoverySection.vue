@@ -71,14 +71,34 @@ const isEmpty = computed(() => props.summary !== undefined && props.summary !== 
           <p>Унікальні сесії, не кількість втрачених клієнтів.</p>
         </div>
         <div class="booking-recovery__metric">
-          <dt>Альтернативні слоти показано</dt>
+          <dt>Варіанти повернено сервером</dt>
           <dd>{{ formatCount(summary.alternative_slots_returned) }}</dd>
-          <p>Запитів: {{ formatCount(summary.alternatives_requested) }} · відповідей: {{ formatCount(summary.alternatives_returned) }}.</p>
+          <p>Запитів: {{ formatCount(summary.alternatives_requested) }} · відповідей: {{ formatCount(summary.alternatives_returned) }}. Історичні відповіді не є показами.</p>
         </div>
         <div class="booking-recovery__metric booking-recovery__metric--success">
           <dt>Записів після альтернатив</dt>
           <dd>{{ formatCount(summary.bookings_after_alternative) }}</dd>
-          <p>Рівень відновлення: {{ formatRate(summary.alternative_recovery_rate_percent) }}.</p>
+          <p>Події завершення у вибраному періоді; кількість записів, не відсоток сесій.</p>
+        </div>
+        <div class="booking-recovery__metric">
+          <dt>Фактичні покази варіантів</dt>
+          <dd>{{ summary.alternative_slots_viewed === undefined ? 'Немає даних' : formatCount(summary.alternative_slots_viewed) }}</dd>
+          <p>Унікальні пари сесія/контекст/варіант у періоді. Картка видима щонайменше на 50% протягом 250 мс.</p>
+        </div>
+        <div class="booking-recovery__metric">
+          <dt>Вибір серед сесій із показами</dt>
+          <dd>{{ formatRate(summary.alternative_cohort_selection_rate_percent) }}</dd>
+          <p>Сесії з вибором: {{ summary.alternative_cohort_selected_sessions ?? '—' }} / сесії з показами: {{ summary.alternative_cohort_viewed_sessions ?? '—' }}. Когорта почала пошук альтернатив у періоді.</p>
+        </div>
+        <div class="booking-recovery__metric">
+          <dt>Запис після пошуку альтернатив</dt>
+          <dd>{{ formatRate(summary.alternative_cohort_completion_rate_percent) }}</dd>
+          <p>Сесії із записом: {{ summary.alternative_cohort_completed_sessions ?? '—' }} / сесії з пошуком: {{ summary.alternative_cohort_requested_sessions ?? '—' }}. Враховано завершення після кінця періоду.</p>
+        </div>
+        <div class="booking-recovery__metric">
+          <dt>Вибрано варіантів</dt>
+          <dd>{{ formatCount(summary.alternative_slots_selected) }}</dd>
+          <p>Події вибору у періоді; повтори нових подій усунуто за сесією, контекстом та варіантом.</p>
         </div>
         <div class="booking-recovery__metric">
           <dt>Запитів до листа очікування</dt>
@@ -107,7 +127,8 @@ const isEmpty = computed(() => props.summary !== undefined && props.summary !== 
         </div>
       </dl>
       <p class="booking-recovery__footnote">
-        Поточний backend не повертає розбивки за майстром, послугою чи днем, а також кількість саме активних заявок — тому ці значення тут не припускаються.
+        Перші нові події: {{ summary.alternative_engagement_collection_started_at ? new Date(summary.alternative_engagement_collection_started_at).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' }) : 'ще не отримано' }}.
+        Історичні покази невідомі. Когортні показники змінюються, коли сесії завершують запис пізніше; анонімні сесії не є унікальними людьми.
       </p>
     </template>
   </BaseCard>
