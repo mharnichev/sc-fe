@@ -44,6 +44,7 @@ import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
 import { parseBookingRecoverySummary, type BookingRecoverySummary } from '~/utils/bookingRecoveryContract'
 import { parseReviewMetricsResponse } from '~/utils/reviews'
 import { createInventoryIdempotencyKey } from '~/utils/inventory'
+import type { NewMasterCampaignInput, CampaignReadiness, CampaignOfferAnalytics, CampaignQueueProgress } from '~/types/newMaster'
 
 export interface TokenResponse {
   access_token: string
@@ -693,6 +694,7 @@ export interface Promotion {
   base_service_ids: number[]
   is_active: boolean
   is_public: boolean
+  recipient_offer_only?: boolean
 }
 
 export interface PromotionPayload {
@@ -1082,6 +1084,16 @@ export const useBackofficeApi = () => {
       exclude_returned_since_snapshot: campaign.exclude_returned_since_snapshot ?? metadata.exclude_returned_since_snapshot ?? false,
       exclude_upcoming_booking: campaign.exclude_upcoming_booking ?? metadata.exclude_upcoming_booking ?? false,
       marketing_frequency_days: campaign.marketing_frequency_days ?? metadata.marketing_frequency_days ?? 7,
+      sending_window: campaign.sending_window ?? null,
+      sms_recipients_per_minute: campaign.sms_recipients_per_minute,
+      offer_master_id: campaign.offer_master_id ?? null,
+      offer_promotion_id: campaign.offer_promotion_id ?? null,
+      offer_service_ids: campaign.offer_service_ids ?? null,
+      offer_starts_at: campaign.offer_starts_at ?? null,
+      offer_expires_at: campaign.offer_expires_at ?? null,
+      master_name_for_message: campaign.master_name_for_message ?? null,
+      marketing_max_contacts: campaign.marketing_max_contacts ?? null,
+      marketing_cap_days: campaign.marketing_cap_days ?? null,
     }
   }
 
@@ -2084,6 +2096,25 @@ export const useBackofficeApi = () => {
   const getMessagingCampaign = (campaignId: number | string) =>
     api<any>(`/backoffice/messaging/campaigns/${campaignId}`).then(normalizeCampaign)
 
+  // Offer campaigns use the typed contract. The generic campaign adapter persists
+  // legacy options in metadata, so it must not be used for this flow.
+  const createNewMasterCampaign = (body: NewMasterCampaignInput) =>
+    api<any>('/backoffice/messaging/campaigns', { method: 'POST', body }).then(normalizeCampaign)
+  const updateNewMasterCampaign = (id: number | string, body: Partial<NewMasterCampaignInput>) =>
+    api<any>(`/backoffice/messaging/campaigns/${id}`, { method: 'PATCH', body }).then(normalizeCampaign)
+  const getCampaignReadiness = (id: number | string) =>
+    api<CampaignReadiness>(`/backoffice/messaging/campaigns/${id}/readiness`)
+  const getCampaignQueue = (id: number | string, runId: number | string) =>
+    api<CampaignQueueProgress>(`/backoffice/messaging/campaigns/${id}/runs/${runId}/queue`)
+  const cancelCampaignRunUnsent = (id: number | string, runId: number | string) =>
+    api<{ cancelled_count: number }>(`/backoffice/messaging/campaigns/${id}/runs/${runId}/cancel-unsent`, { method: 'POST' })
+  const pauseCampaign = (id: number | string) =>
+    api<any>(`/backoffice/messaging/campaigns/${id}/pause`, { method: 'POST' }).then(normalizeCampaign)
+  const resumeCampaign = (id: number | string) =>
+    api<any>(`/backoffice/messaging/campaigns/${id}/resume`, { method: 'POST' }).then(normalizeCampaign)
+  const getCampaignOfferAnalytics = (query: { campaign_id?: number; run_id?: number; master_id?: number; promotion_id?: number; date_from?: string; date_to?: string } = {}) =>
+    api<CampaignOfferAnalytics>('/backoffice/messaging/campaign-offer-analytics', { query })
+
   const getSmsCampaigns = (
     page = 1,
     pageSize = 20,
@@ -2220,6 +2251,9 @@ export const useBackofficeApi = () => {
         is_active: filters.is_active ?? undefined,
       },
     }).then(normalizeTemplatePage)
+
+  const getMessageTemplate = (id: number | string) =>
+    api<any>(`/backoffice/messaging/templates/${id}`).then(normalizeTemplate)
 
   const createMessageTemplate = (payload: MessageTemplatePayload) =>
     api<any>('/backoffice/messaging/templates', {
@@ -2513,6 +2547,14 @@ export const useBackofficeApi = () => {
     getCampaignRunMembers,
     getMessagingCampaigns,
     getMessagingCampaign,
+    createNewMasterCampaign,
+    updateNewMasterCampaign,
+    getCampaignReadiness,
+    getCampaignQueue,
+    cancelCampaignRunUnsent,
+    pauseCampaign,
+    resumeCampaign,
+    getCampaignOfferAnalytics,
     getSmsCampaigns,
     getSmsCampaign,
     createMessagingCampaign,
@@ -2528,6 +2570,7 @@ export const useBackofficeApi = () => {
     previewMessagingRecipients,
     previewMessagingMessage,
     getMessageTemplates,
+    getMessageTemplate,
     createMessageTemplate,
     updateMessageTemplate,
     duplicateMessageTemplate,

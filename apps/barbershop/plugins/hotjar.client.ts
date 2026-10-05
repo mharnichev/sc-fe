@@ -35,7 +35,9 @@ export default defineNuxtPlugin(() => {
   const isPrivateWaitlistOfferPath = (path: string) =>
     path === '/booking/waitlist-offer' || path === '/booking/waitlist-offer/'
   const isPrivateCustomerActivityPath = (path: string) =>
-    path === '/booking/manage'
+    path === '/booking'
+    || path === '/booking/'
+    || path === '/booking/manage'
     || path === '/booking/manage/'
     || path === '/booking/cancel'
     || path === '/booking/cancel/'

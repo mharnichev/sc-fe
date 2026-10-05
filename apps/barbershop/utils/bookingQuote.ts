@@ -1,4 +1,5 @@
 export interface BookingQuoteRequest {
+  offer_token?: string | null
   master_id: number
   service_ids: number[]
   start_at: string
@@ -28,6 +29,18 @@ export interface QuoteReviewState {
   failed: boolean
   accepted: boolean
   changed: boolean
+  errorCode?: string | null
+}
+
+export const bookingErrorCode = (error: unknown): string | null => {
+  const detail = (error as { data?: { detail?: unknown } })?.data?.detail
+  return typeof detail === 'object' && detail !== null && 'code' in detail && typeof detail.code === 'string'
+    ? detail.code : typeof detail === 'string' ? detail : null
+}
+
+export const isCampaignOfferError = (error: unknown): boolean => {
+  const code = bookingErrorCode(error)
+  return Boolean(code && (code.startsWith('offer_') || ['audience_no_longer_eligible', 'future_booking'].includes(code)))
 }
 
 const priceIdentity = (quote: BookingQuote) => JSON.stringify([
@@ -62,7 +75,7 @@ export const createBookingQuoteReview = (
   }
   const invalidate = () => {
     generation += 1
-    update({ quote: null, pending: false, failed: false, accepted: false, changed: false })
+    update({ quote: null, pending: false, failed: false, accepted: false, changed: false, errorCode: null })
   }
   const accept = (accepted: boolean) => update({
     accepted: accepted && Boolean(state.quote && !state.pending && !state.failed
@@ -71,7 +84,7 @@ export const createBookingQuoteReview = (
   const verify = async (payload: BookingQuoteRequest): Promise<boolean> => {
     const current = ++generation
     const previous = state.quote
-    update({ pending: true, failed: false })
+    update({ pending: true, failed: false, errorCode: null })
     try {
       const quote = await request({ ...payload, service_ids: [...payload.service_ids] })
       if (current !== generation) return false
@@ -81,8 +94,8 @@ export const createBookingQuoteReview = (
         accepted: state.accepted && !changed && quote.eligibility.status !== 'customer_required' })
       return state.accepted
     }
-    catch {
-      if (current === generation) update({ quote: null, pending: false, failed: true, accepted: false })
+    catch (error) {
+      if (current === generation) update({ quote: null, pending: false, failed: true, accepted: false, errorCode: bookingErrorCode(error) })
       return false
     }
   }
@@ -92,9 +105,12 @@ export const createBookingQuoteReview = (
 }
 
 export const isPromotionConflict = (error: unknown): boolean => {
-  const detail = (error as { data?: { detail?: { code?: string } } })?.data?.detail
-  return Boolean(detail?.code && [
+  const code = bookingErrorCode(error)
+  return Boolean(code && [
     'entitlement_reserved', 'not_eligible', 'promotion_no_longer_applicable',
     'promotion_unavailable', 'customer_required', 'price_changed',
-  ].includes(detail.code))
+    'offer_reserved', 'offer_consumed', 'audience_no_longer_eligible',
+    'future_booking', 'offer_service_not_allowed', 'offer_master_unavailable',
+    'offer_promotion_unavailable', 'offer_service_unavailable',
+  ].includes(code))
 }

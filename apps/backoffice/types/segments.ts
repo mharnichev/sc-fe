@@ -82,6 +82,9 @@ export interface CampaignAudiencePreviewMember {
   channel: string | null
   reachability: Record<string, boolean>
   facts: Record<string, unknown>
+  provider_supported?: boolean
+  rendered_message?: string | null
+  sms_parts?: number | null
 }
 export interface CampaignAudiencePreview {
   evaluated_at: string
@@ -89,8 +92,15 @@ export interface CampaignAudiencePreview {
   page: number
   page_size: number
   items: CampaignAudiencePreviewMember[]
+  personalization_invalid_recipients?: number
+  sms_eligible_recipients?: number
+  telegram_eligible_recipients?: number
+  communication_eligible_recipients?: number
+  estimated_sms_parts?: number
+  estimated_cost?: { status: string; amount: number | null; currency?: string | null }
+  balance?: { status: string; amount: number | null; currency?: string | null }
 }
-export interface CampaignRunCreate { idempotency_key: string, scheduled_at?: string | null }
+export interface CampaignRunCreate { idempotency_key: string, scheduled_at?: string | null, test_customer_id?: number | null }
 export interface CampaignRun {
   id: number
   campaign_id: number

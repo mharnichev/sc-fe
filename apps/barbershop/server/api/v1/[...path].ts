@@ -102,6 +102,10 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'pragma', 'no-cache')
     setHeader(event, 'vary', 'X-Repeat-Booking-Token')
   }
+  if (apiPath.startsWith('public/campaign-offers/')) {
+    setHeader(event, 'cache-control', 'no-store, private')
+    setHeader(event, 'pragma', 'no-cache')
+  }
 
   return response._data
 })

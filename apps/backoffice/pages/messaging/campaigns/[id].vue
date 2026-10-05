@@ -22,6 +22,9 @@ const [
   useAsyncData(() => `messaging-campaign-${campaignId.value}-calculated-recipients`, () => campaign.value?.segment_ids?.length || isNotificationType(campaign.value?.type || '') ? Promise.resolve(emptyRecipients()) : api.getMessagingCampaignRecipients(campaignId.value, legacyRecipientsPage.value, 50, true), { watch: [campaignId, legacyRecipientsPage] }),
 ])
 
+const isNewMaster = computed(() => !!campaign.value?.offer_master_id || !!campaign.value?.offer_promotion_id)
+const newMasterDirty = ref(false)
+const newMasterSaved = async (saved: typeof campaign.value) => { campaign.value = saved; newMasterDirty.value = false; await refresh() }
 const isNotification = computed(() => !!campaign.value && isNotificationType(campaign.value.type))
 const audienceDirty = ref(false)
 const actionPending = ref(false)
@@ -32,6 +35,7 @@ const confirmRetry = ref(false)
 const refreshRecipientViews = () => Promise.all([refreshRecipients(), refreshCalculatedRecipients()])
 
 const setStatus = async (status: string) => {
+  if (!canSendMessagingCampaigns.value) return
   actionPending.value = true
   try {
     await api.updateMessagingCampaignStatus(campaignId.value, status)
@@ -44,8 +48,14 @@ const setStatus = async (status: string) => {
 }
 
 const duplicate = async () => {
-  await api.duplicateMessagingCampaign(campaignId.value)
-  await navigateTo(isNotification.value ? '/messaging/notifications' : '/messaging/campaigns')
+  if (!canCreateMessagingDrafts.value || actionPending.value) return
+  actionPending.value = true
+  actionError.value = ''
+  try {
+    const copy = await api.duplicateMessagingCampaign(campaignId.value)
+    await navigateTo(isNewMaster.value ? `/messaging/campaigns/${copy.id}?duplicated=1` : isNotification.value ? '/messaging/notifications' : '/messaging/campaigns')
+  } catch (cause) { actionError.value = apiErrorMessage(cause, 'Не вдалося створити копію.') }
+  finally { actionPending.value = false }
 }
 
 const retryFailed = async () => {
@@ -84,10 +94,10 @@ const retryFailed = async () => {
               <MessagingChannelBadge :channel="campaign.channel" />
             </div>
             <div class="flex flex-wrap gap-2">
-              <BaseButton v-if="canSendMessagingCampaigns && (isNotification || ['active', 'paused'].includes(campaign.status))" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">
+              <BaseButton v-if="canSendMessagingCampaigns && !isNewMaster && (isNotification || ['active', 'paused'].includes(campaign.status))" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">
                 <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" /> {{ campaign.status === 'paused' ? 'Поновити' : 'Пауза' }}
               </BaseButton>
-              <BaseButton v-if="canSendMessagingCampaigns && !campaign.segment_ids?.length" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="confirmRetry = true">
+              <BaseButton v-if="canSendMessagingCampaigns && !isNewMaster && !campaign.segment_ids?.length" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending" @click="confirmRetry = true">
                 <ArrowPathIcon class="h-4 w-4" /> Повторити невдалі
               </BaseButton>
               <BaseButton v-if="canCreateMessagingDrafts" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" @click="duplicate">
@@ -106,16 +116,18 @@ const retryFailed = async () => {
             <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-slate-500">Timezone</dt><dd class="mt-1 font-medium text-slate-900">{{ campaign.timezone || 'Europe/Kyiv' }}</dd></div>
           </dl>
         </div>
-        <div class="space-y-2"><p class="text-sm text-ui-muted">Приклад поточного повідомлення з тестовими даними</p><MessagingMessagePreview :body="campaign.message_body || ''" /></div>
+        <div v-if="!isNewMaster" class="space-y-2"><p class="text-sm text-ui-muted">Приклад поточного повідомлення з тестовими даними</p><MessagingMessagePreview :body="campaign.message_body || ''" /></div>
       </section>
 
       <p v-if="actionError" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ actionError }}</p>
-      <MessagingCampaignAudienceEditor v-if="!isNotification && campaign.recipient === 'customer'" :key="`editor-${campaignId}`" :campaign="campaign" @saved="refresh" @dirty="audienceDirty = $event" />
-      <MessagingCampaignRunPanel v-if="!isNotification && campaign.recipient === 'customer'" :key="`runs-${campaignId}`" :campaign="campaign" :dirty="audienceDirty" @launched="refresh" />
+      <MessagingNewMasterCampaignEditor v-if="isNewMaster" :key="`offer-editor-${campaignId}-${campaign.status}`" :campaign="campaign" :duplicated="route.query.duplicated === '1'" @saved="newMasterSaved" @dirty="newMasterDirty = $event" />
+      <MessagingNewMasterCampaignReview v-if="isNewMaster" :key="`offer-review-${campaignId}`" :campaign="campaign" :dirty="newMasterDirty" @changed="refresh" />
+      <MessagingCampaignAudienceEditor v-if="!isNewMaster && !isNotification && campaign.recipient === 'customer'" :key="`editor-${campaignId}`" :campaign="campaign" @saved="refresh" @dirty="audienceDirty = $event" />
+      <MessagingCampaignRunPanel v-if="!isNewMaster && !isNotification && campaign.recipient === 'customer'" :key="`runs-${campaignId}`" :campaign="campaign" :dirty="audienceDirty" @launched="refresh" />
 
-      <MessagingCampaignAnalyticsCards v-if="!campaign.segment_ids?.length" :metrics="campaign.metrics || { total_recipients: campaign.audience_size, sent: campaign.sent_count, failed: campaign.failed_count, skipped: 0, delivery_rate: campaign.audience_size ? Math.round((campaign.sent_count / campaign.audience_size) * 100) : 0 }" />
+      <MessagingCampaignAnalyticsCards v-if="!isNewMaster && !campaign.segment_ids?.length" :metrics="campaign.metrics || { total_recipients: campaign.audience_size, sent: campaign.sent_count, failed: campaign.failed_count, skipped: 0, delivery_rate: campaign.audience_size ? Math.round((campaign.sent_count / campaign.audience_size) * 100) : 0 }" />
 
-      <section v-if="!campaign.segment_ids?.length" class="grid gap-6 xl:grid-cols-2">
+      <section v-if="!isNewMaster && !campaign.segment_ids?.length" class="grid gap-6 xl:grid-cols-2">
         <div v-if="!isNotification" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
           <h2 class="text-xl font-semibold text-slate-900">Фільтри аудиторії</h2>
           <pre class="mt-4 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{{ campaign.audience_rules || [] }}</pre>
@@ -136,7 +148,7 @@ const retryFailed = async () => {
         <div class="flex flex-wrap items-center gap-3"><BaseButton :disabled="logsPending || logsPage === 1" @click="logsPage--">Попередня</BaseButton><span class="text-sm">Сторінка {{ logsPage }} · {{ logs?.total ?? '—' }} записів</span><BaseButton :disabled="logsPending || !logs || logsPage * 50 >= logs.total" @click="logsPage++">Наступна</BaseButton></div>
       </section>
 
-      <section v-if="!campaign.segment_ids?.length" id="recipients" class="space-y-4">
+      <section v-if="!isNewMaster && !campaign.segment_ids?.length" id="recipients" class="space-y-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 class="text-xl font-semibold text-slate-900">Отримувачі кампанії</h2>

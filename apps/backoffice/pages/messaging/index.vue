@@ -286,7 +286,9 @@ const viewFailedCampaigns = async () => {
 }
 
 const duplicateCampaign = async (campaign: MessagingCampaign) => {
-  await api.duplicateMessagingCampaign(campaign.id)
+  if (!canCreateMessagingDrafts.value) return
+  const copy = await api.duplicateMessagingCampaign(campaign.id)
+  if (campaign.offer_master_id || campaign.offer_promotion_id) { await navigateTo(`/messaging/campaigns/${copy.id}?duplicated=1`); return }
   await refreshMessagingData()
 }
 
@@ -296,6 +298,8 @@ const runCampaignAction = async () => {
   try {
     const { campaign, action } = confirmCampaignAction.value
     if (action === 'delete') await api.deleteMessagingCampaign(campaign.id)
+    else if (campaign.offer_master_id && action === 'paused') await api.pauseCampaign(campaign.id)
+    else if (campaign.offer_master_id && action === 'active') await api.resumeCampaign(campaign.id)
     else await api.updateMessagingCampaignStatus(campaign.id, action)
     confirmCampaignAction.value = null
     await refreshMessagingData()
@@ -348,6 +352,10 @@ const insertCampaignVariable = (variable: string) => {
 
     <MessagingSmsCampaignsPanel v-if="isNotifications" @changed="refreshMessagingData" />
 
+    <div v-if="!isNotifications" class="flex flex-wrap gap-3">
+      <NuxtLink v-if="canCreateMessagingDrafts" to="/messaging/campaigns/new?kind=new-master" data-testid="create-new-master" class="rounded-full bg-cyan-700 px-5 py-3 text-sm text-white">Створити «Новий майстер»</NuxtLink>
+      <NuxtLink to="/messaging/offer-analytics" class="rounded-full border px-5 py-3 text-sm">Аналітика пропозицій</NuxtLink>
+    </div>
     <section id="campaigns" ref="campaignsSectionRef" class="base-card rounded-[1.5rem] p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>

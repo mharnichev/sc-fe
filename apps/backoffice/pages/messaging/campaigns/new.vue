@@ -6,6 +6,8 @@ import type { AudienceEstimate, CampaignPayload, MessageTemplate, RecipientPrevi
 const api = useBackofficeApi()
 const router = useRouter()
 const route = useRoute()
+const newMasterDraft = computed(() => route.query.kind === 'new-master')
+const saveNewMaster = (campaign: { id: number | string }) => router.push(`/messaging/campaigns/${campaign.id}`)
 const notificationDraft = route.query.kind === 'notifications'
 const initialSegmentId = Number(route.query.segment_id)
 const audienceMode = ref(Number.isSafeInteger(initialSegmentId) && initialSegmentId > 0 ? 'segments' : 'inline')
@@ -210,7 +212,11 @@ const nextStep = () => {
 </script>
 
 <template>
-  <div class="messaging-page space-y-6">
+  <div v-if="newMasterDraft" class="messaging-page space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4"><h1 class="text-3xl font-semibold">Нова кампанія «Новий майстер»</h1><NuxtLink to="/messaging/campaigns" class="text-cyan-700 underline">До кампаній</NuxtLink></div>
+    <MessagingNewMasterCampaignEditor @saved="saveNewMaster" />
+  </div>
+  <div v-else class="messaging-page space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Комунікації</p>

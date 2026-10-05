@@ -138,3 +138,21 @@ test('revoking marketing consent is explicit even when global opt-out remains un
   await api.updateCustomerCommunication(3, { preferred_language: 'uk' })
   assert.equal(calls.at(-1).body.marketing_consent, undefined)
 })
+
+test('offer campaign adapter preserves typed delivery settings and explicitly clears validity', async () => {
+  const body = { name: 'New Master', channel: 'sms', channel_strategy: 'telegram_then_sms', status: 'draft', sending_window: { start: '10:00', end: '18:00', days: [0, 1, 2, 3, 4, 5, 6] }, sms_recipients_per_minute: 20, offer_master_id: 4, offer_promotion_id: 5, offer_service_ids: [18], offer_starts_at: null, offer_expires_at: null, master_name_for_message: 'Майстра' }
+  reset({ id: 9, ...body })
+  const created = await api.createNewMasterCampaign(body)
+  assert.deepEqual(calls[0], { path: '/backoffice/messaging/campaigns', method: 'POST', body })
+  assert.equal(created.sms_recipients_per_minute, 20)
+  assert.deepEqual(created.sending_window, body.sending_window)
+  await api.updateNewMasterCampaign(9, { offer_starts_at: null, offer_expires_at: null })
+  assert.deepEqual(calls[1], { path: '/backoffice/messaging/campaigns/9', method: 'PATCH', body: { offer_starts_at: null, offer_expires_at: null } })
+  await api.getCampaignReadiness(9)
+  assert.equal(calls[2].path, '/backoffice/messaging/campaigns/9/readiness')
+  await api.createCampaignRun(9, { idempotency_key: 'test-key', test_customer_id: 4 })
+  assert.deepEqual(calls[3].body, { idempotency_key: 'test-key', test_customer_id: 4 })
+  const filters = { campaign_id: 9, run_id: 2, master_id: 4, promotion_id: 5, date_from: '2026-10-05T10:00:00+03:00', date_to: '2026-10-06T10:00:00+03:00' }
+  await api.getCampaignOfferAnalytics(filters)
+  assert.deepEqual(calls[4], { path: '/backoffice/messaging/campaign-offer-analytics', query: filters })
+})

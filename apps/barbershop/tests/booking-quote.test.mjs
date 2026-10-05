@@ -5,7 +5,7 @@ import ts from 'typescript'
 
 const source = await readFile(new URL('../utils/bookingQuote.ts', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { createBookingQuoteReview, isBookingQuote, isPromotionConflict } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+const { createBookingQuoteReview, isBookingQuote, isPromotionConflict, isCampaignOfferError } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 const payload = { master_id: 1, service_ids: [10], start_at: '2026-10-06T12:00:00+03:00', customer_phone: '+380501234567', promotion_code: null }
 const quote = (percent = 20) => ({ subtotal_amount: 1000, discount_amount: percent * 10, total_amount: 1000 - percent * 10, applied_promotion: { id: 1, code: null, name_uk: 'Перший візит', name_en: 'First visit', discount_percent: percent, application_mode: 'automatic', eligibility_type: 'first_visit' }, eligibility: { status: 'applied', explanation: 'Checked again when booking.' } })
 const regular = () => ({ subtotal_amount: 1000, discount_amount: 0, total_amount: 1000, applied_promotion: null, eligibility: { status: 'not_available', explanation: 'Unavailable.' } })
@@ -125,6 +125,24 @@ test('verification failure clears an approved total and retry requires approval 
   assert.equal(state.accepted, false)
   fail = false
   assert.equal(await review.verify(payload), false)
+})
+
+test('offer quote errors revoke approval and preserve a safe error reason', async () => {
+  let fail = false
+  let state
+  const review = createBookingQuoteReview(async () => {
+    if (fail) throw { data: { detail: { code: 'offer_visit_outside_validity' } } }
+    return quote(30)
+  }, next => { state = next })
+  await review.verify({ ...payload, offer_token: 'a'.repeat(43) })
+  review.accept(true)
+  fail = true
+  assert.equal(await review.verify({ ...payload, offer_token: 'a'.repeat(43) }), false)
+  assert.equal(state.failed, true)
+  assert.equal(state.errorCode, 'offer_visit_outside_validity')
+  assert.equal(review.approvedTotal(), null)
+  assert.equal(isCampaignOfferError({ data: { detail: { code: 'offer_reserved' } } }), true)
+  assert.equal(isPromotionConflict({ data: { detail: { code: 'offer_reserved' } } }), true)
 })
 
 test('explicit promo code is forwarded; backend precedence and scoped amounts are retained', async () => {

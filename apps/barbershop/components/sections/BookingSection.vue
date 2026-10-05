@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
-import type { BookingAlternativeSlotDto, RepeatBookingContextDto } from '~/domain/barbershop'
-import { createBookingQuoteReview, isPromotionConflict, type BookingQuote, type BookingQuoteRequest, type QuoteReviewState } from '~/utils/bookingQuote'
+import type { BookingAlternativeSlotDto, CampaignOfferContextDto, RepeatBookingContextDto } from '~/domain/barbershop'
+import { bookingErrorCode, createBookingQuoteReview, isCampaignOfferError, isPromotionConflict, type BookingQuote, type BookingQuoteRequest, type QuoteReviewState } from '~/utils/bookingQuote'
 import type { PublicServicePromotionDto } from '~/utils/seoRoutes'
 import { firstVisitOffers, offerAppliesToMaster, offerAppliesToService } from '~/utils/bookingPromotions'
 import { bookingContextKey, createBookingRequest } from '~/utils/bookingRequest'
+import { campaignOfferApplies, clearCampaignOffer, readCampaignOffer } from '~/utils/campaignOffer'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 import { includesBookingStart, matchingBookingSlotStart, sameBookingInstant } from '~/utils/bookingSlots'
 import { bookingFunnelFailureEvent, shouldRecordNoSlotObservation } from '~/utils/bookingFunnel'
@@ -34,6 +35,8 @@ const props = withDefaults(defineProps<{
   mode?: 'section' | 'drawer'
   repeatBookingToken?: string
   repeatBookingContext?: RepeatBookingContextDto | null
+  campaignOfferToken?: string
+  campaignOfferContext?: CampaignOfferContextDto | null
 }>(), {
   analyticsSource: 'home_booking',
   idPrefix: 'booking',
@@ -41,7 +44,11 @@ const props = withDefaults(defineProps<{
   mode: 'section',
   repeatBookingToken: '',
   repeatBookingContext: null,
+  campaignOfferToken: '',
+  campaignOfferContext: null,
 })
+
+const emit = defineEmits<{ 'continue-regular-booking': [] }>()
 
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
@@ -444,6 +451,74 @@ const availableMasters = computed(() => {
 const selectedMaster = computed(() =>
   availableMasters.value.find(master => master.id === selectedMasterId.value) || null,
 )
+
+const restoredCampaignOfferContext = ref<CampaignOfferContextDto | null>(null)
+const restoredCampaignOfferToken = ref('')
+const capturedCampaignOfferToken = useState<string | null>('campaign-offer-captured-token', () => null)
+const capturedCampaignOfferEventId = useState<string>('campaign-offer-event-id', () => '')
+const campaignOfferDismissed = ref(false)
+const campaignOfferBooked = ref(false)
+const campaignOfferContext = computed(() => campaignOfferDismissed.value ? null : props.campaignOfferContext || restoredCampaignOfferContext.value)
+const campaignOfferToken = computed(() => campaignOfferDismissed.value ? '' : props.campaignOfferToken || restoredCampaignOfferToken.value)
+const continueRegularBooking = () => {
+  try { clearCampaignOffer(window.sessionStorage) }
+  catch { /* The offer is still removed from this form. */ }
+  capturedCampaignOfferToken.value = null
+  capturedCampaignOfferEventId.value = ''
+  campaignOfferDismissed.value = true
+  emit('continue-regular-booking')
+}
+
+onMounted(async () => {
+  if (props.campaignOfferContext || props.repeatBookingContext) return
+  let saved: ReturnType<typeof readCampaignOffer> = null
+  try { saved = readCampaignOffer(window.sessionStorage) }
+  catch { return }
+  if (!saved) return
+  try {
+    const resolved = await domain.resolveCampaignOffer(saved.token)
+    if (campaignOfferDismissed.value || resolved.entitlement !== 'available') return
+    restoredCampaignOfferToken.value = saved.token
+    restoredCampaignOfferContext.value = resolved
+  }
+  catch { /* A stale offer cannot block a regular booking. */ }
+})
+
+const campaignOfferPrefillApplied = ref(false)
+const applyCampaignOfferPrefill = () => {
+  const offer = campaignOfferContext.value
+  if (campaignOfferPrefillApplied.value || !offer || !publicMasters.value.length) return
+  const master = publicMasters.value.find(item => item.id === offer.master_id)
+  const availableIds = new Set(activeMasterServices(master?.services).map(service => service.id))
+  const firstService = offer.service_ids.find(id => availableIds.has(id))
+  if (!master || !firstService || selectedMasterId.value || selectedServiceIds.value.length || selectedCatalogIds.value.length) return
+  selectedCatalogIds.value = []
+  selectedMasterId.value = master.id
+  selectedServiceIds.value = [firstService]
+  activeStepIndex.value = 0
+  campaignOfferPrefillApplied.value = true
+}
+
+watch([masters, campaignOfferContext], applyCampaignOfferPrefill, { immediate: true })
+
+const effectiveCampaignOfferToken = computed(() =>
+  campaignOfferContext.value && !campaignOfferBooked.value && !effectivePromotionCode.value
+  && campaignOfferApplies(campaignOfferContext.value, selectedMasterId.value, selectedServiceIds.value)
+    ? campaignOfferToken.value : null,
+)
+const campaignOfferServiceNames = computed(() => {
+  const offer = campaignOfferContext.value
+  const master = publicMasters.value.find(item => item.id === offer?.master_id)
+  return activeMasterServices(master?.services)
+    .filter(service => offer?.service_ids.includes(service.id))
+    .map(serviceName)
+})
+const campaignOfferMasterName = computed(() => masterName(publicMasters.value.find(master => master.id === campaignOfferContext.value?.master_id)))
+const campaignOfferExpiry = computed(() => campaignOfferContext.value
+  ? new Intl.DateTimeFormat(locale.value === 'en' ? 'en-US' : 'uk-UA', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv',
+    }).format(new Date(campaignOfferContext.value.expires_at))
+  : '')
 
 const repeatBookingPrefillApplied = ref(false)
 const applyRepeatBookingPrefill = () => {
@@ -1296,6 +1371,7 @@ const isContactComplete = computed(() =>
   Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
 )
 const firstVisitBookingOffer = computed(() => firstVisitOffers(bookingOffers.value).find(offer =>
+  !campaignOfferContext.value &&
   (!selectedMasterId.value ? offer.applies_to_all_masters : offerAppliesToMaster(offer, selectedMasterId.value))
   && (selectedServices.value.length
     ? selectedServices.value.some(service => offerAppliesToService(offer, 'base_service_id' in service && typeof service.base_service_id === 'number' ? service.base_service_id : null))
@@ -1329,6 +1405,19 @@ const quoteCopy = computed(() => locale.value === 'en' ? {
 const quoteReview = shallowRef<QuoteReviewState>({
   quote: null, pending: false, failed: false, accepted: false, changed: false,
 })
+const campaignOfferErrorMessage = (code: string | null) => {
+  if (!code || !campaignOfferContext.value) return quoteCopy.value.failed
+  if (code === 'offer_identity_or_master_mismatch') return locale.value === 'en'
+    ? 'This offer does not match these contact details or the selected master. Choose a regular booking to continue.'
+    : 'Ця пропозиція не відповідає контактним даним або обраному майстру. Щоб продовжити, оберіть звичайний запис.'
+  if (code === 'offer_visit_outside_validity' || code === 'offer_expired_or_not_started') return locale.value === 'en'
+    ? 'The selected time is outside the offer period. Choose another time or continue at the regular price.'
+    : 'Обраний час поза терміном дії пропозиції. Оберіть інший час або продовжіть за звичайною ціною.'
+  if (code.startsWith('offer_') || ['audience_no_longer_eligible', 'future_booking'].includes(code)) return locale.value === 'en'
+    ? 'This offer is no longer available for this booking. You can continue at the regular price.'
+    : 'Ця пропозиція більше недоступна для цього запису. Ви можете продовжити за звичайною ціною.'
+  return quoteCopy.value.failed
+}
 const quoteController = createBookingQuoteReview(
   payload => quoteApi<BookingQuote>('/public/bookings/quote', { method: 'POST', body: payload }),
   next => { quoteReview.value = next },
@@ -1337,7 +1426,8 @@ const quotePayload = computed<BookingQuoteRequest | null>(() =>
   selectedMasterId.value && selectedServiceIds.value.length && selectedSlotStart.value && isContactComplete.value
     ? { master_id: selectedMasterId.value, service_ids: [...selectedServiceIds.value],
         start_at: selectedSlotStart.value, customer_phone: formatPhoneForSubmit(form.customer_phone),
-        promotion_code: effectivePromotionCode.value || null }
+        promotion_code: effectiveCampaignOfferToken.value ? null : effectivePromotionCode.value || null,
+        offer_token: effectiveCampaignOfferToken.value }
     : null,
 )
 const quoteInputKey = computed(() => JSON.stringify(quotePayload.value))
@@ -1387,6 +1477,11 @@ const firstIncompleteStepIndex = computed(() => {
 
 const lastStepIndex = computed(() => terms.value.home.booking.steps.length - 1)
 const canSubmit = computed(() => stepCompletion.value.every(Boolean))
+const canConfirmBooking = computed(() => canSubmit.value
+  && Boolean(quoteReview.value.quote)
+  && !quoteReview.value.pending
+  && !quoteReview.value.failed
+  && quoteReview.value.quote?.eligibility.status !== 'customer_required')
 const bookingDetailsComplete = computed(() =>
   stepCompletion.value.slice(0, lastStepIndex.value).every(Boolean),
 )
@@ -1517,6 +1612,7 @@ const errorMessage = (error: unknown) => {
   const status = (error as { response?: { status?: number }, status?: number })?.response?.status
     || (error as { status?: number })?.status
 
+  if (isCampaignOfferError(error)) return campaignOfferErrorMessage(bookingErrorCode(error))
   if (status === 409 && isPromotionConflict(error)) return quoteCopy.value.changed
   if (status === 409) {
     return locale.value === 'en'
@@ -1596,6 +1692,7 @@ const submit = async () => {
       service_count: selectedServiceIds.value.length,
       duration_minutes: selectedDurationMinutes.value,
     }
+    const submittedOfferToken = effectiveCampaignOfferToken.value
     const bookingResult = await domain.createBooking({
       expected_total_amount: expectedTotalAmount,
       master_id: selectedMasterId.value,
@@ -1605,11 +1702,20 @@ const submit = async () => {
       customer_name: sanitizeFormText(bookedCustomer.name, FORM_FIELD_LIMITS.fullName),
       customer_phone: bookedCustomer.phone,
       customer_comment: bookingComment,
-      promotion_code: effectivePromotionCode.value || null,
+      promotion_code: effectiveCampaignOfferToken.value ? null : effectivePromotionCode.value || null,
+      offer_token: submittedOfferToken,
       start_at: selectedSlotStart.value,
       funnel_session_id: funnelSessionId,
       ...(selectedFromAlternative ? { recovery_source: 'alternative' as const, recovery_search_context_id: recoverySelection.value?.searchContextId, recovery_offer_id: recoverySelection.value?.offerId } : {}),
     }, props.repeatBookingToken || undefined)
+
+    if (submittedOfferToken) {
+      campaignOfferBooked.value = true
+      try { clearCampaignOffer(window.sessionStorage) }
+      catch { /* The completed booking remains valid. */ }
+      capturedCampaignOfferToken.value = null
+      capturedCampaignOfferEventId.value = ''
+    }
 
     persistBookingCustomer(bookedCustomer)
     await resetBookingFlow(bookedCustomer)
@@ -1639,6 +1745,11 @@ const submit = async () => {
       await verifyPrice()
       goToStep(lastStepIndex.value)
     }
+    else if (isCampaignOfferError(error)) {
+      quoteController.invalidate()
+      await verifyPrice()
+      goToStep(lastStepIndex.value)
+    }
     else if (status === 409) {
       selectedSlotStart.value = ''
       await refreshSlots()
@@ -1655,7 +1766,7 @@ const submit = async () => {
         status_code: Number.isInteger(status) ? status : undefined,
       },
     )
-    console.error(error)
+    if (!campaignOfferToken.value) console.error(error)
   }
   finally {
     state.loading = false
@@ -1780,6 +1891,14 @@ onBeforeUnmount(() => {
           :data-reveal-delay="isDrawerMode ? undefined : '140'"
           @submit.prevent="submit"
         >
+          <div v-if="campaignOfferContext && !campaignOfferBooked" class="mx-2 mb-3 rounded-lg border border-amber-300/45 bg-amber-300/10 p-3 text-sm text-white lg:m-3" data-campaign-offer>
+            <p class="font-semibold">{{ locale === 'en' ? campaignOfferContext.name_en : campaignOfferContext.name_uk }}<span v-if="effectiveCampaignOfferToken"> · −{{ campaignOfferContext.discount_percent }}%</span></p>
+            <p class="mt-1 text-white/85">{{ locale === 'en' ? 'Master:' : 'Майстер:' }} {{ campaignOfferMasterName }}</p>
+            <p class="mt-1 text-white/75">{{ locale === 'en' ? 'Eligible services:' : 'Послуги за пропозицією:' }} {{ campaignOfferServiceNames.join(', ') }}</p>
+            <p class="mt-1 text-white/75">{{ locale === 'en' ? 'Valid until:' : 'Діє до:' }} {{ campaignOfferExpiry }}</p>
+            <p v-if="!effectiveCampaignOfferToken" class="mt-2 text-amber-100" role="status">{{ locale === 'en' ? 'The selected master or services are outside this offer. Your price will be checked as a regular booking.' : 'Обраний майстер або послуги не входять до пропозиції. Ціну буде перевірено як для звичайного запису.' }}</p>
+            <button type="button" class="mt-2 font-semibold underline underline-offset-4" @click="continueRegularBooking">{{ locale === 'en' ? 'Continue with a regular booking' : 'Продовжити звичайний запис' }}</button>
+          </div>
           <BookingPromotionNotice
             v-if="firstVisitBookingOffer && activeStepIndex !== lastStepIndex"
             :offer="firstVisitBookingOffer"
@@ -2114,6 +2233,7 @@ onBeforeUnmount(() => {
 
                       <section v-if="sameDayOtherMasterAlternatives.length" class="mt-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/55">{{ recoveryCopy.otherMasters }}</p>
+                        <p v-if="campaignOfferContext" class="mt-1 text-xs text-amber-100">{{ locale === 'en' ? 'Choosing another master may change the offer price. We will check the new total before booking.' : 'Вибір іншого майстра може змінити ціну за пропозицією. Перед записом перевіримо нову суму.' }}</p>
                         <div class="mt-2 grid gap-2">
                           <button
                             v-for="slot in sameDayOtherMasterAlternatives"
@@ -2298,7 +2418,12 @@ onBeforeUnmount(() => {
                 :aria-busy="quoteReview.pending || (!quoteReview.quote && !quoteReview.failed)"
               >
                 <Transition name="booking-quote-state" mode="out-in">
-                <div v-if="quoteReview.failed" key="failed" role="alert" class="text-rose-200">{{ quoteCopy.failed }}</div>
+                <div v-if="quoteReview.failed" key="failed" role="alert" class="space-y-2 text-rose-200">
+                  <p>{{ campaignOfferErrorMessage(quoteReview.errorCode || null) }}</p>
+                  <button type="button" class="underline underline-offset-4" @click="verifyPrice">
+                    {{ locale === 'en' ? 'Check price again' : 'Перевірити ціну знову' }}
+                  </button>
+                </div>
                 <div v-else-if="!quoteReview.quote" key="checking" role="status">
                   <p>{{ quoteCopy.checking }}</p>
                 </div>
@@ -2380,7 +2505,7 @@ onBeforeUnmount(() => {
 
                 <BaseButton
                   type="button"
-                  :disabled="state.loading || quoteReview.pending || (activeStepIndex === lastStepIndex && !canSubmit)"
+                  :disabled="state.loading || quoteReview.pending || (activeStepIndex === lastStepIndex && !canConfirmBooking)"
                   variant="light"
                   size="sm"
                   class="h-11 flex-[1.35] sm:h-12 sm:flex-none"

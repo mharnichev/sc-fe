@@ -14,6 +14,7 @@ interface PublicBrandDto {
 }
 
 export interface PublicBookingPayload {
+  offer_token?: string | null
   master_id: number
   expected_total_amount?: number
   service_id: number
@@ -29,6 +30,17 @@ export interface PublicBookingPayload {
   recovery_source?: 'alternative'
   recovery_search_context_id?: string
   recovery_offer_id?: string
+}
+
+export interface CampaignOfferContextDto {
+  master_id: number
+  service_ids: number[]
+  discount_percent: number
+  name_uk: string
+  name_en: string
+  starts_at: string
+  expires_at: string
+  entitlement: 'available' | 'reserved' | 'consumed' | 'unavailable'
 }
 
 export interface PublicBookingResult {
@@ -301,6 +313,12 @@ export const useBarbershopDomain = () => {
   const getServiceCatalog = () => api<PublicServiceCatalogItemDto[]>('/public/service-catalog')
   const getMasters = async () =>
     (await api<PublicMasterDto[]>('/public/masters')).map(publicMaster)
+  const resolveCampaignOffer = (token: string) =>
+    api<CampaignOfferContextDto>(`/public/campaign-offers/${encodeURIComponent(token)}`)
+  const confirmCampaignOfferOpen = (token: string, eventId: string) =>
+    api<void>(`/public/campaign-offers/${encodeURIComponent(token)}/opens`, {
+      method: 'POST', body: { event_id: eventId },
+    })
   const getMasterRatingSummary = async (masterId: number): Promise<MasterRatingSummaryDto> => {
     const summary = await api<RawMasterRatingSummaryDto>(`/public/reviews/masters/${masterId}/summary`)
 
@@ -467,6 +485,8 @@ export const useBarbershopDomain = () => {
     getServices,
     getServiceCatalog,
     getMasters,
+    resolveCampaignOffer,
+    confirmCampaignOfferOpen,
     getMasterRatingSummary,
     getMasterReviews,
     getPages,

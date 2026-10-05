@@ -102,6 +102,16 @@ export interface MessagingCampaign extends CampaignSegmentOptions {
   timezone?: string | null
   location_key?: string | null
   metadata_json?: Record<string, unknown>
+  sending_window?: { start: string; end: string; days: number[] } | null
+  sms_recipients_per_minute?: number
+  offer_master_id?: number | null
+  offer_promotion_id?: number | null
+  offer_service_ids?: number[] | null
+  offer_starts_at?: string | null
+  offer_expires_at?: string | null
+  master_name_for_message?: string | null
+  marketing_max_contacts?: number | null
+  marketing_cap_days?: number | null
 }
 
 export interface CampaignPayload extends CampaignSegmentOptions {
