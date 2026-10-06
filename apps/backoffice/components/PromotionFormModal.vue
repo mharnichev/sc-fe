@@ -52,6 +52,7 @@ const form = reactive<PromotionForm>({
   base_service_ids: [],
   is_active: true,
   is_public: true,
+  recipient_offer_only: false,
 })
 const formError = ref('')
 const saving = ref(false)
@@ -135,6 +136,7 @@ const fillForm = (promotion?: Promotion | null) => {
   form.base_service_ids = normalizeNumberIds(promotion?.base_service_ids)
   form.is_active = promotion?.is_active ?? true
   form.is_public = promotion?.is_public ?? true
+  form.recipient_offer_only = promotion?.recipient_offer_only ?? false
   formError.value = ''
 }
 
@@ -181,7 +183,8 @@ const promotionPayload = (): PromotionPayload => ({
   applies_to_all_services: form.applies_to_all_services,
   base_service_ids: form.applies_to_all_services ? [] : normalizeNumberIds(form.base_service_ids),
   is_active: form.is_active,
-  is_public: form.is_public,
+  is_public: form.recipient_offer_only ? false : form.is_public,
+  recipient_offer_only: form.recipient_offer_only,
 })
 
 const submit = async () => {
@@ -448,6 +451,19 @@ watch(
         </div>
 
         <div class="rounded-2xl border border-slate-200 px-4 py-3">
+          <BaseToggle
+            v-model="form.recipient_offer_only"
+            :disabled="Boolean(editing?.recipient_offer_only)"
+            label="Тільки для отримувачів розсилки"
+          />
+          <p class="mt-2 text-xs text-slate-500">
+            Для кампанії «Новий майстер» увімкніть цю опцію та встановіть знижку 30%.
+            Сегмент обирається в розсилці. Акція не показується в публічному каталозі.
+            Після збереження цю опцію не можна вимкнути.
+          </p>
+        </div>
+
+        <div v-if="!form.recipient_offer_only" class="rounded-2xl border border-slate-200 px-4 py-3">
           <BaseToggle v-model="form.is_public" label="Показувати в публічному каталозі" />
         </div>
 

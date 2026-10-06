@@ -42,6 +42,7 @@ const validForm = () => ({
   base_service_ids: [],
   is_active: true,
   is_public: true,
+  recipient_offer_only: false,
 })
 
 test('promotion administration models automatic first-visit offers and public availability', () => {
@@ -62,7 +63,7 @@ test('promotion form keeps automatic offers identifiable internally and rejects 
   assert.match(modalSource, /step="1"/)
   assert.match(modalSource, /v-model="form\.is_public"/)
   assert.match(modalSource, /application_mode: form\.application_mode/)
-  assert.match(modalSource, /is_public: form\.is_public/)
+  assert.match(modalSource, /is_public: form\.recipient_offer_only \? false : form\.is_public/)
 })
 
 test('promotion form validates integer percentages and sends automatic first-visit payload fields', () => {
@@ -94,4 +95,31 @@ test('promotions list identifies automatic mode, first visits, and public availa
   assert.match(promotionsPageSource, /promotion\.application_mode === 'automatic'/)
   assert.match(promotionsPageSource, /'Автоматично'/)
   assert.match(promotionsPageSource, /promotion\.is_public \? 'публічна' : 'приватна'/)
+})
+
+test('promotion form sends recipient-only offers with the chosen master scope', () => {
+  const form = { ...validForm(), code: 'NEW_MASTER', application_mode: 'code',
+    eligibility_type: 'all_customers', discount_percent: 30,
+    recipient_offer_only: true, applies_to_all_masters: false, master_ids: [4] }
+  const { validate, promotionPayload } = formLogic()(form, value => value || null, values => values.map(Number))
+  assert.equal(validate(), '')
+  assert.equal(promotionPayload().recipient_offer_only, true)
+  assert.equal(promotionPayload().is_public, false)
+  assert.deepEqual(promotionPayload().master_ids, [4])
+  form.recipient_offer_only = false
+  assert.equal(promotionPayload().recipient_offer_only, false)
+  assert.equal(promotionPayload().is_public, true)
+})
+
+test('editing and resetting a promotion preserves its recipient-only restriction', () => {
+  const source = extractDeclaration(modalSource, 'const fillForm', 'const close')
+    .replace('(promotion?: Promotion | null)', '(promotion)')
+  const form = validForm()
+  const build = new Function('form', 'toDateTimeLocal', 'normalizeNumberIds', 'formError', `${source}\nreturn fillForm`)
+  const fillForm = build(form, value => value || '', values => (values || []).map(Number), { value: '' })
+  fillForm({ recipient_offer_only: true, master_ids: [4], applies_to_all_masters: false })
+  assert.equal(form.recipient_offer_only, true)
+  assert.deepEqual(form.master_ids, [4])
+  fillForm()
+  assert.equal(form.recipient_offer_only, false)
 })

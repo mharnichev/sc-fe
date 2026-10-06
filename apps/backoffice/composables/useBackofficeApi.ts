@@ -716,6 +716,7 @@ export interface PromotionPayload {
   base_service_ids: number[]
   is_active: boolean
   is_public: boolean
+  recipient_offer_only?: boolean
 }
 
 export interface MasterServicePayload {
