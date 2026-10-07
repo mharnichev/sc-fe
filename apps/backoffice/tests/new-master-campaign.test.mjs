@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import ts from 'typescript'
 import { deliveryReasonLabel } from '../utils/campaignAudience.mjs'
-import { DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint } from '../utils/newMasterCampaign.mjs'
+import { DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, localDateTimeToIso, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint } from '../utils/newMasterCampaign.mjs'
 const require = createRequire(import.meta.url)
 const { ref, computed, reactive, watch, nextTick } = createRequire(require.resolve('nuxt/package.json'))('vue')
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes }); return { promise, resolve } }
@@ -125,19 +125,20 @@ test('test launch requires a looked-up recipient and restricts run to that custo
 const editorSource = await readFile(new URL('../components/messaging/NewMasterCampaignEditor.vue', import.meta.url), 'utf8')
 const editorScript = editorSource.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 const compiledEditor = ts.transpileModule(editorScript, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace(/^import .*?;\s*$/gm, '').replace(/^export \{\};\s*$/gm, '')
-function editorHarness(overrides = {}, status = 'draft') {
-  const writes = [], stops = []
-  const props = reactive({ campaign: { id: 5, name: 'Offer', status, offer_master_id: 4, offer_promotion_id: 3, offer_service_ids: [18], segment_ids: [1], template_id: 7, master_name_for_message: 'Майстра', offer_starts_at: '2026-10-05T10:00:00+03:00', offer_expires_at: '2026-10-15T18:00:00+03:00' } })
+function editorHarness(overrides = {}, status = 'draft', extraProps = {}) {
+  const writes = [], stops = [], emissions = []
+  const props = reactive({ campaign: { id: 5, name: 'Offer', status, offer_master_id: 4, offer_promotion_id: 3, offer_service_ids: [18], segment_ids: [1], template_id: 7, master_name_for_message: 'Майстра', offer_starts_at: '2026-10-05T10:00:00+03:00', offer_expires_at: '2026-10-15T18:00:00+03:00' }, ...extraProps })
   const api = { adminGetMasters: async () => [{ id: 4, name: 'Майстер' }, { id: 6, name: 'Інший' }], adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Новий майстер', discount_percent: 30, discount_type: 'percent', is_active: true, recipient_offer_only: true }] }), getSegments: async () => ({ items: [{ id: 1, name: 'Сегмент', status: 'active' }] }), getMessageTemplate: async () => ({ id: 7, message_body: DEFAULT_NEW_MASTER_SMS }), getMasterServices: async () => [{ id: 18, name: 'Стрижка', is_active: true }], updateNewMasterCampaign: async (_id, body) => { writes.push(body); return { id: 5, ...body } }, ...overrides }
-  const globals = { ref, computed, watch: (...args) => { const stop = watch(...args); stops.push(stop); return stop }, onMounted: () => {}, defineProps: () => props, defineEmits: () => () => {}, useBackofficeApi: () => api, useBookingFormatting: () => ({ apiErrorMessage: (_error, fallback) => fallback }), useBackofficeAccess: () => ({ canCreateMessagingDrafts: ref(true) }), DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint }
-  const result = new Function(...Object.keys(globals), `${compiledEditor}\nreturn { load, save, startsLocal, expiresLocal, masterId, serviceIds, services, issues, isEditable };`)(...Object.values(globals))
-  return { ...result, writes, cleanup: () => stops.forEach(stop => stop()) }
+  const globals = { ref, computed, watch: (...args) => { const stop = watch(...args); stops.push(stop); return stop }, onMounted: () => {}, defineProps: () => props, defineEmits: () => (name, value) => emissions.push([name, value]), useBackofficeApi: () => api, useBookingFormatting: () => ({ apiErrorMessage: (_error, fallback) => fallback }), useBackofficeAccess: () => ({ canCreateMessagingDrafts: ref(true) }), DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint }
+  const result = new Function(...Object.keys(globals), `${compiledEditor}\nreturn { load, save, startsLocal, expiresLocal, masterId, serviceIds, services, issues, isEditable, segmentValid, segmentIds, stepValid, rate, name, masterNameForMessage, promotionId, template };`)(...Object.values(globals))
+  return { ...result, props, writes, emissions, cleanup: () => stops.forEach(stop => stop()) }
 }
 
 test('clearing saved offer dates sends explicit null PATCH values; active campaigns stay read-only', async () => {
   const harness = editorHarness()
   try {
     await harness.load()
+    harness.segmentValid.value = true // The mounted audience picker verifies the selected active segment.
     harness.startsLocal.value = ''
     harness.expiresLocal.value = ''
     await harness.save()
@@ -175,6 +176,40 @@ test('ordinary publicly redeemable promotions cannot authorize offer campaign dr
   const harness = editorHarness({ adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Public discount', discount_percent: 30, discount_type: 'percent', is_active: true, recipient_offer_only: false }] }) })
   try { await harness.load(); await harness.save(); assert.equal(harness.writes.length, 0); assert.ok(harness.issues.value.some(issue => issue.includes('акцію'))) }
   finally { harness.cleanup() }
+})
+
+test('wizard readiness waits for audience validation, rejects empty numeric inputs, and saves only on review', async () => {
+  const harness = editorHarness({}, 'draft', { step: 5 })
+  try {
+    await harness.load()
+    assert.equal(harness.stepValid.value[2], false)
+    assert.equal(harness.stepValid.value[6], false)
+    harness.segmentValid.value = true
+    await nextTick()
+    assert.equal(harness.stepValid.value[6], true)
+    harness.rate.value = null
+    await nextTick()
+    assert.equal(harness.stepValid.value[5], false)
+    assert.equal(harness.stepValid.value[6], false)
+    harness.rate.value = 20
+    await nextTick()
+    await harness.save()
+    assert.equal(harness.writes.length, 0)
+    harness.props.step = 6
+    await harness.save()
+    assert.equal(harness.writes.length, 1)
+    assert.ok(harness.emissions.some(([event, value]) => event === 'step-valid' && value[6] === true))
+  } finally { harness.cleanup() }
+})
+
+test('new wizard preselects requested segments and ignores them for an existing campaign', async () => {
+  const fresh = editorHarness({}, 'draft', { campaign: null, initialSegmentIds: [12] })
+  const existing = editorHarness({}, 'draft', { initialSegmentIds: [12] })
+  try {
+    assert.deepEqual(fresh.segmentIds.value, [12])
+    await existing.load()
+    assert.deepEqual(existing.segmentIds.value, [1])
+  } finally { fresh.cleanup(); existing.cleanup() }
 })
 
 test('uncertain key cannot bypass preview after changed configuration; runtime status preserves safe retry', async () => {
@@ -228,4 +263,10 @@ test('run and recipient pagination retain totals and ignore late responses from 
     assert.equal(harness.runsPage.value, 2)
     assert.equal(harness.runsTotal.value, 65)
   } finally { harness.cleanup() }
+})
+
+test('scheduled wall time respects the selected timezone and rejects DST gaps', () => {
+  assert.equal(localDateTimeToIso('2027-01-05T10:00', 'Europe/Warsaw'), '2027-01-05T09:00:00.000Z')
+  assert.equal(localDateTimeToIso('2027-07-05T10:00', 'UTC'), '2027-07-05T10:00:00.000Z')
+  assert.equal(localDateTimeToIso('2027-03-28T02:30', 'Europe/Warsaw'), null)
 })

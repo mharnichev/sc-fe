@@ -12,14 +12,14 @@ export function validateNewMasterTemplate(body) {
 }
 
 // datetime-local has no timezone. Resolve the entered wall time in Kyiv, including DST.
-export function kyivLocalToIso(value) {
+export function localDateTimeToIso(value, timeZone = 'Europe/Kyiv') {
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value)) return null
   const [year, month, day, hour, minute] = value.match(/\d+/g).map(Number)
   const wallUtc = Date.UTC(year, month - 1, day, hour, minute)
   const calendar = new Date(wallUtc)
   if (calendar.getUTCFullYear() !== year || calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day || calendar.getUTCHours() !== hour || calendar.getUTCMinutes() !== minute) return null
   const parts = (date) => Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]))
   let instant = wallUtc - 3 * 3600000
@@ -31,6 +31,8 @@ export function kyivLocalToIso(value) {
   }
   return null // nonexistent local time during the spring DST transition
 }
+
+export const kyivLocalToIso = value => localDateTimeToIso(value, 'Europe/Kyiv')
 
 export function isoToKyivLocal(value) {
   if (!value) return ''

@@ -60,6 +60,70 @@ test('segment campaign drafts never carry competing inline audience filters', as
   assert.ok(calls.every(call => !call.path.includes('/runs') && !call.path.includes('/start')))
 })
 
+test('campaign rate and automation delay use typed backend fields, including sparse updates', async () => {
+  reset({ id: 9, status: 'draft' })
+  await api.createMessagingCampaign({ name: 'Review reminder', type: 'post_visit_review_request', max_messages_per_minute: 77, automation_delay: '1h' })
+  assert.equal(calls[0].body.sms_recipients_per_minute, 77)
+  assert.equal(calls[0].body.review_delay_minutes, 60)
+  await api.updateMessagingCampaign(9, { max_messages_per_minute: 40 })
+  assert.equal(calls.at(-1).body.sms_recipients_per_minute, 40)
+  assert.ok(!('review_delay_minutes' in calls.at(-1).body))
+  await api.updateMessagingCampaign(9, { name: 'Rename only' })
+  assert.ok(!('sms_recipients_per_minute' in calls.at(-1).body))
+  await api.updateMessagingCampaign(9, { automation_delay: 'immediate' })
+  assert.equal(calls.at(-1).body.review_delay_minutes, 0)
+  await api.updateMessagingCampaign(9, { automation_delay: '24h' })
+  assert.equal(calls.at(-1).body.review_delay_minutes, 1440)
+  const priorCalls = calls.length
+  await assert.rejects(api.createMessagingCampaign({ name: 'Bad delay', automation_delay: 'custom', message_body: 'Hello' }), /Невідомий інтервал/)
+  assert.equal(calls.length, priorCalls, 'invalid delay must be rejected before template creation')
+})
+
+test('unsupported specific customer IDs never create a template or broad campaign', async () => {
+  reset({ id: 1 })
+  const payload = { name: 'Narrow list', message_body: 'Hello', audience_rules: [{ type: 'specific_clients', client_ids: [12] }], segment_ids: [] }
+  await assert.rejects(api.createMessagingCampaign(payload), /конкретними ID/)
+  await assert.rejects(api.createSmsCampaign(payload), /конкретними ID/)
+  assert.equal(calls.length, 0)
+})
+
+test('incomplete inline rules cannot silently broaden an audience or create a template', async () => {
+  const invalidRules = [
+    [{ type: 'selected_barber' }],
+    [{ type: 'selected_barber', barber_id: -1 }],
+    [{ type: 'selected_service' }],
+    [{ type: 'selected_service', service_id: 0 }],
+    [{ type: 'visited_date_range' }],
+    [{ type: 'visited_date_range', date_from: 'not-a-date' }],
+    [{ type: 'visited_date_range', date_from: '2026-10-12', date_to: '2026-10-11' }],
+    [{ type: 'inactive_clients', inactive_days: 0 }],
+    [{ type: 'inactive_clients', inactive_days: 1.5 }],
+    [{ type: 'unknown_rule' }],
+  ]
+  for (const audience_rules of invalidRules) {
+    reset({ id: 1 })
+    await assert.rejects(api.createMessagingCampaign({ name: 'Targeted', message_body: 'Hello', audience_rules, segment_ids: [] }))
+    assert.equal(calls.length, 0, `${JSON.stringify(audience_rules)} must fail before any write`)
+  }
+})
+
+test('explicit all-clients and legacy empty rules keep their existing audience meaning', async () => {
+  for (const audience_rules of [[{ type: 'all_clients' }], []]) {
+    reset({ id: 1 })
+    await api.createMessagingCampaign({ name: 'All clients', audience_rules, segment_ids: [] })
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].body.audience.all_clients, true)
+  }
+})
+
+test('generated template names stay within the backend length limit', async () => {
+  reset({ id: 1 })
+  await api.createMessagingCampaign({ name: 'N'.repeat(255), message_body: 'Hello' })
+  assert.equal(calls[0].path, '/backoffice/messaging/templates')
+  assert.ok(calls[0].body.name.length <= 255)
+  assert.match(calls[0].body.name, /^N+ template \d+$/)
+})
+
 test('legacy inline campaigns remain compatible and clearing segments is explicit', async () => {
   reset({ id: 9, metadata_json: { segment_ids: [4], channel_strategy: 'sms_then_telegram' } })
   const campaign = await api.getMessagingCampaign(9)

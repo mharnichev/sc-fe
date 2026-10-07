@@ -99,6 +99,8 @@ test('inline wizard service catalog uses booking-service IDs and preserves selec
   await page.getByRole('textbox', { name: 'Назва кампанії', exact: true }).fill('Service audience switching')
   expect(catalogs).toHaveLength(0)
   await page.getByRole('button', { name: 'Далі', exact: true }).click()
+  await expect(page.getByRole('radio', { name: 'Збережені сегменти', exact: true })).toBeChecked()
+  await page.getByRole('radio', { name: 'Фільтри цієї кампанії', exact: true }).check()
   await page.getByText('Використали послугу', { exact: true }).click()
   await expect(page.getByRole('radio', { name: /^Використали послугу/ })).toBeChecked()
   await expect.poll(() => catalogs.length).toBe(1)
@@ -220,7 +222,8 @@ test('existing campaign selects overlapping segments, retains offer/schedule, la
     scheduled_at: scheduled, discount_code: state.seed.promotion_code, template_id: state.seed.template_id,
   } }))
   await page.goto(`/messaging/campaigns/${campaign.id}`)
-  await page.getByRole('checkbox', { name: 'Використовувати збережені сегменти', exact: true }).check()
+  await page.getByText('Використовувати збережені сегменти', { exact: true }).click()
+  await expect(page.getByRole('switch', { name: 'Використовувати збережені сегменти', exact: true })).toBeChecked()
   await page.getByRole('checkbox', { name: /^Connected return audience/ }).check()
   await page.getByRole('checkbox', { name: /^Overlapping return audience/ }).check()
   await page.getByRole('combobox', { name: 'Стратегія каналів', exact: true }).selectOption('telegram_then_sms')

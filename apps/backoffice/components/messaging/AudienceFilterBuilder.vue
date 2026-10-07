@@ -33,18 +33,8 @@ const options: Array<{ value: AudienceRuleType, label: string, helper: string }>
   { value: 'vip_clients', label: 'VIP клієнти', helper: 'Клієнти з високою сумою витрат або VIP ознакою.' },
   { value: 'birthday_this_month', label: 'День народження цього місяця', helper: 'Клієнти з датою народження у поточному місяці.' },
   { value: 'selected_service', label: 'Використали послугу', helper: 'Клієнти, які бронювали вибрану послугу.' },
-  { value: 'specific_clients', label: 'Конкретний список', helper: 'Список ID клієнтів, розділених комами.' },
 ]
 
-const clientIdsText = computed({
-  get: () => (rule.value.client_ids || []).join(', '),
-  set: value => updateRule({
-    client_ids: value
-      .split(',')
-      .map(item => Number(item.trim()))
-      .filter(Boolean),
-  }),
-})
 </script>
 
 <template>
@@ -99,10 +89,7 @@ const clientIdsText = computed({
         <BaseInput class="rounded-2xl border border-slate-300 px-4 py-3" min="1" type="number" :value="rule.inactive_days || 60" @input="updateRule({ inactive_days: Number(($event.target as HTMLInputElement).value) || 60 })" />
       </label>
 
-      <label v-if="rule.type === 'specific_clients'" class="grid gap-2 text-sm md:col-span-2">
-        <span class="font-medium text-slate-700">ID клієнтів</span>
-        <BaseInput v-model="clientIdsText" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="12, 48, 103" />
-      </label>
+
     </div>
 
     <div class="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-white p-4 md:grid-cols-5">

@@ -353,8 +353,7 @@ const insertCampaignVariable = (variable: string) => {
     <MessagingSmsCampaignsPanel v-if="isNotifications" @changed="refreshMessagingData" />
 
     <div v-if="!isNotifications" class="flex flex-wrap gap-3">
-      <NuxtLink v-if="canCreateMessagingDrafts" to="/messaging/campaigns/new?kind=new-master" data-testid="create-new-master" class="rounded-full bg-cyan-700 px-5 py-3 text-sm text-white">Створити «Новий майстер»</NuxtLink>
-      <NuxtLink to="/messaging/offer-analytics" class="rounded-full border px-5 py-3 text-sm">Аналітика пропозицій</NuxtLink>
+      <NuxtLink to="/messaging/offer-analytics" class="base-button base-button--neutral px-5 py-3 text-sm">Аналітика пропозицій</NuxtLink>
     </div>
     <section id="campaigns" ref="campaignsSectionRef" class="base-card rounded-[1.5rem] p-4 sm:p-5">
       <div class="flex flex-wrap items-start justify-between gap-4">

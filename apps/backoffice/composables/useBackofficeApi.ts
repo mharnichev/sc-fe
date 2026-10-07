@@ -974,31 +974,43 @@ export const useBackofficeApi = () => {
       barber_ids: [],
       service_ids: [],
     }
+    if (!rules.length) audience.all_clients = true // Legacy empty rules mean all clients.
     for (const rule of rules) {
-      if (rule.type === 'all_clients') audience.all_clients = true
-      if (rule.type === 'selected_barber' && rule.barber_id) (audience.barber_ids as number[]).push(rule.barber_id)
-      if (rule.type === 'selected_service' && rule.service_id) (audience.service_ids as number[]).push(rule.service_id)
-      if (rule.type === 'visited_date_range') {
-        if (rule.date_from) audience.visited_from = rule.date_from
-        if (rule.date_to) audience.visited_to = rule.date_to
+      if (rule.type === 'specific_clients') throw new Error('Аудиторія за конкретними ID клієнтів не підтримується для збереження кампанії.')
+      if (rule.type === 'all_clients') { audience.all_clients = true; continue }
+      if (rule.type === 'selected_barber') {
+        if (!Number.isSafeInteger(rule.barber_id) || (rule.barber_id ?? 0) <= 0) throw new Error('Оберіть майстра для аудиторії.')
+        const ids = audience.barber_ids as number[]
+        ids.push(rule.barber_id!)
+        continue
       }
-      if (rule.type === 'inactive_clients' && rule.inactive_days) audience.inactive_days = rule.inactive_days
-      if (rule.type === 'first_time_clients') audience.first_time_clients = true
-      if (rule.type === 'vip_clients') audience.vip_clients = true
-      if (rule.type === 'birthday_this_month') audience.birthday_month = new Date().getMonth() + 1
-    }
-    if (
-      !audience.all_clients
-      && !(audience.barber_ids as number[]).length
-      && !(audience.service_ids as number[]).length
-      && !audience.visited_from
-      && !audience.visited_to
-      && !audience.inactive_days
-      && !audience.first_time_clients
-      && !audience.vip_clients
-      && !audience.birthday_month
-    ) {
-      audience.all_clients = true
+      if (rule.type === 'selected_service') {
+        if (!Number.isSafeInteger(rule.service_id) || (rule.service_id ?? 0) <= 0) throw new Error('Оберіть послугу для аудиторії.')
+        const ids = audience.service_ids as number[]
+        ids.push(rule.service_id!)
+        continue
+      }
+      if (rule.type === 'visited_date_range') {
+        const from = rule.date_from?.trim()
+        const to = rule.date_to?.trim()
+        if (!from && !to) throw new Error('Вкажіть хоча б одну дату для аудиторії.')
+        const fromTime = from ? Date.parse(from) : null
+        const toTime = to ? Date.parse(to) : null
+        if ((from && !Number.isFinite(fromTime)) || (to && !Number.isFinite(toTime))) throw new Error('Вкажіть коректні дати для аудиторії.')
+        if (fromTime !== null && toTime !== null && fromTime > toTime) throw new Error('Дата початку аудиторії має бути не пізніше дати завершення.')
+        if (from) audience.visited_from = from
+        if (to) audience.visited_to = to
+        continue
+      }
+      if (rule.type === 'inactive_clients') {
+        if (!Number.isSafeInteger(rule.inactive_days) || (rule.inactive_days ?? 0) < 1) throw new Error('Вкажіть ціле число днів без візиту від 1.')
+        audience.inactive_days = rule.inactive_days
+        continue
+      }
+      if (rule.type === 'first_time_clients') { audience.first_time_clients = true; continue }
+      if (rule.type === 'vip_clients') { audience.vip_clients = true; continue }
+      if (rule.type === 'birthday_this_month') { audience.birthday_month = new Date().getMonth() + 1; continue }
+      throw new Error('Невідоме правило аудиторії.')
     }
     return audience
   }
@@ -1108,6 +1120,13 @@ export const useBackofficeApi = () => {
     items: page.items.map(normalizeTemplate),
   })
 
+  const automationDelayMinutes = (value?: string | null) => {
+    if (value == null) return null
+    const minutes: Record<string, number> = { immediate: 0, '1h': 60, '24h': 1440 }
+    if (!(value in minutes)) throw new Error('Невідомий інтервал автоматичного повідомлення.')
+    return minutes[value]
+  }
+
   const campaignPayload = (payload: Partial<CampaignPayload>, templateId?: number | string | null) => ({
     name: payload.name,
     type: payload.type,
@@ -1118,7 +1137,7 @@ export const useBackofficeApi = () => {
     template_id: templateId ?? payload.template_id ?? null,
     scheduled_at: payload.schedule_mode === 'later' ? payload.scheduled_at || null : null,
     timezone: payload.timezone || 'Europe/Kyiv',
-    review_delay_minutes: payload.automation_delay ? Number.parseInt(payload.automation_delay, 10) || null : null,
+    review_delay_minutes: automationDelayMinutes(payload.automation_delay),
     follow_up_delay_days: payload.follow_up_after_days || null,
     review_platform: payload.review_platform || null,
     review_url: payload.review_link || null,
@@ -1143,6 +1162,7 @@ export const useBackofficeApi = () => {
     exclude_returned_since_snapshot: payload.exclude_returned_since_snapshot,
     exclude_upcoming_booking: payload.exclude_upcoming_booking,
     marketing_frequency_days: payload.marketing_frequency_days,
+    sms_recipients_per_minute: payload.max_messages_per_minute,
     // Segment unions are evaluated by the backend; never also send inline filters.
     ...(payload.segment_ids?.length || payload.audience_rules === undefined
       ? {} : { audience: toBackendAudience(payload.audience_rules || []) }),
@@ -1156,6 +1176,7 @@ export const useBackofficeApi = () => {
       name: 'name', type: 'type', status: 'status', channel: 'channel', recipient: 'recipient', purpose: 'purpose',
       template_id: 'template_id', scheduled_at: 'schedule_mode', timezone: 'timezone',
       review_delay_minutes: 'automation_delay', follow_up_delay_days: 'follow_up_after_days',
+      sms_recipients_per_minute: 'max_messages_per_minute',
       review_platform: 'review_platform', review_url: 'review_link', discount_code: 'promo_code', location_key: 'location_key',
     }
     for (const [field, input] of Object.entries(fields)) {
@@ -2141,7 +2162,7 @@ export const useBackofficeApi = () => {
     }
     if (!payload.message_body) return null
     const template = await createMessageTemplate({
-      name: `${payload.name || 'Campaign'} template ${Date.now()}`,
+      name: `${(payload.name || 'Campaign').trim().slice(0, 200)} template ${Date.now()}`,
       campaign_type: payload.type || 'manual',
       channel: payload.channel || 'telegram',
       language: 'uk',
@@ -2154,10 +2175,12 @@ export const useBackofficeApi = () => {
   }
 
   const createMessagingCampaign = async (payload: CampaignPayload) => {
+    const body = campaignPayload(payload)
     const templateId = await ensureCampaignTemplate(payload)
+    body.template_id = templateId
     return api<any>('/backoffice/messaging/campaigns', {
       method: 'POST',
-      body: campaignPayload(payload, templateId),
+      body,
     }).then(normalizeCampaign)
   }
 
@@ -2171,10 +2194,12 @@ export const useBackofficeApi = () => {
 
   const createSmsCampaign = async (payload: CampaignPayload) => {
     const smsPayload = { ...payload, channel: 'sms' as const }
+    const body = campaignPayload(smsPayload)
     const templateId = await ensureCampaignTemplate(smsPayload)
+    body.template_id = templateId
     return api<any>('/backoffice/messaging/sms-campaigns', {
       method: 'POST',
-      body: campaignPayload(smsPayload, templateId),
+      body,
     }).then(normalizeCampaign)
   }
 

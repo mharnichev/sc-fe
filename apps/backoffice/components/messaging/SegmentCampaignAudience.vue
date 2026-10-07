@@ -11,14 +11,25 @@ const selected = ref<CustomerSegment[]>([])
 const loading = ref(false)
 const error = ref('')
 const total = ref(0)
+const search = ref('')
+const visibleSegments = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase('uk-UA')
+  return segments.value.filter(segment => !query || segment.name.toLocaleLowerCase('uk-UA').includes(query))
+})
 let request = 0
-const load = async (more = false) => {
+const load = async () => {
+  if (loading.value) return
   loading.value = true
   error.value = ''
   try {
-    const result = await api.getSegments({ status: 'active', limit: 50, offset: more ? segments.value.length : 0 })
-    segments.value = more ? [...segments.value, ...result.items] : result.items
-    total.value = result.total
+    const items: CustomerSegment[] = []
+    do {
+      const result = await api.getSegments({ status: 'active', limit: 100, offset: items.length })
+      items.push(...result.items)
+      segments.value = [...items]
+      total.value = result.total
+      if (!result.items.length) break
+    } while (items.length < total.value)
   }
   catch (cause) { error.value = apiErrorMessage(cause, 'Не вдалося завантажити сегменти.') }
   finally { loading.value = false }
@@ -48,18 +59,23 @@ onMounted(() => load())
 
 <template>
   <div class="space-y-4">
+    <BaseInput v-model="search" type="search" label="Пошук сегмента" placeholder="Введіть назву сегмента" :disabled="disabled" />
     <p class="text-sm text-ui-muted">Обʼєднання вибраних сегментів: кожен клієнт потрапляє в аудиторію один раз. Доступність каналів перевіряється після збереження чернетки.</p>
     <p v-if="error" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ error }} <BaseButton @click="load(); loadSelected()">Повторити</BaseButton></p>
     <BaseLoader v-if="loading && !segments.length" label="Завантаження сегментів…" />
     <fieldset class="space-y-2" :disabled="disabled">
       <legend class="mb-2 font-medium text-ui-primary">Збережені сегменти</legend>
-      <label v-for="segment in segments" :key="segment.id" class="base-card flex cursor-pointer items-start gap-3 rounded-xl p-3">
-        <BaseCheckbox :model-value="modelValue.includes(segment.id)" :disabled="disabled || (!modelValue.includes(segment.id) && modelValue.length >= 20)" @update:model-value="toggle(segment.id, Boolean($event))" />
-        <span class="min-w-0 text-sm"><span class="block font-medium text-ui-primary">{{ segment.name }}</span><span class="mt-1 block text-ui-muted">{{ summarizeRules(segment.rules) }}</span></span>
-      </label>
+      <div class="max-h-80 space-y-2 overflow-y-auto rounded-xl">
+        <label v-for="segment in visibleSegments" :key="segment.id" class="base-card flex cursor-pointer items-start gap-3 rounded-xl p-3">
+          <BaseCheckbox :model-value="modelValue.includes(segment.id)" :disabled="disabled || (!modelValue.includes(segment.id) && modelValue.length >= 20)" @update:model-value="toggle(segment.id, Boolean($event))" />
+          <span class="min-w-0 text-sm"><span class="block font-medium text-ui-primary">{{ segment.name }}</span><span class="mt-1 block text-ui-muted">{{ summarizeRules(segment.rules) }}</span></span>
+        </label>
+      </div>
     </fieldset>
     <p v-if="!loading && !error && !segments.length" class="text-sm text-ui-muted">Активних сегментів немає. <NuxtLink to="/customers/segments/new" class="text-ui-accent underline">Створити сегмент</NuxtLink></p>
-    <BaseButton v-if="segments.length < total" :disabled="loading" @click="load(true)">Завантажити ще</BaseButton>
+    <p v-if="loading && segments.length" role="status" class="text-sm text-ui-muted">Завантажено {{ segments.length }} із {{ total }} сегментів…</p>
+    <p v-if="!loading && !error && segments.length && !visibleSegments.length" class="text-sm text-ui-muted">За цією назвою сегментів не знайдено.</p>
+    <p class="text-xs text-ui-muted">Вибрано {{ modelValue.length }} із 20 можливих сегментів.</p>
     <div v-for="segment in selected" :key="`selected-${segment.id}`" class="base-card rounded-xl p-3 text-sm">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <NuxtLink :to="`/customers/segments/${segment.id}`" class="font-medium text-ui-accent underline">{{ segment.name }} · версія {{ segment.revision }}</NuxtLink>
