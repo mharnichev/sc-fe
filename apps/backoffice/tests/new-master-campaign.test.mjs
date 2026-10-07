@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import ts from 'typescript'
 import { deliveryReasonLabel } from '../utils/campaignAudience.mjs'
-import { DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, localDateTimeToIso, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint } from '../utils/newMasterCampaign.mjs'
+import { DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, renderOfferPreview, localDateTimeToIso, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint } from '../utils/newMasterCampaign.mjs'
 const require = createRequire(import.meta.url)
 const { ref, computed, reactive, watch, nextTick } = createRequire(require.resolve('nuxt/package.json'))('vue')
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes }); return { promise, resolve } }
@@ -24,9 +24,16 @@ function reviewHarness(overrides = {}, authorized = true) {
 test('marketing template variables match appointment-free backend context and BMP support', () => {
   assert.deepEqual(validateNewMasterTemplate(DEFAULT_NEW_MASTER_SMS), { unknown: [], malformed: false, unsupported: [] })
   assert.deepEqual(validateNewMasterTemplate('{{customer_name}} {client_name} #barbershop_name').unknown, [])
+  assert.deepEqual(validateNewMasterTemplate('{{discount_percent}}% {{promotion_name_uk}} {{promotion_name_en}}').unknown, [])
   assert.deepEqual(validateNewMasterTemplate('{{appointment_time}} {service_name} #manage_url').unknown, ['appointment_time', 'service_name', 'manage_url'])
   assert.equal(validateNewMasterTemplate('{{master_name}').malformed, true)
   assert.deepEqual(validateNewMasterTemplate('🎉').unsupported, ['🎉'])
+})
+
+test('offer preview substitutes every supported token format without touching unknown tokens', () => {
+  const sample = { discount_percent: '15', promotion_name_en: 'Personal', master_name: 'Андрія' }
+  assert.equal(renderOfferPreview('{{ discount_percent }}% {promotion_name_en} #master_name {{unknown}}', sample), '15% Personal Андрія {{unknown}}')
+  assert.equal(renderOfferPreview('{{__proto__}}', sample), '{{__proto__}}')
 })
 
 test('Kyiv dates preserve winter and summer offsets and reject nonexistent wall times', () => {
@@ -126,12 +133,12 @@ const editorSource = await readFile(new URL('../components/messaging/NewMasterCa
 const editorScript = editorSource.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 const compiledEditor = ts.transpileModule(editorScript, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace(/^import .*?;\s*$/gm, '').replace(/^export \{\};\s*$/gm, '')
 function editorHarness(overrides = {}, status = 'draft', extraProps = {}) {
-  const writes = [], stops = [], emissions = []
-  const props = reactive({ campaign: { id: 5, name: 'Offer', status, offer_master_id: 4, offer_promotion_id: 3, offer_service_ids: [18], segment_ids: [1], template_id: 7, master_name_for_message: 'Майстра', offer_starts_at: '2026-10-05T10:00:00+03:00', offer_expires_at: '2026-10-15T18:00:00+03:00' }, ...extraProps })
-  const api = { adminGetMasters: async () => [{ id: 4, name: 'Майстер' }, { id: 6, name: 'Інший' }], adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Новий майстер', discount_percent: 30, discount_type: 'percent', is_active: true, recipient_offer_only: true }] }), getSegments: async () => ({ items: [{ id: 1, name: 'Сегмент', status: 'active' }] }), getMessageTemplate: async () => ({ id: 7, message_body: DEFAULT_NEW_MASTER_SMS }), getMasterServices: async () => [{ id: 18, name: 'Стрижка', is_active: true }], updateNewMasterCampaign: async (_id, body) => { writes.push(body); return { id: 5, ...body } }, ...overrides }
-  const globals = { ref, computed, watch: (...args) => { const stop = watch(...args); stops.push(stop); return stop }, onMounted: () => {}, defineProps: () => props, defineEmits: () => (name, value) => emissions.push([name, value]), useBackofficeApi: () => api, useBookingFormatting: () => ({ apiErrorMessage: (_error, fallback) => fallback }), useBackofficeAccess: () => ({ canCreateMessagingDrafts: ref(true) }), DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint }
-  const result = new Function(...Object.keys(globals), `${compiledEditor}\nreturn { load, save, startsLocal, expiresLocal, masterId, serviceIds, services, issues, isEditable, segmentValid, segmentIds, stepValid, rate, name, masterNameForMessage, promotionId, template };`)(...Object.values(globals))
-  return { ...result, props, writes, emissions, cleanup: () => stops.forEach(stop => stop()) }
+  const writes = [], stops = [], emissions = [], createdTemplates = []
+  const props = reactive({ campaign: { id: 5, name: 'Offer', type: 're_engagement', status, offer_master_id: 4, offer_promotion_id: 3, offer_service_ids: [18], segment_ids: [1], template_id: 7, master_name_for_message: 'Майстра', offer_starts_at: '2026-10-05T10:00:00+03:00', offer_expires_at: '2026-10-15T18:00:00+03:00' }, ...extraProps })
+  const api = { adminGetMasters: async () => [{ id: 4, name: 'Майстер' }, { id: 6, name: 'Інший' }], adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Новий майстер', discount_percent: 30, discount_type: 'percent', is_active: true, recipient_offer_only: true }] }), getSegments: async () => ({ items: [{ id: 1, name: 'Сегмент', status: 'active' }] }), getMessageTemplate: async () => ({ id: 7, message_body: DEFAULT_NEW_MASTER_SMS, channel: 'sms', campaign_type: 're_engagement' }), createMessageTemplate: async body => { createdTemplates.push(body); return { id: 8, ...body } }, getMasterServices: async () => [{ id: 18, name: 'Стрижка', is_active: true }], updateNewMasterCampaign: async (_id, body) => { writes.push(body); return { id: 5, ...body } }, ...overrides }
+  const globals = { ref, computed, watch: (...args) => { const stop = watch(...args); stops.push(stop); return stop }, onMounted: () => {}, defineProps: () => props, defineEmits: () => (name, value) => emissions.push([name, value]), useBackofficeApi: () => api, useBookingFormatting: () => ({ apiErrorMessage: (_error, fallback) => fallback }), useBackofficeAccess: () => ({ canCreateMessagingDrafts: ref(true) }), DEFAULT_NEW_MASTER_SMS, validateNewMasterTemplate, renderOfferPreview, kyivLocalToIso, isoToKyivLocal, newMasterLaunchFingerprint }
+  const result = new Function(...Object.keys(globals), `${compiledEditor}\nreturn { load, save, startsLocal, expiresLocal, masterId, serviceIds, serviceSelection, services, issues, isEditable, segmentValid, segmentIds, stepValid, rate, name, masterNameForMessage, promotionId, template, previewBody, channel, channelStrategy, campaignType, audienceMode };`)(...Object.values(globals))
+  return { ...result, props, writes, emissions, createdTemplates, cleanup: () => stops.forEach(stop => stop()) }
 }
 
 test('clearing saved offer dates sends explicit null PATCH values; active campaigns stay read-only', async () => {
@@ -207,9 +214,73 @@ test('new wizard preselects requested segments and ignores them for an existing 
   const existing = editorHarness({}, 'draft', { initialSegmentIds: [12] })
   try {
     assert.deepEqual(fresh.segmentIds.value, [12])
+    assert.equal(fresh.name.value, '')
+    assert.equal(fresh.template.value, '')
+    assert.equal(fresh.audienceMode.value, 'segments')
     await existing.load()
     assert.deepEqual(existing.segmentIds.value, [1])
   } finally { fresh.cleanup(); existing.cleanup() }
+})
+
+test('configurable offers accept a selected 100 percent promotion and preserve Telegram fallback', async () => {
+  const harness = editorHarness({ adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Free100', discount_percent: 100, discount_type: 'percent', is_active: true, recipient_offer_only: true }] }) })
+  try {
+    harness.props.campaign.offer_audience_mode = 'segments'
+    await harness.load()
+    harness.segmentValid.value = true
+    harness.channel.value = 'telegram'
+    harness.channelStrategy.value = 'telegram_then_sms'
+    await harness.save()
+    assert.equal(harness.writes.length, 1)
+    assert.equal(harness.writes[0].offer_promotion_id, 3)
+    assert.equal(harness.writes[0].offer_audience_mode, 'segments')
+    assert.equal(harness.writes[0].channel, 'telegram')
+    assert.equal(harness.writes[0].channel_strategy, 'telegram_then_sms')
+    assert.equal(harness.createdTemplates[0].channel, 'telegram')
+    assert.equal(harness.createdTemplates[0].campaign_type, 're_engagement')
+  } finally { harness.cleanup() }
+  const legacy = editorHarness({ adminGetPromotions: async () => ({ items: [{ id: 3, name_uk: 'Free100', discount_percent: 100, discount_type: 'percent', is_active: true, recipient_offer_only: true }] }) })
+  try { await legacy.load(); legacy.segmentValid.value = true; await legacy.save(); assert.equal(legacy.writes.length, 0) }
+  finally { legacy.cleanup() }
+})
+
+test('view-only offer editor cannot persist changed fields', async () => {
+  const harness = editorHarness({}, 'draft', { readonly: true })
+  try {
+    await harness.load()
+    harness.segmentValid.value = true
+    harness.name.value = 'Changed from view'
+    assert.equal(harness.isEditable.value, false)
+    await harness.save()
+    assert.equal(harness.writes.length, 0)
+  } finally { harness.cleanup() }
+})
+
+test('Telegram-only message accepts emoji but SMS fallback retains provider validation', async () => {
+  const harness = editorHarness()
+  try {
+    harness.props.campaign.offer_audience_mode = 'segments'
+    await harness.load()
+    harness.channel.value = 'telegram'
+    harness.template.value = 'Привіт 🎉'
+    assert.equal(harness.stepValid.value[3], true)
+    harness.channelStrategy.value = 'telegram_then_sms'
+    assert.equal(harness.stepValid.value[3], false)
+  } finally { harness.cleanup() }
+})
+
+test('booking service select preserves numeric IDs and preview does not modify the SMS template', async () => {
+  const harness = editorHarness()
+  try {
+    await harness.load()
+    harness.serviceSelection.value = ['18', '18', '21']
+    assert.deepEqual(harness.serviceIds.value, [18, 21])
+    harness.masterNameForMessage.value = 'Андрія'
+    harness.template.value = 'До {{master_name}}: {{offer_link}}'
+    assert.equal(harness.previewBody.value, 'До Андрія: https://soulcuts.com.ua/booking?offer=preview')
+    assert.equal(harness.template.value, 'До {{master_name}}: {{offer_link}}')
+    assert.equal(harness.writes.length, 0)
+  } finally { harness.cleanup() }
 })
 
 test('uncertain key cannot bypass preview after changed configuration; runtime status preserves safe retry', async () => {

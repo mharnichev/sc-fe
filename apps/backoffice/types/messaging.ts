@@ -102,6 +102,7 @@ export interface MessagingCampaign extends CampaignSegmentOptions {
   timezone?: string | null
   location_key?: string | null
   metadata_json?: Record<string, unknown>
+  offer_audience_mode?: 'segments' | 'last_visit_3_12'
   sending_window?: { start: string; end: string; days: number[] } | null
   sms_recipients_per_minute?: number
   offer_master_id?: number | null

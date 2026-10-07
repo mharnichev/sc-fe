@@ -1,8 +1,9 @@
 export interface NewMasterCampaignInput {
   name: string
-  type: 're_engagement'
+  type: 'manual' | 're_engagement'
   status: 'draft'
-  channel: 'sms'
+  channel: 'sms' | 'telegram'
+  offer_audience_mode?: 'segments' | 'last_visit_3_12'
   channel_strategy: 'single' | 'telegram_then_sms'
   purpose: 'marketing'
   recipient: 'customer'

@@ -2642,7 +2642,7 @@ html[data-backoffice-theme="light"] main .text-rose-700 {
     padding: 0.75rem;
   }
 
-  main .messaging-page input,
+  main .messaging-page input:not([type="checkbox"]):not([type="radio"]),
   main .messaging-page select,
   main .messaging-page textarea {
     min-height: 2.5rem;

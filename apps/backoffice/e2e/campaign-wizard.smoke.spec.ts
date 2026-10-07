@@ -16,9 +16,9 @@ const master = { id: 7, first_name_uk: 'Тест', last_name_uk: 'Майстер
 const otherMaster = { id: 8, first_name_uk: 'Інший', last_name_uk: 'Майстер', full_name: 'Інший Майстер', full_name_uk: 'Інший Майстер', is_active: true }
 const promotion = { id: 9, name_uk: 'Знижка 30%', discount_percent: 30, discount_type: 'percent', recipient_offer_only: true, is_active: true }
 const invalidPromotion = { id: 10, name_uk: 'Знижка 20%', discount_percent: 20, discount_type: 'percent', recipient_offer_only: true, is_active: true }
-const service = { id: 11, name: 'Стрижка', title_uk: 'Стрижка', is_active: true }
-const otherService = { id: 12, name: 'Борода', title_uk: 'Борода', is_active: true }
-const sharedTemplate = { id: 41, name: 'Готовий шаблон', campaign_type: 're_engagement', channel: 'sms', language: 'uk', message_body: 'Готове повідомлення {{client_name}}', variables: [], is_active: true, is_default: false }
+const service = { id: 11, name: 'Стрижка', title_uk: 'Стрижка', is_active: true, duration_minutes: 30, price: 500 }
+const otherService = { id: 12, name: 'Борода', title_uk: 'Борода', is_active: true, duration_minutes: 20, price: 300 }
+const sharedTemplate = { id: 41, name: 'Готовий шаблон', channel: 'sms', language: 'uk', body: 'Готове повідомлення {{client_name}}', variables: [], is_active: true, is_default: false }
 const emptyOfferAnalytics = {
   period_basis: 'run_cohort', audience_size: 0, communication_eligible_recipients: 0,
   provider_accepted: 0, delivered: 0, raw_link_requests: 0, confirmed_page_opens: 0,
@@ -34,6 +34,7 @@ type BackendOptions = {
   promotions?: typeof promotion[]
   templates?: typeof sharedTemplate[]
   existingNotifications?: Array<Record<string, unknown>>
+  existingCampaign?: Record<string, unknown>
 }
 
 type Backend = {
@@ -44,6 +45,8 @@ type Backend = {
   errors: string[]
   failSegmentsOnce: () => void
   failCampaignOnce: () => void
+  failSegmentPageOnce: (offset: number) => void
+  holdCampaignResponse: () => () => void
 }
 
 async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', segmentItems = segments, options: BackendOptions = {}): Promise<Backend> {
@@ -62,6 +65,8 @@ async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', seg
   const errors: string[] = []
   let segmentFailures = 0
   let campaignFailures = 0
+  const segmentPageFailures = new Map<number, number>()
+  let campaignResponse: Promise<void> | undefined
   page.on('pageerror', error => errors.push(`Page error: ${error.message}`))
   page.on('console', message => { if (message.type() === 'error') errors.push(`Console error: ${message.text()}`) })
   page.on('requestfailed', request => { if (request.url().includes('/api/v1/')) errors.push(`Failed API request: ${request.url()} ${request.failure()?.errorText}`) })
@@ -84,6 +89,8 @@ async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', seg
       return json(pageOf(url, templateItems.slice((page - 1) * size, page * size), templateItems.length))
     }
     if (method === 'GET' && path === '/backoffice/messaging/templates/71') {
+      const existing = templateItems.find(item => item.id === 71)
+      if (existing) return json(existing)
       const body = writes.findLast(item => item.path === '/backoffice/messaging/templates')?.body || {}
       return json({ id: 71, ...body, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' })
     }
@@ -100,6 +107,8 @@ async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', seg
       segmentQueries.push(url)
       if (segmentFailures) { segmentFailures--; return json({ detail: 'Temporary segment error' }, 503) }
       const offset = Number(url.searchParams.get('offset') || 0)
+      const failures = segmentPageFailures.get(offset) || 0
+      if (failures) { segmentPageFailures.set(offset, failures - 1); return json({ detail: 'Temporary segment error' }, 503) }
       const limit = Number(url.searchParams.get('limit') || 100)
       return json({ items: segmentItems.slice(offset, offset + limit), total: segmentItems.length, limit, offset })
     }
@@ -117,11 +126,17 @@ async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', seg
       const body = request.postDataJSON() as Record<string, unknown>
       writes.push({ path, body })
       if (campaignFailures) { campaignFailures--; return json({ detail: 'Temporary draft error' }, 503) }
+      await campaignResponse
       return json({ id: 501, ...body, created_at: '2026-01-01T00:00:00Z' }, 201)
     }
     if (method === 'GET' && path === '/backoffice/messaging/campaigns/501') {
-      const body = writes.findLast(item => item.path === '/backoffice/messaging/campaigns')?.body || {}
+      const body = writes.findLast(item => item.path === '/backoffice/messaging/campaigns' || item.path === '/backoffice/messaging/campaigns/501')?.body || options.existingCampaign || {}
       return json({ id: 501, ...body, created_at: '2026-01-01T00:00:00Z' })
+    }
+    if (method === 'PATCH' && path === '/backoffice/messaging/campaigns/501') {
+      const body = request.postDataJSON() as Record<string, unknown>
+      writes.push({ path, body })
+      return json({ id: 501, ...options.existingCampaign, ...body })
     }
     if (method === 'GET' && path === '/backoffice/messaging/campaign-offer-analytics' && url.searchParams.get('campaign_id') === '501') return json(emptyOfferAnalytics)
     if (method === 'GET' && /^\/backoffice\/messaging\/campaigns\/501\/(logs|recipients|runs|readiness|offer-analytics)$/.test(path)) {
@@ -133,7 +148,17 @@ async function installBackend(page: Page, theme: 'light' | 'dark' = 'light', seg
     return json({ detail: 'Unexpected request in wizard smoke test' }, 599)
   })
   // ofetch retries a failed GET once before the component sees the error.
-  return { writes, segmentQueries, templateQueries, unexpected, errors, failSegmentsOnce: () => { segmentFailures += 2 }, failCampaignOnce: () => { campaignFailures++ } }
+  return {
+    writes, segmentQueries, templateQueries, unexpected, errors,
+    failSegmentsOnce: () => { segmentFailures += 2 },
+    failCampaignOnce: () => { campaignFailures++ },
+    failSegmentPageOnce: offset => { segmentPageFailures.set(offset, 2) },
+    holdCampaignResponse: () => {
+      let release!: () => void
+      campaignResponse = new Promise<void>(resolve => { release = resolve })
+      return release
+    },
+  }
 }
 
 function checkBackend(backend: Backend, expectedFailure = false) {
@@ -145,9 +170,46 @@ function checkBackend(backend: Backend, expectedFailure = false) {
 const step = (page: Page, number: number) => page.getByRole('button', { name: new RegExp(`^Крок ${number}:`) })
 const campaignWrites = (backend: Backend) => backend.writes.filter(write => write.path === '/backoffice/messaging/campaigns')
 const next = (page: Page) => page.getByRole('button', { name: 'Далі', exact: true })
+const chooseSelectOption = async (page: Page, field: string, option: string) => {
+  await page.getByRole('button', { name: new RegExp(`^${field}(?:\\s|$)`) }).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
+}
+const segmentPicker = (page: Page) => page.locator('[data-testid="campaign-segment-audience"]:visible')
+const audienceSource = (page: Page) => page.getByRole('button', { name: /^Джерело аудиторії/ })
+const expectInlineAudienceDisabled = async (page: Page) => {
+  await expect(audienceSource(page)).toContainText('Збережені сегменти')
+  await audienceSource(page).click()
+  await expect(page.getByRole('option', { name: 'Фільтри цієї кампанії', exact: true })).toBeDisabled()
+  await audienceSource(page).click()
+}
+const segmentTrigger = (page: Page) => segmentPicker(page).locator('button.backoffice-select-trigger')
+const segmentSearch = (page: Page) => segmentPicker(page).getByPlaceholder('Пошук сегмента', { exact: true })
+const segmentOption = (page: Page, name: string) => segmentPicker(page).getByRole('checkbox', { name: new RegExp(`^${name}(?:\\s|$)`) })
+const openSegments = async (page: Page) => {
+  if (!await segmentSearch(page).isVisible()) await segmentTrigger(page).click()
+}
+const closeSegments = async (page: Page) => {
+  if (await segmentSearch(page).isVisible()) await segmentTrigger(page).click()
+}
+const expectSelectedSegment = async (page: Page, name: string) => {
+  await openSegments(page)
+  await expect(segmentOption(page, name)).toBeChecked()
+  await closeSegments(page)
+}
+const chooseSegment = async (page: Page, name: string) => {
+  await openSegments(page)
+  await segmentSearch(page).fill(name)
+  await segmentOption(page, name).click()
+  await closeSegments(page)
+}
 const selectOfferOption = async (page: Page, field: string, current: string, option: string) => {
   await page.getByRole('button', { name: `${field} ${current}` }).click()
   await page.getByRole('option', { name: option, exact: true }).click()
+}
+const chooseService = async (page: Page, name: string) => {
+  await page.getByTestId('campaign-services').getByRole('button', { name: 'Виберіть послуги' }).click()
+  await page.getByRole('checkbox', { name: new RegExp(`^${name}`) }).click()
+  await page.getByTestId('campaign-services').getByRole('button').first().click()
 }
 const savedPage = async (page: Page, name: string) => {
   await expect(page).toHaveURL(/\/messaging\/campaigns\/501$/)
@@ -167,7 +229,7 @@ const chooseCalendarToday = async (page: Page, label: string, time: string) => {
 const chooseCalendarNextMonth = async (page: Page, label: string, time: string) => {
   const input = page.getByRole('textbox', { name: label, exact: true })
   await input.click()
-  const dialog = page.getByRole('dialog', { name: 'Вибір дати', exact: true })
+  const dialog = page.getByRole('dialog', { name: label, exact: true })
   await dialog.getByRole('button', { name: 'Наступний місяць' }).click()
   await dialog.getByRole('button', { name: '15', exact: true }).click()
   await dialog.getByLabel('Час').fill(time)
@@ -176,23 +238,221 @@ const chooseCalendarNextMonth = async (page: Page, label: string, time: string) 
   return input
 }
 
+test('channel round trips preserve the audience and text and never allow zero channels', async ({ page }) => {
+  const backend = await installBackend(page)
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Зміна каналів')
+  await step(page, 3).click()
+  await page.getByRole('textbox', { name: /^Текст/ }).fill('Незмінний текст {{client_name}}')
+  await step(page, 1).click()
+  const telegram = page.getByRole('checkbox', { name: 'Telegram', exact: true })
+  const sms = page.getByRole('checkbox', { name: 'SMS', exact: true })
+  await expect(telegram).toBeDisabled()
+  await sms.check()
+  await telegram.uncheck()
+  await expect(sms).toBeDisabled()
+  await telegram.check()
+  await sms.uncheck()
+  await expect(telegram).toBeDisabled()
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 3).click()
+  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue('Незмінний текст {{client_name}}')
+  await step(page, 6).click()
+  expect(backend.writes).toEqual([])
+  await page.getByRole('button', { name: 'Створити кампанію', exact: true }).click()
+  await savedPage(page, 'Зміна каналів')
+  expect(campaignWrites(backend)).toHaveLength(1)
+  expect(campaignWrites(backend)[0]!.body).toMatchObject({ channel: 'telegram', channel_strategy: 'single', segment_ids: [101], status: 'draft', metadata_json: { message_body: 'Незмінний текст {{client_name}}' } })
+  checkBackend(backend)
+})
+
+test('a failed second segment page retains the first page and retry restores the missing selection', async ({ page }) => {
+  const backend = await installBackend(page)
+  backend.failSegmentPageOnce(100)
+  await page.goto('/messaging/campaigns/new')
+  await step(page, 2).click()
+  await expect(page.getByRole('alert')).toContainText('Temporary segment error')
+  await chooseSegment(page, 'Сегмент 001')
+  await expect(segmentTrigger(page)).toContainText('1/20 вибрано')
+  await page.getByRole('button', { name: 'Повторити', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await chooseSegment(page, 'Особлива аудиторія')
+  await expect(segmentTrigger(page)).toContainText('2/20 вибрано')
+  await expectSelectedSegment(page, 'Сегмент 001')
+  expect(backend.segmentQueries.filter(url => url.searchParams.get('offset') === '100')).toHaveLength(3)
+  expect(backend.writes).toEqual([])
+  checkBackend(backend, true)
+})
+
+test('shared template identity survives campaign retry and pending double clicks create one draft', async ({ page }) => {
+  const backend = await installBackend(page, 'light', segments, { templates: [sharedTemplate] })
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Повторна спроба')
+  await page.getByText('Повернення неактивних клієнтів', { exact: true }).click()
+  await page.getByRole('checkbox', { name: 'SMS', exact: true }).check()
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).uncheck()
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 3).click()
+  await chooseSelectOption(page, 'Шаблон', sharedTemplate.name)
+  await page.getByRole('textbox', { name: /^Текст/ }).fill('Власний текст {{client_name}}')
+  await step(page, 6).click()
+  backend.failCampaignOnce()
+  const save = page.getByRole('button', { name: 'Створити кампанію', exact: true })
+  await save.click()
+  await expect.poll(() => campaignWrites(backend).length).toBe(1)
+  await expect(save).toBeEnabled()
+  const release = backend.holdCampaignResponse()
+  try {
+    await save.evaluate(element => { (element as HTMLButtonElement).click(); (element as HTMLButtonElement).click() })
+    await expect.poll(() => campaignWrites(backend).length).toBe(2)
+    await expect(page.getByRole('button', { name: 'Завантаження', exact: true })).toBeDisabled()
+    expect(backend.writes.filter(write => write.path.endsWith('/templates'))).toHaveLength(0)
+    expect(campaignWrites(backend).map(write => write.body)).toEqual([campaignWrites(backend)[0]!.body, campaignWrites(backend)[0]!.body])
+  } finally { release() }
+  await savedPage(page, 'Повторна спроба')
+  expect(campaignWrites(backend)).toHaveLength(2)
+  expect(campaignWrites(backend)[1]!.body).toMatchObject({ template_id: 41, status: 'draft', metadata_json: { message_body: 'Власний текст {{client_name}}' } })
+  checkBackend(backend, true)
+})
+
+test('backend-shaped templates filter by active channel and channel changes reset identity but not text', async ({ page }) => {
+  const telegramTemplate = { ...sharedTemplate, id: 42, name: 'Telegram шаблон', channel: 'telegram' }
+  const inactiveTemplate = { ...sharedTemplate, id: 43, name: 'Архівний SMS шаблон', is_active: false }
+  const backend = await installBackend(page, 'light', segments, { templates: [sharedTemplate, telegramTemplate, inactiveTemplate] })
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Перехід шаблону')
+  await page.getByText('Повернення неактивних клієнтів', { exact: true }).click()
+  await page.getByRole('checkbox', { name: 'SMS', exact: true }).check()
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).uncheck()
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 3).click()
+  await page.getByRole('button', { name: /^Шаблон(?:\s|$)/ }).click()
+  await expect(page.getByRole('option', { name: telegramTemplate.name, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: inactiveTemplate.name, exact: true })).toHaveCount(0)
+  await page.getByRole('option', { name: sharedTemplate.name, exact: true }).click()
+  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue(sharedTemplate.body)
+  await step(page, 1).click()
+  await expect(page.getByRole('radio', { name: /Повернення неактивних клієнтів/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'SMS', exact: true })).toBeChecked()
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).check()
+  await page.getByRole('checkbox', { name: 'SMS', exact: true }).uncheck()
+  await step(page, 3).click()
+  await expect(page.getByRole('button', { name: /^Шаблон(?:\s|$)/ })).toContainText('Кастомне повідомлення')
+  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue(sharedTemplate.body)
+  await step(page, 6).click()
+  await page.getByRole('button', { name: 'Створити кампанію', exact: true }).click()
+  await savedPage(page, 'Перехід шаблону')
+  expect(campaignWrites(backend)[0]!.body).toMatchObject({ type: 're_engagement', channel: 'telegram', template_id: 71, status: 'draft', metadata_json: { message_body: sharedTemplate.body } })
+  expect(backend.writes.filter(write => write.path.endsWith('/templates'))).toHaveLength(1)
+  checkBackend(backend)
+})
+
+test('editing only an offer name reuses a backend-shaped template for re-engagement', async ({ page }) => {
+  const template = { ...sharedTemplate, id: 71, body: 'До {{master_name}}: {{offer_link}}' }
+  const campaign = {
+    id: 501, name: 'Збережена пропозиція', type: 're_engagement', status: 'draft',
+    channel: 'sms', channel_strategy: 'single', offer_audience_mode: 'segments',
+    template_id: 71, segment_ids: [101], offer_master_id: 7, offer_promotion_id: 9,
+    offer_service_ids: [11], master_name_for_message: 'Майстра', purpose: 'marketing', recipient: 'customer',
+    metadata_json: { offer_audience_mode: 'segments' },
+  }
+  const backend = await installBackend(page, 'light', segments, { templates: [template], existingCampaign: campaign })
+  await page.goto('/messaging/campaigns/501')
+  await expect(page.getByTestId('campaign-view')).toBeVisible()
+  await page.getByRole('button', { name: 'Редагувати', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Текст повідомлення', exact: true })).toHaveValue(template.body)
+  await page.getByRole('textbox', { name: 'Назва', exact: true }).fill('Змінена назва пропозиції')
+  const save = page.getByRole('button', { name: 'Зберегти зміни', exact: true })
+  await expect(save).toBeEnabled()
+  await save.click()
+  await expect(page.getByTestId('campaign-view')).toBeVisible()
+  expect(backend.writes).toHaveLength(1)
+  expect(backend.writes[0]).toMatchObject({ path: '/backoffice/messaging/campaigns/501', body: { name: 'Змінена назва пропозиції', type: 're_engagement', template_id: 71, status: 'draft' } })
+  checkBackend(backend)
+})
+
+test('backend templates cannot turn a booking notification into a manual campaign', async ({ page }) => {
+  const notificationTemplate = { ...sharedTemplate, body: 'Запис: {manage_url} {cancel_url}' }
+  const telegramTemplate = { ...sharedTemplate, id: 42, name: 'Telegram шаблон', channel: 'telegram' }
+  const inactiveTemplate = { ...sharedTemplate, id: 43, name: 'Архівний SMS шаблон', is_active: false }
+  const backend = await installBackend(page, 'light', segments, { templates: [notificationTemplate, telegramTemplate, inactiveTemplate] })
+  await page.goto('/messaging/campaigns/new?kind=notifications')
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Шаблон сповіщення')
+  await step(page, 3).click()
+  await page.getByRole('button', { name: /^Шаблон(?:\s|$)/ }).click()
+  await expect(page.getByRole('option', { name: telegramTemplate.name, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: inactiveTemplate.name, exact: true })).toHaveCount(0)
+  await page.getByRole('option', { name: notificationTemplate.name, exact: true }).click()
+  await expect(next(page)).toBeEnabled()
+  await step(page, 1).click()
+  await expect(page.getByRole('radio', { name: /Підтвердження запису/ })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'SMS', exact: true })).toBeChecked()
+  await step(page, 6).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
+  await savedPage(page, 'Шаблон сповіщення')
+  expect(campaignWrites(backend)[0]!.body).toMatchObject({ type: 'booking_confirmation', channel: 'sms', template_id: 41, status: 'draft', purpose: 'transactional', metadata_json: { message_body: notificationTemplate.body } })
+  expect(backend.writes.filter(write => write.path.endsWith('/templates'))).toHaveLength(0)
+  checkBackend(backend)
+})
+
+test('personal offer toggles preserve separate text, channel and policy state without writes', async ({ page }) => {
+  const backend = await installBackend(page)
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  const offer = page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Загальна кампанія')
+  await step(page, 3).click()
+  await page.getByRole('textbox', { name: /^Текст/ }).fill('Загальний текст')
+  await step(page, 1).click()
+  await offer.check()
+  await page.getByRole('textbox', { name: 'Назва', exact: true }).fill('Персональна кампанія')
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).check()
+  await step(page, 2).click()
+  await page.getByRole('spinbutton', { name: 'Мінімум днів між маркетинговими контактами' }).fill('23')
+  await step(page, 3).click()
+  await page.getByRole('textbox', { name: 'Текст повідомлення', exact: true }).fill('{{discount_percent}} {{promotion_name_uk}} {{offer_link}}')
+  await page.getByRole('textbox', { name: /Ім’я у повідомленні/ }).fill('Майстра')
+  await step(page, 1).click()
+  await offer.uncheck()
+  await expect(page.getByRole('textbox', { name: 'Назва кампанії' })).toHaveValue('Загальна кампанія')
+  await expect(page.getByRole('checkbox', { name: 'SMS', exact: true })).not.toBeChecked()
+  await step(page, 3).click()
+  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue('Загальний текст')
+  await step(page, 1).click()
+  await offer.check()
+  await expect(page.getByRole('checkbox', { name: 'SMS', exact: true })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Telegram', exact: true })).toBeChecked()
+  await step(page, 2).click()
+  await expect(page.getByRole('spinbutton', { name: 'Мінімум днів між маркетинговими контактами' })).toHaveValue('23')
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 3).click()
+  await expect(page.getByRole('textbox', { name: 'Текст повідомлення', exact: true })).toHaveValue('{{discount_percent}} {{promotion_name_uk}} {{offer_link}}')
+  await expect(next(page)).toBeEnabled()
+  expect(backend.writes).toEqual([])
+  checkBackend(backend)
+})
+
 test('broadcast starts with segments, searches all pages and saves a segment draft', async ({ page }) => {
   const backend = await installBackend(page)
   await page.goto('/messaging/campaigns/new')
-  await expect(page.getByRole('radio', { name: /Звичайна розсилка/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })).not.toBeChecked()
   await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Осіння розсилка')
   await step(page, 2).click()
-  await expect(page.getByRole('radio', { name: 'Збережені сегменти' })).toBeChecked()
+  await expect(audienceSource(page)).toContainText('Збережені сегменти')
   await expect.poll(() => backend.segmentQueries.some(url => url.searchParams.get('offset') === '100')).toBe(true)
   expect(backend.segmentQueries.every(url => url.searchParams.get('status') === 'active' && url.searchParams.get('limit') === '100')).toBe(true)
-  await page.getByRole('searchbox', { name: 'Пошук сегмента' }).fill('Особлива')
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: /Сегмент 001/ })).toHaveCount(0)
-  await page.getByRole('checkbox', { name: /Особлива аудиторія/ }).check()
+  await openSegments(page)
+  await segmentSearch(page).fill('Особлива')
+  await expect(segmentOption(page, 'Особлива аудиторія')).toBeVisible()
+  await expect(segmentOption(page, 'Сегмент 001')).toHaveCount(0)
+  await segmentOption(page, 'Особлива аудиторія').click()
+  await closeSegments(page)
   await step(page, 3).click()
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Привіт, це осіння пропозиція.')
   await step(page, 6).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Осіння розсилка')
   expect(campaignWrites(backend)[0]!.body).toMatchObject({ name: 'Осіння розсилка', type: 'manual', status: 'draft', segment_ids: [101], channel_strategy: 'single' })
@@ -200,50 +460,105 @@ test('broadcast starts with segments, searches all pages and saves a segment dra
   checkBackend(backend)
 })
 
-test('switching scenarios keeps each draft state and legacy URL becomes canonical', async ({ page }) => {
+test('segment field tooltip click preserves selection and audience mode without opening the picker', async ({ page }) => {
   const backend = await installBackend(page)
-  await page.goto('/messaging/campaigns/new?kind=new-master&segment_id=101')
-  await expect(page).toHaveURL('/messaging/campaigns/new?segment_id=101')
-  await expect(page.getByRole('radio', { name: /Новий майстер/ })).toBeChecked()
-  await page.getByRole('textbox', { name: 'Назва' }).fill('Окрема акція')
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  await expect(page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })).not.toBeChecked()
   await step(page, 2).click()
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeChecked()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  const audienceMode = audienceSource(page)
+  const help = segmentPicker(page).getByRole('button', { name: 'Пояснення: Збережені сегменти', exact: true })
+  await expect(audienceMode).toContainText('Збережені сегменти')
+  await expect(audienceMode).toHaveAttribute('aria-expanded', 'false')
+  await help.click()
+  await expect(page.getByRole('tooltip')).toContainText('кожен клієнт потрапляє в аудиторію один раз')
+  await expect(help).toHaveAttribute('aria-expanded', 'true')
+  await expect(segmentTrigger(page)).toContainText('1/20 вибрано')
+  await expect(segmentSearch(page)).toHaveCount(0)
+  await expect(audienceMode).toContainText('Збережені сегменти')
+  await expect(audienceMode).toHaveAttribute('aria-expanded', 'false')
+  await help.click()
+  await expect(help).toHaveAttribute('aria-expanded', 'false')
+  await expectSelectedSegment(page, 'Особлива аудиторія')
   await step(page, 1).click()
-  await page.getByRole('radio', { name: /Звичайна розсилка/ }).check()
-  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Окрема розсилка')
-  await step(page, 2).click()
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeChecked()
-  await step(page, 1).click()
-  await page.getByRole('radio', { name: /Новий майстер/ }).check()
-  await expect(page.getByRole('textbox', { name: 'Назва' })).toHaveValue('Окрема акція')
-  await step(page, 2).click()
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })).not.toBeChecked()
+  expect(campaignWrites(backend)).toHaveLength(0)
   checkBackend(backend)
 })
 
-test('new master saves only a typed offer draft after all six steps', async ({ page }) => {
+test('optional personal offer keeps draft state and legacy URL becomes canonical', async ({ page }) => {
+  const backend = await installBackend(page)
+  await page.goto('/messaging/campaigns/new?kind=new-master&segment_id=101')
+  await expect(page).toHaveURL('/messaging/campaigns/new?segment_id=101')
+  await expect(page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })).toBeChecked()
+  await page.getByRole('textbox', { name: 'Назва' }).fill('Окрема акція')
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 1).click()
+  await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).uncheck()
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Окрема розсилка')
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await step(page, 1).click()
+  await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).check()
+  await expect(page.getByRole('textbox', { name: 'Назва' })).toHaveValue('Окрема акція')
+  await step(page, 2).click()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  checkBackend(backend)
+})
+
+test('both selected channels create one Telegram-first fallback campaign', async ({ page }, testInfo) => {
   const backend = await installBackend(page)
   await page.goto('/messaging/campaigns/new?segment_id=101')
-  await page.getByRole('radio', { name: /Новий майстер/ }).check()
+  await expect(page.getByText('Новий майстер · акція 30%', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: 'Назва кампанії' })).toHaveValue('')
+  await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Кампанія з резервним SMS')
+  await page.getByRole('checkbox', { name: 'SMS', exact: true }).check()
+  await expect(page.getByRole('checkbox', { name: 'Telegram', exact: true })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'SMS', exact: true })).toBeChecked()
+  await expect(page.getByTestId('campaign-navigation')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await page.screenshot({ path: testInfo.outputPath('campaign-constructor.png'), fullPage: true, animations: 'disabled' })
+  await step(page, 2).click()
+  await expectInlineAudienceDisabled(page)
+  await step(page, 3).click()
+  await page.getByRole('textbox', { name: /^Текст/ }).fill('Повідомлення {{client_name}}')
+  await step(page, 6).click()
+  await page.getByRole('button', { name: 'Створити кампанію', exact: true }).click()
+  await savedPage(page, 'Кампанія з резервним SMS')
+  expect(campaignWrites(backend)).toHaveLength(1)
+  expect(campaignWrites(backend)[0]!.body).toMatchObject({ channel: 'telegram', channel_strategy: 'telegram_then_sms', status: 'draft' })
+  expect(backend.writes.every(write => !write.path.endsWith('/runs'))).toBe(true)
+  checkBackend(backend)
+})
+
+test('new master saves only a typed offer draft after all six steps', async ({ page }, testInfo) => {
+  const backend = await installBackend(page)
+  await page.goto('/messaging/campaigns/new?segment_id=101')
+  await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).check()
   await page.getByRole('textbox', { name: 'Назва' }).fill('Новий майстер жовтень')
   await step(page, 2).click()
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeChecked()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
   await step(page, 3).click()
+  await expect(page.getByRole('textbox', { name: 'Текст повідомлення' })).toHaveValue('')
+  await page.getByRole('textbox', { name: 'Текст повідомлення' }).fill('До {{master_name}}: {{offer_link}}')
   await page.getByRole('textbox', { name: /Ім’я у повідомленні/ }).fill('Тестового Майстра')
   await step(page, 4).click()
   await page.getByRole('button', { name: 'Майстер Оберіть майстра' }).click()
   await page.getByRole('option', { name: 'Тест Майстер' }).click()
-  await page.getByRole('button', { name: 'Акція 30% Оберіть акцію' }).click()
+  await page.getByRole('button', { name: 'Акція Оберіть акцію' }).click()
   await page.getByRole('option', { name: 'Знижка 30%' }).click()
-  await page.getByRole('checkbox', { name: /Стрижка/ }).check()
+  await chooseService(page, 'Стрижка')
   await step(page, 5).click()
   await step(page, 6).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await expect(page.getByText('Тестового Майстра', { exact: false }).first()).toBeVisible()
+  expect(backend.writes).toEqual([])
+  await page.screenshot({ path: testInfo.outputPath('campaign-final-review.png'), fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Новий майстер жовтень')
   expect(campaignWrites(backend)[0]!.body).toEqual({
-    name: 'Новий майстер жовтень', type: 're_engagement', status: 'draft', channel: 'sms',
-    channel_strategy: 'single', purpose: 'marketing', recipient: 'customer', timezone: 'Europe/Kyiv',
+    name: 'Новий майстер жовтень', type: 'manual', status: 'draft', channel: 'sms',
+    channel_strategy: 'single', offer_audience_mode: 'segments', purpose: 'marketing', recipient: 'customer', timezone: 'Europe/Kyiv',
     template_id: 71, segment_ids: [101], offer_master_id: 7, offer_promotion_id: 9,
     offer_service_ids: [11], master_name_for_message: 'Тестового Майстра',
     sending_window: { start: '10:00', end: '18:00', days: [0, 1, 2, 3, 4, 5, 6] },
@@ -251,6 +566,17 @@ test('new master saves only a typed offer draft after all six steps', async ({ p
     marketing_cap_days: 7, exclude_upcoming_booking: true, exclude_returned_since_snapshot: true,
     offer_starts_at: null, offer_expires_at: null,
   })
+  await expect(page.getByTestId('campaign-view')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Назва', exact: true })).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath('campaign-readonly.png'), fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: 'Редагувати', exact: true }).click()
+  await expect(page.getByTestId('new-master-review')).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Назва', exact: true }).fill('Незбережена зміна')
+  await page.getByRole('button', { name: 'Скасувати редагування' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Скасувати зміни', exact: true }).click()
+  await expect(page.getByTestId('campaign-view')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Новий майстер жовтень', exact: true })).toBeVisible()
+  expect(campaignWrites(backend)).toHaveLength(1)
   expect(backend.writes.filter(write => write.path.endsWith('/templates'))).toHaveLength(1)
   checkBackend(backend)
 })
@@ -272,34 +598,44 @@ test('new master gates name, segment count, frequency and message template befor
   test.setTimeout(60_000)
   const backend = await installBackend(page)
   await page.goto('/messaging/campaigns/new?segment_id=101')
-  await page.getByRole('radio', { name: /Новий майстер/ }).check()
+  await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).check()
   const name = page.getByRole('textbox', { name: 'Назва', exact: true })
   await name.fill('')
   await expect(next(page)).toBeDisabled()
   await name.fill('Валідація майстра')
-  await selectOfferOption(page, 'Канал', 'SMS', 'Telegram → SMS, якщо Telegram недоступний')
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).check()
   await expect(next(page)).toBeEnabled()
   await next(page).click()
 
   await page.getByRole('button', { name: 'Прибрати сегмент Особлива аудиторія' }).click()
   await expect(next(page)).toBeDisabled()
-  await page.getByRole('checkbox', { name: /Особлива аудиторія/ }).check()
+  await chooseSegment(page, 'Особлива аудиторія')
   const frequency = page.getByRole('spinbutton', { name: 'Мінімум днів між маркетинговими контактами' })
   for (const invalid of ['', '0', '366', '1.5']) {
     await frequency.fill(invalid)
     await expect(next(page)).toBeDisabled()
   }
   await frequency.fill('14')
-  for (let id = 1; id <= 19; id++) await page.getByRole('checkbox', { name: `Сегмент ${String(id).padStart(3, '0')}` }).check()
-  await expect(page.getByText('Вибрано 20 із 20')).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: 'Сегмент 020' })).toBeDisabled()
+  await openSegments(page)
+  for (let id = 1; id <= 19; id++) {
+    const name = `Сегмент ${String(id).padStart(3, '0')}`
+    await segmentSearch(page).fill(name)
+    await segmentOption(page, name).click()
+  }
+  await expect(segmentTrigger(page)).toContainText('20/20 вибрано')
+  await segmentSearch(page).fill('Сегмент 020')
+  await expect(segmentOption(page, 'Сегмент 020')).toBeDisabled()
+  await closeSegments(page)
   await page.getByRole('button', { name: 'Прибрати сегмент Сегмент 001' }).click()
-  await expect(page.getByRole('checkbox', { name: 'Сегмент 020' })).toBeEnabled()
+  await openSegments(page)
+  await segmentSearch(page).fill('Сегмент 020')
+  await expect(segmentOption(page, 'Сегмент 020')).toBeEnabled()
+  await closeSegments(page)
   await expect(next(page)).toBeEnabled()
   await next(page).click()
 
   const messageName = page.getByRole('textbox', { name: /Ім’я у повідомленні/ })
-  const template = page.getByRole('textbox', { name: 'SMS шаблон' })
+  const template = page.getByRole('textbox', { name: 'Текст повідомлення' })
   await expect(next(page)).toBeDisabled()
   await messageName.fill('Майстра')
   await template.fill('')
@@ -318,25 +654,25 @@ test('new master validates offer dates and send policy, then retries a failed dr
   test.setTimeout(60_000)
   const backend = await installBackend(page, 'light', segments, { masters: [master, otherMaster], promotions: [promotion, invalidPromotion] })
   await page.goto('/messaging/campaigns/new?segment_id=101')
-  await page.getByRole('radio', { name: /Новий майстер/ }).check()
+  await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).check()
   await page.getByRole('textbox', { name: 'Назва', exact: true }).fill('Акція з правилами')
-  await selectOfferOption(page, 'Канал', 'SMS', 'Telegram → SMS, якщо Telegram недоступний')
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).check()
   await next(page).click()
   await page.getByRole('spinbutton', { name: 'Мінімум днів між маркетинговими контактами' }).fill('14')
   await next(page).click()
   await page.getByRole('textbox', { name: /Ім’я у повідомленні/ }).fill('Іншого Майстра')
-  await page.getByRole('textbox', { name: 'SMS шаблон' }).fill('До {{master_name}}: {{offer_link}}')
+  await page.getByRole('textbox', { name: 'Текст повідомлення' }).fill('До {{master_name}}: {{offer_link}}')
   await next(page).click()
 
-  await page.getByRole('button', { name: 'Акція 30% Оберіть акцію' }).click()
-  await expect(page.getByRole('option', { name: 'Знижка 20%' })).toHaveCount(0)
-  await page.getByRole('option', { name: 'Знижка 30%' }).click()
+  await page.getByRole('button', { name: 'Акція Оберіть акцію' }).click()
+  await expect(page.getByRole('option', { name: 'Знижка 20%' })).toBeVisible()
+  await page.getByRole('option', { name: 'Знижка 20%' }).click()
   await selectOfferOption(page, 'Майстер', 'Оберіть майстра', 'Тест Майстер')
-  await page.getByRole('checkbox', { name: 'Стрижка' }).check()
+  await chooseService(page, 'Стрижка')
   await selectOfferOption(page, 'Майстер', 'Тест Майстер', 'Інший Майстер')
   await expect(page.getByRole('checkbox', { name: 'Стрижка' })).toHaveCount(0)
   await expect(next(page)).toBeDisabled()
-  await page.getByRole('checkbox', { name: 'Борода' }).check()
+  await chooseService(page, 'Борода')
   const startLabel = 'Початок пропозиції · Europe/Kyiv'
   const endLabel = 'Кінець пропозиції · Europe/Kyiv'
   const start = await chooseCalendarToday(page, startLabel, '12:00')
@@ -380,17 +716,17 @@ test('new master validates offer dates and send policy, then retries a failed dr
   await expect(page.getByText('11:00–17:00', { exact: false })).toBeVisible()
 
   backend.failCampaignOnce()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect(page.getByRole('alert')).toContainText('Temporary draft error')
   await expect(page).toHaveURL(/\/messaging\/campaigns\/new/)
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(2)
   await savedPage(page, 'Акція з правилами')
   const body = campaignWrites(backend)[1]!.body
   expect(body).toMatchObject({
-    name: 'Акція з правилами', status: 'draft', type: 're_engagement', channel: 'sms',
+    name: 'Акція з правилами', status: 'draft', type: 'manual', channel: 'telegram',
     channel_strategy: 'telegram_then_sms', segment_ids: [101], offer_master_id: 8,
-    offer_promotion_id: 9, offer_service_ids: [12], master_name_for_message: 'Іншого Майстра',
+    offer_audience_mode: 'segments', offer_promotion_id: 10, offer_service_ids: [12], master_name_for_message: 'Іншого Майстра',
     sending_window: { start: '11:00', end: '17:00', days: [0] }, sms_recipients_per_minute: 30,
     marketing_frequency_days: 14, marketing_max_contacts: 2, marketing_cap_days: 10,
   })
@@ -409,13 +745,14 @@ test('broadcast retains every configured step in the draft payload after review'
   await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Повна розсилка')
   await page.getByText('Повернення неактивних клієнтів', { exact: true }).click()
   await expect(page.getByRole('radio', { name: /Повернення неактивних клієнтів/ })).toBeChecked()
-  await page.getByText('SMS', { exact: true }).click()
-  await expect(page.getByRole('radio', { name: 'SMS', exact: true })).toBeChecked()
+  await page.getByRole('checkbox', { name: 'SMS', exact: true }).check()
+  await page.getByRole('checkbox', { name: 'Telegram', exact: true }).uncheck()
+  await expect(page.getByRole('checkbox', { name: 'SMS', exact: true })).toBeChecked()
   await next(page).click()
-  await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeChecked()
-  await expect(page.getByRole('radio', { name: /Фільтри цієї кампанії/ })).toBeDisabled()
+  await expectSelectedSegment(page, 'Особлива аудиторія')
+  await expectInlineAudienceDisabled(page)
   await expect(page.getByText(/Для SMS виберіть збережений сегмент/)).toBeVisible()
-  await page.getByRole('combobox', { name: 'Стратегія каналів' }).selectOption('sms_then_telegram')
+  await expect(page.getByRole('combobox', { name: 'Стратегія каналів' })).toHaveCount(0)
   await page.getByRole('checkbox', { name: 'Виключити клієнтів із майбутніми бронюваннями' }).uncheck()
   await page.getByRole('checkbox', { name: 'Виключити клієнтів, які повернулися після фіксації аудиторії' }).uncheck()
   const frequency = page.getByRole('spinbutton', { name: 'Мінімум днів між маркетинговими повідомленнями' })
@@ -423,14 +760,14 @@ test('broadcast retains every configured step in the draft payload after review'
   await expect(next(page)).toBeDisabled()
   await frequency.fill('12')
   await next(page).click()
-  await page.getByRole('combobox', { name: 'Шаблон' }).selectOption('41')
+  await chooseSelectOption(page, 'Шаблон', sharedTemplate.name)
   expect(backend.templateQueries.some(url => url.searchParams.get('page') === '2')).toBe(true)
-  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue(sharedTemplate.message_body)
+  await expect(page.getByRole('textbox', { name: /^Текст/ })).toHaveValue(sharedTemplate.body)
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Оновлений текст {{client_name}}')
   await expect(page.getByRole('textbox', { name: 'Українська версія' })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'English version' })).toHaveCount(0)
   await next(page).click()
-  await page.getByRole('combobox', { name: 'Платформа відгуку' }).selectOption('instagram')
+  await chooseSelectOption(page, 'Платформа відгуку', 'Instagram')
   await page.getByRole('textbox', { name: 'Посилання' }).fill('https://example.test/review')
   await page.getByRole('textbox', { name: 'Промокод' }).fill('SOUL12')
   await expect(page.getByRole('textbox', { name: 'Текст кнопки Telegram' })).toHaveCount(0)
@@ -440,7 +777,7 @@ test('broadcast retains every configured step in the draft payload after review'
   await expect(next(page)).toBeDisabled()
   const scheduled = await chooseCalendarNextMonth(page, 'Дата і час', '16:30')
   await expect(scheduled).toHaveValue(/T16:30$/)
-  await page.getByRole('combobox', { name: 'Timezone' }).selectOption('Europe/Warsaw')
+  await chooseSelectOption(page, 'Часовий пояс', 'Варшава · Europe/Warsaw')
   const rate = page.getByRole('spinbutton', { name: 'Макс. повідомлень за хвилину' })
   for (const invalid of ['', '0', '481']) { await rate.fill(invalid); await expect(next(page)).toBeDisabled() }
   await rate.fill('50')
@@ -451,13 +788,13 @@ test('broadcast retains every configured step in the draft payload after review'
   await expect(page.getByRole('heading', { name: 'Фінальна перевірка' })).toBeVisible()
   await expect(page.getByText('Повна розсилка', { exact: true })).toBeVisible()
   await expect(page.getByText('later', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Повна розсилка')
   const body = campaignWrites(backend)[0]!.body
   expect(body).toMatchObject({
     name: 'Повна розсилка', type: 're_engagement', channel: 'sms', status: 'draft',
-    template_id: 41, segment_ids: [101], channel_strategy: 'sms_then_telegram',
+    template_id: 41, segment_ids: [101], channel_strategy: 'single',
     exclude_upcoming_booking: false, exclude_returned_since_snapshot: false,
     marketing_frequency_days: 12, review_platform: 'instagram', review_url: 'https://example.test/review',
     discount_code: 'SOUL12', timezone: 'Europe/Warsaw', sms_recipients_per_minute: 50,
@@ -477,7 +814,9 @@ test('inline audience gates incomplete master, service, date and inactive rules 
   await page.goto('/messaging/campaigns/new')
   await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Фільтрована розсилка')
   await next(page).click()
-  await page.getByRole('radio', { name: /Фільтри цієї кампанії/ }).check()
+  await audienceSource(page).click()
+  await page.getByRole('option', { name: 'Фільтри цієї кампанії', exact: true }).click()
+  await expect(audienceSource(page)).toContainText('Фільтри цієї кампанії')
   await page.getByText('Клієнти майстра', { exact: true }).click()
   await expect(next(page)).toBeDisabled()
   await page.getByRole('button', { name: 'Оберіть майстра' }).click()
@@ -486,20 +825,26 @@ test('inline audience gates incomplete master, service, date and inactive rules 
   await page.getByText('Візити за період', { exact: true }).click()
   await expect(next(page)).toBeDisabled()
   await page.getByRole('textbox', { name: 'Дата від' }).click()
-  await page.getByRole('dialog', { name: 'Вибір дати' }).getByRole('button', { name: 'Сьогодні' }).click()
+  await page.getByRole('dialog', { name: 'Дата від', exact: true }).getByRole('button', { name: 'Сьогодні' }).click()
   await expect(next(page)).toBeEnabled()
   await page.getByText('Неактивні клієнти', { exact: true }).click()
   await expect(next(page)).toBeDisabled()
-  await page.getByRole('spinbutton', { name: 'Днів без візиту' }).fill('90')
+  const inactiveDays = page.getByRole('spinbutton', { name: 'Днів без візиту' })
+  for (const invalid of ['', '0', '-1', '1.5', '3651']) {
+    await inactiveDays.fill(invalid)
+    await expect(next(page), `Inactive days ${JSON.stringify(invalid)} must not become a valid default`).toBeDisabled()
+    expect(backend.writes).toEqual([])
+  }
+  await inactiveDays.fill('90')
   await expect(next(page)).toBeEnabled()
   await page.getByText('Використали послугу', { exact: true }).click()
   await expect(next(page)).toBeDisabled()
-  await page.getByRole('combobox', { name: 'Послуга' }).selectOption('11')
+  await chooseSelectOption(page, 'Послуга', `${service.name} #${service.id} · ${master.full_name}`)
   await expect(next(page)).toBeEnabled()
   await next(page).click()
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Запрошення після стрижки.')
   await step(page, 6).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Фільтрована розсилка')
   expect(campaignWrites(backend)[0]!.body).toMatchObject({
@@ -513,14 +858,14 @@ test('booking notification requires SMS variables and saves an event-driven draf
   const backend = await installBackend(page)
   await page.goto('/messaging/campaigns/new?kind=notifications')
   await expect(page.getByRole('heading', { name: 'Нове сповіщення' })).toBeVisible()
-  await expect(page.getByRole('radio', { name: /Звичайна розсилка/ })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true })).toHaveCount(0)
   await page.getByRole('textbox', { name: 'Назва кампанії' }).fill('Подієве SMS')
   await page.getByRole('radio', { name: /Підтвердження запису/ }).check()
   await expect(page.getByRole('radio', { name: 'SMS', exact: true })).toBeChecked()
   await expect(page.getByRole('radio', { name: /^Telegram/ })).toBeDisabled()
   await next(page).click()
   await expect(page.getByText(/Сповіщення створюються за подіями/)).toBeVisible()
-  await expect(page.getByRole('radio', { name: 'Збережені сегменти' })).toHaveCount(0)
+  await expect(audienceSource(page)).toHaveCount(0)
   await next(page).click()
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Ваш запис підтверджено')
   await expect(page.getByText(/Не вистачає змінних:/)).toContainText('{manage_url}')
@@ -528,7 +873,7 @@ test('booking notification requires SMS variables and saves an event-driven draf
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Ваш запис: {manage_url} {cancel_url}')
   await expect(next(page)).toBeEnabled()
   await next(page).click()
-  await expect(page.getByRole('heading', { name: 'Відгук та промо' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Посилання та промокод', exact: true })).toBeVisible()
   await next(page).click()
   await expect(page.getByRole('heading', { name: 'Розклад та правила' })).toBeVisible()
   await expect(page.getByText(/Сповіщення надсилається автоматично/)).toBeVisible()
@@ -536,10 +881,10 @@ test('booking notification requires SMS variables and saves an event-driven draf
   await expect(page.getByRole('combobox', { name: 'Після завершення візиту' })).toHaveCount(0)
   await expect(page.getByRole('switch', { name: 'Не надсилати вночі' })).toHaveCount(0)
   await expect(page.getByRole('spinbutton', { name: 'Макс. повідомлень за хвилину' })).toHaveCount(0)
-  await expect(page.getByRole('combobox', { name: 'Timezone' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Часовий пояс/ })).toHaveCount(0)
   await next(page).click()
   await expect(page.getByRole('button', { name: 'Активувати кампанію' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Подієве SMS')
   expect(campaignWrites(backend)[0]!.body).toMatchObject({
@@ -576,7 +921,7 @@ test('review notification saves its chosen channel and quiet hours without a del
   await times.nth(1).fill('08:15')
   await expect(next(page)).toBeEnabled()
   await next(page).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Запит відгуку')
   expect(campaignWrites(backend)[0]!.body).toMatchObject({
@@ -635,7 +980,7 @@ test('master notification uses a master recipient and cannot select unsupported 
   await step(page, 5).click()
   await expect(page.getByRole('switch', { name: 'Не надсилати вночі' })).toHaveCount(0)
   await step(page, 6).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect.poll(() => campaignWrites(backend).length).toBe(1)
   await savedPage(page, 'Графік майстрів')
   expect(campaignWrites(backend)[0]!.body).toMatchObject({
@@ -655,7 +1000,7 @@ test('notification creation refuses a second rule of the same type before any wr
   await step(page, 3).click()
   await page.getByRole('textbox', { name: /^Текст/ }).fill('Запис: {manage_url} {cancel_url}')
   await step(page, 6).click()
-  await page.getByRole('button', { name: 'Зберегти чернетку' }).click()
+  await page.getByRole('button', { name: /Створити (кампанію|сповіщення)/ }).click()
   await expect(page.getByRole('alert')).toContainText('Сповіщення цього типу вже існує')
   await expect(page.getByRole('link', { name: 'Налаштувати Наявне підтвердження' })).toHaveAttribute('href', '/messaging/campaigns/77')
   expect(backend.writes).toEqual([])
@@ -676,16 +1021,65 @@ for (const [theme, width, height] of [['light', 1440, 900], ['dark', 390, 844]] 
     await page.setViewportSize({ width, height })
     const backend = await installBackend(page, theme)
     await page.goto('/messaging/campaigns/new')
+    await expect(page.getByRole('checkbox', { name: 'Telegram', exact: true })).toBeVisible()
+    await expect(page.getByTestId('campaign-navigation')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`campaign-constructor-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    await step(page, 4).click()
+    await expect(page.getByRole('heading', { name: 'Відгук · необов’язково', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Промокод · необов’язково', exact: true })).toBeVisible()
+    await expect(page.locator('select')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`campaign-links-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    await step(page, 5).click()
+    await expect(page.getByRole('radio', { name: 'Після підтвердження запуску', exact: true })).toBeChecked()
+    await expect(page.getByRole('button', { name: /^Часовий пояс/ })).toContainText('Київ')
+    await expect(page.locator('select')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`campaign-schedule-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    await step(page, 2).click()
+    await expect(audienceSource(page)).toContainText('Збережені сегменти')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`campaign-audience-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    await segmentPicker(page).getByRole('button', { name: 'Пояснення: Збережені сегменти', exact: true }).click()
+    const tooltip = page.getByRole('tooltip')
+    await expect(tooltip).toBeVisible()
+    const bounds = await tooltip.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height)
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toHaveCount(0)
     if (theme === 'light') {
-      await page.getByRole('radio', { name: /Новий майстер/ }).check()
+      await step(page, 1).click()
+      await page.getByRole('checkbox', { name: 'Персональна пропозиція', exact: true }).check()
       await step(page, 4).click()
       await expect(page.getByRole('button', { name: 'Майстер Оберіть майстра' })).toBeVisible()
     } else {
       await step(page, 2).click()
-      await page.getByRole('searchbox', { name: 'Пошук сегмента' }).fill('Особлива')
-      await expect(page.getByRole('checkbox', { name: /Особлива аудиторія/ })).toBeVisible()
+      await openSegments(page)
+      await segmentSearch(page).fill('Особлива')
+      await expect(segmentOption(page, 'Особлива аудиторія')).toBeVisible()
     }
     await page.screenshot({ path: testInfo.outputPath(`campaign-wizard-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    await closeSegments(page)
+    await step(page, 2).click()
+    await chooseSegment(page, 'Особлива аудиторія')
+    await chooseSegment(page, 'Сегмент 001')
+    await expect(segmentTrigger(page)).toContainText('2/20 вибрано')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`campaign-audience-${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+    const help = segmentPicker(page).getByRole('button', { name: 'Пояснення: Збережені сегменти', exact: true })
+    const iconBounds = await help.locator('svg').boundingBox()
+    expect(iconBounds?.width).toBeGreaterThanOrEqual(16)
+    expect(iconBounds?.height).toBeGreaterThanOrEqual(16)
+    await help.click()
+    await expect(tooltip).toBeVisible()
+    await expect(segmentTrigger(page)).toContainText('2/20 вибрано')
+    await page.screenshot({ path: testInfo.outputPath(`campaign-audience-help-${theme}-${width}.png`), animations: 'disabled' })
+    await help.click()
     checkBackend(backend)
   })
 }

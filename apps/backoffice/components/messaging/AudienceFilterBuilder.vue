@@ -38,7 +38,8 @@ const options: Array<{ value: AudienceRuleType, label: string, helper: string }>
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="space-y-3">
+    <MessagingCampaignFieldHelp label="Правило відбору" help="Виберіть правило для цієї кампанії. Остаточна аудиторія враховує доступність Telegram та згоду клієнтів на маркетинг; перевірте список перед запуском." />
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <label
         v-for="option in options"
@@ -52,47 +53,41 @@ const options: Array<{ value: AudienceRuleType, label: string, helper: string }>
       </label>
     </div>
 
-    <div class="grid gap-4 rounded-[1.25rem] bg-slate-50 p-4 md:grid-cols-2">
-      <label v-if="['selected_barber'].includes(rule.type)" class="grid gap-2 text-sm">
-        <span class="font-medium text-slate-700">Майстер</span>
+    <div class="grid gap-3 md:grid-cols-2">
         <MasterSelect
+          v-if="['selected_barber'].includes(rule.type)"
+          label="Майстер"
           :model-value="rule.barber_id || null"
           :masters="masters || []"
           value-type="number"
           placeholder="Оберіть майстра"
           menu-class="z-[220]"
           @update:model-value="updateRule({ barber_id: Number($event) || null })"
-        />
-      </label>
+        >
+          <template #label><MessagingCampaignFieldHelp label="Майстер" help="Відбирає клієнтів, які раніше записувалися до вибраного майстра." /></template>
+        </MasterSelect>
 
-      <label v-if="['selected_service'].includes(rule.type)" class="grid gap-2 text-sm">
-        <span class="font-medium text-slate-700">Послуга</span>
-        <BaseSelect native class="rounded-2xl border border-slate-300 px-4 py-3" :value="rule.service_id || ''" @change="updateRule({ service_id: Number(($event.target as HTMLSelectElement).value) || null })">
-          <option value="">Оберіть послугу</option>
-          <option v-for="service in services || []" :key="service.id" :value="service.id">{{ service.name }}</option>
-        </BaseSelect>
-      </label>
+      <BaseSelect v-if="['selected_service'].includes(rule.type)" label="Послуга" :model-value="rule.service_id || ''" :options="[{ value: '', label: 'Оберіть послугу' }, ...(services || []).map(service => ({ value: service.id, label: service.name }))]" @update:model-value="updateRule({ service_id: Number($event) || null })">
+        <template #label><MessagingCampaignFieldHelp label="Послуга" help="Відбирає клієнтів, які бронювали цю послугу. Перед запуском перевірте відповідність списку отримувачів." /></template>
+      </BaseSelect>
 
       <template v-if="rule.type === 'visited_date_range'">
-        <label class="grid gap-2 text-sm">
-          <span class="font-medium text-slate-700">Дата від</span>
-          <BaseCalendar class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_from || ''" @update:model-value="updateRule({ date_from: $event })" />
-        </label>
-        <label class="grid gap-2 text-sm">
-          <span class="font-medium text-slate-700">Дата до</span>
-          <BaseCalendar class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_to || ''" @update:model-value="updateRule({ date_to: $event })" />
-        </label>
+        <BaseCalendar label="Дата від" class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_from || ''" @update:model-value="updateRule({ date_from: $event })">
+          <template #label><MessagingCampaignFieldHelp label="Дата від" help="Початок діапазону дат візитів для відбору клієнтів." /></template>
+        </BaseCalendar>
+        <BaseCalendar label="Дата до" class="rounded-2xl border border-slate-300 px-4 py-3" :model-value="rule.date_to || ''" @update:model-value="updateRule({ date_to: $event })">
+          <template #label><MessagingCampaignFieldHelp label="Дата до" help="Кінець діапазону дат візитів. Перевірте, що він не раніше початкової дати." /></template>
+        </BaseCalendar>
       </template>
 
-      <label v-if="rule.type === 'inactive_clients'" class="grid gap-2 text-sm">
-        <span class="font-medium text-slate-700">Днів без візиту</span>
-        <BaseInput class="rounded-2xl border border-slate-300 px-4 py-3" min="1" type="number" :value="rule.inactive_days || 60" @input="updateRule({ inactive_days: Number(($event.target as HTMLInputElement).value) || 60 })" />
-      </label>
+      <BaseInput v-if="rule.type === 'inactive_clients'" label="Днів без візиту" class="rounded-2xl border border-slate-300 px-4 py-3" min="1" max="3650" step="1" type="number" :model-value="rule.inactive_days ?? null" @update:model-value="updateRule({ inactive_days: $event === null || $event === '' ? null : Number($event) })">
+        <template #label><MessagingCampaignFieldHelp label="Днів без візиту" help="Мінімальний період неактивності клієнта. Відлік ведеться від останнього візиту; значення має бути додатним цілим числом." /></template>
+      </BaseInput>
 
 
     </div>
 
-    <div class="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-white p-4 md:grid-cols-5">
+    <div class="grid items-center gap-3 md:grid-cols-5">
       <div>
         <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Аудиторія</p>
         <p class="mt-1 text-2xl font-semibold text-slate-900">{{ loading ? '...' : estimate?.eligible || 0 }}</p>

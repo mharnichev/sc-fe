@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import { DocumentTextIcon, ChatBubbleLeftRightIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, StarIcon, LinkIcon, TagIcon, ClockIcon, GlobeAltIcon, BoltIcon } from '@heroicons/vue/24/outline'
 import { isNotificationType, channelStrategyLabel } from '~/utils/campaignAudience.mjs'
 import { localDateTimeToIso } from '~/utils/newMasterCampaign.mjs'
 import { loadSegmentServiceOptions } from '~/utils/segmentRules.mjs'
+import { campaignFieldExplanations } from '~/utils/campaignFieldHelp'
 import type { AudienceEstimate, CampaignPayload, MessageTemplate, MessagingCampaign, RecipientPreview } from '~/types/messaging'
 
 const api = useBackofficeApi()
 const router = useRouter()
 const route = useRoute()
 const notificationDraft = route.query.kind === 'notifications'
-const scenario = ref(route.query.kind === 'new-master' ? 'new-master' : 'broadcast')
-const newMasterDraft = computed(() => !notificationDraft && scenario.value === 'new-master')
+const personalOffer = ref(route.query.kind === 'new-master')
+const newMasterDraft = computed(() => !notificationDraft && personalOffer.value)
 const offerEditorMounted = ref(route.query.kind === 'new-master')
 const offerStepValid = ref<Record<number, boolean>>({})
 watch(newMasterDraft, value => { if (value) offerEditorMounted.value = true })
@@ -128,13 +130,13 @@ const selectedTemplate = computed(() => templateItems.value.find(template => Str
 watch(selectedTemplate, (template?: MessageTemplate) => {
   if (!template) return
   form.message_body = template.message_body
-  form.type = template.campaign_type
-  form.channel = template.channel
 })
 
-watch(() => form.type, type => {
+watch(() => form.type, () => {
   existingNotification.value = null
-  if (selectedTemplate.value && selectedTemplate.value.campaign_type !== type) form.template_id = null
+})
+watch(() => form.channel, channel => {
+  if (selectedTemplate.value && selectedTemplate.value.channel !== channel) form.template_id = null
 })
 
 const availableCampaignTypes = computed(() => campaignTypes.filter(type => notificationDraft
@@ -260,7 +262,7 @@ const save = async (activate = false) => {
   }
 }
 
-const stepLabels = computed(() => ['Основи', 'Аудиторія', 'Повідомлення', newMasterDraft.value ? 'Майстер та акція' : 'Відгук / промо', 'Розклад', 'Фінальна перевірка'])
+const stepLabels = computed(() => ['Основи', 'Аудиторія', 'Повідомлення', newMasterDraft.value ? 'Персональна пропозиція' : 'Посилання та промокод', 'Розклад', 'Фінальна перевірка'])
 const stepValid = computed<Record<number, boolean>>(() => newMasterDraft.value ? offerStepValid.value : ({
   1: Boolean(nameValid.value && form.channel),
   2: notificationDraft || (audienceMode.value === 'segments' ? segmentsValid.value && frequencyValid.value : Boolean(inlineAudienceValid.value && estimate.value?.eligible)),
@@ -276,7 +278,7 @@ const nextStep = () => {
 </script>
 
 <template>
-  <div class="messaging-page space-y-6">
+  <div class="messaging-page space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-sm uppercase tracking-[0.3em] text-cyan-700">Комунікації</p>
@@ -285,7 +287,7 @@ const nextStep = () => {
       <NuxtLink :to="notificationDraft ? '/messaging/notifications' : '/messaging/campaigns'" class="messaging-secondary-action rounded-full px-5 py-3 text-sm">До списку</NuxtLink>
     </div>
 
-    <div class="grid gap-6 xl:grid-cols-[260px_1fr]">
+    <div class="grid gap-3 items-start xl:grid-cols-[220px_minmax(0,1fr)]">
       <BaseCard as="aside" padding="sm" class="messaging-wizard-steps">
         <BaseButton
           v-for="item in 6"
@@ -303,21 +305,7 @@ const nextStep = () => {
       </BaseCard>
 
       <BaseCard as="section">
-        <fieldset v-if="step === 1 && !notificationDraft" class="mb-6 space-y-3">
-          <legend class="mb-2 text-sm font-medium text-ui-primary">Сценарій розсилки</legend>
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="cursor-pointer rounded-2xl border p-4" :class="!newMasterDraft ? 'messaging-choice-active' : 'messaging-choice-idle'">
-              <BaseRadioButton v-model="scenario" value="broadcast" name="campaign-scenario" />
-              <span class="ml-2 font-medium">Звичайна розсилка</span>
-              <span class="mt-2 block text-xs text-ui-muted">Повідомлення для вибраних сегментів без персональної пропозиції.</span>
-            </label>
-            <label class="cursor-pointer rounded-2xl border p-4" :class="newMasterDraft ? 'messaging-choice-active' : 'messaging-choice-idle'">
-              <BaseRadioButton v-model="scenario" value="new-master" name="campaign-scenario" />
-              <span class="ml-2 font-medium">Новий майстер · акція 30%</span>
-              <span class="mt-2 block text-xs text-ui-muted">Майстер, акція та персональне посилання для клієнтів, які були 3–12 місяців тому.</span>
-            </label>
-          </div>
-        </fieldset>
+        <div v-if="step === 1 && !notificationDraft" class="mb-4"><BaseCheckbox v-model="personalOffer"><MessagingCampaignFieldHelp label="Персональна пропозиція" /></BaseCheckbox></div>
         <MessagingNewMasterCampaignEditor
           v-if="offerEditorMounted"
           v-show="newMasterDraft"
@@ -327,23 +315,21 @@ const nextStep = () => {
           @saved="openSavedCampaign"
         />
         <template v-if="!newMasterDraft">
-        <div v-if="step === 1" class="space-y-5">
+        <div v-if="step === 1" class="space-y-3">
           <h2 class="text-xl font-semibold text-ui-primary">Основи кампанії</h2>
-          <label class="grid gap-2 text-sm">
-            <span class="font-medium text-ui-primary">Назва кампанії</span>
-            <BaseInput v-model="form.name" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="Наприклад: Відгук після візиту" />
-          </label>
+          <BaseInput v-model="form.name" label="Назва кампанії" placeholder="Наприклад: Відгук після візиту"><template #label><MessagingCampaignFieldHelp label="Назва кампанії" /></template><template #icon><DocumentTextIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
           <div class="grid gap-3 md:grid-cols-2">
-            <label v-for="type in availableCampaignTypes" :key="type.value" class="cursor-pointer rounded-[1.25rem] border p-4" :class="form.type === type.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
+            <label v-for="type in availableCampaignTypes" :key="type.value" class="cursor-pointer rounded-[1.25rem] border p-3" :class="form.type === type.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
               <BaseRadioButton v-model="form.type" class="sr-only" :value="type.value" />
-              <span class="block text-sm font-semibold text-ui-primary">{{ type.label }}</span>
+              <span class="block text-sm font-semibold text-ui-primary"><MessagingCampaignFieldHelp :label="type.label" :help="type.helper" /></span>
               <span class="mt-1 block text-xs leading-5 text-ui-muted">{{ type.helper }}</span>
             </label>
           </div>
-          <div>
-            <p class="text-sm font-medium text-ui-primary">Канал</p>
+          <MessagingCampaignChannelSelector v-if="!notificationDraft" :channel="form.channel === 'sms' ? 'sms' : 'telegram'" :strategy="form.channel_strategy" @update:channel="form.channel = $event" @update:strategy="form.channel_strategy = $event; if ($event !== 'single') audienceMode = 'segments'" />
+          <div v-else>
+            <p class="text-sm font-medium text-ui-primary"><MessagingCampaignFieldHelp label="Канал" /></p>
             <div class="mt-2 grid gap-3 sm:grid-cols-4">
-              <label v-for="channel in availableChannels" :key="channel.value" class="rounded-2xl border p-4 text-sm" :class="form.channel === channel.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
+              <label v-for="channel in availableChannels" :key="channel.value" class="rounded-2xl border p-3 text-sm" :class="form.channel === channel.value ? 'messaging-choice-active' : 'messaging-choice-idle'">
                 <BaseRadioButton v-model="form.channel" class="sr-only" :value="channel.value" :disabled="!channel.enabled" />
                 <MessagingChannelBadge :channel="channel.value" />
                 <span v-if="!channel.enabled" class="mt-1 block text-xs text-ui-muted">{{ form.recipient === 'master' && channel.value === 'sms' ? 'Недоступно для майстрів' : form.type === 'booking_confirmation' && channel.value === 'telegram' ? 'Цей тип сповіщення використовує SMS' : 'Скоро' }}</span>
@@ -353,43 +339,39 @@ const nextStep = () => {
 
         </div>
 
-        <div v-else-if="step === 2" class="space-y-5">
+        <div v-else-if="step === 2" class="space-y-3">
           <h2 class="text-xl font-semibold text-ui-primary">Аудиторія</h2>
           <p v-if="!notificationDraft && form.channel === 'sms'" class="text-sm text-ui-muted">Для SMS виберіть збережений сегмент: доступність телефону перевіряється сервером після збереження.</p>
-          <fieldset v-if="!notificationDraft" class="flex flex-wrap gap-4 text-sm"><legend class="mb-2 font-medium text-ui-primary">Джерело аудиторії</legend><label class="flex items-center gap-2"><BaseRadioButton v-model="audienceMode" value="segments" /> Збережені сегменти</label><label class="flex items-center gap-2"><BaseRadioButton v-model="audienceMode" value="inline" :disabled="form.channel === 'sms'" /> Фільтри цієї кампанії</label></fieldset>
-          <MessagingSegmentCampaignAudience v-if="!notificationDraft && audienceMode === 'segments'" :model-value="form.segment_ids || []" @update:model-value="form.segment_ids = $event" @valid="segmentsValid = $event" />
+          <BaseSelect v-if="!notificationDraft" v-model="audienceMode" label="Джерело аудиторії" :options="[{ value: 'segments', label: 'Збережені сегменти' }, { value: 'inline', label: 'Фільтри цієї кампанії', disabled: form.channel === 'sms' || form.channel_strategy !== 'single' }]">
+            <template #label><MessagingCampaignFieldHelp label="Джерело аудиторії" /></template>
+          </BaseSelect>
+          <div v-if="!notificationDraft && audienceMode === 'segments'" class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <MessagingSegmentCampaignAudience :model-value="form.segment_ids || []" @update:model-value="form.segment_ids = $event" @valid="segmentsValid = $event" />
+            <div class="min-w-0 space-y-3">
+              <BaseCheckbox v-model="form.exclude_upcoming_booking"><MessagingCampaignFieldHelp label="Виключити клієнтів із майбутніми бронюваннями" :help="campaignFieldExplanations['Виключити майбутні записи']" /></BaseCheckbox>
+              <BaseCheckbox v-model="form.exclude_returned_since_snapshot"><MessagingCampaignFieldHelp label="Виключити клієнтів, які повернулися після фіксації аудиторії" :help="campaignFieldExplanations['Виключити повторні візити']" /></BaseCheckbox>
+              <BaseInput v-model.number="form.marketing_frequency_days" label="Мінімум днів між маркетинговими повідомленнями" type="number" min="1" max="365">
+                <template #label><MessagingCampaignFieldHelp label="Мінімум днів між маркетинговими повідомленнями" /></template>
+              </BaseInput>
+            </div>
+          </div>
           <p v-else-if="notificationDraft" class="base-card rounded-xl p-4 text-sm">Сповіщення створюються за подіями: {{ availableCampaignTypes.find(item => item.value === form.type)?.helper }} Аудиторія визначається подією, а не маркетинговими сегментами.</p>
           <MessagingAudienceFilterBuilder v-else v-model="form.audience_rules" :masters="masterItems" :services="serviceItems" :estimate="estimate" :loading="audienceLoading" @preview="previewRecipients" />
           <p v-if="needsServices && servicesLoading" role="status" class="text-sm text-ui-muted">Завантаження послуг майстрів…</p>
           <div v-if="needsServices && servicesError" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ servicesError }} <BaseButton variant="neutral" :loading="servicesLoading" @click="loadServices">Повторити завантаження послуг</BaseButton></div>
           <p v-if="audienceError" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ audienceError }}</p>
-          <template v-if="!notificationDraft && audienceMode === 'segments'">
-            <label class="grid gap-2 text-sm"><span>Стратегія каналів</span><BaseSelect native v-model="form.channel_strategy"><option value="single">Лише вибраний канал</option><option value="telegram_then_sms">Telegram, інакше SMS</option><option value="sms_then_telegram">SMS, інакше Telegram</option></BaseSelect></label>
-            <p class="text-xs text-ui-muted">Один клієнт — один вибраний канал. Резервний канал використовується лише за недоступності адреси основного; помилка чи непрочитане повідомлення не спричиняють повторної відправки іншим каналом.</p>
-            <label class="flex items-center gap-2 text-sm"><BaseCheckbox v-model="form.exclude_upcoming_booking" /> Виключити клієнтів із майбутніми бронюваннями</label>
-            <label class="flex items-center gap-2 text-sm"><BaseCheckbox v-model="form.exclude_returned_since_snapshot" /> Виключити клієнтів, які повернулися після фіксації аудиторії</label>
-            <label class="grid max-w-sm gap-2 text-sm"><span>Мінімум днів між маркетинговими повідомленнями</span><BaseInput v-model.number="form.marketing_frequency_days" type="number" min="1" max="365" /></label>
-          </template>
           <p v-if="audienceMode === 'inline' && estimate?.excluded" class="messaging-tone-warning rounded-2xl p-4 text-sm">
             {{ estimate.excluded }} клієнтів буде виключено через відсутній Telegram chat_id або відмову від маркетингу.
           </p>
         </div>
 
-        <div v-else-if="step === 3" class="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div class="space-y-5">
+        <div v-else-if="step === 3" class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div class="space-y-3">
             <h2 class="text-xl font-semibold text-ui-primary">Повідомлення</h2>
-            <label class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Шаблон</span>
-              <BaseSelect native v-model="form.template_id" class="rounded-2xl border border-slate-300 px-4 py-3">
-                <option :value="null">Кастомне повідомлення</option>
-                <option v-for="template in templateItems.filter(item => availableCampaignTypes.some(type => type.value === item.campaign_type))" :key="template.id" :value="template.id">{{ template.name }}</option>
-              </BaseSelect>
-            </label>
-            <label class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Текст</span>
-              <BaseTextarea v-model="form.message_body" class="min-h-52 rounded-2xl border border-slate-300 px-4 py-3 leading-6" />
-              <span class="text-xs text-ui-muted">{{ form.message_body.length }} символів</span>
-            </label>
+            <BaseSelect :model-value="form.template_id" label="Шаблон" :options="[{ value: null, label: 'Кастомне повідомлення' }, ...templateItems.filter(item => item.is_active && item.channel === form.channel).map(item => ({ value: Number(item.id), label: item.name }))]" @update:model-value="form.template_id = $event === null ? null : Number($event)">
+              <template #label><MessagingCampaignFieldHelp label="Шаблон" /></template>
+            </BaseSelect>
+            <BaseTextarea v-model="form.message_body" label="Текст" :rows="7" :hint="`${form.message_body.length} символів`"><template #label><MessagingCampaignFieldHelp label="Текст" /></template><template #icon><ChatBubbleLeftRightIcon class="h-4 w-4" aria-hidden="true" /></template></BaseTextarea>
             <MessagingVariablePicker @select="insertVariable" />
             <div v-if="requiredMissingVariables.length" class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
               Не вистачає змінних: {{ requiredMissingVariables.join(', ') }}
@@ -399,96 +381,92 @@ const nextStep = () => {
           <MessagingMessagePreview :body="form.message_body" :sample="sampleClient" />
         </div>
 
-        <div v-else-if="step === 4" class="space-y-5">
-          <h2 class="text-xl font-semibold text-ui-primary">Відгук та промо</h2>
+        <div v-else-if="step === 4" class="space-y-3">
+          <h2 class="text-xl font-semibold text-ui-primary">Посилання та промокод</h2>
           <p v-if="reviewNotification" class="text-sm text-ui-muted">Сервіс автоматично створює персональне посилання на внутрішню сторінку відгуку.</p>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label v-if="!reviewNotification" class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Платформа відгуку</span>
-              <BaseSelect native v-model="form.review_platform" class="rounded-2xl border border-slate-300 px-4 py-3">
-                <option value="google">Google Reviews</option>
-                <option value="instagram">Instagram</option>
-                <option value="internal">Внутрішня сторінка</option>
-                <option value="custom">Custom URL</option>
-              </BaseSelect>
-            </label>
-            <label v-if="!reviewNotification" class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Посилання</span>
-              <BaseInput v-model="form.review_link" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="https://..." />
-            </label>
-            <label class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Промокод</span>
-              <BaseInput v-model="form.promo_code" class="rounded-2xl border border-slate-300 px-4 py-3" placeholder="SOUL10" />
-            </label>
-
-
+          <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(220px,0.65fr)]">
+            <section v-if="!reviewNotification" class="min-w-0 space-y-3">
+              <h3 class="inline-flex items-center gap-2 text-sm font-semibold text-ui-primary"><StarIcon class="h-4 w-4" aria-hidden="true" />Відгук · необов’язково</h3>
+            <BaseSelect v-model="form.review_platform" label="Платформа відгуку" :options="[{ value: 'google', label: 'Google Reviews' }, { value: 'instagram', label: 'Instagram' }, { value: 'internal', label: 'Внутрішня сторінка' }, { value: 'custom', label: 'Інше посилання' }]">
+              <template #label><MessagingCampaignFieldHelp label="Платформа відгуку" help="Необов’язкова категорія посилання на відгук. Вибір Google чи Instagram не створює адресу автоматично: вставте її в полі «Посилання». Для звичайної розсилки без запиту відгуку адресу можна залишити порожньою." /></template>
+              <template #icon><StarIcon class="h-4 w-4" aria-hidden="true" /></template>
+            </BaseSelect>
+            <BaseInput v-model="form.review_link" label="Посилання" placeholder="https://..." hint="{{review_link}}">
+              <template #label><MessagingCampaignFieldHelp label="Посилання" help="Адреса сторінки, на якій клієнт може залишити відгук. Вставте повне HTTPS-посилання та додайте {{review_link}} до тексту повідомлення на попередньому кроці. Без цієї змінної сама адреса не з’явиться в тексті. Якщо не просите відгук, залиште поле порожнім." /></template>
+              <template #icon><LinkIcon class="h-4 w-4" aria-hidden="true" /></template>
+            </BaseInput>
+            </section>
+            <section class="min-w-0 space-y-3">
+              <h3 class="inline-flex items-center gap-2 text-sm font-semibold text-ui-primary"><TagIcon class="h-4 w-4" aria-hidden="true" />Промокод · необов’язково</h3>
+            <BaseInput v-model="form.promo_code" label="Промокод" placeholder="SOUL10" hint="{{discount_code}}">
+              <template #label><MessagingCampaignFieldHelp label="Промокод" help="Лише код для підстановки в повідомлення через {{discount_code}}. Це поле не створює акцію, не змінює ціну та не надає знижку. Якщо потрібна персональна знижка з вибором існуючої акції, увімкніть «Персональна пропозиція» на першому кроці. Якщо промокоду немає, залиште поле порожнім." /></template>
+              <template #icon><TagIcon class="h-4 w-4" aria-hidden="true" /></template>
+            </BaseInput>
+            </section>
           </div>
         </div>
 
-        <div v-else-if="step === 5" class="space-y-5">
+        <div v-else-if="step === 5" class="space-y-3">
           <h2 class="text-xl font-semibold text-ui-primary">Розклад та правила</h2>
           <p v-if="reviewNotification" class="text-sm text-ui-muted">Запити відгуку плануються на наступний день після візиту за налаштуваннями сервісу.</p>
           <p v-if="notificationDraft" class="text-sm text-ui-muted">Сповіщення надсилається автоматично після відповідної події. Активація вмикає це правило.</p>
-          <div v-else class="grid gap-3 sm:grid-cols-2">
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'now' ? 'messaging-choice-active' : 'messaging-choice-idle'"><BaseRadioButton v-model="form.schedule_mode" value="now" /> Надіслати зараз</label>
-            <label class="rounded-2xl border p-4" :class="form.schedule_mode === 'later' ? 'messaging-choice-active' : 'messaging-choice-idle'"><BaseRadioButton v-model="form.schedule_mode" value="later" /> Запланувати</label>
-          </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <label v-if="form.schedule_mode === 'later'" class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Дата і час</span>
-              <BaseCalendar v-model="form.scheduled_at" class="rounded-2xl border border-slate-300 px-4 py-3" mode="datetime" />
-            </label>
-            <label v-if="!notificationDraft" class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Timezone</span>
-              <BaseSelect native v-model="form.timezone" class="rounded-2xl border border-slate-300 px-4 py-3">
-                <option value="Europe/Kyiv">Europe/Kyiv</option>
-                <option value="Europe/Warsaw">Europe/Warsaw</option>
-                <option value="UTC">UTC</option>
-              </BaseSelect>
-            </label>
-
-            <label v-if="!notificationDraft" class="grid gap-2 text-sm">
-              <span class="font-medium text-ui-primary">Макс. повідомлень за хвилину</span>
-              <BaseInput v-model.number="form.max_messages_per_minute" min="1" type="number" class="rounded-2xl border border-slate-300 px-4 py-3" />
-            </label>
+          <fieldset v-else class="space-y-2">
+            <legend class="inline-flex items-center gap-2 text-sm font-medium text-ui-primary"><ClockIcon class="h-4 w-4" aria-hidden="true" /><MessagingCampaignFieldHelp label="Початок розсилки" help="Це налаштування майбутнього запуску, а не команда відправки. Створення кампанії лише зберігає чернетку. Запуск потрібно окремо підтвердити на сторінці кампанії." /></legend>
+            <div class="grid gap-3 sm:grid-cols-2">
+            <BaseRadioButton v-model="form.schedule_mode" value="now" :label-class="`flex items-center gap-2 rounded-lg border p-3 ${form.schedule_mode === 'now' ? 'messaging-choice-active' : 'messaging-choice-idle'}`"><MessagingCampaignFieldHelp label="Після підтвердження запуску" help="Без запланованої дати. Повідомлення почнуть надсилатися лише після окремого підтвердження запуску з урахуванням доступності клієнтів та швидкості доставки." /></BaseRadioButton>
+            <BaseRadioButton v-model="form.schedule_mode" value="later" :label-class="`flex items-center gap-2 rounded-lg border p-3 ${form.schedule_mode === 'later' ? 'messaging-choice-active' : 'messaging-choice-idle'}`"><MessagingCampaignFieldHelp label="Запланувати" help="Виберіть майбутню дату, час та часовий пояс. Збереження чернетки саме по собі не запускає і не підтверджує розсилку." /></BaseRadioButton>
+            </div>
+          </fieldset>
+          <div class="grid gap-3 md:grid-cols-2">
+            <BaseCalendar v-if="form.schedule_mode === 'later'" v-model="form.scheduled_at" label="Дата і час" mode="datetime">
+              <template #label><MessagingCampaignFieldHelp label="Дата і час" /></template>
+            </BaseCalendar>
+            <BaseSelect v-if="!notificationDraft" v-model="form.timezone" label="Часовий пояс" :options="[{ value: 'Europe/Kyiv', label: 'Київ · Europe/Kyiv' }, { value: 'Europe/Warsaw', label: 'Варшава · Europe/Warsaw' }, { value: 'UTC', label: 'UTC' }]">
+              <template #label><MessagingCampaignFieldHelp label="Часовий пояс" help="Часовий пояс запланованої дати й часу. Наприклад, 16:30 у Києві та 16:30 у Варшаві — різні моменти доставки. Якщо дату не задано, це поле не додає затримку запуску." /></template>
+              <template #icon><GlobeAltIcon class="h-4 w-4" aria-hidden="true" /></template>
+            </BaseSelect>
+            <BaseInput v-if="!notificationDraft" v-model.number="form.max_messages_per_minute" label="Макс. повідомлень за хвилину" min="1" max="480" step="1" type="number" hint="1–480 повідомлень / хв">
+              <template #label><MessagingCampaignFieldHelp label="Макс. повідомлень за хвилину" /></template>
+              <template #icon><BoltIcon class="h-4 w-4" aria-hidden="true" /></template>
+            </BaseInput>
 
           </div>
           <p v-for="issue in scheduleErrors" :key="issue" role="alert" class="text-sm text-red-500">{{ issue }}</p>
-          <BaseToggle v-if="reviewNotification" v-model="form.quiet_hours_enabled" label="Не надсилати вночі" />
+          <BaseToggle v-if="reviewNotification" v-model="form.quiet_hours_enabled" label="Не надсилати вночі"><MessagingCampaignFieldHelp label="Не надсилати вночі" /></BaseToggle>
           <div v-if="reviewNotification && form.quiet_hours_enabled" class="grid max-w-md gap-4 sm:grid-cols-2">
-            <BaseInput v-model="form.quiet_hours_from" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
-            <BaseInput v-model="form.quiet_hours_to" type="time" class="rounded-2xl border border-slate-300 px-4 py-3" />
+            <BaseInput v-model="form.quiet_hours_from" label="Початок тихих годин" type="time"><template #label><MessagingCampaignFieldHelp label="Початок тихих годин" /></template></BaseInput>
+            <BaseInput v-model="form.quiet_hours_to" label="Кінець тихих годин" type="time"><template #label><MessagingCampaignFieldHelp label="Кінець тихих годин" /></template></BaseInput>
           </div>
         </div>
 
-        <div v-else class="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div class="space-y-5">
-            <h2 class="text-xl font-semibold text-ui-primary">Фінальна перевірка</h2>
+        <div v-else class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div class="space-y-3">
+            <h2 class="inline-flex items-center gap-2 text-xl font-semibold text-ui-primary"><EyeIcon class="h-5 w-5" aria-hidden="true" />Фінальна перевірка</h2>
             <p v-if="existingNotification" role="alert" class="text-sm text-ui-muted">Сповіщення цього типу вже існує. <NuxtLink :to="`/messaging/campaigns/${existingNotification.id}`" class="text-ui-accent underline">Налаштувати {{ existingNotification.name }}</NuxtLink></p>
             <dl class="grid gap-3 rounded-[1.25rem] bg-slate-50 p-4 text-sm md:grid-cols-2">
-              <div><dt class="text-ui-muted">Назва</dt><dd class="font-medium text-ui-primary">{{ form.name || '—' }}</dd></div>
-              <div><dt class="text-ui-muted">Аудиторія</dt><dd class="font-medium text-ui-primary">{{ notificationDraft ? 'Отримувачі відповідної сервісної події' : audienceMode === 'segments' ? `${form.segment_ids?.length || 0} сегментів; кількість і канали перевіряються після збереження` : `${estimate?.eligible || 0} доступних, ${estimate?.excluded || 0} виключено` }}</dd></div>
-              <div><dt class="text-ui-muted">Канали</dt><dd class="mt-1">{{ channelStrategyLabel(form.channel_strategy, form.channel) }}</dd></div>
-              <div><dt class="text-ui-muted">Розклад</dt><dd class="font-medium text-ui-primary">{{ form.schedule_mode }}</dd></div>
+              <div><dt class="text-ui-muted"><MessagingCampaignFieldHelp label="Назва" /></dt><dd class="font-medium text-ui-primary">{{ form.name || '—' }}</dd></div>
+              <div><dt class="text-ui-muted"><MessagingCampaignFieldHelp label="Аудиторія" :help="notificationDraft ? availableCampaignTypes.find(item => item.value === form.type)?.helper : campaignFieldExplanations['Джерело аудиторії']" /></dt><dd class="font-medium text-ui-primary">{{ notificationDraft ? 'Отримувачі відповідної сервісної події' : audienceMode === 'segments' ? `${form.segment_ids?.length || 0} сегментів; кількість і канали перевіряються після збереження` : `${estimate?.eligible || 0} доступних, ${estimate?.excluded || 0} виключено` }}</dd></div>
+              <div><dt class="text-ui-muted"><MessagingCampaignFieldHelp label="Канали" /></dt><dd class="mt-1">{{ channelStrategyLabel(form.channel_strategy, form.channel) }}</dd></div>
+              <div><dt class="text-ui-muted"><MessagingCampaignFieldHelp label="Розклад" :help="campaignFieldExplanations['Час відправки']" /></dt><dd class="font-medium text-ui-primary">{{ form.schedule_mode }}</dd></div>
             </dl>
             <div v-if="validationErrors.length" class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
               <p v-for="item in validationErrors" :key="item">{{ item }}</p>
             </div>
             <p v-if="!notificationDraft" class="text-sm text-ui-muted">Збереження створює чернетку без відправки. На сторінці кампанії перевірте конкретну аудиторію та підтвердьте запуск окремою дією.</p>
             <div class="flex flex-wrap gap-3">
-              <BaseButton class="messaging-secondary-action rounded-full px-5 py-3 text-sm font-medium" :disabled="saving || !canCreateMessagingDrafts || !nameValid || scheduleErrors.length > 0 || (audienceMode === 'segments' && (!segmentsValid || !frequencyValid))" @click="save(false)">Зберегти чернетку</BaseButton>
+              <BaseButton variant="primary" :loading="saving" :disabled="saving || !canCreateMessagingDrafts || !nameValid || !form.message_body.trim() || scheduleErrors.length > 0 || (audienceMode === 'segments' && (!segmentsValid || !frequencyValid))" @click="save(false)"><CheckIcon class="h-4 w-4" aria-hidden="true" />{{ notificationDraft ? 'Створити сповіщення' : 'Створити кампанію' }}</BaseButton>
               <BaseButton v-if="notificationDraft" class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="saving || validationErrors.length > 0 || !canSendMessagingCampaigns" @click="showSendConfirm = true">
                 {{ form.schedule_mode === 'later' ? 'Запланувати кампанію' : 'Активувати кампанію' }}
               </BaseButton>
             </div>
           </div>
-          <MessagingMessagePreview :body="form.message_body" />
+          <div class="space-y-2"><h3 class="inline-flex items-center gap-2 font-medium text-ui-primary"><ChatBubbleLeftRightIcon class="h-4 w-4" aria-hidden="true" />Перегляд повідомлення</h3><MessagingMessagePreview :body="form.message_body" :sample="sampleClient" /></div>
         </div>
 
         </template>
-        <div class="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5">
-          <BaseButton class="messaging-secondary-action rounded-full px-5 py-3 text-sm" :disabled="step === 1" @click="step -= 1">Назад</BaseButton>
-          <BaseButton v-if="step < 6" class="messaging-primary-action rounded-full px-5 py-3 text-sm font-medium disabled:opacity-50" :disabled="!stepValid[step]" @click="nextStep">Далі</BaseButton>
+        <div class="mt-4 flex flex-wrap justify-between gap-3 pt-3" data-testid="campaign-navigation">
+          <BaseButton variant="neutral" :disabled="step === 1" @click="step -= 1"><ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />Назад</BaseButton>
+          <BaseButton v-if="step < 6" variant="primary" :disabled="!stepValid[step]" @click="nextStep">Далі<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></BaseButton>
         </div>
       </BaseCard>
     </div>

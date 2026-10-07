@@ -1094,6 +1094,7 @@ export const useBackofficeApi = () => {
       metadata_json: metadata,
       segment_ids: campaign.segment_ids ?? metadata.segment_ids ?? [],
       channel_strategy: campaign.channel_strategy ?? metadata.channel_strategy ?? 'single',
+      offer_audience_mode: campaign.offer_audience_mode ?? metadata.offer_audience_mode ?? 'last_visit_3_12',
       exclude_returned_since_snapshot: campaign.exclude_returned_since_snapshot ?? metadata.exclude_returned_since_snapshot ?? false,
       exclude_upcoming_booking: campaign.exclude_upcoming_booking ?? metadata.exclude_upcoming_booking ?? false,
       marketing_frequency_days: campaign.marketing_frequency_days ?? metadata.marketing_frequency_days ?? 7,
