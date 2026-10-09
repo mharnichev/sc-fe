@@ -3,22 +3,19 @@ import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 
 const route = useRoute()
 const { terms } = useBlogLocale()
-const { unsubscribeFromBlog } = useBlogSubscription()
-
-const token = computed(() => {
-  const value = route.query.token
-
-  return typeof value === 'string' ? value : ''
-})
+const { unsubscribeFromBlog, subscribeToBlog, subscriptionError, unsubscribeToken } = useBlogSubscription()
+const token = ref(unsubscribeToken)
 const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const message = ref('')
 const status = ref<'idle' | 'error' | 'success'>('idle')
 const isSubmitting = ref(false)
+const unsubscribedEmail = ref('')
 
 const handleUnsubscribe = async () => {
+  if (isSubmitting.value) return
   const trimmedEmail = email.value.trim()
 
-  if (!token.value && !trimmedEmail) {
+  if (!token.value.trim()) {
     status.value = 'error'
     message.value = terms.value.unsubscribeMissingIdentifier
     return
@@ -29,12 +26,13 @@ const handleUnsubscribe = async () => {
   message.value = ''
 
   try {
-    await unsubscribeFromBlog({
-      token: token.value || undefined,
+    const response = await unsubscribeFromBlog({
+      token: token.value,
       email: trimmedEmail || undefined,
       reason: 'user_request',
     })
     status.value = 'success'
+    unsubscribedEmail.value = response.email
     message.value = terms.value.unsubscribeSuccess
   }
   catch {
@@ -46,9 +44,26 @@ const handleUnsubscribe = async () => {
   }
 }
 
+const handleResubscribe = async () => {
+  if (isSubmitting.value || !unsubscribedEmail.value || !token.value) return
+  isSubmitting.value = true
+  try {
+    await subscribeToBlog(unsubscribedEmail.value, 'blog_resubscribe', token.value)
+    status.value = 'success'
+    message.value = terms.value.subscriptionSuccess
+    unsubscribedEmail.value = ''
+  }
+  catch (error) {
+    status.value = 'error'
+    message.value = subscriptionError(error)
+  }
+  finally { isSubmitting.value = false }
+}
+
 useSeoMeta({
   title: () => terms.value.unsubscribeTitle,
   description: () => terms.value.unsubscribeDescription,
+  robots: 'noindex,nofollow',
 })
 </script>
 
@@ -80,11 +95,13 @@ useSeoMeta({
         <BaseButton
           variant="light"
           type="submit"
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || !token.trim() || Boolean(unsubscribedEmail)"
         >
           {{ terms.unsubscribeButton }}
         </BaseButton>
       </form>
+      <p v-if="!token.trim()" class="mt-5 text-sm" role="alert">{{ terms.unsubscribeMissingIdentifier }}</p>
+      <BaseButton v-if="unsubscribedEmail" class="mt-5" variant="light" :disabled="isSubmitting" @click="handleResubscribe">{{ terms.resubscribeButton }}</BaseButton>
 
       <div
         id="unsubscribe-message"

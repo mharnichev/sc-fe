@@ -10,9 +10,23 @@ interface CustomerAuthState {
   customer: ShopCustomerDto | null
   loading: boolean
   error: string
+  sessionRevision: number
 }
 
-type CustomerProfilePatch = Partial<Pick<ShopCustomerDto, 'phone' | 'email' | 'name' | 'surname' | 'birthday' | 'notes'>>
+type CustomerProfilePatch = Partial<Pick<ShopCustomerDto, 'email' | 'name' | 'surname' | 'birthday' | 'notes'>>
+
+const captureCustomerSession = (state: CustomerAuthState) => {
+  const { accessToken, tokenType, sessionRevision } = state
+  const customerId = state.customer?.id
+  return () => {
+    if (state.accessToken !== accessToken || state.tokenType !== tokenType
+      || state.sessionRevision !== sessionRevision || state.customer?.id !== customerId) {
+      throw Object.assign(new Error('Customer session changed. Sign in again.'), {
+        name: 'ObsoleteCustomerSessionError', statusCode: 401,
+      })
+    }
+  }
+}
 
 export const useCustomerAuthStore = defineStore('customer-auth', {
   state: (): CustomerAuthState => ({
@@ -21,6 +35,7 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
     customer: null,
     loading: false,
     error: '',
+    sessionRevision: 0,
   }),
   getters: {
     isAuthenticated: state => Boolean(state.accessToken && state.customer),
@@ -31,11 +46,13 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
   },
   actions: {
     hydrate(snapshot: Partial<CustomerAuthState>) {
+      this.sessionRevision++
       this.accessToken = snapshot.accessToken || ''
       this.tokenType = snapshot.tokenType || 'Bearer'
       this.customer = snapshot.customer || null
     },
     setSession(response: CustomerAuthResponseDto) {
+      this.sessionRevision++
       this.accessToken = response.access_token
       this.tokenType = response.token_type || 'Bearer'
       this.customer = response.customer
@@ -101,13 +118,35 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
     },
     async updateProfile(body: CustomerProfilePatch) {
       const api = useApi()
+      const { email, name, surname, birthday, notes } = body
       this.customer = await api<ShopCustomerDto>('/public/customers/me', {
         method: 'PATCH',
-        body,
+        body: { email, name, surname, birthday, notes },
       })
       return this.customer
     },
+    async requestPhoneChange(phone: string) {
+      const assertCurrentSession = captureCustomerSession(this)
+      const response = await useApi()<CustomerOtpRequestResponseDto>('/public/customers/me/phone-change/request-otp', {
+        method: 'POST',
+        body: { phone },
+      }).finally(assertCurrentSession)
+      assertCurrentSession()
+      return response
+    },
+    async confirmPhoneChange(phone: string, otpCode: string) {
+      const assertCurrentSession = captureCustomerSession(this)
+      const customer = await useApi()<ShopCustomerDto>('/public/customers/me/phone-change/confirm', {
+        method: 'POST',
+        body: { phone, otp_code: otpCode },
+      }).finally(assertCurrentSession)
+      assertCurrentSession()
+      // The backend retains this JWT; confirmation returns a customer, not a session.
+      this.customer = customer
+      return customer
+    },
     logout() {
+      this.sessionRevision++
       this.accessToken = ''
       this.tokenType = 'Bearer'
       this.customer = null

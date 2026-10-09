@@ -292,6 +292,113 @@ test('inventory count upserts a difference, posts once and reloads read-only', a
   expect(editPosted.status()).toBe(409)
 })
 
+test('receiving retries a lost committed response once and gives the next scan a fresh key', async ({ page, request }) => {
+  const product = state.seed.products.available
+  const receipt = await json(await request.post(`${inventoryRoot()}/receipts`, {
+    headers: { ...authHeaders(), 'Idempotency-Key': 'qa-add-row-retry-receipt' },
+    data: { reason: 'QA ambiguous add response' },
+  }))
+  const endpoint = `${inventoryRoot()}/receipts/${receipt.id}/items`
+  const attempts: { key: string, payload: Record<string, unknown> }[] = []
+  await page.route(endpoint, async route => {
+    const outgoing = route.request()
+    const key = outgoing.headers()['idempotency-key']
+    expect(key).toBeTruthy()
+    attempts.push({ key, payload: outgoing.postDataJSON() })
+    if (attempts.length === 1) {
+      const committed = await route.fetch()
+      expect(committed.ok()).toBe(true)
+      // The real database has committed, but the browser never sees success.
+      await route.abort('connectionfailed')
+      return
+    }
+    await route.continue()
+  })
+  await page.goto(`/inventory/receiving?id=${receipt.id}`)
+  const barcode = page.getByLabel('Штрихкод', { exact: true })
+  await barcode.fill(product.barcode!)
+  await barcode.press('Enter')
+  await expect(page.getByText(`Знайдено: ${product.name}`, { exact: false })).toBeVisible()
+  const quantity = page.getByRole('spinbutton', { name: 'Кількість', exact: true })
+  await quantity.fill('3')
+  await page.getByRole('spinbutton', { name: 'Собівартість за одиницю', exact: true }).fill('5')
+  const add = page.getByRole('button', { name: 'Додати до приймання', exact: true })
+  await add.click()
+  const retry = page.getByRole('button', { name: 'Повторити додавання', exact: true })
+  await expect(retry).toBeVisible()
+  await expect(quantity).toBeDisabled()
+  await expect(barcode).toBeDisabled()
+  await expect(add).toBeDisabled()
+  await expect(quantity).toHaveValue('3')
+  // Leave the receipt and return: its pending tuple must not be silently reset.
+  await page.getByRole('navigation', { name: 'Розділи складу' }).getByRole('link', { name: /^Залишки/ }).click()
+  await page.goto(`/inventory/receiving?id=${receipt.id}`)
+  await expect(retry).toBeVisible()
+  const storedTuple = await page.evaluate(id => sessionStorage.getItem(`backoffice:inventory:receipt-item:${id}`), receipt.id)
+  expect(storedTuple).toBeTruthy()
+  let failReceiptGet = true
+  await page.route(`${inventoryRoot()}/receipts/${receipt.id}`, async route => {
+    if (failReceiptGet && route.request().method() === 'GET') {
+      await route.fulfill({ status: 503, contentType: 'application/json', json: { detail: 'QA receipt reload unavailable' } })
+      return
+    }
+    await route.continue()
+  })
+  page.once('dialog', dialog => dialog.accept())
+  await page.reload()
+  await expect(retry).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'QA receipt reload unavailable' })).toBeVisible()
+  await expect(retry).toBeDisabled()
+  expect(attempts).toHaveLength(1)
+  expect(await page.evaluate(id => sessionStorage.getItem(`backoffice:inventory:receipt-item:${id}`), receipt.id)).toBe(storedTuple)
+  const retryGet = page.getByRole('button', { name: 'Повторити', exact: true })
+  await expect(retryGet).toBeEnabled()
+  failReceiptGet = false
+  await Promise.all([
+    page.waitForResponse(response => response.url() === `${inventoryRoot()}/receipts/${receipt.id}` && response.request().method() === 'GET' && response.status() === 200),
+    retryGet.click(),
+  ])
+  await expect(retry).toBeEnabled()
+  await expect(quantity).toBeDisabled()
+  await expect(barcode).toBeDisabled()
+  await expect(add).toBeDisabled()
+  expect(await page.evaluate(id => sessionStorage.getItem(`backoffice:inventory:receipt-item:${id}`), receipt.id)).toBe(storedTuple)
+  expect(attempts).toHaveLength(1)
+  await retry.click()
+  await expect(retry).toHaveCount(0)
+  expect(attempts).toHaveLength(2)
+  expect(attempts[1]).toEqual(attempts[0])
+  const current = await json(await request.get(`${inventoryRoot()}/receipts/${receipt.id}`, { headers: authHeaders() }))
+  expect(current.items).toHaveLength(1)
+  expect(current.items[0].quantity).toBe(3)
+
+  await barcode.fill(product.barcode!)
+  await barcode.press('Enter')
+  await expect(page.getByText(`Знайдено: ${product.name}`, { exact: false })).toBeVisible()
+  await barcode.fill(product.barcode!)
+  await barcode.press('Enter')
+  await expect(quantity).toHaveValue('2')
+  await page.getByRole('spinbutton', { name: 'Собівартість за одиницю', exact: true }).fill('5')
+  await add.click()
+  await expect(quantity).toHaveValue('1')
+  expect(attempts).toHaveLength(3)
+  expect(attempts[2].key).not.toBe(attempts[1].key)
+  const next = await json(await request.get(`${inventoryRoot()}/receipts/${receipt.id}`, { headers: authHeaders() }))
+  expect(next.items[0].quantity).toBe(5)
+
+  const changedPayload = await request.post(endpoint, {
+    headers: { ...authHeaders(), 'Idempotency-Key': attempts[0].key },
+    data: { ...attempts[0].payload, quantity: 99 },
+  })
+  expect(changedPayload.status()).toBe(409)
+  const keyless = await request.post(endpoint, { headers: authHeaders(), data: attempts[0].payload })
+  expect(keyless.status()).toBe(422)
+  const replay = await json(await request.post(endpoint, {
+    headers: { ...authHeaders(), 'Idempotency-Key': attempts[0].key }, data: attempts[0].payload,
+  }))
+  expect(replay.items[0].quantity, 'replay returns the current receipt, not the first response').toBe(5)
+})
+
 test('manual operations, movement filters and idempotency protections use persisted ledger data', async ({ page, request }, testInfo) => {
   const product = state.seed.products.available
   const headers = authHeaders()

@@ -1,4 +1,4 @@
-import type { InventoryDocumentStatus, InventoryMovementType, ProcurementStatus } from '~/types/inventory'
+import type { InventoryDocumentStatus, InventoryMovementType, InventoryReceiptItemCreate, ProcurementStatus } from '~/types/inventory'
 
 const documentStatusLabels: Record<string, string> = {
   draft: 'Чернетка',
@@ -102,3 +102,35 @@ const fallbackIdempotencyKey = () => {
 }
 
 export const createInventoryIdempotencyKey = (): string => globalThis.crypto?.randomUUID?.() || fallbackIdempotencyKey()
+
+const freezeReceiptItemRequest = (receiptId: number, payload: InventoryReceiptItemCreate, key: string) => {
+  const snapshot = { ...payload, allocations: (payload.allocations || []).map(item => Object.freeze({ ...item })) }
+  Object.freeze(snapshot.allocations)
+  return Object.freeze({
+    receiptId,
+    key,
+    payload: Object.freeze(snapshot),
+  })
+}
+
+export const createReceiptItemRequest = (receiptId: number, payload: InventoryReceiptItemCreate) =>
+  freezeReceiptItemRequest(receiptId, payload, createInventoryIdempotencyKey())
+
+export const receiptItemStorageKey = (receiptId: number) => `backoffice:inventory:receipt-item:${receiptId}`
+
+export const restoreReceiptItemRequest = (storage: Pick<Storage, 'getItem'>, receiptId: number) => {
+  const raw = storage.getItem(receiptItemStorageKey(receiptId))
+  if (!raw) return null
+  const stored = JSON.parse(raw)
+  if (stored?.receiptId !== receiptId || typeof stored.key !== 'string' || !stored.key.trim() || stored.key.length > 128
+    || !stored.payload || typeof stored.payload !== 'object'
+    || !Number.isInteger(stored.payload.quantity) || stored.payload.quantity < 1
+    || !Array.isArray(stored.payload.allocations)) throw new Error('Invalid pending receipt item request')
+  return freezeReceiptItemRequest(receiptId, stored.payload, stored.key)
+}
+
+export const isDefiniteInventoryRejection = (error: unknown) => {
+  const source = error as { statusCode?: number, status?: number, response?: { status?: number } } | null
+  const status = source?.response?.status ?? source?.statusCode ?? source?.status
+  return typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 409
+}

@@ -2,7 +2,7 @@
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 
 const { terms } = useBlogLocale()
-const { subscribeToBlog } = useBlogSubscription()
+const { subscribeToBlog, subscriptionError, confirmationToken } = useBlogSubscription()
 const { trackBlogEvent } = useBlogAnalytics()
 const email = ref('')
 const message = ref('')
@@ -12,6 +12,7 @@ const isSubmitting = ref(false)
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return
   if (!isValidEmail(email.value)) {
     trackBlogEvent('subscribe_invalid', {
       source: 'newsletter_block',
@@ -37,12 +38,12 @@ const handleSubmit = async () => {
     message.value = terms.value.subscriptionSuccess
     email.value = ''
   }
-  catch {
+  catch (error) {
     trackBlogEvent('subscribe_error', {
       source: 'newsletter_block',
     })
     status.value = 'error'
-    message.value = terms.value.subscriptionError
+    message.value = subscriptionError(error)
   }
   finally {
     isSubmitting.value = false
@@ -81,7 +82,7 @@ const handleSubmit = async () => {
             type="submit"
             :disabled="isSubmitting"
           >
-            {{ terms.subscribe }}
+            {{ confirmationToken ? terms.resubscribeButton : terms.subscribe }}
           </BaseButton>
           <div
             id="newsletter-message"

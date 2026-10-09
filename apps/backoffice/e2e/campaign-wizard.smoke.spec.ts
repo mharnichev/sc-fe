@@ -350,6 +350,14 @@ test('backend-shaped templates filter by active channel and channel changes rese
   checkBackend(backend)
 })
 
+async function openCampaignDetails(page: Page) {
+  const summary = page.locator('summary').filter({ hasText: 'Умови та повідомлення' })
+  const details = page.locator('details').filter({ has: summary })
+  await expect(summary).toBeVisible()
+  if (await details.getAttribute('open') === null) await summary.click()
+  await expect(details).toHaveJSProperty('open', true)
+}
+
 test('editing only an offer name reuses a backend-shaped template for re-engagement', async ({ page }) => {
   const template = { ...sharedTemplate, id: 71, body: 'До {{master_name}}: {{offer_link}}' }
   const campaign = {
@@ -361,6 +369,7 @@ test('editing only an offer name reuses a backend-shaped template for re-engagem
   }
   const backend = await installBackend(page, 'light', segments, { templates: [template], existingCampaign: campaign })
   await page.goto('/messaging/campaigns/501')
+  await openCampaignDetails(page)
   await expect(page.getByTestId('campaign-view')).toBeVisible()
   await page.getByRole('button', { name: 'Редагувати', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Текст повідомлення', exact: true })).toHaveValue(template.body)
@@ -368,6 +377,7 @@ test('editing only an offer name reuses a backend-shaped template for re-engagem
   const save = page.getByRole('button', { name: 'Зберегти зміни', exact: true })
   await expect(save).toBeEnabled()
   await save.click()
+  await openCampaignDetails(page)
   await expect(page.getByTestId('campaign-view')).toBeVisible()
   expect(backend.writes).toHaveLength(1)
   expect(backend.writes[0]).toMatchObject({ path: '/backoffice/messaging/campaigns/501', body: { name: 'Змінена назва пропозиції', type: 're_engagement', template_id: 71, status: 'draft' } })
@@ -566,6 +576,7 @@ test('new master saves only a typed offer draft after all six steps', async ({ p
     marketing_cap_days: 7, exclude_upcoming_booking: true, exclude_returned_since_snapshot: true,
     offer_starts_at: null, offer_expires_at: null,
   })
+  await openCampaignDetails(page)
   await expect(page.getByTestId('campaign-view')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Назва', exact: true })).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('campaign-readonly.png'), fullPage: true, animations: 'disabled' })
@@ -574,6 +585,7 @@ test('new master saves only a typed offer draft after all six steps', async ({ p
   await page.getByRole('textbox', { name: 'Назва', exact: true }).fill('Незбережена зміна')
   await page.getByRole('button', { name: 'Скасувати редагування' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Скасувати зміни', exact: true }).click()
+  await openCampaignDetails(page)
   await expect(page.getByTestId('campaign-view')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Новий майстер жовтень', exact: true })).toBeVisible()
   expect(campaignWrites(backend)).toHaveLength(1)

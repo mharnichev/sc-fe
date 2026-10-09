@@ -1402,11 +1402,14 @@ export const useBackofficeApi = () => {
   const getInventoryReceipt = (receiptId: number | string) =>
     api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}`)
 
-  const addInventoryReceiptItem = (receiptId: number | string, payload: InventoryReceiptItemCreate) =>
-    api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/items`, {
+  const addInventoryReceiptItem = (receiptId: number | string, payload: InventoryReceiptItemCreate, idempotencyKey: string) => {
+    if (!idempotencyKey?.trim() || idempotencyKey.length > 128) throw new Error('A receipt item Idempotency-Key is required')
+    return api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/items`, {
       method: 'POST',
       body: payload,
+      headers: idempotencyHeaders(idempotencyKey),
     })
+  }
 
   const postInventoryReceipt = (receiptId: number | string, idempotencyKey = createInventoryIdempotencyKey()) =>
     api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/post`, {

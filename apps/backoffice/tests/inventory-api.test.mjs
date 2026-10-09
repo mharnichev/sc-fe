@@ -55,6 +55,7 @@ test('inventory mutations send idempotency headers where the backend requires th
   for (const method of [
     'createInventoryReceipt',
     'postInventoryReceipt',
+    'addInventoryReceiptItem',
     'createInventoryOperation',
     'createInventoryCount',
     'postInventoryCount',

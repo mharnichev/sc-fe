@@ -2,7 +2,7 @@
 import type { SendLog } from '~/types/messaging'
 import { deliveryReasonLabel } from '~/utils/campaignAudience.mjs'
 
-const props = defineProps<{ logs: SendLog[], pending?: boolean, retryable?: boolean }>()
+const props = defineProps<{ logs: SendLog[], pending?: boolean, retryable?: boolean, summary?: boolean }>()
 const emit = defineEmits<{ retry: [log: SendLog] }>()
 const customer = ref('')
 const channel = ref('')
@@ -30,7 +30,7 @@ const filteredLogs = computed(() => props.logs.filter(log =>
   </div>
   <BaseTable
     sticky-actions
-    caption="Журнал відправок"
+    :caption="summary ? 'Доставка повідомлень' : 'Журнал відправок'"
     min-width="60rem"
     :loading="pending"
     loading-label="Завантажуємо журнал відправок…"
@@ -42,7 +42,7 @@ const filteredLogs = computed(() => props.logs.filter(log =>
           <th>Клієнт</th>
           <th>Телефон</th>
           <th>Канал / статус</th>
-          <th>Джерело</th>
+          <th v-if="!summary">Джерело</th>
           <th>Час</th>
           <th>Причина</th>
           <th v-if="retryable">Дія</th>
@@ -57,7 +57,7 @@ const filteredLogs = computed(() => props.logs.filter(log =>
               {{ statusLabels[log.telegram_status] || log.telegram_status }}
             </BaseBadge>
           </td>
-          <td><NuxtLink v-if="log.campaign_id" :to="`/messaging/campaigns/${log.campaign_id}#delivery-journal`" class="underline">Повідомлення №{{ log.campaign_id }}</NuxtLink><span v-else>Немає даних</span></td>
+          <td v-if="!summary"><NuxtLink v-if="log.campaign_id" :to="`/messaging/campaigns/${log.campaign_id}#delivery-journal`" class="underline">Повідомлення №{{ log.campaign_id }}</NuxtLink><span v-else>Немає даних</span></td>
           <td class="whitespace-nowrap text-ui-secondary">{{ log.sent_at ? new Date(log.sent_at).toLocaleString('uk-UA') : '—' }}</td>
           <td class="max-w-sm text-ui-secondary">{{ deliveryReasonLabel(log.failure_reason) }}</td>
           <td v-if="retryable">

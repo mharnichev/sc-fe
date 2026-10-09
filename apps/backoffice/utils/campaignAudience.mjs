@@ -35,4 +35,5 @@ export const deliveryReasonLabel = value => ({
   marketing_consent: 'Немає маркетингової згоди',
   channel_unavailable: 'Канал недоступний',
   inactive_customer: 'Клієнт неактивний',
+  provider_delivery_failed: 'Провайдер повідомив про недоставку',
 }[value] || value || '—')

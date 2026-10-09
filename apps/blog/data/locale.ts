@@ -150,6 +150,8 @@ export interface BlogTerms {
   unsubscribeSuccess: string
   unsubscribeError: string
   unsubscribeMissingIdentifier: string
+  subscriptionProofRequired: string
+  resubscribeButton: string
   newsletterHeadline: string
   newsletterDescription: string
   about: BlogAboutTerms
@@ -233,7 +235,9 @@ export const blogTerms = {
     unsubscribeButton: 'Відписатися',
     unsubscribeSuccess: 'Ви відписані від розсилки.',
     unsubscribeError: 'Не вдалося відписатися. Перевірте посилання або спробуйте ще раз.',
-    unsubscribeMissingIdentifier: 'Потрібен token із листа або email адреса.',
+    unsubscribeMissingIdentifier: 'Відкрийте особисте посилання для відписки з попереднього листа. Самої email адреси недостатньо.',
+    subscriptionProofRequired: 'Для повторної підписки відкрийте особисте посилання з попереднього листа та підтвердьте підписку. Якщо листа немає, зверніться до нас.',
+    resubscribeButton: 'Підписатися знову',
     newsletterHeadline: 'Отримуйте наступну історію на пошту.',
     newsletterDescription: 'Проста форма підписки для першої версії. Інтеграцію з провайдером можна додати пізніше.',
     about: {
@@ -410,7 +414,9 @@ export const blogTerms = {
     unsubscribeButton: 'Unsubscribe',
     unsubscribeSuccess: 'You have been unsubscribed from the newsletter.',
     unsubscribeError: 'Unable to unsubscribe. Check the link or try again.',
-    unsubscribeMissingIdentifier: 'A token from the email or an email address is required.',
+    unsubscribeMissingIdentifier: 'Open your personal unsubscribe link from a previous newsletter. An email address alone is not enough.',
+    subscriptionProofRequired: 'To resubscribe, open your personal link from a previous newsletter and confirm your subscription. If you no longer have the email, contact us.',
+    resubscribeButton: 'Resubscribe',
     newsletterHeadline: 'Get the next story in your inbox.',
     newsletterDescription: 'A simple subscription block for the first version. Provider integration can be added later.',
     about: {

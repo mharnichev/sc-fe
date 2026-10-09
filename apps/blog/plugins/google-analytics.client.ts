@@ -1,3 +1,5 @@
+import { sanitizeAnalyticsUrl, suppressBlogAnalytics } from '~/utils/blogAnalyticsPrivacy'
+
 const GA_MEASUREMENT_ID = 'G-YYYXH2R239'
 const GA_SCRIPT_ID = 'blog-google-analytics-gtag'
 
@@ -29,11 +31,17 @@ const runAfterInitialLoad = (callback: () => void) => {
 }
 
 export default defineNuxtPlugin(() => {
+  const app = useNuxtApp()
   const route = useRoute()
   const router = useRouter()
   const { trackBlogEvent } = useBlogAnalytics()
   let isGtagInitialized = false
   let isGtagLoadScheduled = false
+  const isSuppressed = (path = route.fullPath) => {
+    const suppressed = suppressBlogAnalytics(app, path, window.location.href, document.referrer)
+    if (suppressed) Object.assign(window, { [`ga-disable-${GA_MEASUREMENT_ID}`]: true })
+    return suppressed
+  }
 
   const ensureGtagQueue = () => {
     window.dataLayer = window.dataLayer || []
@@ -55,12 +63,16 @@ export default defineNuxtPlugin(() => {
   }
 
   const initializeGtag = () => {
+    if (isSuppressed()) return
     ensureGtagQueue()
 
     if (!isGtagInitialized) {
       window.gtag?.('js', new Date())
       window.gtag?.('config', GA_MEASUREMENT_ID, {
         send_page_view: false,
+        page_location: window.location.origin + route.path,
+        page_path: route.path,
+        page_referrer: sanitizeAnalyticsUrl(document.referrer),
       })
       isGtagInitialized = true
     }
@@ -69,7 +81,7 @@ export default defineNuxtPlugin(() => {
   }
 
   const scheduleGtagLoad = () => {
-    if (isGtagLoadScheduled) return
+    if (isGtagLoadScheduled || isSuppressed()) return
     isGtagLoadScheduled = true
 
     runAfterInitialLoad(() => {
@@ -79,15 +91,19 @@ export default defineNuxtPlugin(() => {
   }
 
   const trackPageView = () => {
+    if (isSuppressed()) return
     ensureGtagQueue()
     scheduleGtagLoad()
     trackBlogEvent('page_view', {
-      page_location: window.location.href,
-      page_path: route.fullPath,
+      page_location: window.location.origin + route.path,
+      page_path: route.path,
+      page_referrer: sanitizeAnalyticsUrl(document.referrer),
       page_title: document.title,
     })
   }
 
+  router.beforeEach(to => { isSuppressed(to.fullPath) })
+  if (isSuppressed()) return
   ensureGtagQueue()
   window.requestAnimationFrame(trackPageView)
 

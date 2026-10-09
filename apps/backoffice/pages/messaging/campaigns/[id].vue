@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { isNotificationType } from '~/utils/campaignAudience.mjs'
-import { ArchiveBoxIcon, DocumentDuplicateIcon, PauseIcon, PlayIcon, ArrowPathIcon, PencilSquareIcon, XMarkIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, DocumentDuplicateIcon, PauseIcon, PlayIcon, ArrowPathIcon, PencilSquareIcon, XMarkIcon, ArrowLeftIcon, InformationCircleIcon, AdjustmentsHorizontalIcon, RocketLaunchIcon, TruckIcon, ChartBarIcon, ChevronDownIcon, FunnelIcon } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
 const api = useBackofficeApi()
 const { campaignTypeLabel } = useMessagingUi()
-const { canSendMessagingCampaigns, canCreateMessagingDrafts } = useBackofficeAccess()
+const { canSendMessagingCampaigns, canCreateMessagingDrafts, canViewMessagingAnalytics } = useBackofficeAccess()
 
 const campaignId = computed(() => route.params.id as string)
 const { data: campaign, pending, error, refresh } = await useAsyncData(() => `messaging-campaign-${campaignId.value}`, () => api.getMessagingCampaign(campaignId.value), { watch: [campaignId] })
@@ -46,6 +46,22 @@ const requestCancelEditing = () => {
   else cancelEditing()
 }
 const audienceSaved = async () => { cancelEditing(); await refresh() }
+const statusExplanation = computed(() => {
+  if (editing.value) return 'Збережіть зміни, а потім перевірте отримувачів перед запуском.'
+  if (isNotification.value) return campaign.value?.status === 'active' ? 'Правило увімкнене: повідомлення створюються після відповідної сервісної події.' : 'Сервісне правило. Його статус визначає, чи надсилати повідомлення після події.'
+  return ({ draft: 'Перевірте умови та отримувачів, потім підтвердьте запуск.', active: 'Кампанію активовано. Стан черги та результати дивіться нижче.', paused: 'Відправку призупинено. Уже надіслані повідомлення залишаються в історії.', completed: 'Запуск завершено. Перегляньте результати доставки.', archived: 'Кампанія в архіві. Для нової розсилки створіть копію.' } as Record<string, string>)[campaign.value?.status || ''] || 'Перегляньте умови, готовність і результати кампанії.'
+})
+const displayDate = (value?: string | null) => {
+  if (!value || Number.isNaN(Date.parse(value))) return '—'
+  try { return new Date(value).toLocaleString('uk-UA', { timeZone: campaign.value?.timezone || 'Europe/Kyiv' }) }
+  catch { return new Date(value).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' }) }
+}
+const audienceDescriptions = computed(() => (campaign.value?.audience_rules || []).map(rule => {
+  const labels: Record<string, string> = { all_clients: 'Усі клієнти', selected_barber: 'Клієнти майстра', selected_service: 'Клієнти послуги', visited_date_range: 'Візити за період', inactive_clients: 'Неактивні клієнти', first_time_clients: 'Нові клієнти', vip_clients: 'VIP клієнти', birthday_this_month: 'День народження цього місяця', specific_clients: 'Вибрані клієнти' }
+  const detail = rule.type === 'selected_barber' ? `№${rule.barber_id}` : rule.type === 'selected_service' ? `№${rule.service_id}` : rule.type === 'inactive_clients' ? `${rule.inactive_days} днів без візиту` : rule.type === 'visited_date_range' ? `${rule.date_from || 'Без початку'} — ${rule.date_to || 'Без завершення'}` : ''
+  const clients = rule.type === 'specific_clients' ? (rule.client_ids || []).map(id => `№${id}`).join(', ') : ''
+  return `${labels[rule.type] || 'Додаткова умова'}${detail || clients ? ` · ${detail || clients}` : ''}`
+}))
 const actionPending = ref(false)
 const actionError = ref('')
 const { apiErrorMessage } = useBookingFormatting()
@@ -101,8 +117,8 @@ const retryFailed = async () => {
       <NuxtLink :to="isNotification ? '/messaging/notifications' : '/messaging/campaigns'" class="base-button base-button--neutral gap-2 px-5 py-3 text-sm"><ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />{{ isNotification ? 'До сповіщень' : 'До кампаній' }}</NuxtLink>
     </div>
 
-    <div v-if="pending" class="rounded-[1.75rem] bg-slate-100 p-8 text-sm text-ui-muted">Завантажуємо кампанію...</div>
-    <div v-else-if="error || !campaign" class="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">Кампанію не знайдено або API недоступний.</div>
+    <BaseCard v-if="pending"><BaseLoader label="Завантажуємо кампанію…" /></BaseCard>
+    <BaseCard v-else-if="error || !campaign" class="space-y-3"><p role="alert" class="text-ui-primary">Кампанію не знайдено або API недоступний.</p><BaseButton variant="neutral" @click="refresh"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Повторити</BaseButton></BaseCard>
     <template v-else>
       <section class="grid gap-3" :class="!isNewMaster ? 'xl:grid-cols-[minmax(0,1fr)_320px]' : ''">
         <BaseCard>
@@ -113,7 +129,7 @@ const retryFailed = async () => {
               <MessagingChannelBadge :channel="campaign.channel" />
             </div>
             <div class="flex flex-wrap gap-2">
-              <BaseButton v-if="canEdit && !editing" variant="primary" :disabled="actionPending" @click="editing = true"><PencilSquareIcon class="h-4 w-4" aria-hidden="true" />Редагувати</BaseButton>
+              <BaseButton v-if="canEdit && !editing" variant="neutral" :disabled="actionPending" @click="editing = true"><PencilSquareIcon class="h-4 w-4" aria-hidden="true" />Редагувати</BaseButton>
               <BaseButton v-if="editing" variant="neutral" :disabled="editorSaving" @click="requestCancelEditing"><XMarkIcon class="h-4 w-4" aria-hidden="true" />Скасувати редагування</BaseButton>
               <BaseButton v-if="canSendMessagingCampaigns && !isNewMaster && (isNotification || ['active', 'paused'].includes(campaign.status))" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending || editing" @click="setStatus(campaign.status === 'paused' ? 'active' : 'paused')">
                 <PlayIcon v-if="campaign.status === 'paused'" class="h-4 w-4" /><PauseIcon v-else class="h-4 w-4" /> {{ campaign.status === 'paused' ? 'Поновити' : 'Пауза' }}
@@ -121,53 +137,77 @@ const retryFailed = async () => {
               <BaseButton v-if="canSendMessagingCampaigns && !isNewMaster && !campaign.segment_ids?.length" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending || editing" @click="confirmRetry = true">
                 <ArrowPathIcon class="h-4 w-4" /> Повторити невдалі
               </BaseButton>
+              <details v-if="canCreateMessagingDrafts || canSendMessagingCampaigns" class="group relative">
+                <summary class="base-button base-button--neutral flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm">Інші дії<ChevronDownIcon class="h-4 w-4 transition group-open:rotate-180" aria-hidden="true" /></summary>
+                <BaseCard class="absolute right-0 z-30 mt-2 grid min-w-48 gap-2 shadow-lg">
               <BaseButton v-if="canCreateMessagingDrafts" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending || editing" @click="duplicate">
                 <DocumentDuplicateIcon class="h-4 w-4" /> Дублювати
               </BaseButton>
               <BaseButton v-if="canSendMessagingCampaigns" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm" :disabled="actionPending || editing" @click="setStatus('archived')">
                 <ArchiveBoxIcon class="h-4 w-4" /> Архівувати
               </BaseButton>
+                </BaseCard>
+              </details>
             </div>
           </div>
 
-          <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <p class="mt-3 flex items-start gap-2 text-sm text-ui-secondary"><InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{{ statusExplanation }}</p>
+          <details class="mt-4"><summary class="cursor-pointer text-sm text-ui-muted">Відомості про кампанію</summary>
+          <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div class="min-w-0"><dt class="text-ui-muted">Тип</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaignTypeLabel(campaign.type) }}</dd></div>
             <div class="min-w-0"><dt class="text-ui-muted">Автор</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaign.created_by }}</dd></div>
-            <div class="min-w-0"><dt class="text-ui-muted">Заплановано</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaign.scheduled_at ? new Date(campaign.scheduled_at).toLocaleString('uk-UA') : '—' }}</dd></div>
-            <div class="min-w-0"><dt class="text-ui-muted">Timezone</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaign.timezone || 'Europe/Kyiv' }}</dd></div>
+            <div class="min-w-0"><dt class="text-ui-muted">Заплановано</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaign.scheduled_at ? displayDate(campaign.scheduled_at) : isNotification ? 'За сервісною подією' : 'Без відкладеного запуску' }}</dd></div>
+            <div class="min-w-0"><dt class="text-ui-muted">Часовий пояс</dt><dd class="mt-1 font-medium text-ui-primary">{{ campaign.timezone || 'Europe/Kyiv' }}</dd></div>
           </dl>
+          </details>
         </BaseCard>
         <div v-if="!isNewMaster" class="space-y-2"><p class="text-sm text-ui-muted">Приклад поточного повідомлення з тестовими даними</p><MessagingMessagePreview :body="campaign.message_body || ''" /></div>
       </section>
 
+      <nav aria-label="Розділи кампанії" class="flex flex-wrap gap-2 text-sm">
+        <a v-if="!isNotification && !editing" href="#campaign-launch" class="base-button base-button--neutral gap-2 px-4 py-2"><RocketLaunchIcon class="h-4 w-4" aria-hidden="true" />Підготовка та запуск</a>
+        <a v-if="!isNotification" href="#campaign-conditions" class="base-button base-button--neutral gap-2 px-4 py-2"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Умови</a>
+        <a href="#delivery-journal" class="base-button base-button--neutral gap-2 px-4 py-2"><TruckIcon class="h-4 w-4" aria-hidden="true" />Доставка</a>
+        <a v-if="isNewMaster && canViewMessagingAnalytics && !editing" href="#campaign-analytics" class="base-button base-button--neutral gap-2 px-4 py-2"><ChartBarIcon class="h-4 w-4" aria-hidden="true" />Аналітика</a>
+      </nav>
+
       <p v-if="actionError" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ actionError }}</p>
       <p v-if="editing" role="status" class="text-sm text-ui-accent">Режим редагування</p>
-      <MessagingNewMasterCampaignEditor v-if="isNewMaster" :key="`offer-editor-${campaignId}-${campaign.status}-${editing}-${editorVersion}`" :campaign="campaign" :readonly="!editing" :duplicated="route.query.duplicated === '1'" @saved="newMasterSaved" @dirty="newMasterDirty = $event" @busy="editorSaving = $event" />
-      <MessagingNewMasterCampaignReview v-if="isNewMaster && !editing" :key="`offer-review-${campaignId}`" :campaign="campaign" :dirty="newMasterDirty" @changed="refresh" />
+      <section v-if="!editing && !isNotification" id="campaign-launch" class="scroll-mt-6">
+        <MessagingNewMasterCampaignReview v-if="isNewMaster && !editing" :key="`offer-review-${campaignId}`" :campaign="campaign" :dirty="newMasterDirty" @changed="refresh" />
+        <MessagingCampaignRunPanel v-if="!editing && !isNewMaster && !isNotification && campaign.recipient === 'customer'" :key="`runs-${campaignId}`" :campaign="campaign" :dirty="audienceDirty" @launched="refresh" />
+      </section>
+      <section v-if="!isNotification" id="campaign-conditions" class="scroll-mt-6">
+      <MessagingNewMasterCampaignEditor v-if="isNewMaster && editing" :key="`offer-editor-${campaignId}-${campaign.status}-${editing}-${editorVersion}`" :campaign="campaign" :readonly="!editing" :duplicated="route.query.duplicated === '1'" @saved="newMasterSaved" @dirty="newMasterDirty = $event" @busy="editorSaving = $event" />
+        <details v-if="isNewMaster && !editing" class="group">
+          <summary class="base-card flex cursor-pointer list-none items-center gap-3 rounded-2xl p-4 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-accent"><AdjustmentsHorizontalIcon class="h-5 w-5 text-ui-accent" aria-hidden="true" />Умови та повідомлення<ChevronDownIcon class="ml-auto h-4 w-4 transition group-open:rotate-180" aria-hidden="true" /></summary>
+          <MessagingNewMasterCampaignEditor :key="`offer-view-${campaignId}-${campaign.status}-${editorVersion}`" :campaign="campaign" readonly :duplicated="route.query.duplicated === '1'" @dirty="newMasterDirty = $event" />
+        </details>
       <MessagingCampaignAudienceEditor v-if="!isNewMaster && !isNotification && campaign.recipient === 'customer'" :key="`editor-${campaignId}-${editing}-${editorVersion}`" :campaign="campaign" :readonly="!editing" @saved="audienceSaved" @dirty="audienceDirty = $event" @busy="editorSaving = $event" />
-      <MessagingCampaignRunPanel v-if="!editing && !isNewMaster && !isNotification && campaign.recipient === 'customer'" :key="`runs-${campaignId}`" :campaign="campaign" :dirty="audienceDirty" @launched="refresh" />
+      </section>
 
       <MessagingCampaignAnalyticsCards v-if="!isNewMaster && !campaign.segment_ids?.length" :metrics="campaign.metrics || { total_recipients: campaign.audience_size, sent: campaign.sent_count, failed: campaign.failed_count, skipped: 0, delivery_rate: campaign.audience_size ? Math.round((campaign.sent_count / campaign.audience_size) * 100) : 0 }" />
 
       <section v-if="!isNewMaster && !campaign.segment_ids?.length" class="grid gap-3 xl:grid-cols-2">
-        <div v-if="!isNotification" class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div v-if="!isNotification" class="base-card rounded-[1.75rem] p-5">
           <h2 class="text-xl font-semibold text-ui-primary">Фільтри аудиторії</h2>
-          <pre class="mt-4 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{{ campaign.audience_rules || [] }}</pre>
+          <ul class="mt-3 space-y-2 text-sm text-ui-secondary"><li v-for="(description, index) in audienceDescriptions" :key="index" class="flex gap-2"><FunnelIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />{{ description }}</li></ul>
         </div>
-        <div class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="base-card rounded-[1.75rem] p-5">
           <h2 class="text-xl font-semibold text-ui-primary">Налаштування розкладу</h2>
           <dl class="mt-4 space-y-3 text-sm">
-            <div class="flex justify-between gap-4"><dt class="text-ui-muted">Review link</dt><dd class="font-medium text-ui-primary">{{ campaign.review_link || '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-ui-muted">Created</dt><dd class="font-medium text-ui-primary">{{ new Date(campaign.created_at).toLocaleString('uk-UA') }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-ui-muted">Посилання на відгук</dt><dd class="font-medium text-ui-primary">{{ campaign.review_link || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-ui-muted">Створено</dt><dd class="font-medium text-ui-primary">{{ displayDate(campaign.created_at) }}</dd></div>
           </dl>
         </div>
       </section>
 
       <section id="delivery-journal" class="space-y-4">
-        <h2 class="text-xl font-semibold text-ui-primary">Журнал відправок</h2>
+        <h2 class="flex items-center gap-2 text-xl font-semibold text-ui-primary"><TruckIcon class="h-5 w-5 text-ui-accent" aria-hidden="true" />Доставка</h2>
+        <p class="text-sm text-ui-muted">Статуси повідомлень після запуску. Прийняття провайдером ще не означає доставку клієнту.</p>
         <p v-if="logsError" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">Не вдалося завантажити журнал. <BaseButton @click="refreshLogs()">Повторити</BaseButton></p>
-        <MessagingSendLogsTable v-else :logs="logs?.items || []" :pending="logsPending" />
-        <div class="flex flex-wrap items-center gap-3"><BaseButton :disabled="logsPending || logsPage === 1" @click="logsPage--">Попередня</BaseButton><span class="text-sm">Сторінка {{ logsPage }} · {{ logs?.total ?? '—' }} записів</span><BaseButton :disabled="logsPending || !logs || logsPage * 50 >= logs.total" @click="logsPage++">Наступна</BaseButton></div>
+        <MessagingSendLogsTable v-else summary :logs="logs?.items || []" :pending="logsPending" />
+        <div class="flex flex-wrap items-center gap-3"><BaseButton :disabled="logsPending || logsPage === 1" @click="logsPage--">Попередня</BaseButton><span class="text-sm">Сторінка {{ logsPage }} · {{ logs?.total ?? '—' }} повідомлень</span><BaseButton :disabled="logsPending || !logs || logsPage * 50 >= logs.total" @click="logsPage++">Наступна</BaseButton></div>
       </section>
 
       <section v-if="!isNewMaster && !campaign.segment_ids?.length" id="recipients" class="space-y-4">
@@ -184,11 +224,11 @@ const retryFailed = async () => {
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2">
-          <div class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="base-card rounded-[1.25rem] p-4">
             <p class="text-xs uppercase tracking-[0.18em] text-ui-muted">У черзі / історії</p>
             <p class="mt-2 text-2xl font-semibold text-ui-primary">{{ recipients?.total || 0 }}</p>
           </div>
-          <div v-if="!isNotification" class="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+          <div v-if="!isNotification" class="base-card rounded-[1.25rem] p-4">
             <p class="text-xs uppercase tracking-[0.18em] text-ui-muted">Розрахована аудиторія</p>
             <p class="mt-2 text-2xl font-semibold text-ui-primary">{{ calculatedRecipients?.total || 0 }}</p>
           </div>
