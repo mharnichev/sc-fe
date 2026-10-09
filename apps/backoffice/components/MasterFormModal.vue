@@ -21,6 +21,9 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import type { Master, MasterFormPayload, MasterPayload, MasterPosition } from '~/composables/useBackofficeApi'
+import MasterImageCropDialog from './master/MasterImageCropDialog.vue'
+
+type MasterImageKind = 'photo' | 'avatar' | 'passport_photo'
 
 const props = defineProps<{
   modelValue: boolean
@@ -64,6 +67,7 @@ const avatarPreviewUrl = ref('')
 const passportPhotoPreviewUrl = ref('')
 const imagePreviewUrl = ref('')
 const imagePreviewAlt = ref('')
+const cropTarget = ref<{ kind: MasterImageKind, file: File } | null>(null)
 const fileInputKey = ref(0)
 const positionSelectOpen = ref(false)
 const redirectSelectOpen = ref(false)
@@ -183,6 +187,7 @@ const revokeObjectUrl = (url: string) => {
 }
 
 const resetFiles = () => {
+  cropTarget.value = null
   revokeObjectUrl(photoPreviewUrl.value)
   revokeObjectUrl(avatarPreviewUrl.value)
   revokeObjectUrl(passportPhotoPreviewUrl.value)
@@ -223,6 +228,7 @@ const fillForm = (master?: Master | null) => {
 }
 
 const close = () => {
+  cropTarget.value = null
   emit('update:modelValue', false)
 }
 
@@ -236,11 +242,24 @@ const closeImagePreview = () => {
   imagePreviewAlt.value = ''
 }
 
-const setFilePreview = (file: File | null, kind: 'photo' | 'avatar' | 'passport_photo') => {
+const selectedImageFile = (kind: MasterImageKind) => {
+  if (kind === 'photo') return photoFile.value
+  if (kind === 'avatar') return avatarFile.value
+  return passportPhotoFile.value
+}
+
+const openCrop = (kind: MasterImageKind) => {
+  const file = selectedImageFile(kind)
+  if (file && file.type === 'image/webp' && !saving.value) cropTarget.value = { kind, file }
+}
+
+const setFilePreview = (file: File | null, kind: MasterImageKind, openCropAfterSelect = true) => {
+  cropTarget.value = null
   if (kind === 'photo') {
     revokeObjectUrl(photoPreviewUrl.value)
     photoFile.value = file
     photoPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+    if (file && openCropAfterSelect) openCrop(kind)
     return
   }
 
@@ -248,12 +267,20 @@ const setFilePreview = (file: File | null, kind: 'photo' | 'avatar' | 'passport_
     revokeObjectUrl(passportPhotoPreviewUrl.value)
     passportPhotoFile.value = file
     passportPhotoPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+    if (file && openCropAfterSelect) openCrop(kind)
     return
   }
 
   revokeObjectUrl(avatarPreviewUrl.value)
   avatarFile.value = file
   avatarPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+  if (file && openCropAfterSelect) openCrop(kind)
+}
+
+const applyCrop = (file: File) => {
+  const target = cropTarget.value
+  if (!props.modelValue || saving.value || !target || selectedImageFile(target.kind) !== target.file) return
+  setFilePreview(file, target.kind, false)
 }
 
 const validate = () => {
@@ -276,6 +303,7 @@ const validate = () => {
 }
 
 const submit = async () => {
+  if (cropTarget.value) return
   formError.value = validate()
   if (formError.value) {
     toast.warning(formError.value)
@@ -323,6 +351,7 @@ watch(
   () => [props.modelValue, props.master] as const,
   ([open, master]) => {
     if (!open) {
+      cropTarget.value = null
       closeImagePreview()
       positionSelectOpen.value = false
       redirectSelectOpen.value = false
@@ -535,31 +564,34 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="displayedPhotoUrl || displayedAvatarUrl || displayedPassportPhotoUrl" class="grid gap-4 rounded-xl bg-slate-50 p-3 sm:p-4 md:grid-cols-3">
           <div v-if="displayedPhotoUrl" class="space-y-1.5">
-            <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото' : 'Попередній перегляд фото' }}</p>
+            <p class="text-sm font-medium text-slate-700">{{ photoFile ? 'Попередній перегляд фото' : 'Поточне фото' }}</p>
             <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPhotoUrl, 'Фото майстра')">
               <img :src="displayedPhotoUrl" alt="Фото майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
             </BaseButton>
+            <BaseButton v-if="photoFile" type="button" :disabled="saving" class="rounded-lg border border-[var(--bo-accent)] px-3 py-2 text-sm font-medium text-ui-accent" @click="openCrop('photo')">Обрізати фото</BaseButton>
           </div>
           <div v-if="displayedAvatarUrl" class="space-y-1.5">
-            <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточний avatar' : 'Попередній перегляд avatar' }}</p>
+            <p class="text-sm font-medium text-slate-700">{{ avatarFile ? 'Попередній перегляд avatar' : 'Поточний avatar' }}</p>
             <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedAvatarUrl, 'Avatar майстра')">
               <img :src="displayedAvatarUrl" alt="Avatar майстра" class="h-32 w-full object-cover sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
             </BaseButton>
+            <BaseButton v-if="avatarFile" type="button" :disabled="saving" class="rounded-lg border border-[var(--bo-accent)] px-3 py-2 text-sm font-medium text-ui-accent" @click="openCrop('avatar')">Обрізати avatar</BaseButton>
           </div>
           <div v-if="displayedPassportPhotoUrl" class="space-y-1.5">
-            <p class="text-sm font-medium text-slate-700">{{ editing ? 'Поточне фото паспорта' : 'Попередній перегляд фото паспорта' }}</p>
+            <p class="text-sm font-medium text-slate-700">{{ passportPhotoFile ? 'Попередній перегляд фото паспорта' : 'Поточне фото паспорта' }}</p>
             <BaseButton type="button" class="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-white" title="Відкрити повний перегляд" @click="openImagePreview(displayedPassportPhotoUrl, 'Фото паспорта')">
               <img :src="displayedPassportPhotoUrl" alt="Фото паспорта" class="h-32 w-full object-contain sm:h-44">
               <span class="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/75 text-white opacity-100 transition group-hover:bg-slate-950 sm:opacity-0 sm:group-hover:opacity-100">
                 <ArrowsPointingOutIcon class="h-4 w-4" aria-hidden="true" />
               </span>
             </BaseButton>
+            <BaseButton v-if="passportPhotoFile" type="button" :disabled="saving" class="rounded-lg border border-[var(--bo-accent)] px-3 py-2 text-sm font-medium text-ui-accent" @click="openCrop('passport_photo')">Обрізати фото паспорта</BaseButton>
           </div>
         </div>
         <label class="mt-2 space-y-1.5 text-sm text-slate-700">
@@ -584,7 +616,7 @@ onBeforeUnmount(() => {
           </BaseToggle>
         </div>
         <div class="backoffice-modal-actions">
-          <BaseButton type="submit" :disabled="saving || disabled" class="backoffice-modal-action-button backoffice-modal-action-primary">
+          <BaseButton type="submit" :disabled="saving || disabled || Boolean(cropTarget)" class="backoffice-modal-action-button backoffice-modal-action-primary">
             <PlusIcon v-if="!editing && !saving" class="h-4 w-4" aria-hidden="true" />
             <PencilSquareIcon v-else-if="editing && !saving" class="h-4 w-4" aria-hidden="true" />
             {{ saving ? 'Збереження...' : 'Зберегти майстра' }}
@@ -598,18 +630,26 @@ onBeforeUnmount(() => {
     </template>
   </BaseModal>
 
-  <Teleport to="body">
-    <div
-      v-if="imagePreviewUrl"
-      class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-3 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      @click.self="closeImagePreview"
-    >
-      <BaseButton type="button" class="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-5 sm:top-5" aria-label="Закрити перегляд" @click="closeImagePreview">
-        <XMarkIcon class="h-6 w-6" aria-hidden="true" />
-      </BaseButton>
-      <img :src="imagePreviewUrl" :alt="imagePreviewAlt" class="max-h-[92dvh] max-w-full rounded-xl object-contain">
-    </div>
-  </Teleport>
+  <MasterImageCropDialog
+    :model-value="Boolean(cropTarget)"
+    :file="cropTarget?.file || null"
+    :title="cropTarget?.kind === 'avatar' ? 'Avatar' : cropTarget?.kind === 'passport_photo' ? 'Фото паспорта' : 'Фото'"
+    :square-only="cropTarget?.kind === 'avatar'"
+    @update:model-value="!$event && (cropTarget = null)"
+    @apply="applyCrop"
+  />
+
+  <BaseModal :model-value="Boolean(imagePreviewUrl)" max-width-class="max-w-6xl" :aria-label="imagePreviewAlt || 'Перегляд зображення'" @update:model-value="!$event && closeImagePreview()">
+    <template #head>
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-ui-primary">{{ imagePreviewAlt }}</p>
+        <BaseButton type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-ui text-ui-secondary" aria-label="Закрити перегляд" @click="closeImagePreview">
+          <XMarkIcon class="h-5 w-5" aria-hidden="true" />
+        </BaseButton>
+      </div>
+    </template>
+    <template #body>
+      <img :src="imagePreviewUrl" :alt="imagePreviewAlt" class="mx-auto max-h-[75dvh] max-w-full rounded-xl object-contain">
+    </template>
+  </BaseModal>
 </template>
