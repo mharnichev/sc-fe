@@ -227,6 +227,7 @@ watch(teamMembers, (members) => {
                     :review-limit="5"
                     show-reviews
                     rotate-reviews
+                    reviews-dialog
                     class="mt-4"
                     :summary-label="activeMember.description"
                     :show-summary-details="false"
@@ -330,6 +331,7 @@ watch(teamMembers, (members) => {
                     :review-limit="5"
                     rotate-reviews
                     show-reviews
+                    reviews-dialog
                     tone="dark"
                     class="mt-5 max-w-md"
                     :summary-label="activeMember.description"

@@ -22,6 +22,7 @@ const {
   normalizeItems,
   normalizeTotal,
   apiErrorMessage,
+  toKyivIso,
 } = useBookingFormatting()
 
 const filters = reactive({
@@ -55,6 +56,31 @@ const statusOptions = computed(() => [
   ...statuses.map(status => ({ value: status, label: formatBookingStatus(status) })),
 ])
 
+const replaceBooking = (booking: Booking) => {
+  if (!data.value) return
+  const previous = normalizeItems(data.value)
+  const inFilters = (!filters.status || booking.status === filters.status)
+    && (!filters.date_from || Date.parse(bookingEnd(booking)) > Date.parse(toKyivIso(filters.date_from, '00:00')))
+    && (!filters.date_to || Date.parse(bookingStart(booking)) < Date.parse(toKyivIso(filters.date_to, '00:00')))
+  const items = previous.flatMap(item => item.id === booking.id ? (inFilters ? [booking] : []) : [item])
+  if (Array.isArray(data.value)) data.value = items
+  else { data.value.items = items; data.value.total = Math.max(0, data.value.total - (previous.length - items.length)) }
+}
+const removeBooking = (id: number) => {
+  if (!data.value) return
+  const previous = normalizeItems(data.value)
+  const items = previous.filter(item => item.id !== id)
+  if (Array.isArray(data.value)) data.value = items
+  else { data.value.items = items; data.value.total = Math.max(0, data.value.total - (previous.length - items.length)) }
+}
+const reconciliation = useBookingReconciliation(selected, {
+  load: api.getMyBooking,
+  onUpdated: replaceBooking,
+  onDeleted: removeBooking,
+  refreshList: refresh,
+})
+const { busy: bookingBusy, checking: bookingChecking, needsRefresh: bookingNeedsRefresh, notice: bookingNotice, error: bookingError } = reconciliation
+
 const bookings = computed(() => normalizeItems(data.value))
 const serviceOptions = computed(() => normalizeItems(services.value))
 const total = computed(() => normalizeTotal(data.value))
@@ -80,42 +106,27 @@ const allowedStatusActions = (booking: Booking | null) =>
   booking && booking.status !== 'completed' ? statuses.filter(status => status !== booking.status) : []
 
 const updateStatus = async (status: BookingStatus) => {
-  if (!selected.value || selected.value.status === 'completed') return
+  if (!selected.value || selected.value.status === 'completed' || bookingBusy.value) return
   pendingStatus.value = status
-  actionError.value = ''
   try {
-    const updated = await api.updateMyBookingStatus(selected.value.id, status)
-    selected.value = { ...selected.value, ...updated }
-    toast.success('Статус бронювання оновлено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити статус бронювання.')
-    toast.error(actionError.value)
-  }
-  finally {
-    pendingStatus.value = ''
-  }
+    if (await reconciliation.mutate(booking => api.updateMyBookingStatus(booking.id, status), 'Не вдалося оновити статус запису. Спробуйте ще раз.')) {
+      toast.success('Статус бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingStatus.value = '' }
 }
 
 const deleteSelectedBooking = async () => {
-  if (!selected.value || selected.value.status === 'completed') return
+  if (!selected.value || bookingBusy.value) return
   pendingDelete.value = true
-  actionError.value = ''
   try {
-    await api.deleteMyBooking(selected.value.id)
-    selected.value = null
-    toast.success('Бронювання видалено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
-    toast.error(actionError.value)
-  }
-  finally {
-    pendingDelete.value = false
-  }
+    if (await reconciliation.mutate(async booking => { await api.deleteMyBooking(booking.id) }, 'Не вдалося видалити запис. Спробуйте ще раз.', true)) {
+      toast.success('Бронювання видалено.')
+      await refresh()
+    }
+  } finally { pendingDelete.value = false }
 }
+
 </script>
 
 <template>
@@ -231,12 +242,18 @@ const deleteSelectedBooking = async () => {
     </section>
 
     <BookingDetailsModal
+      :busy="bookingBusy"
+      :checking="bookingChecking"
+      :needs-refresh="bookingNeedsRefresh"
+      :notice="bookingNotice"
+      :action-error="bookingError"
+      @refresh="reconciliation.refreshSelected"
       :booking="selected"
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-delete="pendingDelete"
       :can-edit="false"
-      :can-delete="Boolean(selected && selected.status !== 'completed')"
+      :can-delete="Boolean(selected)"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"

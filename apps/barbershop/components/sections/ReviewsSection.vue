@@ -30,6 +30,7 @@ const activeIndex = ref(0)
 const visibleSlides = ref(1)
 const expandedOriginalIds = ref<string[]>([])
 const expandedReviewIds = ref<string[]>([])
+const reviewsDialogOpen = ref(false)
 
 const maxActiveIndex = computed(() =>
   Math.max(0, reviews.value.length - visibleSlides.value),
@@ -206,9 +207,9 @@ onBeforeUnmount(() => {
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
         </div>
-        <p v-if="reviewsResponse?.total_review_count" class="type-eyebrow text-xs text-neutral-600">
+        <button v-if="reviewsResponse?.total_review_count" type="button" class="type-eyebrow cursor-pointer text-xs text-neutral-600 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2" aria-haspopup="dialog" @click="reviewsDialogOpen = true">
           Google Maps / {{ reviewsResponse.total_review_count }}
-        </p>
+        </button>
       </div>
 
       <div v-if="reviews.length" class="mt-8 md:mt-10">
@@ -328,5 +329,29 @@ onBeforeUnmount(() => {
         style="--feedback-state-surface: #f5f5f4"
       />
     </div>
+
+    <BaseModal
+      v-model="reviewsDialogOpen"
+      type="right"
+      :dialog-label="locale === 'uk' ? 'Відгуки Google' : 'Google reviews'"
+      :close-label="locale === 'uk' ? 'Закрити відгуки' : 'Close reviews'"
+    >
+      <template #header>
+        <h2 class="pr-10 text-xl font-semibold">{{ locale === 'uk' ? 'Відгуки Google' : 'Google reviews' }}</h2>
+      </template>
+      <div class="space-y-5 p-5 text-neutral-950 sm:p-8">
+        <article v-for="review in reviews" :key="review.review_id" class="border-b border-neutral-200 pb-5">
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <strong>{{ reviewerName(review) }}</strong>
+            <span class="text-amber-600">★ {{ review.star_rating || 0 }}/5</span>
+            <time v-if="review.create_time" :datetime="review.create_time" class="text-neutral-500">{{ formatReviewDate(review.create_time) }}</time>
+          </div>
+          <p class="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{{ reviewText(review).trim() }}</p>
+        </article>
+        <p v-if="!reviews.length" class="text-sm text-neutral-600">
+          {{ locale === 'uk' ? 'Текстові відгуки поки недоступні.' : 'Written reviews are not available yet.' }}
+        </p>
+      </div>
+    </BaseModal>
   </section>
 </template>

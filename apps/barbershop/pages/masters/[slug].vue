@@ -302,6 +302,38 @@ const rating = computed(() => {
 const activeReviewIndex = ref(0)
 const visibleReviewSlides = ref(1)
 const expandedReviewIds = ref<number[]>([])
+const reviewsDialogOpen = ref(false)
+const dialogReviews = ref<PublicMasterReviewDto[]>([])
+const dialogPage = ref(0)
+const dialogTotal = ref(0)
+const dialogPending = ref(false)
+const dialogError = ref(false)
+
+const loadDialogReviews = async () => {
+  if (dialogPending.value || dialogReviews.value.length >= dialogTotal.value && dialogPage.value > 0) return
+
+  dialogPending.value = true
+  dialogError.value = false
+
+  try {
+    const nextPage = dialogPage.value + 1
+    const response = await domain.getMasterReviews(master.id, 20, nextPage)
+    dialogReviews.value = [...dialogReviews.value, ...response.items]
+    dialogPage.value = response.page
+    dialogTotal.value = response.total
+  }
+  catch {
+    dialogError.value = true
+  }
+  finally {
+    dialogPending.value = false
+  }
+}
+
+const openReviewsDialog = () => {
+  reviewsDialogOpen.value = true
+  if (!dialogPage.value) void loadDialogReviews()
+}
 
 const maxActiveReviewIndex = computed(() =>
   Math.max(0, approvedReviews.value.length - visibleReviewSlides.value),
@@ -414,6 +446,9 @@ const pageLabels = computed(() => locale.value === 'en'
       previousReview: 'Previous review',
       reviews: 'Approved client reviews',
       reviewCount: 'approved reviews',
+      loadingReviews: 'Loading reviews…',
+      moreReviews: 'Show more reviews',
+      reviewsUnavailable: 'Reviews are temporarily unavailable.',
       reviewGuest: 'Soul Cuts client',
       seeFullReview: 'Read full review',
       services: 'Available services',
@@ -433,6 +468,9 @@ const pageLabels = computed(() => locale.value === 'en'
       previousReview: 'Попередній відгук',
       reviews: 'Схвалені відгуки клієнтів',
       reviewCount: 'схвалених відгуків',
+      loadingReviews: 'Завантажуємо відгуки…',
+      moreReviews: 'Показати ще відгуки',
+      reviewsUnavailable: 'Відгуки тимчасово недоступні.',
       reviewGuest: 'Клієнт Soul Cuts',
       seeFullReview: 'Читати повністю',
       services: 'Доступні послуги',
@@ -555,9 +593,9 @@ useBarberStructuredData(() => ({
               <span class="font-semibold text-amber-600" :aria-label="`${rating.ratingValue.toFixed(1)} / 5`">
                 ★ {{ rating.ratingValue.toFixed(1) }}
               </span>
-              <span class="text-neutral-500">
+              <button type="button" class="cursor-pointer text-neutral-500 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2" aria-haspopup="dialog" @click="openReviewsDialog">
                 {{ rating.reviewCount }} {{ pageLabels.reviewCount }}
-              </span>
+              </button>
             </div>
 
             <div>
@@ -607,9 +645,9 @@ useBarberStructuredData(() => ({
               {{ rating.ratingValue.toFixed(1) }}/5
             </p>
           </div>
-          <p v-if="rating" class="type-eyebrow text-xs text-neutral-600">
+          <button v-if="rating" type="button" class="type-eyebrow cursor-pointer text-xs text-neutral-600 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2" aria-haspopup="dialog" @click="openReviewsDialog">
             {{ rating.reviewCount }} {{ pageLabels.reviewCount }}
-          </p>
+          </button>
         </div>
 
         <div class="mt-8 md:mt-10">
@@ -713,5 +751,26 @@ useBarberStructuredData(() => ({
         </div>
       </div>
     </section>
+
+    <BaseModal v-model="reviewsDialogOpen" type="right" :dialog-label="pageLabels.reviews" :close-label="locale === 'en' ? 'Close reviews' : 'Закрити відгуки'">
+      <template #header><h2 class="pr-10 text-xl font-semibold">{{ pageLabels.reviews }}</h2></template>
+      <div class="space-y-5 p-5 text-neutral-950 sm:p-8">
+        <article v-for="review in dialogReviews" :key="review.id" class="border-b border-neutral-200 pb-5">
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <strong>{{ review.author_name || pageLabels.reviewGuest }}</strong>
+            <span class="text-amber-600">★ {{ review.rating }}/5</span>
+            <time :datetime="review.published_at" class="text-neutral-500">{{ formatReviewDate(review.published_at) }}</time>
+          </div>
+          <p v-if="review.comment?.trim()" class="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{{ review.comment }}</p>
+        </article>
+        <p v-if="dialogPending" role="status" class="text-sm">{{ pageLabels.loadingReviews }}</p>
+        <div v-else-if="dialogError" role="status">
+          <p>{{ pageLabels.reviewsUnavailable }}</p>
+          <button type="button" class="mt-3 underline" @click="loadDialogReviews">{{ pageLabels.moreReviews }}</button>
+        </div>
+        <p v-else-if="!dialogReviews.length" class="text-sm">{{ pageLabels.reviewsUnavailable }}</p>
+        <button v-else-if="dialogReviews.length < dialogTotal" type="button" class="underline" @click="loadDialogReviews">{{ pageLabels.moreReviews }}</button>
+      </div>
+    </BaseModal>
   </div>
 </template>

@@ -29,7 +29,7 @@ test('bookings page loads active promotions and saves pricing through the backof
   assert.match(bookingsPageSource, /:promotions="activePromotions"/)
   assert.match(bookingsPageSource, /:can-edit-pricing="isAdmin"/)
   assert.match(bookingsPageSource, /@update-pricing="updatePricing"/)
-  assert.match(bookingsPageSource, /api\.adminUpdateBookingPricing\(selected\.value\.id, payload\)/)
+  assert.match(bookingsPageSource, /api\.adminUpdateBookingPricing\(booking\.id, payload\)/)
   assert.match(apiSource, /interface BookingPricingPayload/)
   assert.match(apiSource, /service_prices: BookingServicePricePayload\[\]/)
   assert.match(apiSource, /promotion_code: string \| null/)

@@ -225,6 +225,22 @@ const { data, pending, error, refresh } = await useAsyncData(
   },
 )
 
+const replaceBooking = (booking: Booking) => {
+  if (!data.value) return
+  data.value.bookings = normalizeItems(data.value.bookings).map(item => item.id === booking.id ? booking : item)
+}
+const removeBooking = (id: number) => {
+  if (!data.value) return
+  data.value.bookings = normalizeItems(data.value.bookings).filter(item => item.id !== id)
+}
+const reconciliation = useBookingReconciliation(selected, {
+  load: id => isAdmin.value ? api.adminGetBooking(id) : api.getMyBooking(id),
+  onUpdated: replaceBooking,
+  onDeleted: removeBooking,
+  refreshList: refresh,
+})
+const { busy: bookingBusy, checking: bookingChecking, needsRefresh: bookingNeedsRefresh, notice: bookingNotice, error: bookingError } = reconciliation
+
 const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
 const routeBookingOpened = ref(false)
 watch(bookings, (items) => {
@@ -638,96 +654,47 @@ const submitCalendarAction = async (payload: CalendarActionPayload) => {
 }
 
 const updateStatus = async (status: BookingStatus) => {
-  if (!selected.value || selected.value.status === 'completed') return
+  if (!selected.value || selected.value.status === 'completed' || bookingBusy.value) return
   pendingStatus.value = status
-  actionError.value = ''
   try {
-    const updated = isAdmin.value
-      ? await api.adminUpdateBookingStatus(selected.value.id, status)
-      : await api.updateMyBookingStatus(selected.value.id, status)
-    selected.value = { ...selected.value, ...updated }
-    toastNotification.success('Статус бронювання оновлено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити статус бронювання.')
-    toastNotification.error(actionError.value)
-  }
-  finally {
-    pendingStatus.value = ''
-  }
+    if (await reconciliation.mutate(booking => isAdmin.value ? api.adminUpdateBookingStatus(booking.id, status) : api.updateMyBookingStatus(booking.id, status), 'Не вдалося оновити статус запису. Спробуйте ще раз.')) {
+      toastNotification.success('Статус бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingStatus.value = '' }
 }
 
 const updateSchedule = async (payload: BookingSchedulePayload) => {
-  if (!selected.value || selected.value.status === 'completed') return
-  if (!isAdmin.value) {
-    actionError.value = 'Лише адміністратор може редагувати час або послуги бронювання.'
-    toastNotification.warning(actionError.value)
-    return
-  }
+  if (!selected.value || !isAdmin.value || bookingBusy.value || selected.value.status === 'completed') return
   pendingSchedule.value = true
-  actionError.value = ''
   try {
-    const updated = await api.adminUpdateBookingSchedule(selected.value.id, payload)
-    selected.value = { ...selected.value, ...updated }
-    toastNotification.success('Час бронювання оновлено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити час бронювання.')
-    toastNotification.error(actionError.value)
-  }
-  finally {
-    pendingSchedule.value = false
-  }
+    if (await reconciliation.mutate(booking => api.adminUpdateBookingSchedule(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
+      toastNotification.success('Час та послуги бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingSchedule.value = false }
 }
 
 const updatePricing = async (payload: BookingPricingPayload) => {
-  if (!selected.value) return
-  if (!isAdmin.value) {
-    actionError.value = 'Лише адміністратор може редагувати ціни та акцію бронювання.'
-    toastNotification.warning(actionError.value)
-    return
-  }
+  if (!selected.value || !isAdmin.value || bookingBusy.value) return
   pendingPricing.value = true
-  actionError.value = ''
   try {
-    const updated = await api.adminUpdateBookingPricing(selected.value.id, payload)
-    selected.value = { ...selected.value, ...updated }
-    toastNotification.success('Ціни та акцію бронювання оновлено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося оновити ціни та акцію бронювання.')
-    toastNotification.error(actionError.value)
-  }
-  finally {
-    pendingPricing.value = false
-  }
+    if (await reconciliation.mutate(booking => api.adminUpdateBookingPricing(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
+      toastNotification.success('Ціни та акцію бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingPricing.value = false }
 }
 
 const deleteSelectedBooking = async () => {
-  if (!selected.value || selected.value.status === 'completed' || !canManageCalendarBooking(selected.value)) return
+  if (!selected.value || bookingBusy.value || !canManageCalendarBooking(selected.value)) return
   pendingDelete.value = true
-  actionError.value = ''
   try {
-    if (isAdmin.value) {
-      await api.adminDeleteBooking(selected.value.id)
+    if (await reconciliation.mutate(async booking => { if (isAdmin.value) await api.adminDeleteBooking(booking.id); else await api.deleteMyBooking(booking.id) }, 'Не вдалося видалити запис. Спробуйте ще раз.', true)) {
+      toastNotification.success('Бронювання видалено.')
+      await refresh()
     }
-    else {
-      await api.deleteMyBooking(selected.value.id)
-    }
-    selected.value = null
-    toastNotification.success('Бронювання видалено.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося видалити бронювання.')
-    toastNotification.error(actionError.value)
-  }
-  finally {
-    pendingDelete.value = false
-  }
+  } finally { pendingDelete.value = false }
 }
 
 const deleteSelectedBlock = async () => {
@@ -908,6 +875,12 @@ const deleteSelectedBlock = async () => {
     </BaseCard>
 
     <BookingDetailsModal
+      :busy="bookingBusy"
+      :checking="bookingChecking"
+      :needs-refresh="bookingNeedsRefresh"
+      :notice="bookingNotice"
+      :action-error="bookingError"
+      @refresh="reconciliation.refreshSelected"
       :booking="selected"
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
@@ -916,7 +889,7 @@ const deleteSelectedBlock = async () => {
       :pending-delete="pendingDelete"
       :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
       :can-edit-pricing="isAdmin"
-      :can-delete="Boolean(selected && selected.status !== 'completed' && canManageCalendarBooking(selected))"
+      :can-delete="Boolean(selected && canManageCalendarBooking(selected))"
       :masters="masterOptions"
       :services="serviceOptions"
       :promotions="activePromotions"

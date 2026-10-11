@@ -252,7 +252,7 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
           :is="reviewsDialog ? 'button' : 'span'"
           :type="reviewsDialog ? 'button' : undefined"
           :aria-haspopup="reviewsDialog ? 'dialog' : undefined"
-          :class="reviewsDialog ? 'cursor-pointer hover:opacity-100 focus-visible:outline focus-visible:outline-offset-4' : ''"
+          :class="reviewsDialog ? 'pointer-events-auto cursor-pointer hover:opacity-100 focus-visible:outline focus-visible:outline-offset-4' : ''"
           @click.stop="reviewsDialog && openReviews()"
           v-if="showReviewCount"
           class="flex items-center gap-2 text-xs opacity-70"
@@ -288,7 +288,7 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
           class="border-l pl-3"
           :class="tone === 'dark' ? 'border-white/25' : 'border-neutral-300'"
         >
-          <p class="text-xs font-semibold leading-5">“{{ reviewPreview(review) }}”</p>
+          <p class="line-clamp-3 text-xs font-semibold leading-5">“{{ reviewPreview(review) }}”</p>
           <footer class="mt-1 flex flex-wrap gap-x-2 text-[0.68rem] opacity-60">
             <span>{{ review.author_name || labels.guest }}</span>
             <span aria-hidden="true">/</span>
@@ -329,9 +329,6 @@ const reviewPreview = (review: PublicMasterReviewDto) => {
 <style scoped>
 .master-rating-block--compact :deep(blockquote) {
   display: none;
-}
-.master-review-rotation {
-  min-height: 7rem;
 }
 .master-review-fade-enter-active,
 .master-review-fade-leave-active {

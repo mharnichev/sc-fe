@@ -4,6 +4,11 @@ import type { Booking, BookingPricingPayload, BookingSchedulePayload, BookingSta
 import type { Master, Promotion, Service } from '~/composables/useBackofficeApi'
 
 const props = defineProps<{
+  busy?: boolean
+  checking?: boolean
+  needsRefresh?: boolean
+  notice?: string
+  actionError?: string
   booking: Booking | null
   allowedStatuses?: BookingStatus[]
   pendingStatus?: BookingStatus | ''
@@ -19,6 +24,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  refresh: []
   close: []
   updateStatus: [status: BookingStatus]
   updateSchedule: [payload: BookingSchedulePayload]
@@ -45,7 +51,8 @@ const {
 } = useBookingFormatting()
 const toast = useBaseToastNotification()
 
-const allowed = computed(() => props.allowedStatuses || [])
+const interactionBusy = computed(() => Boolean(props.busy || props.pendingStatus || props.pendingSchedule || props.pendingPricing || props.pendingDelete))
+const allowed = computed(() => props.booking?.status === 'completed' ? [] : props.allowedStatuses || [])
 const scheduleForm = reactive({
   date: '',
   start_time: '',
@@ -213,7 +220,7 @@ const editableServiceOptions = computed(() => {
 
 const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && isAdmin.value && props.canEdit !== false))
 const canEditBookingPricing = computed(() => Boolean(props.booking && isAdmin.value && props.canEditPricing === true))
-const canDeleteBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && props.canDelete !== false))
+const canDeleteBooking = computed(() => Boolean(props.booking && props.canDelete !== false))
 const orderedAllowedStatuses = computed(() => {
   const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
   return [...allowed.value].sort((first, second) => order.indexOf(first) - order.indexOf(second))
@@ -234,6 +241,7 @@ const statusActionIcon = (status: BookingStatus) => {
 }
 
 const submitSchedule = () => {
+  if (interactionBusy.value || !canEditBooking.value) return
   scheduleError.value = ''
   if (!scheduleForm.date || !scheduleForm.start_time) {
     scheduleError.value = 'Вкажіть дату та час початку.'
@@ -252,6 +260,7 @@ const submitSchedule = () => {
 }
 
 const submitServices = () => {
+  if (interactionBusy.value || !canEditBooking.value) return
   serviceError.value = ''
   const serviceIds = serviceForm.service_ids.map(Number).filter(Number.isFinite)
   if (!serviceIds.length) {
@@ -264,6 +273,7 @@ const submitServices = () => {
 }
 
 const submitPricing = () => {
+  if (interactionBusy.value || !canEditBookingPricing.value) return
   const invalidPrice = pricingForm.service_prices.find(item => (
     !Number.isFinite(Number(item.price_amount))
     || !Number.isInteger(Number(item.price_amount))
@@ -319,9 +329,16 @@ const handleModalUpdate = (value: boolean) => {
 }
 
 const confirmDelete = () => {
-  if (!canDeleteBooking.value || props.pendingDelete) return
+  if (!canDeleteBooking.value || interactionBusy.value) return
   emit('delete')
 }
+
+watch(() => [props.booking?.id, props.booking?.status], () => {
+  scheduleEditing.value = false
+  serviceEditing.value = false
+  pricingEditing.value = false
+  deleteConfirmOpen.value = false
+})
 
 watch(
   () => [props.booking?.id, props.booking ? bookingStart(props.booking) : '', props.booking ? bookingEnd(props.booking) : ''],
@@ -384,6 +401,12 @@ onBeforeUnmount(() => {
 
     <template #body>
       <div v-if="booking" class="space-y-3 sm:space-y-6">
+        <div v-if="checking || notice || actionError" class="rounded-xl bg-slate-100 p-3 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100" aria-live="polite">
+          <p v-if="checking" role="status">Перевіряємо актуальність запису…</p>
+          <p v-if="notice" role="status">{{ notice }}</p>
+          <p v-if="actionError" role="alert" class="mt-1">{{ actionError }}</p>
+          <BaseButton v-if="needsRefresh" :disabled="checking" class="mt-2" @click="emit('refresh')">Оновити дані</BaseButton>
+        </div>
         <dl class="grid grid-cols-2 gap-2 sm:gap-3">
           <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
@@ -456,7 +479,7 @@ onBeforeUnmount(() => {
                 type="button"
                 class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
                 aria-label="Редагувати ціни та акцію бронювання"
-                :disabled="pendingPricing"
+                :disabled="interactionBusy"
                 @click="pricingEditing = true"
               >
                 <PencilIcon class="h-4 w-4" aria-hidden="true" />
@@ -499,11 +522,11 @@ onBeforeUnmount(() => {
                 <p class="text-xs text-slate-500">Щоб прибрати застосовану знижку, виберіть «Без акції».</p>
               </div>
               <div class="backoffice-modal-actions mt-3">
-                <BaseButton type="submit" :disabled="pendingPricing" class="backoffice-modal-action-button backoffice-modal-action-primary">
+                <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
                   <CheckCircleIcon v-if="!pendingPricing" class="h-4 w-4" aria-hidden="true" />
                   {{ pendingPricing ? 'Збереження...' : 'Зберегти' }}
                 </BaseButton>
-                <BaseButton type="button" :disabled="pendingPricing" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelPricingEditing">
+                <BaseButton type="button" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelPricingEditing">
                   <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                   Скасувати
                 </BaseButton>
@@ -515,6 +538,7 @@ onBeforeUnmount(() => {
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
               aria-label="Редагувати послуги бронювання"
+              :disabled="interactionBusy"
               @click="serviceEditing = true"
             >
               <PencilIcon class="h-4 w-4" aria-hidden="true" />
@@ -524,7 +548,7 @@ onBeforeUnmount(() => {
           <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitServices">
             <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
             <div class="backoffice-modal-actions mt-3">
-              <BaseButton type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
+              <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </BaseButton>
@@ -553,6 +577,7 @@ onBeforeUnmount(() => {
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
               aria-label="Редагувати час бронювання"
+              :disabled="interactionBusy"
               @click="scheduleEditing = !scheduleEditing"
             >
               <PencilIcon class="h-4 w-4" aria-hidden="true" />
@@ -575,7 +600,7 @@ onBeforeUnmount(() => {
               </label>
             </div>
             <div class="backoffice-modal-actions mt-3">
-              <BaseButton type="submit" :disabled="pendingSchedule" class="backoffice-modal-action-button backoffice-modal-action-primary">
+              <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </BaseButton>
@@ -641,8 +666,8 @@ onBeforeUnmount(() => {
             :key="status"
             class="backoffice-modal-action-button backoffice-booking-status-action"
             :class="[statusActionClass(status), status === 'completed' ? 'col-span-2' : '']"
-            :disabled="pendingStatus === status"
-            @click="emit('updateStatus', status)"
+            :disabled="interactionBusy"
+            @click="!interactionBusy && emit('updateStatus', status)"
           >
             <component :is="statusActionIcon(status)" class="h-4 w-4 shrink-0" aria-hidden="true" />
             {{ pendingStatus === status ? 'Оновлення...' : formatBookingStatus(status) }}
@@ -651,7 +676,7 @@ onBeforeUnmount(() => {
             v-if="canDeleteBooking"
             type="button"
             class="backoffice-modal-action-button backoffice-modal-action-danger-outline backoffice-booking-status-action"
-            :disabled="pendingDelete"
+            :disabled="interactionBusy"
             @click="deleteConfirmOpen = true"
           >
             <TrashIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -664,7 +689,7 @@ onBeforeUnmount(() => {
         v-if="booking"
         v-model="deleteConfirmOpen"
         title="Видалити бронювання?"
-        message="Це повністю прибере помилково створений запис з календаря. Для клієнтських відмов використовуйте зміну статусу на скасований."
+        message="Використовуйте видалення, якщо послугу не було надано або запис створено помилково. Запис буде збережено в архіві, зникне з календаря та не враховуватиметься у доходах і статистиці."
         confirm-label="Видалити"
         :pending="pendingDelete"
         destructive

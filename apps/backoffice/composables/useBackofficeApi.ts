@@ -1574,6 +1574,9 @@ export const useBackofficeApi = () => {
       },
     })
 
+  const getMyBooking = (bookingId: number | string) =>
+    api<Booking>(`/backoffice/masters/me/bookings/${bookingId}`)
+
   const updateMyBookingStatus = (bookingId: number | string, status: BookingStatus) =>
     api<Booking>(`/backoffice/masters/me/bookings/${bookingId}/status`, {
       method: 'PATCH',
@@ -1947,6 +1950,9 @@ export const useBackofficeApi = () => {
       method: 'POST',
       body: payload,
     })
+
+  const adminGetBooking = (bookingId: number | string) =>
+    api<Booking>(`/backoffice/bookings/${bookingId}`)
 
   const adminUpdateBookingStatus = (bookingId: number | string, status: BookingStatus) =>
     api<Booking>(`/backoffice/bookings/${bookingId}/status`, {
@@ -2520,6 +2526,7 @@ export const useBackofficeApi = () => {
     getMyCalendarCapacity,
     getMyBookings,
     updateMyBookingStatus,
+    getMyBooking,
     deleteMyBooking,
     getMyServices,
     updateMyService,
@@ -2567,6 +2574,7 @@ export const useBackofficeApi = () => {
     adminGetCalendarTimeBlocks,
     adminCreateBooking,
     adminUpdateBookingStatus,
+    adminGetBooking,
     adminUpdateBookingSchedule,
     adminUpdateBookingPricing,
     adminDeleteBooking,
