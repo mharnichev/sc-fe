@@ -1703,6 +1703,7 @@ const submit = async () => {
       duration_minutes: selectedDurationMinutes.value,
       customer_name: sanitizeFormText(bookedCustomer.name, FORM_FIELD_LIMITS.fullName),
       customer_phone: bookedCustomer.phone,
+      sms_consent: true,
       customer_comment: bookingComment,
       promotion_code: effectiveCampaignOfferToken.value ? null : effectivePromotionCode.value || null,
       offer_token: submittedOfferToken,

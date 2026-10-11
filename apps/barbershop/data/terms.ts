@@ -37,7 +37,7 @@ export const termsDictionary = {
       rightsReserved: 'Місце, де турбота про себе починається з доброго діалогу.',
       termsLinkLabel: 'Умови користування',
       bookingConsentPrefix: 'Підтверджуючи запис, ви погоджуєтеся з',
-      bookingConsentSuffix: 'та надаєте згоду на обробку наданих персональних даних для оформлення й супроводу запису.',
+      bookingConsentSuffix: 'та надаєте згоду на обробку персональних даних і SMS від Soul Cuts: підтвердження й нагадування про візит, запити на відгук, акції та пропозиції. Від розсилки можна відмовитися, звернувшись до Soul Cuts.',
     },
     cookieConsent: {
       label: 'Cookie',
@@ -492,7 +492,7 @@ export const termsDictionary = {
       rightsReserved: 'A place where caring for yourself starts with a good conversation.',
       termsLinkLabel: 'Terms of Use',
       bookingConsentPrefix: 'By confirming the booking, you agree to the',
-      bookingConsentSuffix: 'and consent to the processing of the personal data provided to create and manage the appointment.',
+      bookingConsentSuffix: 'and consent to personal data processing and SMS from Soul Cuts: booking confirmations and reminders, review requests, promotions and offers. You can unsubscribe by contacting Soul Cuts.',
     },
     cookieConsent: {
       label: 'Cookie',

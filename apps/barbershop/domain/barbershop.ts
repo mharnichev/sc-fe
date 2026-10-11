@@ -22,6 +22,7 @@ export interface PublicBookingPayload {
   duration_minutes?: number
   customer_name: string
   customer_phone: string
+  sms_consent?: boolean
   customer_email?: string | null
   customer_comment?: string | null
   promotion_code?: string | null
