@@ -150,7 +150,7 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
     </InventoryProductCard>
     <form class="flex gap-2" @submit.prevent="find(1)">
       <BaseInput v-model="search" label="Назва або артикул" maxlength="255" :disabled="locked" class="min-w-0 flex-1" />
-      <BaseButton type="submit" :disabled="locked" class="min-h-12 self-end">Пошук</BaseButton>
+      <BaseButton type="submit" :disabled="locked" class="min-h-12 shrink-0 self-end whitespace-nowrap">Пошук</BaseButton>
     </form>
     <div v-for="product in results" :key="product.id" class="space-y-2">
       <InventoryProductCard :product="product"><BaseButton class="min-h-12" type="button" :disabled="locked" @click="pick(product)">{{ unknownCode ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>
