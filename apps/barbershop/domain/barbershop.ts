@@ -329,9 +329,9 @@ export const useBarbershopDomain = () => {
       approved_review_count: summary.approved_review_count,
     }
   }
-  const getMasterReviews = async (masterId: number, limit = 2) => {
+  const getMasterReviews = async (masterId: number, limit = 2, page = 1, withText = false) => {
     const response = await api<PublicMasterReviewsResponseDto>(`/public/reviews/masters/${masterId}`, {
-      query: { page: 1, page_size: limit },
+      query: { page, page_size: limit, ...(withText ? { with_text: true } : {}) },
     })
 
     return {

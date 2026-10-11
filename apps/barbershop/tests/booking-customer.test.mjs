@@ -19,7 +19,7 @@ test('booking master cards use regular photos in a transparent two-column mobile
   assert.match(source, /selectedMasterId === master\.id \? 'bg-white text-neutral-950' : 'text-white\/75 hover:text-white'/)
   assert.match(source, /:tone="selectedMasterId === master\.id \? 'light' : 'dark'"/)
   assert.match(source, /class="booking-master-rating col-span-2 mt-1"/)
-  assert.match(source, /:show-summary-details="false"[\s\S]*?:review-limit="2"[\s\S]*?show-review-count[\s\S]*?show-reviews[\s\S]*?hide-empty/)
+  assert.match(source, /:show-summary-details="false"[\s\S]*?show-review-count[\s\S]*?reviews-dialog[\s\S]*?hide-empty/)
   assert.doesNotMatch(source, /show-reviews[\s\S]*?hide-empty[\s\S]*?compact/)
 
   const ratingSource = await readFile(new URL('../components/ui/MasterRatingBlock.vue', import.meta.url), 'utf8')

@@ -2113,30 +2113,29 @@ onBeforeUnmount(() => {
 
                   <section v-else-if="activeStepIndex === 1" key="booking-master">
                   <div class="grid grid-cols-2 gap-1">
-                    <button
+                    <div
                       v-for="master in availableMasters"
                       :key="master.id"
-                      type="button"
                       class="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 px-2 py-1 text-left transition sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-4 sm:p-3"
                       :class="selectedMasterId === master.id ? 'bg-white text-neutral-950' : 'text-white/75 hover:text-white'"
-                      @click="selectMaster(master.id)"
                     >
+                      <button type="button" class="col-span-2 grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-4 text-left" :aria-pressed="selectedMasterId === master.id" @click="selectMaster(master.id)">
                       <img :src="masterPhoto(master)" :alt="masterName(master)" class="h-16 w-16 object-cover object-top sm:h-20 sm:w-20">
                       <div class="min-w-0 self-center">
                         <span class="block text-[0.6875rem] font-semibold leading-4">{{ masterName(master) }}</span>
                         <span class="mt-0.5 block text-[0.625rem] leading-4 opacity-70">{{ masterPosition(master) }}</span>
                       </div>
+                      </button>
                       <MasterRatingBlock
                         :master-id="master.id"
                         :tone="selectedMasterId === master.id ? 'light' : 'dark'"
                         :show-summary-details="false"
-                        :review-limit="2"
                         show-review-count
-                        show-reviews
+                        reviews-dialog
                         hide-empty
                         class="booking-master-rating col-span-2 mt-1"
                       />
-                    </button>
+                    </div>
                     <p v-if="mastersPending" class="text-sm text-white/55">Завантажуємо майстрів...</p>
                     <p v-else-if="!availableMasters.length" class="text-sm text-white/55">Для цієї послуги немає доступних майстрів.</p>
                   </div>

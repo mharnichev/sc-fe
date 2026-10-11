@@ -27,6 +27,8 @@ const { data: masters, pending: mastersPending } = await useAsyncData('home-team
 
 const activeMemberIndex = ref(0)
 const teamSection = ref<HTMLElement | null>(null)
+const isTeamVisible = ref(false)
+let teamVisibilityObserver: IntersectionObserver | null = null
 const mobileSlider = ref<HTMLElement | null>(null)
 const isMobile = ref(false)
 let mobileMediaQuery: MediaQueryList | null = null
@@ -69,6 +71,7 @@ const updateActiveMemberFromScroll = () => {
   if (isMobile.value || !teamSection.value || teamMembers.value.length < 2) return
 
   const rect = teamSection.value.getBoundingClientRect()
+  if (rect.bottom <= 0 || rect.top >= window.innerHeight) return
   const scrollableDistance = rect.height - window.innerHeight
 
   if (scrollableDistance <= 0) {
@@ -120,6 +123,14 @@ const selectMember = (index: number) => {
 }
 
 onMounted(() => {
+  if (teamSection.value && typeof IntersectionObserver !== 'undefined') {
+    teamVisibilityObserver = new IntersectionObserver(([entry]) => {
+      isTeamVisible.value = Boolean(entry?.isIntersecting)
+    })
+    teamVisibilityObserver.observe(teamSection.value)
+  } else {
+    isTeamVisible.value = true
+  }
   mobileMediaQuery = window.matchMedia('(max-width: 767px)')
   mobileMediaHandler = () => {
     isMobile.value = Boolean(mobileMediaQuery?.matches)
@@ -138,6 +149,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  teamVisibilityObserver?.disconnect()
   if (mobileMediaHandler) {
     mobileMediaQuery?.removeEventListener('change', mobileMediaHandler)
   }
@@ -209,9 +221,12 @@ watch(teamMembers, (members) => {
                     {{ activeMember.name }}
                   </h3>
                   <MasterRatingBlock
+                    v-if="isTeamVisible && isMobile"
                     :master-id="activeMember.id"
                     tone="dark"
-                    compact
+                    :review-limit="5"
+                    show-reviews
+                    rotate-reviews
                     class="mt-4"
                     :summary-label="activeMember.description"
                     :show-summary-details="false"
@@ -299,7 +314,7 @@ watch(teamMembers, (members) => {
               loading="lazy"
             >
           </Transition>
-          <div class="absolute bottom-0 left-0 right-0 text-white md:left-auto">
+          <div class="absolute bottom-0 left-0 right-0 text-white md:left-auto md:w-full md:max-w-xl">
             <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
               <div :key="activeMember.id" class="site-container py-6 sm:py-8 md:max-w-xl md:px-12 md:py-12">
                 <div class="team-member-copy-surface w-full max-w-md p-6 sm:p-7">
@@ -310,8 +325,10 @@ watch(teamMembers, (members) => {
                     {{ activeMember.name }}
                   </h3>
                   <MasterRatingBlock
+                  v-if="isTeamVisible && !isMobile"
                     :master-id="activeMember.id"
-                    :review-limit="1"
+                    :review-limit="5"
+                    rotate-reviews
                     show-reviews
                     tone="dark"
                     class="mt-5 max-w-md"

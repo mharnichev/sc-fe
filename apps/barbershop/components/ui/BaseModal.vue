@@ -60,6 +60,7 @@ const onKeydown = (event: KeyboardEvent) => {
 
   if (event.key === 'Escape') {
     event.preventDefault()
+    event.stopPropagation()
     close()
     return
   }
@@ -86,6 +87,14 @@ const onKeydown = (event: KeyboardEvent) => {
   }
 }
 
+const onDocumentKeydown = (event: KeyboardEvent) => {
+  if (!props.modelValue || event.key !== 'Escape' || !dialog.value) return
+  // A removed pagination button can leave focus on body, outside the modal subtree.
+  const openDialogs = document.querySelectorAll('.base-modal:not(.base-modal-leave-active) [role="dialog"]')
+  if (openDialogs.item(openDialogs.length - 1) !== dialog.value) return
+  onKeydown(event)
+}
+
 watch(
   () => props.modelValue,
   async (isOpen) => {
@@ -96,10 +105,12 @@ watch(
         ? document.activeElement
         : null
       bodyScrollLock ??= acquireBodyScrollLock()
+      document.addEventListener('keydown', onDocumentKeydown, true)
       await focusDialog()
       return
     }
 
+    document.removeEventListener('keydown', onDocumentKeydown, true)
     releaseBodyScrollLock(bodyScrollLock)
     bodyScrollLock = null
     previousActiveElement?.focus()
@@ -110,6 +121,7 @@ watch(
 
 onBeforeUnmount(() => {
   if (!import.meta.client) return
+  document.removeEventListener('keydown', onDocumentKeydown, true)
   releaseBodyScrollLock(bodyScrollLock)
   bodyScrollLock = null
   previousActiveElement?.focus()
