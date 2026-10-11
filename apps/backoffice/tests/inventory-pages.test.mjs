@@ -11,9 +11,12 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
     read('../pages/inventory/operations.vue'),
   ])
 
-  for (const page of [overview, movements, operations]) {
-    assert.match(page, /is_superuser.*role !== 'admin'/)
+  for (const page of [operations]) {
+    assert.match(page, /is_superuser.*can_post_inventory/)
   }
+  assert.doesNotMatch(overview, /role !== 'admin'/)
+  assert.match(overview, /can_post_inventory/)
+  assert.match(overview, /InventoryProductPicker/)
   assert.match(overview, /getInventoryStock/)
   assert.match(overview, /getProcurementQueue/)
   assert.match(overview, /route\.query\.search/)
@@ -32,6 +35,18 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
   assert.match(operations, /opening-balance/)
   assert.match(operations, /customer-return/)
   assert.match(operations, /write-off/)
+})
+
+test('desktop inventory table visibility is applied to whole wrappers, not inner tables', async () => {
+  for (const path of ['../pages/inventory/index.vue', '../pages/inventory/receiving.vue']) {
+    const source = await read(path)
+    const tables = source.match(/<BaseTable\b[^>]*>/g)
+    assert.ok(tables?.length)
+    for (const table of tables) {
+      assert.match(table, /wrapper-class="hidden md:block(?: [^"]*)?"/)
+      assert.doesNotMatch(table, /\sclass="hidden md:block"/)
+    }
+  }
 })
 
 test('product settings and order fulfillment are integrated internally', async () => {

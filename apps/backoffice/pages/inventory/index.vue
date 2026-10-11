@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
-definePageMeta({
-  middleware: () => {
-    const auth = useAuthStore()
-    if (!auth.user?.is_superuser && auth.user?.role !== 'admin') return navigateTo('/dashboard')
-  },
-})
+const auth = useAuthStore()
+const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
+const mobileProduct = ref<import('~/types/inventory').InventoryProduct | null>(null)
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -35,7 +32,7 @@ const { data, pending, error, refresh } = await useAsyncData(
 )
 const { data: procurement, pending: procurementPending, error: procurementError, refresh: refreshProcurement } = await useAsyncData(
   'inventory-procurement-queue',
-  () => api.getProcurementQueue(),
+  () => canPostInventory.value ? api.getProcurementQueue() : Promise.resolve([]),
 )
 
 const procurementByProduct = computed(() => new Map((procurement.value || []).map(item => [item.product_id, item.total_quantity_required])))
@@ -98,6 +95,11 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
     </div>
 
     <InventorySectionNav />
+    <BaseCard class="space-y-4" padding="lg">
+      <h2 class="text-xl font-semibold">Знайти товар</h2>
+      <InventoryProductPicker @select="mobileProduct = $event" @clear="mobileProduct = null" />
+      <NuxtLink v-if="mobileProduct" :to="`/inventory/receiving?product_id=${mobileProduct.id}`" class="base-button base-button--primary flex min-h-12 items-center justify-center px-4">Прийняти цей товар</NuxtLink>
+    </BaseCard>
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <BaseCard v-for="item in [
@@ -120,7 +122,13 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
     </p>
     <div v-else-if="pending || procurementPending" class="grid gap-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>
     <BaseEmptyState v-else-if="!stockRows.length" title="Товарів не знайдено" description="Змініть пошук або фільтр. Фільтри застосовуються до поточної сторінки авторитетного списку складу." />
-    <BaseTable v-else caption="Поточні залишки" wrapper-class="rounded-[1.5rem]" min-width="1320px">
+    <div v-else class="grid gap-3 md:hidden">
+      <BaseCard v-for="item in stockRows" :key="item.id" padding="sm">
+        <InventoryProductCard :product="item" />
+        <NuxtLink :to="`/inventory/receiving?product_id=${item.id}`" class="base-button base-button--neutral mt-3 flex min-h-12 items-center justify-center">Прийняти товар</NuxtLink>
+      </BaseCard>
+    </div>
+    <BaseTable v-if="!pending && !error && stockRows.length" caption="Поточні залишки" wrapper-class="hidden md:block rounded-[1.5rem]" min-width="1320px">
       <template #head><tr><th>Товар</th><th>Варіант / розмір</th><th>SKU / штрихкод</th><th>Фізично</th><th>Резерв</th><th>Доступно</th><th>До замовлення</th><th>Під закупівлю</th><th>Стан</th><th>Дії</th></tr></template>
       <tr v-for="item in stockRows" :key="item.id">
         <td><div class="flex items-center gap-3"><img v-if="productImage(productDetails[item.id])" :src="productImage(productDetails[item.id])" :alt="item.name" class="h-10 w-10 shrink-0 rounded-lg object-cover"><span v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ui-subtle text-xs font-semibold text-ui-muted" aria-hidden="true">{{ item.name.slice(0, 1) }}</span><div><p class="font-medium text-ui-primary">{{ item.name }}</p><p class="mt-1 text-xs text-ui-muted">#{{ item.id }}</p></div></div></td>
@@ -130,7 +138,7 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
         <td class="text-ui-secondary">{{ procurementByProduct.get(item.id) ?? 0 }}</td>
         <td><BaseBadge :tone="item.allow_backorder ? 'info' : 'neutral'">{{ item.allow_backorder ? 'Дозволено' : 'Вимкнено' }}</BaseBadge></td>
         <td><BaseBadge :tone="stockTone(item.available, item.reserved, procurementByProduct.get(item.id) || 0)">{{ stockState(item.available, item.reserved, procurementByProduct.get(item.id) || 0) }}</BaseBadge></td>
-        <td><div class="flex flex-wrap gap-x-3 gap-y-1 text-sm"><NuxtLink :to="`/products/${item.id}`" class="font-medium text-ui-accent hover:underline">Товар</NuxtLink><NuxtLink :to="`/inventory/movements?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Історія</NuxtLink><NuxtLink :to="`/inventory/receiving?product_id=${item.id}${item.barcode ? `&barcode=${encodeURIComponent(item.barcode)}` : ''}`" class="font-medium text-ui-accent hover:underline">Прийняти</NuxtLink><NuxtLink :to="`/inventory/operations?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Операція</NuxtLink></div></td>
+        <td><div class="flex flex-wrap gap-x-3 gap-y-1 text-sm"><NuxtLink :to="`/products/${item.id}`" class="font-medium text-ui-accent hover:underline">Товар</NuxtLink><NuxtLink :to="`/inventory/movements?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Історія</NuxtLink><NuxtLink :to="`/inventory/receiving?product_id=${item.id}${item.barcode ? `&barcode=${encodeURIComponent(item.barcode)}` : ''}`" class="font-medium text-ui-accent hover:underline">Прийняти</NuxtLink><NuxtLink v-if="canPostInventory" :to="`/inventory/operations?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Операція</NuxtLink></div></td>
       </tr>
     </BaseTable>
     <div class="flex items-center justify-between gap-3 text-sm text-ui-secondary"><span>Усього: {{ total }}</span><div class="flex gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="changePage(page - 1)">Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= total" @click="changePage(page + 1)">Наступна</BaseButton></div></div>

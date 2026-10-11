@@ -32,6 +32,7 @@ import type {
   InventoryManualOperationCreate,
   InventoryMovement,
   InventoryProduct,
+  InventoryProductCreate,
   InventoryReceipt,
   InventoryReceiptCreate,
   InventoryReceiptItemCreate,
@@ -1355,7 +1356,17 @@ export const useBackofficeApi = () => {
     })
 
   const lookupInventoryProductByBarcode = (barcode: string) =>
-    api<InventoryProduct>(`/backoffice/inventory/products/barcode/${encodeURIComponent(barcode.trim())}`)
+    api<InventoryProduct>(`/backoffice/inventory/products/barcode/${encodeURIComponent(barcode)}`)
+
+  const bindInventoryBarcode = (productId: number, barcode: string) =>
+    api<InventoryProduct>(`/backoffice/inventory/products/${productId}/barcode`, {
+      method: 'PUT', body: { barcode },
+    })
+
+  const createInventoryProduct = (payload: InventoryProductCreate, idempotencyKey: string) =>
+    api<InventoryProduct>('/backoffice/inventory/products', {
+      method: 'POST', body: payload, headers: { 'Idempotency-Key': idempotencyKey },
+    })
 
   const getInventoryProduct = async (productId: number | string): Promise<InventoryProduct> => {
     const product = await api<Product>(`/backoffice/products/${productId}`)
@@ -1368,6 +1379,11 @@ export const useBackofficeApi = () => {
       reserved: product.reserved_quantity,
       available: product.available_quantity,
       allow_backorder: product.allow_backorder,
+      image_url: product.image_url,
+      brand_name: product.brand?.name,
+      package_size: product.package_size,
+      model_name: product.model_name,
+      volume_ml: product.volume_ml,
     }
   }
 
@@ -2472,6 +2488,8 @@ export const useBackofficeApi = () => {
     updateOrderStatus,
     getInventoryStock,
     lookupInventoryProductByBarcode,
+    bindInventoryBarcode,
+    createInventoryProduct,
     getInventoryProduct,
     updateProductInventorySettings,
     getProcurementQueue,

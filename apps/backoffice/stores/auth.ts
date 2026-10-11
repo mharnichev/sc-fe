@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', {
       role?: string | null
       master_id?: number | null
       is_active: boolean
+      can_post_inventory?: boolean
       is_superuser: boolean
       created_at: string
       updated_at: string

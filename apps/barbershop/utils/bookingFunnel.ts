@@ -43,6 +43,7 @@ export interface BookingFunnelEventPayload {
 
 export interface NoSlotObservationState {
   canLoad: boolean
+  dateExplicitlySelected: boolean
   isClosedDate: boolean
   loadedKey: string
   requestKey: string
@@ -83,6 +84,7 @@ export const createBookingFunnelId = (
 
 export const shouldRecordNoSlotObservation = (state: NoSlotObservationState) =>
   state.canLoad
+  && state.dateExplicitlySelected
   && !state.isClosedDate
   && state.loadedKey === state.requestKey
   && !state.pending

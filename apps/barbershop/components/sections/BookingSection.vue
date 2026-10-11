@@ -1238,6 +1238,7 @@ const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
   recovery.error = ''
   selectedMasterId.value = slot.master.id
   selectedServiceIds.value = [...serviceIds]
+  dateExplicitlySelected.value = true
   selectedDate.value = slot.date
   await nextTick()
   const key = requestContextKey.value
@@ -1264,11 +1265,12 @@ const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
 }
 
 watch(
-  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate, activeStepIndex],
+  [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate, dateExplicitlySelected, activeStepIndex],
   () => {
     if (activeStepIndex.value !== 2) return
     if (!shouldRecordNoSlotObservation({
       canLoad: canLoadSlots.value,
+      dateExplicitlySelected: dateExplicitlySelected.value,
       isClosedDate: isSelectedDateClosed.value,
       loadedKey: loadedSlotsKey.value,
       requestKey: slotsKey.value,

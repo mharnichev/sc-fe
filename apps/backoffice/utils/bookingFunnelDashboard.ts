@@ -34,9 +34,9 @@ export const bookingFunnelAlertContent: Record<
   { title: string, description: string, action: string }
 > = {
   no_slot: {
-    title: 'Не знаходять вільного часу',
-    description: 'Після вибору майстра клієнти не бачать зручного слота.',
-    action: 'Перевірте опубліковані вікна доступності та блокування часу майстрів.',
+    title: 'Сесії з порожнім пошуком часу',
+    description: 'Зафіксовано сесії з порожньою відповіддю на пошук часу для обраної клієнтом дати. Це не кількість втрачених записів.',
+    action: 'Перевірте дати, майстрів і вікна доступності; звірте подальші дії сесій у картці перед висновком про нестачу часу.',
   },
   stale_schedule: {
     title: 'Розклад встигає застаріти',
@@ -58,7 +58,7 @@ export const bookingFunnelAlertTriggerExplanation = (
   thresholds: DashboardBookingFunnelAlertThresholds,
 ) => {
   if (code === 'no_slot') {
-    return `Сигнал з’являється, коли одночасно зафіксовано щонайменше ${thresholds.no_slot_min_count} випадків без слотів і вони становлять не менше ${formatBookingFunnelThreshold(thresholds.no_slot_rate_percent)}% сесій після вибору майстра.`
+    return `Сигнал з’являється, коли кількість сесій з порожнім пошуком сягає порога ${thresholds.no_slot_min_count}, а їхня частка становить не менше ${formatBookingFunnelThreshold(thresholds.no_slot_rate_percent)}% від сесій після вибору майстра. Поріг лише вмикає сигнал, а не доводить втрату запису.`
   }
   if (code === 'stale_schedule') {
     return `Сигнал з’являється після щонайменше ${thresholds.stale_schedule_count} конфліктів, коли обраний слот уже зайнятий на момент створення запису.`
@@ -122,6 +122,21 @@ export const triggeredBookingFunnelAlerts = (
   funnel: DashboardBookingFunnel | null | undefined,
 ): DashboardBookingFunnelOperationalAlert[] =>
   (funnel?.operational_alerts || []).filter(alert => alert.triggered)
+
+export const bookingNoSlotOutcomeDisplay = (funnel: DashboardBookingFunnel | null | undefined) => {
+  const outcomes = funnel?.no_slot_outcomes
+  if (!outcomes || outcomes.status !== 'available') return null
+  return {
+    affected: outcomes.affected_sessions,
+    booked: outcomes.booked_sessions,
+    selected: outcomes.time_selected_sessions,
+    unresolved: outcomes.unresolved_sessions,
+    pending: outcomes.pending_sessions,
+    denominator: outcomes.denominator_sessions,
+    rateSessions: outcomes.unresolved_rate_sessions,
+    ratePercent: outcomes.unresolved_rate_percent,
+  }
+}
 
 export const bookingFunnelBottleneckLabel = (
   funnel: DashboardBookingFunnel | null | undefined,

@@ -21,6 +21,13 @@ export interface InventoryProduct {
   reserved: number
   available: number
   allow_backorder: boolean
+  brand_id?: number | null
+  brand_name?: string | null
+  category_id?: number | null
+  model_name?: string | null
+  package_size?: string | null
+  volume_ml?: number | null
+  image_url?: string | null
 }
 
 export interface ProductInventorySettingsUpdate {
@@ -138,4 +145,12 @@ export interface InventoryCount {
   created_at: string
   updated_at: string
   items: InventoryCountItem[]
+}
+
+export interface InventoryProductCreate {
+  name: string
+  barcode: string
+  sku?: string | null
+  package_size?: string | null
+  price?: string
 }

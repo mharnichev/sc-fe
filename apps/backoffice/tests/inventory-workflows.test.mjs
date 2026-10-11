@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const procurement = await readFile(new URL('../pages/inventory/procurement.vue', import.meta.url), 'utf8')
 const receiving = await readFile(new URL('../pages/inventory/receiving.vue', import.meta.url), 'utf8')
+const awaitPicker = await readFile(new URL('../components/inventory/InventoryProductPicker.vue', import.meta.url), 'utf8')
 const counts = await readFile(new URL('../pages/inventory/counts.vue', import.meta.url), 'utf8')
 
 test('procurement groups queue products, exposes requirements, and only marks selected order items', () => {
@@ -22,8 +23,8 @@ test('procurement groups queue products, exposes requirements, and only marks se
 })
 
 test('receipt workflow has barcode lookup, additive item semantics, allocations, and idempotent create/post protection', () => {
-  assert.match(receiving, /<InventoryBarcodeInput v-model="barcode"/)
-  assert.match(receiving, /lookupInventoryProductByBarcode/)
+  assert.match(receiving, /<InventoryProductPicker/)
+  assert.match(awaitPicker, /lookupInventoryProductByBarcode/)
   assert.match(receiving, /addInventoryReceiptItem/)
   assert.match(receiving, /quantity: itemQuantity/)
   assert.match(receiving, /Повторне додавання такого самого товару збільшить рядок/)
@@ -71,10 +72,14 @@ test('count workflow upserts scanned quantities, renders server differences, and
   assert.match(counts, /isPosted/)
 })
 
-test('all inventory workflows enforce an admin-only route guard and surface actionable error UI', () => {
-  for (const source of [procurement, receiving, counts]) {
+test('restricted workflows enforce guards while masters can prepare receipt drafts', () => {
+  assert.doesNotMatch(receiving, /role !== 'admin'/)
+  assert.match(receiving, /can_post_inventory/)
+  assert.match(receiving, /if \(!canPostInventory\.value/)
+  assert.match(receiving, /товари ще не оприбутковано/)
+  for (const source of [procurement, counts]) {
     assert.match(source, /auth\.user\?\.is_superuser/)
-    assert.match(source, /auth\.user\?\.role !== 'admin'/)
+    assert.match(source, /auth\.user\?\.can_post_inventory/)
     assert.match(source, /role="alert"/)
   }
 })

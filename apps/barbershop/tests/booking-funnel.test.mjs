@@ -160,6 +160,7 @@ test('sends a no-slot target date and uses it to deduplicate observations', () =
 test('records no-slot only for the settled empty response matching the current request', () => {
   const settledEmpty = {
     canLoad: true,
+    dateExplicitlySelected: true,
     isClosedDate: false,
     loadedKey: 'master-7-date-b',
     requestKey: 'master-7-date-b',
@@ -169,6 +170,7 @@ test('records no-slot only for the settled empty response matching the current r
   }
 
   assert.equal(funnel.shouldRecordNoSlotObservation(settledEmpty), true)
+  assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, dateExplicitlySelected: false }), false)
   assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, loadedKey: 'master-7-date-a' }), false)
   assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, pending: true }), false)
   assert.equal(funnel.shouldRecordNoSlotObservation({ ...settledEmpty, hasError: true }), false)
@@ -258,6 +260,9 @@ test('public booking API contract records events and attributes server-side succ
   assert.match(bookingSource, /serviceIds: selectedServiceIds\.value/)
   assert.match(bookingSource, /durationMinutes: selectedDurationMinutes\.value/)
   assert.match(bookingSource, /shouldRecordNoSlotObservation/)
+  assert.match(bookingSource, /dateExplicitlySelected: dateExplicitlySelected\.value/)
+  assert.match(bookingSource, /\[loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate, dateExplicitlySelected, activeStepIndex\]/)
+  assert.match(bookingSource, /dateExplicitlySelected\.value = true\s+selectedDate\.value = slot\.date/)
   assert.match(bookingSource, /isSelectedDateClosed\.value/)
   assert.match(bookingSource, /slotsError\.value/)
   assert.match(bookingSource, /visibleSlots\.value\.length/)

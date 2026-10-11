@@ -11,7 +11,9 @@ import {
 const route = useRoute()
 const router = useRouter()
 
-const sections = [
+const auth = useAuthStore()
+const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
+const allSections = [
   {
     label: 'Залишки',
     description: 'Фізично, резерв і доступно',
@@ -50,10 +52,12 @@ const sections = [
   },
 ] as const
 
+const sections = computed(() => allSections.filter(section => canPostInventory.value || ['/inventory', '/inventory/receiving'].includes(section.to)))
+
 const isActive = (to: string) => route.path === to
-const activePath = computed(() => sections.find(section => isActive(section.to))?.to || '/inventory')
-const activeSection = computed(() => sections.find(section => section.to === activePath.value) || sections[0])
-const mobileOptions = sections.map(section => ({ value: section.to, label: section.label }))
+const activePath = computed(() => sections.value.find(section => isActive(section.to))?.to || '/inventory')
+const activeSection = computed(() => sections.value.find(section => section.to === activePath.value) || sections.value[0])
+const mobileOptions = computed(() => sections.value.map(section => ({ value: section.to, label: section.label })))
 
 const navigate = (value: string | number | boolean | null) => {
   if (typeof value !== 'string' || value === route.path) return

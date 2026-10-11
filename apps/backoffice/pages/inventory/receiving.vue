@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { InventoryProduct, InventoryReceipt as Receipt } from '~/types/inventory'
-import { createInventoryIdempotencyKey, createReceiptItemRequest, inventoryApiErrorMessage, isDefiniteInventoryRejection, receiptItemStorageKey, repeatedReceiptScanQuantity, restoreReceiptItemRequest } from '~/utils/inventory'
+import { createInventoryIdempotencyKey, createReceiptItemRequest, inventoryApiErrorMessage, isDefiniteInventoryRejection, receiptItemStorageKey, restoreReceiptItemRequest } from '~/utils/inventory'
 
 interface Requirement { orderItemId: number, quantity: number }
 
-definePageMeta({ middleware: () => {
-  const auth = useAuthStore()
-  if (!auth.user?.is_superuser && auth.user?.role !== 'admin') return navigateTo('/')
-} })
+const auth = useAuthStore()
+const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -36,10 +34,14 @@ const unitCost = ref<number | null>(null)
 const batchNumber = ref('')
 const expirationDate = ref('')
 const allocationQuantities = ref<Record<number, number | null>>({})
+const createOutcomeUncertain = ref(false)
 const createKey = ref('')
+const pendingCreate = ref<{ key: string, payload: { reason: string, comment: string | null } } | null>(null)
+const createStorageKey = `backoffice:inventory:receipt-create:${auth.user?.id}`
 const postKey = ref('')
 const postedBalances = ref<Record<number, InventoryProduct>>({})
 let receiptLoadRequest = 0
+let balanceLoadRequest = 0
 let productLookupRequest = 0
 let productSearchRequest = 0
 
@@ -56,13 +58,13 @@ const requirements = computed<Requirement[]>(() => typeof route.query.requiremen
 const allocationTotal = computed(() => Object.values(allocationQuantities.value).reduce<number>((sum, value) => sum + (Number(value ?? 0) || 0), 0))
 
 const loadPostedBalances = async (next: Receipt) => {
-  if (next.status !== 'posted') return
   const request = receiptLoadRequest
+  const balanceRequest = ++balanceLoadRequest
   const products = await Promise.all([...new Set(next.items.map(item => item.product_id))].map(async (productId) => {
     try { return await api.getInventoryProduct(productId) }
     catch { return null }
   }))
-  if (request !== receiptLoadRequest || receiptIdFromRoute.value !== next.id || receipt.value?.id !== next.id) return
+  if (balanceRequest !== balanceLoadRequest || request !== receiptLoadRequest || receiptIdFromRoute.value !== next.id || receipt.value?.id !== next.id) return
   postedBalances.value = Object.fromEntries(products.filter((product): product is InventoryProduct => Boolean(product)).map(product => [product.id, product]))
 }
 const setReceipt = (next: Receipt) => {
@@ -84,11 +86,13 @@ const loadReceipt = async (id = receiptIdFromRoute.value) => {
   }
   finally { if (request === receiptLoadRequest) loadingReceipt.value = false }
 }
-const selectProduct = (product: InventoryProduct) => {
+const selectProduct = (product: InventoryProduct, repeatedScan = false) => {
   if (addLocked.value) return
   ++productLookupRequest
   ++productSearchRequest
   searchPending.value = false
+  if (repeatedScan) quantity.value = Math.max(1, Number(quantity.value || 0) + 1)
+  else if (selectedProduct.value?.id !== product.id) quantity.value = 1
   selectedProduct.value = product
   searchResults.value = []
   search.value = product.name
@@ -103,68 +107,33 @@ const clearSelectedProduct = () => {
   search.value = ''
   searchResults.value = []
 }
-const scanBarcode = async (value: string | { barcode?: string }) => {
-  const scanned = typeof value === 'string' ? value.trim() : value?.barcode?.trim() || ''
-  if (!scanned || isPosted.value || addLocked.value) return
-  const repeatedQuantity = selectedProduct.value
-    ? repeatedReceiptScanQuantity(selectedProduct.value.barcode, scanned, quantity.value)
-    : null
-  if (repeatedQuantity !== null) {
-    quantity.value = repeatedQuantity
-    return
-  }
-  const request = ++productLookupRequest
-  const documentRequest = receiptLoadRequest
-  ++productSearchRequest
-  searchPending.value = false
-  barcode.value = scanned
-  errorMessage.value = ''
-  try {
-    const product = await api.lookupInventoryProductByBarcode(scanned) as InventoryProduct
-    if (request === productLookupRequest && documentRequest === receiptLoadRequest) selectProduct(product)
-  }
-  catch (cause) {
-    if (request === productLookupRequest && documentRequest === receiptLoadRequest) {
-      selectedProduct.value = null
-      errorMessage.value = inventoryApiErrorMessage(cause, 'Товар за цим штрихкодом не знайдено.')
-    }
-  }
-}
-const searchProducts = async () => {
-  if (!search.value.trim() || isPosted.value || addLocked.value) return
-  const request = ++productSearchRequest
-  const documentRequest = receiptLoadRequest
-  ++productLookupRequest
-  searchPending.value = true
-  errorMessage.value = ''
-  try {
-    const result = await api.getProducts(1, 10, { search: search.value.trim() })
-    const resolved = await Promise.all((result.items || []).map(async (product) => {
-      try { return await api.getInventoryProduct(product.id) }
-      catch { return null }
-    }))
-    if (request === productSearchRequest && documentRequest === receiptLoadRequest) searchResults.value = resolved.filter((product): product is InventoryProduct => Boolean(product))
-  }
-  catch (cause) {
-    if (request === productSearchRequest && documentRequest === receiptLoadRequest) errorMessage.value = inventoryApiErrorMessage(cause, 'Не вдалося знайти товар.')
-  }
-  finally { if (request === productSearchRequest) searchPending.value = false }
-}
 const createReceipt = async () => {
   if (loadingReceipt.value || receiptIdFromRoute.value || !reason.value.trim() || creating.value) { errorMessage.value = 'Вкажіть причину приймання.'; return }
   errorMessage.value = ''
   creating.value = true
-  if (!createKey.value) createKey.value = createInventoryIdempotencyKey()
+  if (!pendingCreate.value) {
+    pendingCreate.value = { key: createInventoryIdempotencyKey(), payload: { reason: reason.value.trim(), comment: comment.value.trim() || null } }
+    try { sessionStorage.setItem(createStorageKey, JSON.stringify(pendingCreate.value)) }
+    catch { pendingCreate.value = null; creating.value = false; errorMessage.value = 'Не вдалося зберегти безпечний повтор. Чернетку не надіслано.'; return }
+  }
+  const previouslyUncertain = createOutcomeUncertain.value
+  createOutcomeUncertain.value = true
+  createKey.value = pendingCreate.value.key
   const request = receiptLoadRequest
   try {
-    const next = await api.createInventoryReceipt({ reason: reason.value.trim(), comment: comment.value.trim() || null }, createKey.value) as Receipt
+    const next = await api.createInventoryReceipt(pendingCreate.value.payload, createKey.value) as Receipt
     if (request !== receiptLoadRequest || receiptIdFromRoute.value) return
     setReceipt(next)
     await router.replace({ query: { ...route.query, id: String(next.id) } })
+    sessionStorage.removeItem(createStorageKey)
+    pendingCreate.value = null
     toast.success('Чернетку приймання створено.')
   }
   catch (cause) {
-    if (request === receiptLoadRequest && !receiptIdFromRoute.value) errorMessage.value = inventoryApiErrorMessage(cause, 'Не вдалося створити чернетку приймання.')
+    if (!previouslyUncertain && isDefiniteInventoryRejection(cause)) {
+      try { sessionStorage.removeItem(createStorageKey); pendingCreate.value = null; createOutcomeUncertain.value = false } catch { /* Preserve the retry intent if storage cannot be cleared. */ }
+    }
+    if (request === receiptLoadRequest && !receiptIdFromRoute.value) errorMessage.value = inventoryApiErrorMessage(cause, 'Не вдалося створити чернетку приймання. Повторіть запит із тими самими даними.')
   }
   finally { creating.value = false }
 }
@@ -174,7 +143,7 @@ const addItem = async () => {
   const product = selectedProduct.value
   const itemQuantity = quantity.value
   const cost = unitCost.value
-  if (!activeReceipt || (!pendingAdd.value && (!product || !itemQuantity || itemQuantity < 1 || cost === null || cost < 0 || isPosted.value))) {
+  if (!activeReceipt || (!pendingAdd.value && (!product || !itemQuantity || !Number.isInteger(itemQuantity) || itemQuantity < 1 || cost === null || !Number.isFinite(cost) || cost < 0 || isPosted.value))) {
     errorMessage.value = 'Оберіть товар і вкажіть додатну кількість та собівартість.'
     return
   }
@@ -185,7 +154,7 @@ const addItem = async () => {
     pendingAdd.value = createReceiptItemRequest(activeReceipt.id, {
       product_id: product.id,
       quantity: itemQuantity,
-      purchase_unit_cost: cost,
+      purchase_unit_cost: cost.toFixed(2),
       batch_number: batchNumber.value.trim() || null,
       expiration_date: expirationDate.value || null,
       allocations,
@@ -233,15 +202,22 @@ const addItem = async () => {
 }
 const postReceipt = async () => {
   const activeReceipt = receipt.value
-  if (!activeReceipt || isPosted.value || posting.value || adding.value || pendingAdd.value || pendingStorageError.value) return
+  if (!canPostInventory.value || !activeReceipt || isPosted.value || posting.value || adding.value || pendingAdd.value || pendingStorageError.value) return
   posting.value = true
   errorMessage.value = ''
-  if (!postKey.value) postKey.value = createInventoryIdempotencyKey()
+  try {
+    const keyName = `backoffice:inventory:receipt-post:${activeReceipt.id}`
+    postKey.value = sessionStorage.getItem(keyName) || createInventoryIdempotencyKey()
+    sessionStorage.setItem(keyName, postKey.value)
+  }
+  catch { posting.value = false; errorMessage.value = 'Не вдалося зберегти безпечний повтор проведення.'; return }
   const request = receiptLoadRequest
   try {
     const next = await api.postInventoryReceipt(activeReceipt.id, postKey.value) as Receipt
     if (request !== receiptLoadRequest || receiptIdFromRoute.value !== activeReceipt.id || receipt.value?.id !== activeReceipt.id) return
+    if (next.status !== 'posted') throw new Error('Server did not confirm posting')
     setReceipt(next)
+    sessionStorage.removeItem(`backoffice:inventory:receipt-post:${activeReceipt.id}`)
     postConfirmationOpen.value = false
     toast.success('Приймання проведено. Редагування заблоковано.')
   }
@@ -255,8 +231,8 @@ watch([reason, comment], () => {
   if (!receipt.value && !receiptIdFromRoute.value) createKey.value = ''
 })
 
-onBeforeRouteLeave(() => !adding.value)
-onBeforeRouteUpdate(() => !adding.value)
+onBeforeRouteLeave(() => !adding.value && !creating.value && !posting.value)
+onBeforeRouteUpdate(() => !adding.value && !posting.value)
 const warnPendingAdd = (event: BeforeUnloadEvent) => {
   if (!addLocked.value) return
   event.preventDefault()
@@ -292,7 +268,8 @@ watch(receiptIdFromRoute, async (id) => {
   postKey.value = ''
   postConfirmationOpen.value = false
   postedBalances.value = {}
-  selectedProduct.value = null
+  // Keep the warehouse selection when creating its draft.
+  if (!receipt.value || receipt.value.id !== id) selectedProduct.value = null
   ++productLookupRequest
   ++productSearchRequest
   barcode.value = ''
@@ -311,11 +288,24 @@ watch(receiptIdFromRoute, async (id) => {
 
 onMounted(async () => {
   window.addEventListener('beforeunload', warnPendingAdd)
+  if (!receiptIdFromRoute.value) {
+    try {
+      const raw = sessionStorage.getItem(createStorageKey)
+      if (raw) {
+        const value = JSON.parse(raw)
+        if (typeof value.key !== 'string' || !value.key || typeof value.payload?.reason !== 'string') throw new Error('Invalid stored draft')
+        pendingCreate.value = value
+        createOutcomeUncertain.value = true
+        reason.value = value.payload.reason
+        comment.value = value.payload.comment || ''
+      }
+    }
+    catch { errorMessage.value = 'Не вдалося відновити запит створення чернетки. Перевірте попередню приймання перед новим запитом.'; creating.value = true }
+  }
   if (!receiptIdFromRoute.value && routeProductId.value) {
     const request = receiptLoadRequest
     try {
-      const product = await api.getProduct(routeProductId.value)
-      const inventoryProduct = await api.getInventoryProduct(product.id)
+      const inventoryProduct = await api.getInventoryProduct(routeProductId.value)
       if (request === receiptLoadRequest && !receiptIdFromRoute.value) selectProduct(inventoryProduct)
     }
     catch { /* Scanner or product search remains available if the prefilled product is unavailable. */ }
@@ -331,22 +321,29 @@ onMounted(async () => {
     <div v-if="errorMessage" role="alert" class="ui-status-danger rounded-2xl p-4 text-sm">{{ errorMessage }} <BaseButton v-if="receiptIdFromRoute && !adding" variant="neutral" size="sm" :disabled="loadingReceipt || posting" @click="loadReceipt()">Повторити</BaseButton></div>
     <div v-if="pendingAdd && !adding" role="alert" class="ui-status-warning p-4 text-sm">Результат додавання невідомий або потребує звірки. Товар {{ pendingAdd.payload.product_id || pendingAdd.payload.barcode }} · {{ pendingAdd.payload.quantity }} од. Повторіть цю саму позицію перед редагуванням або новим скануванням.<BaseButton variant="neutral" size="sm" :disabled="loadingReceipt || !receipt" @click="addItem">Повторити додавання</BaseButton></div>
     <BaseCard v-if="isPosted" variant="subtle" padding="sm" class="text-sm text-ui-secondary"><BaseBadge tone="success">Проведено</BaseBadge><span class="ml-2">Приймання #{{ receipt?.id }} проведено {{ receipt?.posted_at || '' }}. Редагування недоступне.</span></BaseCard>
-    <BaseCard v-if="!receipt && !receiptIdFromRoute && !loadingReceipt" variant="surface" padding="lg" class="space-y-4"><h2 class="text-xl font-semibold text-ui-primary">Нове приймання</h2><BaseInput v-model="reason" label="Причина" required maxlength="255" placeholder="Наприклад, поставка від постачальника" /><BaseTextarea v-model="comment" label="Коментар" maxlength="2000" /><BaseButton variant="primary" :loading="creating" @click="createReceipt">Створити чернетку</BaseButton></BaseCard>
+    <BaseCard v-if="!receipt && !receiptIdFromRoute && !loadingReceipt" variant="surface" padding="lg" class="space-y-4"><h2 class="text-xl font-semibold text-ui-primary">Нове приймання</h2><BaseInput v-model="reason" :disabled="creating || !!pendingCreate" label="Причина" required maxlength="255" placeholder="Наприклад, поставка від постачальника" /><BaseTextarea v-model="comment" :disabled="creating || !!pendingCreate" label="Коментар" maxlength="2000" /><BaseButton variant="primary" :loading="creating" @click="createReceipt">{{ pendingCreate ? 'Повторити створення без дублювання' : 'Створити чернетку' }}</BaseButton></BaseCard>
     <template v-if="receipt">
+      <p v-if="!isPosted" class="ui-status-warning rounded-xl p-4" role="status">Чернетка #{{ receipt.id }}: товари ще не оприбутковано. <span v-if="!canPostInventory">Передайте адміністратору посилання на цю чернетку — він має її провести.</span></p>
       <BaseCard variant="surface" padding="lg" class="space-y-5" :class="isPosted ? 'opacity-70' : ''"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-xl font-semibold text-ui-primary">Додати позицію</h2><p class="text-sm text-ui-secondary">Приймання #{{ receipt.id }} · {{ receipt.reason }}</p></div><BaseBadge tone="neutral">{{ receipt.status }}</BaseBadge></div>
         <fieldset :disabled="isPosted || addLocked" class="space-y-4">
-        <InventoryBarcodeInput v-model="barcode" :match="selectedProduct" :disabled="isPosted || addLocked" :auto-focus="!isPosted" @submit="scanBarcode" @clear="clearSelectedProduct" />
-        <div class="grid gap-3 md:grid-cols-[1fr_auto]"><BaseInput v-model="search" type="search" label="Пошук товару" placeholder="Назва або SKU" :disabled="isPosted" @keyup.enter="searchProducts" /><BaseButton variant="neutral" class="self-end" :loading="searchPending" :disabled="isPosted" @click="searchProducts">Знайти</BaseButton></div>
-        <div v-if="searchResults.length" class="grid gap-2"><BaseButton v-for="product in searchResults" :key="product.id" type="button" variant="neutral" class="justify-start text-left" @click="selectProduct(product)"><span class="font-medium text-ui-primary">{{ product.name }}</span><span class="ml-2 text-xs text-ui-muted">{{ product.sku || 'без SKU' }}</span></BaseButton></div>
-        <div v-if="selectedProduct" class="rounded-xl bg-ui-subtle p-4 text-sm"><p class="font-medium text-ui-primary">{{ selectedProduct.name }}</p><p class="text-ui-secondary">SKU: {{ selectedProduct.sku || '—' }} · Штрихкод: {{ selectedProduct.barcode || '—' }} · В наявності: {{ selectedProduct.on_hand }}</p></div>
-        <div class="grid gap-4 md:grid-cols-2"><BaseInput v-model.number="quantity" type="number" min="1" step="1" label="Кількість" :disabled="isPosted" required /><BaseInput v-model.number="unitCost" type="number" min="0" step="0.01" label="Собівартість за одиницю" :disabled="isPosted" required /><BaseInput v-model="batchNumber" label="Партія" :disabled="isPosted" /><BaseInput v-model="expirationDate" type="date" label="Термін придатності" :disabled="isPosted" /></div>
+        <InventoryProductPicker :show-selected="false" :initial-barcode="typeof route.query.barcode === 'string' ? route.query.barcode : ''" :disabled="isPosted || addLocked || posting" @select="selectProduct" @clear="clearSelectedProduct" />
+        <InventoryProductCard v-if="selectedProduct" :product="selectedProduct" />
+        <div class="grid gap-4 md:grid-cols-2"><BaseInput v-model.number="quantity" type="number" min="1" step="1" label="Кількість" :disabled="isPosted" required /><BaseInput v-model.number="unitCost" type="number" min="0" step="0.01" label="Закупівельна вартість за одиницю, грн" :disabled="isPosted" required /></div><details class="rounded-xl border border-ui p-3"><summary class="min-h-10 cursor-pointer text-sm font-medium">Партія та термін придатності (необов’язково)</summary><div class="mt-3 grid gap-4 md:grid-cols-2"><BaseInput v-model="batchNumber" label="Партія" :disabled="isPosted" /><BaseInput v-model="expirationDate" type="date" label="Термін придатності" :disabled="isPosted" /></div></details>
         <fieldset v-if="requirements.length" :disabled="isPosted" class="space-y-2 rounded-xl border border-ui p-4"><legend class="px-1 text-sm font-medium text-ui-primary">Розподіл на замовлені позиції (необов'язково)</legend><div v-for="requirement in requirements" :key="requirement.orderItemId" class="grid gap-2 sm:grid-cols-[1fr_10rem] sm:items-center"><span class="text-sm text-ui-secondary">Позиція замовлення #{{ requirement.orderItemId }} · залишок {{ requirement.quantity }}</span><BaseInput v-model.number="allocationQuantities[requirement.orderItemId]" type="number" min="0" :max="requirement.quantity" step="1" aria-label="Кількість розподілу" /></div><p class="text-xs text-ui-muted">Розподілено: {{ allocationTotal }} з {{ quantity || 0 }}</p></fieldset>
         </fieldset>
         <BaseButton variant="primary" :loading="adding" :disabled="isPosted || posting || addLocked || !selectedProduct" @click="addItem">Додати до приймання</BaseButton>
       </BaseCard>
       <BaseCard v-if="isPosted" variant="subtle" padding="sm"><p class="font-medium text-ui-primary">Підсумок проведення</p><p class="mt-1 text-sm text-ui-secondary">Оприбутковано {{ receipt.items.reduce((sum, item) => sum + item.quantity, 0) }} од. Виконано розподілів на замовлення: {{ receipt.items.reduce((sum, item) => sum + item.allocations.length, 0) }}.</p></BaseCard>
-      <BaseTable caption="Позиції приймання" min-width="64rem" :empty="!receipt.items.length" empty-title="Позицій ще немає"><template #head><tr><th>Товар</th><th>Кількість</th><th>Собівартість</th><th>Партія</th><th>Розподіли</th><th>Залишок після</th></tr></template><tr v-for="item in receipt.items" :key="item.id"><td>Товар #{{ item.product_id }}<p class="text-xs text-ui-muted">{{ item.barcode || '—' }}</p></td><td>{{ item.quantity }}</td><td>{{ item.purchase_unit_cost }}</td><td>{{ item.batch_number || '—' }}<p class="text-xs text-ui-muted">{{ item.expiration_date || '' }}</p></td><td>{{ item.allocations.length ? item.allocations.map(allocation => `#${allocation.order_item_id}: ${allocation.quantity}`).join(', ') : '—' }}</td><td>{{ isPosted ? (postedBalances[item.product_id]?.on_hand ?? 'оновлюється') : 'після проведення' }}</td></tr></BaseTable>
-      <BaseCard variant="subtle" padding="sm" class="flex flex-wrap items-center justify-between gap-4"><span class="text-sm text-ui-secondary">Проведення оновить залишки та не може бути скасоване цією формою.</span><BaseButton variant="primary" :disabled="isPosted || addLocked || !receipt.items.length" @click="postConfirmationOpen = true">Провести приймання</BaseButton></BaseCard>
+      <div class="grid gap-3 md:hidden" aria-label="Позиції приймання">
+        <BaseCard v-for="item in receipt.items" :key="item.id" padding="sm">
+          <InventoryProductCard v-if="postedBalances[item.product_id]" :product="postedBalances[item.product_id]" />
+          <p v-else>Товар #{{ item.product_id }} · {{ item.barcode || 'Без штрихкоду' }}</p>
+          <p class="mt-3 font-semibold">{{ item.quantity }} од. × {{ item.purchase_unit_cost }} грн закупівельної вартості</p>
+          <p class="text-sm text-ui-secondary">{{ item.batch_number || '' }} {{ item.expiration_date || '' }}</p>
+        </BaseCard>
+      </div>
+      <BaseTable wrapper-class="hidden md:block" caption="Позиції приймання" min-width="64rem" :empty="!receipt.items.length" empty-title="Позицій ще немає"><template #head><tr><th>Товар</th><th>Кількість</th><th>Собівартість</th><th>Партія</th><th>Розподіли</th><th>Залишок після</th></tr></template><tr v-for="item in receipt.items" :key="item.id"><td>Товар #{{ item.product_id }}<p class="text-xs text-ui-muted">{{ item.barcode || '—' }}</p></td><td>{{ item.quantity }}</td><td>{{ item.purchase_unit_cost }}</td><td>{{ item.batch_number || '—' }}<p class="text-xs text-ui-muted">{{ item.expiration_date || '' }}</p></td><td>{{ item.allocations.length ? item.allocations.map(allocation => `#${allocation.order_item_id}: ${allocation.quantity}`).join(', ') : '—' }}</td><td>{{ isPosted ? (postedBalances[item.product_id]?.on_hand ?? 'оновлюється') : 'після проведення' }}</td></tr></BaseTable>
+      <BaseCard variant="subtle" padding="sm" class="flex flex-wrap items-center justify-between gap-4"><span class="text-sm text-ui-secondary">Проведення оновить залишки та не може бути скасоване цією формою.</span><BaseButton variant="primary" v-if="canPostInventory" :disabled="isPosted || posting || creating || adding || addLocked || !receipt.items.length" @click="postConfirmationOpen = true">Прийняти товари</BaseButton></BaseCard>
     </template>
     <ConfirmActionModal v-model="postConfirmationOpen" title="Провести приймання?" message="Залишки буде збільшено, а документ стане доступним лише для перегляду." confirm-label="Провести" :pending="posting" @confirm="postReceipt" />
   </div>

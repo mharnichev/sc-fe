@@ -114,11 +114,11 @@ const barberShopLinks = computed(() => [
 ])
 
 const onlineStoreLinks = computed(() => [
+  { label: 'Склад', to: '/inventory', icon: ArchiveBoxIcon },
   ...(isAdmin.value
     ? [
         { label: 'Дашборд магазину', to: '/admin/dashboards/store', icon: HomeIcon },
         { label: 'Товари', to: '/products', icon: CubeIcon },
-        { label: 'Склад', to: '/inventory', icon: ArchiveBoxIcon },
         { label: 'Акції товарів', to: '/shop-promotions', icon: TicketIcon },
         { label: 'Категорії', to: '/categories', icon: TagIcon },
         { label: 'Бренди', to: '/brands', icon: BuildingStorefrontIcon },

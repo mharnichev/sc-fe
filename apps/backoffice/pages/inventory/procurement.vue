@@ -5,7 +5,7 @@ import { inventoryApiErrorMessage, procurementStatusLabel } from '~/utils/invent
 definePageMeta({
   middleware: () => {
     const auth = useAuthStore()
-    if (!auth.user?.is_superuser && auth.user?.role !== 'admin') return navigateTo('/')
+    if (!auth.user?.is_superuser && !auth.user?.can_post_inventory) return navigateTo('/')
   },
 })
 

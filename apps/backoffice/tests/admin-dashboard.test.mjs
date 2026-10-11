@@ -108,7 +108,7 @@ const backendDashboardFixture = () => ({
     average_realized_revenue_per_completed_service: '450.00',
   }],
   booking_funnel: {
-    calculation_version: 2,
+    calculation_version: 3,
     timezone: 'Europe/Kyiv',
     cohort_definition: 'Attempts started in the selected period.',
     master_attribution_definition: 'Early steps follow the selected master in the same attempt.',
@@ -146,8 +146,8 @@ const backendDashboardFixture = () => ({
     ],
     operational_alerts: [
       { code: 'no_slot', count: 12, rate_percent: '20.00', triggered: true },
-      { code: 'stale_schedule', count: 0, rate_percent: null, triggered: false },
-      { code: 'booking_error', count: 2, rate_percent: null, triggered: true },
+      { code: 'stale_schedule', count: 0, rate_percent: '0.00', triggered: false },
+      { code: 'booking_error', count: 2, rate_percent: '4.00', triggered: true },
     ],
     alert_thresholds: {
       no_slot_min_count: 3,
@@ -171,6 +171,17 @@ const backendDashboardFixture = () => ({
       first_observed_at: '2026-07-24T10:00:00+03:00',
       last_observed_at: '2026-07-24T12:30:00+03:00',
     }],
+    no_slot_outcomes: {
+      status: 'available',
+      affected_sessions: 6,
+      booked_sessions: 2,
+      time_selected_sessions: 1,
+      unresolved_sessions: 2,
+      pending_sessions: 1,
+      denominator_sessions: 5,
+      unresolved_rate_sessions: 2,
+      unresolved_rate_percent: '40.00',
+    },
     no_slot_contexts: [{
       target_date: '2026-07-30',
       master_id: 3,
@@ -361,7 +372,7 @@ test('booking funnel alert explanations use the supplied compound thresholds', (
 
   assert.match(
     bookingFunnel.bookingFunnelAlertTriggerExplanation('no_slot', thresholds),
-    /щонайменше 3.*не менше 20%/,
+    /сесій з порожнім пошуком сягає порога 3.*не менше 20%/,
   )
   assert.match(
     bookingFunnel.bookingFunnelAlertTriggerExplanation('stale_schedule', thresholds),
@@ -371,6 +382,92 @@ test('booking funnel alert explanations use the supplied compound thresholds', (
     bookingFunnel.bookingFunnelAlertTriggerExplanation('booking_error', thresholds),
     /щонайменше 1/,
   )
+})
+
+test('no-slot outcomes distinguish encounters, continuations, and unavailable legacy data', () => {
+  const current = backendDashboardFixture()
+  const parsed = contract.parseAdminDashboardResponse(current).booking_funnel
+  assert.equal(parsed.calculation_version, 3)
+  assert.deepEqual(bookingFunnel.bookingNoSlotOutcomeDisplay(parsed), {
+    affected: 6,
+    booked: 2,
+    selected: 1,
+    unresolved: 2,
+    pending: 1,
+    denominator: 5,
+    rateSessions: 2,
+    ratePercent: '40.00',
+  })
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(parsed.no_slot_outcomes.unresolved_rate_percent), '40%')
+
+  const legacy = backendDashboardFixture()
+  legacy.booking_funnel.calculation_version = 2
+  legacy.booking_funnel.operational_alerts[1].rate_percent = null
+  legacy.booking_funnel.operational_alerts[2].rate_percent = null
+  delete legacy.booking_funnel.no_slot_outcomes
+  assert.equal(bookingFunnel.bookingNoSlotOutcomeDisplay(contract.parseAdminDashboardResponse(legacy).booking_funnel), null)
+
+  const missingBaseline = backendDashboardFixture()
+  missingBaseline.booking_funnel.no_slot_outcomes.denominator_sessions = 0
+  missingBaseline.booking_funnel.no_slot_outcomes.unresolved_rate_sessions = 0
+  missingBaseline.booking_funnel.no_slot_outcomes.unresolved_rate_percent = null
+  const withoutRate = bookingFunnel.bookingNoSlotOutcomeDisplay(
+    contract.parseAdminDashboardResponse(missingBaseline).booking_funnel,
+  )
+  assert.equal(withoutRate.booked, 2)
+  assert.equal(withoutRate.unresolved, 2)
+  assert.equal(withoutRate.ratePercent, null)
+  assert.equal(bookingFunnel.formatBookingFunnelPercentage(withoutRate.ratePercent), 'Недоступно')
+
+  const unavailable = backendDashboardFixture()
+  unavailable.booking_funnel.no_slot_outcomes.status = 'unavailable'
+  assert.equal(bookingFunnel.bookingNoSlotOutcomeDisplay(contract.parseAdminDashboardResponse(unavailable).booking_funnel), null)
+})
+
+test('v3 full dashboard accepts bounded percentages for every operational alert', () => {
+  const response = contract.parseAdminDashboardResponse(backendDashboardFixture())
+  assert.equal(response.booking_funnel.operational_alerts[1].rate_percent, '0.00')
+  assert.equal(response.booking_funnel.operational_alerts[2].rate_percent, '4.00')
+
+  const withDigest = backendDashboardFixture()
+  withDigest.booking_funnel.latest_weekly_digest = {
+    scope: 'all_masters', period_start: '2026-07-20', period_end: '2026-07-26',
+    generated_at: '2026-07-27T08:00:00Z', status: 'available',
+    insight_uk: 'Підсумок за тиждень.', recommended_action: null,
+    step_counts: withDigest.booking_funnel.steps,
+    operational_alerts: withDigest.booking_funnel.operational_alerts,
+  }
+  assert.equal(
+    contract.parseAdminDashboardResponse(withDigest).booking_funnel.latest_weekly_digest.operational_alerts[2].rate_percent,
+    '4.00',
+  )
+
+  const invalid = backendDashboardFixture()
+  invalid.booking_funnel.operational_alerts[2].rate_percent = '120.00'
+  assert.throws(
+    () => contract.parseAdminDashboardResponse(invalid),
+    /booking_funnel\.operational_alerts\.2\.rate_percent/,
+  )
+
+  const legacy = backendDashboardFixture()
+  legacy.booking_funnel.calculation_version = 2
+  legacy.booking_funnel.operational_alerts[1].rate_percent = null
+  legacy.booking_funnel.operational_alerts[2].rate_percent = null
+  assert.equal(contract.parseAdminDashboardResponse(legacy).booking_funnel.operational_alerts[2].rate_percent, null)
+})
+
+test('no-slot outcome contract accepts master-selected denominators and rejects broken partitions', () => {
+  const brokenPartition = backendDashboardFixture()
+  brokenPartition.booking_funnel.no_slot_outcomes.pending_sessions = 2
+  assert.throws(() => contract.parseAdminDashboardResponse(brokenPartition), /booking_funnel\.no_slot_outcomes/)
+
+  const broaderDenominator = backendDashboardFixture()
+  broaderDenominator.booking_funnel.no_slot_outcomes.denominator_sessions = 10
+  assert.equal(contract.parseAdminDashboardResponse(broaderDenominator).booking_funnel.no_slot_outcomes.denominator_sessions, 10)
+
+  const invalidRate = backendDashboardFixture()
+  invalidRate.booking_funnel.no_slot_outcomes.unresolved_rate_percent = '120.00'
+  assert.throws(() => contract.parseAdminDashboardResponse(invalidRate), /booking_funnel\.no_slot_outcomes\.unresolved_rate_percent/)
 })
 
 test('booking funnel percentages preserve backend percent units and zero conversions', () => {
@@ -626,6 +723,10 @@ test('dashboard page uses the single typed business endpoint without legacy metr
   assert.match(telegramBookingsSource, /summary\?\.status_counts\.confirmed/)
   assert.match(telegramBookingsSource, /Історія до запуску обліку джерела відновлена лише частково/)
   assert.match(bookingFunnelSource, /DashboardBookingNoSlots/)
+  assert.match(bookingFunnelSource, /Що сталося після порожнього пошуку часу/)
+  assert.match(bookingFunnelSource, /Пізніше записалися/)
+  assert.match(bookingFunnelSource, /Без спостереженого продовження/)
+  assert.match(bookingFunnelSource, /Дані про подальші дії після порожнього пошуку недоступні/)
   assert.match(bookingFunnelSource, /:masters="funnel\?\.no_slot_masters"/)
   assert.match(bookingFunnelSource, /:unknown-date-count="funnel\?\.no_slot_unknown_date_count"/)
   assert.match(bookingFunnelSource, /v-if="isRenderable"[\s\S]+aria-label="Кроки воронки/)

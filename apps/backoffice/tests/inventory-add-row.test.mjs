@@ -19,7 +19,7 @@ function memoryStorage() {
   return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) }
 }
 
-function harness(add, storage = memoryStorage(), getReceipt = async () => draft) {
+function harness(add, storage = memoryStorage(), getReceipt = async () => draft, overrides = {}) {
   const ref = value => ({ value })
   const computed = getter => ({ get value() { return getter() } })
   const noop = () => {}
@@ -29,12 +29,12 @@ function harness(add, storage = memoryStorage(), getReceipt = async () => draft)
     ...utils, ref, shallowRef: ref, computed, watch: (target, callback) => { if (!Array.isArray(target)) watchers.push(callback) }, onMounted: noop, onBeforeUnmount: noop,
     sessionStorage: storage, window: {},
     onBeforeRouteLeave: guard => guards.push(guard), onBeforeRouteUpdate: guard => guards.push(guard),
-    definePageMeta: noop, useAuthStore: () => ({ user: { role: 'admin' } }), navigateTo: noop,
+    definePageMeta: noop, useAuthStore: () => ({ user: { role: 'barber', can_post_inventory: false, ...overrides.user } }), navigateTo: noop,
     useRoute: () => ({ query: { id: '12' } }), useRouter: () => ({ replace: noop }),
     useBaseToastNotification: () => ({ success: noop }),
-    useBackofficeApi: () => ({ addInventoryReceiptItem: add, lookupInventoryProductByBarcode: async () => product, getInventoryReceipt: getReceipt }),
+    useBackofficeApi: () => ({ addInventoryReceiptItem: add, lookupInventoryProductByBarcode: async () => product, getInventoryReceipt: getReceipt, ...overrides.api }),
   }
-  const state = new Function(...Object.keys(globals), `${script}\nreturn { receipt, selectedProduct, quantity, unitCost, batchNumber, allocationQuantities, pendingAdd, adding, addLocked, errorMessage, addItem, loadReceipt, scanBarcode, guards: null };`)(...Object.values(globals))
+  const state = new Function(...Object.keys(globals), `${script}\nreturn { receipt, selectedProduct, quantity, unitCost, batchNumber, allocationQuantities, pendingAdd, adding, addLocked, errorMessage, addItem, loadReceipt, selectProduct, postReceipt, posting, postConfirmationOpen, postedBalances, guards: null };`)(...Object.values(globals))
   state.receipt.value = structuredClone(draft)
   state.selectedProduct.value = product
   state.unitCost.value = 5
@@ -73,7 +73,7 @@ test('ambiguous committed response retries the SAME immutable payload and key; r
   assert.ok(state.guards.every(guard => guard() === true), 'navigation is safe once the tuple is durable')
   assert.throws(() => { pending.payload.quantity = 99 }, TypeError)
   assert.throws(() => { pending.payload.allocations.push({ order_item_id: 2, quantity: 1 }) }, TypeError)
-  await state.scanBarcode('ABC')
+  await state.selectProduct(product)
   assert.equal(state.quantity.value, 3, 'scan cannot change an unresolved intent')
   // Even programmatic form changes must not alter a retry.
   state.quantity.value = 99
@@ -86,10 +86,43 @@ test('ambiguous committed response retries the SAME immutable payload and key; r
   assert.equal(state.pendingAdd.value, null)
   assert.equal(state.quantity.value, 1)
   assert.ok(state.guards.every(guard => guard() === true))
-  await state.scanBarcode('ABC')
+  await state.selectProduct(product, true)
   await state.addItem()
   assert.notEqual(calls[2].key, calls[1].key, 'a new intentional scan/add gets a fresh key')
   assert.equal(calls[2].payload.quantity, 2)
+})
+
+test('manual reselection preserves quantity while an explicit repeat scan adds one', () => {
+  const state = harness(async () => draft)
+  state.quantity.value = 10
+  state.selectProduct(product)
+  assert.equal(state.quantity.value, 10)
+  state.selectProduct(product, true)
+  assert.equal(state.quantity.value, 11)
+  state.selectProduct({ ...product, id: 9 })
+  assert.equal(state.quantity.value, 1)
+})
+
+test('late draft balances cannot overwrite confirmed posted balances for the same receipt', async () => {
+  const populatedDraft = { ...draft, items: [{ id: 1, product_id: product.id, quantity: 3, allocations: [] }] }
+  const balanceResponses = []
+  const state = harness(async () => populatedDraft, memoryStorage(), async () => populatedDraft, {
+    user: { can_post_inventory: true },
+    api: {
+      getInventoryProduct: () => new Promise(resolve => balanceResponses.push(resolve)),
+      postInventoryReceipt: async () => ({ ...populatedDraft, status: 'posted' }),
+    },
+  })
+  await state.loadReceipt()
+  await state.postReceipt()
+  assert.equal(balanceResponses.length, 2)
+  balanceResponses[1]({ ...product, on_hand: 3 })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.postedBalances.value[product.id].on_hand, 3)
+  balanceResponses[0]({ ...product, on_hand: 0 })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.receipt.value.status, 'posted')
+  assert.equal(state.postedBalances.value[product.id].on_hand, 3)
 })
 
 test('double submit is suppressed and form stays locked while add is in flight', async () => {
@@ -165,7 +198,7 @@ test('failed GET after reload permits safe recovery without dropping the pending
   assert.equal(reloaded.pendingAdd.value, pending)
   assert.equal(storage.getItem(utils.receiptItemStorageKey(12)), rawTuple)
   assert.equal(reloaded.addLocked.value, true)
-  await reloaded.scanBarcode('ABC')
+  await reloaded.selectProduct(product)
   assert.equal(reloaded.quantity.value, 3)
   await reloaded.addItem()
   assert.deepEqual(calls[1], calls[0])
@@ -231,4 +264,33 @@ test('timeout and server errors remain uncertain; allocations are deeply snapsho
   assert.throws(() => { request.payload.allocations[0].quantity = 3 }, TypeError)
   assert.match(page, /<fieldset :disabled="isPosted \|\| addLocked"/)
   assert.match(page, /beforeunload/)
+})
+
+
+test('master without effective posting permission never calls post API', async () => {
+  let calls = 0
+  const state = harness(async () => draft, memoryStorage(), async () => draft, { api: { postInventoryReceipt: async () => { calls++; return { ...draft, status: 'posted' } } } })
+  await state.postReceipt()
+  assert.equal(calls, 0)
+  assert.equal(state.receipt.value.status, 'draft')
+})
+
+test('posting keeps draft until confirmed and uses same durable key after network loss', async () => {
+  const keys = []
+  const state = harness(async () => draft, memoryStorage(), async () => draft, {
+    user: { can_post_inventory: true },
+    api: { postInventoryReceipt: async (id, key) => {
+      keys.push(key)
+      if (keys.length === 1) throw new TypeError('response lost')
+      if (keys.length === 2) return draft
+      return { ...draft, status: 'posted', items: [] }
+    } },
+  })
+  await state.postReceipt()
+  assert.equal(state.receipt.value.status, 'draft')
+  await state.postReceipt()
+  assert.equal(state.receipt.value.status, 'draft', 'draft API response must not announce posting')
+  await state.postReceipt()
+  assert.equal(state.receipt.value.status, 'posted')
+  assert.equal(new Set(keys).size, 1)
 })

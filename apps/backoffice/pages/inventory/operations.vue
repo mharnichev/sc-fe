@@ -6,7 +6,7 @@ import { createInventoryIdempotencyKey, inventoryApiErrorMessage } from '~/utils
 definePageMeta({
   middleware: () => {
     const auth = useAuthStore()
-    if (!auth.user?.is_superuser && auth.user?.role !== 'admin') return navigateTo('/dashboard')
+    if (!auth.user?.is_superuser && !auth.user?.can_post_inventory) return navigateTo('/dashboard')
   },
 })
 

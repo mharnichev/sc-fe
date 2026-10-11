@@ -46,6 +46,7 @@ from app.core.database import Base, get_db_session
 from app.core.security import create_access_token
 from app.main import app as production_app
 from app.models.admin_user import AdminUser
+from app.models.booking import Master
 from app.models.inventory import InventoryMovement
 from app.models.order import Order, OrderItem, OrderStatus, ProcurementStatus
 from app.models.product import Product
@@ -73,6 +74,8 @@ async def seed_baseline() -> None:
             is_active=False,
             is_superuser=True,
         )
+        master_user = AdminUser(email="inventory-master@example.com", hashed_password="unused", can_post_inventory=False)
+        poster_user = AdminUser(email="inventory-poster@example.com", hashed_password="unused", can_post_inventory=True)
         products = {
             "available": Product(
                 name="QA Available Pomade",
@@ -120,9 +123,13 @@ async def seed_baseline() -> None:
                 is_active=True,
             ),
         }
-        session.add_all([admin, inactive, *products.values()])
+        session.add_all([admin, inactive, master_user, poster_user, *products.values()])
         await session.flush()
 
+        linked_master = Master(full_name="Inventory Test Master", admin_user_id=master_user.id)
+        linked_poster = Master(full_name="Inventory Test Poster", admin_user_id=poster_user.id)
+        session.add_all([linked_master, linked_poster])
+        await session.flush()
         order = Order(
             customer_name="QA Procurement Customer",
             customer_phone="+380501112233",
@@ -160,6 +167,10 @@ async def seed_baseline() -> None:
             access_token=create_access_token(str(admin.id)),
             inactive_access_token=create_access_token(str(inactive.id)),
             user=AdminUserResponse.model_validate(admin).model_dump(mode="json"),
+            master_access_token=create_access_token(str(master_user.id)),
+            master_user=AdminUserResponse.model_validate(master_user).model_copy(update={"role": "barber", "master_id": linked_master.id}).model_dump(mode="json"),
+            poster_access_token=create_access_token(str(poster_user.id)),
+            poster_user=AdminUserResponse.model_validate(poster_user).model_copy(update={"role": "barber", "master_id": linked_poster.id}).model_dump(mode="json"),
             seed={
                 "products": {
                     key: {
@@ -192,10 +203,10 @@ async def reset_schema() -> None:
 async def lifespan(_app: FastAPI):
     async with admin_engine.begin() as connection:
         await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
-    await seed_baseline()
     try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        await seed_baseline()
         yield
     finally:
         await engine.dispose()

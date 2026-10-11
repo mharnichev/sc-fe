@@ -12,6 +12,7 @@ import {
   bookingFunnelBottleneckLabel,
   bookingFunnelDisplayState,
   bookingFunnelStepDescriptions,
+  bookingNoSlotOutcomeDisplay,
   formatBookingFunnelPercentage,
   mapBookingFunnelRows,
   triggeredBookingFunnelAlerts,
@@ -26,7 +27,12 @@ const props = defineProps<{
 
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
-const bottleneckLabel = computed(() => bookingFunnelBottleneckLabel(props.funnel))
+const noSlotOutcomes = computed(() => bookingNoSlotOutcomeDisplay(props.funnel))
+const recommendedAction = computed(() => {
+  const action = props.funnel?.recommended_action
+  return action?.based_on === 'no_slot' && !noSlotOutcomes.value ? null : action
+})
+const bottleneckLabel = computed(() => recommendedAction.value ? bookingFunnelBottleneckLabel(props.funnel) : null)
 const displayState = computed(() => bookingFunnelDisplayState(props.funnel))
 const isRenderable = computed(() =>
   displayState.value === 'available' || displayState.value === 'partial',
@@ -36,7 +42,7 @@ const overallConversion = computed(() => {
   return formatBookingFunnelPercentage(overall?.conversion_percent, overall?.status)
 })
 const alertMetric = (code: keyof typeof bookingFunnelAlertContent, count: number, rate: string | number | null) => {
-  const countLabel = `${count.toLocaleString('uk-UA')} ${count === 1 ? 'випадок' : 'випадків'}`
+  const countLabel = `${count.toLocaleString('uk-UA')} ${code === 'no_slot' ? 'сесій з порожнім пошуком' : count === 1 ? 'випадок' : 'випадків'}`
   if (code !== 'no_slot' || rate === null) return countLabel
   return `${countLabel} · ${formatBookingFunnelPercentage(rate)} від виборів майстра`
 }
@@ -61,7 +67,7 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
               title="Воронка онлайн-запису"
               summary="Когорта складається зі спроб, у яких найраніший persisted booking_start зафіксовано у вибраному періоді. Пізніші contextual backfill не дублюють спробу між періодами, а кроки зіставляються за тим самим анонімним session hash."
               formula="Конверсія A → B = сесії, що мають обидві події A і B, ÷ сесії з A × 100%. Відсів = сесії A без B."
-              note="«Почали запис» означає першу змістовну дію у формі, а не клік CTA чи відкриття сторінки. Версія розрахунку — 2."
+              :note="`«Почали запис» означає першу змістовну дію у формі, а не клік CTA чи відкриття сторінки. Версія розрахунку — ${funnel?.calculation_version ?? 'невідома'}.`"
             />
           </h2>
           <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
@@ -191,20 +197,53 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
         </li>
       </ol>
 
+      <article class="booking-funnel__insight mt-4 rounded-2xl border p-4" aria-labelledby="booking-no-slot-outcomes-title">
+        <h3 id="booking-no-slot-outcomes-title" class="flex items-center gap-1 text-sm font-semibold text-slate-900">
+          Що сталося після порожнього пошуку часу
+          <DashboardMetricHelp
+            title="Наслідки порожнього пошуку"
+            summary="Порожній пошук означає відсутність слотів у конкретній відповіді для обраної дати. Картка рахує унікальні анонімні сесії з таким пошуком та їхні подальші дії."
+            formula="Сесії із записом, вибором часу без пізнішого запису, без спостереженого продовження і з незавершеним вікном спостереження разом утворюють усі зачеплені сесії. Частка без продовження = придатні для розрахунку сесії без продовження ÷ сесії в знаменнику."
+            note="Запис у будь-якого майстра після першого порожнього пошуку зараховується як продовження, навіть поза вибраним періодом. Враховується щонайменше 2 години після останнього зафіксованого порожнього пошуку. Повторні перевірки можуть не створювати нову подію, тому сесія може залишатися активною. Відсутність зафіксованого вибору часу чи запису не доводить втрату клієнта або нестачу слотів."
+          />
+        </h3>
+        <template v-if="noSlotOutcomes">
+          <p class="mt-1 text-sm font-medium text-slate-700">Зіткнулися з порожнім пошуком: {{ noSlotOutcomes.affected.toLocaleString('uk-UA') }} унікальних сесій.</p>
+          <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div v-for="item in [
+              { label: 'Пізніше записалися', count: noSlotOutcomes.booked },
+              { label: 'Обрали час без запису', count: noSlotOutcomes.selected },
+              { label: 'Без спостереженого продовження', count: noSlotOutcomes.unresolved },
+              { label: 'Очікують спостереження', count: noSlotOutcomes.pending },
+            ]" :key="item.label" class="rounded-xl border border-slate-200 p-2.5">
+              <dt class="text-xs text-slate-600">{{ item.label }}</dt>
+              <dd class="mt-1 text-xl font-semibold text-slate-950">{{ item.count.toLocaleString('uk-UA') }}</dd>
+            </div>
+          </dl>
+          <p class="mt-3 text-xs text-slate-600">
+            Частка без спостереженого продовження: {{ formatBookingFunnelPercentage(noSlotOutcomes.ratePercent) }}
+            ({{ noSlotOutcomes.rateSessions.toLocaleString('uk-UA') }} із {{ noSlotOutcomes.denominator.toLocaleString('uk-UA') }} сесій у розрахунку).
+          </p>
+        </template>
+        <p v-else class="mt-2 text-sm text-slate-600" role="status">
+          Дані про подальші дії після порожнього пошуку недоступні. Кількість пошуків не показує, скільки клієнтів втрачено.
+        </p>
+      </article>
+
       <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <article class="booking-funnel__bottleneck rounded-2xl border p-4">
           <p class="flex items-center gap-1 text-xs font-medium uppercase tracking-[0.14em] text-rose-700">
             Головне вузьке місце
             <DashboardMetricHelp
               title="Як обирається вузьке місце"
-              summary="Backend порівнює активні операційні сигнали та втрати між послідовними кроками, а потім повертає одну пріоритетну дію."
+              summary="Backend допускає операційні сигнали та переходи до порівняння після мінімальних порогів обсягу, а пріоритет визначає за відсотковими показниками. Для порожнього пошуку враховується частка сесій без спостереженого продовження."
               :trigger="`Перехід бере участь у висновку лише від ${funnel.alert_thresholds.meaningful_step_sessions} сесій на попередньому кроці.`"
               note="Малий обсяг даних не перетворюється на впевнену рекомендацію."
             />
           </p>
-          <template v-if="funnel.recommended_action">
+          <template v-if="recommendedAction">
             <h3 class="mt-2 font-semibold text-slate-950">{{ bottleneckLabel }}</h3>
-            <p class="mt-1 text-sm leading-6 text-slate-600">{{ funnel.recommended_action.explanation_uk }}</p>
+            <p class="mt-1 text-sm leading-6 text-slate-600">{{ recommendedAction.explanation_uk }}</p>
           </template>
           <template v-else>
             <h3 class="mt-2 font-semibold text-slate-950">Ще недостатньо даних для висновку</h3>
@@ -219,13 +258,13 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
             <LightBulbIcon class="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden="true" />
             <div>
               <p class="text-xs font-medium uppercase tracking-[0.14em] text-cyan-700">Тижневий висновок</p>
-              <p class="mt-2 text-sm leading-6 text-slate-700">{{ funnel.weekly_insight_uk }}</p>
+              <p class="mt-2 text-sm leading-6 text-slate-700">{{ !noSlotOutcomes && funnel.recommended_action?.based_on === 'no_slot' ? 'Подальші дії після порожніх пошуків поки недоступні для надійного висновку.' : funnel.weekly_insight_uk }}</p>
               <NuxtLink
-                v-if="funnel.recommended_action"
-                :to="funnel.recommended_action.recommended_backoffice_route"
+                v-if="recommendedAction"
+                :to="recommendedAction.recommended_backoffice_route"
                 class="booking-funnel__action mt-3 inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition"
               >
-                {{ funnel.recommended_action.title_uk }}
+                {{ recommendedAction.title_uk }}
                 <ArrowRightIcon class="h-3.5 w-3.5" aria-hidden="true" />
               </NuxtLink>
             </div>

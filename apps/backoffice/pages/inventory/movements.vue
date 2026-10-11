@@ -3,13 +3,6 @@ import type { Product } from '~/composables/useBackofficeApi'
 import type { InventoryMovement } from '~/types/inventory'
 import { inventoryApiErrorMessage, inventoryMovementLabel } from '~/utils/inventory'
 
-definePageMeta({
-  middleware: () => {
-    const auth = useAuthStore()
-    if (!auth.user?.is_superuser && auth.user?.role !== 'admin') return navigateTo('/dashboard')
-  },
-})
-
 const api = useBackofficeApi()
 const route = useRoute()
 const router = useRouter()

@@ -241,6 +241,18 @@ export interface DashboardNoSlotMaster {
   unattributed_observations: number
 }
 
+export interface DashboardBookingFunnelNoSlotOutcomes {
+  status: 'available' | 'unavailable'
+  affected_sessions: number
+  booked_sessions: number
+  time_selected_sessions: number
+  unresolved_sessions: number
+  pending_sessions: number
+  denominator_sessions: number
+  unresolved_rate_sessions: number
+  unresolved_rate_percent: DashboardDecimal | null
+}
+
 export type DashboardBookingFunnelActionCode =
   | 'review_availability'
   | 'refresh_schedule'
@@ -271,7 +283,7 @@ export interface DashboardBookingFunnelWeeklyDigest {
 }
 
 export interface DashboardBookingFunnel {
-  calculation_version: 2
+  calculation_version: 2 | 3
   timezone: 'Europe/Kyiv'
   cohort_definition: string
   master_attribution_definition: string
@@ -287,6 +299,7 @@ export interface DashboardBookingFunnel {
   no_slot_dates: DashboardBookingFunnelNoSlotDate[]
   no_slot_contexts: DashboardBookingFunnelNoSlotContext[]
   no_slot_masters?: DashboardNoSlotMaster[]
+  no_slot_outcomes?: DashboardBookingFunnelNoSlotOutcomes | null
   no_slot_snapshot_id?: number | null
   no_slot_context_limit: number
   no_slot_contexts_truncated: boolean
@@ -421,7 +434,7 @@ const funnelStepMetricAt = (value: unknown, path: string) => {
   nonNegativeIntegerAt(metric.count, `${path}.count`)
 }
 
-const funnelAlertAt = (value: unknown, path: string) => {
+const funnelAlertAt = (value: unknown, path: string, calculationVersion: 2 | 3) => {
   const alert = recordAt(value, path)
   const code = literalAt(
     alert.code,
@@ -432,7 +445,9 @@ const funnelAlertAt = (value: unknown, path: string) => {
   const ratePercent = alert.rate_percent === null
     ? null
     : percentageAt(alert.rate_percent, `${path}.rate_percent`)
-  if (code !== 'no_slot' && ratePercent !== null) fail(`${path}.rate_percent`)
+  if (calculationVersion === 2 && code !== 'no_slot' && ratePercent !== null) {
+    fail(`${path}.rate_percent`)
+  }
   const triggered = booleanAt(alert.triggered, `${path}.triggered`)
   return { code, count, ratePercent, triggered }
 }
@@ -460,10 +475,10 @@ const funnelStepListAt = (value: unknown, path: string) => {
   return steps
 }
 
-const funnelAlertListAt = (value: unknown, path: string) => {
+const funnelAlertListAt = (value: unknown, path: string, calculationVersion: 2 | 3) => {
   const alerts = arrayAt(value, path)
   if (alerts.length !== 0 && alerts.length !== 3) fail(path)
-  const normalized = alerts.map((alert, index) => funnelAlertAt(alert, `${path}.${index}`))
+  const normalized = alerts.map((alert, index) => funnelAlertAt(alert, `${path}.${index}`, calculationVersion))
   const expectedCodes = ['no_slot', 'stale_schedule', 'booking_error'] as const
   normalized.forEach((alert, index) => {
     if (alert.code !== expectedCodes[index]) fail(`${path}.${index}.code`)
@@ -536,7 +551,8 @@ const funnelNoSlotContextListAt = (value: unknown, path: string, limit: number) 
 
 const funnelAt = (value: unknown, path: string) => {
   const funnel = recordAt(value, path)
-  if (funnel.calculation_version !== 2) fail(`${path}.calculation_version`)
+  if (funnel.calculation_version !== 2 && funnel.calculation_version !== 3) fail(`${path}.calculation_version`)
+  const calculationVersion: 2 | 3 = funnel.calculation_version === 3 ? 3 : 2
   if (funnel.timezone !== 'Europe/Kyiv') fail(`${path}.timezone`)
   stringAt(funnel.cohort_definition, `${path}.cohort_definition`)
   stringAt(funnel.master_attribution_definition, `${path}.master_attribution_definition`)
@@ -745,6 +761,7 @@ const funnelAt = (value: unknown, path: string) => {
   const operationalAlerts = funnelAlertListAt(
     funnel.operational_alerts,
     `${path}.operational_alerts`,
+    calculationVersion,
   )
   if (
     (status === 'empty' && operationalAlerts.length !== 0)
@@ -788,6 +805,35 @@ const funnelAt = (value: unknown, path: string) => {
     }
   }
   funnelNoSlotDateListAt(funnel.no_slot_dates, `${path}.no_slot_dates`)
+  if (funnel.no_slot_outcomes !== undefined && funnel.no_slot_outcomes !== null) {
+    const outcomesPath = `${path}.no_slot_outcomes`
+    const outcomes = recordAt(funnel.no_slot_outcomes, outcomesPath)
+    const outcomeStatus = literalAt(outcomes.status, ['available', 'unavailable'], `${outcomesPath}.status`)
+    const counts = Object.fromEntries([
+      'affected_sessions', 'booked_sessions', 'time_selected_sessions',
+      'unresolved_sessions', 'pending_sessions', 'denominator_sessions',
+      'unresolved_rate_sessions',
+    ].map(key => [key, nonNegativeIntegerAt(outcomes[key], `${outcomesPath}.${key}`)]))
+    const affected = counts.affected_sessions!
+    const booked = counts.booked_sessions!
+    const selected = counts.time_selected_sessions!
+    const unresolved = counts.unresolved_sessions!
+    const pending = counts.pending_sessions!
+    const denominator = counts.denominator_sessions!
+    const rateSessions = counts.unresolved_rate_sessions!
+    if (outcomes.unresolved_rate_percent !== null) {
+      percentageAt(outcomes.unresolved_rate_percent, `${outcomesPath}.unresolved_rate_percent`)
+    }
+    if (outcomeStatus === 'available') {
+      if (booked + selected + unresolved + pending !== affected) fail(outcomesPath)
+      if (rateSessions > unresolved || rateSessions > denominator) {
+        fail(`${outcomesPath}.unresolved_rate_sessions`)
+      }
+      if ((denominator === 0) !== (outcomes.unresolved_rate_percent === null)) {
+        fail(`${outcomesPath}.unresolved_rate_percent`)
+      }
+    }
+  }
   // Older servers cannot supply deduplicated totals; never derive them from capped contexts.
   if (funnel.no_slot_masters !== undefined) {
     const seen = new Set<number | null>()
@@ -867,6 +913,7 @@ const funnelAt = (value: unknown, path: string) => {
     const digestAlerts = funnelAlertListAt(
       digest.operational_alerts,
       `${path}.latest_weekly_digest.operational_alerts`,
+      calculationVersion,
     )
     if (
       (digestStatus === 'empty' && (digestSteps.length || digestAlerts.length))

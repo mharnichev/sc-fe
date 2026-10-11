@@ -33,7 +33,7 @@ export const procurementStatusLabel = (status: ProcurementStatus | null | undefi
   procurementLabels[status || ''] || status || '—'
 
 export const normalizeInventoryBarcode = (value: string | null | undefined) =>
-  (value || '').replace(/\s+/g, '').toUpperCase()
+  value || ''
 
 export const shouldSuppressBarcodeSubmission = (
   barcode: string,
@@ -79,7 +79,15 @@ export const inventoryApiErrorMessage = (error: unknown, fallback = 'Не вда
   }
   const data = source.data || source.response?._data
   const detail = formatDetail(data?.detail)
-  if (detail) return detail
+  if (detail) {
+    const messages: Record<string, string> = {
+      'Selected product already has a different barcode': 'Цей товар уже має інший штрихкод. Виберіть правильний товар; код не замінено.',
+      'Barcode is already assigned to another product': 'Штрихкод уже належить іншому товару. Перевірте знайдену картку.',
+      'Barcode or SKU is already assigned to another product': 'Штрихкод або SKU уже належить іншому товару. Знайдіть наявний товар або виправте SKU.',
+      'Inventory posting permission is required': 'У вас немає права проведення. Передайте чернетку адміністратору.',
+    }
+    return messages[detail] || detail
+  }
   if (typeof data?.message === 'string' && data.message.trim()) return data.message.trim()
 
   if (source.response?.status === 409) return 'Операцію відхилено через конфлікт даних. Оновіть дані та повторіть спробу.'

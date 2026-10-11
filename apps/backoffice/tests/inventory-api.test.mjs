@@ -39,7 +39,7 @@ test('inventory API exposes the backend success contracts and HTTP paths', () =>
   }
 
   assert.match(apiSource, /'\/backoffice\/inventory\/stock'/)
-  assert.match(apiSource, /`\/backoffice\/inventory\/products\/barcode\/\$\{encodeURIComponent\(barcode\.trim\(\)\)\}`/)
+  assert.match(apiSource, /`\/backoffice\/inventory\/products\/barcode\/\$\{encodeURIComponent\(barcode\)\}`/)
   assert.match(apiSource, /`\/backoffice\/inventory\/products\/\$\{productId\}\/settings`/)
   assert.match(apiSource, /'\/backoffice\/inventory\/procurement'/)
   assert.match(apiSource, /'\/backoffice\/inventory\/procurement\/mark-ordered'/)
@@ -82,7 +82,7 @@ test('barcode input suppresses duplicate Enter events without blocking a newly s
   assert.match(barcodeSource, /shouldSuppressBarcodeSubmission/)
   assert.match(barcodeSource, /inputSinceSubmit/)
   assert.match(barcodeSource, /!inputSinceSubmit\.value && shouldSuppressBarcodeSubmission/)
-  assert.match(barcodeSource, /@keydown\.enter\.prevent="submit"/)
+  assert.match(barcodeSource, /@keydown\.enter\.prevent="submit\(\)"/)
   assert.match(barcodeSource, /emit\('submit', barcode\)/)
   assert.match(barcodeSource, /v-if="match"/)
   assert.match(barcodeSource, /v-else-if="notFound"/)
@@ -90,12 +90,13 @@ test('barcode input suppresses duplicate Enter events without blocking a newly s
   assert.doesNotMatch(barcodeSource, /useBackofficeApi|\$fetch|\/backoffice\/inventory/)
 })
 
-test('barcode guards and repeated receipt scans execute with normalized scanner values', () => {
-  assert.equal(inventoryUtils.normalizeInventoryBarcode(' ab 12 '), 'AB12')
-  assert.equal(inventoryUtils.shouldSuppressBarcodeSubmission('ab12', ' AB 12 ', 1500, 1000, 900), true)
+test('barcode guards preserve exact backend identifiers including spaces, case and leading zeros', () => {
+  assert.equal(inventoryUtils.normalizeInventoryBarcode(' ab 12 '), ' ab 12 ')
+  assert.equal(inventoryUtils.shouldSuppressBarcodeSubmission('ab12', ' AB 12 ', 1500, 1000, 900), false)
   assert.equal(inventoryUtils.shouldSuppressBarcodeSubmission('ab12', 'AB12', 2000, 1000, 900), false)
-  assert.equal(inventoryUtils.repeatedReceiptScanQuantity('AB12', ' ab 12 ', 1), 2)
+  assert.equal(inventoryUtils.repeatedReceiptScanQuantity('AB12', ' ab 12 ', 1), null)
   assert.equal(inventoryUtils.repeatedReceiptScanQuantity('AB12', 'CD34', 1), null)
+  assert.equal(inventoryUtils.repeatedReceiptScanQuantity('0012345678905', '0012345678905', 1), 2)
 })
 
 test('inventory error extraction supports FastAPI details and conflict validation failures', () => {
