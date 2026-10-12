@@ -4,6 +4,16 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
+test('receipt purchase-cost accessible name includes its visible label', async () => {
+  const source = await read('../pages/inventory/receiving.vue')
+  const field = source.match(/<BaseInput[^>]*v-model\.number="unitCost"[^>]*>/)?.[0]
+  assert.ok(field)
+  const label = field.match(/\blabel="([^"]+)"/)?.[1]
+  const accessibleName = field.match(/\baria-label="([^"]+)"/)?.[1]
+  assert.ok(label)
+  assert.ok(accessibleName?.startsWith(label))
+})
+
 test('inventory pages stay private, URL-driven, and use inventory API contracts', async () => {
   const [overview, movements, operations] = await Promise.all([
     read('../pages/inventory/index.vue'),
@@ -28,7 +38,7 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
   assert.match(movements, /movementTypeOptions/)
   assert.match(movements, /dateFrom/)
   assert.match(movements, /dateTo/)
-  assert.match(movements, /лише поточну завантажену сторінку/)
+  assert.match(movements, /Фільтри застосовуються до цієї сторінки історії/)
   assert.match(operations, /createInventoryOperation/)
   assert.match(operations, /ConfirmActionModal/)
   assert.match(operations, /createInventoryIdempotencyKey/)

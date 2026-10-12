@@ -145,3 +145,55 @@ Known API limitations remain explicit: there is no generic manual adjustment
 operation (inventory counts are the reconciliation path), no global movement
 endpoint, and movement type/date filters operate on the currently loaded
 product page rather than server-side across the full ledger.
+
+## Disposable HTTPS phone stand
+
+`mobile-https-stand.py` runs the real backend routes in a fresh PostgreSQL test
+container/schema, a separately built backoffice and a loopback allowlist gateway.
+A Cloudflare Quick Tunnel exposes that gateway with a temporary HTTPS hostname.
+This is synthetic QA data only; neither the normal backend nor its database is
+used. The production lifespan and message workers remain disabled. Official
+Cloudflare setup: <https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/>.
+
+Build an isolated frontend snapshot with `NUXT_PUBLIC_API_BASE=/api/v1`, then:
+
+```sh
+python3 apps/backoffice/e2e/support/mobile-https-stand.py start \
+  --frontend-output /tmp/your-isolated-build/apps/backoffice/.output \
+  --backend-path /Users/markgarnicev/sc/sc-be \
+  --cloudflared /tmp/cloudflared
+```
+
+Prerequisites: backend Python dependencies, Node, Docker and the official
+`cloudflared` executable. Download it from Cloudflare's GitHub releases rather
+than installing/changing global VPN or proxy settings. The starter reserves
+loopback ports 55440 (database), 58002 (backend), 4043 (frontend) and 8089
+(gateway). It fails on an existing stand/container and cleans up failed startup.
+
+The private `/tmp/sc-mobile-https-stand/access.txt` contains the temporary URL,
+random test password and three login identities: master without posting rights,
+master with posting rights and administrator. The password/JWT secret are freshly
+generated on every start; never commit this access file. Login and refresh use
+real `sc-be` routes and password verification. `/mobile-checklist` contains
+printable EAN-13/EAN-8 plus unknown codes and the short physical-device checklist;
+no credentials or bootstrap tokens are placed on that public page.
+
+Gateway policy forwards only login/refresh/me, inventory API, product reads and
+public master reads. It rejects every `/__sandbox` bootstrap/reset/inspect path,
+OpenAPI/docs, unrelated API writes and encoded/traversal paths. The actual backend
+and database remain bound to loopback. Physical tests intentionally modify the
+synthetic dataset; restart the stand for a fresh full run. Automated tests which
+reset seed data must finish before the phone stand is handed over. The real mobile
+suite supports this manual seed when run through gateway `http://127.0.0.1:8089`;
+reset the local harness after the suite so physical tests start with fresh codes.
+
+The address lives only while its local processes, Mac (lid open) and internet
+connection remain available. On macOS a temporary `caffeinate -i` process prevents
+idle sleep while the stand runs; stopping the stand also stops that process. Stop all stand processes and delete only its disposable database:
+
+```sh
+python3 apps/backoffice/e2e/support/mobile-https-stand.py stop
+```
+
+Logs and printable checklist remain in the private temporary directory. No
+production container or global Tailscale setting is changed.

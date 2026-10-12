@@ -50,7 +50,7 @@ async function receipt(request: APIRequestContext, state: State, id: number) {
 // then drops only the first response. No endpoint response is fabricated.
 async function loseFirstResponse(page: Page, endpoint: string) {
   const attempts: { key: string, body: unknown }[] = []
-  await page.route(endpoint, async route => {
+  await page.route(url => url.pathname === new URL(endpoint).pathname, async route => {
     if (route.request().method() !== 'POST') return route.continue()
     attempts.push({ key: route.request().headers()['idempotency-key']!, body: route.request().postDataJSON() })
     expect(attempts.at(-1)!.key).toBeTruthy()
@@ -93,7 +93,7 @@ for (const browserName of ['chromium', 'webkit'] as const) {
       const before = await inspect(request)
       const code = '00-MASTER-BIND'
       await scan(page, code)
-      await expect(page.getByText('Штрихкод не знайдено:', { exact: false })).toBeVisible()
+      await expect(page.getByText('Штрихкод не знайдено.', { exact: false })).toBeVisible()
       await search(page, state.seed.products.missing_barcode.name)
       await page.getByRole('button', { name: 'Прив’язати цей товар', exact: true }).click()
       expect(await inspect(request)).toEqual(before)

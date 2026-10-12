@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CameraIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { shouldSuppressBarcodeSubmission } from '~/utils/inventory'
 
@@ -11,6 +12,7 @@ const props = withDefaults(defineProps<{
   autoFocus?: boolean
   duplicateWindowMs?: number
   match?: { id: number, name: string, sku?: string | null, barcode?: string | null } | null
+  showNotFound?: boolean
   notFound?: boolean
   error?: string | null
 }>(), {
@@ -19,6 +21,7 @@ const props = withDefaults(defineProps<{
   placeholder: 'Скануйте або введіть штрихкод',
   duplicateWindowMs: 900,
   match: null,
+  showNotFound: true,
   notFound: false,
   error: null,
 })
@@ -99,7 +102,7 @@ defineExpose({ focus })
 
 <template>
   <section class="space-y-2" aria-live="polite">
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-start gap-2">
       <BaseInput
         ref="inputRef"
         :model-value="modelValue"
@@ -109,11 +112,13 @@ defineExpose({ focus })
         inputmode="text"
         :disabled="disabled"
         :error="error || undefined"
-        class="min-w-0 flex-1"
+        field-class="w-full min-w-0 sm:w-auto sm:flex-1"
+        hint="Введіть код вручну або відкрийте камеру."
         @update:model-value="updateValue"
         @keydown.enter.prevent="submit()"
       />
-      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" class="self-end" @click="cameraOpen = true">
+      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" class="min-h-11 w-full whitespace-nowrap self-end sm:w-auto" @click="cameraOpen = true">
+        <CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         Сканувати
       </BaseButton>
       <BaseButton
@@ -121,9 +126,10 @@ defineExpose({ focus })
         variant="primary"
         :loading="loading"
         :disabled="disabled || !modelValue.trim()"
-        class="self-end"
+        class="min-h-11 flex-1 whitespace-nowrap self-end sm:flex-none"
         @click="submit()"
       >
+        <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         Знайти
       </BaseButton>
       <BaseButton
@@ -131,9 +137,10 @@ defineExpose({ focus })
         type="button"
         variant="secondary"
         :disabled="disabled"
-        class="self-end"
+        class="min-h-11 flex-1 whitespace-nowrap self-end sm:flex-none"
         @click="clear"
       >
+        <XMarkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         Скинути
       </BaseButton>
     </div>
@@ -142,8 +149,8 @@ defineExpose({ focus })
     <p v-if="match" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-success-surface)] px-3 py-2 text-sm text-[var(--bo-success-text)]">
       Знайдено: <span class="font-medium">{{ match.name }}</span><span v-if="match.sku"> · {{ match.sku }}</span>
     </p>
-    <p v-else-if="notFound" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-warning-surface)] px-3 py-2 text-sm text-[var(--bo-warning-text)]">
-      Товар із таким штрихкодом не знайдено. Відскануйте або введіть інший код.
+    <p v-else-if="notFound && showNotFound" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-warning-surface)] px-3 py-2 text-sm text-[var(--bo-warning-text)]">
+      Штрихкод не знайдено. Знайдіть товар за назвою, щоб прив’язати код.
     </p>
   </section>
 </template>

@@ -85,7 +85,7 @@ test('barcode input suppresses duplicate Enter events without blocking a newly s
   assert.match(barcodeSource, /@keydown\.enter\.prevent="submit\(\)"/)
   assert.match(barcodeSource, /emit\('submit', barcode\)/)
   assert.match(barcodeSource, /v-if="match"/)
-  assert.match(barcodeSource, /v-else-if="notFound"/)
+  assert.match(barcodeSource, /v-else-if="notFound && showNotFound"/)
   assert.match(barcodeSource, /defineExpose\(\{ focus \}\)/)
   assert.doesNotMatch(barcodeSource, /useBackofficeApi|\$fetch|\/backoffice\/inventory/)
 })

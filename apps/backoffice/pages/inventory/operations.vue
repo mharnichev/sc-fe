@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MagnifyingGlassIcon, CheckIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import type { InventoryManualOperationCreate } from '~/types/inventory'
 import { createInventoryIdempotencyKey, inventoryApiErrorMessage } from '~/utils/inventory'
@@ -86,19 +87,32 @@ const performOperation = async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div><p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p><h1 class="mt-2 text-3xl font-semibold text-ui-primary">Ручна операція</h1><p class="mt-2 text-sm text-ui-secondary">Операція одразу змінює склад і потрапляє в журнал руху.</p></div>
+  <div class="space-y-4">
+    <div><p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Склад</p><h1 class="mt-1 text-2xl sm:text-3xl font-semibold text-ui-primary">Ручна операція</h1><p class="mt-2 text-sm text-ui-secondary">Операція одразу змінює склад і потрапляє в журнал руху.</p></div>
     <InventorySectionNav />
-    <BaseCard as="section" padding="sm" class="space-y-4"><form class="flex flex-wrap gap-3" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" class="min-w-[min(100%,22rem)] flex-1" placeholder="Знайти товар" aria-label="Пошук товару для операції" /><BaseButton type="submit" variant="neutral" :loading="productsPending">Знайти</BaseButton></form><div v-if="products.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in products" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)">{{ product.name }} <span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div><p v-if="selectedProduct" class="text-sm text-ui-secondary">Вибрано: <strong class="text-ui-primary">{{ selectedProduct.name }}</strong> · #{{ selectedProduct.id }}</p></BaseCard>
-    <form class="grid gap-5 rounded-[1.75rem] border border-ui-border bg-ui-surface p-6" @submit.prevent="openConfirmation">
-      <div class="grid gap-4 md:grid-cols-2"><label class="grid gap-2 text-sm font-medium text-ui-primary">Тип операції<BaseSelect v-model="form.type" :options="operationOptions" /></label><label class="grid gap-2 text-sm font-medium text-ui-primary">Кількість<BaseInput v-model.number="form.quantity" type="number" min="1" step="1" required /></label></div>
-      <label v-if="!selectedProduct" class="grid gap-2 text-sm font-medium text-ui-primary">Штрихкод товару<BaseInput v-model="form.barcode" maxlength="64" placeholder="Вкажіть, якщо товар не вибрано" /></label>
-      <label class="grid gap-2 text-sm font-medium text-ui-primary">Причина<BaseSelect v-if="form.type === 'write-off'" v-model="form.reason" :options="writeOffReasons" /><BaseInput v-else v-model="form.reason" required maxlength="255" placeholder="Причина операції обов’язкова" /><BaseInput v-if="requiresOtherReason" v-model="form.writeOffOtherReason" required maxlength="255" placeholder="Вкажіть іншу причину" /></label>
-      <div class="grid gap-4 md:grid-cols-2"><label class="grid gap-2 text-sm font-medium text-ui-primary">Замовлення (необов’язково)<BaseInput v-model="form.order_id" type="number" min="1" /></label><label class="grid gap-2 text-sm font-medium text-ui-primary">Позиція замовлення (необов’язково)<BaseInput v-model="form.order_item_id" type="number" min="1" /></label></div>
-      <p class="rounded-2xl bg-ui-subtle p-4 text-sm text-ui-secondary">Для звірки залишків немає загальної операції коригування. Проведіть <NuxtLink to="/inventory/counts" class="font-semibold text-ui-accent hover:underline">інвентаризацію</NuxtLink> та зафіксуйте її результат.</p>
-      <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
-      <BaseButton type="submit" variant="primary" :disabled="!isValid || pending" :loading="pending">Продовжити до підтвердження</BaseButton>
-    </form>
+    <BaseCard as="section" padding="sm" class="space-y-4"><form class="flex flex-wrap gap-3" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0 flex-1" placeholder="Знайти товар" aria-label="Пошук товару для операції" /><BaseButton type="submit" variant="neutral" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton></form><div v-if="products.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in products" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)">{{ product.name }} <span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div><p v-if="selectedProduct" class="text-sm text-ui-secondary">Вибрано: <strong class="text-ui-primary">{{ selectedProduct.name }}</strong> · #{{ selectedProduct.id }}</p></BaseCard>
+    <BaseCard as="section" padding="sm">
+      <form class="space-y-3" @submit.prevent="openConfirmation">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <BaseSelect v-model="form.type" label="Тип операції" :options="operationOptions" hint="Операція змінить залишок після підтвердження." />
+          <BaseInput v-model.number="form.quantity" label="Кількість" hint="Кількість одиниць для цієї операції." type="number" inputmode="numeric" min="1" step="1" required />
+        </div>
+        <BaseInput v-if="!selectedProduct" v-model="form.barcode" label="Штрихкод товару" hint="Введіть код або виберіть товар через пошук вище." maxlength="64" placeholder="Штрихкод" />
+        <BaseSelect v-if="form.type === 'write-off'" v-model="form.reason" label="Причина списання" :options="writeOffReasons" hint="Оберіть причину для історії складських операцій." />
+        <BaseInput v-else v-model="form.reason" label="Причина" hint="Коротко поясніть причину операції." required maxlength="255" placeholder="Наприклад, повернення клієнта" />
+        <BaseInput v-if="requiresOtherReason" v-model="form.writeOffOtherReason" label="Інша причина" hint="Опишіть причину своїми словами." required maxlength="255" />
+        <details class="rounded-xl border border-ui-border px-3">
+          <summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ui-primary">Зв’язок із замовленням · необов’язково</summary>
+          <div class="grid gap-3 pb-3 sm:grid-cols-2">
+            <BaseInput v-model="form.order_id" label="Номер замовлення" hint="ID замовлення, якщо операція пов’язана з ним." type="number" inputmode="numeric" min="1" />
+            <BaseInput v-model="form.order_item_id" label="Номер позиції" hint="ID рядка в цьому замовленні." type="number" inputmode="numeric" min="1" />
+          </div>
+        </details>
+        <p class="rounded-xl bg-ui-subtle p-3 text-xs text-ui-secondary">Потрібно звірити залишки? Проведіть <NuxtLink to="/inventory/counts" class="font-semibold text-ui-accent hover:underline">інвентаризацію</NuxtLink>.</p>
+        <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
+        <BaseButton type="submit" variant="primary" class="w-full sm:w-auto" :disabled="!isValid || pending" :loading="pending"><CheckIcon class="h-4 w-4" aria-hidden="true" />Продовжити до підтвердження</BaseButton>
+      </form>
+    </BaseCard>
     <ConfirmActionModal v-model="confirmOpen" title="Підтвердити операцію складу" :message="'Операція змінить залишок і не може бути скасована через цей екран.'" confirm-label="Зафіксувати операцію" :pending="pending" :destructive="form.type === 'write-off'" :context-items="[{ label: 'Тип', value: operationLabel }, { label: 'Товар', value: selectedProduct?.name || form.barcode }, { label: 'Кількість', value: String(form.quantity) }, { label: 'Причина', value: reasonValue }]" @confirm="performOperation" />
   </div>
 </template>

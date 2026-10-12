@@ -56,7 +56,6 @@ const sections = computed(() => allSections.filter(section => canPostInventory.v
 
 const isActive = (to: string) => route.path === to
 const activePath = computed(() => sections.value.find(section => isActive(section.to))?.to || '/inventory')
-const activeSection = computed(() => sections.value.find(section => section.to === activePath.value) || sections.value[0])
 const mobileOptions = computed(() => sections.value.map(section => ({ value: section.to, label: section.label })))
 
 const navigate = (value: string | number | boolean | null) => {
@@ -68,15 +67,6 @@ const navigate = (value: string | number | boolean | null) => {
 <template>
   <section class="rounded-[1.5rem] border border-ui bg-ui-surface p-3 shadow-sm" aria-label="Навігація складом">
     <div class="md:hidden">
-      <div class="mb-3 flex items-center gap-3 px-1">
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ui-subtle text-ui-accent">
-          <component :is="activeSection.icon" class="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div class="min-w-0">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-ui-muted">Розділ складу</p>
-          <p class="mt-0.5 truncate text-sm text-ui-secondary">{{ activeSection.description }}</p>
-        </div>
-      </div>
       <BaseSelect
         :model-value="activePath"
         :options="mobileOptions"
@@ -92,7 +82,7 @@ const navigate = (value: string | number | boolean | null) => {
           v-for="section in sections"
           :key="section.to"
           :to="isActive(section.to) ? route.fullPath : section.to"
-          class="group flex min-h-20 items-center gap-3 rounded-2xl border px-3 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+          class="group flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
           :class="isActive(section.to)
             ? 'border-[var(--bo-border-strong)] bg-ui-subtle text-ui-primary shadow-sm'
             : 'border-transparent text-ui-secondary hover:border-[var(--bo-border)] hover:bg-ui-subtle hover:text-ui-primary'"
@@ -106,7 +96,7 @@ const navigate = (value: string | number | boolean | null) => {
           </span>
           <span class="min-w-0">
             <span class="block text-sm font-semibold leading-tight">{{ section.label }}</span>
-            <span class="mt-1 block text-xs leading-4 text-ui-muted">{{ section.description }}</span>
+            <span class="mt-1 hidden text-xs leading-4 text-ui-muted xl:block">{{ section.description }}</span>
           </span>
         </NuxtLink>
       </div>

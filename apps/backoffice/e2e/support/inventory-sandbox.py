@@ -31,7 +31,7 @@ sys.path.insert(0, os.environ["INVENTORY_BACKEND_PATH"])
 os.environ.update(
     DATABASE_URL=database_url,
     APP_ENV="test",
-    SECRET_KEY="disposable-inventory-browser-smoke-only",
+    SECRET_KEY=os.environ.get("INVENTORY_TEST_SECRET_KEY", "disposable-inventory-browser-smoke-only"),
     SMS_PROVIDER="stub",
     SMS_CLUB_TOKEN="",
     TELEGRAM_BOT_TOKEN="",
@@ -43,7 +43,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, get_db_session
-from app.core.security import create_access_token
+from app.core.security import create_access_token, get_password_hash
 from app.main import app as production_app
 from app.models.admin_user import AdminUser
 from app.models.booking import Master
@@ -66,23 +66,28 @@ async def isolated_session():
 
 
 async def seed_baseline() -> None:
+    manual = os.environ.get("INVENTORY_MANUAL_STAND") == "1"
+    password = os.environ.get("INVENTORY_TEST_LOGIN_PASSWORD")
+    if manual and (not password or len(os.environ.get("INVENTORY_TEST_SECRET_KEY", "")) < 32):
+        raise RuntimeError("Manual stand requires random password and secret")
+    password_hash = get_password_hash(password) if manual else "unused"
     async with database() as session:
-        admin = AdminUser(email="inventory-browser@example.com", hashed_password="unused", is_superuser=True)
+        admin = AdminUser(email="inventory-browser@example.com", hashed_password=password_hash, is_superuser=True)
         inactive = AdminUser(
             email="inventory-inactive@example.com",
-            hashed_password="unused",
+            hashed_password=password_hash,
             is_active=False,
             is_superuser=True,
         )
-        master_user = AdminUser(email="inventory-master@example.com", hashed_password="unused", can_post_inventory=False)
-        poster_user = AdminUser(email="inventory-poster@example.com", hashed_password="unused", can_post_inventory=True)
+        master_user = AdminUser(email="inventory-master@example.com", hashed_password=password_hash, can_post_inventory=False)
+        poster_user = AdminUser(email="inventory-poster@example.com", hashed_password=password_hash, can_post_inventory=True)
         products = {
             "available": Product(
                 name="QA Available Pomade",
                 slug="qa-available-pomade",
                 price=Decimal("320.00"),
                 sku="QA-AVAILABLE",
-                barcode="QA-AVAILABLE-001",
+                barcode="5901234123457" if manual else "QA-AVAILABLE-001",
                 stock_quantity=10,
                 reserved_quantity=2,
                 allow_backorder=False,
@@ -94,7 +99,7 @@ async def seed_baseline() -> None:
                 slug="qa-out-shampoo",
                 price=Decimal("270.00"),
                 sku="QA-OUT",
-                barcode="QA-OUT-002",
+                barcode="96385074" if manual else "QA-OUT-002",
                 stock_quantity=0,
                 reserved_quantity=0,
                 allow_backorder=False,

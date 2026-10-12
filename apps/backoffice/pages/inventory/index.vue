@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 const auth = useAuthStore()
@@ -85,35 +86,34 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Онлайн-магазин</p>
-        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Склад</h1>
-        <p class="mt-2 text-sm text-ui-secondary">Фактичний залишок, резерв і потреба в закупівлі з поточних даних API.</p>
+        <h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArchiveBoxIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Склад</h1>
+        <p class="mt-1 text-sm text-ui-secondary">Знайдіть товар і перевірте, скільки доступно.</p>
       </div>
     </div>
 
     <InventorySectionNav />
-    <BaseCard class="space-y-4" padding="lg">
-      <h2 class="text-xl font-semibold">Знайти товар</h2>
+    <BaseCard class="space-y-3" padding="sm">
+      <h2 class="text-lg font-semibold">Знайти товар</h2>
       <InventoryProductPicker @select="mobileProduct = $event" @clear="mobileProduct = null" />
-      <NuxtLink v-if="mobileProduct" :to="`/inventory/receiving?product_id=${mobileProduct.id}`" class="base-button base-button--primary flex min-h-12 items-center justify-center px-4">Прийняти цей товар</NuxtLink>
+      <NuxtLink v-if="mobileProduct" :to="`/inventory/receiving?product_id=${mobileProduct.id}`" class="base-button base-button--primary flex min-h-12 items-center justify-center gap-2 px-4"><ArrowDownTrayIcon class="h-5 w-5" aria-hidden="true" />Прийняти цей товар</NuxtLink>
     </BaseCard>
 
-    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
       <BaseCard v-for="item in [
         { label: 'Фізично · сторінка', value: summary.onHand }, { label: 'Резерв · сторінка', value: summary.reserved },
         { label: 'Доступно · сторінка', value: summary.available }, { label: 'Потрібно замовити · черга', value: summary.toOrder },
       ]" :key="item.label" padding="sm">
-        <p class="text-xs uppercase tracking-[0.16em] text-ui-muted">{{ item.label }}</p><p class="mt-2 text-2xl font-semibold text-ui-primary">{{ item.value }}</p>
+        <p class="text-xs text-ui-muted">{{ item.label }}</p><p class="mt-1 text-xl font-semibold text-ui-primary">{{ item.value }}</p>
       </BaseCard>
     </div>
 
-    <form class="grid gap-3 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem_auto]" @submit.prevent="applyFilters">
-      <BaseInput v-model="search" type="search" placeholder="Пошук за назвою, SKU або штрихкодом" aria-label="Пошук на складі" />
-      <BaseSelect v-model="stockFilter" :options="stockOptions" aria-label="Фільтр складу" />
-      <BaseButton type="submit" variant="primary">Застосувати</BaseButton>
+    <form class="grid gap-3 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem_auto] md:items-start" @submit.prevent="applyFilters">
+      <BaseInput v-model="search" type="search" label="Пошук на складі" placeholder="Назва, SKU або штрихкод" hint="Шукає серед усіх товарів." />
+      <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" hint="Фільтрує товари на цій сторінці." />
+      <BaseButton type="submit" variant="primary" class="min-h-11 md:mt-7"><MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Застосувати</BaseButton>
     </form>
 
     <p v-if="error || procurementError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
@@ -121,11 +121,11 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
       <BaseButton variant="unstyled" class="ml-2 font-semibold underline" :loading="pending || procurementPending" @click="retry">Спробувати ще раз</BaseButton>
     </p>
     <div v-else-if="pending || procurementPending" class="grid gap-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>
-    <BaseEmptyState v-else-if="!stockRows.length" title="Товарів не знайдено" description="Змініть пошук або фільтр. Фільтри застосовуються до поточної сторінки авторитетного списку складу." />
+    <BaseEmptyState v-else-if="!stockRows.length" title="Товарів не знайдено" description="Змініть пошук або фільтр. Фільтр залишків діє на цій сторінці." />
     <div v-else class="grid gap-3 md:hidden">
       <BaseCard v-for="item in stockRows" :key="item.id" padding="sm">
-        <InventoryProductCard :product="item" />
-        <NuxtLink :to="`/inventory/receiving?product_id=${item.id}`" class="base-button base-button--neutral mt-3 flex min-h-12 items-center justify-center">Прийняти товар</NuxtLink>
+        <InventoryProductCard :product="item" :framed="false" />
+        <NuxtLink :to="`/inventory/receiving?product_id=${item.id}`" class="base-button base-button--neutral mt-3 flex min-h-12 items-center justify-center gap-2"><ArrowDownTrayIcon class="h-5 w-5" aria-hidden="true" />Прийняти товар</NuxtLink>
       </BaseCard>
     </div>
     <BaseTable v-if="!pending && !error && stockRows.length" caption="Поточні залишки" wrapper-class="hidden md:block rounded-[1.5rem]" min-width="1320px">
@@ -141,6 +141,6 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
         <td><div class="flex flex-wrap gap-x-3 gap-y-1 text-sm"><NuxtLink :to="`/products/${item.id}`" class="font-medium text-ui-accent hover:underline">Товар</NuxtLink><NuxtLink :to="`/inventory/movements?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Історія</NuxtLink><NuxtLink :to="`/inventory/receiving?product_id=${item.id}${item.barcode ? `&barcode=${encodeURIComponent(item.barcode)}` : ''}`" class="font-medium text-ui-accent hover:underline">Прийняти</NuxtLink><NuxtLink v-if="canPostInventory" :to="`/inventory/operations?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Операція</NuxtLink></div></td>
       </tr>
     </BaseTable>
-    <div class="flex items-center justify-between gap-3 text-sm text-ui-secondary"><span>Усього: {{ total }}</span><div class="flex gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="changePage(page - 1)">Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= total" @click="changePage(page + 1)">Наступна</BaseButton></div></div>
+    <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-ui-secondary"><span>Усього: {{ total }}</span><div class="flex gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="changePage(page - 1)"><ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= total" @click="changePage(page + 1)">Наступна<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></BaseButton></div></div>
   </div>
 </template>

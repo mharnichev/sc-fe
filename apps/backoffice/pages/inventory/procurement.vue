@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckIcon, PlusIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import type { ProcurementQueueItem } from '~/types/inventory'
 import { inventoryApiErrorMessage, procurementStatusLabel } from '~/utils/inventory'
 
@@ -113,11 +114,11 @@ const markOrdered = async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Склад</p>
-        <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Черга закупівель</h1>
+        <p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Склад</p>
+        <h1 class="mt-1 text-2xl sm:text-3xl font-semibold text-ui-primary">Черга закупівель</h1>
         <p class="mt-2 max-w-2xl text-sm text-ui-secondary">Потреби згруповано за товаром. Оберіть позиції замовлень, щоб позначити їх замовленими.</p>
       </div>
       <NuxtLink to="/inventory/receiving" class="base-button base-button--primary min-h-11 px-5 py-3 text-sm">Почати приймання</NuxtLink>
@@ -126,16 +127,32 @@ const markOrdered = async () => {
     <InventorySectionNav />
 
     <div v-if="error" class="ui-status-danger rounded-2xl p-4 text-sm" role="alert">
-      {{ inventoryApiErrorMessage(error, 'Не вдалося завантажити чергу.') }} <BaseButton variant="neutral" size="sm" @click="refresh()">Повторити</BaseButton>
+      {{ inventoryApiErrorMessage(error, 'Не вдалося завантажити чергу.') }} <BaseButton variant="neutral" size="sm" @click="refresh()"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Повторити</BaseButton>
     </div>
     <div v-if="actionError" class="ui-status-danger rounded-2xl p-4 text-sm" role="alert">{{ actionError }}</div>
 
     <BaseCard variant="subtle" padding="sm" class="flex flex-wrap items-center justify-between gap-3 text-sm">
       <span class="text-ui-secondary">Обрано позицій: {{ selectedRequirementCount }}</span>
-      <BaseButton variant="primary" :loading="markingOrdered" :disabled="!selectedCount" @click="markOrdered">Позначити замовленими</BaseButton>
+      <BaseButton variant="primary" :loading="markingOrdered" :disabled="!selectedCount" @click="markOrdered"><CheckIcon class="h-4 w-4" aria-hidden="true" />Позначити замовленими</BaseButton>
     </BaseCard>
 
-    <BaseTable :loading="pending" caption="Черга закупівель" min-width="62rem" :empty="!rows.length" empty-title="Потреб у закупівлі немає" empty-description="Нові потреби з'являться після замовлень, для яких бракує товару.">
+    <div v-if="!pending && rows.length" class="space-y-2 md:hidden">
+      <BaseCard v-for="row in rows" :key="row.product_id" as="article" padding="sm" class="space-y-3">
+        <div class="flex items-start justify-between gap-3"><h2 class="text-sm font-semibold text-ui-primary">{{ row.product_name }}</h2><BaseBadge tone="neutral" class="shrink-0">{{ row.total_quantity_required }} шт.</BaseBadge></div>
+        <p class="break-all text-xs text-ui-muted">SKU: {{ row.sku || '—' }} · {{ row.barcode || 'Без штрихкоду' }}</p>
+        <div class="grid grid-cols-2 gap-2"><BaseButton variant="neutral" :aria-expanded="expandedProducts.has(row.product_id)" @click="toggleExpanded(row.product_id)">{{ expandedProducts.has(row.product_id) ? 'Сховати позиції' : 'Позиції замовлень' }}</BaseButton><BaseButton variant="primary" @click="startReceiving(row)"><PlusIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Прийняти</BaseButton></div>
+        <div v-if="expandedProducts.has(row.product_id)" class="space-y-3 border-t border-ui-border pt-3">
+          <BaseCheckbox :model-value="isProductSelected(row)" label="Обрати всі, що треба замовити" @update:model-value="toggleProductRequirements(row, Boolean($event))" />
+          <div v-for="requirement in row.requirements" :key="requirement.order_item_id" class="space-y-2 rounded-xl bg-ui-subtle p-3 text-xs">
+            <div class="flex items-start gap-2"><BaseCheckbox :model-value="selectedIds.has(requirement.order_item_id)" :disabled="requirement.procurement_status !== 'to_order'" :aria-label="`Обрати позицію ${requirement.order_item_id}`" @update:model-value="setSelected(requirement.order_item_id, Boolean($event))" /><NuxtLink :to="`/orders/${requirement.order_id}`" class="font-medium text-ui-primary">Замовлення #{{ requirement.order_id }} · {{ orderContextByItem[requirement.order_item_id]?.customer || 'клієнт завантажується' }}</NuxtLink></div>
+            <p class="text-ui-secondary">Замовлено: {{ orderContextByItem[requirement.order_item_id]?.ordered ?? '—' }} · Зі складу: {{ orderContextByItem[requirement.order_item_id]?.fromStock ?? '—' }}</p>
+            <p class="text-ui-secondary">Ще потрібно: {{ requirement.quantity_required }} · Отримано: {{ requirement.quantity_received }}</p>
+            <BaseBadge tone="neutral">{{ procurementStatusLabel(requirement.procurement_status) }}</BaseBadge>
+          </div>
+        </div>
+      </BaseCard>
+    </div>
+    <BaseTable :wrapper-class="!pending && rows.length ? 'hidden md:block' : ''" :loading="pending" caption="Черга закупівель" min-width="62rem" :empty="!rows.length" empty-title="Потреб у закупівлі немає" empty-description="Нові потреби з'являться після замовлень, для яких бракує товару.">
       <template #head><tr><th>Товар</th><th>Потрібно</th><th>Артикул / штрихкод</th><th>Дії</th></tr></template>
       <template v-for="row in rows" :key="row.product_id">
         <tr>

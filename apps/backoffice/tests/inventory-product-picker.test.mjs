@@ -54,6 +54,8 @@ test('unknown and network-failed scans clear selection and preserve exact submit
 
 test('unknown barcode exposes reset and clearing it allows ordinary product selection', async () => {
   assert.match(source, /:not-found="Boolean\(unknownCode\)"/)
+  assert.match(source, /:show-not-found="false"/)
+  assert.match(source, /@clear="clear"/)
   const state = harness(async () => { throw { status: 404 } })
   await state.scan('unknown')
   assert.equal(state.unknownCode.value, 'unknown')
