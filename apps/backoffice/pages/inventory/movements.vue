@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MagnifyingGlassIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/24/outline'
+import { AdjustmentsHorizontalIcon, ArrowsRightLeftIcon, CalendarDaysIcon, ClockIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import type { InventoryMovement } from '~/types/inventory'
 import { inventoryApiErrorMessage, inventoryMovementLabel } from '~/utils/inventory'
@@ -85,39 +85,39 @@ const applyMovementFilters = () => updateQuery({
 
 <template>
   <div class="space-y-4">
-    <div><p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Склад</p><h1 class="mt-1 text-2xl sm:text-3xl font-semibold text-ui-primary">Рух товару</h1><p class="mt-2 text-sm text-ui-secondary">Незмінна історія операцій для одного вибраного товару.</p></div>
+    <div><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ClockIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Рух товару</h1><p class="mt-1 text-sm text-ui-secondary">Незмінна історія операцій для одного вибраного товару.</p></div>
     <InventorySectionNav />
 
     <BaseCard as="section" padding="sm" class="space-y-4">
-      <form class="flex flex-wrap gap-3" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0 flex-1" placeholder="Знайти товар за назвою або SKU" aria-label="Пошук товару" /><BaseButton type="submit" variant="primary" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton></form>
+      <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0" label="Пошук товару" aria-description="Введіть назву або артикул SKU." placeholder="Знайти товар за назвою або SKU" aria-label="Пошук товару" ><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput><BaseButton class="min-h-11" type="submit" variant="primary" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton><p class="col-span-2 text-xs text-ui-muted">Введіть назву товару або артикул SKU.</p></form>
       <p v-if="productsError" class="text-sm text-ui-danger" role="alert">{{ productsError }}</p>
       <div v-if="searchedProducts.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in searchedProducts" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)"><span class="truncate">{{ product.name }}</span><span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div>
     </BaseCard>
 
     <BaseEmptyState v-if="!productId" title="Оберіть товар" description="Знайдіть і виберіть товар, щоб переглянути його рух. " />
     <template v-else>
-      <form class="grid gap-3 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(12rem,1fr)_12rem_12rem_auto]" @submit.prevent="applyMovementFilters">
-        <BaseSelect v-model="movementType" :options="movementTypeOptions" label="Тип руху" />
-        <BaseInput v-model="dateFrom" type="date" label="Від дати" hint="Початок періоду включно." />
-        <BaseInput v-model="dateTo" type="date" label="До дати" hint="Кінець періоду включно." />
-        <BaseButton type="submit" variant="primary" class="self-end"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
-        <p class="text-xs text-ui-muted md:col-span-4">Фільтри застосовуються до цієї сторінки історії. Для інших записів перейдіть на наступну сторінку.</p>
+      <form class="grid gap-4 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" @submit.prevent="applyMovementFilters">
+        <BaseSelect v-model="movementType" :options="movementTypeOptions" label="Тип руху" ><template #icon><ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" /></template></BaseSelect>
+        <BaseInput v-model="dateFrom" type="date" label="Від дати" aria-description="Початок періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
+        <BaseInput v-model="dateTo" type="date" label="До дати" aria-description="Кінець періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
+        <BaseButton type="submit" variant="primary" class="min-h-11 self-end"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
+        <p class="text-xs text-ui-muted sm:col-span-2 xl:col-span-4">Дати включають початок і кінець періоду. Фільтри застосовуються до цієї сторінки історії. Для інших записів перейдіть на наступну сторінку.</p>
       </form>
       <p v-if="error || productError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">{{ inventoryApiErrorMessage(error || productError, 'Не вдалося завантажити рух товару.') }} <BaseButton variant="unstyled" class="ml-2 font-semibold underline" @click="retry">Спробувати ще раз</BaseButton></p>
-      <div v-else-if="pending || productPending" class="grid gap-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>
+      <div v-else-if="pending || productPending" class="grid gap-4"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>
       <BaseEmptyState v-else-if="!data?.items.length" title="Рухів ще немає" :description="selectedProduct ? `Для «${selectedProduct.name}» ще не зафіксовано операцій.` : 'Історія операцій порожня.'" />
       <template v-else>
         <BaseCard v-if="selectedProduct" padding="sm"><p class="text-xs uppercase tracking-[0.16em] text-ui-muted">Вибраний товар</p><p class="mt-1 text-lg font-semibold text-ui-primary">{{ selectedProduct.name }} <span class="text-ui-muted">#{{ selectedProduct.id }}</span></p></BaseCard>
         <div v-if="filteredMovements.length" class="space-y-2 md:hidden">
           <BaseCard v-for="movement in filteredMovements" :key="movement.id" as="article" padding="sm">
-            <div class="flex items-start justify-between gap-3"><p class="text-sm font-medium text-ui-primary">{{ inventoryMovementLabel(movement.movement_type) }}</p><span :class="movementDirection(movement.on_hand_delta)" class="shrink-0 font-semibold">{{ movement.on_hand_delta > 0 ? '+' : '' }}{{ movement.on_hand_delta }}</span></div>
+            <div class="flex items-start justify-between gap-4"><p class="text-sm font-medium text-ui-primary">{{ inventoryMovementLabel(movement.movement_type) }}</p><span :class="movementDirection(movement.on_hand_delta)" class="shrink-0 font-semibold">{{ movement.on_hand_delta > 0 ? '+' : '' }}{{ movement.on_hand_delta }}</span></div>
             <p class="mt-1 text-xs text-ui-muted">{{ formatDateTime(movement.created_at) }} · {{ movement.quantity }} шт.</p>
             <p v-if="movement.reason" class="mt-2 text-sm text-ui-secondary">{{ movement.reason }}</p>
             <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ui-muted"><NuxtLink v-if="movement.order_id" :to="`/orders/${movement.order_id}`" class="text-ui-accent">Замовлення #{{ movement.order_id }}</NuxtLink><span v-else-if="movement.receipt_id">Надходження #{{ movement.receipt_id }}</span><span v-else-if="movement.count_id">Інвентаризація #{{ movement.count_id }}</span><span>{{ movement.admin_user_id ? `Користувач #${movement.admin_user_id}` : 'Система' }}</span></div>
           </BaseCard>
         </div>
         <BaseTable caption="Історія руху товару" :wrapper-class="filteredMovements.length ? 'hidden md:block rounded-[1.5rem]' : 'rounded-[1.5rem]'" min-width="1080px" :empty="!filteredMovements.length" empty-title="За фільтрами рухів немає"><template #head><tr><th>Час</th><th>Операція</th><th>Кількість</th><th>Зміна залишку</th><th>Причина</th><th>Зв’язок</th><th>Оператор</th></tr></template><tr v-for="movement in filteredMovements" :key="movement.id"><td class="whitespace-nowrap text-ui-secondary">{{ formatDateTime(movement.created_at) }}</td><td class="font-medium text-ui-primary">{{ inventoryMovementLabel(movement.movement_type) }}</td><td class="text-ui-secondary">{{ movement.quantity }}</td><td :class="movementDirection(movement.on_hand_delta)" class="font-medium">{{ movement.on_hand_delta > 0 ? '+' : '' }}{{ movement.on_hand_delta }}</td><td class="max-w-xs text-ui-secondary">{{ movement.reason || '—' }}</td><td class="text-ui-secondary"><NuxtLink v-if="movement.order_id" :to="`/orders/${movement.order_id}`" class="font-medium text-ui-accent hover:underline">Замовлення #{{ movement.order_id }}</NuxtLink><span v-else-if="movement.receipt_id">Надходження #{{ movement.receipt_id }}</span><span v-else-if="movement.count_id">Інвентаризація #{{ movement.count_id }}</span><span v-else>—</span></td><td class="text-ui-secondary">{{ movement.admin_user_id ? `Користувач #${movement.admin_user_id}` : 'Система' }}</td></tr></BaseTable>
-        <div class="flex justify-end gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="updateQuery({ page: String(page - 1) })">Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= data.total" @click="updateQuery({ page: String(page + 1) })">Наступна</BaseButton></div>
+        <div class="flex justify-end gap-2"><BaseButton class="min-h-11" variant="neutral" :disabled="page === 1" @click="updateQuery({ page: String(page - 1) })">Попередня</BaseButton><BaseButton class="min-h-11" variant="neutral" :disabled="page * pageSize >= data.total" @click="updateQuery({ page: String(page + 1) })">Наступна</BaseButton></div>
       </template>
     </template>
   </div>

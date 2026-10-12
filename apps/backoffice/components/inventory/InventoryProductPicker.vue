@@ -142,16 +142,17 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
 </script>
 
 <template>
-  <section class="space-y-3">
+  <section class="space-y-4">
     <InventoryBarcodeInput v-model="barcode" :disabled="locked" :loading="busy" :match="selected" :not-found="Boolean(unknownCode)" :show-not-found="false" @submit="scan" @clear="clear" />
     <p v-if="unknownCode" class="rounded-xl bg-ui-subtle p-3 text-sm text-ui-primary">Штрихкод не знайдено. Знайдіть товар за назвою, щоб прив’язати код.<br>Код: <strong class="whitespace-pre-wrap break-all">{{ unknownCode }}</strong></p>
     <p v-if="error" role="alert" class="text-sm text-ui-danger">{{ error }}</p>
     <InventoryProductCard v-if="selected && showSelected !== false" :product="selected">
       <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode" type="button" :disabled="locked" @click="choose(selected)">Вибрати знайдений товар</BaseButton>
     </InventoryProductCard>
-    <form class="flex gap-2" @submit.prevent="find(1)">
-      <BaseInput v-model="search" label="Назва або артикул" placeholder="Наприклад, шампунь або SKU" hint="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0 flex-1" />
-      <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 self-start mt-7 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
+    <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-2" @submit.prevent="find(1)">
+      <BaseInput v-model="search" label="Назва або артикул" placeholder="Наприклад, шампунь або SKU" aria-description="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+      <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
+      <p class="col-span-2 text-xs text-ui-muted">Шукаємо лише у вашій базі товарів.</p>
     </form>
     <div v-for="product in results" :key="product.id" class="space-y-2">
       <InventoryProductCard :product="product"><BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>

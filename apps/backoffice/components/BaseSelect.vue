@@ -295,6 +295,7 @@ onBeforeUnmount(() => {
         :aria-invalid="error ? true : undefined"
         :aria-controls="listboxId"
         aria-haspopup="listbox"
+        :aria-description="attrs['aria-description']"
         :disabled="disabled"
         @click="open = !open"
         @keydown="handleTriggerKeydown"

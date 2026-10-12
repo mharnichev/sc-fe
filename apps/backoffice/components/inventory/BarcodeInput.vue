@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CameraIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CameraIcon, MagnifyingGlassIcon, XMarkIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { shouldSuppressBarcodeSubmission } from '~/utils/inventory'
 
@@ -40,6 +40,12 @@ const lastSubmittedAt = ref(0)
 const inputSinceSubmit = ref(true)
 
 const focus = () => inputRef.value?.focus()
+
+const closeCamera = async () => {
+  cameraOpen.value = false
+  await nextTick()
+  focus()
+}
 
 const submit = (value?: string) => {
   const barcode = typeof value === 'string' ? value : props.modelValue
@@ -102,7 +108,7 @@ defineExpose({ focus })
 
 <template>
   <section class="space-y-2" aria-live="polite">
-    <div class="flex flex-wrap items-start gap-2">
+    <div class="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
       <BaseInput
         ref="inputRef"
         :model-value="modelValue"
@@ -112,12 +118,12 @@ defineExpose({ focus })
         inputmode="text"
         :disabled="disabled"
         :error="error || undefined"
-        field-class="w-full min-w-0 sm:w-auto sm:flex-1"
-        hint="Введіть код вручну або відкрийте камеру."
+        field-class="col-span-2 min-w-0 sm:col-span-1"
+        aria-description="Введіть код вручну або відкрийте камеру."
         @update:model-value="updateValue"
         @keydown.enter.prevent="submit()"
-      />
-      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" class="min-h-11 w-full whitespace-nowrap self-end sm:w-auto" @click="cameraOpen = true">
+      ><template #icon><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" class="min-h-11 col-span-2 w-full whitespace-nowrap sm:col-span-1 sm:w-auto" @click="cameraOpen = true">
         <CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         Сканувати
       </BaseButton>
@@ -126,7 +132,7 @@ defineExpose({ focus })
         variant="primary"
         :loading="loading"
         :disabled="disabled || !modelValue.trim()"
-        class="min-h-11 flex-1 whitespace-nowrap self-end sm:flex-none"
+        class="min-h-11 whitespace-nowrap"
         @click="submit()"
       >
         <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -137,14 +143,15 @@ defineExpose({ focus })
         type="button"
         variant="secondary"
         :disabled="disabled"
-        class="min-h-11 flex-1 whitespace-nowrap self-end sm:flex-none"
+        class="min-h-11 whitespace-nowrap"
         @click="clear"
       >
         <XMarkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
         Скинути
       </BaseButton>
     </div>
-    <InventoryBarcodeCamera v-if="cameraOpen" @close="cameraOpen = false" @recognized="recognize" />
+    <p class="text-xs text-ui-muted">Введіть код вручну або відкрийте камеру.</p>
+    <InventoryBarcodeCamera v-if="cameraOpen" @close="closeCamera" @recognized="recognize" />
 
     <p v-if="match" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-success-surface)] px-3 py-2 text-sm text-[var(--bo-success-text)]">
       Знайдено: <span class="font-medium">{{ match.name }}</span><span v-if="match.sku"> · {{ match.sku }}</span>

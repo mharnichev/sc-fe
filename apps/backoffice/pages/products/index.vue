@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EyeIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, PencilIcon, PlusIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { categoryPathLabels } from '~/utils/categoryPaths'
 
@@ -9,6 +9,8 @@ const router = useRouter()
 const toast = useBaseToastNotification()
 const assetUrl = useAssetUrl()
 const { apiErrorMessage } = useBookingFormatting()
+const quickSearchOpen = ref(false)
+const openQuickSearchProduct = (product: { id: number }) => { void router.push('/products/' + product.id) }
 const page = ref(1)
 const pageSize = 20
 const normalizeBrandQuery = (value: string | (string | null)[] | null | undefined) => {
@@ -197,11 +199,15 @@ const prev = async () => {
         <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Каталог</p>
         <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Товари</h1>
       </div>
+      <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+      <BaseButton variant="secondary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Сканувати штрихкод</BaseButton>
       <NuxtLink to="/products/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Додати товар
       </NuxtLink>
+      </div>
     </div>
+    <InventoryQuickSearchModal v-model="quickSearchOpen" @select="openQuickSearchProduct" />
 
     <BaseFilterPanel
       :loading="pending"

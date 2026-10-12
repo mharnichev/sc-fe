@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckIcon, ArrowsRightLeftIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, ArrowsRightLeftIcon, Cog6ToothIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 
 const props = defineProps<{
@@ -47,20 +47,19 @@ const save = async () => {
 </script>
 
 <template>
-  <BaseCard as="section" padding="sm" class="space-y-3">
+  <BaseCard as="section" padding="sm" class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Склад</p>
-        <h2 class="mt-1 text-lg font-semibold text-ui-primary">Налаштування товару</h2>
+        <h2 class="flex items-center gap-2 text-lg font-semibold text-ui-primary"><Cog6ToothIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Налаштування товару</h2>
         <p class="mt-1 text-sm text-ui-secondary">Штрихкод має бути унікальним. Залиште поле порожнім, якщо його ще немає.</p>
       </div>
-      <NuxtLink :to="`/inventory/movements?product_id=${productId}`" class="base-button base-button--neutral min-h-10 px-4 py-2 text-sm">
+      <NuxtLink :to="`/inventory/movements?product_id=${productId}`" class="base-button base-button--neutral flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm">
         <ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" />Рух товару
       </NuxtLink>
     </div>
 
-    <form class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" @submit.prevent="save">
-      <BaseInput v-model="barcode" label="Штрихкод" hint="Унікальний код цього варіанта товару. Можна залишити порожнім." maxlength="64" autocomplete="off" placeholder="Наприклад, 482…" :disabled="saving" />
+    <form class="grid gap-4 md:grid-cols-2 md:items-start" @submit.prevent="save">
+      <BaseInput v-model="barcode" label="Штрихкод" hint="Унікальний код цього варіанта товару. Можна залишити порожнім." maxlength="64" autocomplete="off" placeholder="Наприклад, 482…" :disabled="saving"><template #icon><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
       <div class="space-y-2 rounded-xl bg-ui-subtle p-3">
         <BaseToggle v-model="allowBackorder" label="Замовляти під закупівлю" :disabled="saving" />
         <p class="text-xs text-ui-muted">Клієнт може замовити товар, навіть якщо його немає на складі.</p>
@@ -71,7 +70,7 @@ const save = async () => {
       </div>
       <p v-if="errorMessage" class="md:col-span-2 text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
       <div class="md:col-span-2">
-        <BaseButton type="submit" variant="primary" :loading="saving" class="w-full sm:w-auto"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
+        <BaseButton type="submit" variant="primary" :loading="saving" class="min-h-11 w-full sm:w-auto"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
       </div>
     </form>
   </BaseCard>

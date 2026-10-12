@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 const auth = useAuthStore()
 const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
+const quickSearchOpen = ref(false)
 const mobileProduct = ref<import('~/types/inventory').InventoryProduct | null>(null)
 
 const api = useBackofficeApi()
@@ -86,18 +87,21 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
 </script>
 
 <template>
-  <div class="space-y-4 sm:space-y-6">
+  <div class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArchiveBoxIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Склад</h1>
         <p class="mt-1 text-sm text-ui-secondary">Знайдіть товар і перевірте, скільки доступно.</p>
       </div>
+      <BaseButton variant="primary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Сканувати штрихкод</BaseButton>
     </div>
+    <InventoryQuickSearchModal v-model="quickSearchOpen" @select="mobileProduct = $event" />
 
     <InventorySectionNav />
-    <BaseCard class="space-y-3" padding="sm">
-      <h2 class="text-lg font-semibold">Знайти товар</h2>
-      <InventoryProductPicker @select="mobileProduct = $event" @clear="mobileProduct = null" />
+    <BaseCard class="space-y-4" padding="sm">
+      <h2 class="flex items-center gap-2 text-lg font-semibold"><MagnifyingGlassIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Знайти товар</h2>
+      <InventoryProductPicker :show-selected="false" @select="mobileProduct = $event" @clear="mobileProduct = null" />
+      <InventoryProductCard v-if="mobileProduct" :product="mobileProduct" />
       <NuxtLink v-if="mobileProduct" :to="`/inventory/receiving?product_id=${mobileProduct.id}`" class="base-button base-button--primary flex min-h-12 items-center justify-center gap-2 px-4"><ArrowDownTrayIcon class="h-5 w-5" aria-hidden="true" />Прийняти цей товар</NuxtLink>
     </BaseCard>
 
@@ -110,10 +114,11 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
       </BaseCard>
     </div>
 
-    <form class="grid gap-3 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem_auto] md:items-start" @submit.prevent="applyFilters">
-      <BaseInput v-model="search" type="search" label="Пошук на складі" placeholder="Назва, SKU або штрихкод" hint="Шукає серед усіх товарів." />
-      <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" hint="Фільтрує товари на цій сторінці." />
-      <BaseButton type="submit" variant="primary" class="min-h-11 md:mt-7"><MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Застосувати</BaseButton>
+    <form class="grid gap-4 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem_auto] md:items-end" @submit.prevent="applyFilters">
+      <BaseInput v-model="search" type="search" label="Пошук на складі" placeholder="Назва, SKU або штрихкод" aria-description="Шукає серед усіх товарів."><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+      <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" aria-description="Фільтрує товари на цій сторінці."><template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseSelect>
+      <BaseButton type="submit" variant="primary" class="min-h-11"><MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Застосувати</BaseButton>
+      <p class="text-xs text-ui-muted md:col-span-3">Пошук охоплює всі товари. Фільтр залишків діє на цій сторінці.</p>
     </form>
 
     <p v-if="error || procurementError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
