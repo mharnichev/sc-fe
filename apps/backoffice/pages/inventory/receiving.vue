@@ -318,6 +318,8 @@ onMounted(async () => {
   <div class="space-y-4 sm:space-y-6">
     <header><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArrowDownTrayIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Приймання товару</h1><p class="mt-1 text-sm text-ui-secondary">Знайдіть товар, вкажіть кількість і закупівельну вартість.</p></header>
     <InventorySectionNav />
+    <NuxtLink v-if="receiptIdFromRoute" to="/inventory/receiving" class="inline-flex min-h-11 items-center font-medium text-ui-accent hover:underline">← До списку приймань</NuxtLink>
+    <InventoryReceiptList v-else />
     <p v-if="loadingReceipt" role="status" class="text-sm text-ui-muted">Завантаження приймання…</p>
     <div v-if="errorMessage" role="alert" class="ui-status-danger rounded-2xl p-4 text-sm">{{ errorMessage }} <BaseButton v-if="receiptIdFromRoute && !adding" variant="neutral" size="sm" :disabled="loadingReceipt || posting" @click="loadReceipt()">Повторити</BaseButton></div>
     <div v-if="pendingAdd && !adding" role="alert" class="ui-status-warning p-4 text-sm">Результат додавання невідомий або потребує звірки. Товар {{ pendingAdd.payload.product_id || pendingAdd.payload.barcode }} · {{ pendingAdd.payload.quantity }} од. Повторіть цю саму позицію перед редагуванням або новим скануванням.<BaseButton variant="neutral" size="sm" :disabled="loadingReceipt || !receipt" @click="addItem">Повторити додавання</BaseButton></div>

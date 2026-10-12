@@ -1415,6 +1415,11 @@ export const useBackofficeApi = () => {
       headers: idempotencyHeaders(idempotencyKey),
     })
 
+  const getInventoryReceipts = (page = 1, pageSize = 20) =>
+    api<PaginatedResponse<InventoryReceipt>>('/backoffice/inventory/receipts', {
+      query: { page, page_size: normalizePageSize(pageSize) },
+    })
+
   const getInventoryReceipt = (receiptId: number | string) =>
     api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}`)
 
@@ -2502,6 +2507,7 @@ export const useBackofficeApi = () => {
     markProcurementOrdered,
     createInventoryReceipt,
     getInventoryReceipt,
+    getInventoryReceipts,
     addInventoryReceiptItem,
     postInventoryReceipt,
     createInventoryOperation,
