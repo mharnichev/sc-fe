@@ -34,7 +34,7 @@ try {
         ` })
         return route.abort()
       }
-      if (request.method() !== 'GET' || ![new URL(origin).hostname, 'api.soulcuts.com.ua'].includes(url.hostname)) return route.abort()
+      if (request.method() !== 'GET' || ![new URL(origin).hostname, 'www.soulcuts.com.ua', 'api.soulcuts.com.ua'].includes(url.hostname)) return route.abort()
       return route.continue()
     })
     const page = await context.newPage()
