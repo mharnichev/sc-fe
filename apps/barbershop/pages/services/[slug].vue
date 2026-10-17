@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { MasterDto } from '@shared-types'
+import { serviceGuide } from '~/data/serviceGuides'
+import { seoBookingPath } from '~/utils/seoBooking'
 import {
   indexablePublicMasters,
   indexableServiceCatalog,
@@ -129,6 +131,8 @@ const firstVisitOffer = computed(() => firstVisitOffers(offers.value)
   .find(offer => offer.applies_to_all_masters && offerAppliesToService(offer, serviceStableId(service))) || null)
 const serviceName = computed(() => localizedService.serviceName(service))
 const serviceDescription = computed(() => localizedService.serviceDescription(service))
+const guide = computed(() => serviceGuide(service.base_service_id, service.title_uk || service.name, locale.value))
+const bookingPath = seoBookingPath({ serviceSlug: serviceSeoSlug(service) })
 const indexableMasters = computed(() => indexablePublicMasters(masters.value))
 const indexableMastersById = computed(() =>
   new Map(indexableMasters.value.map(master => [master.id, master])),
@@ -209,12 +213,15 @@ const copy = computed(() => locale.value === 'en'
       bookingCta: 'Book online',
       bookingText: 'Choose this service, a barber, date and time in the online booking form.',
       breadcrumbLabel: 'Service breadcrumbs',
+      choice: 'Is this the right service?',
       duration: 'Duration',
-      faqTitle: 'Price and duration',
+      faqTitle: 'Questions before booking',
       journal: 'Soul Cuts Journal',
       local: 'Barbershop in Odesa',
       price: 'Price',
+      preparation: 'Before your visit',
       relatedTitle: 'More from Soul Cuts',
+      result: 'What to discuss with your barber',
       services: 'All services',
     }
   : {
@@ -222,12 +229,15 @@ const copy = computed(() => locale.value === 'en'
       bookingCta: 'Записатися онлайн',
       bookingText: 'Оберіть цю послугу, барбера, дату та час у формі онлайн-запису.',
       breadcrumbLabel: 'Навігація сторінкою послуги',
+      choice: 'Коли обрати цю послугу',
       duration: 'Тривалість',
-      faqTitle: 'Ціна та тривалість',
+      faqTitle: 'Питання перед записом',
       journal: 'Журнал Soul Cuts',
       local: 'Барбершоп в Одесі',
       price: 'Вартість',
+      preparation: 'Перед візитом',
       relatedTitle: 'Більше про Soul Cuts',
+      result: 'Що обговорити з барбером',
       services: 'Усі послуги',
     })
 
@@ -244,20 +254,22 @@ const sentence = (value: string) => {
 const seoDescription = computed(() =>
   [
     sentence(serviceDescription.value),
+    guide.value ? sentence(guide.value.intro) : '',
     priceSummary.value ? `${copy.value.price}: ${priceSummary.value}.` : '',
     durationSummary.value ? `${copy.value.duration}: ${durationSummary.value}.` : '',
   ].filter(Boolean).join(' '),
 )
 
 const faqItems = computed(() => [
+  ...(guide.value?.faq || []),
   ...(priceSummary.value
     ? [{
         question: locale.value === 'en'
           ? `How much does “${serviceName.value}” cost?`
           : `Скільки коштує послуга «${serviceName.value}»?`,
         answer: locale.value === 'en'
-          ? `The price shown in the Soul Cuts public catalogue is ${priceSummary.value}.`
-          : `Вартість у публічному каталозі Soul Cuts — ${priceSummary.value}.`,
+          ? `The available price is ${priceSummary.value}; the selected barber’s offer shows its exact price.`
+          : `Доступна вартість — ${priceSummary.value}; точна ціна вказана в пропозиції обраного барбера.`,
       }]
     : []),
   ...(durationSummary.value
@@ -266,8 +278,8 @@ const faqItems = computed(() => [
           ? `How long does “${serviceName.value}” take?`
           : `Скільки триває послуга «${serviceName.value}»?`,
         answer: locale.value === 'en'
-          ? `The duration shown in the Soul Cuts public catalogue is ${durationSummary.value}.`
-          : `Тривалість у публічному каталозі Soul Cuts — ${durationSummary.value}.`,
+          ? `The listed appointment length is ${durationSummary.value}; check the selected barber’s offer for its time.`
+          : `Тривалість запису — ${durationSummary.value}; час для обраного барбера вказаний у його пропозиції.`,
       }]
     : []),
 ])
@@ -285,7 +297,7 @@ useSeo(
 )
 useServiceStructuredData(() => ({
   name: serviceName.value,
-  description: serviceDescription.value,
+  description: [serviceDescription.value, guide.value?.intro].filter(Boolean).join(' '),
   durationMinutes: offerDurations.length === 1 ? offerDurations[0] : null,
   path: servicePath,
   offers: service.barber_services.map((offer) => {
@@ -306,7 +318,7 @@ if (faqItems.value.length) {
 
 <template>
   <div class="bg-stone-100">
-    <section class="section-y">
+    <section data-header-theme="light" class="section-y pt-24 sm:pt-28 md:pt-32">
       <div class="site-container">
         <nav :aria-label="copy.breadcrumbLabel" class="mb-10 text-sm text-stone-600">
           <ol class="flex flex-wrap items-center gap-2">
@@ -329,6 +341,9 @@ if (faqItems.value.length) {
             <p class="mt-6 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
               {{ serviceDescription }}
             </p>
+            <p v-if="guide" class="mt-4 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
+              {{ guide.intro }}
+            </p>
             <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-2xl" />
 
             <dl class="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
@@ -345,11 +360,28 @@ if (faqItems.value.length) {
 
           <aside class="service-booking-card border border-stone-300 bg-white p-6">
             <p class="text-sm leading-7 text-stone-700">{{ copy.bookingText }}</p>
-            <BaseButton to="/#booking" class="mt-5">
+            <BaseButton :to="bookingPath" class="mt-5">
               {{ copy.bookingCta }}
             </BaseButton>
           </aside>
         </div>
+      </div>
+    </section>
+
+    <section v-if="guide" class="border-y border-stone-300 bg-white section-y">
+      <div class="site-container grid gap-8 md:grid-cols-3">
+        <article class="border-t border-stone-300 pt-5">
+          <h2 class="text-xl font-semibold text-stone-950">{{ copy.choice }}</h2>
+          <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.choice }}</p>
+        </article>
+        <article class="border-t border-stone-300 pt-5">
+          <h2 class="text-xl font-semibold text-stone-950">{{ copy.preparation }}</h2>
+          <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.preparation }}</p>
+        </article>
+        <article class="border-t border-stone-300 pt-5">
+          <h2 class="text-xl font-semibold text-stone-950">{{ copy.result }}</h2>
+          <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.result }}</p>
+        </article>
       </div>
     </section>
 
@@ -380,6 +412,9 @@ if (faqItems.value.length) {
                 <dd class="mt-1 font-semibold text-stone-950">{{ localizedService.serviceDuration(offer.durationMinutes) }}</dd>
               </div>
             </dl>
+            <BaseButton :to="seoBookingPath({ serviceSlug: serviceSeoSlug(service), masterId: offer.master.id })" class="mt-5">
+              {{ copy.bookingCta }}
+            </BaseButton>
           </article>
         </div>
       </div>

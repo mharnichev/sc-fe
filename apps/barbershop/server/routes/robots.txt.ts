@@ -10,6 +10,7 @@ export default defineEventHandler((event) => {
     'Disallow: /review',
     '',
     `Sitemap: ${siteUrl}/sitemap.xml`,
+    `Sitemap: ${siteUrl}/blog/sitemap.xml`,
     '',
   ].join('\n')
 })

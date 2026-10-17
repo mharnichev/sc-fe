@@ -2,7 +2,8 @@
 import type { AvailableSlotDto, MasterDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 import type { BookingAlternativeSlotDto, CampaignOfferContextDto, RepeatBookingContextDto } from '~/domain/barbershop'
 import { bookingErrorCode, createBookingQuoteReview, isCampaignOfferError, isPromotionConflict, type BookingQuote, type BookingQuoteRequest, type QuoteReviewState } from '~/utils/bookingQuote'
-import type { PublicServicePromotionDto } from '~/utils/seoRoutes'
+import { serviceSeoSlug, type PublicServicePromotionDto } from '~/utils/seoRoutes'
+import { isSeoBookingContext, parseSeoBookingQuery, resolveSeoBookingSelection, shouldApplySeoBookingSelection } from '~/utils/seoBooking'
 import { firstVisitOffers, offerAppliesToMaster, offerAppliesToService } from '~/utils/bookingPromotions'
 import { bookingContextKey, createBookingRequest } from '~/utils/bookingRequest'
 import { campaignOfferApplies, clearCampaignOffer, readCampaignOffer } from '~/utils/campaignOffer'
@@ -52,6 +53,7 @@ const emit = defineEmits<{ 'continue-regular-booking': [] }>()
 
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
+const route = useRoute()
 const quoteApi = useApi()
 const { offers: bookingOffers } = useBookingPromotions()
 const assetUrl = useAssetUrl()
@@ -75,7 +77,10 @@ type RecoverySelection = {
 const serviceCatalogKey = props.idPrefix === 'booking' ? 'home-services-catalog' : `${props.idPrefix}-service-catalog`
 const mastersKey = props.idPrefix === 'booking' ? 'home-team-masters' : `${props.idPrefix}-masters`
 
-const [{ data: serviceCatalog, pending: servicesPending }, { data: masters, pending: mastersPending }] = await Promise.all([
+const [
+  { data: serviceCatalog, pending: servicesPending, error: servicesError },
+  { data: masters, pending: mastersPending, error: mastersError },
+] = await Promise.all([
   useAsyncData(serviceCatalogKey, domain.getServiceCatalog, {
     server: false,
     default: () => [],
@@ -90,6 +95,9 @@ const maxSelectedServices = 3
 const selectedCatalogIds = ref<string[]>([])
 const selectedServiceIds = ref<number[]>([])
 const selectedMasterId = ref<number | null>(null)
+const seoBookingPrefillApplied = ref(false)
+const manualBookingSelection = ref(false)
+const campaignOfferRestoreChecked = ref(false)
 const selectedDate = ref('')
 const selectedSlotStart = ref('')
 const serviceSearchQuery = ref('')
@@ -470,18 +478,17 @@ const continueRegularBooking = () => {
 }
 
 onMounted(async () => {
-  if (props.campaignOfferContext || props.repeatBookingContext) return
-  let saved: ReturnType<typeof readCampaignOffer> = null
-  try { saved = readCampaignOffer(window.sessionStorage) }
-  catch { return }
-  if (!saved) return
   try {
+    if (props.campaignOfferContext || props.repeatBookingContext) return
+    const saved = readCampaignOffer(window.sessionStorage)
+    if (!saved) return
     const resolved = await domain.resolveCampaignOffer(saved.token)
     if (campaignOfferDismissed.value || resolved.entitlement !== 'available') return
     restoredCampaignOfferToken.value = saved.token
     restoredCampaignOfferContext.value = resolved
   }
   catch { /* A stale offer cannot block a regular booking. */ }
+  finally { campaignOfferRestoreChecked.value = true }
 })
 
 const campaignOfferPrefillApplied = ref(false)
@@ -542,6 +549,51 @@ const applyRepeatBookingPrefill = () => {
 watch(
   [masters, () => props.repeatBookingContext],
   applyRepeatBookingPrefill,
+  { immediate: true },
+)
+
+const applySeoBookingPrefill = () => {
+  if (!isSeoBookingContext({
+    path: route.path,
+    mode: props.mode,
+    idPrefix: props.idPrefix,
+    hasRepeatBooking: Boolean(props.repeatBookingToken || props.repeatBookingContext),
+    hasCampaignOffer: Boolean(props.campaignOfferToken || campaignOfferContext.value),
+  })) return
+
+  const intent = parseSeoBookingQuery(route.query)
+  if (!intent) return
+  if (!shouldApplySeoBookingSelection({
+    ready: !servicesPending.value && !mastersPending.value && campaignOfferRestoreChecked.value,
+    dataError: Boolean(servicesError.value || mastersError.value),
+    applied: seoBookingPrefillApplied.value,
+    manualSelection: manualBookingSelection.value,
+    hasSelection: Boolean(selectedCatalogIds.value.length || selectedServiceIds.value.length || selectedMasterId.value),
+  })) return
+
+  seoBookingPrefillApplied.value = true
+  const selection = resolveSeoBookingSelection(
+    intent,
+    activeServiceCatalog.value.map(service => ({
+      slug: serviceSeoSlug(service),
+      catalogId: service.catalog_id,
+      barberServices: service.barber_services.map(item => ({ id: item.id, barberId: item.barber_id })),
+    })),
+    publicMasters.value.map(master => ({
+      id: master.id,
+      activeServiceIds: activeMasterServices(master.services).map(service => service.id),
+    })),
+  )
+
+  if (selection.catalogId) selectedCatalogIds.value = [selection.catalogId]
+  if (selection.masterId) selectedMasterId.value = selection.masterId
+  if (selection.serviceId) selectedServiceIds.value = [selection.serviceId]
+  activeStepIndex.value = selection.step
+}
+
+watch(
+  [serviceCatalog, masters, servicesPending, mastersPending, servicesError, mastersError, campaignOfferRestoreChecked, campaignOfferContext, () => route.query],
+  applySeoBookingPrefill,
   { immediate: true },
 )
 
@@ -689,6 +741,7 @@ const selectCatalogService = (catalogId: string) => {
 }
 
 const selectService = (service: SelectableService) => {
+  manualBookingSelection.value = true
   const wasSelected = serviceSelected(service)
 
   if ('catalog_id' in service) {
@@ -734,6 +787,7 @@ const selectService = (service: SelectableService) => {
 }
 
 const selectMaster = (masterId: number) => {
+  manualBookingSelection.value = true
   selectedMasterId.value = masterId
   resolveSelectedServiceForMaster()
   if (bookingFunnel.claimAnalyticsStart()) {
@@ -1547,6 +1601,7 @@ const bookingStepState = computed(() =>
 const goToStep = (index: number) => {
   if (index < 0 || index > lastStepIndex.value) return
 
+  manualBookingSelection.value = true
   activeStepIndex.value = index
 }
 
