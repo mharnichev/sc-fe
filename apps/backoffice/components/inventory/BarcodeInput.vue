@@ -32,6 +32,7 @@ const emit = defineEmits<{
   clear: []
 }>()
 
+const compactHints = inject<boolean>('compactFieldHints', false)
 const inputRef = ref<{ focus: () => void } | null>(null)
 const cameraOpen = ref(false)
 const route = useRoute()
@@ -108,49 +109,51 @@ defineExpose({ focus })
 
 <template>
   <section class="space-y-2" aria-live="polite">
-    <div class="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
       <BaseInput
         ref="inputRef"
         :model-value="modelValue"
         :label="label"
+        :hint="compactHints ? 'Введіть код вручну або відкрийте камеру.' : undefined"
         :placeholder="placeholder"
         autocomplete="off"
         inputmode="text"
         :disabled="disabled"
         :error="error || undefined"
-        field-class="col-span-2 min-w-0 sm:col-span-1"
+        field-class="min-w-0"
         aria-description="Введіть код вручну або відкрийте камеру."
         @update:model-value="updateValue"
         @keydown.enter.prevent="submit()"
       ><template #icon><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
-      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" class="min-h-11 col-span-2 w-full whitespace-nowrap sm:col-span-1 sm:w-auto" @click="cameraOpen = true">
+      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" aria-label="Сканувати" title="Сканувати" class="h-11 w-11 !p-0" @click="cameraOpen = true">
         <CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-        Сканувати
       </BaseButton>
-      <BaseButton
-        type="button"
-        variant="primary"
-        :loading="loading"
-        :disabled="disabled || !modelValue.trim()"
-        class="min-h-11 whitespace-nowrap"
-        @click="submit()"
-      >
-        <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-        Знайти
-      </BaseButton>
-      <BaseButton
-        v-if="modelValue || match || notFound"
-        type="button"
-        variant="secondary"
-        :disabled="disabled"
-        class="min-h-11 whitespace-nowrap"
-        @click="clear"
-      >
-        <XMarkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-        Скинути
-      </BaseButton>
+      <div class="col-span-2 flex gap-2 sm:contents">
+        <BaseButton
+          type="button"
+          variant="primary"
+          :loading="loading"
+          :disabled="disabled || !modelValue.trim()"
+          class="min-h-11 flex-1 whitespace-nowrap sm:flex-none"
+          @click="submit()"
+        >
+          <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+          Знайти
+        </BaseButton>
+        <BaseButton
+          v-if="modelValue || match || notFound"
+          type="button"
+          variant="secondary"
+          :disabled="disabled"
+          class="min-h-11 flex-1 whitespace-nowrap sm:flex-none"
+          @click="clear"
+        >
+          <XMarkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+          Скинути
+        </BaseButton>
+      </div>
     </div>
-    <p class="text-xs text-ui-muted">Введіть код вручну або відкрийте камеру.</p>
+    <p v-if="!compactHints" class="text-xs text-ui-muted">Введіть код вручну або відкрийте камеру.</p>
     <InventoryBarcodeCamera v-if="cameraOpen" @close="closeCamera" @recognized="recognize" />
 
     <p v-if="match" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-success-surface)] px-3 py-2 text-sm text-[var(--bo-success-text)]">

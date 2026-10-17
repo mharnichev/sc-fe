@@ -14,20 +14,19 @@ const { data, pending, error, refresh } = await useAsyncData(
 </script>
 
 <template>
-  <BaseCard as="section" padding="sm" class="space-y-4" aria-labelledby="receipt-list-title">
+  <BaseCard as="section" padding="sm" class="space-y-3" aria-labelledby="receipt-list-title">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 id="receipt-list-title" class="text-lg font-semibold text-ui-primary">Список приймань</h2>
-        <p class="mt-1 text-sm text-ui-secondary">Усі приймання, включно з чернетками. Відкрийте документ, щоб продовжити роботу або переглянути його.</p>
+        <div class="flex items-center gap-1"><h2 id="receipt-list-title" class="text-lg font-semibold text-ui-primary">Список приймань</h2><BaseFieldHelp label="Список приймань" text="Усі приймання, включно з чернетками. Відкрийте документ, щоб продовжити роботу або переглянути його. Нову чернетку можна створити у формі нижче." /></div>
       </div>
       <BaseButton variant="neutral" class="min-h-11" :loading="pending" @click="refresh()"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Оновити список</BaseButton>
     </div>
     <p v-if="error" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ inventoryApiErrorMessage(error, 'Не вдалося завантажити список приймань.') }}</p>
     <p v-else-if="pending" role="status" class="text-sm text-ui-muted">Завантаження приймань…</p>
-    <BaseEmptyState v-else-if="!data?.items.length" title="Приймань ще немає" description="Створіть першу чернетку за допомогою форми нижче." />
+    <BaseEmptyState v-else-if="!data?.items.length" title="Приймань ще немає" />
     <template v-else>
       <div class="space-y-2 md:hidden">
-        <NuxtLink v-for="receipt in data.items" :key="receipt.id" :to="{ path: '/inventory/receiving', query: { id: String(receipt.id) } }" class="block rounded-xl border border-ui-border p-3 hover:bg-ui-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+        <NuxtLink v-for="receipt in data.items" :key="receipt.id" :to="{ path: '/inventory/receiving', query: { id: String(receipt.id) } }" class="inventory-receipt-entry block rounded-xl border border-ui-border p-3 hover:bg-ui-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
           <div class="flex items-center justify-between gap-3"><span class="font-medium text-ui-primary">Приймання #{{ receipt.id }}</span><BaseBadge :tone="receipt.status === 'posted' ? 'success' : 'neutral'">{{ inventoryDocumentStatusLabel(receipt.status) }}</BaseBadge></div>
           <p class="mt-2 break-words text-sm text-ui-secondary">{{ receipt.reason }}</p>
           <p class="mt-1 text-xs text-ui-muted">{{ formatDateTime(receipt.created_at) }} · Позицій: {{ receipt.items.length }}</p>

@@ -26,6 +26,7 @@ function harness(add, storage = memoryStorage(), getReceipt = async () => draft,
   const guards = []
   const watchers = []
   const globals = {
+    provide: () => {},
     ...utils, ref, shallowRef: ref, computed, watch: (target, callback) => { if (!Array.isArray(target)) watchers.push(callback) }, onMounted: noop, onBeforeUnmount: noop,
     sessionStorage: storage, window: {},
     onBeforeRouteLeave: guard => guards.push(guard), onBeforeRouteUpdate: guard => guards.push(guard),

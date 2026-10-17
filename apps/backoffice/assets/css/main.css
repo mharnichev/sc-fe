@@ -933,6 +933,145 @@ main :is(.grid, .flex) > :has(.base-table) {
   }
 }
 
+/* Inventory density is local to phone layouts; desktop and other sections keep their spacing. */
+@media (max-width: 639px) {
+  .inventory-page {
+    min-width: 0;
+  }
+
+  .inventory-page:is(.space-y-4, .space-y-3) > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
+
+  .inventory-page h1 {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
+
+  .inventory-page h1 > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .inventory-page h2 {
+    font-size: 1rem;
+    line-height: 1.375rem;
+  }
+
+  .inventory-page .text-sm {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
+
+  .inventory-page .base-card {
+    padding: 0.625rem;
+    border-radius: 1rem;
+  }
+
+  .inventory-page :is(.gap-3, .gap-4) {
+    gap: 0.625rem;
+  }
+
+  .inventory-page :is(.space-y-3, .space-y-4) > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.625rem;
+  }
+
+  .inventory-page :is(form, fieldset).p-4 {
+    padding: 0.625rem;
+    border-radius: 1rem;
+  }
+
+  .inventory-page :is(.ui-status-warning, .ui-status-danger, .ui-status-success) {
+    padding: 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+  }
+
+  .inventory-page .base-field,
+  .inventory-page label {
+    min-width: 0;
+  }
+
+  .inventory-page .base-field__label {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+    gap: 0.375rem;
+  }
+
+  .inventory-page :is(input:not([type='checkbox']):not([type='radio']), textarea, .base-select__trigger) {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 1rem;
+  }
+
+  .inventory-page .inventory-receipt-quantity-fields .base-field__label {
+    min-height: 2.25rem;
+  }
+
+  .inventory-page .base-button {
+    min-height: 2.75rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
+
+  .inventory-page .base-empty-state {
+    padding: 1rem 0.625rem;
+    gap: 0.5rem;
+  }
+
+  .inventory-page .inventory-section-nav {
+    padding: 0.375rem;
+    border-radius: 1rem;
+  }
+
+  .inventory-page .inventory-section-nav a {
+    min-height: 3rem;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+  }
+
+  .inventory-page .inventory-section-nav a > span:first-child {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.625rem;
+  }
+
+  .inventory-page .inventory-section-nav a > span:first-child > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .inventory-page .inventory-product-card {
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .inventory-page .inventory-product-card--unframed {
+    padding: 0;
+  }
+
+  .inventory-page .inventory-product-card > img {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.625rem;
+  }
+
+  .inventory-page .inventory-product-card > div > p {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+  }
+
+  .inventory-page .inventory-product-card > div > p:first-child {
+    font-size: 0.8125rem;
+  }
+
+  .inventory-page .inventory-receipt-entry {
+    padding: 0.625rem;
+  }
+}
+
 .base-empty-state {
   color: var(--bo-text-muted);
 }

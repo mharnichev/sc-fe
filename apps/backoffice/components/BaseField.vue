@@ -26,25 +26,36 @@ const props = withDefaults(defineProps<{
   errorClass: 'base-field__error text-xs',
 })
 
-const componentTag = computed(() => props.as)
+const compactFieldHints = inject<boolean>('compactFieldHints', false)
+const compactHint = computed(() => compactFieldHints && Boolean(props.hint) && !props.error)
+const componentTag = computed(() => compactFieldHints ? 'div' : props.as)
 </script>
 
 <template>
   <component
     :is="componentTag"
-    :for="as === 'label' ? id : undefined"
+    :for="!compactFieldHints && as === 'label' ? id : undefined"
     :class="[rootClass, disabled ? 'opacity-70' : '']"
   >
     <span
       v-if="label || $slots.label || $slots.icon"
-      :id="labelId"
-      :class="[labelClass, labelContentClass]"
+      :id="compactFieldHints ? undefined : labelId"
+      :class="[labelClass, compactFieldHints ? 'flex w-full min-w-0 items-center gap-1' : labelContentClass]"
     >
-      <slot name="icon" />
-      <slot name="label">
-        {{ label }}
-      </slot>
-      <span v-if="required" aria-hidden="true" class="base-field__required">*</span>
+      <component v-if="compactFieldHints" :is="as === 'label' ? 'label' : 'span'"
+        :id="labelId"
+        :for="as === 'label' ? id : undefined"
+        :class="[labelContentClass, 'min-w-0 flex-1 [&>svg]:shrink-0']">
+        <slot name="icon" />
+        <span class="min-w-0 break-words"><slot name="label">{{ label }}</slot></span>
+        <span v-if="required" aria-hidden="true" class="base-field__required">*</span>
+      </component>
+      <template v-else>
+        <slot name="icon" />
+        <slot name="label">{{ label }}</slot>
+        <span v-if="required" aria-hidden="true" class="base-field__required">*</span>
+      </template>
+      <BaseFieldHelp v-if="compactHint" :text="hint!" :label="label" />
     </span>
 
     <slot
@@ -57,7 +68,7 @@ const componentTag = computed(() => props.as)
     <p v-if="error" :id="errorId" :class="errorClass" aria-live="polite">
       {{ error }}
     </p>
-    <p v-else-if="hint" :id="hintId" :class="hintClass">
+    <p v-else-if="hint" :id="hintId" :class="compactHint ? 'sr-only' : hintClass">
       {{ hint }}
     </p>
   </component>

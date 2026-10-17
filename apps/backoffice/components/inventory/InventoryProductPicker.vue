@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { MagnifyingGlassIcon, CheckIcon, LinkIcon, PlusIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, CheckIcon, LinkIcon, PlusIcon, ArrowPathIcon, PencilSquareIcon, TagIcon, CubeIcon, CurrencyDollarIcon } from '@heroicons/vue/24/outline'
 import type { InventoryProduct, InventoryProductCreate } from '~/types/inventory'
 import { createInventoryIdempotencyKey, inventoryApiErrorMessage, isDefiniteInventoryRejection } from '~/utils/inventory'
-const props = defineProps<{ disabled?: boolean, initialBarcode?: string, showSelected?: boolean }>()
-const emit = defineEmits<{ select: [product: InventoryProduct, repeat?: boolean], clear: [] }>()
+const props = defineProps<{ disabled?: boolean, initialBarcode?: string, showSelected?: boolean, savedRevision?: number }>()
+const emit = defineEmits<{ select: [product: InventoryProduct, repeat?: boolean], clear: [], 'dirty-change': [dirty: boolean], 'busy-change': [busy: boolean] }>()
 const api = useBackofficeApi()
 const barcode = ref(props.initialBarcode || '')
 const unknownCode = ref('')
@@ -22,6 +22,14 @@ const sku = ref('')
 const packageSize = ref('')
 const price = ref('0.00')
 const pending = ref<{ key: string, payload: InventoryProductCreate, uncertain?: boolean } | null>(null)
+const formSnapshot = () => JSON.stringify([
+  barcode.value, search.value, unknownCode.value, binding.value?.id || null,
+  createOpen.value ? [name.value, sku.value, packageSize.value, price.value] : null,
+])
+const savedForm = ref(JSON.stringify(['', '', '', null, null]))
+watch(() => props.savedRevision, () => { savedForm.value = formSnapshot() }, { flush: 'sync' })
+watch(() => Boolean(pending.value) || formSnapshot() !== savedForm.value, dirty => emit('dirty-change', dirty), { immediate: true })
+watch(busy, value => emit('busy-change', value), { immediate: true })
 const auth = useAuthStore()
 const ownerId = auth.user?.id
 const storageKey = () => `backoffice:inventory:pending-product-create:${ownerId || 'unknown'}`
@@ -150,9 +158,8 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode" type="button" :disabled="locked" @click="choose(selected)">Вибрати знайдений товар</BaseButton>
     </InventoryProductCard>
     <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-2" @submit.prevent="find(1)">
-      <BaseInput v-model="search" label="Назва або артикул" placeholder="Наприклад, шампунь або SKU" aria-description="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+      <BaseInput v-model="search" label="Назва або артикул" hint="Шукаємо лише у вашій базі товарів." placeholder="Наприклад, шампунь або SKU" aria-description="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
       <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
-      <p class="col-span-2 text-xs text-ui-muted">Шукаємо лише у вашій базі товарів.</p>
     </form>
     <div v-for="product in results" :key="product.id" class="space-y-2">
       <InventoryProductCard :product="product"><BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>
@@ -164,26 +171,24 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked || page * 10 >= total" @click="find(page + 1)">Далі</BaseButton>
     </div>
     <BaseCard v-if="binding" padding="sm" variant="subtle" class="space-y-3">
-      <p class="font-semibold">Підтвердьте прив’язку</p>
+      <div class="flex items-center gap-1"><p class="font-semibold">Підтвердьте прив’язку</p><BaseFieldHelp label="Прив’язка штрихкоду" text="Прив’язка не змінює залишки. Інший наявний штрихкод замінити тут неможливо." /></div>
       <InventoryProductCard :product="binding" />
       <p v-if="binding.barcode && binding.barcode !== unknownCode" role="alert" class="text-sm text-ui-danger">Цей товар уже має інший штрихкод. Виберіть інший товар; наявний код не можна замінити тут.</p>
       <p class="whitespace-pre-wrap break-all">Новий код: {{ unknownCode }}</p>
-      <p class="text-sm text-ui-secondary">Прив’язка не змінює залишки. Інший наявний штрихкод замінити тут неможливо.</p>
       <BaseButton variant="primary" class="min-h-11 w-full" type="button" :disabled="locked || Boolean(binding.barcode && binding.barcode !== unknownCode)" @click="bind"><LinkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Підтвердити прив’язку / повторити</BaseButton>
       <BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="binding = null">Скасувати</BaseButton>
     </BaseCard>
     <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode && searched && !createOpen" type="button" :disabled="locked" @click="createOpen = true"><PlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Немає відповідного товару — створити картку</BaseButton>
     <form v-if="createOpen" class="space-y-3 rounded-2xl border border-ui-border p-4" @submit.prevent="create">
-      <p class="font-semibold">Новий товар</p>
+      <div class="flex items-center gap-1"><p class="font-semibold">Новий товар</p><BaseFieldHelp label="Створення картки товару" text="Картка створюється прихованою, з нульовим залишком. Закупівельну ціну вкажіть у прийманні." /></div>
       <p class="whitespace-pre-wrap break-all text-sm">Штрихкод: {{ pending?.payload.barcode || unknownCode }}</p>
       <template v-if="!pending">
-        <BaseInput v-model="name" label="Коротка назва" hint="Назва, за якою майстер впізнає товар." required minlength="2" maxlength="255" :disabled="busy || disabled" />
-        <BaseInput v-model="sku" label="Артикул (необов’язково)" hint="Внутрішній код товару або код постачальника." maxlength="100" :disabled="busy || disabled" />
-        <BaseInput v-model="packageSize" label="Об’єм / упаковка (необов’язково)" hint="Наприклад: 250 мл, 100 г або 1 шт." maxlength="64" :disabled="busy || disabled" />
-        <BaseInput v-model="price" label="Ціна продажу, грн" hint="Ціна для покупця. Закупівельну вартість вкажіть у прийманні." inputmode="decimal" required :disabled="busy || disabled" />
+        <BaseInput v-model="name" label="Коротка назва" hint="Назва, за якою майстер впізнає товар." required minlength="2" maxlength="255" :disabled="busy || disabled"><template #icon><PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+        <BaseInput v-model="sku" label="Артикул (необов’язково)" hint="Внутрішній код товару або код постачальника." maxlength="100" :disabled="busy || disabled"><template #icon><TagIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+        <BaseInput v-model="packageSize" label="Об’єм / упаковка (необов’язково)" hint="Наприклад: 250 мл, 100 г або 1 шт." maxlength="64" :disabled="busy || disabled"><template #icon><CubeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+        <BaseInput v-model="price" label="Ціна продажу, грн" hint="Ціна для покупця. Закупівельну вартість вкажіть у прийманні." inputmode="decimal" required :disabled="busy || disabled"><template #icon><CurrencyDollarIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
       </template>
       <p v-else class="text-sm">Незавершений запит: {{ pending.payload.name }} · {{ pending.payload.sku || 'без артикула' }} · {{ pending.payload.package_size || 'без упаковки' }} · {{ pending.payload.price }} грн. Повтор використовує ті самі дані та ключ.</p>
-      <p class="text-sm text-ui-secondary">Картка створюється прихованою, з нульовим залишком. Закупочну ціну вкажіть у прийманні.</p>
       <BaseButton variant="primary" class="min-h-11 w-full" type="submit" :loading="busy" :disabled="busy || disabled"><component :is="pending ? ArrowPathIcon : PlusIcon" class="h-5 w-5 shrink-0" aria-hidden="true" />{{ pending ? 'Повторити незавершений запит' : 'Створити товар' }}</BaseButton>
       <BaseButton variant="secondary" class="min-h-11" v-if="!pending" type="button" :disabled="busy || disabled" @click="createOpen = false">Скасувати</BaseButton>
     </form>

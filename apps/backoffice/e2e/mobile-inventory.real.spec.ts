@@ -124,7 +124,7 @@ for (const browserName of ['chromium', 'webkit'] as const) {
       expect(posted.products.find((p: Product) => p.id === state.seed.products.missing_barcode.id)).toMatchObject({ barcode: code, on_hand: 7, reserved: 0 })
       expect(posted.movement_count).toBe(bound.movement_count + 1)
       expect((await receipt(request, state, id)).status).toBe('posted')
-      await expect(adminPage.getByText('На складі: 7 · Резерв: 0 · Доступно: 7', { exact: true })).toBeVisible()
+      await expect(adminPage.getByRole('group', { name: 'Залишки товару' }).filter({ hasText: /На складі: 7\b.*Резерв: 0\b.*Доступно: 7\b/ })).toBeVisible()
     })
 
     test('barcode conflict prevents replacement in browser and server', async ({ page, request }) => {
@@ -180,7 +180,7 @@ for (const browserName of ['chromium', 'webkit'] as const) {
       const received = await inspect(request)
       expect(received.products.find((p: Product) => p.id === created.id)).toMatchObject({ on_hand: 2, reserved: 0 })
       expect(received.movement_count).toBe(after.movement_count + 1)
-      await expect(adminPage.getByText('На складі: 2 · Резерв: 0 · Доступно: 2', { exact: true })).toBeVisible()
+      await expect(adminPage.getByRole('group', { name: 'Залишки товару' }).filter({ hasText: /На складі: 2\b.*Резерв: 0\b.*Доступно: 2\b/ })).toBeVisible()
     })
 
     for (const role of ['admin', 'poster'] as const) {
@@ -232,7 +232,7 @@ for (const browserName of ['chromium', 'webkit'] as const) {
         expect(postAttempts[1]).toEqual(postAttempts[0])
         expect(await inspect(request)).toEqual(committed)
         expect((await receipt(request, state, id)).status).toBe('posted')
-        await expect(page.getByText('На складі: 13 · Резерв: 2 · Доступно: 11', { exact: true })).toBeVisible()
+        await expect(page.getByRole('group', { name: 'Залишки товару' }).filter({ hasText: /На складі: 13\b.*Резерв: 2\b.*Доступно: 11\b/ })).toBeVisible()
         await expect(page.getByRole('button', { name: 'Сканувати', exact: true })).toBeDisabled()
       })
     }

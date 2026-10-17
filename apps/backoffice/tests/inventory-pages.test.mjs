@@ -26,7 +26,8 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
   }
   assert.doesNotMatch(overview, /role !== 'admin'/)
   assert.match(overview, /can_post_inventory/)
-  assert.match(overview, /InventoryProductPicker/)
+  assert.match(overview, /InventoryBarcodeCamera/)
+  assert.doesNotMatch(overview, /InventoryProductPicker|InventoryQuickSearchModal/)
   assert.match(overview, /getInventoryStock/)
   assert.match(overview, /getProcurementQueue/)
   assert.match(overview, /route\.query\.search/)
@@ -38,7 +39,7 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
   assert.match(movements, /movementTypeOptions/)
   assert.match(movements, /dateFrom/)
   assert.match(movements, /dateTo/)
-  assert.match(movements, /Фільтри застосовуються до цієї сторінки історії/)
+  assert.match(movements, /hint="Фільтри діють на поточній сторінці історії/)
   assert.match(operations, /createInventoryOperation/)
   assert.match(operations, /ConfirmActionModal/)
   assert.match(operations, /createInventoryIdempotencyKey/)

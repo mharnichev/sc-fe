@@ -4,6 +4,8 @@ import type { Product } from '~/composables/useBackofficeApi'
 import type { InventoryMovement } from '~/types/inventory'
 import { inventoryApiErrorMessage, inventoryMovementLabel } from '~/utils/inventory'
 
+provide('compactFieldHints', true)
+
 const api = useBackofficeApi()
 const route = useRoute()
 const router = useRouter()
@@ -84,24 +86,23 @@ const applyMovementFilters = () => updateQuery({
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ClockIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Рух товару</h1><p class="mt-1 text-sm text-ui-secondary">Незмінна історія операцій для одного вибраного товару.</p></div>
+  <div class="inventory-page space-y-3 sm:space-y-4">
+    <div><div class="flex min-w-0 items-center gap-1"><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ClockIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Рух товару</h1><BaseFieldHelp text="Незмінна історія операцій для одного вибраного товару." label="Про сторінку" /></div></div>
     <InventorySectionNav />
 
-    <BaseCard as="section" padding="sm" class="space-y-4">
-      <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0" label="Пошук товару" aria-description="Введіть назву або артикул SKU." placeholder="Знайти товар за назвою або SKU" aria-label="Пошук товару" ><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput><BaseButton class="min-h-11" type="submit" variant="primary" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton><p class="col-span-2 text-xs text-ui-muted">Введіть назву товару або артикул SKU.</p></form>
+    <BaseCard as="section" padding="sm" class="space-y-3 sm:space-y-4">
+      <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0" label="Пошук товару" hint="Введіть назву товару або артикул SKU." aria-description="Введіть назву або артикул SKU." placeholder="Знайти товар за назвою або SKU" aria-label="Пошук товару" ><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput><BaseButton class="min-h-11" type="submit" variant="primary" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton></form>
       <p v-if="productsError" class="text-sm text-ui-danger" role="alert">{{ productsError }}</p>
       <div v-if="searchedProducts.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in searchedProducts" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)"><span class="truncate">{{ product.name }}</span><span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div>
     </BaseCard>
 
-    <BaseEmptyState v-if="!productId" title="Оберіть товар" description="Знайдіть і виберіть товар, щоб переглянути його рух. " />
+    <BaseEmptyState v-if="!productId" title="Оберіть товар" />
     <template v-else>
-      <form class="grid gap-4 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" @submit.prevent="applyMovementFilters">
-        <BaseSelect v-model="movementType" :options="movementTypeOptions" label="Тип руху" ><template #icon><ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" /></template></BaseSelect>
-        <BaseInput v-model="dateFrom" type="date" label="Від дати" aria-description="Початок періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
-        <BaseInput v-model="dateTo" type="date" label="До дати" aria-description="Кінець періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
-        <BaseButton type="submit" variant="primary" class="min-h-11 self-end"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
-        <p class="text-xs text-ui-muted sm:col-span-2 xl:col-span-4">Дати включають початок і кінець періоду. Фільтри застосовуються до цієї сторінки історії. Для інших записів перейдіть на наступну сторінку.</p>
+      <form class="grid grid-cols-2 gap-4 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" @submit.prevent="applyMovementFilters">
+        <BaseSelect v-model="movementType" field-class="col-span-2 sm:col-span-1" :options="movementTypeOptions" label="Тип руху" hint="Фільтри діють на поточній сторінці історії. Для інших записів перейдіть на наступну сторінку." ><template #icon><ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" /></template></BaseSelect>
+        <BaseInput v-model="dateFrom" type="date" label="Від дати" hint="Початок періоду включно." aria-description="Початок періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
+        <BaseInput v-model="dateTo" type="date" label="До дати" hint="Кінець періоду включно." aria-description="Кінець періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
+        <BaseButton type="submit" variant="primary" class="col-span-2 min-h-11 self-end sm:col-span-1"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
       </form>
       <p v-if="error || productError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">{{ inventoryApiErrorMessage(error || productError, 'Не вдалося завантажити рух товару.') }} <BaseButton variant="unstyled" class="ml-2 font-semibold underline" @click="retry">Спробувати ще раз</BaseButton></p>
       <div v-else-if="pending || productPending" class="grid gap-4"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, CameraIcon, XMarkIcon, CubeIcon, LockClosedIcon, ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
+provide('compactFieldHints', true)
+
 const auth = useAuthStore()
 const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
-const quickSearchOpen = ref(false)
-const mobileProduct = ref<import('~/types/inventory').InventoryProduct | null>(null)
+const cameraOpen = ref(false)
+const searchInput = ref<{ focus: () => void } | null>(null)
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -77,7 +79,46 @@ const updateQuery = async (changes: Record<string, string | undefined>) => {
   Object.entries(query).forEach(([key, value]) => { if (!value) delete query[key] })
   await router.replace({ query })
 }
-const applyFilters = () => updateQuery({ search: search.value.trim() || undefined, stock: stockFilter.value || undefined, page: undefined })
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+const cancelScheduledSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = undefined
+}
+const applyFilters = () => {
+  cancelScheduledSearch()
+  return updateQuery({ search: search.value.trim() || undefined, stock: stockFilter.value || undefined, page: undefined })
+}
+const searchAsYouType = (value: string | number | null) => {
+  search.value = String(value ?? '')
+  cancelScheduledSearch()
+  searchTimer = setTimeout(() => { void applyFilters() }, 300)
+}
+const clearSearch = async () => {
+  search.value = ''
+  await applyFilters()
+  searchInput.value?.focus()
+}
+onBeforeUnmount(cancelScheduledSearch)
+onBeforeRouteLeave(cancelScheduledSearch)
+const closeCamera = async () => {
+  cameraOpen.value = false
+  await nextTick()
+  searchInput.value?.focus()
+}
+const scanBarcode = async (barcode: string) => {
+  cameraOpen.value = false
+  search.value = barcode
+  await applyFilters()
+  searchInput.value?.focus()
+}
+watch(() => route.query.search, () => {
+  cancelScheduledSearch()
+  search.value = typeof route.query.search === 'string' ? route.query.search : ''
+})
+watch(() => route.query.stock, () => {
+  stockFilter.value = typeof route.query.stock === 'string' ? route.query.stock : ''
+})
+watch(() => route.fullPath, () => { cameraOpen.value = false })
 const changePage = (next: number) => updateQuery({ page: String(next) })
 const retry = async () => { await Promise.all([refresh(), refreshProcurement()]) }
 const productVariant = (item: Product | undefined) => item?.package_size || item?.model_name || (item?.volume_ml ? `${item.volume_ml} мл` : '—')
@@ -87,50 +128,55 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="inventory-page space-y-3 sm:space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArchiveBoxIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Склад</h1>
-        <p class="mt-1 text-sm text-ui-secondary">Знайдіть товар і перевірте, скільки доступно.</p>
+        <div class="flex min-w-0 items-center gap-1"><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArchiveBoxIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Склад</h1><BaseFieldHelp text="Знайдіть товар і перевірте, скільки доступно." label="Про сторінку" /></div>
       </div>
-      <BaseButton variant="primary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Сканувати штрихкод</BaseButton>
     </div>
-    <InventoryQuickSearchModal v-model="quickSearchOpen" @select="mobileProduct = $event" />
 
     <InventorySectionNav />
-    <BaseCard class="space-y-4" padding="sm">
-      <h2 class="flex items-center gap-2 text-lg font-semibold"><MagnifyingGlassIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Знайти товар</h2>
-      <InventoryProductPicker :show-selected="false" @select="mobileProduct = $event" @clear="mobileProduct = null" />
-      <InventoryProductCard v-if="mobileProduct" :product="mobileProduct" />
-      <NuxtLink v-if="mobileProduct" :to="`/inventory/receiving?product_id=${mobileProduct.id}`" class="base-button base-button--primary flex min-h-12 items-center justify-center gap-2 px-4"><ArrowDownTrayIcon class="h-5 w-5" aria-hidden="true" />Прийняти цей товар</NuxtLink>
-    </BaseCard>
+    <section class="space-y-2" aria-labelledby="stock-summary-title">
+      <div class="flex min-w-0 items-center gap-1"><h2 id="stock-summary-title" class="flex items-center gap-2 text-lg font-semibold text-ui-primary">Зведення залишків</h2><BaseFieldHelp text="Кількість одиниць товару, а не найменувань. Перші три показники — за поточною сторінкою, до фільтра залишків." label="Як рахуються залишки" /></div>
+      <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <BaseCard v-for="item in [
+          { label: 'Є на складі', value: summary.onHand, icon: CubeIcon, tone: 'info', description: 'Усі одиниці, включно з резервом.' },
+          { label: 'Зарезервовано', value: summary.reserved, icon: LockClosedIcon, tone: 'warning', description: 'Відкладено під замовлення клієнтів.' },
+          { label: 'Вільно для продажу', value: summary.available, icon: ShoppingBagIcon, tone: 'success', description: 'На складі мінус зарезервоване.' },
+          { label: 'Треба докупити', value: summary.toOrder, icon: ShoppingCartIcon, description: 'Бракує для замовлень у всій черзі.' },
+        ]" :key="item.label" padding="sm" class="flex flex-col" :style="item.tone ? { background: `var(--bo-${item.tone}-surface)` } : undefined">
+          <div class="flex items-center justify-between gap-1 text-ui-secondary">
+            <component :is="item.icon" class="h-4 w-4 shrink-0 text-ui-accent" :style="item.tone ? { color: `var(--bo-${item.tone}-text)` } : undefined" aria-hidden="true" />
+            <BaseFieldHelp :text="item.description" :label="item.label" />
+          </div>
+          <h3 class="mt-1 min-h-8 text-xs font-medium leading-4 text-ui-secondary">{{ item.label }}</h3>
+          <p class="mt-1 text-xl font-semibold text-ui-primary">{{ item.value }} <span class="text-xs font-normal text-ui-muted">од.</span></p>
+        </BaseCard>
+      </div>
+    </section>
 
-    <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
-      <BaseCard v-for="item in [
-        { label: 'Фізично · сторінка', value: summary.onHand }, { label: 'Резерв · сторінка', value: summary.reserved },
-        { label: 'Доступно · сторінка', value: summary.available }, { label: 'Потрібно замовити · черга', value: summary.toOrder },
-      ]" :key="item.label" padding="sm">
-        <p class="text-xs text-ui-muted">{{ item.label }}</p><p class="mt-1 text-xl font-semibold text-ui-primary">{{ item.value }}</p>
-      </BaseCard>
-    </div>
-
-    <form class="grid gap-4 rounded-[1.5rem] border border-ui-border bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem_auto] md:items-end" @submit.prevent="applyFilters">
-      <BaseInput v-model="search" type="search" label="Пошук на складі" placeholder="Назва, SKU або штрихкод" aria-description="Шукає серед усіх товарів."><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
-      <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" aria-description="Фільтрує товари на цій сторінці."><template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseSelect>
-      <BaseButton type="submit" variant="primary" class="min-h-11"><MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Застосувати</BaseButton>
-      <p class="text-xs text-ui-muted md:col-span-3">Пошук охоплює всі товари. Фільтр залишків діє на цій сторінці.</p>
+    <form class="grid gap-4 rounded-[1.5rem] bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end" @submit.prevent="applyFilters">
+      <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <div class="inventory-stock-search relative min-w-0">
+          <BaseInput ref="searchInput" :model-value="search" field-class="min-w-0" input-class="base-control py-3 pl-4 pr-12 text-sm" type="search" label="Пошук на складі" hint="Пошук застосовується автоматично серед усіх товарів." placeholder="Назва, SKU або штрихкод" aria-description="Шукає серед усіх товарів." @update:model-value="searchAsYouType"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
+          <button v-if="search" type="button" class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full text-ui-muted hover:text-ui-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="Очистити пошук" title="Очистити пошук" @click="clearSearch"><XMarkIcon class="h-5 w-5" aria-hidden="true" /></button>
+        </div>
+        <BaseButton type="button" variant="neutral" class="h-11 w-11 shrink-0 p-0" aria-label="Сканувати штрихкод" title="Сканувати штрихкод" @click="cameraOpen = true"><CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" /></BaseButton>
+      </div>
+      <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" hint="Застосовується автоматично до товарів на поточній сторінці." aria-description="Фільтрує товари на цій сторінці." @update:model-value="applyFilters"><template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseSelect>
     </form>
+    <InventoryBarcodeCamera v-if="cameraOpen" @close="closeCamera" @recognized="scanBarcode" />
 
     <p v-if="error || procurementError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
       {{ inventoryApiErrorMessage(error || procurementError, 'Не вдалося завантажити дані складу.') }}
       <BaseButton variant="unstyled" class="ml-2 font-semibold underline" :loading="pending || procurementPending" @click="retry">Спробувати ще раз</BaseButton>
     </p>
     <div v-else-if="pending || procurementPending" class="grid gap-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>
-    <BaseEmptyState v-else-if="!stockRows.length" title="Товарів не знайдено" description="Змініть пошук або фільтр. Фільтр залишків діє на цій сторінці." />
+    <BaseEmptyState v-else-if="!stockRows.length" title="Товарів не знайдено" />
     <div v-else class="grid gap-3 md:hidden">
       <BaseCard v-for="item in stockRows" :key="item.id" padding="sm">
         <InventoryProductCard :product="item" :framed="false" />
-        <NuxtLink :to="`/inventory/receiving?product_id=${item.id}`" class="base-button base-button--neutral mt-3 flex min-h-12 items-center justify-center gap-2"><ArrowDownTrayIcon class="h-5 w-5" aria-hidden="true" />Прийняти товар</NuxtLink>
+        <NuxtLink :to="`/inventory/receiving?product_id=${item.id}`" class="base-button base-button--neutral mt-3 flex min-h-11 w-full items-center justify-center gap-2 px-3 text-center"><ArrowDownTrayIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Прийняти товар</NuxtLink>
       </BaseCard>
     </div>
     <BaseTable v-if="!pending && !error && stockRows.length" caption="Поточні залишки" wrapper-class="hidden md:block rounded-[1.5rem]" min-width="1320px">
@@ -149,3 +195,9 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
     <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-ui-secondary"><span>Усього: {{ total }}</span><div class="flex gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="changePage(page - 1)"><ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= total" @click="changePage(page + 1)">Наступна<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></BaseButton></div></div>
   </div>
 </template>
+
+<style scoped>
+.inventory-stock-search :deep(input::-webkit-search-cancel-button) {
+  appearance: none;
+}
+</style>

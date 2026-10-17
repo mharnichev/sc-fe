@@ -5,6 +5,8 @@ import { createInventoryIdempotencyKey, createReceiptItemRequest, inventoryApiEr
 
 interface Requirement { orderItemId: number, quantity: number }
 
+provide('compactFieldHints', true)
+
 const auth = useAuthStore()
 const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
 
@@ -41,6 +43,9 @@ const pendingCreate = ref<{ key: string, payload: { reason: string, comment: str
 const createStorageKey = `backoffice:inventory:receipt-create:${auth.user?.id}`
 const postKey = ref('')
 const postedBalances = ref<Record<number, InventoryProduct>>({})
+const pickerDirty = ref(false)
+const pickerBusy = ref(false)
+const pickerSavedRevision = ref(0)
 let receiptLoadRequest = 0
 let balanceLoadRequest = 0
 let productLookupRequest = 0
@@ -57,6 +62,16 @@ const requirements = computed<Requirement[]>(() => typeof route.query.requiremen
     }).filter(item => Number.isInteger(item.orderItemId) && item.orderItemId > 0 && Number.isInteger(item.quantity) && item.quantity > 0)
   : [])
 const allocationTotal = computed(() => Object.values(allocationQuantities.value).reduce<number>((sum, value) => sum + (Number(value ?? 0) || 0), 0))
+const itemFormSnapshot = () => JSON.stringify([
+  selectedProduct.value?.id || null, barcode.value, search.value, quantity.value,
+  unitCost.value, batchNumber.value, expirationDate.value, allocationQuantities.value,
+])
+const savedItemForm = ref(JSON.stringify([null, '', '', 1, null, '', '', {}]))
+const hasUnsavedChanges = computed(() => !isPosted.value && (
+  Boolean(pendingAdd.value || pendingStorageError.value || pickerDirty.value)
+  || itemFormSnapshot() !== savedItemForm.value
+  || (!receipt.value && (reason.value !== 'Поставка товару' || Boolean(comment.value)))
+))
 
 const loadPostedBalances = async (next: Receipt) => {
   const request = receiptLoadRequest
@@ -186,6 +201,8 @@ const addItem = async () => {
     toast.success('Позицію додано. Повторне додавання такого самого товару збільшить рядок.')
     quantity.value = 1
     allocationQuantities.value = {}
+    savedItemForm.value = itemFormSnapshot()
+    pickerSavedRevision.value++
   }
   catch (cause) {
     // A rejected retry cannot prove that an earlier timed-out attempt did not commit.
@@ -232,7 +249,6 @@ watch([reason, comment], () => {
   if (!receipt.value && !receiptIdFromRoute.value) createKey.value = ''
 })
 
-onBeforeRouteLeave(() => !adding.value && !creating.value && !posting.value)
 onBeforeRouteUpdate(() => !adding.value && !posting.value)
 const warnPendingAdd = (event: BeforeUnloadEvent) => {
   if (!addLocked.value) return
@@ -243,6 +259,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnPendingAdd)
 
 watch(receiptIdFromRoute, async (id) => {
   if (id && receipt.value?.id === id) return
+  pickerDirty.value = false
+  pickerBusy.value = false
   ++receiptLoadRequest
   pendingAdd.value = null
   pendingStorageError.value = false
@@ -277,8 +295,18 @@ watch(receiptIdFromRoute, async (id) => {
   search.value = ''
   searchResults.value = []
   searchPending.value = false
+  if (!pendingAdd.value) {
+    quantity.value = 1
+    unitCost.value = null
+    batchNumber.value = ''
+    expirationDate.value = ''
+    allocationQuantities.value = {}
+    savedItemForm.value = itemFormSnapshot()
+  }
   if (!id) {
     receipt.value = null
+    reason.value = 'Поставка товару'
+    comment.value = ''
     loadingReceipt.value = false
     return
   }
@@ -315,24 +343,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-4 sm:space-y-6">
-    <header><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArrowDownTrayIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Приймання товару</h1><p class="mt-1 text-sm text-ui-secondary">Знайдіть товар, вкажіть кількість і закупівельну вартість.</p></header>
+  <div class="inventory-page space-y-3 sm:space-y-4">
+    <header><div class="flex min-w-0 items-center gap-1"><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArrowDownTrayIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Приймання товару</h1><BaseFieldHelp text="Знайдіть товар, вкажіть кількість і закупівельну вартість." label="Про сторінку" /></div></header>
     <InventorySectionNav />
+    <InventoryUnsavedChangesGuard :dirty="hasUnsavedChanges" :busy="adding || creating || posting || pickerBusy" :document-id="receipt?.id" guard-document-changes />
     <NuxtLink v-if="receiptIdFromRoute" to="/inventory/receiving" class="inline-flex min-h-11 items-center font-medium text-ui-accent hover:underline">← До списку приймань</NuxtLink>
     <InventoryReceiptList v-else />
     <p v-if="loadingReceipt" role="status" class="text-sm text-ui-muted">Завантаження приймання…</p>
     <div v-if="errorMessage" role="alert" class="ui-status-danger rounded-2xl p-4 text-sm">{{ errorMessage }} <BaseButton v-if="receiptIdFromRoute && !adding" variant="neutral" size="sm" :disabled="loadingReceipt || posting" @click="loadReceipt()">Повторити</BaseButton></div>
     <div v-if="pendingAdd && !adding" role="alert" class="ui-status-warning p-4 text-sm">Результат додавання невідомий або потребує звірки. Товар {{ pendingAdd.payload.product_id || pendingAdd.payload.barcode }} · {{ pendingAdd.payload.quantity }} од. Повторіть цю саму позицію перед редагуванням або новим скануванням.<BaseButton variant="neutral" size="sm" :disabled="loadingReceipt || !receipt" @click="addItem">Повторити додавання</BaseButton></div>
     <BaseCard v-if="isPosted" variant="subtle" padding="sm" class="text-sm text-ui-secondary"><BaseBadge tone="success">Проведено</BaseBadge><span class="ml-2">Приймання #{{ receipt?.id }} проведено {{ receipt?.posted_at || '' }}. Редагування недоступне.</span></BaseCard>
-    <BaseCard v-if="!receipt && !receiptIdFromRoute && !loadingReceipt" variant="surface" padding="sm" class="space-y-4"><h2 class="text-xl font-semibold text-ui-primary">Нове приймання</h2><BaseInput v-model="reason" :disabled="creating || !!pendingCreate" label="Причина" hint="Назва поставки, щоб знайти цю чернетку пізніше." required maxlength="255" placeholder="Наприклад, поставка від постачальника"><template #icon><DocumentTextIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseTextarea v-model="comment" :disabled="creating || !!pendingCreate" label="Коментар" :rows="2" hint="Необов’язково: постачальник, номер накладної або примітка." maxlength="2000"><template #icon><ChatBubbleLeftEllipsisIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseTextarea><BaseButton variant="primary" class="min-h-11 w-full sm:w-auto" :loading="creating" @click="createReceipt"><DocumentPlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />{{ pendingCreate ? 'Повторити створення без дублювання' : 'Створити чернетку' }}</BaseButton></BaseCard>
+    <BaseCard v-if="!receipt && !receiptIdFromRoute && !loadingReceipt" variant="surface" padding="sm" class="space-y-3 sm:space-y-4"><h2 class="text-xl font-semibold text-ui-primary">Нове приймання</h2><BaseInput v-model="reason" :disabled="creating || !!pendingCreate" label="Причина" hint="Назва поставки, щоб знайти цю чернетку пізніше." required maxlength="255" placeholder="Наприклад, поставка від постачальника"><template #icon><DocumentTextIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseTextarea v-model="comment" :disabled="creating || !!pendingCreate" label="Коментар" :rows="2" hint="Необов’язково: постачальник, номер накладної або примітка." maxlength="2000"><template #icon><ChatBubbleLeftEllipsisIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseTextarea><BaseButton variant="primary" class="min-h-11 w-full sm:w-auto" :loading="creating" @click="createReceipt"><DocumentPlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />{{ pendingCreate ? 'Повторити створення без дублювання' : 'Створити чернетку' }}</BaseButton></BaseCard>
     <template v-if="receipt">
       <p v-if="!isPosted" class="ui-status-warning rounded-xl p-3 text-sm" role="status">Чернетка #{{ receipt.id }}: товари ще не оприбутковано. <span v-if="!canPostInventory">Передайте адміністратору посилання на цю чернетку — він має її провести.</span></p>
-      <BaseCard variant="surface" padding="sm" class="space-y-4" :class="isPosted ? 'opacity-70' : ''"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="flex items-center gap-2 text-xl font-semibold text-ui-primary"><PlusIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Додати позицію</h2><p class="text-sm text-ui-secondary">Приймання #{{ receipt.id }} · {{ receipt.reason }}</p></div><BaseBadge :tone="isPosted ? 'success' : 'warning'">{{ isPosted ? 'Проведено' : 'Чернетка' }}</BaseBadge></div>
-        <fieldset :disabled="isPosted || addLocked" class="space-y-4">
-        <InventoryProductPicker :show-selected="false" :initial-barcode="typeof route.query.barcode === 'string' ? route.query.barcode : ''" :disabled="isPosted || addLocked || posting" @select="selectProduct" @clear="clearSelectedProduct" />
+      <BaseCard variant="surface" padding="sm" class="space-y-3 sm:space-y-4" :class="isPosted ? 'opacity-70' : ''"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="flex items-center gap-2 text-xl font-semibold text-ui-primary"><PlusIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Додати позицію</h2><p class="text-sm text-ui-secondary">Приймання #{{ receipt.id }} · {{ receipt.reason }}</p></div><BaseBadge :tone="isPosted ? 'success' : 'warning'">{{ isPosted ? 'Проведено' : 'Чернетка' }}</BaseBadge></div>
+        <fieldset :disabled="isPosted || addLocked" class="space-y-3 sm:space-y-4">
+        <InventoryProductPicker :key="receipt.id" :saved-revision="pickerSavedRevision" @dirty-change="pickerDirty = $event" @busy-change="pickerBusy = $event" :show-selected="false" :initial-barcode="typeof route.query.barcode === 'string' ? route.query.barcode : ''" :disabled="isPosted || addLocked || posting" @select="selectProduct" @clear="clearSelectedProduct" />
         <InventoryProductCard v-if="selectedProduct" :product="selectedProduct" />
-        <div class="grid grid-cols-2 gap-3"><BaseInput v-model.number="quantity" type="number" min="1" step="1" label="Кількість" label-class="base-field__label min-h-10 font-medium sm:min-h-5" inputmode="numeric" hint="Скільки одиниць надійшло." :disabled="isPosted" required><template #icon><CubeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseInput v-model.number="unitCost" type="number" min="0" step="0.01" label="Закупівля, грн/од." label-class="base-field__label min-h-10 font-medium sm:min-h-5" aria-label="Закупівля, грн/од. (Закупівельна вартість за одиницю, грн)" inputmode="decimal" hint="Вартість однієї одиниці, не ціна продажу." :disabled="isPosted" required><template #icon><CurrencyDollarIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput></div><details class="group rounded-xl border border-ui p-3"><summary class="flex min-h-6 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><ChevronRightIcon class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" /><CalendarDaysIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />Партія та термін придатності (необов’язково)</summary><div class="mt-3 grid gap-4 md:grid-cols-2"><BaseInput v-model="batchNumber" label="Партія" hint="Номер з упаковки або накладної." :disabled="isPosted"><template #icon><TagIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseInput v-model="expirationDate" type="date" label="Термін придатності" hint="Заповніть, якщо вказано на упаковці." :disabled="isPosted"><template #icon><CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput></div></details>
-        <fieldset v-if="requirements.length" :disabled="isPosted" class="space-y-2 rounded-xl border border-ui p-4"><legend class="px-1 text-sm font-medium text-ui-primary">Розподіл на замовлені позиції (необов'язково)</legend><div v-for="requirement in requirements" :key="requirement.orderItemId" class="grid gap-2 sm:grid-cols-[1fr_10rem] sm:items-center"><span class="text-sm text-ui-secondary">Позиція замовлення #{{ requirement.orderItemId }} · залишок {{ requirement.quantity }}</span><BaseInput v-model.number="allocationQuantities[requirement.orderItemId]" type="number" min="0" :max="requirement.quantity" step="1" aria-label="Кількість розподілу" /></div><p class="text-xs text-ui-muted">Розподілено: {{ allocationTotal }} з {{ quantity || 0 }}</p></fieldset>
+        <div class="inventory-receipt-quantity-fields grid grid-cols-2 gap-3"><BaseInput v-model.number="quantity" type="number" min="1" step="1" label="Кількість" label-class="base-field__label min-h-10 font-medium sm:min-h-5" inputmode="numeric" hint="Скільки одиниць надійшло." :disabled="isPosted" required><template #icon><CubeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseInput v-model.number="unitCost" type="number" min="0" step="0.01" label="Закупівля, грн/од." label-class="base-field__label min-h-10 font-medium sm:min-h-5" aria-label="Закупівля, грн/од. (Закупівельна вартість за одиницю, грн)" inputmode="decimal" hint="Вартість однієї одиниці, не ціна продажу." :disabled="isPosted" required><template #icon><CurrencyDollarIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput></div><details class="group rounded-xl border border-ui p-3"><summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><ChevronRightIcon class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" /><CalendarDaysIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />Партія та термін придатності (необов’язково)</summary><div class="mt-3 grid gap-4 md:grid-cols-2"><BaseInput v-model="batchNumber" label="Партія" hint="Номер з упаковки або накладної." :disabled="isPosted"><template #icon><TagIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput><BaseInput v-model="expirationDate" type="date" label="Термін придатності" hint="Заповніть, якщо вказано на упаковці." :disabled="isPosted"><template #icon><CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput></div></details>
+        <fieldset v-if="requirements.length" :disabled="isPosted" class="space-y-2 rounded-xl border border-ui p-4"><legend class="px-1 text-sm font-medium text-ui-primary">Розподіл на замовлені позиції (необов'язково)</legend><div v-for="requirement in requirements" :key="requirement.orderItemId" class="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2 sm:grid-cols-[1fr_10rem]"><span class="text-sm text-ui-secondary">Позиція замовлення #{{ requirement.orderItemId }} · залишок {{ requirement.quantity }}</span><BaseInput v-model.number="allocationQuantities[requirement.orderItemId]" type="number" min="0" :max="requirement.quantity" step="1" aria-label="Кількість розподілу"><template #icon><CubeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput></div><p class="text-xs text-ui-muted">Розподілено: {{ allocationTotal }} з {{ quantity || 0 }}</p></fieldset>
         </fieldset>
         <BaseButton variant="primary" class="min-h-11 w-full sm:w-auto" :loading="adding" :disabled="isPosted || posting || addLocked || !selectedProduct" @click="addItem"><PlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Додати до приймання</BaseButton>
       </BaseCard>

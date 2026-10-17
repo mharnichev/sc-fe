@@ -4,6 +4,8 @@ import type { Product } from '~/composables/useBackofficeApi'
 import type { InventoryManualOperationCreate } from '~/types/inventory'
 import { createInventoryIdempotencyKey, inventoryApiErrorMessage } from '~/utils/inventory'
 
+provide('compactFieldHints', true)
+
 definePageMeta({
   middleware: () => {
     const auth = useAuthStore()
@@ -34,6 +36,9 @@ const confirmOpen = ref(false)
 const pending = ref(false)
 const errorMessage = ref('')
 const idempotencyKey = ref('')
+const formSnapshot = () => JSON.stringify([form, selectedProduct.value?.id || Number(route.query.product_id) || null, productSearch.value])
+const savedForm = ref(formSnapshot())
+const hasUnsavedChanges = computed(() => formSnapshot() !== savedForm.value)
 const selectedProductId = computed(() => {
   const candidate = Number(route.query.product_id)
   return Number.isInteger(candidate) && candidate > 0 ? candidate : null
@@ -79,6 +84,7 @@ const performOperation = async () => {
     toast.success(`${operationLabel.value} зафіксовано.`)
     confirmOpen.value = false
     form.quantity = 1; form.reason = ''; form.writeOffOtherReason = ''; form.barcode = ''; form.order_id = ''; form.order_item_id = ''
+    savedForm.value = formSnapshot()
     resetIdempotencyKey()
   }
   catch (cause) { errorMessage.value = inventoryApiErrorMessage(cause, 'Не вдалося виконати операцію. Повторіть із тим самим ключем лише якщо результат невідомий.'); toast.error(errorMessage.value) }
@@ -87,10 +93,11 @@ const performOperation = async () => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArrowsRightLeftIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Ручна операція</h1><p class="mt-1 text-sm text-ui-secondary">Операція одразу змінює склад і потрапляє в журнал руху.</p></div>
+  <div class="inventory-page space-y-3 sm:space-y-4">
+    <div><div class="flex min-w-0 items-center gap-1"><h1 class="flex items-center gap-2 text-2xl font-semibold text-ui-primary sm:text-3xl"><ArrowsRightLeftIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Ручна операція</h1><BaseFieldHelp text="Операція одразу змінює склад і потрапляє в журнал руху." label="Про сторінку" /></div></div>
     <InventorySectionNav />
-    <BaseCard as="section" padding="sm" class="space-y-4"><form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0" label="Пошук товару" aria-description="Введіть назву або артикул SKU." placeholder="Знайти товар" aria-label="Пошук товару для операції" ><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput><BaseButton class="min-h-11" type="submit" variant="neutral" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton><p class="col-span-2 text-xs text-ui-muted">Введіть назву товару або артикул SKU.</p></form><div v-if="products.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in products" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)">{{ product.name }} <span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div><p v-if="selectedProduct" class="text-sm text-ui-secondary">Вибрано: <strong class="text-ui-primary">{{ selectedProduct.name }}</strong> · #{{ selectedProduct.id }}</p></BaseCard>
+    <InventoryUnsavedChangesGuard :dirty="hasUnsavedChanges" :busy="pending" />
+    <BaseCard as="section" padding="sm" class="space-y-3 sm:space-y-4"><form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4" @submit.prevent="searchProducts"><BaseInput v-model="productSearch" type="search" field-class="min-w-0" label="Пошук товару" hint="Введіть назву товару або артикул SKU." aria-description="Введіть назву або артикул SKU." placeholder="Знайти товар" aria-label="Пошук товару для операції" ><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput><BaseButton class="min-h-11" type="submit" variant="neutral" :loading="productsPending"><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Знайти</BaseButton></form><div v-if="products.length" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3"><BaseButton v-for="product in products" :key="product.id" variant="neutral" class="justify-start text-left" @click="chooseProduct(product)">{{ product.name }} <span class="ml-2 text-ui-muted">#{{ product.id }}</span></BaseButton></div><p v-if="selectedProduct" class="text-sm text-ui-secondary">Вибрано: <strong class="text-ui-primary">{{ selectedProduct.name }}</strong> · #{{ selectedProduct.id }}</p></BaseCard>
     <BaseCard as="section" padding="sm">
       <form class="grid gap-4" @submit.prevent="openConfirmation">
         <div class="grid gap-4 sm:grid-cols-2">
@@ -103,12 +110,12 @@ const performOperation = async () => {
         <BaseInput v-if="requiresOtherReason" v-model="form.writeOffOtherReason" label="Інша причина" hint="Опишіть причину своїми словами." required maxlength="255" ><template #icon><ChatBubbleBottomCenterTextIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
         <details class="rounded-xl border border-ui-border px-3">
           <summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ui-primary">Зв’язок із замовленням · необов’язково</summary>
-          <div class="grid gap-4 pb-3 sm:grid-cols-2">
+          <div class="grid grid-cols-2 gap-4 pb-3">
             <BaseInput v-model="form.order_id" label="Номер замовлення" hint="ID замовлення, якщо операція пов’язана з ним." type="number" inputmode="numeric" min="1" ><template #icon><ShoppingBagIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
             <BaseInput v-model="form.order_item_id" label="Номер позиції" hint="ID рядка в цьому замовленні." type="number" inputmode="numeric" min="1" ><template #icon><ListBulletIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
           </div>
         </details>
-        <p class="rounded-xl bg-ui-subtle p-3 text-xs text-ui-secondary">Потрібно звірити залишки? Проведіть <NuxtLink to="/inventory/counts" class="font-semibold text-ui-accent hover:underline">інвентаризацію</NuxtLink>.</p>
+        <div class="flex items-center gap-2 text-xs"><NuxtLink to="/inventory/counts" class="font-semibold text-ui-accent hover:underline">Інвентаризація</NuxtLink><BaseFieldHelp text="Щоб звірити фактичну кількість із залишками, проведіть інвентаризацію." label="Коли потрібна інвентаризація" /></div>
         <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
         <BaseButton type="submit" variant="primary" class="min-h-11 w-full sm:w-auto" :disabled="!isValid || pending" :loading="pending"><CheckIcon class="h-4 w-4" aria-hidden="true" />Продовжити до підтвердження</BaseButton>
       </form>

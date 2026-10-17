@@ -28,7 +28,7 @@ test('every inventory page uses the shared section navigation', async () => {
   }
 })
 
-test('inventory navigation keeps six deep links and adapts without horizontal mobile tabs', async () => {
+test('inventory navigation keeps six deep links and uses horizontally scrollable mobile tabs', async () => {
   const navigation = await read('../components/inventory/InventorySectionNav.vue')
   const destinations = navigation.match(/to: '\/inventory[^']*'/g) || []
 
@@ -36,8 +36,9 @@ test('inventory navigation keeps six deep links and adapts without horizontal mo
   assert.match(navigation, /aria-label="Розділи складу"/)
   assert.match(navigation, /aria-current=/)
   assert.match(navigation, /isActive\(section\.to\) \? route\.fullPath : section\.to/)
-  assert.match(navigation, /class="md:hidden"/)
-  assert.match(navigation, /aria-label="Розділ складу"/)
-  assert.match(navigation, /class="hidden md:block"/)
-  assert.doesNotMatch(navigation, /overflow-x-auto/)
+  assert.match(navigation, /overflow-x-auto/)
+  assert.match(navigation, /flex gap-2 md:grid/)
+  assert.match(navigation, /onMounted\(revealActiveSection\)/)
+  assert.match(navigation, /watch\(\[\(\) => route.path, sections\]/)
+  assert.doesNotMatch(navigation, /<BaseSelect/)
 })
