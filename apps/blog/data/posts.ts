@@ -2,10 +2,27 @@ import type { LocaleCode } from './locale'
 import { isIndexableBlogPost, postMetadata } from './postMetadata'
 import type { BlogPostVisibility } from './postMetadata'
 export type { BlogPostVisibility } from './postMetadata'
-import coverImage from '../assets/images/posts/barbering-museum-cover-1600.jpg'
-import coverImageMobile from '../assets/images/posts/barbering-museum-cover-mobile.jpg'
-import idemNaBukvyCoverImage from '../assets/images/posts/idem-na-bukvy-cover.webp'
-import idemNaBukvyCoverImageMobile from '../assets/images/posts/idem-na-bukvy-cover-mobile.webp'
+import museumCover800 from '../assets/images/posts/barbering-museum-cover-800.webp'
+import museumCover1280 from '../assets/images/posts/barbering-museum-cover-1280.webp'
+import museumCover1600 from '../assets/images/posts/barbering-museum-cover-1600.webp'
+import museumMobile640 from '../assets/images/posts/barbering-museum-cover-mobile-640.webp'
+import museumMobile680 from '../assets/images/posts/barbering-museum-cover-mobile-680.webp'
+import bukvyCover800 from '../assets/images/posts/idem-na-bukvy-cover-800.webp'
+import bukvyCover1280 from '../assets/images/posts/idem-na-bukvy-cover-1280.webp'
+import bukvyCover1920 from '../assets/images/posts/idem-na-bukvy-cover-1920.webp'
+import bukvyMobile640 from '../assets/images/posts/idem-na-bukvy-cover-mobile-640.webp'
+import bukvyMobile1080 from '../assets/images/posts/idem-na-bukvy-cover-mobile-1080.webp'
+
+import museumAvif800 from '../assets/images/posts/barbering-museum-cover-800.avif'
+import museumAvif1280 from '../assets/images/posts/barbering-museum-cover-1280.avif'
+import museumAvif1600 from '../assets/images/posts/barbering-museum-cover-1600.avif'
+import museumMobileAvif640 from '../assets/images/posts/barbering-museum-cover-mobile-640.avif'
+import museumMobileAvif680 from '../assets/images/posts/barbering-museum-cover-mobile-680.avif'
+import bukvyAvif800 from '../assets/images/posts/idem-na-bukvy-cover-800.avif'
+import bukvyAvif1280 from '../assets/images/posts/idem-na-bukvy-cover-1280.avif'
+import bukvyAvif1920 from '../assets/images/posts/idem-na-bukvy-cover-1920.avif'
+import bukvyMobileAvif640 from '../assets/images/posts/idem-na-bukvy-cover-mobile-640.avif'
+import bukvyMobileAvif1080 from '../assets/images/posts/idem-na-bukvy-cover-mobile-1080.avif'
 
 type LocalizedText = Record<LocaleCode, string>
 type AssetModule = { default: string }
@@ -130,6 +147,10 @@ export interface BlogPost {
   readMinutes: number
   coverImage: string
   coverImageMobile: string
+  coverImageSrcset: string
+  coverImageMobileSrcset: string
+  coverImageAvifSrcset: string
+  coverImageMobileAvifSrcset: string
   coverImageAlt: LocalizedText
   featured?: boolean
   visibility?: BlogPostVisibility
@@ -150,6 +171,10 @@ export interface LocalizedBlogPost {
   readMinutes: number
   coverImage: string
   coverImageMobile: string
+  coverImageSrcset: string
+  coverImageMobileSrcset: string
+  coverImageAvifSrcset: string
+  coverImageMobileAvifSrcset: string
   coverImageAlt: string
   featured?: boolean
   visibility?: BlogPostVisibility
@@ -434,8 +459,12 @@ export const posts: BlogPost[] = [
       en: 'Hlib Anotskyi',
     },
     readMinutes: 11,
-    coverImage: idemNaBukvyCoverImage,
-    coverImageMobile: idemNaBukvyCoverImageMobile,
+    coverImage: bukvyCover1920,
+    coverImageMobile: bukvyMobile1080,
+    coverImageSrcset: `${bukvyCover800} 800w, ${bukvyCover1280} 1280w, ${bukvyCover1920} 1920w`,
+    coverImageMobileSrcset: `${bukvyMobile640} 640w, ${bukvyMobile1080} 1080w`,
+    coverImageAvifSrcset: `${bukvyAvif800} 800w, ${bukvyAvif1280} 1280w, ${bukvyAvif1920} 1920w`,
+    coverImageMobileAvifSrcset: `${bukvyMobileAvif640} 640w, ${bukvyMobileAvif1080} 1080w`,
     coverImageAlt: {
       uk: 'Колаж із плівкових кадрів з історії проєкту «Ідем на Букви»',
       en: 'A collage of film photographs from the history of Idem na Bukvy',
@@ -480,8 +509,12 @@ export const posts: BlogPost[] = [
       en: 'Soul Cuts',
     },
     readMinutes: 7,
-    coverImage,
-    coverImageMobile,
+    coverImage: museumCover1600,
+    coverImageMobile: museumMobile680,
+    coverImageSrcset: `${museumCover800} 800w, ${museumCover1280} 1280w, ${museumCover1600} 1600w`,
+    coverImageMobileSrcset: `${museumMobile640} 640w, ${museumMobile680} 680w`,
+    coverImageAvifSrcset: `${museumAvif800} 800w, ${museumAvif1280} 1280w, ${museumAvif1600} 1600w`,
+    coverImageMobileAvifSrcset: `${museumMobileAvif640} 640w, ${museumMobileAvif680} 680w`,
     coverImageAlt: {
       uk: 'Учасники барберської події Soul Cuts в музеї',
       en: 'Soul Cuts barbering event participants in the museum',

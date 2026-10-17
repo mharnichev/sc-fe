@@ -32,15 +32,20 @@ const handlePostClick = () => {
         class="aspect-[4/3] overflow-hidden"
         :class="recommended ? 'w-full rounded-lg bg-transparent' : 'bg-neutral-800'"
       >
-        <img
-          :src="post.coverImage"
-          :alt="post.coverImageAlt"
-          class="h-full w-full object-cover filter transition-[filter] duration-1000 ease-in-out"
-          width="1600"
-          height="1060"
-          loading="lazy"
-          decoding="async"
-        >
+        <picture class="block h-full w-full">
+          <source :srcset="post.coverImageAvifSrcset" sizes="(min-width: 1240px) 376px, (min-width: 1024px) calc((100vw - 112px) / 3), (min-width: 640px) calc((100vw - 72px) / 2), calc(100vw - 32px)" type="image/avif">
+          <img
+            :src="post.coverImage"
+            :srcset="post.coverImageSrcset"
+            sizes="(min-width: 1240px) 376px, (min-width: 1024px) calc((100vw - 112px) / 3), (min-width: 640px) calc((100vw - 72px) / 2), calc(100vw - 32px)"
+            :alt="post.coverImageAlt"
+            class="h-full w-full object-cover filter transition-[filter] duration-1000 ease-in-out"
+            width="1600"
+            height="1060"
+            loading="lazy"
+            decoding="async"
+          >
+        </picture>
       </div>
       <div class="flex h-full flex-col" :class="recommended ? 'pt-5' : 'p-5'">
         <div v-if="!recommended" class="type-meta flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">

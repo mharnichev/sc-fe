@@ -155,14 +155,18 @@ useHead(() => ({
     {
       rel: 'preload',
       as: 'image',
-      href: post.value.coverImageMobile,
+      type: 'image/avif',
+      imagesrcset: post.value.coverImageMobileAvifSrcset,
+      imagesizes: '100vw',
       media: '(max-width: 767px)',
       fetchpriority: 'high',
     },
     {
       rel: 'preload',
       as: 'image',
-      href: post.value.coverImage,
+      type: 'image/avif',
+      imagesrcset: post.value.coverImageAvifSrcset,
+      imagesizes: '100vw',
       media: '(min-width: 768px)',
       fetchpriority: 'high',
     },
@@ -175,9 +179,13 @@ useHead(() => ({
     <header class="relative min-h-[calc(100svh+8rem)] sm:min-h-[calc(100svh+10rem)]">
         <div class="sticky top-0 h-[100svh] overflow-hidden bg-neutral-950">
           <picture class="absolute inset-0 h-full w-full">
-            <source :srcset="post.coverImage" media="(min-width: 768px)">
+            <source :srcset="post.coverImageAvifSrcset" sizes="100vw" media="(min-width: 768px)" type="image/avif">
+            <source :srcset="post.coverImageMobileAvifSrcset" sizes="100vw" media="(max-width: 767px)" type="image/avif">
+            <source :srcset="post.coverImageSrcset" sizes="100vw" media="(min-width: 768px)" type="image/webp">
             <img
               :src="post.coverImageMobile"
+              :srcset="post.coverImageMobileSrcset"
+              sizes="100vw"
               :alt="post.coverImageAlt"
               class="h-full w-full object-cover"
               width="680"
