@@ -23,7 +23,7 @@ const botLink = 'https://t.me/SoulcutsBot'
           </div>
 
           <div class="border border-white/15 bg-white p-2 text-neutral-950 sm:p-3 md:col-start-2 md:row-span-2 md:p-4">
-            <img src="/soulcuts-bot-qr.svg" :alt="terms.home.bot.qrAlt" class="aspect-square w-full object-contain">
+            <img loading="lazy" src="/soulcuts-bot-qr.svg" :alt="terms.home.bot.qrAlt" class="aspect-square w-full object-contain">
             <p class="mt-2 text-center text-[0.6rem] font-semibold uppercase leading-4 tracking-[0.12em] text-neutral-500 md:mt-4 md:text-xs md:tracking-[0.18em]">
               {{ terms.home.bot.qrCaption }}
             </p>

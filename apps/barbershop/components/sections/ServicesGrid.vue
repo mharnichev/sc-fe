@@ -27,55 +27,19 @@ const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
 const route = useRoute()
 const { offers } = useBookingPromotions()
-const servicesSection = ref<HTMLElement | null>(null)
-const hasRequestedServices = ref(props.services.length > 0)
-let serviceCatalogObserver: IntersectionObserver | null = null
-
-const { data: serviceCatalog, pending: servicesPending, execute: loadServicesCatalog } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
-  server: false,
-  immediate: false,
+// Catalogue text and links belong in SSR; Nuxt reuses this payload on hydration.
+const { data: serviceCatalog, pending: servicesPending, error: servicesError, refresh: refreshServices } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
+  immediate: props.services.length === 0,
+  timeout: 3000,
   default: () => [],
 })
 
-const requestServicesCatalog = () => {
-  if (hasRequestedServices.value || props.services.length) return
-
-  hasRequestedServices.value = true
-  serviceCatalogObserver?.disconnect()
-  serviceCatalogObserver = null
-  void loadServicesCatalog()
-}
-
-const showServicesSkeleton = computed(() =>
-  props.services.length
-    ? false
-    : !hasRequestedServices.value || servicesPending.value,
-)
-
+// A bounded SSR wait must not leave a recoverable API failure frozen in the payload.
 onMounted(() => {
-  if (props.services.length) return
-
-  const target = servicesSection.value
-
-  if (!target || typeof window.IntersectionObserver !== 'function') {
-    window.setTimeout(requestServicesCatalog, 2500)
-    return
-  }
-
-  serviceCatalogObserver = new IntersectionObserver((entries) => {
-    if (!entries.some(entry => entry.isIntersecting)) return
-
-    requestServicesCatalog()
-  }, {
-    rootMargin: '360px 0px',
-  })
-
-  serviceCatalogObserver.observe(target)
+  if (!props.services.length && servicesError.value) void refreshServices({ timeout: 15000 })
 })
 
-onBeforeUnmount(() => {
-  serviceCatalogObserver?.disconnect()
-})
+const showServicesSkeleton = computed(() => !props.services.length && servicesPending.value)
 
 const servicePriceValue = (service: ServiceCatalogItemDto) => {
   const value = typeof service.price === 'number'
@@ -167,7 +131,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 </script>
 
 <template>
-  <section id="services" ref="servicesSection" data-header-theme="light" class="section-y-tight bg-stone-100">
+  <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
       <div class="mb-8 flex flex-col justify-between gap-4 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
