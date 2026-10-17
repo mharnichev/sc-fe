@@ -138,7 +138,9 @@ if (process.argv.includes('--api')) {
         const elapsedMs = Date.now() - startedAt
         assert.equal(response?.status(), 200, 'SSR should return a page when upstream times out')
         assert.ok(elapsedMs < 4500, `SSR timeout should bound response near four seconds; took ${elapsedMs}ms`)
-        const markup = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+        const responseHtml = await response.text()
+        assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+        const markup = responseHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         assert.equal(markup.includes('SEO haircut'), false, 'Slow fixture should time out during SSR; restart API with HOME_SEO_API_DELAY_MS=6000')
         await expect(page.locator('#services')).toContainText('SEO haircut', { timeout: 20_000 })
         await expect(page.locator('#team')).toContainText(masters.at(-1).full_name, { timeout: 20_000 })
@@ -158,7 +160,9 @@ if (process.argv.includes('--api')) {
 
       // Payload JSON can contain every fixture string even when the page itself is empty.
       // These checks inspect only server-emitted markup and the DOM with JS disabled.
-      const markup = (await response.text())
+      const responseHtml = await response.text()
+      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+      const markup = responseHtml
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '')
       for (const content of ['SEO haircut', '640', 'seo-haircut', reviews[0].comment, ...masters.map(master => master.full_name)]) {
@@ -213,11 +217,21 @@ if (process.argv.includes('--api')) {
         assert.ok(Math.abs(clientTeamHeight - noScriptTeamHeight) < 3, 'Team height must remain stable across hydration')
       }
 
+      await page.locator('#reviews').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+      await page.getByRole('button', { name: /Лише необхідні|Only necessary/i }).click()
+      await page.locator('#reviews button[aria-haspopup="dialog"]').click()
+      const googleDialog = page.getByRole('dialog', { name: /Відгуки Google|Google reviews/ })
+      await expect(googleDialog).toBeVisible()
+      await expect(googleDialog.locator('article')).toHaveCount(reviews.length)
+      await page.keyboard.press('Escape')
+      await expect(googleDialog).toBeHidden()
+
       const reviewTrack = page.locator('#reviews .transition-transform').first()
       const before = await reviewTrack.getAttribute('style')
       await page.locator('#reviews button[aria-label]').last().click()
       await expect.poll(() => reviewTrack.getAttribute('style')).not.toBe(before)
 
+      await page.locator('#team').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
       if (viewport.width < 768) {
         const slider = page.locator('#team .team-mobile-slider')
         await page.locator('#team button[aria-label="Show SEO Master 2"]').click()
@@ -229,7 +243,6 @@ if (process.argv.includes('--api')) {
         await expect(memberButton).toHaveAttribute('aria-current', 'true')
       }
 
-      await page.getByRole('button', { name: /Лише необхідні|Only necessary/i }).click()
       for (const section of ['services', 'team', 'reviews']) {
         await page.locator(`#${section}`).evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
         await page.waitForTimeout(1100) // Let existing reveal and copy transitions finish for visual QA.

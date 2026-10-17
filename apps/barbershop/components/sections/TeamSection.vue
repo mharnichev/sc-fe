@@ -1,16 +1,11 @@
 <script setup lang="ts">
 import type { MasterDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
-import type { PublicMasterDto } from '~/utils/seoRoutes'
-
-type LocalizedMasterDto = PublicMasterDto & {
-  title_uk?: string | null
-  title_en?: string | null
-  description_uk?: string | null
-  description_en?: string | null
-  bio_uk?: string | null
-  bio_en?: string | null
-}
+type TeamProfile = Pick<MasterDto,
+  'id' | 'name' | 'full_name' | 'first_name_uk' | 'full_name_uk' | 'first_name_en' | 'full_name_en'
+  | 'position_uk' | 'position_en' | 'title_uk' | 'title_en' | 'title'
+  | 'description' | 'description_uk' | 'description_en' | 'bio' | 'bio_uk' | 'bio_en'
+> & { image: string, profilePath: string }
 
 const props = withDefaults(defineProps<{
   bookingTarget?: string
@@ -21,7 +16,31 @@ const props = withDefaults(defineProps<{
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
-const { data: masters, pending: mastersPending, error: mastersError, refresh: refreshMasters } = await useAsyncData('home-team-masters', domain.getMasters, {
+const { data: masters, pending: mastersPending, error: mastersError, refresh: refreshMasters } = await useAsyncData('home-team-public-profiles', async (): Promise<TeamProfile[]> => {
+  const publicMasters = indexablePublicMasters(await domain.getMasters())
+  return publicMasters.map(master => ({
+    id: master.id,
+    name: master.name,
+    full_name: master.full_name,
+    first_name_uk: master.first_name_uk,
+    full_name_uk: master.full_name_uk,
+    first_name_en: master.first_name_en,
+    full_name_en: master.full_name_en,
+    position_uk: master.position_uk,
+    position_en: master.position_en,
+    title_uk: master.title_uk,
+    title_en: master.title_en,
+    title: master.title,
+    description: master.description,
+    description_uk: master.description_uk,
+    description_en: master.description_en,
+    bio: master.bio,
+    bio_uk: master.bio_uk,
+    bio_en: master.bio_en,
+    image: assetUrl(master.photo || master.photo_url),
+    profilePath: masterSeoPath(master),
+  }))
+}, {
   timeout: 3000,
   default: () => [],
 })
@@ -37,29 +56,25 @@ let mobileMediaHandler: (() => void) | null = null
 const { masterName } = useMasterDisplay()
 const profileLabel = computed(() => locale.value === 'en' ? 'View barber profile' : 'Профіль майстра')
 
-const masterRole = (master: LocalizedMasterDto) =>
+const masterRole = (master: TeamProfile) =>
   locale.value === 'en'
     ? master.position_en || master.title_en || master.title || master.position_uk || terms.value.home.team.defaultRole
     : master.position_uk || master.title_uk || master.title || master.position_en || terms.value.home.team.defaultRole
 
-const masterDescription = (master: LocalizedMasterDto) =>
+const masterDescription = (master: TeamProfile) =>
   locale.value === 'en'
     ? master.bio_en || master.description_en || master.bio || master.description || master.bio_uk || master.description_uk || ''
     : master.bio_uk || master.description_uk || master.bio || master.description || master.bio_en || master.description_en || ''
 
-const masterPhoto = (master: MasterDto) =>
-  assetUrl(master.photo || master.photo_url)
-
 const teamMembers = computed(() =>
-  indexablePublicMasters(masters.value || [])
-    .map(master => ({
+  (masters.value || []).map(master => ({
       id: master.id,
       name: masterName(master),
       role: masterRole(master),
       description: masterDescription(master),
-      image: masterPhoto(master),
+      image: master.image,
       imageAlt: masterName(master),
-      profilePath: masterSeoPath(master),
+      profilePath: master.profilePath,
     })),
 )
 
@@ -218,7 +233,7 @@ watch(teamMembers, (members) => {
                     <h3 class="type-display mt-3 text-2xl leading-none text-white">
                       {{ member.name }}
                     </h3>
-                    <MasterRatingBlock
+                    <LazyMasterRatingBlock
                       v-if="isTeamVisible && isMobile && activeMemberIndex === index"
                       :master-id="member.id"
                       tone="dark"
@@ -324,7 +339,7 @@ watch(teamMembers, (members) => {
                   <h3 class="type-display mt-3 text-2xl leading-none text-white md:hidden">
                     {{ activeMember.name }}
                   </h3>
-                  <MasterRatingBlock
+                  <LazyMasterRatingBlock
                   v-if="isTeamVisible && !isMobile"
                     :master-id="activeMember.id"
                     :review-limit="5"
