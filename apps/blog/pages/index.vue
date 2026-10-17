@@ -4,6 +4,7 @@ import { formatPostDate, formatReadMinutes, getFeaturedPost, getLatestPosts } fr
 const { locale, terms } = useBlogLocale()
 const { trackBlogEvent } = useBlogAnalytics()
 const featuredPost = computed(() => getFeaturedPost(locale.value))
+const coverSizes = '(min-width: 1240px) 658px, (min-width: 1024px) calc(57.5vw - 55.2px), (min-width: 768px) calc(100vw - 48px), calc(100vw - 32px)'
 const homepagePosts = computed(() => getLatestPosts(locale.value).slice(0, 6))
 
 const handleFeaturedPostClick = (source: string) => {
@@ -23,14 +24,18 @@ useHead(() => ({
     {
       rel: 'preload',
       as: 'image',
-      href: featuredPost.value.coverImageMobile,
+      type: 'image/avif',
+      imagesrcset: featuredPost.value.coverImageMobileAvifSrcset,
+      imagesizes: coverSizes,
       media: '(max-width: 767px)',
       fetchpriority: 'high',
     },
     {
       rel: 'preload',
       as: 'image',
-      href: featuredPost.value.coverImage,
+      type: 'image/avif',
+      imagesrcset: featuredPost.value.coverImageAvifSrcset,
+      imagesizes: coverSizes,
       media: '(min-width: 768px)',
       fetchpriority: 'high',
     },
@@ -48,9 +53,13 @@ useHead(() => ({
           @click="handleFeaturedPostClick('featured_cover')"
         >
           <picture class="block h-full w-full">
-            <source :srcset="featuredPost.coverImage" media="(min-width: 768px)" type="image/jpeg">
+            <source :srcset="featuredPost.coverImageAvifSrcset" :sizes="coverSizes" media="(min-width: 768px)" type="image/avif">
+            <source :srcset="featuredPost.coverImageMobileAvifSrcset" :sizes="coverSizes" media="(max-width: 767px)" type="image/avif">
+            <source :srcset="featuredPost.coverImageSrcset" :sizes="coverSizes" media="(min-width: 768px)" type="image/webp">
             <img
               :src="featuredPost.coverImageMobile"
+              :srcset="featuredPost.coverImageMobileSrcset"
+              :sizes="coverSizes"
               :alt="featuredPost.coverImageAlt"
               class="h-full w-full object-cover"
               width="680"

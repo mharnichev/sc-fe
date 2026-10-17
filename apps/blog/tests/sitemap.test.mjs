@@ -11,7 +11,7 @@ const metadata = await import(toDataUrl(metadataSource))
 globalThis.__blogSitemapMetadataMocks = metadata
 
 const dataSource = (await readFile(new URL('../data/posts.ts', import.meta.url), 'utf8'))
-  .replace(/^import (\w+) from '.+\.(?:jpg|webp)'$/gm, 'const $1 = "/image"')
+  .replace(/^import (\w+) from '.+\.(?:jpg|webp|avif)'$/gm, 'const $1 = "/image"')
   .replace("import { isIndexableBlogPost, postMetadata } from './postMetadata'", 'const { isIndexableBlogPost, postMetadata } = globalThis.__blogSitemapMetadataMocks')
 const dataCompiled = ts.transpileModule(dataSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
