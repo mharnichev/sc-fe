@@ -4,6 +4,7 @@ import type {
   PublicMasterReviewDto,
 } from '~/domain/barbershop'
 import { isPublicServiceActive } from '~/composables/useActiveServiceCatalog'
+import { seoBookingPath } from '~/utils/seoBooking'
 import {
   indexablePublicMasters,
   indexableServiceCatalog,
@@ -548,7 +549,7 @@ useBarberStructuredData(() => ({
 
 <template>
   <div class="bg-stone-100 text-neutral-950">
-    <section class="section-y">
+    <section data-header-theme="light" class="section-y pt-24 sm:pt-28 md:pt-32">
       <div class="site-container">
         <nav class="flex flex-wrap items-center gap-2 text-sm text-neutral-500" :aria-label="pageLabels.masters">
           <NuxtLink to="/" class="transition hover:text-neutral-950">
@@ -614,7 +615,7 @@ useBarberStructuredData(() => ({
             </div>
 
             <div class="flex flex-col gap-3 sm:flex-row">
-              <BaseButton to="/#booking">
+              <BaseButton :to="seoBookingPath({ masterId: master.id })">
                 {{ pageLabels.book }}
               </BaseButton>
               <BaseButton to="/masters" variant="light">
@@ -628,6 +629,7 @@ useBarberStructuredData(() => ({
 
     <ServicesGrid
       :services="serviceGridItems"
+      :booking-master-id="master.id"
       :section-label="pageLabels.services"
       :section-title="pageLabels.services"
       :section-description="pageLabels.servicesIntro"
@@ -739,7 +741,7 @@ useBarberStructuredData(() => ({
           </h2>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row">
-          <BaseButton to="/#booking" variant="light">
+          <BaseButton :to="seoBookingPath({ masterId: master.id })" variant="light">
             {{ pageLabels.book }}
           </BaseButton>
           <BaseButton to="/barbershop-odesa" variant="outline-light">

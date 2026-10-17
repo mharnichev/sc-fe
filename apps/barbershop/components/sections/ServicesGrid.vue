@@ -2,6 +2,7 @@
 import type { ServiceCatalogItemDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import type { PublicServiceCatalogItemDto } from '~/utils/seoRoutes'
+import { seoBookingPath } from '~/utils/seoBooking'
 
 const props = withDefaults(defineProps<{
   services?: readonly PublicServiceCatalogItemDto[]
@@ -11,6 +12,7 @@ const props = withDefaults(defineProps<{
   showCatalogueLink?: boolean
   preserveCatalogItems?: boolean
   priceFrom?: boolean
+  bookingMasterId?: number
 }>(), {
   services: () => [],
   sectionLabel: '',
@@ -93,6 +95,11 @@ const servicesFirstVisitOffer = computed(() => firstVisitOffers(offers.value)
     .some(service => offerAppliesToService(offer, serviceStableId(service)))) || null)
 const promotionLabel = (service: ServiceCatalogItemDto) =>
   service.active_promotion ? `-${service.active_promotion.discount_percent}%` : ''
+const serviceBookingPath = (service: ServiceCatalogItemDto) => seoBookingPath({
+  serviceSlug: serviceDetailPath(service) ? serviceSeoSlug(service) : undefined,
+  masterId: props.bookingMasterId,
+  serviceId: props.bookingMasterId ? service.barber_service_ids[0] : undefined,
+})
 const isLegacyCodePromotion = (service: ServiceCatalogItemDto) => {
   const promotion = service.active_promotion
   if (!promotion) return false
@@ -116,7 +123,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
   })
 
   if (route.path !== '/') {
-    await navigateTo('/#booking')
+    await navigateTo(serviceBookingPath(service))
     return
   }
 
