@@ -1,4 +1,7 @@
 import type { LocaleCode } from './locale'
+import { isIndexableBlogPost, postMetadata } from './postMetadata'
+import type { BlogPostVisibility } from './postMetadata'
+export type { BlogPostVisibility } from './postMetadata'
 import coverImage from '../assets/images/posts/barbering-museum-cover-1600.jpg'
 import coverImageMobile from '../assets/images/posts/barbering-museum-cover-mobile.jpg'
 import idemNaBukvyCoverImage from '../assets/images/posts/idem-na-bukvy-cover.webp'
@@ -117,8 +120,6 @@ export type BlogContentBlock = string | {
 
 export type BlogArticleImageLayout = 'floating' | 'grouped-gallery'
 export type BlogImageFit = 'cover' | 'natural-capped' | 'contain'
-export type BlogPostVisibility = 'public' | 'unlisted'
-
 export interface BlogPost {
   slug: string
   title: LocalizedText
@@ -415,7 +416,7 @@ const idemNaBukvyArticleImagesAfter = (
 
 export const posts: BlogPost[] = [
   {
-    slug: 'history-of-idem-na-bukvy',
+    ...postMetadata.historyOfIdemNaBukvy,
     title: {
       uk: 'З чого починалася історія проєкту «Ідем на Букви»?',
       en: 'How Did the Story of Idem na Bukvy Begin?',
@@ -424,7 +425,6 @@ export const posts: BlogPost[] = [
       uk: 'Три роки подкастів, плівкових репортажів та івентів - шлях від локальної ідеї до медіа про українську барберську культуру.',
       en: 'Three years of podcasts, film-photo reports, and events - the journey from a local idea to a publication about Ukrainian barbering culture.',
     },
-    publishedAt: '2026-07-14',
     category: {
       uk: 'Культура',
       en: 'Culture',
@@ -462,7 +462,7 @@ export const posts: BlogPost[] = [
     },
   },
   {
-    slug: 'barbering-in-the-museum',
+    ...postMetadata.barberingInTheMuseum,
     title: {
       uk: 'Барберінг у музеї: перший репортаж Soul Cuts',
       en: 'Barbering in a Museum: The First Soul Cuts Report',
@@ -471,7 +471,6 @@ export const posts: BlogPost[] = [
       uk: 'Як ми зібрали барберське комʼюніті в Одеському музеї західного та східного мистецтва і навіщо нам такі зустрічі.',
       en: 'How we brought the barbering community into the Odesa Museum of Western and Eastern Art, and why these gatherings matter.',
     },
-    publishedAt: '2026-03-16',
     category: {
       uk: 'Комʼюніті',
       en: 'Community',
@@ -650,7 +649,7 @@ export const sortedPosts = [...posts].sort((first, second) =>
   new Date(second.publishedAt).getTime() - new Date(first.publishedAt).getTime(),
 )
 
-const publicPosts = sortedPosts.filter(post => post.visibility !== 'unlisted')
+const publicPosts = sortedPosts.filter(isIndexableBlogPost)
 
 export const localizePost = (post: BlogPost, locale: LocaleCode): LocalizedBlogPost => ({
   ...post,
