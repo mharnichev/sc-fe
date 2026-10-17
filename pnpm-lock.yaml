@@ -65,6 +65,9 @@ importers:
 
   apps/barbershop:
     dependencies:
+      '@dobrodesk/widget':
+        specifier: 0.3.1
+        version: 0.3.1
       '@heroicons/vue':
         specifier: ^2.1.5
         version: 2.2.0(vue@3.5.40(typescript@6.0.2))
@@ -122,6 +125,9 @@ importers:
   packages/shared-utils: {}
 
 packages:
+
+  '@dobrodesk/widget@0.3.1':
+    resolution: {integrity: sha512-knRM/aNJWShe2wQx/bZGPgpbHsbzF1AKchH2y8Cykcz+Wrh1TGaHnBEdaOFeEVwxN9XryRnmvxgfZTbICdbdWw==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -4141,6 +4147,8 @@ packages:
     engines: {node: '>= 14'}
 
 snapshots:
+
+  '@dobrodesk/widget@0.3.1': {}
 
   '@alloc/quick-lru@5.2.0': {}
 

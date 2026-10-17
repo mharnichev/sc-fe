@@ -104,7 +104,7 @@ const contentSecurityPolicy = [
     ...(isProduction ? [] : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']),
   ).join(' ')}`,
   `media-src 'self' https:`,
-  `frame-src https://www.googletagmanager.com https://googletagmanager.com https://tagassistant.google.com`,
+  `frame-src https://www.googletagmanager.com https://googletagmanager.com https://tagassistant.google.com https://www.soulcuts.com.ua`,
   `worker-src 'self' blob:`,
   `manifest-src 'self'`,
 ].join('; ')
@@ -160,6 +160,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiUpstreamBase: normalizeApiBase(process.env.NUXT_API_UPSTREAM_BASE || defaultApiUpstreamBase),
     public: {
+      dobrodeskEnabled: process.env.NUXT_PUBLIC_DOBRODESK_ENABLED !== 'false',
+      dobrodeskIntegrationId: process.env.NUXT_PUBLIC_DOBRODESK_INTEGRATION_ID || 'wgt_254b61706928d132082c5ffef1ffc6ec',
+      dobrodeskFrameUrl: 'https://www.soulcuts.com.ua/support-widget',
       apiBase,
       siteUrl,
     },

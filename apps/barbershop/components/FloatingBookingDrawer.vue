@@ -2,8 +2,18 @@
 import myAppointmentsCalendarImage from '~/assets/images/customer-activity/my-appointments-calendar.webp'
 import bookEngImage from '~/assets/images/booking/booking-en.webp'
 import bookUaImage from '~/assets/images/booking/booking-ua.webp'
+import { isDobrodeskEnabled, isDobrodeskPublicRoute } from '~/utils/dobrodesk'
+import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
 import { acquireBodyScrollLock, releaseBodyScrollLock } from '~/utils/bodyScrollLock'
 
+const supportRoute = useRoute()
+const supportConfig = useRuntimeConfig()
+const { isPrivateReviewRoute } = useReviewPrivacy()
+const supportOpenRequest = useState('dobrodesk-open-request', () => 0)
+const showSupport = computed(() => isDobrodeskEnabled(supportConfig.public.dobrodeskEnabled)
+  && !!supportConfig.public.dobrodeskIntegrationId
+  && isDobrodeskPublicRoute(supportRoute, supportConfig.app.baseURL)
+  && !isPrivateReviewRoute.value)
 const { locale, terms } = useTerms()
 const { trackEvent } = useAnalytics()
 const {
@@ -134,6 +144,15 @@ onBeforeUnmount(() => {
     class="floating-booking-actions fixed bottom-4 right-4 z-[75] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6"
     :class="{ 'floating-booking-actions--over-booking': isTriggerOverBooking }"
   >
+    <button
+      v-if="showSupport"
+      type="button"
+      class="inline-flex h-14 w-14 items-center justify-center rounded-full border border-neutral-700 bg-[#ffca2b] text-neutral-950 shadow-lg transition-colors hover:bg-[#ffda68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+      :aria-label="locale === 'en' ? 'Open support chat' : 'Відкрити чат підтримки'"
+      @click="supportOpenRequest++"
+    >
+      <ChatBubbleLeftRightIcon class="h-7 w-7" aria-hidden="true" />
+    </button>
     <button
       type="button"
       class="my-appointments-button group relative inline-flex h-14 w-14 items-center justify-center text-white outline-none focus-visible:ring-2 focus-visible:ring-[#ffca2b] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
