@@ -31,6 +31,13 @@ const visibleSlides = ref(1)
 const expandedOriginalIds = ref<string[]>([])
 const expandedReviewIds = ref<string[]>([])
 const reviewsDialogOpen = ref(false)
+const reviewsDialogMounted = ref(false)
+
+// The closed dialog must not add blocking CSS to the server-rendered page.
+// Keep it mounted after its first open so the existing close transition remains.
+watch(reviewsDialogOpen, (open) => {
+  if (open) reviewsDialogMounted.value = true
+}, { flush: 'sync' })
 
 const maxActiveIndex = computed(() =>
   Math.max(0, reviews.value.length - visibleSlides.value),
@@ -325,7 +332,8 @@ onBeforeUnmount(() => {
       />
     </div>
 
-    <BaseModal
+    <LazyBaseModal
+      v-if="reviewsDialogMounted"
       v-model="reviewsDialogOpen"
       type="right"
       :dialog-label="locale === 'uk' ? 'Відгуки Google' : 'Google reviews'"
@@ -347,6 +355,6 @@ onBeforeUnmount(() => {
           {{ locale === 'uk' ? 'Текстові відгуки поки недоступні.' : 'Written reviews are not available yet.' }}
         </p>
       </div>
-    </BaseModal>
+    </LazyBaseModal>
   </section>
 </template>

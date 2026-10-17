@@ -28,7 +28,8 @@ const { trackEvent } = useAnalytics()
 const route = useRoute()
 const { offers } = useBookingPromotions()
 // Catalogue text and links belong in SSR; Nuxt reuses this payload on hydration.
-const { data: serviceCatalog, pending: servicesPending, error: servicesError, refresh: refreshServices } = await useAsyncData('home-services-catalog', domain.getServiceCatalog, {
+const { data: serviceCatalog, pending: servicesPending, error: servicesError, refresh: refreshServices } = await useAsyncData('home-services-grid', async () =>
+  activeBaseCatalogItems(await domain.getServiceCatalog()), {
   immediate: props.services.length === 0,
   timeout: 3000,
   default: () => [],
