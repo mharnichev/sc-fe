@@ -12,7 +12,8 @@ let mobileBookingPhotoObserver: IntersectionObserver | null = null
 let bookingAnchorLockTimer: number | null = null
 let deferredSectionsMountTimer: number | null = null
 const bookingHashTargets = new Set(['#booking', '#booking-stepper'])
-const hasBookingHashTarget = () => bookingHashTargets.has(window.location.hash)
+const homeHashTargets = new Set(['#booking', '#booking-stepper', '#team', '#reviews'])
+const hasHomeHashTarget = () => homeHashTargets.has(window.location.hash)
 const stopBookingAnchorLock = () => {
   if (bookingAnchorLockTimer === null) return
 
@@ -82,9 +83,9 @@ const observeBookingSection = () => {
 }
 
 const keepMountedBookingHashTargetAnchored = () => {
-  if (!hasBookingHashTarget()) return
+  if (!hasHomeHashTarget()) return
 
-  const targetId = window.location.hash === '#booking' ? 'booking' : 'booking-stepper'
+  const targetId = window.location.hash.slice(1)
   const startedAt = window.performance.now()
 
   stopBookingAnchorLockOnInput()
@@ -94,7 +95,7 @@ const keepMountedBookingHashTargetAnchored = () => {
   window.addEventListener('keydown', stopBookingAnchorLockOnInput, { once: true })
 
   const scrollWhenReady = () => {
-    if (!hasBookingHashTarget()) {
+    if (!hasHomeHashTarget()) {
       stopBookingAnchorLockOnInput()
       return
     }
@@ -102,10 +103,10 @@ const keepMountedBookingHashTargetAnchored = () => {
     const bookingSection = document.querySelector<HTMLElement>('.booking-section:not(.booking-section--drawer)')
     const target = targetId === 'booking'
       ? bookingSection
-      : document.getElementById('booking-stepper')
+      : document.getElementById(targetId)
 
-    if (bookingSection && target) {
-      target.scrollIntoView({ block: 'start', behavior: 'auto' })
+    if (target) {
+      target.scrollIntoView({ block: 'start', behavior: 'instant' })
     }
 
     if (window.performance.now() - startedAt < 8000) {
@@ -120,9 +121,9 @@ const keepMountedBookingHashTargetAnchored = () => {
 }
 
 const handleBookingHashNavigation = () => {
-  if (!hasBookingHashTarget()) return
+  if (!hasHomeHashTarget()) return
 
-  mountBookingSection()
+  if (bookingHashTargets.has(window.location.hash)) mountBookingSection()
   keepMountedBookingHashTargetAnchored()
 }
 
@@ -173,8 +174,13 @@ const scheduleDeferredSectionsMountAfterHashScroll = () => {
 onMounted(() => {
   window.addEventListener('hashchange', handleBookingHashNavigation)
 
-  if (hasBookingHashTarget()) {
+  if (hasHomeHashTarget()) {
     handleBookingHashNavigation()
+    if (bookingHashTargets.has(window.location.hash)) return
+    scheduleDeferredSectionsMountAfterHashScroll()
+    // Anchor positioning runs in the preceding animation frame callback. Observe
+    // proximity afterwards so the initial top-of-page viewport cannot mount booking.
+    window.requestAnimationFrame(observeBookingSection)
     return
   }
 
@@ -186,7 +192,7 @@ watch(shouldMountBookingSection, async (shouldMount) => {
 
   await nextTick()
   observeMobileBookingPhoto()
-  if (hasBookingHashTarget()) {
+  if (hasHomeHashTarget()) {
     scheduleDeferredSectionsMountAfterHashScroll()
   }
   else {
@@ -232,15 +238,15 @@ useSeo(
           loading="lazy"
         >
       </section>
-      <template v-if="shouldMountDeferredSections">
-        <LazyBotSection />
-        <LazyTeamSection />
-        <LazyReviewsSection />
-        <LazyBlogSection />
-        <LazyIdemNaBukviMarquee />
-        <LazyFAQSection />
-        <LazyFeedbackSection />
-      </template>
+    </ClientOnly>
+    <LazyBotSection />
+    <LazyTeamSection />
+    <LazyReviewsSection />
+    <ClientOnly v-if="shouldMountDeferredSections">
+      <LazyBlogSection />
+      <LazyIdemNaBukviMarquee />
+      <LazyFAQSection />
+      <LazyFeedbackSection />
     </ClientOnly>
   </div>
 </template>

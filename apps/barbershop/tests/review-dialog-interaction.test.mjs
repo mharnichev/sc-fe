@@ -6,6 +6,6 @@ test('mobile team review dialog trigger overrides its noninteractive overlay', a
   const team = await readFile(new URL('../components/sections/TeamSection.vue', import.meta.url), 'utf8')
   const rating = await readFile(new URL('../components/ui/MasterRatingBlock.vue', import.meta.url), 'utf8')
   assert.match(team, /pointer-events-none absolute bottom-28/)
-  assert.match(team, /v-if="isTeamVisible && isMobile"[\s\S]*?reviews-dialog/)
+  assert.match(team, /v-if="isTeamVisible && isMobile && activeMemberIndex === index"[\s\S]*?reviews-dialog/)
   assert.match(rating, /:class="reviewsDialog \? 'pointer-events-auto cursor-pointer/)
 })

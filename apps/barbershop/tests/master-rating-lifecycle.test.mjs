@@ -138,7 +138,7 @@ test('dialog pagination retries the same page and ignores master-change and unmo
 
 test('only the visible responsive team branch mounts ratings', async () => {
   const source = await readFile(new URL('../components/sections/TeamSection.vue', import.meta.url), 'utf8')
-  assert.match(source, /v-if="isTeamVisible && isMobile"/)
+  assert.match(source, /v-if="isTeamVisible && isMobile && activeMemberIndex === index"/)
   assert.match(source, /v-if="isTeamVisible && !isMobile"/)
 })
 

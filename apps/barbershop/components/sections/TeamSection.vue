@@ -21,7 +21,8 @@ const props = withDefaults(defineProps<{
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const assetUrl = useAssetUrl()
-const { data: masters, pending: mastersPending } = await useAsyncData('home-team-masters', domain.getMasters, {
+const { data: masters, pending: mastersPending, error: mastersError, refresh: refreshMasters } = await useAsyncData('home-team-masters', domain.getMasters, {
+  timeout: 3000,
   default: () => [],
 })
 
@@ -65,7 +66,7 @@ const teamMembers = computed(() =>
 const activeMember = computed(() => teamMembers.value[activeMemberIndex.value] || teamMembers.value[0] || null)
 const activeImage = computed(() => activeMember.value?.image || '')
 const hasMultipleTeamMembers = computed(() => teamMembers.value.length > 1)
-const teamScrollHeight = computed(() => isMobile.value ? '100svh' : `${Math.max(teamMembers.value.length, 1) * 100}vh`)
+const teamScrollHeight = computed(() => `${Math.max(teamMembers.value.length, 1) * 100}vh`)
 
 const updateActiveMemberFromScroll = () => {
   if (isMobile.value || !teamSection.value || teamMembers.value.length < 2) return
@@ -123,6 +124,7 @@ const selectMember = (index: number) => {
 }
 
 onMounted(() => {
+  if (mastersError.value) void refreshMasters({ timeout: 15000 })
   if (teamSection.value && typeof IntersectionObserver !== 'undefined') {
     teamVisibilityObserver = new IntersectionObserver(([entry]) => {
       isTeamVisible.value = Boolean(entry?.isIntersecting)
@@ -165,7 +167,7 @@ watch(teamMembers, (members) => {
 </script>
 
 <template>
-  <section id="team" ref="teamSection" data-header-theme="light" class="relative bg-stone-100" :style="{ height: teamScrollHeight }">
+  <section id="team" ref="teamSection" data-header-theme="light" class="team-section relative bg-stone-100" :style="{ '--team-desktop-height': teamScrollHeight }">
     <div class="sticky top-0 h-screen w-full overflow-hidden">
       <div class="relative left-1/2 h-screen w-screen -translate-x-1/2 bg-white md:hidden">
         <div class="absolute inset-x-0 top-0 z-20 pb-14 pt-5" data-reveal="soft">
@@ -207,45 +209,42 @@ watch(teamMembers, (members) => {
                 class="absolute inset-0 h-full w-full object-cover object-top"
                 loading="lazy"
               >
-            </article>
-          </div>
-
-          <div v-if="activeMember" class="pointer-events-none absolute bottom-28 left-0 right-0 z-20 text-white">
-            <Transition name="team-member-copy" mode="out-in" :duration="{ enter: 380, leave: 320 }">
-              <div :key="activeMember.id" class="site-container">
-                <div class="team-member-copy-surface w-full max-w-md p-5 sm:p-6">
-                  <p class="type-meta type-eyebrow--wide text-xs text-white">
-                    {{ activeMember.role }}
-                  </p>
-                  <h3 class="type-display mt-3 text-2xl leading-none text-white">
-                    {{ activeMember.name }}
-                  </h3>
-                  <MasterRatingBlock
-                    v-if="isTeamVisible && isMobile"
-                    :master-id="activeMember.id"
-                    tone="dark"
-                    :review-limit="5"
-                    show-reviews
-                    rotate-reviews
-                    reviews-dialog
-                    class="mt-4"
-                    :summary-label="activeMember.description"
-                    :show-summary-details="false"
-                    show-review-count
-                  />
-                  <NuxtLink
-                    v-if="activeMember.profilePath"
-                    :to="activeMember.profilePath"
-                    class="group pointer-events-auto mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
-                  >
-                    <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
-                    <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                      <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                  </NuxtLink>
+              <div class="pointer-events-none absolute bottom-28 left-0 right-0 z-20 text-white">
+                <div class="site-container">
+                  <div class="team-member-copy-surface w-full max-w-md p-5 sm:p-6">
+                    <p class="type-meta type-eyebrow--wide text-xs text-white">
+                      {{ member.role }}
+                    </p>
+                    <h3 class="type-display mt-3 text-2xl leading-none text-white">
+                      {{ member.name }}
+                    </h3>
+                    <MasterRatingBlock
+                      v-if="isTeamVisible && isMobile && activeMemberIndex === index"
+                      :master-id="member.id"
+                      tone="dark"
+                      :review-limit="5"
+                      show-reviews
+                      rotate-reviews
+                      reviews-dialog
+                      class="mt-4"
+                      :summary-label="member.description"
+                      :show-summary-details="false"
+                      show-review-count
+                    />
+                    <NuxtLink
+                      v-if="member.profilePath"
+                      :to="member.profilePath"
+                      class="group pointer-events-auto mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
+                    >
+                      <BaseHoverUnderlineText>{{ profileLabel }}</BaseHoverUnderlineText>
+                      <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </NuxtLink>
+                  </div>
                 </div>
               </div>
-            </Transition>
+            </article>
           </div>
         </template>
 
@@ -369,6 +368,16 @@ watch(teamMembers, (members) => {
 </template>
 
 <style scoped>
+.team-section {
+  height: 100svh;
+}
+
+@media (min-width: 768px) {
+  .team-section {
+    height: var(--team-desktop-height);
+  }
+}
+
 .team-photo-enter-active,
 .team-photo-leave-active {
   transition: opacity 260ms ease, filter 320ms ease, transform 420ms ease;

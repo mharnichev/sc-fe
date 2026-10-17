@@ -5,8 +5,8 @@ import FeedbackState from '~/components/ui/FeedbackState.vue'
 const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
 
-const { data: reviewsResponse, pending, error } = await useAsyncData('home-google-business-reviews', domain.getReviews, {
-  server: false,
+const { data: reviewsResponse, pending, error, refresh: refreshReviews } = await useAsyncData('home-google-business-reviews', domain.getReviews, {
+  timeout: 2500,
   default: () => ({
     average_rating: null,
     total_review_count: 0,
@@ -76,6 +76,7 @@ const formatReviewDate = (value?: string | null) => {
 
   return new Intl.DateTimeFormat(dateLocale.value, {
     month: 'short',
+    timeZone: 'Europe/Kyiv',
     year: 'numeric',
   }).format(new Date(value))
 }
@@ -114,13 +115,6 @@ const toggleReviewText = (review: GoogleBusinessReviewDto) => {
   }
 
   expandedReviewIds.value = [...expandedReviewIds.value, review.review_id]
-}
-
-const reviewPreview = (review: GoogleBusinessReviewDto) => {
-  const text = reviewText(review).trim()
-  if (isReviewExpanded(review) || text.length <= 140) return text
-
-  return `${text.slice(0, 140).trimEnd()}...`
 }
 
 const isReviewTruncated = (review: GoogleBusinessReviewDto) =>
@@ -186,6 +180,7 @@ watch(visibleSlides, () => {
 })
 
 onMounted(() => {
+  if (error.value) void refreshReviews({ timeout: 15000 })
   updateVisibleSlides()
   window.addEventListener('resize', updateVisibleSlides)
   startAutoplay()
@@ -255,7 +250,7 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </div>
-              <p class="text-sm font-semibold leading-6 text-neutral-950 md:text-base md:leading-7">"{{ reviewPreview(review) }}"</p>
+              <p class="text-sm font-semibold leading-6 text-neutral-950 md:text-base md:leading-7">"<span>{{ reviewText(review).trim().slice(0, 140) }}</span><span v-if="isReviewTruncated(review)" v-show="isReviewExpanded(review)">{{ reviewText(review).trim().slice(140) }}</span><span v-if="isReviewTruncated(review) && !isReviewExpanded(review)">...</span>"</p>
               <button
                 v-if="isReviewTruncated(review)"
                 type="button"
