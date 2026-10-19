@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { CheckIcon, ArrowsRightLeftIcon, Cog6ToothIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
+
+const catalogAuth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const props = defineProps<{
   productId: number
@@ -25,7 +29,7 @@ watch(() => [props.barcode, props.allowBackorder] as const, ([nextBarcode, nextA
 }, { immediate: true })
 
 const save = async () => {
-  if (saving.value) return
+  if (!catalogEditable.value || saving.value) return
   saving.value = true
   errorMessage.value = ''
   try {
@@ -47,7 +51,7 @@ const save = async () => {
 </script>
 
 <template>
-  <BaseCard as="section" padding="sm" class="space-y-4">
+  <BaseCard v-if="catalogEditable" as="section" padding="sm" class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="flex items-center gap-2 text-lg font-semibold text-ui-primary"><Cog6ToothIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Налаштування товару</h2>

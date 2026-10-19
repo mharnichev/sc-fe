@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { categoryPathLabels } from '~/utils/categoryPaths'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import { slugify } from '@shared-utils'
@@ -11,6 +12,9 @@ interface FilterRow {
   value_slug: string
   value_name: string
 }
+
+const catalogAuth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const props = defineProps<{
   categories: Category[]
@@ -248,6 +252,7 @@ const normalizeText = (value: string) => {
 }
 
 const submit = () => {
+  if (!catalogEditable.value) return
   parseError.value = ''
   let attributesJson: Record<string, unknown> | null = null
 
@@ -283,7 +288,7 @@ const submit = () => {
 </script>
 
 <template>
-  <form class="space-y-6" @submit.prevent="submit">
+  <form v-if="catalogEditable" class="space-y-6" @submit.prevent="submit">
     <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
       <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

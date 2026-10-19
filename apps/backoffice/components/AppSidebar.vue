@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canManageCatalog } from '~/utils/catalogAccess'
 import {
   HomeIcon,
   CubeIcon,
@@ -25,6 +26,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 
+
 const props = defineProps<{
   collapsed?: boolean
 }>()
@@ -34,6 +36,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(auth.user))
 const route = useRoute()
 const api = useBackofficeApi()
 const { isLightTheme, themeLabel, themeToggleLabel, toggleTheme } = useBackofficeTheme()
@@ -118,7 +121,7 @@ const onlineStoreLinks = computed(() => [
   ...(isAdmin.value
     ? [
         { label: 'Дашборд магазину', to: '/admin/dashboards/store', icon: HomeIcon },
-        { label: 'Товари', to: '/products', icon: CubeIcon },
+        ...(catalogEditable.value ? [{ label: 'Товари', to: '/products', icon: CubeIcon }] : []),
         { label: 'Акції товарів', to: '/shop-promotions', icon: TicketIcon },
         { label: 'Категорії', to: '/categories', icon: TagIcon },
         { label: 'Бренди', to: '/brands', icon: BuildingStorefrontIcon },

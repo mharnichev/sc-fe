@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, CameraIcon, XMarkIcon, CubeIcon, LockClosedIcon, ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 provide('compactFieldHints', true)
 
+
 const auth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(auth.user))
 const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
 const cameraOpen = ref(false)
 const searchInput = ref<{ focus: () => void } | null>(null)
@@ -122,7 +126,7 @@ watch(() => route.fullPath, () => { cameraOpen.value = false })
 const changePage = (next: number) => updateQuery({ page: String(next) })
 const retry = async () => { await Promise.all([refresh(), refreshProcurement()]) }
 const productVariant = (item: Product | undefined) => item?.package_size || item?.model_name || (item?.volume_ml ? `${item.volume_ml} мл` : '—')
-const productImage = (item: Product | undefined) => item?.image_url ? assetUrl(item.image_url) : ''
+const productImage = (item: Product | undefined) => assetUrl(productDisplayImage(item))
 const stockState = (available: number, reserved: number, toOrder: number) => toOrder > 0 ? 'Потрібна закупівля' : available <= 0 ? 'Немає у вільному залишку' : reserved > 0 ? 'Частково зарезервовано' : 'Доступно'
 const stockTone = (available: number, reserved: number, toOrder: number): 'danger' | 'warning' | 'success' => toOrder > 0 ? 'warning' : available <= 0 ? 'danger' : reserved > 0 ? 'warning' : 'success'
 </script>
@@ -189,7 +193,7 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
         <td class="text-ui-secondary">{{ procurementByProduct.get(item.id) ?? 0 }}</td>
         <td><BaseBadge :tone="item.allow_backorder ? 'info' : 'neutral'">{{ item.allow_backorder ? 'Дозволено' : 'Вимкнено' }}</BaseBadge></td>
         <td><BaseBadge :tone="stockTone(item.available, item.reserved, procurementByProduct.get(item.id) || 0)">{{ stockState(item.available, item.reserved, procurementByProduct.get(item.id) || 0) }}</BaseBadge></td>
-        <td><div class="flex flex-wrap gap-x-3 gap-y-1 text-sm"><NuxtLink :to="`/products/${item.id}`" class="font-medium text-ui-accent hover:underline">Товар</NuxtLink><NuxtLink :to="`/inventory/movements?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Історія</NuxtLink><NuxtLink :to="`/inventory/receiving?product_id=${item.id}${item.barcode ? `&barcode=${encodeURIComponent(item.barcode)}` : ''}`" class="font-medium text-ui-accent hover:underline">Прийняти</NuxtLink><NuxtLink v-if="canPostInventory" :to="`/inventory/operations?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Операція</NuxtLink></div></td>
+        <td><div class="flex flex-wrap gap-x-3 gap-y-1 text-sm"><NuxtLink v-if="catalogEditable" :to="`/products/${item.id}`" class="font-medium text-ui-accent hover:underline">Товар</NuxtLink><NuxtLink :to="`/inventory/movements?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Історія</NuxtLink><NuxtLink :to="`/inventory/receiving?product_id=${item.id}${item.barcode ? `&barcode=${encodeURIComponent(item.barcode)}` : ''}`" class="font-medium text-ui-accent hover:underline">Прийняти</NuxtLink><NuxtLink v-if="canPostInventory" :to="`/inventory/operations?product_id=${item.id}`" class="font-medium text-ui-accent hover:underline">Операція</NuxtLink></div></td>
       </tr>
     </BaseTable>
     <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-ui-secondary"><span>Усього: {{ total }}</span><div class="flex gap-2"><BaseButton variant="neutral" :disabled="page === 1" @click="changePage(page - 1)"><ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />Попередня</BaseButton><BaseButton variant="neutral" :disabled="page * pageSize >= total" @click="changePage(page + 1)">Наступна<ChevronRightIcon class="h-4 w-4" aria-hidden="true" /></BaseButton></div></div>

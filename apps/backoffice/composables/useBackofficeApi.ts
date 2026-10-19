@@ -130,6 +130,8 @@ export interface Product {
   is_active: boolean
   image_url: string | null
   images: ProductImage[]
+  display_image_url?: string | null
+  display_image_urls?: string[]
   external_url: string | null
   availability_status: string | null
   attributes_json: Record<string, unknown> | null
@@ -1638,6 +1640,8 @@ export const useBackofficeApi = () => {
       available: product.available_quantity,
       allow_backorder: product.allow_backorder,
       image_url: product.image_url,
+      display_image_url: product.display_image_url,
+      display_image_urls: product.display_image_urls,
       brand_name: product.brand?.name,
       package_size: product.package_size,
       model_name: product.model_name,

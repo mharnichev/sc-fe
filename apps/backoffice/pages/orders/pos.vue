@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowRightIcon, MagnifyingGlassIcon, ShoppingBagIcon, MinusIcon, PlusIcon, UserIcon, BeakerIcon, QrCodeIcon, CheckIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import type { InventoryProduct } from '~/types/inventory'
 import type { PosOrderCreate } from '~/composables/useBackofficeApi'
@@ -69,7 +70,7 @@ const prepare = () => {
       <div v-if="!rows.length && !command.intent.value" class="rounded-2xl border border-dashed border-ui px-4 py-6 text-center"><ShoppingBagIcon class="mx-auto mb-2 h-8 w-8 text-ui-secondary" aria-hidden="true" /><p class="font-medium">Додайте перший товар</p><p class="mt-1 text-sm text-ui-secondary">Натисніть кнопку вище: введіть назву, SKU або скануйте штрихкод.</p></div>
       <article v-for="(row, index) in rows" :key="row.product.id" class="space-y-2 rounded-xl border border-ui p-2.5">
         <div class="flex min-w-0 items-center gap-2.5">
-          <img v-if="row.product.image_url && !failedImages.includes(row.product.id)" :src="assetUrl(row.product.image_url)" alt="" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedImages.push(row.product.id)">
+          <img v-if="productDisplayImage(row.product) && !failedImages.includes(row.product.id)" :src="assetUrl(productDisplayImage(row.product))" alt="" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedImages.push(row.product.id)">
           <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-ui-subtle text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-6 w-6" /></span>
           <div class="min-w-0"><h3 class="break-words text-sm font-semibold leading-snug">{{ row.product.name }}</h3><p class="mt-1 text-xs text-ui-secondary">Доступно: {{ row.product.available }} шт.</p></div>
         </div>

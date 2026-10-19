@@ -8,6 +8,7 @@ const formSource = await readFile(new URL('../components/ProductForm.vue', impor
 const productPageSource = await readFile(new URL('../pages/products/[id].vue', import.meta.url), 'utf8')
 const productListSource = await readFile(new URL('../pages/products/index.vue', import.meta.url), 'utf8')
 const dashboardSource = await readFile(new URL('../pages/admin/dashboards/store.vue', import.meta.url), 'utf8')
+const imageDisplaySource = await readFile(new URL('../utils/productImages.ts', import.meta.url), 'utf8')
 
 test('product image API uses the backend contract and lets the browser set multipart boundaries', () => {
   const imageApiSource = apiSource.slice(
@@ -63,8 +64,9 @@ test('embedded ProductImage rows take precedence and avoid an initial duplicate 
   assert.match(productPageSource, /\.filter\(image => image\.is_active && image\.image_url\)/)
   assert.match(productPageSource, /:initial-images="managedImages"/)
   assert.match(managerSource, /if \(props\.initialImages === undefined\) void loadImages\(\)/)
-  assert.match(productListSource, /if \(Array\.isArray\(product\.images\) && product\.images\.length\)/)
-  assert.match(dashboardSource, /product\.images\.some\(image => image\.is_active/)
+  assert.match(productListSource, /productDisplayImage\(product\)/)
+  assert.match(imageDisplaySource, /Array\.isArray\(product\.images\) && product\.images\.length/)
+  assert.match(dashboardSource, /Boolean\(productDisplayImage\(product\)\)/)
 })
 
 test('legacy URLs remain available and new products defer uploads until after save', () => {

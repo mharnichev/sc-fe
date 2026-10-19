@@ -1,4 +1,5 @@
 import type { RouteLocationNormalized } from 'vue-router'
+import { canManageCatalog, isCatalogManagementPath } from '~/utils/catalogAccess'
 
 const safeRedirectPath = (value: unknown) =>
   typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
@@ -23,6 +24,9 @@ export default defineNuxtRouteMiddleware(async to => {
   }
   if (!auth.user) {
     return navigateTo(loginRedirect(to))
+  }
+  if (isCatalogManagementPath(to.path) && !canManageCatalog(auth.user)) {
+    return navigateTo('/dashboard')
   }
   if ((to.path.startsWith('/messaging') || to.path.startsWith('/blog') || to.path.startsWith('/reviews')) && !(auth.user.is_superuser || auth.user.role === 'admin')) {
     return navigateTo('/')
