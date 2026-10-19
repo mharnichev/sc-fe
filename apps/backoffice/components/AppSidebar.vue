@@ -117,6 +117,7 @@ const barberShopLinks = computed(() => [
 ])
 
 const onlineStoreLinks = computed(() => [
+  ...(auth.user?.can_record_sales || auth.user?.is_superuser ? [{ label: 'Продати товар', to: '/orders/pos', icon: ShoppingBagIcon }] : []),
   { label: 'Склад', to: '/inventory', icon: ArchiveBoxIcon },
   ...(isAdmin.value
     ? [
