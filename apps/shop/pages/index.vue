@@ -27,6 +27,7 @@ const { data: initialProductsPage, pending: isFirstLoading } = await useAsyncDat
   () => domain.getProductsPage({
     limit: HOME_PAGE_LIMIT,
     offset: 0,
+    in_stock: true,
   }),
 )
 
@@ -54,6 +55,7 @@ const fetchGoods = async () => {
     const page = await domain.getProductsPage({
       limit: pagination.limit,
       offset: pagination.offset,
+      in_stock: true,
     })
     products.value = [...products.value, ...page.items]
     pagination.offset = products.value.length
