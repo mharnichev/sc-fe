@@ -1,4 +1,4 @@
-export const useApi = () => {
+export const useApi = (settings: { refreshOnUnauthorized?: boolean } = {}) => {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
   const apiBase = typeof config.public.apiBase === 'string' ? config.public.apiBase : ''
@@ -25,7 +25,7 @@ export const useApi = () => {
       return await rawApi<T>(request, options)
     }
     catch (cause: any) {
-      if (!current() || cause?.response?.status !== 401 || !auth.refreshToken) {
+      if (settings.refreshOnUnauthorized === false || !current() || cause?.response?.status !== 401 || !auth.refreshToken) {
         throw cause
       }
 

@@ -79,3 +79,18 @@ test('startup refresh failure cannot clear a newer login', async () => {
   first.reject(new Error('old refresh expired')); await pending
   assert.equal(auth.accessToken, 'new'); assert.equal(auth.refreshToken, 'new-refresh'); assert.equal(auth.user.id, 2)
 })
+
+test('read-only diagnostic 401 never refreshes tokens or logs out', async () => {
+  let refreshes = 0, logouts = 0, reads = 0
+  const auth = { user: { id: 1 }, sessionRevision: 1, accessToken: 'existing-fixture', refreshToken: 'fixture-refresh',
+    refreshSession: async () => { refreshes++; return true }, logout: async () => { logouts++ } }
+  const failure = { response: { status: 401 } }
+  const context = vm.createContext({ Headers, useRuntimeConfig: () => ({ public: { apiBase: '/api/v1' } }), useAuthStore: () => auth,
+    $fetch: { create: config => async (_url, options) => {
+      const request = { ...options }; config.onRequest({ options: request }); assert.equal(request.method, 'GET'); reads++; throw failure
+    } } })
+  const source = readFileSync(new URL('../composables/useApi.ts', import.meta.url), 'utf8').replace('export const useApi', 'const useApi')
+  vm.runInContext(compile(source) + '\nglobalThis.api = useApi({ refreshOnUnauthorized: false })', context)
+  await assert.rejects(context.api('/backoffice/shop-operations-watch', { method: 'GET', retry: 0 }), error => error === failure)
+  assert.equal(reads, 1); assert.equal(refreshes, 0); assert.equal(logouts, 0)
+})
