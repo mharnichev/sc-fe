@@ -140,7 +140,7 @@ const availabilityWindowDates = computed(() => {
   const current = new Date(start)
   while (current <= end) {
     const input = inputFromDate(current)
-    if (!calendar.isMonday(input)) dates.push(input)
+    dates.push(input)
     current.setDate(current.getDate() + 1)
   }
   return dates
@@ -214,10 +214,7 @@ const close = () => {
 
 const validate = () => {
   if (!form.date || !form.start_time || !form.end_time) return 'Виберіть початок і завершення інтервалу.'
-  if (form.action !== 'availability' || form.availability_preset === 'interval') {
-    if (calendar.isMonday(form.date)) return 'Понеділок — вихідний день.'
-  }
-  else if (!availabilityWindowDates.value.length) {
+  if (form.action === 'availability' && form.availability_preset !== 'interval' && !availabilityWindowDates.value.length) {
     return 'У діапазоні немає робочих днів для відкриття.'
   }
   if (form.start_time >= form.end_time) return 'Час початку має бути раніше часу завершення.'

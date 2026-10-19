@@ -116,7 +116,6 @@ const activeStepKey = computed(() => bookingStepKeys[activeStepIndex.value] || b
 const bookingSectionId = computed(() => props.mode === 'section' ? 'booking' : undefined)
 const bookingStepperId = computed(() => props.idPrefix === 'booking' ? 'booking-stepper' : `${props.idPrefix}-stepper`)
 const isDrawerMode = computed(() => props.mode === 'drawer')
-const closedWeekdays = [1]
 let serviceSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let serviceSearchPlaceholderTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -217,24 +216,9 @@ const recoveryEventId = () => {
   return `recovery-${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`
 }
 
-const isMondayDateInput = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return false
-
-  return new Date(year, month - 1, day).getDay() === 1
-}
-
 const today = kyivRecoveryDateInput()
 const maxBookableDate = addRecoveryCalendarMonths(today, 2)
-const defaultBookableDate = (() => {
-  for (let dayOffset = 0; dayOffset <= 62; dayOffset += 1) {
-    const value = addRecoveryCalendarDays(today, dayOffset)
-
-    if (!isMondayDateInput(value)) return value
-  }
-
-  return today
-})()
+const defaultBookableDate = today
 
 if (!selectedDate.value) {
   selectedDate.value = defaultBookableDate
@@ -886,7 +870,6 @@ watch(selectedPromotionCodes, (codes) => {
   }
 })
 
-const isSelectedDateClosed = computed(() => isMondayDateInput(selectedDate.value))
 const canLoadSlots = computed(() => Boolean(selectedMasterId.value && selectedServiceIds.value.length && selectedDate.value))
 
 const requestContextKey = computed(() => bookingContextKey(
@@ -913,8 +896,8 @@ const refreshSlots = async () => {
   slots.value = []
   loadedSlotsKey.value = ''
   slotsError.value = null
-  slotsPending.value = Boolean(key && !isSelectedDateClosed.value)
-  if (!key || !masterId || isSelectedDateClosed.value) return
+  slotsPending.value = Boolean(key)
+  if (!key || !masterId) return
   try {
     const result = await domain.getAvailableSlots(masterId, serviceIds, day, duration, ticket.signal)
     if (!ticket.current()) return
@@ -953,7 +936,7 @@ onBeforeUnmount(() => { slotRequest.cancel(); recoveryRequest.cancel(); selectio
 
 const visibleSlots = computed<AvailableSlotDto[]>(() =>
   !slotsPending.value && !slotsError.value && loadedSlotsKey.value === requestContextKey.value
-    && !isSelectedDateClosed.value ? slots.value : [],
+    ? slots.value : [],
 )
 
 type DayAvailability = 'unknown' | 'loading' | 'available' | 'unavailable' | 'error'
@@ -1325,7 +1308,7 @@ watch(
     if (!shouldRecordNoSlotObservation({
       canLoad: canLoadSlots.value,
       dateExplicitlySelected: dateExplicitlySelected.value,
-      isClosedDate: isSelectedDateClosed.value,
+      isClosedDate: false,
       loadedKey: loadedSlotsKey.value,
       requestKey: slotsKey.value,
       pending: slotsPending.value,
@@ -1353,7 +1336,6 @@ watch(
   () => {
     if (
       !canLoadSlots.value
-      || isSelectedDateClosed.value
       || loadedSlotsKey.value !== slotsKey.value
       || slotsPending.value
       || slotsError.value
@@ -1422,7 +1404,7 @@ const selectedSlot = computed(() =>
 
 const isServiceComplete = computed(() => selectedServiceCount.value > 0)
 const isMasterComplete = computed(() => Boolean(selectedMaster.value))
-const isTimeComplete = computed(() => Boolean(selectedDate.value && !isSelectedDateClosed.value && selectedSlot.value))
+const isTimeComplete = computed(() => Boolean(selectedDate.value && selectedSlot.value))
 const isContactComplete = computed(() =>
   Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
 )
@@ -2205,7 +2187,6 @@ onBeforeUnmount(() => {
                       :min="today"
                       :max="maxBookableDate"
                       :locale="locale"
-                      :disabled-weekdays="closedWeekdays"
                       :inline="isDrawerMode"
                     />
                     <button v-if="nearestAvailableDate" type="button" class="mt-3 text-sm underline" @click="selectBookingDate(nearestAvailableDate)">
@@ -2232,9 +2213,6 @@ onBeforeUnmount(() => {
                     </div>
                     <p v-if="!canLoadSlots" class="mt-4 text-sm text-white/55">
                       {{ terms.home.booking.selectServiceAndMaster }}
-                    </p>
-                    <p v-else-if="isSelectedDateClosed" class="mt-4 text-sm text-white/65">
-                      {{ terms.home.booking.closedOnMonday }}
                     </p>
                     <p v-else-if="slotsPending" role="status" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
                     <div v-else-if="slotsError" class="mt-4 text-sm text-rose-200" role="alert">

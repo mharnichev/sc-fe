@@ -173,16 +173,14 @@ const averageServiceDuration = computed(() => {
 const daySummaries = computed(() =>
   Array.from({ length: 7 }, (_, index) => {
     const date = addDaysInput(today, index)
-    const dayOff = isMonday(date)
     const dayBookings = activeBookings.value.filter(booking => dateInputFromDateTime(bookingStart(booking)) === date)
     const dayBlocks = upcomingTimeBlocks.value.filter(block => dateInputFromDateTime(block.start_at) === date)
     const bookedMinutes = dayBookings.reduce((total, booking) => total + bookingDurationMinutes(booking), 0)
-    const busyPercent = dayOff ? 100 : Math.min(100, Math.round((bookedMinutes / workdayMinutes) * 100))
+    const busyPercent = Math.min(100, Math.round((bookedMinutes / workdayMinutes) * 100))
 
     return {
       date,
       label: formatInputDate(date),
-      dayOff,
       bookings: dayBookings.length,
       blocks: dayBlocks.length,
       bookedMinutes,
@@ -200,7 +198,6 @@ const statusSummaries = computed(() =>
     })),
 )
 
-const isMonday = (dateInput: string) => new Date(toKyivIso(dateInput, '12:00')).getUTCDay() === 1
 
 const timeBlockOverlapMinutes = (block: TimeBlock, dateInput: string) => {
   const workStart = new Date(toKyivIso(dateInput, workdayStart)).getTime()
@@ -242,7 +239,6 @@ const availabilityBadgeTone = (tone: AvailabilityTone) => ({
 const availabilityRows = computed(() =>
   Array.from({ length: availabilityDays }, (_, index) => {
     const date = addDaysInput(today, index)
-    const dayOff = isMonday(date)
     const blocks = upcomingTimeBlocks.value
       .map(block => ({
         block,
@@ -260,22 +256,20 @@ const availabilityRows = computed(() =>
       workdayMinutes,
       blocks.reduce((total, segment) => total + segment.minutes, 0),
     )
-    const openMinutes = dayOff ? 0 : Math.min(
+    const openMinutes = Math.min(
       workdayMinutes,
       openSegments.reduce((total, segment) => total + segment.minutes, 0),
     )
-    const availableMinutes = dayOff ? 0 : Math.max(0, openMinutes - manualBlockedMinutes)
+    const availableMinutes = Math.max(0, openMinutes - manualBlockedMinutes)
     const busyPercent = Math.min(100, Math.round((openMinutes / workdayMinutes) * 100))
-    const tone: AvailabilityTone = dayOff || openMinutes <= 0
+    const tone: AvailabilityTone = openMinutes <= 0
       ? 'closed'
       : manualBlockedMinutes >= openMinutes
         ? 'blocked'
         : openMinutes < workdayMinutes || manualBlockedMinutes > 0
           ? 'partial'
           : 'available'
-    const status = dayOff
-      ? 'Вихідний'
-      : openMinutes <= 0
+    const status = openMinutes <= 0
         ? 'Не відкрито'
         : manualBlockedMinutes >= openMinutes
           ? 'Повністю заблоковано'
@@ -286,7 +280,6 @@ const availabilityRows = computed(() =>
     return {
       date,
       label: formatInputDate(date),
-      dayOff,
       blocks,
       blockedMinutes: manualBlockedMinutes,
       openSegments,
@@ -413,18 +406,16 @@ const availabilityRows = computed(() =>
             <div class="flex items-center justify-between gap-3 text-xs xl:gap-4 xl:text-sm">
               <span class="font-medium text-ui-primary">{{ day.label }}</span>
               <span class="truncate text-right text-ui-muted">
-                {{ day.dayOff ? 'Вихідний' : `${day.bookings} записів · ${formatDuration(day.bookedMinutes)}` }}
+                {{ `${day.bookings} записів · ${formatDuration(day.bookedMinutes)}` }}
               </span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-ui-disabled">
               <div
-                class="h-full rounded-full"
-                :class="day.dayOff ? 'bg-ui-disabled' : 'bg-ui-accent'"
+                class="h-full rounded-full bg-ui-accent"
                 :style="{ width: `${day.busyPercent}%` }"
               />
             </div>
-            <p v-if="day.dayOff" class="text-xs text-ui-muted">Понеділок — вихідний день за замовчуванням.</p>
-            <p v-else-if="day.blocks" class="text-xs text-ui-muted">Блокування часу: {{ day.blocks }}</p>
+            <p v-if="day.blocks" class="text-xs text-ui-muted">Блокування часу: {{ day.blocks }}</p>
           </div>
         </div>
       </BaseCard>
@@ -484,7 +475,7 @@ const availabilityRows = computed(() =>
         <div>
           <h2 class="text-base font-semibold text-ui-primary xl:text-lg">Доступність</h2>
           <p class="mt-0.5 text-xs text-ui-muted xl:mt-1 xl:text-sm">
-            Місяць вперед за відкритими інтервалами {{ workdayStart }}-{{ workdayEnd }}. Понеділок — вихідний за замовчуванням.
+            Місяць вперед за відкритими інтервалами {{ workdayStart }}-{{ workdayEnd }}.
           </p>
         </div>
         <NuxtLink to="/my-time-blocks" class="base-button base-button--neutral min-h-8 gap-1.5 px-3 py-1.5 text-xs xl:gap-2 xl:px-4 xl:py-2 xl:text-sm">
@@ -512,7 +503,7 @@ const availabilityRows = computed(() =>
             <tr v-for="row in availabilityRows" :key="row.date">
               <td data-label="Дата" class="px-3 py-2 xl:px-4 xl:py-3">
                 <p class="font-medium text-ui-primary">{{ row.label }}</p>
-                <p class="mt-1 text-xs text-ui-muted">{{ row.dayOff ? 'Понеділок' : `${workdayStart}-${workdayEnd}` }}</p>
+                <p class="mt-1 text-xs text-ui-muted">{{ `${workdayStart}-${workdayEnd}` }}</p>
               </td>
               <td data-label="Статус" class="px-3 py-2 xl:px-4 xl:py-3">
                 <BaseBadge :tone="availabilityBadgeTone(row.tone)">
@@ -535,7 +526,7 @@ const availabilityRows = computed(() =>
                     +{{ row.blocks.length - 2 }} ще
                   </p>
                 </div>
-                <span v-else class="text-ui-muted">{{ row.dayOff ? 'Вихідний за графіком' : '-' }}</span>
+                <span v-else class="text-ui-muted">{{ '-' }}</span>
               </td>
             </tr>
       </BaseTable>

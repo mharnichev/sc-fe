@@ -27,7 +27,6 @@ const footerLinks = computed(() => [
 
 const hours = computed(() => [
   [terms.value.footer.tueSun, '09:30-20:00'],
-  [terms.value.footer.monday, terms.value.footer.closed],
   [terms.value.footer.onlineOrders, '24/7'],
 ])
 </script>
