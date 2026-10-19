@@ -68,3 +68,14 @@ test('late login response cannot resurrect a logged-out session', async () => {
   await assert.rejects(pending, /session changed/)
   assert.equal(auth.accessToken, ''); assert.equal(auth.user, null)
 })
+
+test('startup refresh failure cannot clear a newer login', async () => {
+  const first = deferred(), refreshStarted = deferred()
+  const auth = loadAuth(() => { refreshStarted.resolve(); return first.promise }, { me: async () => { throw new Error('old access expired') } })
+  auth.accessToken = 'old'; auth.refreshToken = 'old-refresh'; auth.user = { id: 1 }
+  const pending = auth.init()
+  await refreshStarted.promise
+  auth.clearSession(); auth.accessToken = 'new'; auth.refreshToken = 'new-refresh'; auth.user = { id: 2 }
+  first.reject(new Error('old refresh expired')); await pending
+  assert.equal(auth.accessToken, 'new'); assert.equal(auth.refreshToken, 'new-refresh'); assert.equal(auth.user.id, 2)
+})

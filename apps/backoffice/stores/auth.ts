@@ -69,11 +69,12 @@ export const useAuthStore = defineStore('auth', {
           }
           catch {
             if (!current()) return
-            if (!await this.refreshSession()) {
+            const refreshed = await this.refreshSession()
+            if (!current()) return
+            if (!refreshed) {
               this.clearSession()
               return
             }
-            if (!current()) return
             const user = await api.me()
             if (current()) this.user = user
           }
