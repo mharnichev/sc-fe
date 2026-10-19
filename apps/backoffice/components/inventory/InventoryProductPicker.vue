@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { MagnifyingGlassIcon, CheckIcon, LinkIcon, PlusIcon, ArrowPathIcon, PencilSquareIcon, TagIcon, CubeIcon, CurrencyDollarIcon } from '@heroicons/vue/24/outline'
 import type { InventoryProduct, InventoryProductCreate } from '~/types/inventory'
 import { createInventoryIdempotencyKey, inventoryApiErrorMessage, isDefiniteInventoryRejection } from '~/utils/inventory'
+
 const props = defineProps<{ disabled?: boolean, initialBarcode?: string, showSelected?: boolean, savedRevision?: number }>()
 const emit = defineEmits<{ select: [product: InventoryProduct, repeat?: boolean], clear: [], 'dirty-change': [dirty: boolean], 'busy-change': [busy: boolean] }>()
 const api = useBackofficeApi()
@@ -31,9 +33,10 @@ watch(() => props.savedRevision, () => { savedForm.value = formSnapshot() }, { f
 watch(() => Boolean(pending.value) || formSnapshot() !== savedForm.value, dirty => emit('dirty-change', dirty), { immediate: true })
 watch(busy, value => emit('busy-change', value), { immediate: true })
 const auth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(auth.user))
 const ownerId = auth.user?.id
 const storageKey = () => `backoffice:inventory:pending-product-create:${ownerId || 'unknown'}`
-const locked = computed(() => Boolean(props.disabled || busy.value || pending.value || auth.user?.id !== ownerId))
+const locked = computed(() => Boolean(props.disabled || busy.value || (catalogEditable.value && pending.value) || auth.user?.id !== ownerId))
 let generation = 0
 const status = (cause: unknown) => {
   const value = cause as { status?: number, statusCode?: number, response?: { status?: number } }
@@ -79,7 +82,7 @@ const find = async (nextPage = 1) => {
 }
 const pick = (product: InventoryProduct) => {
   if (locked.value) return
-  if (unknownCode.value) binding.value = product
+  if (unknownCode.value && catalogEditable.value) binding.value = product
   else choose(product)
 }
 const refreshConflict = async (code: string, productId?: number) => {
@@ -97,7 +100,7 @@ const refreshConflict = async (code: string, productId?: number) => {
   }
 }
 const bind = async () => {
-  if (locked.value || !binding.value || !unknownCode.value) return
+  if (!catalogEditable.value || locked.value || !binding.value || !unknownCode.value) return
   const productId = binding.value.id; const code = unknownCode.value
   busy.value = true; error.value = ''
   try { choose(await api.bindInventoryBarcode(productId, code)) }
@@ -105,7 +108,7 @@ const bind = async () => {
   finally { busy.value = false }
 }
 const create = async () => {
-  if (busy.value || props.disabled || auth.user?.id !== ownerId) return
+  if (!catalogEditable.value || busy.value || props.disabled || auth.user?.id !== ownerId) return
   if (!pending.value) {
     if (!unknownCode.value || name.value.trim().length < 2 || !/^\d{1,10}(\.\d{1,2})?$/.test(price.value)) { error.value = 'Вкажіть назву (від 2 символів) і коректну ціну продажу.'; return }
     pending.value = { key: createInventoryIdempotencyKey(), payload: Object.freeze({ name: name.value.trim(), barcode: unknownCode.value, sku: sku.value.trim() || null, package_size: packageSize.value.trim() || null, price: price.value }) }
@@ -138,6 +141,7 @@ const create = async () => {
   finally { busy.value = false }
 }
 onMounted(() => {
+  if (!catalogEditable.value) return
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey()) || 'null')
     if (saved && typeof saved.key === 'string' && saved.key.length > 0 && saved.key.length <= 128 && typeof saved.payload?.name === 'string' && typeof saved.payload?.barcode === 'string' && saved.payload.barcode.trim() && saved.payload.barcode.length <= 64 && saved.payload.name.trim().length >= 2 && saved.payload.name.length <= 255 && typeof saved.payload.price === 'string' && /^\d{1,10}(\.\d{1,2})?$/.test(saved.payload.price) && Object.keys(saved.payload).every(key => ['name', 'barcode', 'sku', 'package_size', 'price'].includes(key))) {
@@ -152,7 +156,7 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
 <template>
   <section class="space-y-4">
     <InventoryBarcodeInput v-model="barcode" :disabled="locked" :loading="busy" :match="selected" :not-found="Boolean(unknownCode)" :show-not-found="false" @submit="scan" @clear="clear" />
-    <p v-if="unknownCode" class="rounded-xl bg-ui-subtle p-3 text-sm text-ui-primary">Штрихкод не знайдено. Знайдіть товар за назвою, щоб прив’язати код.<br>Код: <strong class="whitespace-pre-wrap break-all">{{ unknownCode }}</strong></p>
+    <p v-if="unknownCode" class="rounded-xl bg-ui-subtle p-3 text-sm text-ui-primary">Штрихкод не знайдено. {{ catalogEditable ? 'Знайдіть товар за назвою, щоб прив’язати код.' : 'Знайдіть і виберіть наявний товар за назвою або артикулом.' }}<br>Код: <strong class="whitespace-pre-wrap break-all">{{ unknownCode }}</strong></p>
     <p v-if="error" role="alert" class="text-sm text-ui-danger">{{ error }}</p>
     <InventoryProductCard v-if="selected && showSelected !== false" :product="selected">
       <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode" type="button" :disabled="locked" @click="choose(selected)">Вибрати знайдений товар</BaseButton>
@@ -162,7 +166,7 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
     </form>
     <div v-for="product in results" :key="product.id" class="space-y-2">
-      <InventoryProductCard :product="product"><BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>
+      <InventoryProductCard :product="product"><BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode && catalogEditable ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode && catalogEditable ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>
     </div>
     <p v-if="searched && !results.length" class="text-sm text-ui-secondary">Товари не знайдено.</p>
     <div v-if="total > 10" class="flex items-center justify-between gap-2">
@@ -170,7 +174,7 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <span class="text-sm">{{ page }} / {{ Math.ceil(total / 10) }}</span>
       <BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked || page * 10 >= total" @click="find(page + 1)">Далі</BaseButton>
     </div>
-    <BaseCard v-if="binding" padding="sm" variant="subtle" class="space-y-3">
+    <BaseCard v-if="binding && catalogEditable" padding="sm" variant="subtle" class="space-y-3">
       <div class="flex items-center gap-1"><p class="font-semibold">Підтвердьте прив’язку</p><BaseFieldHelp label="Прив’язка штрихкоду" text="Прив’язка не змінює залишки. Інший наявний штрихкод замінити тут неможливо." /></div>
       <InventoryProductCard :product="binding" />
       <p v-if="binding.barcode && binding.barcode !== unknownCode" role="alert" class="text-sm text-ui-danger">Цей товар уже має інший штрихкод. Виберіть інший товар; наявний код не можна замінити тут.</p>
@@ -178,8 +182,8 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <BaseButton variant="primary" class="min-h-11 w-full" type="button" :disabled="locked || Boolean(binding.barcode && binding.barcode !== unknownCode)" @click="bind"><LinkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Підтвердити прив’язку / повторити</BaseButton>
       <BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="binding = null">Скасувати</BaseButton>
     </BaseCard>
-    <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode && searched && !createOpen" type="button" :disabled="locked" @click="createOpen = true"><PlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Немає відповідного товару — створити картку</BaseButton>
-    <form v-if="createOpen" class="space-y-3 rounded-2xl border border-ui-border p-4" @submit.prevent="create">
+    <BaseButton variant="secondary" class="min-h-11" v-if="catalogEditable && unknownCode && searched && !createOpen" type="button" :disabled="locked" @click="createOpen = true"><PlusIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Немає відповідного товару — створити картку</BaseButton>
+    <form v-if="createOpen && catalogEditable" class="space-y-3 rounded-2xl border border-ui-border p-4" @submit.prevent="create">
       <div class="flex items-center gap-1"><p class="font-semibold">Новий товар</p><BaseFieldHelp label="Створення картки товару" text="Картка створюється прихованою, з нульовим залишком. Закупівельну ціну вкажіть у прийманні." /></div>
       <p class="whitespace-pre-wrap break-all text-sm">Штрихкод: {{ pending?.payload.barcode || unknownCode }}</p>
       <template v-if="!pending">

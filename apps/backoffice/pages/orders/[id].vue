@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowPathIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
 import OrderShopCarrierReturns from '~/components/orders/OrderShopCarrierReturns.vue'
@@ -156,7 +157,7 @@ watch([orderId, () => auth.user?.id, () => !isBarber.value || isPosSale.value, (
     await Promise.all(ids.slice(index, index + 4).map(async id => {
       try {
         const product = await api.getProduct(id)
-        if (current && product.image_url) productImages.value[id] = product.image_url
+        if (current && productDisplayImage(product)) productImages.value[id] = productDisplayImage(product)
       }
       catch { /* Catalog failures use the photo placeholder. */ }
     }))

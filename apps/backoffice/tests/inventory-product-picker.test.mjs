@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import ts from 'typescript'
 
+const accessSource = await readFile(new URL('../utils/catalogAccess.ts', import.meta.url), 'utf8')
+const { canManageCatalog } = await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(accessSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText).toString('base64')}`)
 const source = await readFile(new URL('../components/inventory/InventoryProductPicker.vue', import.meta.url), 'utf8')
 const script = ts.transpileModule(source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm, ''), {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -13,6 +15,7 @@ function harness(lookup = async () => product, create = async () => product) {
   const storage = new Map()
   const globals = {
     localStorage: { setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+    canManageCatalog,
     createInventoryIdempotencyKey: () => "same-key",
     isDefiniteInventoryRejection: cause => cause?.status >= 400 && cause.status < 500 && ![408, 409].includes(cause.status),
     ref: value => ({ value }), computed: getter => ({ get value() { return getter() } }),

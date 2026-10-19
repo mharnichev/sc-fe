@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { ArrowLeftIcon, ArrowRightIcon, ArrowPathIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import type { ProductImage } from '~/composables/useBackofficeApi'
 
@@ -16,9 +17,14 @@ interface ReplacementDraft {
   error: string
 }
 
+const catalogAuth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
+
 const props = withDefaults(defineProps<{
   productId: number | string
   initialImages?: ProductImage[] | null
+  displayImageUrls?: string[]
+  displayImageSources?: ProductImage[]
   legacyImageUrls?: string[]
 }>(), { initialImages: undefined, legacyImageUrls: () => [] })
 
@@ -50,6 +56,15 @@ const acceptedTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const sortedImages = computed(() => [...images.value].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id))
 const mainImageId = computed(() => sortedImages.value.find(image => image.is_active && image.image_url)?.id ?? null)
+const displayImageUrl = (image: ProductImage) => {
+  // The projection belongs to the last server snapshot, even while local rows reorder.
+  const sources = [...new Set([...(props.displayImageSources || [])]
+    .filter(item => item.is_active && item.image_url)
+    .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+    .map(item => item.image_url))]
+  const index = image.is_active ? sources.indexOf(image.image_url) : -1
+  return index >= 0 ? props.displayImageUrls?.[index] || image.image_url : image.image_url
+}
 const hasProductImages = computed(() => images.value.length > 0)
 const legacyPreviewUrls = computed(() => [...new Set(
   props.legacyImageUrls.map(value => value.trim()).filter(Boolean),
@@ -132,6 +147,7 @@ const removeUploadItem = (id: string) => {
 }
 
 const selectFiles = (event: Event) => {
+  if (!catalogEditable.value) return
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
   input.value = ''
@@ -149,11 +165,13 @@ const selectFiles = (event: Event) => {
 }
 
 const uploadReadyFiles = async () => {
+  if (!catalogEditable.value) return
   if (uploadInProgress.value) return
   uploadInProgress.value = true
   try {
     let item = uploads.value.find(upload => upload.status === 'ready')
     while (item) {
+      if (!catalogEditable.value) return
       item.status = 'uploading'
       item.error = ''
       try {
@@ -173,12 +191,13 @@ const uploadReadyFiles = async () => {
   finally {
     if (!disposed) {
       uploadInProgress.value = false
-      if (uploads.value.some(upload => upload.status === 'ready')) void uploadReadyFiles()
+      if (catalogEditable.value && uploads.value.some(upload => upload.status === 'ready')) void uploadReadyFiles()
     }
   }
 }
 
 const retryUpload = (item: UploadItem) => {
+  if (!catalogEditable.value) return
   if (item.status !== 'error' || validateFile(item.file)) return
   item.status = 'ready'
   item.error = ''
@@ -192,6 +211,7 @@ const clearReplacementDraft = (imageId: number) => {
 }
 
 const performReplacement = async (image: ProductImage) => {
+  if (!catalogEditable.value) return
   const draft = replacementDrafts[image.id]
   if (
     disposed
@@ -226,6 +246,7 @@ const performReplacement = async (image: ProductImage) => {
 }
 
 const replaceImage = (image: ProductImage, event: Event) => {
+  if (!catalogEditable.value) return
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
@@ -241,6 +262,7 @@ const replaceImage = (image: ProductImage, event: Event) => {
 }
 
 const updateImage = async (image: ProductImage, payload: { alt?: string | null, is_active?: boolean }) => {
+  if (!catalogEditable.value) return
   if (
     disposed
     || reorderInProgress.value
@@ -288,6 +310,7 @@ const toggleActive = (image: ProductImage, event: Event) => {
 }
 
 const moveImage = async (image: ProductImage, direction: -1 | 1) => {
+  if (!catalogEditable.value) return
   const list = sortedImages.value
   const index = list.findIndex(item => item.id === image.id)
   const target = index + direction
@@ -310,6 +333,7 @@ const moveImage = async (image: ProductImage, direction: -1 | 1) => {
 }
 
 const removeImage = async () => {
+  if (!catalogEditable.value) return
   if (!deleteTarget.value) return
   const image = deleteTarget.value
   pendingDeleteId.value = image.id
@@ -348,7 +372,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <section v-if="catalogEditable" class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold text-slate-900">Фотографії товару</h2>
@@ -397,7 +421,7 @@ onBeforeUnmount(() => {
         <div class="relative aspect-[4/3] bg-slate-100">
           <img
             v-if="replacementDrafts[image.id]?.previewUrl || image.image_url"
-            :src="replacementDrafts[image.id]?.previewUrl || assetUrl(image.image_url)"
+            :src="replacementDrafts[image.id]?.previewUrl || assetUrl(displayImageUrl(image))"
             :alt="image.alt || 'Фотографія товару'"
             class="h-full w-full object-cover"
             :class="!image.is_active ? 'opacity-50' : ''"

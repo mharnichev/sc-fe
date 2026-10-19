@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
 import {
   ArrowPathIcon,
   ArrowRightIcon,
@@ -42,12 +43,7 @@ const lowStockProducts = computed(() => data.value?.lowStockProducts.items || []
 const outOfStockProducts = computed(() => data.value?.outOfStockProducts.items || [])
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
-const productHasImage = (product: Product) =>
-  Array.isArray(product.images) && product.images.length > 0
-    ? product.images.some(image => image.is_active && Boolean(image.image_url))
-    : Boolean(product.image_url?.trim())
-      || (Array.isArray(product.attributes_json?.image_urls)
-        && product.attributes_json.image_urls.some(image => typeof image === 'string' && image.trim()))
+const productHasImage = (product: Product) => Boolean(productDisplayImage(product))
 const productHasFilters = (product: Product) =>
   isRecord(product.attributes_json?.filters) && Object.keys(product.attributes_json.filters).length > 0
 const productsWithoutCategory = computed(() => products.value.filter(product => !product.category_id && !product.category).length)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
 import type { InventoryProduct } from '~/types/inventory'
 withDefaults(defineProps<{ product: InventoryProduct, framed?: boolean }>(), { framed: true })
 const assetUrl = useAssetUrl()
@@ -6,7 +7,7 @@ const assetUrl = useAssetUrl()
 
 <template>
   <article class="inventory-product-card flex min-w-0 gap-3" :class="framed ? 'rounded-xl border border-ui-border bg-ui-surface p-3' : 'inventory-product-card--unframed'">
-    <img v-if="product.image_url" :src="assetUrl(product.image_url)" :alt="product.name" class="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-xl object-contain" loading="lazy">
+    <img v-if="productDisplayImage(product)" :src="assetUrl(productDisplayImage(product))" :alt="product.name" class="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-xl object-contain" loading="lazy">
     <div class="min-w-0 flex-1 space-y-1">
       <p class="break-words font-semibold text-ui-primary">{{ product.name }}</p>
       <p v-if="product.brand_name || product.model_name || product.package_size || product.volume_ml" class="text-sm text-ui-secondary">{{ [product.brand_name, product.model_name, product.package_size || (product.volume_ml ? `${product.volume_ml} мл` : null)].filter(Boolean).join(' · ') }}</p>

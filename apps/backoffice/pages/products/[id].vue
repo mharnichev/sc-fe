@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { productDisplayImages } from '~/utils/productImages'
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { PencilIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
 import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } from '~/composables/useBackofficeApi'
+
+const catalogAuth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const route = useRoute()
 const router = useRouter()
@@ -53,10 +58,12 @@ const shopPromotionDiscount = (promotion: ShopPromotion) => promotion.discount_t
   : `${promotion.discount_type}: ${promotion.discount_value}`
 const groupTone = (tone: string): 'success' | 'info' | 'neutral' => tone as 'success' | 'info' | 'neutral'
 const openShopPromotionForm = () => {
+  if (!catalogEditable.value) return
   selectedShopPromotion.value = null
   shopPromotionModalOpen.value = true
 }
 const editShopPromotion = (promotion: ShopPromotion) => {
+  if (!catalogEditable.value) return
   selectedShopPromotion.value = promotion
   shopPromotionModalOpen.value = true
 }
@@ -85,6 +92,10 @@ const legacyGalleryImages = computed(() => {
 })
 
 const galleryImages = computed(() => {
+  const projected = product.value?.display_image_urls
+  if (Array.isArray(projected) || product.value?.display_image_url) {
+    return productDisplayImages(product.value).map(url => ({ url: assetUrl(url), alt: product.value?.name || 'Фотографія товару' }))
+  }
   if (managedImages.value.length) {
     return managedImages.value
       .filter(image => image.is_active && image.image_url)
@@ -125,6 +136,7 @@ const pending = ref(false)
 const errorMessage = ref('')
 
 const submit = async (payload: ProductPayload) => {
+  if (!catalogEditable.value) return
   pending.value = true
   errorMessage.value = ''
   try {
@@ -155,7 +167,7 @@ const submit = async (payload: ProductPayload) => {
 
 <template>
   <div class="space-y-6">
-    <template v-if="isNewProduct">
+    <template v-if="isNewProduct && catalogEditable">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Каталог</p>
@@ -193,13 +205,13 @@ const submit = async (payload: ProductPayload) => {
           <NuxtLink to="/products" class="rounded-full border border-slate-300 px-5 py-3 text-sm">
             Назад до списку
           </NuxtLink>
-          <BaseButton
+          <BaseButton v-if="catalogEditable"
             class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white"
             :aria-label="editMode ? 'Закрити редагування' : 'Редагувати товар'"
             :title="editMode ? 'Закрити редагування' : 'Редагувати'"
             @click="editMode = !editMode"
           >
-            <template v-if="editMode">
+            <template v-if="editMode && catalogEditable">
               Закрити редагування
             </template>
             <template v-else>
@@ -210,14 +222,16 @@ const submit = async (payload: ProductPayload) => {
         </div>
       </div>
 
-      <ProductImagesManager
+      <ProductImagesManager v-if="catalogEditable"
         :product-id="product.id"
         :initial-images="managedImages"
+        :display-image-urls="product.display_image_urls"
+        :display-image-sources="product.images"
         :legacy-image-urls="legacyGalleryImages"
-        @change="managedImages = $event"
+        @change="managedImages = $event; refreshProduct()"
       />
 
-      <InventorySettingsPanel
+      <InventorySettingsPanel v-if="catalogEditable"
         :product-id="product.id"
         :barcode="product.barcode"
         :allow-backorder="product.allow_backorder"
@@ -231,7 +245,7 @@ const submit = async (payload: ProductPayload) => {
             <h2 class="mt-2 text-2xl font-semibold text-slate-900">Акції товара</h2>
             <p class="mt-1 text-sm text-slate-500">Ціни й конфлікти для цього товару визначає backend.</p>
           </div>
-          <BaseButton variant="primary" class="gap-2" @click="openShopPromotionForm">Створити акцію для цього товару</BaseButton>
+          <BaseButton v-if="catalogEditable" variant="primary" class="gap-2" @click="openShopPromotionForm">Створити акцію для цього товару</BaseButton>
         </div>
 
         <p v-if="shopPromotionsError" class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -253,7 +267,7 @@ const submit = async (payload: ProductPayload) => {
             <article v-for="promotion in group.items" :key="promotion.id" class="rounded-xl border border-slate-200 bg-white p-3">
               <div class="flex items-start justify-between gap-3">
                 <p class="font-medium text-slate-900">{{ promotion.name }}</p>
-                <BaseButton variant="unstyled" class="text-xs font-medium text-cyan-700 hover:underline" @click="editShopPromotion(promotion)">Редагувати</BaseButton>
+                <BaseButton v-if="catalogEditable" variant="unstyled" class="text-xs font-medium text-cyan-700 hover:underline" @click="editShopPromotion(promotion)">Редагувати</BaseButton>
               </div>
               <dl class="mt-3 space-y-2 text-sm">
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">Знижка</dt><dd class="font-medium text-slate-900">{{ shopPromotionDiscount(promotion) }}</dd></div>
@@ -269,7 +283,7 @@ const submit = async (payload: ProductPayload) => {
       </section>
 
       <ProductForm
-        v-if="editMode"
+        v-if="editMode && catalogEditable"
         :categories="categories?.items || []"
         :brands="brands?.items || []"
         :initial-value="initialValue"
@@ -411,7 +425,7 @@ const submit = async (payload: ProductPayload) => {
         </div>
       </section>
       </div>
-      <ShopPromotionFormModal
+      <ShopPromotionFormModal v-if="catalogEditable"
         v-model="shopPromotionModalOpen"
         :promotion="selectedShopPromotion"
         :initial-product-ids="[product.id]"

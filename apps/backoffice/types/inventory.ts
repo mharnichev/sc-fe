@@ -28,6 +28,8 @@ export interface InventoryProduct {
   package_size?: string | null
   volume_ml?: number | null
   image_url?: string | null
+  display_image_url?: string | null
+  display_image_urls?: string[]
 }
 
 export interface ProductInventorySettingsUpdate {

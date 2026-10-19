@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
+import { canManageCatalog } from '~/utils/catalogAccess'
 import { EyeIcon, PencilIcon, PlusIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { categoryPathLabels } from '~/utils/categoryPaths'
+
+const catalogAuth = useAuthStore()
+const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -89,26 +94,14 @@ const productVisibilityReason = (product: Product) => {
 
 const productVisibilityTone = (product: Product) => product.is_effectively_visible ? 'success' : 'neutral'
 
-const productMainImage = (product: Product) => {
-  if (Array.isArray(product.images) && product.images.length) {
-    const image = [...product.images]
-      .filter(item => item.is_active && item.image_url)
-      .sort((first, second) => first.sort_order - second.sort_order || first.id - second.id)[0]
-    return image?.image_url ? assetUrl(image.image_url) : ''
-  }
-  if (product.image_url?.trim()) return assetUrl(product.image_url)
-  const legacy = product.attributes_json?.image_urls
-  if (!Array.isArray(legacy)) return ''
-  const legacyMainImage = legacy.find(value => typeof value === 'string' && value.trim())
-  return typeof legacyMainImage === 'string' ? assetUrl(legacyMainImage.trim()) : ''
-}
+const productMainImage = (product: Product) => assetUrl(productDisplayImage(product))
 
 const productMainImages = computed(() => new Map(
   (data.value?.items || []).map(product => [product.id, productMainImage(product)]),
 ))
 
 const toggleProductVisibility = async (product: Product) => {
-  if (isVisibilityPending(product.id)) return
+  if (!catalogEditable.value || isVisibilityPending(product.id)) return
   setVisibilityPending(product.id, true)
   try {
     await api.updateProduct(product.id, { is_active: !product.is_active })
@@ -163,6 +156,7 @@ const clearFilters = async () => {
 }
 
 const removeProduct = async (productId: number) => {
+  if (!catalogEditable.value) return
   if (!confirm(`Видалити product #${productId}?`)) return
   pendingDeleteId.value = productId
   try {
@@ -201,7 +195,7 @@ const prev = async () => {
       </div>
       <div class="flex w-full flex-wrap gap-2 sm:w-auto">
       <BaseButton variant="secondary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Сканувати штрихкод</BaseButton>
-      <NuxtLink to="/products/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
+      <NuxtLink v-if="catalogEditable" to="/products/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Додати товар
       </NuxtLink>
@@ -276,7 +270,7 @@ const prev = async () => {
                     {{ productVisibilityReason(item) }}
                   </p>
                 </div>
-                <BaseToggle
+                <BaseToggle v-if="catalogEditable"
                   class="shrink-0"
                   :checked="item.is_active"
                   :loading="isVisibilityPending(item.id)"
@@ -286,7 +280,7 @@ const prev = async () => {
               </div>
             </td>
             <td data-label="Дії" class="px-4 py-3">
-              <div class="flex flex-wrap gap-2">
+              <div v-if="catalogEditable" class="flex flex-wrap gap-2">
                 <NuxtLink
                   :to="`/products/${item.id}`"
                   class="base-button base-button--icon h-8 w-8 p-0"
