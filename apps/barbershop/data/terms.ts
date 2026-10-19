@@ -136,7 +136,6 @@ export const termsDictionary = {
         successTitle: 'Все готово. Побачимось у Soul Cuts.',
         successAction: 'Новий запис',
         selectServiceAndMaster: 'Оберіть послугу і майстра, щоб побачити доступний час.',
-        closedOnMonday: 'Понеділок - вихідний день. Оберіть іншу дату для запису.',
         noSlotsToday: 'На сьогодні слоти закінчилися або шоп уже закритий. Майстри не можуть прийняти запис на цей день.',
         noSlotsDate: 'На цю дату немає доступних слотів. Майстри не можуть прийняти запис у вибраний час.',
       },
@@ -276,7 +275,7 @@ export const termsDictionary = {
               },
               {
                 question: 'Який у вас графік роботи?',
-                answer: ['Працюємо з вівторка по неділю з 09:30 до 20:00. Понеділок - вихідний.'],
+                answer: ['Працюємо щодня з 09:30 до 20:00.'],
                 note: 'Графік роботи не завжди дорівнює доступності конкретного майстра, тому перевіряйте вільні слоти під час запису.',
               },
               {
@@ -396,8 +395,7 @@ export const termsDictionary = {
         phone: '+380636995730',
         email: 'Soulcutsplace@gmail.com',
         hours: [
-          ['Вт-Нд', '09:30 - 20:00'],
-          ['Понеділок', 'Зачинено'],
+          ['Пн-Нд', '09:30 - 20:00'],
         ],
       },
     },
@@ -417,7 +415,7 @@ export const termsDictionary = {
         phoneLabel: 'Телефон:',
         phone: '+380636995730',
         hoursLabel: 'Графік:',
-        hours: 'Вт-Нд 09:30-20:00, Пн зачинено',
+        hours: 'Щодня 09:30-20:00',
         emailLabel: 'Email:',
         email: 'Soulcutsplace@gmail.com',
         placeholders: {
@@ -590,7 +588,6 @@ export const termsDictionary = {
         successTitle: 'Everything is ready. See you at Soul Cuts.',
         successAction: 'New booking',
         selectServiceAndMaster: 'Choose a service and a barber to see available times.',
-        closedOnMonday: 'Monday is our day off. Please choose another date to book.',
         noSlotsToday: 'Today\'s slots are over or the shop is already closed. The barbers cannot take another appointment today.',
         noSlotsDate: 'There are no available slots for this date. The barbers cannot take an appointment at the selected time.',
       },
@@ -730,7 +727,7 @@ export const termsDictionary = {
               },
               {
                 question: 'What are your opening hours?',
-                answer: ['We are open Tuesday to Sunday from 09:30 to 20:00. Monday is closed.'],
+                answer: ['We are open daily from 09:30 to 20:00.'],
                 note: 'Opening hours do not always equal a specific barberʼs availability, so check open slots during booking.',
               },
               {
@@ -850,8 +847,7 @@ export const termsDictionary = {
         phone: '+380636995730',
         email: 'Soulcutsplace@gmail.com',
         hours: [
-          ['Tue-Sun', '09:30 - 20:00'],
-          ['Monday', 'Closed'],
+          ['Mon-Sun', '09:30 - 20:00'],
         ],
       },
     },
@@ -871,7 +867,7 @@ export const termsDictionary = {
         phoneLabel: 'Phone:',
         phone: '+380636995730',
         hoursLabel: 'Hours:',
-        hours: 'Tue-Sun 09:30-20:00, Mon closed',
+        hours: 'Daily 09:30-20:00',
         emailLabel: 'Email:',
         email: 'Soulcutsplace@gmail.com',
         placeholders: {

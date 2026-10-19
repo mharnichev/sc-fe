@@ -171,7 +171,7 @@ const datesInRange = () => {
 }
 
 const businessDatesInRange = () =>
-  datesInRange().filter(date => !calendar.isMonday(date))
+  datesInRange()
 
 const validate = () => {
   if (props.admin && !form.master_id) return 'Майстер обов’язковий.'
@@ -180,7 +180,7 @@ const validate = () => {
   if (form.date_from < todayInput()) return 'Минулі дні не можна відкривати для запису.'
   if (form.date_to > horizonEnd.value) return 'Доступність можна відкривати лише на найближчі 2 місяці.'
   if (!businessDatesInRange().length) {
-    return form.period_preset === 'day' ? 'Понеділок — вихідний день.' : 'У діапазоні немає робочих днів для відкриття.'
+    return 'У діапазоні немає робочих днів для відкриття.'
   }
   if (!form.window_type) return 'Тип доступності обов’язковий.'
   if (!form.start_time || !form.end_time) return 'Час початку й завершення обов’язкові.'
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          Понеділки в діапазоні автоматично пропускаються.
+          Усі дні в діапазоні доступні для відкриття.
         </p>
         <p v-if="formError" class="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{{ formError }}</p>
 

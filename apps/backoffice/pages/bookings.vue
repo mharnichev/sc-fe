@@ -485,7 +485,6 @@ const validateCalendarPayload = (payload: CalendarActionPayload): string => {
   const startTime = formatTime(payload.start_at)
   const endTime = formatTime(payload.end_at)
   if (!date || startTime === '-' || endTime === '-') return 'Некоректний час інтервалу.'
-  if (calendar.isMonday(date)) return 'Понеділок — вихідний день.'
   if (startTime < calendar.workdayStart || endTime > calendar.workdayEnd || startTime >= endTime) {
     return `Інтервал має бути в межах ${calendar.workdayStart}-${calendar.workdayEnd}.`
   }

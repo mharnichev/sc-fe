@@ -124,7 +124,7 @@ const dayHasAvailability = (day: CalendarDay) =>
   Boolean(availabilityRangesByDay.value[day.date]?.length)
 
 const dayCanOpen = (day: CalendarDay) =>
-  props.selectable && !props.loading && !day.isMonday && (props.allowPastSelection || !day.isPast)
+  props.selectable && !props.loading && (props.allowPastSelection || !day.isPast)
 
 const slotClass = (slot: CalendarSlot) => {
   const state = slotState(slot)
@@ -380,13 +380,13 @@ watch(selectionError, value => {
           v-for="day in days"
           :key="day.date"
           class="sticky top-0 z-[60] min-w-0 border-b border-r border-white/10 bg-black/64 px-2 py-3 backdrop-blur-2xl"
-          :class="day.isMonday ? 'text-white/35' : day.isToday ? 'text-white' : 'text-white/82'"
+          :class="day.isToday ? 'text-white' : 'text-white/82'"
         >
           <div class="flex min-w-0 items-start justify-between gap-1.5">
             <div class="min-w-0">
               <p class="truncate text-sm font-semibold capitalize">{{ day.weekday }}</p>
               <p class="mt-0.5 truncate text-xs" :class="day.isToday ? 'text-white/68' : 'text-white/42'">
-                {{ day.label }}<span v-if="day.isMonday"> · вихідний</span>
+                {{ day.label }}
               </p>
             </div>
             <BaseButton
@@ -418,7 +418,7 @@ watch(selectionError, value => {
           v-for="day in days"
           :key="`${day.date}-body`"
           class="relative z-0 border-r border-white/10"
-          :class="day.isMonday ? 'bg-white/[0.025]' : day.isPast ? 'bg-white/[0.018]' : 'bg-white/[0.035]'"
+          :class="day.isPast ? 'bg-white/[0.018]' : 'bg-white/[0.035]'"
           :style="{ height: bodyHeight }"
         >
           <div
@@ -478,12 +478,7 @@ watch(selectionError, value => {
             </span>
           </BaseButton>
 
-          <div v-if="day.isMonday" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/12 px-4 text-center">
-            <span class="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/48 backdrop-blur-xl">
-              Понеділок недоступний
-            </span>
-          </div>
-          <div v-else-if="day.isPast" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/10 px-4 text-center">
+          <div v-if="day.isPast" class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-black/10 px-4 text-center">
             <span class="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/48 backdrop-blur-xl">
               Минулий день
             </span>
