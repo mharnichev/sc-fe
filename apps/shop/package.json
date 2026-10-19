@@ -6,14 +6,19 @@
     "dev": "TMPDIR=/tmp nuxt dev --port 6060",
     "build": "nuxt build",
     "start": "nuxt start",
-    "lint": "nuxi typecheck"
+    "lint": "nuxi typecheck",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@dobrodesk/widget": "0.3.2",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "@pinia/nuxt": "^0.5.5",
     "@shared-types": "workspace:*",
     "@shared-utils": "workspace:*",
     "nuxt": "^3.21.7",
     "pinia": "^2.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

@@ -39,6 +39,13 @@ const hideBasketModal = () => {
   modal.hideModal()
 }
 
+const handleRecentlyViewedProductClick = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Element) || !target.closest('a')) return
+
+  hideBasketModal()
+}
+
 const productImage = (product: ProductDto) =>
   product.images[0]?.image || product.images[0]?.image_url || 'https://placehold.co/160x160'
 
@@ -122,7 +129,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
                         variant="stacked"
                         :model-value="item.quantity"
                         :min="0"
-                        :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
+                        :max="cart.maxQuantity(item.product, item.quantity)"
                         :disabled="cart.syncing"
                         :disable-increase="isProductUnavailable(item.product)"
                         :aria-label="terms.checkout.quantityFor(item.product.name)"
@@ -154,32 +161,15 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
         </div>
 
         <div v-else key="recently-viewed" class="basket-sidebar__panel">
-        <div v-if="recentlyViewed.products.length" class="basket-sidebar__list">
-          <template v-for="(product, index) in recentlyViewed.products" :key="product.id">
-            <div v-if="index > 0" class="basket-sidebar__divider" aria-hidden="true">
-              <span class="basket-sidebar__divider-line" />
-            </div>
-            <article class="basket-sidebar__item">
-              <NuxtLink
-                :to="`/products/${product.slug}`"
-                class="basket-sidebar__image-link"
-                @click="hideBasketModal"
-              >
-                <img :src="productImage(product)" :alt="product.name" class="basket-sidebar__image">
-              </NuxtLink>
-              <div class="basket-sidebar__body">
-                <div>
-                  <p class="basket-sidebar__brand">{{ product.brand.name }}</p>
-                  <NuxtLink :to="`/products/${product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
-                    <BaseHoverUnderlineText>{{ product.name }}</BaseHoverUnderlineText>
-                  </NuxtLink>
-                  <div class="basket-sidebar__meta">
-                    <span>{{ formatPrice(product.price) }}</span>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </template>
+        <div
+          v-if="recentlyViewed.products.length"
+          class="basket-sidebar__product-grid-wrapper"
+          @click="handleRecentlyViewedProductClick"
+        >
+          <CatalogProductGrid
+            class="basket-sidebar__product-grid"
+            :products="recentlyViewed.products"
+          />
         </div>
 
         <FeedbackState
@@ -204,10 +194,11 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
           <span>{{ terms.basket.beforeDelivery }}</span>
           <strong>{{ formatPrice(cart.total) }}</strong>
         </div>
+        <p v-if="cart.error" class="basket-sidebar__unavailable-summary" role="alert">{{ cart.error }}</p>
         <p v-if="cart.hasUnavailableItems" class="basket-sidebar__unavailable-summary" role="alert">
           {{ unavailableMessage }}
         </p>
-        <BaseButton :to="cart.hasUnavailableItems ? undefined : '/checkout/purchase'" block :disabled="cart.hasUnavailableItems" @click="hideBasketModal">
+        <BaseButton :to="cart.hasUnavailableItems ? undefined : '/checkout/purchase'" block :disabled="cart.syncing || cart.hasUnavailableItems" @click="hideBasketModal">
           {{ terms.common.checkout }}
         </BaseButton>
       </div>
@@ -274,6 +265,11 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 .basket-sidebar {
   height: 100%;
   padding: 0.75rem;
+}
+
+.basket-sidebar .basket-sidebar__product-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .basket-sidebar__panel {
@@ -428,7 +424,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
 .basket-sidebar__empty {
   min-height: 100%;
-  --feedback-state-surface: #f3f4f7;
+  --feedback-state-surface: var(--sc-surface-muted);
 }
 
 .basket-sidebar__summary {

@@ -2,6 +2,11 @@
 const auth = useCustomerAuthStore()
 const modal = useModalStore()
 const { terms } = useShopLocale()
+const isHydrated = ref(false)
+
+onMounted(() => {
+  isHydrated.value = true
+})
 
 withDefaults(defineProps<{
   label?: string
@@ -30,6 +35,6 @@ const openAuthSidebar = () => {
     :block="block"
     @click="openAuthSidebar"
   >
-    {{ auth.isAuthenticated ? (authenticatedLabel || auth.displayName) : (label || terms.common.signIn) }}
+    {{ isHydrated && auth.isAuthenticated ? (authenticatedLabel || auth.displayName) : (label || terms.common.signIn) }}
   </BaseButton>
 </template>

@@ -1,8 +1,7 @@
 import svgLoader from 'vite-svg-loader'
 
-const apiBase =
-  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NUXT_PUBLIC_API_BASE
-  || 'http://127.0.0.1:8000/api/v1'
+const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env || {}
+const apiBase = env.NUXT_PUBLIC_API_BASE || '/api/v1'
 const sharedTypesPath = new URL('../../packages/shared-types/src/index.ts', import.meta.url).pathname
 const sharedUtilsPath = new URL('../../packages/shared-utils/src/index.ts', import.meta.url).pathname
 
@@ -18,6 +17,15 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase,
+      mockShopBase: env.NUXT_PUBLIC_MOCK_SHOP_BASE || 'http://127.0.0.1:6060',
+    },
+  },
+  nitro: {
+    devProxy: {
+      '/api/v1': {
+        target: env.NUXT_DEV_API_TARGET || 'http://127.0.0.1:8000/api/v1',
+        changeOrigin: true,
+      },
     },
   },
   typescript: {

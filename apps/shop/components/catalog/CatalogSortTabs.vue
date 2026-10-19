@@ -1,9 +1,23 @@
 <script setup lang="ts">
+import { NuxtLink } from '#components'
+
+interface CatalogTab {
+  label: string
+  value: string
+  icon?: string
+  iconClass?: string
+  to?: string
+}
+
 const props = withDefaults(defineProps<{
   modelValue: string
   disabled?: boolean
+  tabs?: CatalogTab[]
+  ariaLabel?: string
 }>(), {
   disabled: false,
+  tabs: undefined,
+  ariaLabel: undefined,
 })
 
 const emit = defineEmits<{
@@ -11,11 +25,12 @@ const emit = defineEmits<{
 }>()
 
 const { terms } = useShopLocale()
-const tabs = computed(() => [
+const defaultTabs = computed<CatalogTab[]>(() => [
   { label: terms.value.catalog.cheaper, value: 'price', icon: 'simple-arrow-down', iconClass: 'catalog-sort-tabs__icon--down' },
   { label: terms.value.catalog.moreExpensive, value: '-price', icon: 'simple-arrow-down', iconClass: 'catalog-sort-tabs__icon--up' },
   { label: terms.value.catalog.popular, value: '-is_top', icon: 'star', iconClass: 'catalog-sort-tabs__icon--popular' },
 ])
+const tabs = computed(() => props.tabs || defaultTabs.value)
 
 const activeIndex = computed(() => tabs.value.findIndex(tab => tab.value === props.modelValue))
 const hasActiveTab = computed(() => activeIndex.value >= 0)
@@ -33,29 +48,33 @@ const switchTab = (value: string) => {
       'catalog-sort-tabs--disabled': disabled,
       'catalog-sort-tabs--empty': !hasActiveTab,
     }"
-    :style="{ '--catalog-tab-index': activeIndex }"
+    :style="{ '--catalog-tab-index': activeIndex, '--catalog-tab-count': tabs.length }"
     role="tablist"
-    aria-label="Сортування"
+    :aria-label="ariaLabel || 'Сортування'"
   >
-    <button
+    <component
       v-for="tab in tabs"
       :key="tab.value"
+      :is="tab.to ? NuxtLink : 'button'"
       class="catalog-sort-tabs__button"
       :class="{ 'catalog-sort-tabs__button--active': modelValue === tab.value }"
-      type="button"
+      :to="tab.to"
+      :type="tab.to ? undefined : 'button'"
       role="tab"
       :aria-selected="modelValue === tab.value"
+      :aria-current="modelValue === tab.value ? 'page' : undefined"
       :disabled="disabled"
       @click="switchTab(tab.value)"
     >
       <BaseIcon
+        v-if="tab.icon"
         :name="tab.icon"
         size="xxs"
         class="catalog-sort-tabs__icon"
         :class="tab.iconClass"
       />
       <span class="catalog-sort-tabs__label">{{ tab.label }}</span>
-    </button>
+    </component>
   </div>
 </template>
 
@@ -65,7 +84,7 @@ const switchTab = (value: string) => {
   display: grid;
   width: min(100%, 17.5rem);
   min-height: 2.25rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--catalog-tab-count), minmax(0, 1fr));
   align-items: center;
   border: 0;
   border-radius: 0;
@@ -77,7 +96,7 @@ const switchTab = (value: string) => {
   inset-block: 0;
   left: 0;
   z-index: 0;
-  width: calc(100% / 3);
+  width: calc(100% / var(--catalog-tab-count));
   background: #0a0a0a;
   content: "";
   transform: translateX(calc(var(--catalog-tab-index) * 100%));

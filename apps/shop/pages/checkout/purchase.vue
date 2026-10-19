@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { guestShipmentPath } from '~/utils/shipmentStatus'
+import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
+import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
 import { isProductUnavailable } from '~/utils/product-visibility'
 
 const cart = useCartStore()
 const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
-const { terms } = useShopLocale()
+const { terms, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
 
 const form = reactive({
@@ -23,17 +26,99 @@ const form = reactive({
   paymentMethod: 'cashOnDelivery',
   comment: '',
 })
-const delivery = reactive({
-  cityQuery: '',
-  selectedCityRef: '',
-  selectedWarehouse: '',
-  loadingCities: false,
-  loadingWarehouses: false,
+const cityQuery = ref('')
+const branchQuery = ref('')
+const streetQuery = ref('')
+const selectedCity = ref<NpSettlement | null>(null)
+const selectedBranch = ref<NpBranch | null>(null)
+const selectedStreet = ref<NpStreet | null>(null)
+const manualStreet = ref(false)
+const deliveryText = computed(() => locale.value === 'uk' ? {
+  empty: 'Нічого не знайдено. Спробуйте іншу назву.', short: 'Введіть щонайменше 2 символи.',
+  loading: 'Шукаємо…', failed: 'Не вдалося завантажити довідник.', retry: 'Спробувати ще раз',
+  branch: 'Номер відділення або адреса', street: 'Почніть вводити назву вулиці',
+  manualStreet: 'Вулиці немає у списку — ввести вручну',
+  popular: 'Популярні міста', noCourier: 'Кур’єрська доставка недоступна для цього населеного пункту.',
+  stale: 'Використовуємо останню збережену версію довідника.', choose: 'Оберіть варіант із підказок.',
+} : {
+  empty: 'No results. Try another name.', short: 'Enter at least 2 characters.', loading: 'Searching…',
+  failed: 'Could not load the directory.', retry: 'Try again', branch: 'Branch number or address',
+  manualStreet: 'Street is missing — enter manually',
+  street: 'Start typing the street name', popular: 'Popular cities', noCourier: 'Courier delivery is unavailable for this settlement.',
+  stale: 'Showing the last saved directory.', choose: 'Choose a suggestion.',
 })
-const cities = ref<Array<Record<string, unknown>>>([])
-const warehouses = ref<Array<Record<string, unknown>>>([])
-const state = reactive({ loading: false, done: false, error: '' })
-let cityTimer: ReturnType<typeof setTimeout> | undefined
+const popularCities = ['Київ', 'Львів', 'Одеса', 'Дніпро', 'Харків', 'Запоріжжя', 'Вінниця', 'Івано-Франківськ']
+const cities = useNovaPoshtaSearch<NpSettlement>('settlements', () => selectedCity.value || cityQuery.value.trim().length < 2 ? null : { q: cityQuery.value.trim(), limit: '20' }, () => deliveryText.value.failed)
+const branches = useNovaPoshtaSearch<NpBranch>('branches', () => !selectedCity.value || form.shippingMethod !== 'warehouse' || selectedBranch.value ? null : { settlement_ref: selectedCity.value.ref, q: branchQuery.value.trim(), limit: '30' }, () => deliveryText.value.failed)
+const streets = useNovaPoshtaSearch<NpStreet>('streets', () => !selectedCity.value?.delivery_available || form.shippingMethod !== 'courier' || manualStreet.value || selectedStreet.value || streetQuery.value.trim().length < 2 ? null : { settlement_ref: selectedCity.value.ref, q: streetQuery.value.trim(), limit: '20' }, () => deliveryText.value.failed)
+const selectCity = (city: NpSettlement) => {
+  selectedCity.value = city
+  cityQuery.value = city.label
+  form.shippingCity = city.name
+  form.shippingArea = city.area
+}
+const chooseCity = (ref: string) => {
+  const city = selectedCity.value?.ref === ref ? selectedCity.value : cities.items.value.find(city => city.ref === ref)
+  if (city) selectCity(city)
+}
+const popularQuery = ref('')
+const popular = useNovaPoshtaSearch<NpSettlement>('settlements', () => popularQuery.value ? { q: popularQuery.value, limit: '20' } : null, () => deliveryText.value.failed)
+watch(popular.items, items => {
+  const city = items.find(city => city.name === popularQuery.value)
+  if (city) { selectCity(city); popularQuery.value = '' }
+})
+const choosePopularCity = (name: string) => {
+  selectedCity.value = null
+  cityQuery.value = name
+  form.shippingCity = ''; form.shippingArea = ''
+  popularQuery.value = name
+  popular.retry()
+}
+const chooseBranch = (ref: string) => {
+  const branch = selectedBranch.value?.ref === ref ? selectedBranch.value : branches.items.value.find(branch => branch.ref === ref)
+  if (!branch) return
+  selectedBranch.value = branch
+  branchQuery.value = branch.label
+  form.shippingWarehouseNumber = branch.number
+}
+const chooseStreet = (ref: string) => {
+  const street = selectedStreet.value?.ref === ref ? selectedStreet.value : streets.items.value.find(street => street.ref === ref)
+  if (!street) return
+  selectedStreet.value = street
+  streetQuery.value = street.label
+  form.shippingStreet = street.name
+}
+watch(cityQuery, value => {
+  if (value !== selectedCity.value?.label) popularQuery.value = ''
+  if (selectedCity.value && value !== selectedCity.value.label) { selectedCity.value = null; form.shippingCity = ''; form.shippingArea = '' }
+}, { flush: 'sync' })
+const resetAddress = () => {
+  manualStreet.value = false
+  selectedBranch.value = null; selectedStreet.value = null
+  branchQuery.value = ''; streetQuery.value = ''
+  form.shippingWarehouseNumber = ''; form.shippingStreet = ''; form.buildingNumber = ''; form.shippingApartment = ''
+}
+watch(() => selectedCity.value?.ref, resetAddress, { flush: 'sync' })
+watch(() => form.shippingMethod, resetAddress, { flush: 'sync' })
+watch(manualStreet, () => {
+  selectedStreet.value = null; streetQuery.value = ''; form.shippingStreet = ''; form.buildingNumber = ''; form.shippingApartment = ''
+}, { flush: 'sync' })
+watch(() => selectedStreet.value?.ref, () => { form.buildingNumber = ''; form.shippingApartment = '' }, { flush: 'sync' })
+watch(branchQuery, value => { if (value !== selectedBranch.value?.label) { selectedBranch.value = null; form.shippingWarehouseNumber = '' } }, { flush: 'sync' })
+watch(streetQuery, value => { if (value !== selectedStreet.value?.label) { selectedStreet.value = null; form.shippingStreet = '' } }, { flush: 'sync' })
+const state = reactive<{ loading: boolean, order: CheckoutOrder | null, error: string }>({
+  loading: false,
+  order: null,
+  error: '',
+})
+
+const confirmationHeading = ref<HTMLHeadingElement | null>(null)
+watch(() => state.order, order => {
+  if (!order) return
+  // The confirmation replaces a long form on the same route.
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  confirmationHeading.value?.focus({ preventScroll: true })
+}, { flush: 'post' })
 
 const deliveryMethodOptions = computed(() => [
   { label: terms.value.checkout.deliveryOptions.warehouse, value: 'warehouse' },
@@ -44,17 +129,16 @@ const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cardOnDelivery, value: 'cardOnDelivery' },
 ])
 const isDeliveryValid = computed(() => {
-  if (!delivery.selectedCityRef) return false
-
-  if (form.shippingMethod === 'warehouse') {
-    return Boolean(delivery.selectedWarehouse)
-  }
-
-  return Boolean(form.shippingStreet.trim() && form.buildingNumber.trim())
+  if (!selectedCity.value) return false
+  if (form.shippingMethod === 'warehouse') return Boolean(selectedBranch.value)
+  return Boolean(selectedCity.value.delivery_available && (manualStreet.value ? form.shippingStreet.trim() : selectedStreet.value) && form.buildingNumber.trim())
 })
 const canSubmit = computed(() =>
   Boolean(
     cart.items.length
+    && sessionReady.value
+    && !otherScopePending.value
+    && !cart.syncing
     && !cart.hasUnavailableItems
     && form.firstName.trim()
     && form.lastName.trim()
@@ -67,30 +151,6 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
   unavailableItems.value.map(item => item.product.name).join(', '),
 ))
 
-const readDeliveryField = (item: Record<string, unknown>, keys: string[]) => {
-  for (const key of keys) {
-    const value = item[key]
-    if (typeof value === 'string' || typeof value === 'number') return String(value)
-  }
-  return ''
-}
-
-const cityOptions = computed(() =>
-  cities.value.map(city => {
-    const ref = readDeliveryField(city, ['Ref', 'ref'])
-    const label = readDeliveryField(city, ['Present', 'Description', 'MainDescription', 'description'])
-    const area = readDeliveryField(city, ['AreaDescription', 'Area', 'Region'])
-    return { label: area ? `${label}, ${area}` : label, value: ref }
-  }).filter(option => option.value && option.label),
-)
-const warehouseOptions = computed(() =>
-  warehouses.value.map(warehouse => {
-    const number = readDeliveryField(warehouse, ['Number', 'WarehouseNumber', 'number'])
-    const label = readDeliveryField(warehouse, ['Description', 'ShortAddress', 'description'])
-    return { label: number ? `${number} - ${label}` : label, value: number || label }
-  }).filter(option => option.value && option.label),
-)
-
 watch(() => auth.customer, customer => {
   if (!customer) return
   form.firstName ||= customer.name || ''
@@ -99,102 +159,123 @@ watch(() => auth.customer, customer => {
   form.phoneNumber ||= customer.phone || ''
 }, { immediate: true })
 
-watch(() => delivery.cityQuery, value => {
-  if (cityTimer) clearTimeout(cityTimer)
-  const query = value.trim()
-  form.shippingCity = query
-
-  if (delivery.selectedCityRef) {
-    const selectedCity = cities.value.find(item => readDeliveryField(item, ['Ref', 'ref']) === delivery.selectedCityRef)
-    const selectedCityNames = selectedCity
-      ? [
-          readDeliveryField(selectedCity, ['Description', 'description']),
-          readDeliveryField(selectedCity, ['Present']),
-          readDeliveryField(selectedCity, ['MainDescription']),
-        ].filter(Boolean)
-      : []
-
-    if (!selectedCityNames.includes(query)) {
-      delivery.selectedCityRef = ''
-    }
-  }
-
-  if (query.length < 2) {
-    cities.value = []
-    return
-  }
-
-  cityTimer = setTimeout(async () => {
-    delivery.loadingCities = true
-    try {
-      const response = await domain.searchNovaPoshtaCities(query)
-      cities.value = response.items
-    }
-    finally {
-      delivery.loadingCities = false
-    }
-  }, 300)
-})
-
-watch(() => delivery.selectedCityRef, async cityRef => {
-  const city = cities.value.find(item => readDeliveryField(item, ['Ref', 'ref']) === cityRef)
-  if (city) {
-    form.shippingCity = readDeliveryField(city, ['Description', 'Present', 'MainDescription', 'description']) || delivery.cityQuery
-    form.shippingArea = readDeliveryField(city, ['AreaDescription', 'Area', 'Region'])
-    delivery.cityQuery = form.shippingCity
-  }
-
-  delivery.selectedWarehouse = ''
-  form.shippingWarehouseNumber = ''
-  warehouses.value = []
-  if (!cityRef) return
-
-  delivery.loadingWarehouses = true
+// Keep the exact submitted intent after a timeout, including when BE already emptied its cart.
+// sessionStorage limits contact/address retention to this tab's session.
+interface PendingCheckout { key: string, body: CheckoutOrderRequest, scope: string }
+const pendingIntent = ref<PendingCheckout | null>(null)
+const intentStorageKey = 'shop-checkout-intent-v1'
+const customerScope = computed(() => auth.isAuthenticated ? `customer:${auth.customer?.id}` : 'guest')
+const retryAvailable = computed(() => sessionReady.value && pendingIntent.value?.scope === customerScope.value)
+const sessionReady = ref(false)
+const otherScopePending = ref(false)
+const cartMayClear = ref(false)
+const cartPreserved = ref(false)
+let checkoutActive = true
+onBeforeUnmount(() => { checkoutActive = false })
+watch(() => cart.items, () => { if (pendingIntent.value) cartMayClear.value = false }, { deep: true, flush: 'sync' })
+const restoreIntent = () => {
+  pendingIntent.value = null
+  cartMayClear.value = false
+  otherScopePending.value = false
+  if (!sessionReady.value) return
   try {
-    const response = await domain.getNovaPoshtaWarehouses(cityRef)
-    warehouses.value = response.items
+    const stored = sessionStorage.getItem(intentStorageKey)
+    if (stored) {
+      const intent = JSON.parse(stored) as PendingCheckout
+      if (typeof intent.key === 'string' && intent.body?.items?.length) {
+        if (intent.scope === customerScope.value) pendingIntent.value = intent
+        else otherScopePending.value = true
+      }
+    }
   }
-  finally {
-    delivery.loadingWarehouses = false
+  catch { state.error = 'Не вдалося відновити запит замовлення.' }
+}
+onNuxtReady(() => { sessionReady.value = true; restoreIntent() })
+watch([customerScope, () => auth.sessionRevision], ([_scope], [previousScope]) => {
+  state.order = null
+  state.error = ''
+  if (previousScope !== 'guest') {
+    // Contact and delivery belong to the previous buyer, even after confirmation.
+    Object.assign(form, { firstName: '', lastName: '', email: '', phoneNumber: '', comment: '', shippingCity: '', shippingArea: '' })
+    selectedCity.value = null
+    cityQuery.value = ''
+    resetAddress()
+    const customer = auth.customer
+    if (customer) Object.assign(form, { firstName: customer.name || '', lastName: customer.surname || '', email: customer.email || '', phoneNumber: customer.phone || '' })
   }
+  restoreIntent()
 })
 
-watch(() => delivery.selectedWarehouse, value => {
-  const warehouse = warehouses.value.find(item => {
-    const number = readDeliveryField(item, ['Number', 'WarehouseNumber', 'number'])
-    const label = readDeliveryField(item, ['Description', 'ShortAddress', 'description'])
-    return value === (number || label)
-  })
-  form.shippingWarehouseNumber = warehouse
-    ? readDeliveryField(warehouse, ['Number', 'WarehouseNumber', 'Description', 'ShortAddress', 'description'])
-    : value
-})
-
-const submit = async () => {
-  if (unavailableItems.value.length) {
-    state.error = unavailableMessage.value
-    return
+const sendIntent = async (intent: PendingCheckout) => {
+  if (!checkoutActive || state.loading || intent.scope !== customerScope.value) return
+  const sessionCurrent = auth.captureSession()
+  const ownsIntent = () => {
+    if (!checkoutActive || !sessionCurrent() || intent.scope !== customerScope.value || pendingIntent.value?.key !== intent.key) return false
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(intentStorageKey) || 'null') as PendingCheckout | null
+      return stored?.key === intent.key && stored.scope === intent.scope
+    }
+    catch { return false }
   }
-  if (!canSubmit.value) return
+  if (!ownsIntent()) return
   state.loading = true
   state.error = ''
-  state.done = false
   try {
-    await domain.createOrder({
-      ...form,
-      shippingCity: form.shippingCity || delivery.cityQuery,
-      items: cart.items.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
-    })
-    state.done = true
-    cart.clear()
+    const result = await domain.createOrder(intent.body, intent.key)
+    if (!ownsIntent()) return
+    state.order = result
+    pendingIntent.value = null
+    sessionStorage.removeItem(intentStorageKey)
+    if (auth.isAuthenticated) await cart.syncFromServer()
+    else if (cartMayClear.value) cart.clear()
+    else cartPreserved.value = cart.items.length > 0
   }
-  catch (error) {
+  catch (error: unknown) {
+    if (!ownsIntent()) return
+    cartMayClear.value = false
+    const status = typeof error === 'object' && error && 'statusCode' in error ? Number(error.statusCode) : 0
+    // Validation rejection is conclusive. Auth expiry/network/5xx/409 retain the intent.
+    const detail = typeof error === 'object' && error && 'data' in error
+      ? (error.data as { detail?: unknown })?.detail : undefined
+    const stockRejected = status === 409 && typeof detail === 'string'
+      && /^Insufficient stock for product \d+; backorders are disabled$/.test(detail)
+    if ([400, 422].includes(status) || stockRejected) {
+      pendingIntent.value = null
+      sessionStorage.removeItem(intentStorageKey)
+    }
     state.error = terms.value.checkout.failed
-    console.error(error)
   }
-  finally {
-    state.loading = false
+  finally { state.loading = false }
+}
+const retryIntent = () => { if (pendingIntent.value) void sendIntent(pendingIntent.value) }
+const submit = async () => {
+  if (state.loading) return
+  if (retryAvailable.value) { retryIntent(); return }
+  if (unavailableItems.value.length) { state.error = unavailableMessage.value; return }
+  if (!canSubmit.value) return
+  const body: CheckoutOrderRequest = {
+    ...form,
+    email: form.email.trim() || undefined,
+    shippingStreet: form.shippingStreet.trim(),
+    shippingSettlementRef: selectedCity.value?.ref,
+    shippingCityRef: selectedCity.value?.city_ref || undefined,
+    shippingWarehouseRef: selectedBranch.value?.ref,
+    shippingStreetRef: selectedStreet.value?.ref,
+    shipping_payload_json: {
+      settlementLabel: selectedCity.value?.label || null,
+      cityLabel: selectedCity.value?.name || null,
+      warehouseLabel: selectedBranch.value?.label || null,
+      streetLabel: selectedStreet.value?.label || null,
+    },
+    items: cart.items.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
   }
+  const intent = { key: crypto.randomUUID(), body, scope: customerScope.value }
+  // Persist before the HTTP request; never send if durable retry storage is unavailable.
+  try { sessionStorage.setItem(intentStorageKey, JSON.stringify(intent)) }
+  catch { state.error = 'Дозвольте збереження сесії браузера для безпечного оформлення замовлення.'; return }
+  pendingIntent.value = intent
+  cartMayClear.value = true
+  await sendIntent(intent)
 }
 
 useSeo(
@@ -204,7 +285,35 @@ useSeo(
 </script>
 
 <template>
-  <section class="checkout-page">
+  <section v-if="state.order" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
+    <div class="checkout-card checkout-confirmation__card">
+      <p class="checkout-page__success" role="status">{{ terms.checkout.orderSuccess }}</p>
+      <h1 ref="confirmationHeading" tabindex="-1" data-testid="order-number">№ {{ state.order.id }}</h1>
+      <div class="checkout-order-list" data-testid="confirmed-order-items">
+        <article v-for="item in state.order.items" :key="item.id" class="checkout-confirmation__item">
+          <span>{{ item.product_name }}</span>
+          <span>× {{ item.quantity }}</span>
+        </article>
+      </div>
+      <div class="checkout-total">
+        <span>{{ terms.common.total }}</span>
+        <strong data-testid="confirmed-order-total">{{ formatPrice(state.order.total_amount) }}</strong>
+      </div>
+      <p v-if="cartPreserved" role="status">Замовлення підтверджено. Після повторної перевірки кошик залишено без змін, щоб зберегти додані вами товари. Перегляньте його перед наступним замовленням.</p>
+      <OrderProjections :order="state.order" />
+      <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
+      <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">Захищений статус доставки</BaseButton>
+      <BaseButton to="/catalog" variant="outline-dark">{{ terms.common.catalog }}</BaseButton>
+    </div>
+  </section>
+
+  <section v-else class="checkout-page">
+    <p v-if="otherScopePending" class="checkout-card" role="status">Є непідтверджений запит в іншій сесії покупця. Поверніться до початкового облікового запису (або гостьового режиму), щоб безпечно перевірити результат.</p>
+    <section v-if="retryAvailable" class="checkout-card" role="status">
+      <p>Результат попереднього запиту ще не підтверджено. Повторна перевірка використовує той самий запит і не створює друге замовлення.</p>
+      <BaseButton :disabled="state.loading" @click="retryIntent">Перевірити / повторити попереднє замовлення</BaseButton>
+      <p v-if="state.error" role="alert">{{ state.error }}</p>
+    </section>
     <div class="checkout-page__body">
       <div class="checkout-page__user-info">
         <aside class="checkout-card checkout-card--mobile">
@@ -237,7 +346,7 @@ useSeo(
                       variant="stacked"
                       :model-value="item.quantity"
                       :min="0"
-                      :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
+                      :max="cart.maxQuantity(item.product, item.quantity)"
                       :disabled="cart.syncing"
                       :disable-increase="isProductUnavailable(item.product)"
                       :aria-label="terms.checkout.quantityFor(item.product.name)"
@@ -256,7 +365,7 @@ useSeo(
           </div>
         </aside>
 
-        <form class="checkout-form" @submit.prevent="submit">
+        <form id="shop-checkout-form" class="checkout-form" @submit.prevent="submit">
           <p v-if="unavailableItems.length" class="checkout-page__error checkout-page__unavailable" role="alert">
             {{ unavailableMessage }}
           </p>
@@ -293,35 +402,36 @@ useSeo(
                   />
                 </div>
               </BaseField>
-              <BaseInput
-                v-model="delivery.cityQuery"
-                :label="terms.checkout.city"
-                :placeholder="terms.checkout.cityPlaceholder"
-                autocomplete="address-level2"
-                :description="delivery.loadingCities ? terms.checkout.searching : ''"
-              />
-              <BaseSelect
-                v-if="cityOptions.length"
-                v-model="delivery.selectedCityRef"
-                :label="terms.checkout.selectCity"
-                :placeholder="terms.checkout.chooseCity"
-                :options="cityOptions"
-              />
-              <BaseSelect
-                v-if="form.shippingMethod === 'warehouse'"
-                v-model="delivery.selectedWarehouse"
-                :label="terms.checkout.warehouse"
-                :placeholder="terms.checkout.chooseWarehouse"
-                :options="warehouseOptions"
-                :description="delivery.loadingWarehouses ? terms.checkout.loadingWarehouses : ''"
-                :disabled="!delivery.selectedCityRef || delivery.loadingWarehouses"
-                required
-              />
-              <div v-else class="checkout-form__grid checkout-form__grid--three">
-                <BaseInput v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" required />
-                <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" required />
-                <BaseInput v-model="form.shippingApartment" :label="terms.checkout.apartment" />
+              <BaseAutocomplete v-model="cityQuery" :label="terms.checkout.city" :placeholder="terms.checkout.cityPlaceholder"
+                :options="(selectedCity ? [selectedCity] : cities.items.value).map(item => ({ value: item.ref, label: item.label }))" :loading="cities.loading.value"
+                :error="cities.error.value" :empty-text="cityQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
+                :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" required @select="chooseCity" @retry="cities.retry" />
+              <div class="checkout-popular" :aria-label="deliveryText.popular">
+                <span>{{ deliveryText.popular }}:</span>
+                <BaseButton v-for="city in popularCities" :key="city" size="xs" variant="text" @click="choosePopularCity(city)">{{ city }}</BaseButton>
               </div>
+              <p v-if="popular.loading.value" role="status">{{ deliveryText.loading }}</p>
+              <div v-if="popular.error.value" role="alert">{{ popular.error.value }} <BaseButton variant="text" size="sm" @click="popular.retry">{{ deliveryText.retry }}</BaseButton></div>
+              <BaseAutocomplete v-if="form.shippingMethod === 'warehouse'" v-model="branchQuery" :label="terms.checkout.warehouse"
+                :placeholder="deliveryText.branch" :options="(selectedBranch ? [selectedBranch] : branches.items.value).map(item => ({ value: item.ref, label: item.label }))"
+                :loading="branches.loading.value" :error="branches.error.value" :empty-text="deliveryText.empty"
+                :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" :disabled="!selectedCity" required
+                @select="chooseBranch" @retry="branches.retry" />
+              <template v-else>
+                <p v-if="selectedCity && !selectedCity.delivery_available" role="status">{{ deliveryText.noCourier }}</p>
+                <BaseCheckbox id="manual-delivery-street" v-model="manualStreet" :label="deliveryText.manualStreet" :disabled="!selectedCity?.delivery_available" />
+                <div class="checkout-form__grid checkout-form__grid--three">
+                  <BaseInput v-if="manualStreet" v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" :disabled="!selectedCity?.delivery_available" required />
+                  <BaseAutocomplete v-else v-model="streetQuery" :label="terms.checkout.street" :placeholder="deliveryText.street"
+                    :options="(selectedStreet ? [selectedStreet] : streets.items.value).map(item => ({ value: item.ref, label: item.label }))" :loading="streets.loading.value"
+                    :error="streets.error.value" :empty-text="streetQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
+                    :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" :disabled="!selectedCity?.delivery_available"
+                    required @select="chooseStreet" @retry="streets.retry" />
+                  <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" :disabled="!selectedStreet && !manualStreet" required />
+                  <BaseInput v-model="form.shippingApartment" :label="terms.checkout.apartment" :disabled="!selectedStreet && !manualStreet" />
+                </div>
+              </template>
+              <p v-if="cities.stale.value || branches.stale.value || streets.stale.value" role="status">{{ deliveryText.stale }}</p>
             </div>
           </section>
 
@@ -356,11 +466,10 @@ useSeo(
           </section>
 
           <section class="checkout-card checkout-card--finish checkout-card--mobile">
-            <BaseButton type="submit" block :disabled="state.loading || !canSubmit">
+            <BaseButton type="submit" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <p v-if="state.done" class="checkout-page__success">{{ terms.checkout.orderSuccess }}</p>
-            <p v-if="state.error" class="checkout-page__error">{{ state.error }}</p>
+            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ state.error || cart.error }}</p>
           </section>
         </form>
       </div>
@@ -397,7 +506,7 @@ useSeo(
                         variant="stacked"
                         :model-value="item.quantity"
                         :min="0"
-                        :max="isProductUnavailable(item.product) ? item.quantity : Math.max(1, item.product.stock)"
+                        :max="cart.maxQuantity(item.product, item.quantity)"
                         :disabled="cart.syncing"
                         :disable-increase="isProductUnavailable(item.product)"
                         :aria-label="terms.checkout.quantityFor(item.product.name)"
@@ -418,11 +527,10 @@ useSeo(
               <span>{{ terms.common.total }}</span>
               <strong>{{ formatPrice(cart.total) }}</strong>
             </div>
-            <BaseButton type="button" block :disabled="state.loading || !canSubmit" @click="submit">
+            <BaseButton type="submit" form="shop-checkout-form" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <p v-if="state.done" class="checkout-page__success">{{ terms.checkout.orderSuccess }}</p>
-            <p v-if="state.error" class="checkout-page__error">{{ state.error }}</p>
+            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ state.error || cart.error }}</p>
           </section>
         </div>
       </aside>
@@ -433,6 +541,30 @@ useSeo(
 <style scoped>
 .checkout-page__body {
   display: grid;
+  gap: 1rem;
+}
+
+.checkout-confirmation {
+  display: grid;
+  min-height: 50vh;
+  place-items: center;
+  padding: clamp(2rem, 8vw, 6rem) 1rem;
+}
+
+.checkout-confirmation__card {
+  display: grid;
+  width: min(36rem, 100%);
+  gap: 1.25rem;
+}
+
+.checkout-confirmation__card h1 {
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 800;
+}
+
+.checkout-confirmation__item {
+  display: flex;
+  justify-content: space-between;
   gap: 1rem;
 }
 
@@ -478,6 +610,8 @@ useSeo(
   display: grid;
   gap: 1rem;
 }
+
+.checkout-popular { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; font-size: .8rem; }
 
 .checkout-choice-list {
   display: grid;

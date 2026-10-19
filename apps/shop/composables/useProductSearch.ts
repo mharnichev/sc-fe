@@ -9,6 +9,8 @@ const emptySearchResponse = (): ProductSearchResponseDto => ({
 export const useProductSearch = (limit = 6) => {
   const route = useRoute()
   const domain = useCatalogDomain()
+  const searchCache = useState<Record<string, ProductSearchResponseDto>>('shop-product-search-cache', () => ({}))
+  const lastSearchTerm = useState<string>('shop-last-product-search-term', () => '')
   const searchTerm = ref(
     Array.isArray(route.query.q)
       ? String(route.query.q[0] || '')
@@ -20,6 +22,7 @@ export const useProductSearch = (limit = 6) => {
   let searchRequest = 0
 
   const normalizedSearchTerm = computed(() => searchTerm.value.trim())
+  const searchCacheKey = (term: string) => `${limit}:${term.toLocaleLowerCase()}`
   const hasSearchQuery = computed(() => normalizedSearchTerm.value.length >= 3)
   const hasSearchResults = computed(() =>
     suggestions.value.suggestions.length > 0
@@ -38,6 +41,20 @@ export const useProductSearch = (limit = 6) => {
     clearSuggestions()
   }
 
+  const restorePreviousSearch = () => {
+    const term = normalizedSearchTerm.value.length >= 3
+      ? normalizedSearchTerm.value
+      : lastSearchTerm.value
+    if (!term) return
+
+    searchTerm.value = term
+    const cachedResponse = searchCache.value[searchCacheKey(term)]
+    if (cachedResponse) {
+      suggestions.value = cachedResponse
+      isSearchLoading.value = false
+    }
+  }
+
   watch(() => route.query.q, value => {
     searchTerm.value = Array.isArray(value) ? String(value[0] || '') : String(value || '')
   })
@@ -54,11 +71,24 @@ export const useProductSearch = (limit = 6) => {
       return
     }
 
+    const cacheKey = searchCacheKey(term)
+    const cachedResponse = searchCache.value[cacheKey]
+    if (cachedResponse) {
+      suggestions.value = cachedResponse
+      lastSearchTerm.value = term
+      isSearchLoading.value = false
+      return
+    }
+
     isSearchLoading.value = true
     searchTimer = setTimeout(async () => {
       try {
         const response = await domain.searchProducts(term, limit)
-        if (request === searchRequest) suggestions.value = response
+        if (request === searchRequest) {
+          suggestions.value = response
+          searchCache.value[cacheKey] = response
+          lastSearchTerm.value = term
+        }
       }
       catch (error) {
         if (request === searchRequest) clearSuggestions()
@@ -82,6 +112,7 @@ export const useProductSearch = (limit = 6) => {
     hasSearchQuery,
     hasSearchResults,
     isSearchLoading,
+    restorePreviousSearch,
     clearSearch,
     clearSuggestions,
   }

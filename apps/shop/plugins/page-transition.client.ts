@@ -39,9 +39,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   router.afterEach((to, _from, failure) => {
-    if (!failure) return
-
-    revealPage(to.fullPath, 0)
+    // Query-only navigations (pagination, filters and sorting) do not always
+    // trigger Nuxt's `page:finish` hook because the page component is reused.
+    // Always schedule the reveal after the router completes, otherwise the
+    // transition overlay remains above the application as a black screen.
+    revealPage(to.fullPath, failure ? 0 : TRANSITION_IN_DELAY_MS)
   })
 
   router.onError(() => {

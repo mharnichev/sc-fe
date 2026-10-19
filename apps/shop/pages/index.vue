@@ -72,29 +72,12 @@ useSeo(
 
 <template>
   <div class="space-y-16 pb-16 md:pb-24">
-    <section class="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-      <div class="space-y-6">
-        <BaseSectionLabel>{{ terms.home.eyebrow }}</BaseSectionLabel>
-        <h1 class="type-page-title text-5xl leading-tight text-neutral-900 md:text-[52px]">
-          {{ terms.home.title }}
-        </h1>
-        <p class="max-w-2xl text-lg leading-8 text-neutral-600">
-          {{ terms.home.text }}
-        </p>
-        <BaseButton to="/catalog">
-          {{ terms.home.cta }}
-        </BaseButton>
-      </div>
-      <BaseMediaPanel
-        src="https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=1200&q=80"
-        :alt="terms.home.imageAlt"
-        class="h-[32rem]"
-      />
-    </section>
-
     <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
-    <section class="main-page__popular">
+    <section
+      v-if="arePopularProductsLoading || popularProducts.length"
+      class="main-page__popular"
+    >
       <p class="type-eyebrow type-eyebrow--wide text-xs">
         <BaseScribbleOutline>{{ terms.home.popularEyebrow }}</BaseScribbleOutline>
       </p>

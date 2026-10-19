@@ -22,8 +22,11 @@ export default defineNuxtConfig({
     },
   ],
   runtimeConfig: {
+    apiBase: process.env.NUXT_API_BASE || 'http://127.0.0.1:8000/api/v1',
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+      dobrodeskEnabled: process.env.NUXT_PUBLIC_DOBRODESK_ENABLED === 'true',
+      dobrodeskIntegrationId: process.env.NUXT_PUBLIC_DOBRODESK_INTEGRATION_ID || 'wgt_3ba0ea807f451e69170cb4bbfeb74ba0',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api/v1',
     },
   },
   nitro: {
@@ -36,8 +39,10 @@ export default defineNuxtConfig({
     ],
   },
   routeRules: {
+    '/mock-fiscal-documents/**': { headers: { 'Referrer-Policy': 'no-referrer' } },
     '/**': {
       headers: {
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
         'X-Robots-Tag': 'noindex, nofollow, noarchive',
       },
     },
@@ -54,6 +59,7 @@ export default defineNuxtConfig({
     '@shared-utils': sharedUtilsPath,
   },
   app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || '/shop/',
     head: {
       titleTemplate: '%s | Atelier Supply',
       meta: [

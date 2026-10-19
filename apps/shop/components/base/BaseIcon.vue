@@ -16,7 +16,8 @@ const props = withDefaults(defineProps<{
   variant: 'dark',
 })
 
-const iconPath = computed(() => `/lehko/icons/${props.category}/${props.name}.svg`)
+const shopAsset = useShopAsset()
+const iconPath = computed(() => shopAsset(`/lehko/icons/${props.category}/${props.name}.svg`))
 const svgMarkup = ref('')
 
 const loadIcon = async () => {

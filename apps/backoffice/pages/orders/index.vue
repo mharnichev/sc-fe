@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OrderProjections from '~/components/orders/OrderProjections.vue'
 import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { OrderSummary } from '~/composables/useBackofficeApi'
 
@@ -31,6 +32,7 @@ const prev = async () => {
     <div>
       <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Продажі</p>
       <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Замовлення</h1>
+      <NuxtLink to="/orders/pos" class="base-button mt-4">Продати товар</NuxtLink>
     </div>
 
     <BaseCard variant="subtle" padding="sm" class="text-sm text-ui-secondary">
@@ -76,7 +78,8 @@ const prev = async () => {
               <p class="text-xs text-ui-muted">{{ deliveryLabel(order) }}</p>
             </td>
             <td data-label="Оплата" class="text-ui-secondary">
-              {{ order.payment_method || '—' }}
+              <p>{{ order.payment_method || '—' }}</p>
+              <OrderProjections :order="order" />
             </td>
             <td data-label="Sync" class="text-ui-secondary">
               {{ order.external_sync_status || '—' }}

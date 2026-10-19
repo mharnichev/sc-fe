@@ -2,6 +2,7 @@ import type { ProductDto } from '@shared-types'
 import { isProductUnavailable } from '~/utils/product-visibility'
 
 interface FavoritesState {
+  ownerScope: string
   items: number[]
   products: ProductDto[]
   syncing: boolean
@@ -10,6 +11,7 @@ interface FavoritesState {
 
 export const useFavoritesStore = defineStore('favorites', {
   state: (): FavoritesState => ({
+    ownerScope: 'guest',
     items: [],
     products: [],
     syncing: false,
@@ -19,6 +21,16 @@ export const useFavoritesStore = defineStore('favorites', {
     count: state => state.items.length,
   },
   actions: {
+    prepareSession(scope: string, preserveGuest = false) {
+      this.syncing = false
+      this.error = ''
+      if (preserveGuest && this.ownerScope === 'guest' && scope !== 'guest') return
+      if (this.ownerScope !== scope || scope === 'guest') {
+        this.items = []
+        this.products = []
+      }
+      this.ownerScope = scope
+    },
     has(productId: number) {
       const auth = useCustomerAuthStore()
       return auth.isAuthenticated && this.items.includes(productId)
@@ -52,6 +64,7 @@ export const useFavoritesStore = defineStore('favorites', {
         return
       }
 
+      const isCurrentSession = auth.captureSession()
       const isNewFavorite = !this.items.includes(id)
       if (isNewFavorite) this.items = [...this.items, id]
       if (product && !this.products.some(item => item.id === id)) this.products = [product, ...this.products]
@@ -61,6 +74,8 @@ export const useFavoritesStore = defineStore('favorites', {
       try {
         const domain = useCatalogDomain()
         const serverItem = await domain.addWishlistItem(id)
+        if (!isCurrentSession()) return
+        this.ownerScope = `customer:${auth.customer!.id}`
         if (!this.products.some(item => item.id === serverItem.product.id)) {
           this.products = [serverItem.product, ...this.products]
         }
@@ -73,11 +88,12 @@ export const useFavoritesStore = defineStore('favorites', {
         }
       }
       catch (error) {
+        if (!isCurrentSession()) return
         this.error = 'Could not update server wishlist.'
         await this.syncFromServer()
       }
       finally {
-        this.syncing = false
+        if (isCurrentSession()) this.syncing = false
       }
     },
     async remove(id: number) {
@@ -86,6 +102,7 @@ export const useFavoritesStore = defineStore('favorites', {
 
       const auth = useCustomerAuthStore()
       if (!auth.isAuthenticated) return
+      const isCurrentSession = auth.captureSession()
 
       this.syncing = true
       this.error = ''
@@ -94,58 +111,69 @@ export const useFavoritesStore = defineStore('favorites', {
         await domain.deleteWishlistItem(id)
       }
       catch (error) {
+        if (!isCurrentSession()) return
         this.error = 'Could not remove server wishlist item.'
         await this.syncFromServer()
       }
       finally {
-        this.syncing = false
+        if (isCurrentSession()) this.syncing = false
       }
     },
     async syncFromServer() {
       const auth = useCustomerAuthStore()
       if (!auth.isAuthenticated) return
+      const isCurrentSession = auth.captureSession()
 
       this.syncing = true
       this.error = ''
       try {
         const domain = useCatalogDomain()
         const wishlist = await domain.getWishlist()
+        if (!isCurrentSession()) return
+        this.ownerScope = `customer:${auth.customer!.id}`
         this.items = wishlist.map(item => item.product_id)
         this.products = wishlist.map(item => item.product)
       }
       catch (error) {
+        if (!isCurrentSession()) return
         this.error = 'Could not load server wishlist.'
         throw error
       }
       finally {
-        this.syncing = false
+        if (isCurrentSession()) this.syncing = false
       }
     },
     async mergeAnonymousIntoServer() {
       const auth = useCustomerAuthStore()
       if (!auth.isAuthenticated) return
 
-      const localIds = [...this.items]
+      const isCurrentSession = auth.captureSession()
+      const localIds = this.ownerScope === 'guest' ? [...this.items] : []
+      this.ownerScope = `customer:${auth.customer!.id}`
       this.syncing = true
       this.error = ''
       try {
         const domain = useCatalogDomain()
         for (const productId of localIds) {
+          if (!isCurrentSession()) return
           try {
             await domain.addWishlistItem(productId)
+            if (!isCurrentSession()) return
           }
           catch {
+            if (!isCurrentSession()) return
             // A 409 means the product was already in the server wishlist.
           }
         }
         await this.syncFromServer()
       }
       catch (error) {
+        if (!isCurrentSession()) return
         this.error = 'Could not merge wishlist.'
         throw error
       }
       finally {
-        this.syncing = false
+        if (isCurrentSession()) this.syncing = false
       }
     },
   },

@@ -42,11 +42,18 @@ const selectedEntries = computed(() =>
 const selectedCount = computed(() => selectedEntries.value.length)
 const hasCatalogFilters = computed(() => Boolean(props.query))
 
+const localizedGroupName = (slug: string, name: string) => {
+  const key = `${slug} ${name}`.toLocaleLowerCase('en')
+  if (/\b(size|sizes|rozmir|розмір)\b/.test(key)) return terms.value.catalog.size
+  if (/\b(color|colors|colour|colours|kolir|колір)\b/.test(key)) return terms.value.catalog.color
+  return name
+}
+
 const selectedLabel = (groupSlug: string, valueSlug: string) => {
   const group = props.groups.find(item => item.slug === groupSlug)
   const value = group?.values.find(item => item.slug === valueSlug)
   return {
-    group: group?.name || groupSlug,
+    group: localizedGroupName(groupSlug, group?.name || groupSlug),
     value: value?.name || valueSlug,
   }
 }
@@ -134,7 +141,7 @@ const toggleGroupExpansion = (groupSlug: string) => {
       >
         <details class="catalog-filter-panel__details" open>
           <summary class="catalog-filter-panel__summary">
-            <span>{{ group.name }}</span>
+            <span>{{ localizedGroupName(group.slug, group.name) }}</span>
             <BaseIcon name="chevron-down" size="xxs" />
           </summary>
 

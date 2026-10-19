@@ -4,7 +4,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-400.c28dc18eed.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-400.c28dc18eed.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: optional;
@@ -13,7 +13,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-500.f52df205ab.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-500.f52df205ab.woff2") format("woff2");
   font-style: normal;
   font-weight: 500;
   font-display: optional;
@@ -22,7 +22,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-600.b41ca8c071.woff2") format("woff2");
   font-style: normal;
   font-weight: 600;
   font-display: optional;
@@ -31,7 +31,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-700.b99354bb8a.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: optional;
@@ -40,7 +40,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-800.1940c8e3bc.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-800.1940c8e3bc.woff2") format("woff2");
   font-style: normal;
   font-weight: 800;
   font-display: optional;
@@ -49,7 +49,7 @@
 
 @font-face {
   font-family: "Cy Grotesk";
-  src: url("/fonts/cy-grotesk/cy-grotesk-key-900.8c05da4989.woff2") format("woff2");
+  src: url("../../public/fonts/cy-grotesk/cy-grotesk-key-900.8c05da4989.woff2") format("woff2");
   font-style: normal;
   font-weight: 900;
   font-display: optional;
@@ -57,6 +57,7 @@
 }
 
 :root {
+  --sc-surface-muted: #f8f8f8;
   color-scheme: light;
   scroll-behavior: smooth;
 }
@@ -89,7 +90,7 @@ a {
   justify-content: center;
   overflow: visible;
   border: 1px solid var(--sc-button-border);
-  border-radius: 0;
+  border-radius: 4px;
   background: var(--sc-button-bg);
   -webkit-backdrop-filter: var(--sc-button-backdrop-filter);
   backdrop-filter: var(--sc-button-backdrop-filter);
@@ -304,6 +305,12 @@ a {
 @layer components {
   .site-container {
     @apply mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 pb-4 lg:pb-8;
+  }
+
+  @media (max-width: 519px) {
+    .site-container {
+      @apply px-2;
+    }
   }
 
   .section-x {
@@ -632,4 +639,15 @@ a {
     transform: none;
     transition: none;
   }
+}
+
+/* Reusable quiet card background. Apply soft-surface to any shop container.
+   Static radial washes keep the center clean and never change on hover. */
+.soft-surface {
+  border-radius: 4px;
+  background-color: #fdfdfd;
+  background-image:
+    radial-gradient(ellipse at 0% 0%, rgb(213 222 230 / .2), transparent 65%),
+    radial-gradient(ellipse at 100% 100%, rgb(233 226 216 / .18), transparent 60%),
+    radial-gradient(ellipse at 100% 0%, rgb(225 230 236 / .1), transparent 50%);
 }

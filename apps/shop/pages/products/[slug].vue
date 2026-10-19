@@ -43,6 +43,10 @@ const isNotFoundError = (error: unknown) => {
 
 const selectedImage = ref('')
 const isGalleryModalOpen = ref(false)
+const isGalleryImageZoomed = ref(false)
+const galleryModalTouchStartX = ref<number | null>(null)
+const mobileGallery = ref<HTMLElement | null>(null)
+const activeGallerySlideIndex = ref(0)
 const reviewForm = reactive({ text: '', rating: 5 })
 const reviewState = reactive({ loading: false, error: '', done: false })
 const recordedProductIds = new Set<number>()
@@ -72,11 +76,42 @@ const htmlToText = (value: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim()
 
-const stockTone = computed(() => product.value && product.value.stock > 0 ? 'success' : 'danger')
-const stockLabel = computed(() => product.value && product.value.stock > 0 ? terms.value.product.inStock : terms.value.product.outOfStock)
+const removeCompositionFromDescription = (value: string) => {
+  const compositionLabel = /(?:склад|ingredients?)\s*:/i.exec(value)
+  if (!compositionLabel) return value.trim()
+
+  const beforeComposition = value.slice(0, compositionLabel.index)
+  const paragraphStart = beforeComposition.lastIndexOf('<p')
+  const lastParagraphEnd = beforeComposition.lastIndexOf('</p>')
+
+  return (paragraphStart > lastParagraphEnd ? value.slice(0, paragraphStart) : beforeComposition).trim()
+}
+
 const galleryImages = computed(() => product.value?.images || [])
-const selectedImageIndex = computed(() => galleryImages.value.findIndex(image => image.image === selectedImage.value))
+const productComposition = computed(() => htmlToText(product.value?.ingredients))
+const hasComposition = computed(() => Boolean(productComposition.value))
+const galleryItems = computed(() => {
+  const items: Array<{
+    type: 'image'
+    image: typeof galleryImages.value[number]
+    imageIndex: number
+  } | { type: 'composition' }> = []
+
+  galleryImages.value.forEach((image, index) => {
+    items.push({ type: 'image', image, imageIndex: index })
+    if (hasComposition.value && (index === 1 || (galleryImages.value.length === 1 && index === 0))) {
+      items.push({ type: 'composition' })
+    }
+  })
+
+  return items
+})
 const selectedModalImage = computed(() => selectedImage.value || galleryImages.value[0]?.image || 'https://placehold.co/1000x1000?text=Product')
+const selectedModalImageIndex = computed(() => Math.max(
+  galleryImages.value.findIndex(image => image.image === selectedModalImage.value),
+  0,
+))
+const productType = computed(() => product.value?.product_type || product.value?.category.name || '')
 const breadcrumbs = computed(() => {
   if (!product.value) return []
   return product.value.category_tree.length ? product.value.category_tree : [product.value.category]
@@ -101,9 +136,12 @@ const productBreadcrumbItems = computed<CategoryRouteCrumb[]>(() => {
 })
 const averageRating = computed(() => reviewsPage.value?.average_rating || product.value?.average_rating || null)
 const reviewsCount = computed(() => reviewsPage.value?.total ?? product.value?.reviews_count ?? 0)
-const productDescriptionHtml = computed(() => product.value?.description?.trim() || '')
+const productDescriptionHtml = computed(() => {
+  const description = product.value?.description?.trim() || ''
+  return productComposition.value ? removeCompositionFromDescription(description) : description
+})
 const plainProductDescription = computed(() =>
-  htmlToText(product.value?.description || product.value?.short_description || ''),
+  htmlToText(productDescriptionHtml.value || product.value?.short_description || ''),
 )
 const isFavorite = computed(() => product.value ? favorites.has(product.value.id) : false)
 const isInCart = computed(() => product.value ? cart.items.some(item => item.product.id === product.value?.id) : false)
@@ -113,26 +151,44 @@ const availableVolumeVariants = computed(() =>
   (product.value?.volume_variants ?? []).filter(variant => variant.is_available),
 )
 const hasVolumeVariants = computed(() =>
-  (product.value?.volume_variants?.length ?? 0) > 1 && availableVolumeVariants.value.length > 0,
+  availableVolumeVariants.value.length > 1,
 )
-const parameterEntries = computed(() => Object.entries(product.value?.parameters || {}))
+const volumeTabs = computed(() =>
+  availableVolumeVariants.value.map(variant => ({
+    label: variant.volume_label,
+    value: String(variant.id),
+    to: variant.id === product.value?.id ? undefined : `/products/${variant.slug}`,
+  })),
+)
+const shopAsset = useShopAsset()
 const brandLogoUrl = computed(() => {
   const brand = product.value?.brand
   if (!brand) return ''
 
   return resolveApiAssetUrl(brand.logo_url, String(config.public.apiBase), requestUrl.origin)
-    || localBrandLogoUrl(brand.slug)
+    || shopAsset(localBrandLogoUrl(brand.slug))
 })
+const brandCatalogRoute = computed(() => ({
+  path: '/catalog',
+  query: { brand: product.value?.brand.slug || undefined },
+}))
 const isBrandCharacteristic = (name: string) =>
   name.trim().toLocaleLowerCase() === terms.value.catalog.brand.trim().toLocaleLowerCase()
+const isCategoryCharacteristic = (name: string) =>
+  name.trim().toLocaleLowerCase() === terms.value.catalog.category.trim().toLocaleLowerCase()
+const isProductCodeCharacteristic = (name: string) =>
+  name.trim().toLocaleLowerCase() === terms.value.catalog.productCode.trim().toLocaleLowerCase()
+const parameterEntries = computed(() =>
+  Object.entries(product.value?.parameters || {}).filter(([name]) =>
+    !isCategoryCharacteristic(name) && !isProductCodeCharacteristic(name),
+  ),
+)
 const fallbackCharacteristicEntries = computed(() => {
   if (!product.value) return []
 
   return [
-    [terms.value.catalog.productCode, productCode.value],
     [terms.value.catalog.brand, product.value.brand.name],
-    [terms.value.catalog.category, product.value.category.name],
-    ['Залишок', String(product.value.stock)],
+    ['Об’єм', product.value.package_size || ''],
   ].filter(([, value]) => value)
 })
 const characteristicEntries = computed(() =>
@@ -162,6 +218,11 @@ const recordProductView = (viewedProduct: ProductDto) => {
 
 onMounted(() => {
   if (product.value) recordProductView(product.value)
+  window.addEventListener('keydown', onGalleryModalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGalleryModalKeydown)
 })
 
 watch(
@@ -181,26 +242,77 @@ watch(productError, error => {
 
 watch(galleryImages, images => {
   selectedImage.value = images[0]?.image || ''
+  activeGallerySlideIndex.value = 0
+  if (import.meta.client) {
+    void nextTick(() => mobileGallery.value?.scrollTo({ left: 0 }))
+  }
 }, { immediate: true })
 
 const selectImage = (image: string) => {
   selectedImage.value = image
+  isGalleryImageZoomed.value = false
 }
 
-const nextImage = () => {
-  if (galleryImages.value.length < 2) return
-  const nextIndex = selectedImageIndex.value >= 0
-    ? (selectedImageIndex.value + 1) % galleryImages.value.length
-    : 0
-  selectedImage.value = galleryImages.value[nextIndex]?.image || ''
+const openGalleryImage = (image: string) => {
+  selectImage(image)
+  isGalleryModalOpen.value = true
 }
 
-const prevImage = () => {
-  if (galleryImages.value.length < 2) return
-  const nextIndex = selectedImageIndex.value > 0
-    ? selectedImageIndex.value - 1
-    : galleryImages.value.length - 1
-  selectedImage.value = galleryImages.value[nextIndex]?.image || ''
+const closeGalleryModal = () => {
+  isGalleryModalOpen.value = false
+  isGalleryImageZoomed.value = false
+}
+
+const moveGalleryModalImage = (direction: 1 | -1) => {
+  const imageCount = galleryImages.value.length
+  if (imageCount < 2) return
+
+  const nextIndex = (selectedModalImageIndex.value + direction + imageCount) % imageCount
+  selectImage(galleryImages.value[nextIndex].image)
+}
+
+const toggleGalleryImageZoom = () => {
+  isGalleryImageZoomed.value = !isGalleryImageZoomed.value
+}
+
+const onGalleryModalTouchStart = (event: TouchEvent) => {
+  galleryModalTouchStartX.value = event.changedTouches[0]?.clientX ?? null
+}
+
+const onGalleryModalTouchEnd = (event: TouchEvent) => {
+  const touchStartX = galleryModalTouchStartX.value
+  const touchEndX = event.changedTouches[0]?.clientX
+  galleryModalTouchStartX.value = null
+  if (touchStartX === null || touchEndX === undefined || Math.abs(touchEndX - touchStartX) < 48) return
+
+  moveGalleryModalImage(touchEndX < touchStartX ? 1 : -1)
+}
+
+const onGalleryModalKeydown = (event: KeyboardEvent) => {
+  if (!isGalleryModalOpen.value) return
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    moveGalleryModalImage(-1)
+  }
+  else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    moveGalleryModalImage(1)
+  }
+}
+
+const updateActiveGallerySlide = () => {
+  const gallery = mobileGallery.value
+  if (!gallery || !gallery.clientWidth) return
+  activeGallerySlideIndex.value = Math.min(
+    Math.max(Math.round(gallery.scrollLeft / gallery.clientWidth), 0),
+    galleryItems.value.length - 1,
+  )
+}
+
+const scrollGalleryTo = (index: number) => {
+  const gallery = mobileGallery.value
+  if (!gallery) return
+  gallery.scrollTo({ left: index * gallery.clientWidth, behavior: 'smooth' })
 }
 
 const formatDate = (value: string) => new Intl.DateTimeFormat(dateLocale.value, {
@@ -296,60 +408,60 @@ useHead(() => ({
           <div class="product-page__preview-wrapper">
             <section
               class="product-gallery"
-              :class="{ 'product-gallery--with-thumbs': galleryImages.length > 1 }"
               itemscope
               itemtype="https://schema.org/Product"
             >
               <meta v-if="galleryImages[0]?.image" itemprop="image" :content="galleryImages[0].image">
-              <div class="product-gallery__main">
-                <BaseButton
-                  v-if="galleryImages.length > 1"
-                  class="product-gallery__nav product-gallery__nav--prev"
-                  type="button"
-                  variant="light"
-                  size="sm"
-                  shape="circle"
-                  aria-label="Попереднє зображення"
-                  @click="prevImage"
-                >
-                  <BaseIcon name="chevron-right" size="xxs" />
-                </BaseButton>
-                <button class="product-gallery__image-button" type="button" @click="isGalleryModalOpen = true">
-                  <Transition name="product-gallery-image">
+              <div
+                ref="mobileGallery"
+                class="product-gallery__track"
+                :class="{ 'product-gallery__track--single-image': galleryImages.length === 1 }"
+                aria-label="Галерея товару"
+                @scroll.passive="updateActiveGallerySlide"
+              >
+                <template v-for="(item, index) in galleryItems" :key="item.type === 'image' ? item.image.image : 'composition'">
+                  <BaseButton
+                    v-if="item.type === 'image'"
+                    class="product-gallery__image-button"
+                    type="button"
+                    variant="borderless"
+                    :aria-label="`Відкрити зображення ${item.imageIndex + 1} товару ${product.name}`"
+                    @click="openGalleryImage(item.image.image)"
+                  >
                     <img
-                      :key="selectedModalImage"
-                      :src="selectedModalImage"
-                      :alt="product.name"
+                      :src="item.image.image"
+                      :alt="item.image.alt || product.name"
                       class="product-gallery__image"
+                      draggable="false"
                       itemprop="image"
                     >
-                  </Transition>
-                </button>
-                <BaseButton
-                  v-if="galleryImages.length > 1"
-                  class="product-gallery__nav product-gallery__nav--next"
-                  type="button"
-                  variant="light"
-                  size="sm"
-                  shape="circle"
-                  aria-label="Наступне зображення"
-                  @click="nextImage"
-                >
-                  <BaseIcon name="chevron-right" size="xxs" />
-                </BaseButton>
+                  </BaseButton>
+                  <article
+                    v-else
+                    class="product-gallery__composition-card"
+                    aria-label="Склад продукту"
+                  >
+                    <BaseBadge class="product-gallery__composition-label" tone="neutral">Склад</BaseBadge>
+                    <div class="product-gallery__composition-content">
+                      <p>{{ productComposition }}</p>
+                    </div>
+                  </article>
+                </template>
               </div>
 
-              <div v-if="galleryImages.length > 1" class="product-gallery__thumbs" aria-label="Галерея товару">
-                <button
-                  v-for="image in galleryImages"
-                  :key="image.image"
+              <div v-if="galleryItems.length > 1" class="product-gallery__indicator" aria-label="Навігація галереєю">
+                <BaseButton
+                  v-for="(_, index) in galleryItems"
+                  :key="index"
+                  class="product-gallery__indicator-button"
                   type="button"
-                  class="product-gallery__thumb"
-                  :class="{ 'product-gallery__thumb--active': selectedImage === image.image }"
-                  @click="selectImage(image.image)"
-                >
-                  <img :src="image.image" :alt="image.alt || product.name">
-                </button>
+                  variant="borderless"
+                  shape="circle"
+                  :class="{ 'product-gallery__indicator-button--active': activeGallerySlideIndex === index }"
+                  :aria-label="`Перейти до слайду ${index + 1} з ${galleryItems.length}`"
+                  :aria-current="activeGallerySlideIndex === index ? 'true' : undefined"
+                  @click="scrollGalleryTo(index)"
+                />
               </div>
             </section>
           </div>
@@ -364,8 +476,14 @@ useHead(() => ({
 
             <div class="product-buy__header">
               <div>
-                <h1 class="product-buy__name">{{ product.name }}</h1>
-                <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+                <div class="product-buy__title-row">
+                  <h1 class="product-buy__name">{{ product.name }}</h1>
+                </div>
+                <div class="product-buy__meta-row">
+                  <p v-if="productType" class="product-buy__type">{{ productType }}</p>
+                  <span v-if="productType" aria-hidden="true">/</span>
+                  <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+                </div>
               </div>
               <BaseButton
                 class="product-buy__favorite"
@@ -382,8 +500,7 @@ useHead(() => ({
             </div>
 
             <div class="product-buy__badges">
-              <ProductStatusBadges :product="product" />
-              <BaseBadge class="product-buy__badge--borderless" :tone="stockTone">{{ stockLabel }}</BaseBadge>
+              <ProductStatusBadges class="product-buy__header-badges" :product="product" />
               <BaseBadge v-if="averageRating" tone="dark">{{ averageRating }}/5</BaseBadge>
               <BaseBadge v-if="reviewsCount > 0" class="product-buy__badge--borderless" tone="neutral">
                 {{ reviewsCount }} {{ terms.product.reviews }}
@@ -406,16 +523,34 @@ useHead(() => ({
                     itemprop="value"
                     :class="{ 'product-characteristics__brand': isBrandCharacteristic(name) }"
                   >
-                    <img
-                      v-if="isBrandCharacteristic(name) && brandLogoUrl"
-                      class="product-characteristics__brand-logo"
-                      :src="brandLogoUrl"
-                      alt=""
-                      width="40"
-                      height="24"
-                      loading="lazy"
+                    <NuxtLink
+                      v-if="isBrandCharacteristic(name) && product.brand.slug"
+                      class="product-characteristics__brand-link"
+                      :to="brandCatalogRoute"
                     >
-                    <span>{{ value }}</span>
+                      <img
+                        v-if="brandLogoUrl"
+                        class="product-characteristics__brand-logo"
+                        :src="brandLogoUrl"
+                        alt=""
+                        width="40"
+                        height="24"
+                        loading="lazy"
+                      >
+                      <BaseHoverUnderlineText>{{ value }}</BaseHoverUnderlineText>
+                    </NuxtLink>
+                    <template v-else>
+                      <img
+                        v-if="isBrandCharacteristic(name) && brandLogoUrl"
+                        class="product-characteristics__brand-logo"
+                        :src="brandLogoUrl"
+                        alt=""
+                        width="40"
+                        height="24"
+                        loading="lazy"
+                      >
+                      <span>{{ value }}</span>
+                    </template>
                   </dd>
                 </div>
               </dl>
@@ -423,38 +558,33 @@ useHead(() => ({
 
             <div v-if="hasVolumeVariants" class="product-buy__variants">
               <span class="product-buy__variants-label">Об’єм</span>
-              <div class="product-buy__variants-list" aria-label="Оберіть об’єм товару">
-                <BaseButton
-                  v-for="variant in availableVolumeVariants"
-                  :key="variant.id"
-                  class="product-buy__variant"
-                  :class="{ 'product-buy__variant--active': variant.id === product.id }"
-                  :to="`/products/${variant.slug}`"
-                  variant="borderless"
-                  size="sm"
-                  :aria-current="variant.id === product.id ? 'page' : undefined"
-                >
-                  {{ variant.volume_label }}
-                </BaseButton>
-              </div>
+              <CatalogSortTabs
+                class="product-buy__variants-tabs"
+                :model-value="String(product.id)"
+                :tabs="volumeTabs"
+                aria-label="Оберіть об’єм товару"
+              />
             </div>
 
             <div class="product-buy__cost" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
               <meta itemprop="priceCurrency" content="UAH">
               <meta itemprop="price" :content="product.price">
-              <div class="product-buy__price-wrapper">
-                <p v-if="discount" class="product-buy__old-price">
-                  {{ formatPrice(discount.compareAtPrice) }}
-                </p>
-                <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }" itemprop="price">
-                  {{ formatPrice(product.price) }}
-                </p>
+              <div class="product-buy__price-with-badge">
+                <ProductStatusBadges class="product-buy__cost-badges" :product="product" />
+                <div class="product-buy__price-wrapper" :class="{ 'product-buy__price-wrapper--discount': discount }">
+                  <p v-if="discount" class="product-buy__old-price">
+                    {{ formatPrice(discount.compareAtPrice) }}
+                  </p>
+                  <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }" itemprop="price">
+                    {{ formatPrice(product.price) }}
+                  </p>
+                </div>
               </div>
               <BaseButton
                 class="product-buy__button"
                 type="button"
                 :variant="isInCart ? 'outline-dark' : 'dark'"
-                :disabled="isProductUnavailable(product) && !isInCart"
+                :disabled="cart.syncing || (isProductUnavailable(product) && !isInCart)"
                 block
                 @click="toggleCart"
               >
@@ -564,28 +694,80 @@ useHead(() => ({
 
     <BaseModal
       v-model="isGalleryModalOpen"
-      type="default"
-      mobile-type="bottom"
+      type="fullscreen"
       root-class="product-gallery-modal"
-      content-type="secondary"
+      content-type="primary"
+      @close="closeGalleryModal"
     >
       <template #header-title>
-        {{ product.name }}
+        {{ selectedModalImageIndex + 1 }} / {{ galleryImages.length }}
       </template>
-      <div class="product-gallery-modal__body">
-        <img :src="selectedModalImage" :alt="product.name" class="product-gallery-modal__image">
-        <div v-if="galleryImages.length > 1" class="product-gallery-modal__thumbs">
-          <button
-            v-for="image in galleryImages"
+
+      <div
+        class="product-gallery-modal__body"
+        @touchstart.passive="onGalleryModalTouchStart"
+        @touchend.passive="onGalleryModalTouchEnd"
+      >
+        <BaseButton
+          v-if="galleryImages.length > 1"
+          class="product-gallery-modal__control product-gallery-modal__previous"
+          type="button"
+          variant="outline-dark"
+          shape="circle"
+          aria-label="Попереднє зображення"
+          @click="moveGalleryModalImage(-1)"
+        >
+          <BaseIcon name="chevron-left" size="xxs" />
+        </BaseButton>
+
+        <button
+          class="product-gallery-modal__stage"
+          type="button"
+          :aria-label="isGalleryImageZoomed ? 'Зменшити зображення' : 'Збільшити зображення'"
+          @click="toggleGalleryImageZoom"
+        >
+          <Transition name="product-gallery-modal-image" mode="out-in">
+            <img
+              :key="selectedModalImage"
+              :src="selectedModalImage"
+              :alt="product.name"
+              class="product-gallery-modal__image"
+              :class="{ 'product-gallery-modal__image--zoomed': isGalleryImageZoomed }"
+            >
+          </Transition>
+        </button>
+
+        <div
+          v-if="galleryImages.length > 1"
+          class="product-gallery-modal__thumbnails"
+          aria-label="Інші зображення товару"
+        >
+          <BaseButton
+            v-for="(image, index) in galleryImages"
             :key="image.image"
+            class="product-gallery-modal__thumbnail"
+            :class="{ 'product-gallery-modal__thumbnail--active': image.image === selectedModalImage }"
             type="button"
-            class="product-gallery__thumb"
-            :class="{ 'product-gallery__thumb--active': selectedImage === image.image }"
+            variant="borderless"
+            :aria-label="`Показати зображення ${index + 1}`"
+            :aria-current="image.image === selectedModalImage ? 'true' : undefined"
             @click="selectImage(image.image)"
           >
             <img :src="image.image" :alt="image.alt || product.name">
-          </button>
+          </BaseButton>
         </div>
+
+        <BaseButton
+          v-if="galleryImages.length > 1"
+          class="product-gallery-modal__control product-gallery-modal__next"
+          type="button"
+          variant="outline-dark"
+          shape="circle"
+          aria-label="Наступне зображення"
+          @click="moveGalleryModalImage(1)"
+        >
+          <BaseIcon name="chevron-right" size="xxs" />
+        </BaseButton>
       </div>
     </BaseModal>
   </section>
@@ -672,11 +854,11 @@ useHead(() => ({
   <section v-else class="product-page product-page--error">
     <FeedbackState
       kind="error"
-      title="Не вдалося завантажити товар"
-      description="Спробуйте оновити дані або поверніться до каталогу."
+      :title="isNotFoundError(productError) ? 'Товар не знайдено' : 'Не вдалося завантажити товар'"
+      :description="isNotFoundError(productError) ? 'Перевірте адресу або поверніться до каталогу.' : 'Спробуйте оновити дані або поверніться до каталогу.'"
       :seed="String(route.params.slug)"
     >
-      <BaseButton type="button" @click="refreshProduct">
+      <BaseButton v-if="!isNotFoundError(productError)" type="button" @click="refreshProduct">
         Спробувати ще раз
       </BaseButton>
       <BaseButton to="/catalog" variant="outline-dark">
@@ -706,6 +888,7 @@ useHead(() => ({
 .product-page__preview {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 .product-page__preview-wrapper {
@@ -772,112 +955,162 @@ useHead(() => ({
   padding: 0.75rem;
 }
 
-.product-gallery__main {
-  position: relative;
+.product-gallery {
   display: flex;
-  min-height: 15rem;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 0.625rem;
 }
 
-.product-gallery__image-button {
+.product-gallery__track {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: grid;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  cursor: zoom-in;
-}
-
-.product-gallery__image {
-  grid-area: 1 / 1;
-  width: 100%;
-  max-width: 25rem;
-  max-height: 25rem;
-  object-fit: contain;
-}
-
-.product-gallery-image-enter-active,
-.product-gallery-image-leave-active {
-  transition: opacity 260ms ease;
-}
-
-.product-gallery-image-enter-from,
-.product-gallery-image-leave-to {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .product-gallery-image-enter-active,
-  .product-gallery-image-leave-active {
-    transition: none;
-  }
-}
-
-.product-gallery__nav {
-  --sc-button-bg: #ffffff;
-  --sc-button-text: #0a0a0a;
-  --sc-button-fill: #0a0a0a;
-  --sc-button-hover-text: #ffffff;
-  --sc-button-border: transparent;
-  --sc-button-shadow: none;
-
-  position: absolute;
-  top: 50%;
-  z-index: 2;
-  transform: translateY(-50%);
-}
-
-.product-gallery__nav--prev {
-  left: 0.5rem;
-  transform: translateY(-50%) scaleX(-1);
-}
-
-.product-gallery__nav--next {
-  right: 0.5rem;
-}
-
-.product-gallery__thumbs,
-.product-gallery-modal__thumbs {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  grid-auto-columns: 100%;
+  grid-auto-flow: column;
+  align-items: stretch;
+  justify-items: stretch;
   overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 
-.product-gallery__thumbs::-webkit-scrollbar,
-.product-gallery-modal__thumbs::-webkit-scrollbar {
+.product-gallery__track::-webkit-scrollbar {
   display: none;
 }
 
-.product-gallery__thumb {
-  width: 3.75rem;
-  height: 3.75rem;
-  flex: 0 0 auto;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0.375rem;
-  background: #ffffff;
-  padding: 0;
-  opacity: 0.72;
-  transition: opacity 160ms ease, transform 160ms ease;
+.product-gallery__image-button,
+.product-gallery__composition-card {
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
+  min-height: 0;
+  aspect-ratio: 1;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
-.product-gallery__thumb img {
+.product-gallery__image-button {
+  --sc-button-fill: transparent;
+  --sc-button-hover-text: #0a0a0a;
+
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  max-height: 60vh;
+  max-height: 60dvh;
+  overflow: hidden;
+  justify-self: center;
+  align-self: center;
+  margin: auto;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.product-gallery__image-button :deep(.sc-button__text) {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-height: inherit;
+  overflow: hidden;
+}
+
+.product-gallery__track--single-image .product-gallery__image-button {
+  width: 100%;
+  max-height: 60vh;
+  max-height: 60dvh;
+}
+
+.product-gallery__image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
-.product-gallery__thumb--active,
-.product-gallery__thumb:hover,
-.product-gallery__thumb:focus-visible {
-  opacity: 1;
-  transform: translateY(-1px);
+.product-gallery__composition-card {
+  position: relative;
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffc846;
+  color: #0a0a0a;
+}
+
+.product-gallery__composition-label {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.product-gallery__composition-content {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: flex-end;
+  justify-content: flex-end;
+  overflow-y: auto;
+  padding: 3.5rem 1.25rem 1.25rem;
+  scrollbar-width: none;
+  text-align: right;
+}
+
+.product-gallery__composition-content::-webkit-scrollbar {
+  display: none;
+}
+
+.product-gallery__composition-content p {
+  margin: 0;
+  text-align: right;
+  font-size: clamp(0.6875rem, 2.5vw, 0.875rem);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.product-gallery__indicator {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-gallery__indicator-button {
+  --sc-button-bg: transparent;
+  --sc-button-fill: transparent;
+  --sc-button-hover-text: transparent;
+
+  width: 1.5rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+}
+
+.product-gallery__indicator-button::after {
+  width: 0.375rem;
+  height: 0.375rem;
+  border: 1px solid #262626;
+  border-radius: 50%;
+  background: #262626;
+  content: "";
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.product-gallery__indicator-button--active::after {
+  background: #ffffff;
+  transform: scale(1.35);
 }
 
 .product-buy {
@@ -899,7 +1132,7 @@ useHead(() => ({
 }
 
 .product-buy__name {
-  margin: 0 0 0.25rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.35;
@@ -908,8 +1141,31 @@ useHead(() => ({
   text-transform: uppercase;
 }
 
+.product-buy__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+}
+
+.product-buy__type {
+  margin: 0;
+  color: #737373;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.product-buy__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.375rem;
+  color: #737373;
+}
+
 .product-buy__code {
-  display: block;
   color: #737373;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -936,6 +1192,10 @@ useHead(() => ({
   gap: 0.5rem;
 }
 
+.product-buy__header-badges :deep(.product-discount-sticker) {
+  display: none;
+}
+
 .product-buy__badge--borderless {
   border: 0;
 }
@@ -953,24 +1213,8 @@ useHead(() => ({
   text-transform: uppercase;
 }
 
-.product-buy__variants-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.product-buy__variant {
-  min-width: 3.5rem;
-  text-transform: none;
-}
-
-.product-buy__variant--active {
-  --sc-button-bg: #0a0a0a;
-  --sc-button-text: #ffffff;
-  --sc-button-fill: #0a0a0a;
-  --sc-button-hover-text: #ffffff;
-
-  pointer-events: none;
+.product-buy__variants-tabs {
+  width: min(100%, 17.5rem);
 }
 
 .product-buy__cost {
@@ -980,6 +1224,21 @@ useHead(() => ({
   align-items: stretch;
   padding: 0.75rem;
   background: #f5f5f5;
+}
+
+.product-buy__price-with-badge {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-buy__cost-badges {
+  flex: 0 0 auto;
+}
+
+.product-buy__cost-badges :deep(.product-status-badges__item) {
+  display: none;
 }
 
 .product-buy__price-wrapper {
@@ -1168,6 +1427,15 @@ useHead(() => ({
   justify-content: flex-end;
 }
 
+.product-characteristics__brand-link {
+  display: inline-flex;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: flex-end;
+  color: inherit;
+  text-decoration: none;
+}
+
 .product-characteristics__brand-logo {
   width: 2.5rem;
   height: 1.5rem;
@@ -1278,23 +1546,180 @@ useHead(() => ({
 }
 
 .product-gallery-modal__body {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: center;
+  --product-gallery-thumbnail-height: 0px;
+
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: #ffffff;
+}
+
+.product-gallery-modal__control {
+  position: absolute;
+  top: calc((100% - var(--product-gallery-thumbnail-height)) / 2);
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.product-gallery-modal__previous {
+  left: 1rem;
+}
+
+.product-gallery-modal__next {
+  right: 1rem;
+}
+
+.product-gallery-modal__stage {
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  background: #ffffff;
+  cursor: zoom-in;
+}
+
+.product-gallery-modal__stage:focus,
+.product-gallery-modal__stage:focus-visible {
+  outline: 0;
+}
+
+.product-gallery-modal__stage:has(.product-gallery-modal__image--zoomed) {
+  cursor: zoom-out;
 }
 
 .product-gallery-modal__image {
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
   width: 100%;
-  max-height: 65vh;
+  height: 100%;
+  padding: 2rem 5rem;
   object-fit: contain;
+  transition: transform 220ms ease;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-:global(.product-gallery-modal .base-modal__container) {
-  width: min(72rem, calc(100vw - 2rem));
+.product-gallery-modal__thumbnails {
+  display: none;
+  min-height: 5.75rem;
+  max-width: min(100%, 42rem);
+  justify-self: center;
+  overflow-x: auto;
+  padding: 0 1rem 1.25rem;
+  scrollbar-width: thin;
+}
+
+.product-gallery-modal__thumbnail {
+  width: 4.5rem;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: #f5f5f5;
+  opacity: 0.58;
+  transition: opacity 180ms ease, box-shadow 180ms ease;
+}
+
+.product-gallery-modal__thumbnail + .product-gallery-modal__thumbnail {
+  margin-left: 0.5rem;
+}
+
+.product-gallery-modal__thumbnail:hover,
+.product-gallery-modal__thumbnail:focus-visible,
+.product-gallery-modal__thumbnail--active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px #0a0a0a;
+}
+
+.product-gallery-modal__thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-gallery-modal__image--zoomed {
+  transform: scale(2);
+}
+
+.product-gallery-modal-image-enter-active,
+.product-gallery-modal-image-leave-active {
+  transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.product-gallery-modal-image-enter-from,
+.product-gallery-modal-image-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-gallery-modal-image-enter-active,
+  .product-gallery-modal-image-leave-active {
+    transition: none;
+  }
+}
+
+:global(.product-gallery-modal .base-modal__overlay) {
+  background: rgb(255 255 255 / 0.72);
+}
+
+:global(.product-gallery-modal .base-modal__content) {
+  display: flex;
+  height: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+:global(.product-gallery-modal.base-modal-enter-from .base-modal__container),
+:global(.product-gallery-modal.base-modal-leave-to .base-modal__container) {
+  opacity: 0;
+  transform: scale(0.985);
+}
+
+:global(.product-gallery-modal.base-modal-enter-active .base-modal__container),
+:global(.product-gallery-modal.base-modal-leave-active .base-modal__container) {
+  transition:
+    opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (max-width: 575px) {
+  .product-gallery-modal__previous {
+    left: 0.5rem;
+  }
+
+  .product-gallery-modal__next {
+    right: 0.5rem;
+  }
+
+  .product-gallery-modal__image {
+    padding: 1rem 3.5rem;
+  }
 }
 
 @media (min-width: 640px) {
+  .product-gallery-modal__body {
+    --product-gallery-thumbnail-height: 5.75rem;
+  }
+
+  .product-gallery-modal__thumbnails {
+    display: flex;
+  }
+
   .product-buy__cost {
     flex-direction: row;
     align-items: center;
@@ -1305,8 +1730,24 @@ useHead(() => ({
     padding-left: 1.25rem;
   }
 
+  .product-buy__price-wrapper--discount {
+    padding-left: 0;
+  }
+
   .product-buy__button {
     max-width: 13rem;
+  }
+}
+
+@media (min-width: 521px) and (max-width: 1023px) {
+  .product-gallery__image {
+    object-fit: contain;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-gallery-modal__thumbnail {
+    transition: none;
   }
 }
 
@@ -1323,37 +1764,58 @@ useHead(() => ({
 
   .product-page__preview-wrapper {
     position: sticky;
-    top: 4.375rem;
-  }
-
-  .product-gallery {
-    display: flex;
-    height: calc(100vh - 4.375rem);
-    height: calc(100dvh - 4.375rem);
-    flex-direction: column;
-  }
-
-  .product-gallery__main {
+    top: 9.5rem;
+    align-self: flex-start;
     min-height: 0;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .product-page__info {
+    position: sticky;
+    top: 9.5rem;
+    align-self: flex-start;
+  }
+
+  .product-gallery__track {
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    column-gap: 1rem;
+    row-gap: 1rem;
+    align-content: start;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .product-gallery__track--single-image {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .product-gallery__image-button {
-    height: 100%;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    aspect-ratio: 1;
   }
 
-  .product-gallery__image {
-    max-height: 100%;
+  .product-gallery__image-button:first-child {
+    grid-column: 1 / -1;
+    aspect-ratio: 1.06;
   }
 
-  .product-gallery--with-thumbs {
-    justify-content: center;
+  .product-gallery__composition-card {
+    order: 0;
+    min-height: 14rem;
+    max-height: none;
+    aspect-ratio: 1;
+    align-self: stretch;
   }
 
-  .product-gallery--with-thumbs .product-gallery__main {
-    height: min(55vh, 32rem);
-    height: min(55dvh, 32rem);
-    flex: 0 1 auto;
+  .product-gallery__indicator {
+    display: none;
   }
 
   .product-reviews {
@@ -1383,6 +1845,14 @@ useHead(() => ({
 
   .product-characteristics__brand {
     justify-content: flex-start;
+  }
+
+  .product-characteristics__brand-link {
+    justify-content: flex-start;
+  }
+
+  .product-buy__price--discount {
+    font-size: 24px;
   }
 }
 </style>

@@ -5,6 +5,17 @@ const auth = useCustomerAuthStore()
 const modal = useModalStore()
 const route = useRoute()
 const { terms } = useShopLocale()
+const isHydrated = ref(false)
+const isCabinet = computed(() => route.path === '/cabinet' || route.path.startsWith('/cabinet/'))
+const cabinetLinks = computed(() => [
+  { to: '/cabinet/purchase-history', icon: 'clock', label: terms.value.cabinet.myOrders, active: route.path.startsWith('/cabinet/purchase-history') || route.path.startsWith('/cabinet/orders/') },
+  { to: '/cabinet/settings', icon: 'settings', label: terms.value.cabinet.settings, active: route.path === '/cabinet' || route.path === '/cabinet/settings' || route.path.startsWith('/cabinet/settings/') },
+  { to: '/cabinet/favorites', icon: 'heart', label: terms.value.common.favorites, active: route.path === '/cabinet/favorites' || route.path.startsWith('/cabinet/favorites/') },
+])
+
+onMounted(() => {
+  isHydrated.value = true
+})
 
 const ALWAYS_SHOW_TOP = 120
 const SCROLL_DELTA = 6
@@ -19,7 +30,7 @@ const lastYPosition = ref(0)
 let toneFrame: number | undefined
 
 const accountInitials = computed(() => {
-  if (!auth.isAuthenticated) return ''
+  if (!isHydrated.value || !auth.isAuthenticated) return ''
   return auth.displayName
     .split(/\s+/)
     .filter(Boolean)
@@ -170,16 +181,32 @@ onBeforeUnmount(() => {
     :class="[
       'base-bottom-bar',
       {
-        'base-bottom-bar--partially-hidden': isPartiallyHidden,
+        'base-bottom-bar--partially-hidden': isPartiallyHidden && !isCabinet,
+        'base-bottom-bar--cabinet': isCabinet,
         'base-bottom-bar--on-dark': isOnDarkSurface,
       },
     ]"
-    :aria-label="terms.header.shopActions"
+    :aria-label="isCabinet ? terms.common.cabinet : terms.header.shopActions"
   >
     <NuxtLink to="/" class="base-bottom-bar__btn" :aria-label="terms.common.main">
       <BaseIcon name="home" size="xxs" effect="button" />
     </NuxtLink>
 
+    <template v-if="isCabinet">
+      <NuxtLink
+        v-for="item in cabinetLinks"
+        :key="item.to"
+        :to="item.to"
+        class="base-bottom-bar__btn"
+        :class="{ 'base-bottom-bar__btn--active': item.active }"
+        :aria-label="item.label"
+        :aria-current="item.active ? 'page' : undefined"
+      >
+        <BaseIcon :name="item.icon" size="xxs" effect="button" />
+      </NuxtLink>
+    </template>
+
+    <template v-else>
     <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
       <BaseIcon name="catalog" size="xxs" effect="button" />
     </button>
@@ -197,6 +224,8 @@ onBeforeUnmount(() => {
         <span v-if="favorites.count" class="base-bottom-bar__count">{{ favorites.count }}</span>
       </span>
     </button>
+
+    </template>
 
     <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.account" @click="openAccount">
       <span v-if="accountInitials" class="base-bottom-bar__avatar">{{ accountInitials }}</span>
@@ -322,6 +351,10 @@ onBeforeUnmount(() => {
 .base-bottom-bar__icon-wrap {
   position: relative;
   display: inline-flex;
+}
+
+.base-bottom-bar--cabinet .base-bottom-bar__btn--active {
+  background: rgb(127 127 127 / 0.18);
 }
 
 .base-bottom-bar__count {

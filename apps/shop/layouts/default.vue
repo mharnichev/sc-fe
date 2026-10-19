@@ -1,7 +1,12 @@
 <script setup lang="ts">
 const { locale } = useShopLocale()
 const isPageTransitionVisible = usePageTransitionOverlay()
+const isHydrated = ref(false)
 const headerState = ref<{ visible: boolean, height: number } | null>(null)
+
+onMounted(() => {
+  isHydrated.value = true
+})
 
 const layoutStyle = computed(() => {
   if (!headerState.value) return
@@ -37,7 +42,7 @@ useHead({
     <div
       data-testid="page-transition-overlay"
       class="fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
-      :class="isPageTransitionVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
+      :class="isHydrated && isPageTransitionVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
       aria-hidden="true"
     />
   </div>

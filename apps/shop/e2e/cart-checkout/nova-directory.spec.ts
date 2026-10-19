@@ -1,0 +1,158 @@
+import { test, expect, type Page } from '@playwright/test'
+const city = { ref: 'settlement-kyiv', city_ref: 'city-kyiv', name: 'Київ', label: 'Київ, Київська область', area: 'Київська область', region: '', delivery_available: true }
+const branch = { ref: 'branch-1', settlement_ref: city.ref, city_ref: city.city_ref, number: '1', name: 'Відділення №1', label: 'Відділення №1, вул. Тестова, 1', address: 'вул. Тестова, 1', type: 'warehouse', status: 'Working' }
+const street = { ref: 'street-1', name: 'Тестова', label: 'вул. Тестова' }
+const directory = (items: unknown[]) => ({ items, cached: true, updated_at: null, stale: false })
+async function setup(page: Page) {
+  await page.route('https://**', route => route.abort())
+  await page.addInitScript(() => {
+    localStorage.setItem('shop-cart', JSON.stringify({ items: [{ quantity: 1, product: { id: 1, name: 'Delivery test product', price: 100, stock: 10, images: [], brand: { name: 'Test' }, is_available_for_purchase: true } }] }))
+  })
+  await page.route('**/public/delivery/np/settlements**', route => route.fulfill({ json: directory([city]) }))
+  await page.route('**/public/delivery/np/branches**', route => route.fulfill({ json: directory([branch]) }))
+  await page.route('**/public/delivery/np/streets**', route => route.fulfill({ json: directory([street]) }))
+  await page.goto('/checkout/purchase', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: { config: { globalProperties: { $nuxt?: { isHydrating: boolean } } } } }
+    return root?.__vue_app__?.config.globalProperties.$nuxt?.isHydrating === false
+  })
+  await page.getByLabel('ІМʼЯ').fill('Test')
+  await page.getByLabel('ПРІЗВИЩЕ').fill('Customer')
+  await page.getByLabel('ТЕЛЕФОН').fill('+380990001234')
+}
+async function chooseCity(page: Page) {
+  await page.getByRole('button', { name: 'Київ', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue(city.label)
+}
+test('directory: popular city, keyboard branch, refs submitted and reset on edit', async ({ page }) => {
+  await setup(page)
+  await chooseCity(page)
+  const field = page.getByRole('combobox', { name: /^Відділення$/i })
+  await field.focus()
+  await expect(page.getByRole('option', { name: branch.label })).toBeVisible()
+  await field.press('ArrowDown')
+  await field.press('Enter')
+  const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()
+  await expect(submit).toBeEnabled()
+  await page.screenshot({ path: '/tmp/nova-post-desktop.png', fullPage: true, animations: 'disabled', timeout: 5000 })
+  let body: Record<string, unknown> = {}
+  await page.route('**/public/orders', async route => { body = route.request().postDataJSON(); await route.fulfill({ status: 400, json: { detail: 'Test intercept' } }) })
+  await submit.click()
+  await expect.poll(() => body.shippingWarehouseRef).toBe(branch.ref)
+  expect(body).toMatchObject({ shippingSettlementRef: city.ref, shippingCityRef: city.city_ref, shippingCity: city.name, shippingWarehouseNumber: '1' })
+  await page.getByRole('combobox', { name: /^Місто$/i }).fill('Львів')
+  await expect(field).toHaveValue('')
+  await expect(field).toBeDisabled()
+  await expect(submit).toBeDisabled()
+})
+test('directory: courier requires canonical street and clears address when method changes @mobile', async ({ page }) => {
+  await setup(page)
+  await chooseCity(page)
+  await page.locator('label[for=shipping-method-courier]').click()
+  const field = page.getByRole('combobox', { name: /^Вулиця$/i })
+  await field.fill('Тес')
+  await expect(page.getByRole('option', { name: street.label })).toBeVisible()
+  await page.getByRole('option', { name: street.label }).click()
+  await page.getByRole('textbox', { name: /^Будинок/i }).fill('12')
+  const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).first()
+  await expect(submit).toBeEnabled()
+  await page.screenshot({ path: '/tmp/nova-post-mobile.png', fullPage: true, animations: 'disabled', timeout: 5000 })
+  let body: Record<string, unknown> = {}
+  await page.route('**/public/orders', async route => { body = route.request().postDataJSON(); await route.fulfill({ status: 400, json: {} }) })
+  await submit.click()
+  await expect.poll(() => body.shippingStreetRef).toBe(street.ref)
+  expect(body).toMatchObject({ shippingMethod: 'courier', shippingSettlementRef: city.ref, shippingStreet: street.name, buildingNumber: '12' })
+  await field.fill('Інша вулиця')
+  await expect(submit).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: /^Будинок/i })).toHaveValue('')
+  await page.locator('label[for=shipping-method-warehouse]').click()
+  await expect(page.getByRole('combobox', { name: /^Відділення$/i })).toHaveValue('')
+})
+test('directory: failed search retry and empty result', async ({ page }) => {
+  await setup(page)
+  let fail = true
+  await page.route('**/public/delivery/np/settlements**', route => route.fulfill(fail ? { status: 503, json: {} } : { json: directory([]) }))
+  await page.getByRole('combobox', { name: /^Місто$/i }).fill('Невідоме')
+  await expect(page.getByText('Не вдалося завантажити довідник.')).toBeVisible()
+  fail = false
+  await page.getByRole('button', { name: 'Спробувати ще раз' }).click()
+  await expect(page.getByText('Нічого не знайдено. Спробуйте іншу назву.')).toBeVisible()
+})
+
+test('directory: popular-city change immediately invalidates previous branch even when lookup fails', async ({ page }) => {
+  await setup(page)
+  await chooseCity(page)
+  const branchField = page.getByRole('combobox', { name: /^Відділення$/i })
+  await branchField.focus()
+  await page.getByRole('option', { name: branch.label }).click()
+  const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()
+  await expect(submit).toBeEnabled()
+  await page.route('**/public/delivery/np/settlements**', async route => {
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await route.fulfill({ status: 503, json: {} })
+  })
+  await page.getByRole('button', { name: 'Львів', exact: true }).click()
+  await expect(submit).toBeDisabled()
+  await expect(branchField).toHaveValue('')
+  await expect(branchField).toBeDisabled()
+  await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue('Львів')
+  await expect(page.getByText('Не вдалося завантажити довідник.').first()).toBeVisible()
+  await expect(submit).toBeDisabled()
+})
+test('directory: initial ArrowUp selects last suggestion and stale responses cannot overwrite new query', async ({ page }) => {
+  await setup(page)
+  await page.route('**/public/delivery/np/settlements**', async route => {
+    const query = new URL(route.request().url()).searchParams.get('q')
+    if (query === 'Старе') await new Promise(resolve => setTimeout(resolve, 700))
+    await route.fulfill({ json: directory(query === 'Старе' ? [{ ...city, ref: 'old', label: 'Старе місто' }] : [city, { ...city, ref: 'last', name: 'Київське', label: 'Київське, область' }]) })
+  })
+  const field = page.getByRole('combobox', { name: /^Місто$/i })
+  const oldRequest = page.waitForRequest(request => request.url().includes('q=') && decodeURIComponent(request.url()).includes('Старе'))
+  await field.fill('Старе')
+  await oldRequest
+  await field.fill('Київ')
+  await expect(page.getByRole('option', { name: 'Київське, область' })).toBeVisible()
+  await field.press('ArrowUp')
+  await expect(page.getByRole('option', { name: 'Київське, область' })).toHaveAttribute('aria-selected', 'true')
+  await field.press('Enter')
+  await expect(field).toHaveValue('Київське, область')
+  await expect(page.getByRole('combobox', { name: /^Відділення$/i })).toBeEnabled()
+})
+
+test('directory: courier-only settlement has no city ref; unavailable courier cannot be submitted', async ({ page }) => {
+  await setup(page)
+  await page.route('**/public/delivery/np/settlements**', route => route.fulfill({ json: directory([{ ...city, city_ref: null, delivery_available: false }]) }))
+  await chooseCity(page)
+  await page.locator('label[for=shipping-method-courier]').click()
+  await expect(page.getByText('Кур’єрська доставка недоступна для цього населеного пункту.')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: /^Вулиця$/i })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()).toBeDisabled()
+})
+
+test('directory: explicit manual courier street fallback preserves villages without street directory @mobile', async ({ page }) => {
+  await setup(page)
+  await chooseCity(page)
+  await page.locator('label[for=shipping-method-courier]').click()
+  await page.route('**/public/delivery/np/streets**', route => route.fulfill({ json: directory([]) }))
+  await page.getByRole('combobox', { name: /^Вулиця$/i }).fill('Нова')
+  await expect(page.getByText('Нічого не знайдено. Спробуйте іншу назву.')).toBeVisible()
+  await page.locator('label[for=manual-delivery-street]').click()
+  await page.getByRole('textbox', { name: /^Вулиця/i }).fill(' Нова вулиця ')
+  await page.getByRole('textbox', { name: /^Будинок/i }).fill('15')
+  const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).first()
+  await expect(submit).toBeEnabled()
+  let body: Record<string, unknown> = {}
+  await page.route('**/public/orders', async route => { body = route.request().postDataJSON(); await route.fulfill({ status: 400, json: {} }) })
+  await submit.click()
+  await expect.poll(() => body.shippingStreet).toBe('Нова вулиця')
+  expect(body.shippingStreetRef).toBeUndefined()
+  expect(body.shippingSettlementRef).toBe(city.ref)
+  await page.locator('label[for=manual-delivery-street]').click()
+  await expect(page.getByRole('combobox', { name: /^Вулиця$/i })).toHaveValue('')
+  await expect(page.getByRole('textbox', { name: /^Будинок/i })).toHaveValue('')
+  await expect(submit).toBeDisabled()
+  await page.locator('label[for=manual-delivery-street]').click()
+  await page.locator('label[for=shipping-method-warehouse]').click()
+  await page.locator('label[for=shipping-method-courier]').click()
+  await expect(page.getByRole('checkbox', { name: /Вулиці немає/i })).not.toBeChecked()
+})

@@ -163,6 +163,6 @@ const isInCart = (productId: number) =>
 
 .favorite-sidebar__empty {
   min-height: 100%;
-  --feedback-state-surface: #f3f4f7;
+  --feedback-state-surface: var(--sc-surface-muted);
 }
 </style>
