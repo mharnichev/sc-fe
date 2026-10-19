@@ -1,12 +1,14 @@
+import type { CheckoutOrderRequest, CheckoutOrder } from '~/types/order'
 import type {
   BrandDto,
   CategoryDto,
   CategoryFiltersDto,
   CategoryTreeNodeDto,
   CustomerCartItemDto,
+  ShopFeedbackRequestDto,
+  ShopFeedbackResponseDto,
   CustomerWishlistItemDto,
   DeliveryListResponseDto,
-  OrderDto,
   PaginatedResponse,
   ProductDto,
   ProductImageDto,
@@ -14,6 +16,7 @@ import type {
   ProductReviewListDto,
   ProductSearchResponseDto,
 } from '@shared-types'
+import { resolveApiAssetUrl } from '@shared-utils'
 
 type CatalogQueryValue = string | number | boolean | null | undefined
 type CatalogQuery = Record<string, CatalogQueryValue | CatalogQueryValue[]> & {
@@ -49,6 +52,10 @@ interface PublicBrandDto {
   name: string
   slug: string
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
+  history_uk?: string | null
+  history_en?: string | null
   logo_url?: string | null
   website?: string | null
   status?: string
@@ -72,8 +79,13 @@ interface PublicProductDto {
   name: string
   slug: string
   sku: string | null
+  old_name?: string | null
+  model_name?: string | null
+  product_type?: string | null
+  package_size?: string | null
   short_description: string | null
   description: string | null
+  ingredients?: string | null
   price: string | number
   compare_at_price?: string | number | null
   recommended_retail_price?: string | number | null
@@ -278,6 +290,10 @@ const mapBrand = (brand?: PublicBrandDto | null): BrandDto => {
     name: brand.name,
     slug: brand.slug,
     description: brand.description,
+    description_uk: brand.description_uk ?? null,
+    description_en: brand.description_en ?? null,
+    history_uk: brand.history_uk ?? null,
+    history_en: brand.history_en ?? null,
     logo_url: brand.logo_url ?? null,
     website: brand.website ?? null,
     status: resolveStatus(brand.status, brand.is_active),
@@ -287,17 +303,17 @@ const mapBrand = (brand?: PublicBrandDto | null): BrandDto => {
 const imageUrlFromPublicImage = (image: PublicProductImage) =>
   typeof image === 'string' ? image : image.image ?? image.image_url ?? ''
 
-const mapProductImages = (product: PublicProductDto): ProductImageDto[] => {
+const mapProductImages = (product: PublicProductDto, resolveAssetUrl: (url: string) => string): ProductImageDto[] => {
   if (product.images?.length) {
     const mappedImages: ProductImageDto[] = []
     product.images.forEach((image, index) => {
-      const url = imageUrlFromPublicImage(image)
+      const url = resolveAssetUrl(imageUrlFromPublicImage(image))
       if (!url) return
 
       mappedImages.push({
         id: typeof image === 'string' ? undefined : image.id,
         image: url,
-        image_url: typeof image === 'string' ? url : image.image_url ?? url,
+        image_url: url,
         alt: typeof image === 'string' ? product.name : image.alt ?? product.name,
         sort_order: typeof image === 'string' ? index : image.sort_order ?? index,
       })
@@ -312,12 +328,15 @@ const mapProductImages = (product: PublicProductDto): ProductImageDto[] => {
     ...(Array.isArray(attributeImages) ? attributeImages : []),
   ].filter((imageUrl): imageUrl is string => typeof imageUrl === 'string' && imageUrl.length > 0)
 
-  return [...new Set(imageUrls)].map((image, index) => ({
-    image,
-    image_url: image,
-    alt: index === 0 ? product.name : null,
-    sort_order: index,
-  }))
+  return [...new Set(imageUrls)].map((image, index) => {
+    const url = resolveAssetUrl(image)
+    return {
+      image: url,
+      image_url: url,
+      alt: index === 0 ? product.name : null,
+      sort_order: index,
+    }
+  })
 }
 
 const mapProductParameters = (parameters: PublicProductParameters): Record<string, string> => {
@@ -342,55 +361,76 @@ const mapProductParameters = (parameters: PublicProductParameters): Record<strin
   )
 }
 
-const mapProduct = (product: PublicProductDto): ShopProductDto => ({
-  id: product.id,
-  category_id: product.category_id ?? product.category?.id ?? 0,
-  brand_id: product.brand_id ?? product.brand?.id ?? 0,
-  name: product.name,
-  slug: product.slug,
-  sku: product.sku ?? '',
-  short_description: product.short_description,
-  description: product.description ?? '',
-  price: String(product.price),
-  compare_at_price: decimalString(product.compare_at_price ?? product.recommended_retail_price),
-  stock: product.stock ?? product.stock_quantity ?? 0,
-  status: resolveStatus(product.status, product.is_active),
-  is_effectively_visible: product.is_effectively_visible,
-  hidden_reason: product.hidden_reason ?? null,
-  is_available_for_purchase: product.is_available_for_purchase,
-  seo_title: product.seo_title ?? null,
-  seo_description: product.seo_description ?? null,
-  meta_keywords: product.meta_keywords ?? null,
-  category: mapCategory(product.category),
-  brand: mapBrand(product.brand),
-  images: mapProductImages(product),
-  category_tree: product.category_tree ?? [],
-  average_rating: decimalString(product.average_rating),
-  reviews_count: product.reviews_count ?? 0,
-  discount_percent: decimalString(product.discount_percent),
-  attributes_json: product.attributes_json ?? null,
-  is_new: product.is_new,
-  is_top: product.is_top,
-  is_popular: product.is_popular,
-  parameters: mapProductParameters(product.parameters),
-  volume_variants: (product.volume_variants ?? []).map(variant => ({
-    ...variant,
-    price: String(variant.price),
-  })),
-})
+const displayProductPricing = (product: PublicProductDto) => {
+  return {
+    price: String(product.price),
+    compareAtPrice: decimalString(product.compare_at_price),
+  }
+}
 
-const mapProductPage = (response: PaginatedResponse<PublicProductDto>): PaginatedResponse<ProductDto> => ({
+const mapProduct = (product: PublicProductDto, resolveAssetUrl: (url: string) => string): ShopProductDto => {
+  const pricing = displayProductPricing(product)
+
+  return {
+    id: product.id,
+    category_id: product.category_id ?? product.category?.id ?? 0,
+    brand_id: product.brand_id ?? product.brand?.id ?? 0,
+    name: product.model_name ?? product.name,
+    old_name: product.old_name ?? product.name,
+    product_type: product.product_type ?? null,
+    package_size: product.package_size ?? null,
+    slug: product.slug,
+    sku: product.sku ?? '',
+    short_description: product.short_description,
+    description: product.description ?? '',
+    ingredients: product.ingredients ?? null,
+    price: pricing.price,
+    recommended_retail_price: decimalString(product.recommended_retail_price),
+    compare_at_price: pricing.compareAtPrice,
+    stock: product.stock ?? product.stock_quantity ?? 0,
+    status: resolveStatus(product.status, product.is_active),
+    is_effectively_visible: product.is_effectively_visible,
+    hidden_reason: product.hidden_reason ?? null,
+    is_available_for_purchase: product.is_available_for_purchase,
+    seo_title: product.seo_title ?? null,
+    seo_description: product.seo_description ?? null,
+    meta_keywords: product.meta_keywords ?? null,
+    category: mapCategory(product.category),
+    brand: mapBrand(product.brand),
+    images: mapProductImages(product, resolveAssetUrl),
+    category_tree: product.category_tree ?? [],
+    average_rating: decimalString(product.average_rating),
+    reviews_count: product.reviews_count ?? 0,
+    discount_percent: decimalString(product.discount_percent),
+    attributes_json: product.attributes_json ?? null,
+    is_new: product.is_new,
+    is_top: product.is_top,
+    is_popular: product.is_popular,
+    parameters: mapProductParameters(product.parameters),
+    volume_variants: (product.volume_variants ?? []).map(variant => ({
+      ...variant,
+      price: String(variant.price),
+      image_url: variant.image_url ? resolveAssetUrl(variant.image_url) : null,
+    })),
+  }
+}
+
+const mapProductPage = (
+  response: PaginatedResponse<PublicProductDto>,
+  resolveAssetUrl: (url: string) => string,
+): PaginatedResponse<ProductDto> => ({
   total: response.total,
   page: response.page,
   page_size: response.page_size,
-  items: response.items.map(mapProduct),
+  items: response.items.map(product => mapProduct(product, resolveAssetUrl)),
 })
 
 const mapPrivateProduct = (
   product: PublicProductDto,
   item: Pick<PublicCartItem, 'is_effectively_visible' | 'hidden_reason' | 'is_available_for_purchase'>,
+  resolveAssetUrl: (url: string) => string,
 ) => {
-  const mapped = mapProduct(product)
+  const mapped = mapProduct(product, resolveAssetUrl)
   // The API currently exposes these on the product payload. Keeping the
   // item-level fallback makes private responses forward-compatible too.
   return {
@@ -401,14 +441,14 @@ const mapPrivateProduct = (
   }
 }
 
-const mapCartItem = (item: PublicCartItem): CustomerCartItemDto => ({
+const mapCartItem = (item: PublicCartItem, resolveAssetUrl: (url: string) => string): CustomerCartItemDto => ({
   ...item,
-  product: mapPrivateProduct(item.product, item),
+  product: mapPrivateProduct(item.product, item, resolveAssetUrl),
 })
 
-const mapWishlistItem = (item: PublicWishlistItem): CustomerWishlistItemDto => ({
+const mapWishlistItem = (item: PublicWishlistItem, resolveAssetUrl: (url: string) => string): CustomerWishlistItemDto => ({
   ...item,
-  product: mapPrivateProduct(item.product, item),
+  product: mapPrivateProduct(item.product, item, resolveAssetUrl),
 })
 
 const mapReview = (review: PublicReview): ProductReviewDto => ({
@@ -431,13 +471,17 @@ const mapCategoryFilters = (response: PublicCategoryFilters): CategoryFiltersDto
 
 export const useCatalogDomain = () => {
   const api = useApi()
+  const config = useRuntimeConfig()
+  const requestUrl = useRequestURL()
+  const resolveAssetUrl = (url: string) =>
+    resolveApiAssetUrl(url, String(config.public.apiBase), requestUrl.origin)
 
   const getProductsPage = async (query: CatalogQuery = {}) => {
     const response = await api<PaginatedResponse<PublicProductDto>>('/public/products', {
       query: buildListQuery(query),
     })
 
-    return mapProductPage(response)
+    return mapProductPage(response, resolveAssetUrl)
   }
 
   const getProducts = async (query: CatalogQuery = {}) => {
@@ -447,7 +491,7 @@ export const useCatalogDomain = () => {
   }
 
   const getProduct = async (slug: string) =>
-    mapProduct(await api<PublicProductDto>(`/public/products/by-slug/${encodeURIComponent(slug)}`))
+    mapProduct(await api<PublicProductDto>(`/public/products/by-slug/${encodeURIComponent(slug)}`), resolveAssetUrl)
 
   const recordProductView = (productId: number) =>
     api<PublicProductViewResponse>(`/public/products/${productId}/view`, { method: 'POST' })
@@ -498,7 +542,7 @@ export const useCatalogDomain = () => {
       { query: cleanQuery(query) },
     )
 
-    return mapProductPage(response)
+    return mapProductPage(response, resolveAssetUrl)
   }
 
   const getCategoryFilters = async (categorySlug: string, query: CatalogQuery = {}) =>
@@ -519,7 +563,7 @@ export const useCatalogDomain = () => {
 
     return {
       suggestions: response.suggestions,
-      products: response.products.map(mapProduct),
+      products: response.products.map(product => mapProduct(product, resolveAssetUrl)),
       categories: response.categories.map(mapCategory),
     }
   }
@@ -565,14 +609,14 @@ export const useCatalogDomain = () => {
       query: { page_size: 100 },
     })
 
-    return response.items.map(mapCartItem)
+    return response.items.map(item => mapCartItem(item, resolveAssetUrl))
   }
 
   const addServerCartItem = async (productId: number, quantity = 1) =>
     mapCartItem(await api<PublicCartItem>('/public/customers/cart', {
       method: 'POST',
       body: { product_id: productId, quantity },
-    }))
+    }), resolveAssetUrl)
 
   const deleteServerCartItem = (productId: number) =>
     api<void>(`/public/customers/cart/${productId}`, { method: 'DELETE' })
@@ -582,14 +626,14 @@ export const useCatalogDomain = () => {
       query: { page_size: 100 },
     })
 
-    return response.items.map(mapWishlistItem)
+    return response.items.map(item => mapWishlistItem(item, resolveAssetUrl))
   }
 
   const addWishlistItem = async (productId: number) =>
     mapWishlistItem(await api<PublicWishlistItem>('/public/customers/wishlist', {
       method: 'POST',
       body: { product_id: productId },
-    }))
+    }), resolveAssetUrl)
 
   const deleteWishlistItem = (productId: number) =>
     api<void>(`/public/customers/wishlist/${productId}`, { method: 'DELETE' })
@@ -603,10 +647,10 @@ export const useCatalogDomain = () => {
   const getNovaPoshtaWarehouseTypes = () =>
     api<DeliveryListResponseDto>('/public/delivery/np/warehouse-types')
 
-  const createOrder = (body: Record<string, unknown>) => api<OrderDto>('/public/orders', { method: 'POST', body })
+  const createOrder = (body: CheckoutOrderRequest, idempotencyKey: string) => api<CheckoutOrder>('/public/orders', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey }, retry: 0 })
 
-  const sendFeedback = (body: { name: string, email: string, text: string }) =>
-    api<{ message: string }>('/public/feedback/email', { method: 'POST', body })
+  const sendFeedback = (body: ShopFeedbackRequestDto) =>
+    api<ShopFeedbackResponseDto>('/public/feedback/email', { method: 'POST', body })
 
   return {
     getProducts,

@@ -16,7 +16,6 @@ const emit = defineEmits<{
 }>()
 
 const { terms } = useShopLocale()
-const { formatPrice } = useShopPriceFormatter()
 const hasResults = computed(() =>
   props.results.suggestions.length > 0
   || props.results.products.length > 0
@@ -28,8 +27,11 @@ const categoryLink = (category: ProductSearchResponseDto['categories'][number]) 
     ? categoryGoodsDestination(props.categoryTree, category)
     : { path: '/catalog', query: { category: category.slug } }
 
-const productImage = (product: ProductSearchResponseDto['products'][number]) =>
-  product.images[0]?.image || 'https://placehold.co/160x160?text=Product'
+const selectProductResult = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target.closest('a[href^="/products/"]')) emit('select')
+}
+
 </script>
 
 <template>
@@ -75,30 +77,11 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
 
       <template v-if="results.products.length">
         <h6 class="header-search-results__title">{{ terms.common.products }}</h6>
-        <ul class="header-search-results__list">
-          <li v-for="product in results.products" :key="product.id">
-            <NuxtLink
-              class="header-search-results__item"
-              :to="`/products/${product.slug}`"
-              @click="emit('select')"
-            >
-              <img
-                class="header-search-results__image"
-                :src="productImage(product)"
-                :alt="product.name"
-                width="64"
-                height="64"
-                loading="lazy"
-              >
-              <span class="header-search-results__description">
-                <span class="header-search-results__name">
-                  <BaseHoverUnderlineText>{{ product.name }}</BaseHoverUnderlineText>
-                </span>
-                <span>{{ formatPrice(product.price) }}</span>
-              </span>
-            </NuxtLink>
-          </li>
-        </ul>
+        <CatalogProductGrid
+          class="header-search-results__products"
+          :products="results.products"
+          @click="selectProductResult"
+        />
       </template>
     </div>
 
@@ -132,7 +115,7 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
 }
 
 .header-search-results--empty {
-  background: transparent;
+  background: #ffffff;
 }
 
 .header-search-results__content {
@@ -145,11 +128,6 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
-}
-
-.header-search-results__list {
-  display: grid;
-  gap: 0.25rem;
 }
 
 .header-search-results__list--categories {
@@ -174,7 +152,7 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
 }
 
 .header-search-results__item--category {
-  background: #f3f4f7;
+  background: var(--sc-surface-muted);
 }
 
 .header-search-results__item:hover,
@@ -183,30 +161,14 @@ const productImage = (product: ProductSearchResponseDto['products'][number]) =>
   outline: none;
 }
 
-.header-search-results__image {
-  width: 4rem;
-  height: 4rem;
-  flex: 0 0 auto;
-  object-fit: cover;
-}
-
-.header-search-results__description {
-  display: grid;
-  min-width: 0;
-  gap: 0.25rem;
-}
-
-.header-search-results__name {
-  overflow: hidden;
-  color: inherit;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.header-search-results__products.catalog-product-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.25rem;
 }
 
 .header-search-results__empty {
   flex: 1 1 auto;
-  --feedback-state-surface: transparent;
+  --feedback-state-surface: #ffffff;
   color: #0a0a0a;
 }
 

@@ -46,6 +46,7 @@ const model = defineModel<string | number>({ default: '' })
     :required="required"
     :disabled="disabled"
   >
+    <div class="base-input__control" :class="{ 'base-input__control--trailing': $slots.trailing }">
     <input
       :id="fieldId"
       v-model="model"
@@ -67,5 +68,13 @@ const model = defineModel<string | number>({ default: '' })
       :aria-describedby="[descriptionId, errorId].filter(Boolean).join(' ') || undefined"
       :aria-invalid="invalid || undefined"
     >
+    <div v-if="$slots.trailing" class="base-input__trailing"><slot name="trailing" /></div>
+    </div>
   </BaseField>
 </template>
+
+<style scoped>
+.base-input__control { position: relative; }
+.base-input__control--trailing input { padding-right: 3.5rem; }
+.base-input__trailing { position: absolute; inset: 0 0 0 auto; display: flex; align-items: stretch; }
+</style>

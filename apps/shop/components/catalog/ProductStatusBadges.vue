@@ -6,13 +6,14 @@ const props = defineProps<{
   product: ProductDto
 }>()
 
-const { terms } = useShopLocale()
+const { locale, terms } = useShopLocale()
 
 const badges = computed(() => {
   const items: Array<{
     code: 'discount' | 'top' | 'new'
     icon: string
     label: string
+    percent?: string
   }> = []
   const discount = getProductDiscount(props.product)
   const flags = getProductStatusFlags(props.product)
@@ -23,6 +24,7 @@ const badges = computed(() => {
       code: 'discount',
       icon: 'sale-fire',
       label: `${roundedPercent === '0' ? '' : '-'}${roundedPercent}%`,
+      percent: roundedPercent,
     })
   }
   if (flags.isTop) {
@@ -38,16 +40,23 @@ const badges = computed(() => {
 
 <template>
   <div v-if="badges.length" class="product-status-badges" :aria-label="terms.catalog.badges.label">
-    <span
-      v-for="badge in badges"
-      :key="badge.code"
-      class="product-status-badges__item"
-      :class="`product-status-badges__item--${badge.code}`"
-      :title="badge.label"
-    >
-      <BaseIcon :name="badge.icon" size="xxs" />
-      <span>{{ badge.label }}</span>
-    </span>
+    <template v-for="badge in badges" :key="badge.code">
+      <ProductDiscountSticker
+        v-if="badge.code === 'discount' && badge.percent"
+        :percent="badge.percent"
+        :locale="locale"
+        :label="badge.label"
+      />
+      <span
+        v-else
+        class="product-status-badges__item"
+        :class="`product-status-badges__item--${badge.code}`"
+        :title="badge.label"
+      >
+        <BaseIcon :name="badge.icon" size="xxs" />
+        <span>{{ badge.label }}</span>
+      </span>
+    </template>
   </div>
 </template>
 

@@ -1,5 +1,6 @@
 let authInitPromise: Promise<void> | null = null
 let refreshSessionPromise: Promise<boolean> | null = null
+let refreshSessionRevision = -1
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -12,49 +13,77 @@ export const useAuthStore = defineStore('auth', {
       role?: string | null
       master_id?: number | null
       is_active: boolean
+      can_manage_fiscal_settings?: boolean
+      can_fiscalize_sales?: boolean
+      can_fiscalize_returns?: boolean
+      can_accept_qr_payments?: boolean
+      can_record_sales?: boolean
       can_post_inventory?: boolean
       is_superuser: boolean
       created_at: string
       updated_at: string
     },
     initialized: false,
+    sessionRevision: 0,
   }),
   actions: {
     async login(email: string, password: string) {
+      this.clearSession()
+      const revision = this.sessionRevision
+      const assertCurrent = () => {
+        if (revision !== this.sessionRevision) throw new Error('Backoffice session changed')
+      }
       const api = useBackofficeApi()
-      const tokens = await api.login(email, password)
-      this.accessToken = tokens.access_token
-      this.refreshToken = tokens.refresh_token
-      this.user = await api.me()
-      this.initialized = true
+      try {
+        const tokens = await api.login(email, password)
+        assertCurrent()
+        this.accessToken = tokens.access_token
+        this.refreshToken = tokens.refresh_token
+        const user = await api.me()
+        assertCurrent()
+        this.user = user
+        this.initialized = true
+      }
+      catch (error) {
+        if (revision === this.sessionRevision) this.clearSession()
+        throw error
+      }
     },
     async init() {
       if (this.initialized) return
       if (authInitPromise) return authInitPromise
+      const revision = this.sessionRevision
+      const current = () => revision === this.sessionRevision
       authInitPromise = (async () => {
         try {
           if (!this.accessToken && !await this.refreshSession()) {
-            this.user = null
+            if (current()) this.user = null
             return
           }
+          if (!current()) return
 
           const api = useBackofficeApi()
           try {
-            this.user = await api.me()
+            const user = await api.me()
+            if (current()) this.user = user
           }
           catch {
-            if (!await this.refreshSession()) {
+            if (!current()) return
+            const refreshed = await this.refreshSession()
+            if (!current()) return
+            if (!refreshed) {
               this.clearSession()
               return
             }
-            this.user = await api.me()
+            const user = await api.me()
+            if (current()) this.user = user
           }
         }
         catch {
-          this.clearSession()
+          if (current()) this.clearSession()
         }
         finally {
-          this.initialized = true
+          if (current()) this.initialized = true
           authInitPromise = null
         }
       })()
@@ -63,7 +92,11 @@ export const useAuthStore = defineStore('auth', {
     },
     async refreshSession() {
       if (!this.refreshToken) return false
-      if (refreshSessionPromise) return refreshSessionPromise
+      const revision = this.sessionRevision
+      const refreshToken = this.refreshToken
+      const current = () => revision === this.sessionRevision
+      if (refreshSessionPromise && refreshSessionRevision === revision) return refreshSessionPromise
+      refreshSessionRevision = revision
 
       refreshSessionPromise = (async () => {
         const config = useRuntimeConfig()
@@ -74,25 +107,27 @@ export const useAuthStore = defineStore('auth', {
             {
               baseURL: apiBase,
               method: 'POST',
-              body: { refresh_token: this.refreshToken },
+              body: { refresh_token: refreshToken },
             },
           )
+          if (!current()) return false
           this.accessToken = tokens.access_token
           this.refreshToken = tokens.refresh_token
           return true
         }
         catch {
-          this.clearSession()
+          if (current()) this.clearSession()
           return false
         }
         finally {
-          refreshSessionPromise = null
+          if (refreshSessionRevision === revision) refreshSessionPromise = null
         }
       })()
 
       return refreshSessionPromise
     },
     clearSession() {
+      this.sessionRevision++
       this.accessToken = ''
       this.refreshToken = ''
       this.user = null

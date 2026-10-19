@@ -151,7 +151,7 @@ useSeo(
   display: flex;
   gap: 0.85rem;
   align-items: center;
-  background: #f3f4f7;
+  background: var(--sc-surface-muted);
   padding: 0.85rem 1rem;
   color: #343434;
 }

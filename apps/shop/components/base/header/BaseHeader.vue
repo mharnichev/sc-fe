@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CategoryTreeNodeDto } from '@shared-types'
 import { categoryDestination } from '~/utils/category-routing'
+const shopAsset = useShopAsset()
 
 const emit = defineEmits<{
   visibilityChange: [state: { visible: boolean, height: number }]
@@ -10,14 +11,13 @@ const ALWAYS_SHOW_TOP = 120
 const SCROLL_DELTA = 6
 const MENU_OPEN_DELAY = 160
 const MENU_CLOSE_DELAY = 180
-const POPULAR_CATEGORY_LIMIT = 4
-const POPULAR_CATEGORY_SLUG_GROUPS = [
-  ['kosmetika-dlia-borodi', 'kosmetika-nabori-boroda'],
-  ['kosmetika-dlia-volossia', 'kosmetika-ukladochni', 'kosmetika-nabori-volossia'],
-  ['kosmetika-dlia-golinnia', 'kosmetika-do-golinnia', 'kosmetika-pislia-golinnia', 'kosmetika-nabori-golinnia'],
-  ['kosmetika-dlia-tila', 'kosmetika-dlia-tila-dlia-oblichchia', 'kosmetika-dogliad-za-rukami'],
-]
-const EXCLUDED_POPULAR_CATEGORY_SLUG_PREFIXES = ['brendi']
+const HEADER_CATEGORY_LINKS = [
+  { slug: 'kosmetika-dlia-borodi', path: '/kosmetika/kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD' },
+  { slug: 'kosmetika-dlia-volossia', path: '/kosmetika/kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR' },
+  { slug: 'kosmetika-dlia-golinnia', path: '/kosmetika/kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING' },
+  { slug: 'kosmetika-dlia-tila', path: '/kosmetika/kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY' },
+  { slug: 'profesiini-grebeni-ta-shchitki', path: '/profesiini-grebeni-ta-shchitki/goods/', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES' },
+] as const
 
 const cart = useCartStore()
 const favorites = useFavoritesStore()
@@ -34,7 +34,7 @@ const { data: initialHeaderCategories } = await useAsyncData(
 const shopHeader = ref<HTMLElement | null>(null)
 const desktopSearch = ref<{ closeSearch: () => void } | null>(null)
 const categoryTree = ref<CategoryTreeNodeDto[]>(initialHeaderCategories.value || [])
-const activeCategory = ref<CategoryTreeNodeDto | null>(categoryTree.value[0] || null)
+const activeCategory = ref<CategoryTreeNodeDto | null>(null)
 const activeMenuKey = ref<string | null>(null)
 const activeMenuAnchor = shallowRef<HTMLElement | null>(null)
 const categoryMenuLeft = ref(24)
@@ -48,31 +48,16 @@ let headerResizeObserver: ResizeObserver | null = null
 let lastHeaderVisible: boolean | undefined
 let lastHeaderHeight = -1
 
-interface CategoryCandidate {
-  category: CategoryTreeNodeDto
-  text: string
-}
-
 const isMenuOpen = computed(() => Boolean(activeMenuKey.value))
-const isCatalogMenu = computed(() => activeMenuKey.value === 'catalog')
 const isHeaderActive = computed(() => isMenuOpen.value || isSearchFocus.value)
 const isPageDimmed = computed(() => isMenuOpen.value || isSearchFocus.value)
-const activeCategoryColumns = computed(() => {
-  if (!isCatalogMenu.value) return 1
-  const count = activeCategory.value?.children.length || 1
-  return Math.min(3, Math.max(1, count))
-})
 const categoryMenuStyle = computed(() => {
   const compactRows = (activeCategory.value?.children.length || 0) + 1
 
   return {
     '--category-menu-left': `${categoryMenuLeft.value}px`,
-    '--category-menu-width': isCatalogMenu.value
-      ? 'min(80rem, calc(100vw - 3rem))'
-      : 'min(24rem, calc(100vw - 3rem))',
-    '--category-menu-height': isCatalogMenu.value
-      ? 'min(34rem, 72vh)'
-      : `${Math.min(26, Math.max(12, 5 + compactRows * 2.65))}rem`,
+    '--category-menu-width': 'min(24rem, calc(100vw - 3rem))',
+    '--category-menu-height': `${Math.min(26, Math.max(12, 5 + compactRows * 2.65))}rem`,
   }
 })
 const activeRouteCategorySlug = computed(() =>
@@ -83,70 +68,18 @@ const activeRouteCategorySlug = computed(() =>
         ? String(route.params.slug[route.params.slug.length - 1] || '')
         : String(route.params.slug || '')),
 )
-const normalizeCategoryText = (value: string) => value.toLocaleLowerCase()
-const categorySearchText = (category: CategoryTreeNodeDto) =>
-  normalizeCategoryText(`${category.name} ${category.slug} ${category.description || ''}`)
-const categoryCandidates = computed(() => {
-  const candidates: CategoryCandidate[] = []
-
-  const visit = (nodes: CategoryTreeNodeDto[]) => {
-    nodes.forEach(category => {
-      candidates.push({
-        category,
-        text: categorySearchText(category),
-      })
-
-      if (category.children.length) visit(category.children)
-    })
+const findCategory = (nodes: CategoryTreeNodeDto[], slug: string): CategoryTreeNodeDto | null => {
+  for (const category of nodes) {
+    if (category.slug === slug) return category
+    const child = findCategory(category.children, slug)
+    if (child) return child
   }
-
-  visit(categoryTree.value)
-
-  return candidates
-})
-const isPopularCategoryExcluded = (category: CategoryTreeNodeDto) =>
-  EXCLUDED_POPULAR_CATEGORY_SLUG_PREFIXES.some(prefix => category.slug === prefix || category.slug.startsWith(`${prefix}-`))
-const selectableCategoryCandidates = computed(() =>
-  categoryCandidates.value.filter(candidate => !isPopularCategoryExcluded(candidate.category)),
-)
-const popularCategoryKeywords = computed(() => {
-  const [beard, hair, shaving, care] = terms.value.header.popularGroups
-
-  return [
-    [beard, 'бород', 'beard'],
-    [hair, 'волос', 'hair', 'помад', 'pomade', 'стайл', 'styling'],
-    [shaving, 'голін', 'брит', 'shav', 'razor'],
-    [care, 'догляд', 'шкір', 'тіла', 'облич', 'care', 'skin', 'body', 'face'],
-  ]
-})
-const popularCategoryTargets = computed(() => {
-  const picked: CategoryCandidate[] = []
-  const usedSlugs = new Set<string>()
-
-  const addCandidate = (candidate?: CategoryCandidate) => {
-    if (!candidate || usedSlugs.has(candidate.category.slug) || picked.length >= POPULAR_CATEGORY_LIMIT) return
-
-    usedSlugs.add(candidate.category.slug)
-    picked.push(candidate)
-  }
-
-  for (const slugs of POPULAR_CATEGORY_SLUG_GROUPS) {
-    addCandidate(selectableCategoryCandidates.value.find(candidate => slugs.includes(candidate.category.slug)))
-  }
-
-  for (const keywords of popularCategoryKeywords.value) {
-    addCandidate(selectableCategoryCandidates.value.find(candidate =>
-      keywords.some(keyword => keyword && candidate.text.includes(normalizeCategoryText(keyword))),
-    ))
-  }
-
-  categoryTree.value.forEach(category => {
-    addCandidate(selectableCategoryCandidates.value.find(candidate => candidate.category.id === category.id))
-  })
-  selectableCategoryCandidates.value.forEach(addCandidate)
-
-  return picked
-})
+  return null
+}
+const headerCategoryLinks = computed(() => HEADER_CATEGORY_LINKS.map(link => ({
+  ...link,
+  category: findCategory(categoryTree.value, link.slug),
+})))
 
 const syncBodyOverflow = () => {
   if (!import.meta.client) return
@@ -165,7 +98,7 @@ const updateCategoryMenuPosition = () => {
 
   const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const gutter = rootFontSize * 1.5
-  const desiredWidth = rootFontSize * (isCatalogMenu.value ? 80 : 24)
+  const desiredWidth = rootFontSize * 24
   const menuWidth = Math.min(desiredWidth, window.innerWidth - gutter * 2)
   const headerRect = shopHeader.value.getBoundingClientRect()
   const anchorRect = activeMenuAnchor.value.getBoundingClientRect()
@@ -188,7 +121,6 @@ const loadCategories = async () => {
   categoryLoadPromise ||= domain.getCategoryTree()
     .then(categories => {
       categoryTree.value = categories
-      activeCategory.value ||= categoryTree.value[0] || null
     })
     .finally(() => {
       categoryLoadPromise = undefined
@@ -197,22 +129,10 @@ const loadCategories = async () => {
   await categoryLoadPromise
 }
 
-const openMenu = async (key: string, index = 0, anchor?: EventTarget | null) => {
-  cancelMenuOpen()
-  cancelMenuClose()
-  desktopSearch.value?.closeSearch()
-  setMenuAnchor(anchor)
-  activeMenuKey.value = key
-  await loadCategories()
-  if (activeMenuKey.value !== key) return
-  activeCategory.value = categoryTree.value[index] || categoryTree.value[0] || null
-  await refreshCategoryMenuPosition()
-}
+const popularMenuKey = (category: CategoryTreeNodeDto) => `popular-${category.slug}`
 
-const popularMenuKey = (target: CategoryCandidate) => `popular-${target.category.slug}`
-
-const openPopularCategoryMenu = async (target: CategoryCandidate, anchor?: EventTarget | null) => {
-  const key = popularMenuKey(target)
+const openPopularCategoryMenu = async (category: CategoryTreeNodeDto, anchor?: EventTarget | null) => {
+  const key = popularMenuKey(category)
 
   cancelMenuOpen()
   cancelMenuClose()
@@ -221,22 +141,12 @@ const openPopularCategoryMenu = async (target: CategoryCandidate, anchor?: Event
   activeMenuKey.value = key
   await loadCategories()
   if (activeMenuKey.value !== key) return
-  activeCategory.value = categoryCandidates.value.find(candidate => candidate.category.slug === target.category.slug)?.category
-    || target.category
+  activeCategory.value = findCategory(categoryTree.value, category.slug) || category
   await refreshCategoryMenuPosition()
 }
 
-const isPopularCategoryActive = (target: CategoryCandidate) =>
-  activeMenuKey.value === popularMenuKey(target) || activeRouteCategorySlug.value === target.category.slug
-
-const toggleCatalog = async (anchor?: EventTarget | null) => {
-  if (activeMenuKey.value === 'catalog') {
-    closeMenu()
-    return
-  }
-
-  await openMenu('catalog', 0, anchor)
-}
+const isPopularCategoryActive = (slug: string) =>
+  activeMenuKey.value === `popular-${slug}` || activeRouteCategorySlug.value === slug
 
 const closeMenu = () => {
   cancelMenuOpen()
@@ -266,12 +176,16 @@ const scheduleMenuOpen = (open: () => Promise<void>) => {
   }, MENU_OPEN_DELAY)
 }
 
-const scheduleCatalogMenuOpen = (anchor?: EventTarget | null) => {
-  scheduleMenuOpen(() => openMenu('catalog', 0, anchor))
+const schedulePopularCategoryMenuOpen = (category: CategoryTreeNodeDto, anchor?: EventTarget | null) => {
+  scheduleMenuOpen(() => openPopularCategoryMenu(category, anchor))
 }
 
-const schedulePopularCategoryMenuOpen = (target: CategoryCandidate, anchor?: EventTarget | null) => {
-  scheduleMenuOpen(() => openPopularCategoryMenu(target, anchor))
+const handlePopularCategoryEnter = (category: CategoryTreeNodeDto | null, target?: EventTarget | null) => {
+  if (category?.children.length) schedulePopularCategoryMenuOpen(category, target)
+}
+
+const handlePopularCategoryFocus = (category: CategoryTreeNodeDto | null, target?: EventTarget | null) => {
+  if (category?.children.length) void openPopularCategoryMenu(category, target)
 }
 
 const scheduleMenuClose = () => {
@@ -302,7 +216,20 @@ const openMobileSearch = () => {
 const categoryLink = (category: CategoryTreeNodeDto) => categoryDestination(categoryTree.value, category)
 
 const openBasket = () => modal.openModal('UserBasketModal')
-const openAccount = () => modal.openModal(auth.isAuthenticated ? 'CabinetModal' : 'UserAuthModal')
+const isHydrated = ref(false)
+
+onMounted(() => {
+  isHydrated.value = true
+})
+
+const openAccount = async () => {
+  closeOverlays()
+  if (auth.isAuthenticated) {
+    await navigateTo('/cabinet')
+    return
+  }
+  modal.openModal('UserAuthModal', { redirectTo: '/cabinet' })
+}
 const openFavorites = async () => {
   if (auth.isAuthenticated) {
     await navigateTo('/cabinet/favorites')
@@ -390,7 +317,7 @@ onBeforeUnmount(() => {
           <NuxtLink to="/" class="shop-header__soulcuts" :aria-label="terms.brand.homeLabel" @click="closeOverlays">
             <img
               class="shop-header__soulcuts-logo"
-              src="/soulcuts/sc-logo-name-dark.webp"
+              :src="shopAsset('/soulcuts/sc-logo-name-dark.webp')"
               alt="Soul Cuts"
               width="180"
               height="52"
@@ -425,7 +352,7 @@ onBeforeUnmount(() => {
 
             <button class="shop-header__action" type="button" :aria-label="terms.common.account" @click="openAccount">
               <BaseIcon name="user" size="xs" />
-              <span class="sr-only">{{ auth.isAuthenticated ? terms.common.cabinet : terms.common.signIn }}</span>
+              <span class="sr-only">{{ isHydrated && auth.isAuthenticated ? terms.common.cabinet : terms.common.signIn }}</span>
             </button>
           </nav>
 
@@ -451,33 +378,32 @@ onBeforeUnmount(() => {
         @mouseenter="cancelMenuClose"
         @mouseleave="scheduleMenuClose"
       >
-        <button
-          class="shop-header__catalog"
-          type="button"
-          :aria-expanded="activeMenuKey === 'catalog'"
-          @mouseenter="scheduleCatalogMenuOpen($event.currentTarget)"
-          @mouseleave="scheduleMenuClose"
-          @click="toggleCatalog($event.currentTarget)"
+        <nav
+          class="shop-header__popular"
+          :aria-label="terms.header.popularNavigation"
         >
-          <BaseIcon name="catalog-new" size="xxs" />
-          <BaseHoverUnderlineText>{{ terms.common.catalog }}</BaseHoverUnderlineText>
-        </button>
-
-        <nav class="shop-header__popular" :aria-label="terms.header.popularNavigation">
           <NuxtLink
-            v-for="target in popularCategoryTargets"
-            :key="target.category.id"
-            :to="categoryLink(target.category)"
-            :class="['shop-header__popular-btn', { 'shop-header__popular-btn--active': isPopularCategoryActive(target) }]"
-            :aria-expanded="activeMenuKey === popularMenuKey(target)"
-            @mouseenter="schedulePopularCategoryMenuOpen(target, $event.currentTarget)"
+            v-for="link in headerCategoryLinks"
+            :key="link.slug"
+            :to="link.path"
+            :class="['shop-header__popular-btn', { 'shop-header__popular-btn--active': isPopularCategoryActive(link.slug) }]"
+            :data-category-slug="link.slug"
+            :aria-expanded="link.category?.children.length ? activeMenuKey === popularMenuKey(link.category) : undefined"
+            @mouseenter="handlePopularCategoryEnter(link.category, $event.currentTarget)"
             @mouseleave="scheduleMenuClose"
-            @focus="openPopularCategoryMenu(target, $event.currentTarget)"
+            @focus="handlePopularCategoryFocus(link.category, $event.currentTarget)"
             @click="closeOverlays"
           >
-            <span class="shop-header__popular-label">
-              <BaseHoverUnderlineText>{{ target.category.name }}</BaseHoverUnderlineText>
-            </span>
+            <BaseAnimatedMenuText :text="link[locale]" />
+          </NuxtLink>
+          <NuxtLink
+            to="/brands"
+            class="shop-header__popular-btn"
+            @mouseenter="closeMenu()"
+            @focus="closeMenu()"
+            @click="closeOverlays"
+          >
+            <BaseAnimatedMenuText :text="terms.home.brandsEyebrow" />
           </NuxtLink>
         </nav>
       </div>
@@ -485,7 +411,7 @@ onBeforeUnmount(() => {
 
     <div class="shop-header__mobile">
       <NuxtLink to="/" class="shop-header__mobile-logo" :aria-label="terms.brand.homeLabel" @click="closeOverlays">
-        <img src="/soulcuts/sc-logo-name-dark.webp" alt="Soul Cuts" width="140" height="40">
+        <img :src="shopAsset('/soulcuts/sc-logo-name-dark.webp')" alt="Soul Cuts" width="140" height="40">
       </NuxtLink>
       <div class="shop-header__mobile-actions">
         <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.search" @click="openMobileSearch">
@@ -503,59 +429,14 @@ onBeforeUnmount(() => {
     <Transition name="fade">
       <section
         v-show="isMenuOpen"
-        :class="[
-          'simple-category-list shop-header__category-list',
-          { 'shop-header__category-list--compact': !isCatalogMenu },
-        ]"
+        class="simple-category-list shop-header__category-list shop-header__category-list--compact"
         :style="categoryMenuStyle"
         @mouseenter="cancelMenuClose"
         @mouseleave="scheduleMenuClose"
       >
         <div class="simple-category-list__container">
-          <div v-if="isCatalogMenu" class="cl__list-wrapper">
-            <ul class="cl__list">
-              <li v-for="category in categoryTree" :key="category.id" class="cl__list_item">
-                <NuxtLink
-                  class="cl__list_item-link"
-                  :class="{ 'cl__list_item-link--active': activeCategory?.id === category.id }"
-                  :to="categoryLink(category)"
-                  @mouseenter="activeCategory = category"
-                  @focus="activeCategory = category"
-                  @click="closeOverlays"
-                >
-                  <span class="cl__list_item-link_name-wrapper">
-                    <BaseIcon name="catalog" size="xxs" />
-                    <span class="cl__list_item-label">
-                      <BaseHoverUnderlineText>{{ category.name }}</BaseHoverUnderlineText>
-                    </span>
-                  </span>
-                  <BaseIcon class="cl__list_item-icon" name="chevron-right" size="xxs" />
-                </NuxtLink>
-              </li>
-            </ul>
-          </div>
-
-          <div
-            class="cl__category_list"
-            :class="{ 'cl__category_list--compact': !isCatalogMenu }"
-            :style="{ '--category-columns-count': activeCategoryColumns }"
-          >
-            <template v-if="isCatalogMenu">
-              <ul v-for="subCategory in activeCategory?.children || []" :key="subCategory.id" class="cl__category_item-list">
-                <li class="cl__category_item-list_item is-group">
-                  <NuxtLink :to="categoryLink(subCategory)" @click="closeOverlays">
-                    <BaseHoverUnderlineText>{{ subCategory.name }}</BaseHoverUnderlineText>
-                  </NuxtLink>
-                </li>
-                <li v-for="child in subCategory.children" :key="child.id" class="cl__category_item-list_item">
-                  <NuxtLink :to="categoryLink(child)" @click="closeOverlays">
-                    <BaseHoverUnderlineText>{{ child.name }}</BaseHoverUnderlineText>
-                  </NuxtLink>
-                </li>
-              </ul>
-            </template>
-
-            <ul v-else-if="activeCategory" class="cl__compact-list">
+          <div class="cl__category_list cl__category_list--compact">
+            <ul v-if="activeCategory" class="cl__compact-list">
               <li v-for="subCategory in activeCategory.children" :key="subCategory.id">
                 <NuxtLink class="cl__compact-link" :to="categoryLink(subCategory)" @click="closeOverlays">
                   <span><BaseHoverUnderlineText>{{ subCategory.name }}</BaseHoverUnderlineText></span>
@@ -785,19 +666,36 @@ onBeforeUnmount(() => {
 }
 
 .shop-header__popular {
+  position: relative;
   min-width: 0;
+  max-width: 100%;
+  width: fit-content;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.15rem;
+  background: #ffffff;
 }
 
 .shop-header__popular-btn {
-  max-width: 12rem;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 2.25rem;
+  border-radius: 9999px;
+  padding: 0 0.95rem;
+  background: transparent;
+  color: #0a0a0a;
+  transition: color 180ms ease;
 }
 
-.shop-header__popular-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.shop-header__popular-btn:hover,
+.shop-header__popular-btn:focus-visible,
+.shop-header__popular-btn--active {
+  color: #0a0a0a;
+}
+
+.shop-header__popular-btn:focus-visible {
+  outline: 2px solid #0a0a0a;
+  outline-offset: 3px;
 }
 
 .full-page-dim-background {

@@ -10,6 +10,21 @@ const isGoodsRoute = computed(() => routeSegments.value[routeSegments.value.leng
 const categorySegments = computed(() =>
   isGoodsRoute.value ? routeSegments.value.slice(0, -1) : routeSegments.value,
 )
+
+const legacyCategoryPrefix = [
+  'roboche-mistse',
+  'roboche-mistse-profesiini-grebeni-ta-shchitki',
+]
+const standaloneCategorySlug = 'profesiini-grebeni-ta-shchitki'
+
+if (legacyCategoryPrefix.every((segment, index) => routeSegments.value[index] === segment)) {
+  const suffix = routeSegments.value.slice(legacyCategoryPrefix.length)
+  const destination = `/${standaloneCategorySlug}/${suffix.length ? suffix.join('/') : 'goods'}/`
+  await navigateTo(
+    { path: destination, query: route.query, hash: route.hash },
+    { redirectCode: 301, replace: true },
+  )
+}
 </script>
 
 <template>

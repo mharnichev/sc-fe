@@ -24,6 +24,10 @@ export interface BrandDto {
   name: string
   slug: string
   description: string | null
+  description_uk?: string | null
+  description_en?: string | null
+  history_uk?: string | null
+  history_en?: string | null
   logo_url?: string | null
   website?: string | null
   status: string
@@ -42,12 +46,16 @@ export interface ProductDto {
   category_id: number
   brand_id: number
   name: string
+  old_name?: string | null
+  product_type?: string | null
+  package_size?: string | null
   slug: string
   sku: string
   short_description: string | null
   description: string
   ingredients?: string | null
   price: string
+  recommended_retail_price?: string | null
   compare_at_price: string | null
   stock: number
   status: string
@@ -141,6 +149,53 @@ export interface ShopCustomerDto {
   last_login_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface CustomerOrderItemDto {
+  id: number
+  product_id: number
+  quantity: number
+  price: string
+  discount_amount: string
+  product_name: string | null
+  product_sku: string | null
+  total_price: string | null
+}
+
+/** Authenticated customer order response from GET /public/orders/me[/{id}]. */
+export interface CustomerOrderDto {
+  id: number
+  created_at: string
+  status: 'pending' | 'confirmed' | 'paid' | 'completed' | 'cancelled'
+  subtotal_amount: string
+  discount_amount: string
+  total_amount: string
+  item_count: number
+  items: CustomerOrderItemDto[]
+  shipping_company: string | null
+  shipping_method: string | null
+  shipping_area: string | null
+  shipping_city: string | null
+  shipping_warehouse_number: string | null
+  shipping_street: string | null
+  building_number: string | null
+  shipping_apartment: string | null
+  delivery_address: string | null
+  payment_method: string | null
+  tracking_number: string | null
+}
+
+/** POST /public/feedback/email accepts the orderReference alias. */
+export interface ShopFeedbackRequestDto {
+  name: string
+  email: string
+  text: string
+  topic?: 'general' | 'order' | 'delivery' | 'returns' | 'product' | 'other'
+  orderReference?: number | null
+}
+
+export interface ShopFeedbackResponseDto {
+  message: string
 }
 
 export interface CustomerOtpRequestResponseDto {

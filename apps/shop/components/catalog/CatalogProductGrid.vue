@@ -36,7 +36,7 @@ withDefaults(defineProps<{
 .catalog-product-grid {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem;
   padding-bottom: 1rem;
 }
@@ -46,14 +46,14 @@ withDefaults(defineProps<{
   min-width: 0;
 }
 
-@media (min-width: 520px) {
+@media (min-width: 568px) {
   .catalog-product-grid {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 0.75rem;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1241px) {
   .catalog-product-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }

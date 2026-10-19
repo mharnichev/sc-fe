@@ -101,6 +101,9 @@ importers:
 
   apps/shop:
     dependencies:
+      '@dobrodesk/widget':
+        specifier: 0.3.2
+        version: 0.3.2
       '@nuxtjs/tailwindcss':
         specifier: ^6.12.1
         version: 6.14.0(magicast@0.5.3)(yaml@2.9.0)
@@ -119,15 +122,16 @@ importers:
       pinia:
         specifier: ^2.2.4
         version: 2.3.1(typescript@6.0.2)(vue@3.5.40(typescript@6.0.2))
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.62.1
+        version: 1.62.1
 
   packages/shared-types: {}
 
   packages/shared-utils: {}
 
 packages:
-
-  '@dobrodesk/widget@0.3.1':
-    resolution: {integrity: sha512-knRM/aNJWShe2wQx/bZGPgpbHsbzF1AKchH2y8Cykcz+Wrh1TGaHnBEdaOFeEVwxN9XryRnmvxgfZTbICdbdWw==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -308,6 +312,12 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       postcss-selector-parser: ^7.0.0
+
+  '@dobrodesk/widget@0.3.1':
+    resolution: {integrity: sha512-knRM/aNJWShe2wQx/bZGPgpbHsbzF1AKchH2y8Cykcz+Wrh1TGaHnBEdaOFeEVwxN9XryRnmvxgfZTbICdbdWw==}
+
+  '@dobrodesk/widget@0.3.2':
+    resolution: {integrity: sha512-vd8rSVcHV1grizj/BHm5VT8wXnUS1rdx4XW1OYxdZN/ug2jsD6Sn35/NB/ByufFVE3cualUb8/j896xBHpWknw==}
 
   '@dxup/nuxt@0.4.1':
     resolution: {integrity: sha512-gtYffW6OfWNvoLW+XD3Mx/K8uUq08PMGLYJoDxc92EzZAWqR0FhcR5iaLm5r/OxyGTKz+P5f5Y7Aoir9+SjYaw==}
@@ -4148,8 +4158,6 @@ packages:
 
 snapshots:
 
-  '@dobrodesk/widget@0.3.1': {}
-
   '@alloc/quick-lru@5.2.0': {}
 
   '@babel/code-frame@7.29.7':
@@ -4360,6 +4368,10 @@ snapshots:
   '@csstools/selector-specificity@5.0.0(postcss-selector-parser@7.1.1)':
     dependencies:
       postcss-selector-parser: 7.1.1
+
+  '@dobrodesk/widget@0.3.1': {}
+
+  '@dobrodesk/widget@0.3.2': {}
 
   '@dxup/nuxt@0.4.1(magic-string@0.30.21)(magicast@0.5.3)(oxc-parser@0.132.0)(typescript@6.0.2)(unplugin@3.3.0(esbuild@0.28.1)(rollup@4.62.2)(vite@7.3.6(jiti@2.7.0)(terser@5.49.0)(yaml@2.9.0)))':
     dependencies:

@@ -1,4 +1,4 @@
-export const useApi = () => {
+export const useApi = (settings: { refreshOnUnauthorized?: boolean } = {}) => {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
   const apiBase = typeof config.public.apiBase === 'string' ? config.public.apiBase : ''
@@ -18,24 +18,30 @@ export const useApi = () => {
   })
 
   const api = (async <T = unknown>(request: ApiRequest, options?: ApiOptions) => {
+    const sessionRevision = auth.sessionRevision
+    const actorId = auth.user?.id
+    const current = () => auth.sessionRevision === sessionRevision && auth.user?.id === actorId
     try {
       return await rawApi<T>(request, options)
     }
     catch (cause: any) {
-      if (cause?.response?.status !== 401 || !auth.refreshToken) {
+      if (settings.refreshOnUnauthorized === false || !current() || cause?.response?.status !== 401 || !auth.refreshToken) {
         throw cause
       }
 
       if (!await auth.refreshSession()) {
-        await auth.logout()
+        const expiredSession = auth.sessionRevision === sessionRevision + 1
+          && !auth.accessToken && !auth.refreshToken && !auth.user
+        if (current() || expiredSession) await auth.logout()
         throw cause
       }
+      if (!current()) throw cause
 
       try {
         return await rawApi<T>(request, options)
       }
       catch (retryCause: any) {
-        if (retryCause?.response?.status === 401) {
+        if (current() && retryCause?.response?.status === 401) {
           await auth.logout()
         }
         throw retryCause

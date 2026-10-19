@@ -89,7 +89,12 @@ defineExpose({
 <template>
   <ClientOnly>
     <Teleport to=".app-modal-teleport" :disabled="inline">
-      <Transition name="base-modal" appear :duration="300" @after-leave="$emit('after-leave')">
+      <Transition
+        name="base-modal"
+        appear
+        :duration="{ enter: 700, leave: 300 }"
+        @after-leave="$emit('after-leave')"
+      >
         <div
           v-if="modelValue"
           ref="modalElement"
@@ -403,19 +408,71 @@ defineExpose({
   transform: scale(0.96);
 }
 
+.base-modal-enter-from .base-modal__header,
+.base-modal-enter-from .base-modal__content {
+  opacity: 0;
+}
+
+.base-modal-enter-active .base-modal__header,
+.base-modal-enter-active .base-modal__content {
+  transition: opacity 360ms var(--base-modal-motion-easing) 332ms;
+}
+
+.base-modal-enter-from .base-modal-bottom-buttons-enter-from {
+  opacity: 0;
+  transform: none;
+}
+
+.base-modal-enter-active .base-modal-bottom-buttons-enter-active {
+  transition: opacity 360ms var(--base-modal-motion-easing) 332ms;
+}
+
+.base-modal-leave-to .base-modal__header,
+.base-modal-leave-to .base-modal__content {
+  opacity: 0;
+}
+
+.base-modal-leave-active .base-modal__header,
+.base-modal-leave-active .base-modal__content {
+  transition: opacity 300ms var(--base-modal-motion-easing);
+}
+
+.base-modal-leave-to .base-modal-bottom-buttons-leave-to {
+  opacity: 0;
+  transform: none;
+}
+
+.base-modal-leave-active .base-modal-bottom-buttons-leave-active {
+  transition: opacity 300ms var(--base-modal-motion-easing);
+}
+
 .base-modal-enter-active,
 .base-modal-leave-active {
-  transition: opacity 300ms ease;
+  --base-modal-motion-easing: cubic-bezier(0.55, 0.05, 0.75, 1);
 }
 
-.base-modal-enter-active .base-modal__overlay,
+.base-modal-enter-active {
+  transition: opacity 332ms var(--base-modal-motion-easing);
+}
+
+.base-modal-enter-active .base-modal__overlay {
+  transition: opacity 332ms var(--base-modal-motion-easing);
+}
+
+.base-modal-enter-active .base-modal__container {
+  transition: transform 332ms var(--base-modal-motion-easing);
+}
+
+.base-modal-leave-active {
+  transition: opacity 300ms var(--base-modal-motion-easing);
+}
+
 .base-modal-leave-active .base-modal__overlay {
-  transition: opacity 300ms ease;
+  transition: opacity 300ms var(--base-modal-motion-easing);
 }
 
-.base-modal-enter-active .base-modal__container,
 .base-modal-leave-active .base-modal__container {
-  transition: transform 300ms ease;
+  transition: transform 300ms var(--base-modal-motion-easing);
 }
 
 @media (max-width: 575px) {
@@ -456,6 +513,12 @@ defineExpose({
   .base-modal-leave-active .base-modal__overlay,
   .base-modal-enter-active .base-modal__container,
   .base-modal-leave-active .base-modal__container,
+  .base-modal-enter-active .base-modal__header,
+  .base-modal-enter-active .base-modal__content,
+  .base-modal-enter-active .base-modal-bottom-buttons-enter-active,
+  .base-modal-leave-active .base-modal__header,
+  .base-modal-leave-active .base-modal__content,
+  .base-modal-leave-active .base-modal-bottom-buttons-leave-active,
   .base-modal-bottom-buttons-enter-active,
   .base-modal-bottom-buttons-leave-active {
     transition: none;

@@ -8,6 +8,8 @@ const source = readFileSync(new URL('../stores/customerAuth.ts', import.meta.url
 const loadStore = (api) => {
   const context = vm.createContext({
     useApi: () => api,
+    useCartStore: () => ({ prepareSession() {} }),
+    useFavoritesStore: () => ({ prepareSession() {} }),
     defineStore: (_name, options) => {
       const store = options.state()
       for (const [name, action] of Object.entries(options.actions)) store[name] = action.bind(store)

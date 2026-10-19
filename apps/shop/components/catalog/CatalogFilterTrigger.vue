@@ -14,7 +14,7 @@ const { terms } = useShopLocale()
   <BaseButton
     class="catalog-filter-trigger"
     type="button"
-    variant="outline-dark"
+    variant="dark"
     size="sm"
     :disabled="disabled"
     :aria-label="terms.catalog.filters"
@@ -31,9 +31,18 @@ const { terms } = useShopLocale()
   height: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
-  border-color: rgb(10 10 10 / 0.12);
-  border-radius: 0;
+  border-color: #0a0a0a;
+  border-radius: 4px;
   box-shadow: none;
+}
+
+.catalog-filter-trigger :deep(svg) {
+  color: #ffffff;
+}
+
+.catalog-filter-trigger:hover :deep(svg),
+.catalog-filter-trigger:focus-visible :deep(svg) {
+  color: #0a0a0a;
 }
 
 .catalog-filter-trigger :deep(.sc-button__text) {

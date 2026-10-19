@@ -301,12 +301,14 @@ useSeo(
           />
         </div>
       </div>
+
+      <RecentlyViewedProducts class="category__recently-viewed" />
     </div>
 
     <BaseModal
       v-model="isFilterDrawerOpen"
       full-height
-      type="right"
+      type="bottom"
       root-class="catalog-filter-drawer"
       content-type="secondary"
     >
@@ -419,6 +421,10 @@ useSeo(
 
 .category__mobile-filters {
   padding: 0.5rem;
+}
+
+.category__recently-viewed {
+  padding-top: 2rem;
 }
 
 @media (min-width: 1024px) {

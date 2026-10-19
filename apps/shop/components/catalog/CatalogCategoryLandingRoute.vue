@@ -154,7 +154,7 @@ useSeo(
   height: 2.75rem;
   align-items: center;
   justify-content: center;
-  background: #f3f4f7;
+  background: var(--sc-surface-muted);
   color: #0a0a0a;
 }
 

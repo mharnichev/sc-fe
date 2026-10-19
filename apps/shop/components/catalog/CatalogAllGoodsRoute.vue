@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CategoryFilterGroupDto, CategoryTreeNodeDto } from '@shared-types'
+import { isMonochromeBrandLogo, localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 const DEFAULT_LIMIT = 20
@@ -29,7 +30,9 @@ const props = withDefaults(defineProps<{
 const route = useRoute()
 const router = useRouter()
 const domain = useCatalogDomain()
-const { terms } = useShopLocale()
+const { locale, terms } = useShopLocale()
+const config = useRuntimeConfig()
+const requestUrl = useRequestURL()
 
 const readQueryValue = (value: unknown) =>
   Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
@@ -78,6 +81,43 @@ const [{ data: categoryTree }, { data: brands }] = await Promise.all([
 ])
 
 const brandSlugs = computed(() => new Set((brands.value || []).map(item => item.slug)))
+const selectedBrand = computed(() =>
+  !category.value && brand.value
+    ? (brands.value || []).find(item => item.slug === brand.value) || null
+    : null,
+)
+const selectedBrandLogoUrl = computed(() => {
+  const selected = selectedBrand.value
+  if (!selected) return ''
+
+  return resolveApiAssetUrl(selected.logo_url, String(config.public.apiBase), requestUrl.origin)
+    || localBrandLogoUrl(selected.slug)
+})
+const selectedBrandLogoMaskStyle = computed(() => ({
+  '--brand-logo-url': `url(${JSON.stringify(selectedBrandLogoUrl.value)})`,
+}))
+const selectedBrandDescription = computed(() => {
+  const selected = selectedBrand.value
+  if (!selected) return ''
+
+  return locale.value === 'en'
+    ? selected.description_en || selected.description_uk || selected.description || ''
+    : selected.description_uk || selected.description_en || selected.description || ''
+})
+const selectedBrandHistory = computed(() => {
+  const selected = selectedBrand.value
+  if (!selected) return ''
+
+  return locale.value === 'en'
+    ? selected.history_en || selected.history_uk || ''
+    : selected.history_uk || selected.history_en || ''
+})
+const selectedBrandWebsite = computed(() => {
+  const selected = selectedBrand.value
+  if (!selected) return ''
+
+  return selected.website || ''
+})
 const isBrandCategoryBranch = (node: CategoryTreeNodeDto) =>
   node.slug === 'brendi'
   || node.name.trim().toLocaleUpperCase('uk-UA') === 'БРЕНДИ'
@@ -310,21 +350,41 @@ const changePage = async (page: number) => {
 watch([priceMin, priceMax], resetOffset)
 
 watch(
-  () => readQueryValue(route.query.q),
-  async (nextQuery) => {
-    if (nextQuery === query.value) return
+  () => route.fullPath,
+  async () => {
+    const nextQuery = readQueryValue(route.query.q)
+    const nextLimit = readIntegerQuery(route.query.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT
+    const nextOffset = readIntegerQuery(route.query.offset, 0)
+    const nextOrdering = readQueryValue(route.query.ordering)
+      || readQueryValue(route.query.sort)
+      || (props.topOnly ? '-is_top' : '')
+    const nextCategory = readQueryValue(route.query.category)
+    const nextBrand = nextCategory ? '' : readQueryValue(route.query.brand)
+    const nextPriceMin = readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min)
+    const nextPriceMax = readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max)
+    const categoryChanged = nextCategory !== category.value
+    const stateChanged = nextLimit !== limit.value
+      || nextOffset !== offset.value
+      || nextOrdering !== ordering.value
+      || nextQuery !== query.value
+      || nextCategory !== category.value
+      || nextBrand !== brand.value
+      || nextPriceMin !== priceMin.value
+      || nextPriceMax !== priceMax.value
 
-    limit.value = readIntegerQuery(route.query.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT
-    offset.value = readIntegerQuery(route.query.offset, 0)
-    ordering.value = readQueryValue(route.query.ordering) || readQueryValue(route.query.sort)
+    if (!stateChanged) return
+
+    limit.value = nextLimit
+    offset.value = nextOffset
+    ordering.value = nextOrdering
     query.value = nextQuery
-    category.value = readQueryValue(route.query.category)
-    brand.value = category.value ? '' : readQueryValue(route.query.brand)
-    priceMin.value = readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min)
-    priceMax.value = readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max)
+    category.value = nextCategory
+    brand.value = nextBrand
+    priceMin.value = nextPriceMin
+    priceMax.value = nextPriceMax
     syncSelectedFiltersFromRoute()
 
-    await refreshCategoryFacets()
+    if (categoryChanged) await refreshCategoryFacets()
     await refreshProducts()
   },
 )
@@ -351,6 +411,44 @@ useSeo(
           <p v-if="topOnly" class="catalog-route__description">{{ terms.home.popularDescription }}</p>
         </div>
       </div>
+
+      <section v-if="selectedBrand" class="catalog-route__brand-info">
+        <span v-if="selectedBrandLogoUrl" class="catalog-route__brand-logo">
+          <span
+            v-if="isMonochromeBrandLogo(selectedBrand.slug)"
+            class="catalog-route__brand-logo-mask"
+            :style="selectedBrandLogoMaskStyle"
+            role="img"
+            :aria-label="selectedBrand.name"
+          />
+          <img
+            v-else
+            :src="selectedBrandLogoUrl"
+            :alt="selectedBrand.name"
+            width="240"
+            height="120"
+          >
+        </span>
+        <div class="catalog-route__brand-copy">
+          <h2 class="catalog-route__brand-name">{{ selectedBrand.name }}</h2>
+          <div
+            v-if="selectedBrandDescription || selectedBrandHistory"
+            class="catalog-route__brand-description"
+          >
+            <p v-if="selectedBrandDescription">{{ selectedBrandDescription }}</p>
+            <p v-if="selectedBrandHistory">{{ selectedBrandHistory }}</p>
+          </div>
+          <a
+            v-if="selectedBrandWebsite"
+            class="catalog-route__brand-website"
+            :href="selectedBrandWebsite"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <BaseHoverUnderlineText>{{ selectedBrandWebsite }}</BaseHoverUnderlineText>
+          </a>
+        </div>
+      </section>
 
       <div class="catalog-route__head-side-bar">
         <CatalogSortTabs
@@ -417,17 +515,20 @@ useSeo(
           />
         </div>
       </div>
+
+      <RecentlyViewedProducts class="catalog-route__recently-viewed" />
     </div>
 
     <BaseModal
       v-model="isFilterDrawerOpen"
       full-height
-      type="right"
+      type="bottom"
       root-class="catalog-filter-drawer"
       content-type="secondary"
     >
       <template #header-title>{{ terms.catalog.filters }}</template>
       <div class="catalog-route__mobile-filters">
+        <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
         <CatalogFilterPanel
           :groups="filterGroups"
           :price="priceBounds"
@@ -534,11 +635,90 @@ useSeo(
   width: 100%;
 }
 
+.catalog-route__brand-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0 1rem;
+}
+
+.catalog-route__brand-logo {
+  display: flex;
+  width: 18.85rem;
+  height: 9.1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: #292524;
+}
+
+.catalog-route__brand-logo img,
+.catalog-route__brand-logo-mask {
+  width: 100%;
+  height: 100%;
+}
+
+.catalog-route__brand-logo img {
+  object-fit: contain;
+}
+
+.catalog-route__brand-logo-mask {
+  display: block;
+  background-color: currentColor;
+  -webkit-mask-image: var(--brand-logo-url);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: var(--brand-logo-url);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.catalog-route__brand-copy {
+  min-width: 0;
+}
+
+.catalog-route__brand-name {
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.catalog-route__brand-description {
+  max-height: 8rem;
+  margin-top: 0.5rem;
+  overflow-y: auto;
+  color: #525252;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.catalog-route__brand-description p + p {
+  margin-top: 0.75rem;
+}
+
+.catalog-route__brand-website {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #0a0a0a;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
 .catalog-route__count {
   color: #737373;
   font-size: 0.875rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+@media (max-width: 519px) {
+  .catalog-route__head-actions > .catalog-route__count {
+    display: none;
+  }
 }
 
 .catalog-route__empty {
@@ -549,6 +729,10 @@ useSeo(
 
 .catalog-route__mobile-filters {
   padding: 0.5rem;
+}
+
+.catalog-route__recently-viewed {
+  padding-top: 2rem;
 }
 
 @media (min-width: 1024px) {
@@ -562,6 +746,17 @@ useSeo(
 
   .catalog-route__left-side-bar-wrapper {
     display: block;
+  }
+}
+
+@media (max-width: 575px) {
+  .catalog-route__brand-info {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .catalog-route__brand-logo {
+    width: 100%;
   }
 }
 </style>

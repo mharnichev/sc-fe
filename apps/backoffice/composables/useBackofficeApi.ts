@@ -54,6 +54,9 @@ export interface TokenResponse {
 }
 
 export interface AdminUser {
+  can_manage_fiscal_settings?: boolean
+  can_fiscalize_sales?: boolean
+  can_fiscalize_returns?: boolean
   id: number
   email: string
   full_name?: string | null
@@ -169,7 +172,183 @@ export interface ProductPayload {
   category_id: number | null
 }
 
-export interface OrderSummary {
+export interface FiscalMockRegister { id: string, label: string, credential_kind: 'mock', shift_status: 'closed' | 'open', shift_revision: number }
+export interface FiscalMockReadiness { mode: 'mock_only', available: boolean, blocking_reasons: string[], cash_registers: FiscalMockRegister[] }
+export interface FiscalMockTax { code: 'MOCK_NO_TAX', rate_basis_points: 0, amount_minor: 0 }
+export interface FiscalMockSaleSnapshot {
+  source?: 'mock_ettn', automation?: { id: number, provider_uuid: string, approval_snapshot_hash: string, external_id: string, shipment_id: number, tracking_number: string, condition: 'mock_delivery_confirmed' },
+  document_kind: 'mock_fiscal_receipt', kind?: 'sale', simulation: true, notice: string, is_sent_dps: false, currency: 'UAH',
+  order_id: number, order_revision: number, cash_register_id: 'MOCK-KASA-1', credential_kind: 'mock', shift_revision: number,
+  items: Array<{ order_item_id: number, product_id: number, name: string | null, sku: string | null, quantity: number, base_price_minor: number, price_minor: number, discount_minor: number, total_minor: number, tax: FiscalMockTax }>,
+  subtotal_minor: number, discount_minor: number, additional_discount_minor: number, amount_minor: number,
+  payment: { id: number, amount_minor: number, method: 'cash' | 'card' | 'monobank_qr', source: 'operator_confirmation' | 'provider_confirmation', simulation: true },
+  taxes: FiscalMockTax[], tax_mapping: 'mock_only_no_legal_tax_claim', delivery_channel: 'local_display_print'
+}
+export interface FiscalMockReturnSnapshot {
+  document_kind: 'mock_fiscal_receipt', kind: 'return', simulation: true, notice: string, is_sent_dps: false, currency: 'UAH',
+  order_id: number, return_id: number, parent_sale_id: number, parent_sale_hash: string, refund_id: number,
+  cash_register_id: 'MOCK-KASA-1', credential_kind: 'mock', shift_revision: number,
+  items: MockReturnItem[], amount_minor: number,
+  payment: { id: number, amount_minor: number, method: 'cash' | 'card' | 'monobank_qr', simulation: true }, delivery_channel: 'local_display_print'
+}
+export type FiscalMockSnapshot = FiscalMockSaleSnapshot | FiscalMockReturnSnapshot
+export type MockCaseType = 'automation_receipt_missing' | 'payments_without_receipts' | 'receipts_without_basis' | 'unknown' | 'refund_pending' | 'fiscal_return_pending' | 'receipt_pending' | 'open_shifts'
+export interface MockReconciliationAck { id: number, case_type: MockCaseType, resource_id: string, evidence: string, actor_id: number, created_at: string }
+export interface MockReconciliation { simulation: true, notice: string, buckets: Record<MockCaseType, Array<{ resource_id: string, order_id: number | null, amount_minor: number, acknowledgements: MockReconciliationAck[] }>>, totals: { sales_minor: number, reserved_returns_minor: number, refunds_minor: number, fiscal_returns_minor: number }, acknowledgements: MockReconciliationAck[] }
+export interface MockFiscalReport { id: number, kind: 'x' | 'z', cash_register_id: string, shift_revision: number, totals: { sale_count: number, return_count: number, sales_minor: number, returns_minor: number, net_minor: number, document_ids: number[] }, created_at: string, simulation: true, notice: string }
+export interface MockFiscalShare { document_id: number, generation: number, url: string | null, expires_at: string | null, revoked: boolean }
+export interface MockReturnItem { order_item_id: number, product_id: number, name: string | null, quantity: number, total_minor: number }
+export interface MockReturnCreate { parent_sale_id: number, items: Array<{ order_item_id: number, quantity: number }>, reason: string }
+export interface MockReturnRefund { method?: 'cash' | 'card' | 'monobank_qr', evidence: string }
+export interface MockReturnReceipt { items: Array<{ order_item_id: number, quantity: number, disposition: 'restock' | 'not_restock' }>, evidence: string }
+export interface MockReturn {
+  id: number, order_id: number, parent_sale_id: number, amount_minor: number, currency: 'UAH', items: MockReturnItem[], reason: string, simulation: true, created_at: string,
+  refund: { id: number, amount_minor: number, method: 'cash' | 'card' | 'monobank_qr', evidence: string, operator_id: number, created_at: string } | null,
+  receipt: { id: number, items: MockReturnReceipt['items'], evidence: string, operator_id: number, created_at: string } | null,
+  fiscal_document_ids: number[], allowed_actions: string[], blocking_reasons: string[]
+}
+export interface FiscalMockPreview {
+  kind?: 'sale' | 'return', parent_sale_id?: number | null, return_id?: number | null,
+  id: number, order_id: number, revision: number, snapshot_hash: string, cash_register_id: string, shift_revision: number,
+  expires_at: string, snapshot: FiscalMockSnapshot, simulation: true, document_kind: 'mock_fiscal_receipt', is_sent_dps: false,
+  allowed_actions: string[], blocking_reasons: string[]
+}
+export interface FiscalMockSubmission { preview_id: number, expected_revision: number, snapshot_hash: string, cash_register_id: string, confirm: true, mock_outcome?: 'accepted' | 'timeout_after_acceptance' }
+export interface FiscalMockDocument {
+  automation_id: number | null, source: 'manual' | 'automation' | 'qr', qr_attempt_id?: number | null,
+  kind?: 'sale' | 'return', parent_sale_id?: number | null, return_id?: number | null,
+  id: number, order_id: number, status: 'queued' | 'submitting' | 'unknown' | 'processing' | 'issued' | 'cancelled' | 'error',
+  revision: number, simulation: true, document_kind: 'mock_fiscal_receipt', provider_uuid: string, is_sent_dps: false,
+  cash_register_id: string, shift_revision: number, snapshot_hash: string, snapshot: FiscalMockSnapshot,
+  delivery: { status: 'pending_document' | 'queued' | 'delivered' | 'failed', channel: 'local_display_print', attempts: number, last_error: string | null },
+  allowed_actions: string[], blocking_reasons: string[], print_url: string | null
+}
+export interface FiscalMockDocumentCommand { expected_revision: number, mock_delivery_outcome?: 'delivered' | 'failed', mock_outcome?: 'delivered' | 'failed' }
+
+export type EttnMockOutcome = 'accepted' | 'timeout_before_acceptance' | 'timeout_after_acceptance'
+export interface EttnMockSafety { mode: 'mock_only', provider_contract: 'unknown', simulation: true, is_sent_dps: false, notice: string }
+export interface EttnMockSnapshot { amount_minor: number, tracking_number: string, shipment_id: number, condition: 'mock_delivery_confirmed', [key: string]: unknown }
+export interface EttnMockPreview extends EttnMockSafety {
+  id: number, order_id: number, revision: number, cash_register_id: string, shift_revision: number,
+  snapshot_hash: string, snapshot: EttnMockSnapshot, expires_at: string, allowed_actions: string[], blocking_reasons: string[]
+}
+export interface EttnMockProject extends EttnMockSafety {
+  fiscal_document_id: number | null,
+  id: number, order_id: number, payment_id: number, shipment_id: number, tracking_number: string,
+  status: 'queued' | 'unknown' | 'armed' | 'cancel_pending' | 'cancel_unknown' | 'cancelled' | 'issued' | 'error', revision: number,
+  provider_uuid: string, external_id: string | null, cash_register_id: string, shift_revision: number,
+  condition: 'mock_delivery_confirmed', snapshot_hash: string, snapshot: EttnMockSnapshot, approved_at: string,
+  dispatched_at: string | null, cancellation_confirmed_at: string | null, result: Record<string, unknown> | null,
+  allowed_actions: string[], blocking_reasons: string[]
+}
+export interface EttnMockList extends EttnMockSafety { available: boolean, owner: 'sc_manual' | 'checkbox_ettn' | null, allowed_actions: string[], blocking_reasons: string[], items: EttnMockProject[] }
+export interface EttnMockPrepare { shipment_id: number, cash_register_id: string, condition: 'mock_delivery_confirmed' }
+export interface EttnMockApproval { preview_id: number, expected_revision: number, snapshot_hash: string, cash_register_id: string, confirm: true, mock_outcome: EttnMockOutcome }
+export interface EttnMockCommand { expected_revision: number, mock_outcome?: 'confirmed' | 'timeout_before_acceptance' | 'timeout_after_acceptance' }
+
+export interface PreliminaryOrderDocument {
+  id: number
+  number: string
+  version: number
+  document_kind: 'preliminary'
+  created_at: string
+  print_url: string
+}
+export type QrMockOutcome = 'success' | 'decline' | 'expiry' | 'processing' | 'hold' | 'timeout_after_acceptance' | 'success_receipt_error' | 'success_receipt_pending' | 'receipt_issued'
+export interface QrMockReadiness { mode: 'mock_only', available: boolean, blocking_reasons: string[], cash_registers: FiscalMockRegister[] }
+export interface ProviderSandboxVerification {
+  monobank_policy?: 'operator_attested_test_token_with_pinned_sha256', monobank_provider_confirmed?: false,
+  checkbox_provider_confirmed?: boolean, provider_confirmed?: false, shift_id?: string, [key: string]: unknown
+}
+export interface ProviderSandboxReadiness {
+  mode: 'provider_sandbox', available: boolean, blocking_reasons: string[], verification: ProviderSandboxVerification,
+  checkbox_cash_register_id?: string | null, checkbox_cashier_id?: string | null, checkbox_organization_id?: string | null
+}
+export interface QrMockCreate { expected_revision: number, confirm: true, cash_register_id: string }
+export interface QrMockAttempt {
+  id: number, order_id: number, revision: number, provider_invoice_id: string,
+  payment_status: 'waiting' | 'processing' | 'unknown' | 'paid' | 'declined' | 'expired' | 'cancelled',
+  receipt_status: 'pending' | 'issued' | 'error', amount_minor: number, currency: 'UAH', expires_at: string,
+  snapshot: { items?: Array<{ order_item_id: number, name?: string, product_id: number, quantity: number, total_minor: number }>, [key: string]: unknown },
+  local_payment_path: string, payment_url?: string | null, checkbox_receipt_id?: string | null, verification?: ProviderSandboxVerification | null, payment_id: number | null, fiscal_document_id: number | null, receipt_url?: string | null,
+  allowed_actions: string[], blocking_reasons: string[], mode: 'mock_only' | 'provider_sandbox', simulation: true
+}
+export interface QrMockCommand { expected_revision: number, event_id?: string, outcome?: QrMockOutcome }
+export interface PosCapabilities {
+  mode: string
+  can_prepare: boolean
+  simulation_available: boolean
+  blocking_reasons: string[]
+}
+export interface PosOrderCreate {
+  items: { product_id: number, quantity: number }[]
+  customer_name?: string
+  customer_phone?: string
+  promo_code?: string
+  fulfillment_method: 'pickup'
+  simulation: boolean
+}
+export interface OrderSalesActions {
+  can_record_payment: boolean
+  can_handover: boolean
+  blocking_reasons: string[]
+}
+export interface OrderPaymentCommand {
+  expected_revision: number
+  amount_minor: number
+  method: 'cash' | 'card'
+  source: 'operator_confirmation'
+  evidence: string
+}
+export interface OrderHandoverCommand { expected_revision: number, evidence: string }
+export interface ShipmentPackaging {
+  weight_kg: number, length_cm: number, width_cm: number, height_cm: number, places: number,
+  payer: 'sender' | 'recipient', declared_value_minor: number, cod_amount_minor: number
+}
+export interface ShipmentAddress { shippingCityRef: string, shippingWarehouseRef?: string, shippingStreetRef?: string, cityLabel: string, warehouseLabel?: string, streetLabel?: string, buildingNumber?: string, shippingApartment?: string }
+export interface ShipmentCreateCommand {
+  address_snapshot?: ShipmentAddress
+  expected_revision: number, source: 'create' | 'attach', packaging: ShipmentPackaging, tracking_number?: string
+}
+export interface ShipmentCommand { expected_revision: number, mock_status?: string, evidence?: string }
+export interface ShipmentSettlement {
+  mode: 'mock_only', available: boolean, order_id: number, shipment_id: number, tracking_number: string,
+  revision: number, amount_minor: number,
+  cod_payment: { id: number, payment_id: number, amount_minor: number, provider_event_id: string, evidence: string, operator_id: number, created_at: string } | null,
+  return_receipt: { id: number, tracking_number: string, evidence: string, operator_id: number, created_at: string, items: Array<{ order_item_id: number, quantity: number, disposition: 'restock' | 'not_restock' }> } | null,
+  items: Array<{ order_item_id: number, product_id: number, name: string | null, quantity: number }>,
+  allowed_actions: Array<'confirm_cod' | 'receive_return' | 'create_return_shipment'>, blocking_reasons: string[]
+}
+export interface ShipmentCodCommand { expected_revision: number, provider_event_id: string, evidence: string, confirm: true }
+export interface ShipmentReturnReceiptCommand {
+  expected_revision: number, evidence: string, confirm: true,
+  items: Array<{ order_item_id: number, quantity: number, disposition: 'restock' | 'not_restock' }>
+}
+export interface ShipmentReturnCommand { expected_revision: number, evidence: string, confirm: true, items?: Array<{ order_item_id: number, quantity: number }> }
+export interface Shipment {
+  id: number, tracking_number: string | null, status: string, simulation: boolean, carrier: string,
+  last_checked_at: string | null, active: boolean, source: string, raw_status: string,
+  address_snapshot?: Record<string, unknown>, packaging?: Record<string, unknown>,
+  handed_over_at: string | null, label_url?: string | null,
+  events: Array<{ operation: string, raw_status: string, normalized_status: string, outcome: string, created_at: string }>
+}
+export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, blocking_reasons: string[] }
+export interface OrderProjections {
+  shipments?: Shipment[]
+  shipment_actions?: ShipmentActions
+  simulation?: boolean
+  sales_actions?: OrderSalesActions
+  channel?: string | null
+  fulfillment_method?: string | null
+  revision?: number
+  payment_status?: string
+  fulfillment_status?: string
+  fiscal_status?: string
+  receipt_delivery_status?: string
+  preliminary_documents?: PreliminaryOrderDocument[]
+}
+
+export interface OrderSummary extends OrderProjections {
   id: number
   status: string
   customer_name: string
@@ -207,10 +386,17 @@ export interface OrderItemResponse {
   procurement_status: ProcurementStatus
 }
 
-export interface OrderResponse {
+export interface OrderPaymentFact {
+  id: number, amount_minor: number, currency?: 'UAH', method: 'cash' | 'card' | 'monobank_qr', source: string, evidence: string,
+  operator_id: number, simulation: boolean, created_at: string
+}
+export interface OrderHandoverFact { id: number, evidence: string, operator_id: number, simulation: boolean, created_at: string }
+export interface OrderResponse extends OrderProjections {
+  payments?: OrderPaymentFact[]
+  handovers?: OrderHandoverFact[]
   id: number
   customer_name: string
-  customer_phone: string
+  customer_phone: string | null
   customer_email: string | null
   comment: string | null
   first_name: string | null
@@ -224,6 +410,10 @@ export interface OrderResponse {
   building_number: string | null
   shipping_apartment: string | null
   delivery_address: string | null
+  shipping_settlement_ref?: string | null
+  shipping_city_ref?: string | null
+  shipping_warehouse_ref?: string | null
+  shipping_street_ref?: string | null
   shipping_payload_json: Record<string, unknown> | null
   payment_method: string | null
   tracking_number: string | null
@@ -1328,6 +1518,66 @@ export const useBackofficeApi = () => {
       body: payload,
     })
 
+  const getMockReconciliation = () => api<MockReconciliation>('/backoffice/integrations/checkbox/reconciliation', { retry: 0 })
+  const acknowledgeMockReconciliation = (body: { case_type: MockCaseType, resource_id: string, evidence: string }, key: string) => api<MockReconciliationAck>('/backoffice/integrations/checkbox/reconciliation/acknowledgements', { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getMockFiscalReports = (register: string) => api<MockFiscalReport[]>(`/backoffice/integrations/checkbox/cash-registers/${encodeURIComponent(register)}/reports`, { retry: 0 })
+  const createMockFiscalReport = (register: string, body: { kind: 'x' | 'z', expected_shift_revision: number, confirm: true }, key: string) => api<MockFiscalReport>(`/backoffice/integrations/checkbox/cash-registers/${encodeURIComponent(register)}/reports`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const shareMockFiscalDocument = (id: number, operation: 'share' | 'revoke-share', body: { expires_in_seconds?: number }, key: string) => api<MockFiscalShare>(`/backoffice/fiscal-documents/${id}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getMockReturns = (order: number) => api<MockReturn[]>(`/backoffice/orders/${order}/returns`, { retry: 0 })
+  const createMockReturn = (order: number, body: MockReturnCreate, key: string) => api<MockReturn>(`/backoffice/orders/${order}/returns`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const refundMockReturn = (id: number, body: MockReturnRefund, key: string) => api<MockReturn>(`/backoffice/returns/${id}/refunds`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const receiveMockReturn = (id: number, body: MockReturnReceipt, key: string) => api<MockReturn>(`/backoffice/returns/${id}/receipts`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const createReturnFiscalMockPreview = (id: number, body: { cash_register_id: string }, key: string) => api<FiscalMockPreview>(`/backoffice/returns/${id}/fiscal-preview`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getFiscalMockReadiness = () => api<FiscalMockReadiness>('/backoffice/integrations/readiness', { retry: 0 })
+  const runFiscalMockShift = (register: string, operation: 'open-shift' | 'close-shift', body: { expected_shift_revision: number }, key: string) =>
+    api<FiscalMockReadiness>(`/backoffice/integrations/checkbox/cash-registers/${encodeURIComponent(register)}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const createFiscalMockPreview = (id: number, body: { cash_register_id: string }, key: string) =>
+    api<FiscalMockPreview>(`/backoffice/orders/${id}/fiscal-preview`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getFiscalMockPreview = (order: number, id: number) => api<FiscalMockPreview>(`/backoffice/orders/${order}/fiscal-previews/${id}`, { retry: 0 })
+  const submitFiscalMock = (id: number, body: FiscalMockSubmission, key: string) =>
+    api<FiscalMockDocument>(`/backoffice/orders/${id}/fiscal-submissions`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getFiscalMockDocuments = (order: number) => api<FiscalMockDocument[]>(`/backoffice/orders/${order}/fiscal-documents`, { retry: 0 })
+  const getFiscalMockDocument = (id: number) => api<FiscalMockDocument>(`/backoffice/fiscal-documents/${id}`, { retry: 0 })
+  const runFiscalMockDocument = (id: number, operation: 'process' | 'cancel' | 'delivery', body: FiscalMockDocumentCommand, key: string) =>
+    api<FiscalMockDocument>(`/backoffice/fiscal-documents/${id}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getFiscalMockPrint = (id: number) => api<string>(`/backoffice/fiscal-documents/${id}/print`, { responseType: 'text', retry: 0 })
+
+  const getEttnMockProjects = (order: number) => api<EttnMockList>(`/backoffice/orders/${order}/fiscal-automations`, { retry: 0 })
+  const createEttnMockPreview = (order: number, body: EttnMockPrepare, key: string) => api<EttnMockPreview>(`/backoffice/orders/${order}/fiscal-automation-preview`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getEttnMockPreview = (order: number, id: number) => api<EttnMockPreview>(`/backoffice/orders/${order}/fiscal-automation-previews/${id}`, { retry: 0 })
+  const armEttnMock = (order: number, body: EttnMockApproval, key: string) => api<EttnMockProject>(`/backoffice/orders/${order}/fiscal-automations`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getEttnMockProject = (id: number) => api<EttnMockProject>(`/backoffice/fiscal-automations/${id}`, { retry: 0 })
+  const runEttnMockProject = (id: number, operation: 'process' | 'cancel' | 'reconcile' | 'trigger' | 'materialize', body: EttnMockCommand, key: string) => api<EttnMockProject>(`/backoffice/fiscal-automations/${id}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+
+  const getProviderSandboxReadiness = () => api<ProviderSandboxReadiness>('/backoffice/integrations/provider-sandbox/readiness', { retry: 0 })
+  const createOrderSandboxQrAttempt = (id: number, body: QrMockCreate, key: string) => api<QrMockAttempt>(`/backoffice/orders/${id}/sandbox-qr-payment-attempts`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const refreshSandboxQrAttempt = (id: number, body: QrMockCommand, key: string) => api<QrMockAttempt>(`/backoffice/qr-payment-attempts/${id}/sandbox-refresh`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getQrMockReadiness = () => api<QrMockReadiness>('/backoffice/integrations/monobank-qr/readiness', { retry: 0 })
+  const getOrderQrMockAttempts = (id: number) => api<QrMockAttempt[]>(`/backoffice/orders/${id}/qr-payment-attempts`, { retry: 0 })
+  const createOrderQrMockAttempt = (id: number, body: QrMockCreate, key: string) => api<QrMockAttempt>(`/backoffice/orders/${id}/qr-payment-attempts`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getQrMockAttempt = (id: number) => api<QrMockAttempt>(`/backoffice/qr-payment-attempts/${id}`, { retry: 0 })
+  const runQrMockAttempt = (id: number, operation: 'refresh' | 'cancel' | 'simulate', body: QrMockCommand, key: string) => api<QrMockAttempt>(`/backoffice/qr-payment-attempts/${id}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getQrMockReceipt = (id: number) => api<string>(`/backoffice/qr-payment-attempts/${id}/receipt`, { responseType: 'text', retry: 0 })
+  const getPosCapabilities = () => api<PosCapabilities>('/backoffice/orders/pos-capabilities')
+  const createPosOrder = (payload: PosOrderCreate, key: string) =>
+    api<OrderResponse>('/backoffice/orders', { method: 'POST', body: payload, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const recordOrderPayment = (id: number, payload: OrderPaymentCommand, key: string) =>
+    api<OrderResponse>(`/backoffice/orders/${id}/payments`, { method: 'POST', body: payload, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const handoverOrder = (id: number, payload: OrderHandoverCommand, key: string) =>
+    api<OrderResponse>(`/backoffice/orders/${id}/handover`, { method: 'POST', body: payload, headers: { 'Idempotency-Key': key }, retry: 0 })
+
+  const createMockShipmentFixture = (id: number, body: { expected_revision: number, address_snapshot?: ShipmentAddress }, key: string) =>
+    api<{ tracking_number: string, simulation: boolean }>(`/backoffice/orders/${id}/mock-shipment-fixtures`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const createOrderShipment = (id: number, body: ShipmentCreateCommand, key: string) =>
+    api<OrderResponse>(`/backoffice/orders/${id}/shipments`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const runShipmentCommand = (orderId: number, id: number, operation: 'refresh' | 'cancel' | 'handover', body: ShipmentCommand, key: string) =>
+    api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/${operation}`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getShipmentSettlement = (orderId: number, id: number) => api<ShipmentSettlement>(`/backoffice/orders/${orderId}/shipments/${id}/settlement`, { retry: 0 })
+  const confirmShipmentCod = (orderId: number, id: number, body: ShipmentCodCommand, key: string) => api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/cod-payment`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const receiveShipmentReturn = (orderId: number, id: number, body: ShipmentReturnReceiptCommand, key: string) => api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/return-receipt`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const createShipmentReturn = (orderId: number, id: number, body: ShipmentReturnCommand, key: string) => api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/return-shipment`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getShipmentLabel = (orderId: number, id: number) => api<string>(`/backoffice/orders/${orderId}/shipments/${id}/label`, { responseType: 'text', retry: 0 })
+
   const getOrders = (page = 1, pageSize = 10) =>
     api<PaginatedResponse<OrderSummary>>('/backoffice/orders', {
       query: { page, page_size: normalizePageSize(pageSize) },
@@ -1335,6 +1585,14 @@ export const useBackofficeApi = () => {
 
   const getOrder = (orderId: number | string) =>
     api<OrderResponse>(`/backoffice/orders/${orderId}`)
+
+  const createOrderPreliminaryDocument = (orderId: number, revision: number, key: string) =>
+    api<PreliminaryOrderDocument>(`/backoffice/orders/${orderId}/preliminary-documents`, {
+      method: 'POST', body: { expected_revision: revision }, headers: { 'Idempotency-Key': key }, retry: 0,
+    })
+
+  const getOrderPreliminaryDocumentHtml = (orderId: number, documentId: number) =>
+    api<string>(`/backoffice/orders/${orderId}/preliminary-documents/${documentId}/print`, { responseType: 'text' })
 
   const updateOrderStatus = (orderId: number | string, status: string) =>
     api<OrderResponse>(`/backoffice/orders/${orderId}/status`, {
@@ -2494,9 +2752,57 @@ export const useBackofficeApi = () => {
     updateCategory,
     getBrands,
     updateBrand,
+    getMockReconciliation,
+    acknowledgeMockReconciliation,
+    getMockFiscalReports,
+    createMockFiscalReport,
+    shareMockFiscalDocument,
+    getMockReturns,
+    createMockReturn,
+    refundMockReturn,
+    receiveMockReturn,
+    createReturnFiscalMockPreview,
+    getFiscalMockReadiness,
+    runFiscalMockShift,
+    createFiscalMockPreview,
+    getFiscalMockPreview,
+    submitFiscalMock,
+    getFiscalMockDocuments,
+    getFiscalMockDocument,
+    runFiscalMockDocument,
+    getFiscalMockPrint,
+    getEttnMockProjects,
+    createEttnMockPreview,
+    getEttnMockPreview,
+    armEttnMock,
+    getEttnMockProject,
+    runEttnMockProject,
+    getProviderSandboxReadiness,
+    createOrderSandboxQrAttempt,
+    refreshSandboxQrAttempt,
+    getQrMockReadiness,
+    getOrderQrMockAttempts,
+    createOrderQrMockAttempt,
+    getQrMockAttempt,
+    runQrMockAttempt,
+    getQrMockReceipt,
+    getPosCapabilities,
+    createMockShipmentFixture,
+    createOrderShipment,
+    runShipmentCommand,
+    getShipmentLabel,
+    getShipmentSettlement,
+    confirmShipmentCod,
+    receiveShipmentReturn,
+    createShipmentReturn,
+    createPosOrder,
+    recordOrderPayment,
+    handoverOrder,
     getOrders,
     getOrder,
     updateOrderStatus,
+    createOrderPreliminaryDocument,
+    getOrderPreliminaryDocumentHtml,
     getInventoryStock,
     lookupInventoryProductByBarcode,
     bindInventoryBarcode,

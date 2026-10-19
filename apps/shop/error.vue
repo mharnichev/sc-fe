@@ -43,7 +43,7 @@ const description = computed(() => {
   display: grid;
   min-height: 100svh;
   place-items: center;
-  background: #f3f4f7;
+  background: var(--sc-surface-muted);
   padding: 1rem;
   color: #0a0a0a;
 }

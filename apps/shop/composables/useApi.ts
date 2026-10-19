@@ -27,7 +27,7 @@ export const useApi = () => {
   const customerAuth = useCustomerAuthStore()
 
   return $fetch.create({
-    baseURL: config.public.apiBase,
+    baseURL: import.meta.server ? config.apiBase : config.public.apiBase,
     onRequest({ options }) {
       const headers = new Headers(options.headers)
       const visitorId = getVisitorId()

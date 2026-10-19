@@ -13,7 +13,9 @@
 <style scoped>
 .product-card-skeleton {
   display: flex;
+  width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 25rem;
   flex-direction: column;
   overflow: hidden;

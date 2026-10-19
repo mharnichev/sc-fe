@@ -7,6 +7,7 @@ import UserOtpCode from '~/components/auth/UserOtpCode.vue'
 
 const props = defineProps<{
   modelValue: boolean
+  redirectTo?: string
 }>()
 
 const emit = defineEmits<{
@@ -32,7 +33,12 @@ const hideAuthModal = () => {
   emit('update:modelValue', false)
   resetAuthFlow()
   modalStore.hideModal()
+  if (auth.isAuthenticated && props.redirectTo) void navigateTo(props.redirectTo)
 }
+
+watch(() => auth.isAuthenticated, isAuthenticated => {
+  if (isAuthenticated && isShow.value) hideAuthModal()
+})
 
 watch(() => props.modelValue, value => {
   isShow.value = value

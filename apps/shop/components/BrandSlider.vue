@@ -147,8 +147,9 @@ const resolveLogoUrl = (value: string | null | undefined) => {
   }
 }
 
+const shopAsset = useShopAsset()
 const brandLogoUrl = (brand: BrandDto) =>
-  resolveLogoUrl(brand.logo_url) || localBrandLogoUrl(brand.slug)
+  resolveLogoUrl(brand.logo_url) || shopAsset(localBrandLogoUrl(brand.slug))
 
 const brandLogoMaskStyle = (brand: BrandDto) => ({
   '--brand-logo-url': `url(${JSON.stringify(brandLogoUrl(brand))})`,
@@ -192,7 +193,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section v-if="pending || visibleBrands.length" class="brand-slider">
+  <section v-if="pending || visibleBrands.length" id="brands" class="brand-slider">
     <div class="brand-slider__heading">
       <div class="brand-slider__copy">
         <p class="type-eyebrow type-eyebrow--wide text-xs">
@@ -288,6 +289,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .brand-slider {
+  scroll-margin-top: 9rem;
   display: flex;
   min-width: 0;
   flex-direction: column;

@@ -27,7 +27,8 @@ const {
   normalizedSearchTerm,
   hasSearchQuery,
   isSearchLoading,
-  clearSuggestions,
+  restorePreviousSearch,
+  clearSearch,
 } = useProductSearch(6)
 
 const searchInput = ref<HTMLInputElement | null>(null)
@@ -107,6 +108,7 @@ const startSearchPlaceholderTyping = () => {
 const focusSearch = () => {
   if (closeTimer) clearTimeout(closeTimer)
   stopSearchPlaceholderTyping()
+  restorePreviousSearch()
   isSearchFocus.value = true
   emit('active-change', true)
 }
@@ -127,7 +129,6 @@ const closeSearchSoon = () => {
 
 const submitSearch = async (value = searchTerm.value) => {
   const q = value.trim()
-  clearSuggestions()
   closeSearch()
   emit('close')
   await navigateTo({ path: '/catalog', query: q ? { q } : undefined })
@@ -187,6 +188,17 @@ defineExpose({ closeSearch })
         @blur="closeSearchSoon"
         @keydown.esc="closeSearch"
       >
+
+      <button
+        v-if="searchTerm"
+        type="button"
+        class="header-search__clear"
+        :aria-label="terms.common.clear"
+        @pointerdown.prevent
+        @click.stop="clearSearch"
+      >
+        <BaseIcon name="close" size="xxs" />
+      </button>
 
       <button
         type="submit"
@@ -249,8 +261,49 @@ defineExpose({ closeSearch })
   outline: none;
 }
 
+.header-search__control:has(.header-search__clear) .header-search__field {
+  padding-right: 5.5rem;
+}
+
+.header-search__field::-webkit-search-cancel-button {
+  display: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.header-search__field::-ms-clear {
+  display: none;
+}
+
 .header-search__field::placeholder {
   color: rgb(82 82 82 / 0.72);
+}
+
+.header-search__clear {
+  position: absolute;
+  top: 0;
+  right: 3.4rem;
+  bottom: 0;
+  z-index: 2;
+  display: inline-flex;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.header-search__clear:hover,
+.header-search__clear:focus-visible {
+  color: #0a0a0a;
+}
+
+.header-search__clear:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: -0.25rem;
 }
 
 .header-search__submit {
@@ -269,7 +322,7 @@ defineExpose({ closeSearch })
 
 .header-search__submit {
   right: 0;
-  background: #f3f4f7;
+  background: var(--sc-surface-muted);
   transition:
     background-color 180ms ease,
     color 180ms ease;

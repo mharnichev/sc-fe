@@ -182,6 +182,7 @@ useSeo(
 .cabinet-settings {
   display: grid;
   gap: 1.5rem;
+  padding: 1.5rem;
 }
 
 .cabinet-settings__row {
@@ -214,6 +215,7 @@ useSeo(
 
 .cabinet-settings__fields {
   display: grid;
+  align-items: start;
   gap: 1rem;
 }
 
@@ -239,6 +241,12 @@ useSeo(
 @media (min-width: 768px) {
   .cabinet-settings__fields--two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .cabinet-settings {
+    padding: 1rem;
   }
 }
 </style>
