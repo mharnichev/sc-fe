@@ -19,7 +19,7 @@ const contacts = computed(() => [
 ])
 
 const footerLinks = computed(() => [
-  { label: terms.value.common.journal, to: '/blog/' },
+  { label: terms.value.common.journal, to: '/blog/', external: true },
   { label: terms.value.common.catalog, to: '/catalog' },
   { label: terms.value.common.contact, to: '/contacts' },
   { label: terms.value.support.title, to: '/delivery-payment' },
@@ -50,7 +50,7 @@ const hours = computed(() => [
               </a>
             </p>
             <p v-for="link in footerLinks" :key="link.to">
-              <NuxtLink :to="link.to" class="shop-footer__link">
+              <NuxtLink :to="link.to" :external="link.external" :trailing-slash="link.external ? 'append' : undefined" class="shop-footer__link">
                 <BaseHoverUnderlineText>{{ link.label }}</BaseHoverUnderlineText>
               </NuxtLink>
             </p>
