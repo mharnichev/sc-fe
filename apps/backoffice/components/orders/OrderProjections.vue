@@ -2,6 +2,14 @@
 import type { OrderProjections } from '~/composables/useBackofficeApi'
 const props = defineProps<{ order: OrderProjections, compact?: boolean }>()
 const labels: Record<string, string> = {
+  master_mono_receipt_accepted: 'Чек mono → Checkbox підтверджено',
+  master_mono_receipt_pending: 'Очікуємо підтвердження чека mono → Checkbox',
+  master_mono_pdf_available: 'PDF-чек доступний',
+  master_mono_pdf_pending: 'PDF-чек ще недоступний',
+  simulated_master_mono_receipt_accepted: 'Тестовий чек mono → Checkbox підтверджено',
+  simulated_master_mono_receipt_pending: 'Очікуємо підтвердження тестового чека mono → Checkbox',
+  simulated_master_mono_pdf_available: 'Тестовий PDF-чек доступний',
+  simulated_master_mono_pdf_pending: 'Тестовий PDF-чек ще недоступний',
   refunded: "Гроші повернено; оплачене скасування завершено",
   financial_exception: "Фінансова невідповідність: потрібна окрема звірка грошей",
   cancelled_before_handover: "Скасовано до видачі або відправлення; товар не передавався",

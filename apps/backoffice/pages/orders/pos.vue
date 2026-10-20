@@ -19,11 +19,11 @@ const method = ref<'pickup'>('pickup')
 const simulation = ref(false)
 const command = useOrderSalesCommand<PosOrderCreate>('prepare', 'new', ['unsupported_zero_total_pos'])
 const saleSimulation = computed({
-  get: () => command.intent.value?.body.simulation ?? simulation.value,
+  get: () => command.intent.value?.body.simulation ?? (isBarber.value ? false : simulation.value),
   set: (value: boolean) => { simulation.value = value },
 })
 const locked = computed(() => command.busy.value || !!command.intent.value)
-const canPrepare = computed(() => capabilities.value?.can_prepare === true && (!saleSimulation.value || capabilities.value?.simulation_available === true) && (!isBarber.value || (saleSimulation.value && capabilities.value?.simulation_available === true)))
+const canPrepare = computed(() => capabilities.value?.can_prepare === true && (!saleSimulation.value || capabilities.value?.simulation_available === true) && (!isBarber.value || (!saleSimulation.value && capabilities.value?.live_qr_available === true && capabilities.value?.mode === 'mono_checkbox')))
 const validQuantities = computed(() => rows.value.every(row => Number.isSafeInteger(Number(row.quantity)) && Number(row.quantity) > 0))
 const itemCount = computed(() => rows.value.reduce((total, row) => total + (Number.isSafeInteger(Number(row.quantity)) && Number(row.quantity) > 0 ? Number(row.quantity) : 0), 0))
 const add = (product: InventoryProduct) => {
@@ -53,14 +53,14 @@ const prepare = () => {
       <li class="flex flex-col items-center gap-1 rounded-xl bg-ui-subtle p-2 text-ui-secondary sm:flex-row sm:justify-center"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />2. Оплата</li>
       <li class="flex flex-col items-center gap-1 rounded-xl bg-ui-subtle p-2 text-ui-secondary sm:flex-row sm:justify-center"><CheckIcon class="h-5 w-5 shrink-0" aria-hidden="true" />3. Видача</li>
     </ol>
-    <section aria-label="Режим продажу" class="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+    <section v-if="!isBarber" aria-label="Режим продажу" class="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       <p class="flex items-center gap-2 font-semibold"><BeakerIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Без реальних платежів</p>
       <p>Гроші не списуються, чеки до ДПС не надсилаються.</p>
       <label v-if="capabilities?.simulation_available" class="flex min-h-11 cursor-pointer items-center gap-3"><input v-model="saleSimulation" type="checkbox" class="h-5 w-5 shrink-0" :disabled="locked">Тестовий режим (без реальної оплати)</label>
       <p v-if="capabilityError || (capabilities && !capabilities.can_prepare)" role="alert" class="text-ui-danger">Підготовка продажу недоступна. Попросіть адміністратора перевірити ваші права та доступність тестового режиму.</p>
-      <p v-if="isBarber && capabilities?.can_prepare && !saleSimulation" role="status">Увімкніть тестовий режим для перевірки продажу.</p>
       <details v-if="isAdmin && capabilities?.blocking_reasons?.length"><summary class="min-h-11 cursor-pointer py-3">Технічні причини</summary><p v-for="reason in capabilities.blocking_reasons" :key="reason" class="mt-2 break-words">{{ reason }}</p></details>
     </section>
+    <section v-if="isBarber && (!canPrepare || capabilityError)" aria-label="Доступність оплати" class="rounded-2xl border border-amber-200 p-4 text-sm text-amber-900"><p role="status">Оплата через mono ще недоступна. Попросіть адміністратора перевірити налаштування каси та ваші права.</p></section>
     <BaseButton v-if="command.intent.value?.resultId" variant="neutral" size="lg" @click="command.clear(); rows = []; customerName = ''; customerPhone = ''; promoCode = ''"><PlusIcon class="h-5 w-5" aria-hidden="true" />Нове замовлення</BaseButton>
     <p v-if="command.intent.value" role="status" class="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">Запит збережено. Натисніть «Відновити підготовку», щоб отримати те саме замовлення без дублювання. Склад і контакти зафіксовані.</p>
     <BaseCard class="space-y-4">
@@ -97,7 +97,7 @@ const prepare = () => {
       <p v-if="rows.length" class="text-sm font-medium" aria-live="polite">У кошику: {{ itemCount }} шт.</p>
       <p class="text-sm text-ui-secondary">{{ rows.length || command.intent.value ? 'Далі — точна сума та знижки. Оплата й видача підтверджуються окремо.' : 'Спочатку додайте товар, щоб перевірити суму.' }}</p>
       <BaseButton variant="primary" size="lg" block :disabled="!canPrepare || (!command.intent.value && (!rows.length || !validQuantities))" :loading="command.busy.value" @click="prepare">{{ command.intent.value ? 'Відновити підготовку' : 'Перевірити суму' }}<ArrowRightIcon class="h-5 w-5 shrink-0" aria-hidden="true" /></BaseButton>
-      <p v-if="command.error.value" role="alert" class="break-words text-sm text-ui-danger">{{ command.error.value }}</p>
+      <p v-if="command.error.value" role="alert" class="break-words text-sm text-ui-danger">{{ isBarber ? 'Не вдалося підтвердити підготовку. Відновіть той самий запит або зверніться до адміністратора.' : command.error.value }}</p>
     </section>
   </div>
 </template>

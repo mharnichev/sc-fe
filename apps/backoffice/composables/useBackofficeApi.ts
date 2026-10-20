@@ -266,6 +266,22 @@ export interface ProviderSandboxReadiness {
   mode: 'provider_sandbox', available: boolean, blocking_reasons: string[], verification: ProviderSandboxVerification,
   checkbox_cash_register_id?: string | null, checkbox_cashier_id?: string | null, checkbox_organization_id?: string | null
 }
+export interface MasterMonoState {
+  order_id: number
+  revision: number
+  mode: 'mono_checkbox'
+  enabled: boolean
+  paid: boolean
+  receipt_accepted: boolean
+  status: string
+  amount_minor: number
+  invoice_id: string | null
+  payment_url: string | null
+  receipt_pdf_path: string | null
+  can_handover: boolean
+  blocking_reasons: string[]
+}
+export interface MasterMonoCommand { expected_revision: number }
 export interface QrMockCreate { expected_revision: number, confirm: true, cash_register_id: string }
 export interface QrMockAttempt {
   id: number, order_id: number, revision: number, provider_invoice_id: string,
@@ -277,6 +293,7 @@ export interface QrMockAttempt {
 }
 export interface QrMockCommand { expected_revision: number, event_id?: string, outcome?: QrMockOutcome }
 export interface PosCapabilities {
+  live_qr_available: boolean
   mode: string
   can_prepare: boolean
   simulation_available: boolean
@@ -1554,6 +1571,11 @@ export const useBackofficeApi = () => {
   const getProviderSandboxReadiness = () => api<ProviderSandboxReadiness>('/backoffice/integrations/provider-sandbox/readiness', { retry: 0 })
   const createOrderSandboxQrAttempt = (id: number, body: QrMockCreate, key: string) => api<QrMockAttempt>(`/backoffice/orders/${id}/sandbox-qr-payment-attempts`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
   const refreshSandboxQrAttempt = (id: number, body: QrMockCommand, key: string) => api<QrMockAttempt>(`/backoffice/qr-payment-attempts/${id}/sandbox-refresh`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const getMasterMonoState = (id: number) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}`, { retry: 0 })
+  const startMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/start`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const refreshMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/refresh`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  // Always use this authenticated endpoint; never follow a provider-returned PDF URL.
+  const getMasterMonoReceiptPdf = (id: number) => api<Blob>(`/backoffice/master-mono/orders/${id}/receipt/pdf`, { responseType: 'blob', retry: 0 })
   const getQrMockReadiness = () => api<QrMockReadiness>('/backoffice/integrations/monobank-qr/readiness', { retry: 0 })
   const getOrderQrMockAttempts = (id: number) => api<QrMockAttempt[]>(`/backoffice/orders/${id}/qr-payment-attempts`, { retry: 0 })
   const createOrderQrMockAttempt = (id: number, body: QrMockCreate, key: string) => api<QrMockAttempt>(`/backoffice/orders/${id}/qr-payment-attempts`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
@@ -2784,6 +2806,10 @@ export const useBackofficeApi = () => {
     getProviderSandboxReadiness,
     createOrderSandboxQrAttempt,
     refreshSandboxQrAttempt,
+    getMasterMonoState,
+    startMasterMono,
+    refreshMasterMono,
+    getMasterMonoReceiptPdf,
     getQrMockReadiness,
     getOrderQrMockAttempts,
     createOrderQrMockAttempt,
