@@ -6,6 +6,10 @@ import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing
 import { getProductDiscount } from '~/utils/product-status'
 import { isProductUnavailable } from '~/utils/product-visibility'
 
+const { categoryDisplayName } = useCategoryDisplay()
+
+const { productDisplayName, productDisplayType } = useProductDisplay()
+
 const route = useRoute()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
@@ -111,7 +115,7 @@ const selectedModalImageIndex = computed(() => Math.max(
   galleryImages.value.findIndex(image => image.image === selectedModalImage.value),
   0,
 ))
-const productType = computed(() => product.value?.product_type || product.value?.category.name || '')
+const productType = computed(() => product.value ? productDisplayType(product.value) : '')
 const breadcrumbs = computed(() => {
   if (!product.value) return []
   return product.value.category_tree.length ? product.value.category_tree : [product.value.category]
@@ -127,11 +131,11 @@ const productBreadcrumbItems = computed<CategoryRouteCrumb[]>(() => {
     { id: 0, name: terms.value.common.catalog, slug: 'catalog', to: '/catalog' },
     ...breadcrumbs.value.map((category, index) => ({
       id: category.id,
-      name: category.name,
+      name: categoryDisplayName(category),
       slug: category.slug,
       to: categoryBreadcrumbLink(index),
     })),
-    { id: product.value.id, name: product.value.name, slug: product.value.slug },
+    { id: product.value.id, name: productDisplayName(product.value), slug: product.value.slug },
   ]
 })
 const averageRating = computed(() => reviewsPage.value?.average_rating || product.value?.average_rating || null)
@@ -365,7 +369,7 @@ const deleteReview = async (reviewId: number) => {
 }
 
 useSeo(
-  () => product.value?.seo_title || product.value?.name || terms.value.seo.productFallbackTitle,
+  () => product.value?.seo_title || (product.value ? productDisplayName(product.value) : '') || terms.value.seo.productFallbackTitle,
   () => product.value?.seo_description || product.value?.short_description || plainProductDescription.value || terms.value.seo.productFallbackDescription,
 )
 
@@ -376,7 +380,7 @@ useHead(() => ({
       children: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'Product',
-        name: product.value.name,
+        name: productDisplayName(product.value),
         description: plainProductDescription.value,
         sku: product.value.sku,
         image: product.value.images.map(image => image.image),
@@ -425,12 +429,12 @@ useHead(() => ({
                     class="product-gallery__image-button"
                     type="button"
                     variant="borderless"
-                    :aria-label="`Відкрити зображення ${item.imageIndex + 1} товару ${product.name}`"
+                    :aria-label="`Відкрити зображення ${item.imageIndex + 1} товару ${productDisplayName(product)}`"
                     @click="openGalleryImage(item.image.image)"
                   >
                     <img
                       :src="item.image.image"
-                      :alt="item.image.alt || product.name"
+                      :alt="item.image.alt || productDisplayName(product)"
                       class="product-gallery__image"
                       draggable="false"
                       itemprop="image"
@@ -472,12 +476,12 @@ useHead(() => ({
             <meta itemprop="sku" :content="product.sku">
             <meta itemprop="brand" :content="product.brand.name">
             <meta itemprop="productID" :content="String(product.id)">
-            <meta itemprop="name" :content="product.name">
+            <meta itemprop="name" :content="productDisplayName(product)">
 
             <div class="product-buy__header">
               <div>
                 <div class="product-buy__title-row">
-                  <h1 class="product-buy__name">{{ product.name }}</h1>
+                  <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
                 </div>
                 <div class="product-buy__meta-row">
                   <p v-if="productType" class="product-buy__type">{{ productType }}</p>
@@ -730,7 +734,7 @@ useHead(() => ({
             <img
               :key="selectedModalImage"
               :src="selectedModalImage"
-              :alt="product.name"
+              :alt="productDisplayName(product)"
               class="product-gallery-modal__image"
               :class="{ 'product-gallery-modal__image--zoomed': isGalleryImageZoomed }"
             >
@@ -753,7 +757,7 @@ useHead(() => ({
             :aria-current="image.image === selectedModalImage ? 'true' : undefined"
             @click="selectImage(image.image)"
           >
-            <img :src="image.image" :alt="image.alt || product.name">
+            <img :src="image.image" :alt="image.alt || productDisplayName(product)">
           </BaseButton>
         </div>
 

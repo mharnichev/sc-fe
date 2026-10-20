@@ -9,6 +9,8 @@ import {
   type CategoryRouteCrumb,
 } from '~/utils/category-routing'
 
+const { categoryDisplayName } = useCategoryDisplay()
+
 const props = defineProps<{
   segments: string[]
 }>()
@@ -32,7 +34,7 @@ if (!slugSegments.value.length || !categoryPath.value.length || !currentCategory
 const breadcrumbs = computed<CategoryRouteCrumb[]>(() =>
   categoryPath.value.map((category, index, path) => ({
     id: category.id,
-    name: category.name,
+    name: categoryDisplayName(category),
     slug: category.slug,
     to: index < path.length - 1 ? categoryLandingPath(path.slice(0, index + 1)) : undefined,
   })),
@@ -43,7 +45,7 @@ const childLink = (child: CategoryTreeNodeDto) =>
   categoryDestination(categoryTree.value || [], child)
 
 useSeo(
-  () => currentCategory.value?.name || terms.value.seo.catalogTitle,
+  () => (currentCategory.value ? categoryDisplayName(currentCategory.value) : '') || terms.value.seo.catalogTitle,
   () => currentCategory.value?.description || terms.value.seo.catalogDescription,
 )
 </script>
@@ -56,7 +58,7 @@ useSeo(
       <div>
         <p class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.common.catalog }}</p>
         <h1 class="category-landing__title">
-          <BaseScribbleOutline>{{ currentCategory?.name }}</BaseScribbleOutline>
+          <BaseScribbleOutline>{{ (currentCategory ? categoryDisplayName(currentCategory) : '') }}</BaseScribbleOutline>
         </h1>
         <p v-if="currentCategory?.description" class="category-landing__description">
           {{ currentCategory.description }}
@@ -75,7 +77,7 @@ useSeo(
             <BaseIcon name="catalog" size="xs" />
           </span>
           <span class="category-landing__card-body">
-            <strong><BaseHoverUnderlineText>{{ child.name }}</BaseHoverUnderlineText></strong>
+            <strong><BaseHoverUnderlineText>{{ categoryDisplayName(child) }}</BaseHoverUnderlineText></strong>
             <span v-if="child.description">{{ child.description }}</span>
             <span v-else>{{ child.children.length ? terms.catalog.sidebarFallbackTitle : terms.catalog.productsSuffix }}</span>
           </span>

@@ -3,6 +3,8 @@ import type { CategoryTreeNodeDto } from '@shared-types'
 import { categoryDestination } from '~/utils/category-routing'
 const shopAsset = useShopAsset()
 
+const { categoryDisplayName } = useCategoryDisplay()
+
 const emit = defineEmits<{
   visibilityChange: [state: { visible: boolean, height: number }]
 }>()
@@ -439,7 +441,7 @@ onBeforeUnmount(() => {
             <ul v-if="activeCategory" class="cl__compact-list">
               <li v-for="subCategory in activeCategory.children" :key="subCategory.id">
                 <NuxtLink class="cl__compact-link" :to="categoryLink(subCategory)" @click="closeOverlays">
-                  <span><BaseHoverUnderlineText>{{ subCategory.name }}</BaseHoverUnderlineText></span>
+                  <span><BaseHoverUnderlineText>{{ categoryDisplayName(subCategory) }}</BaseHoverUnderlineText></span>
                 </NuxtLink>
               </li>
             </ul>

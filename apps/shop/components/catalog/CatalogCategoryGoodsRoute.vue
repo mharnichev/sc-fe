@@ -8,6 +8,8 @@ import {
   type CategoryRouteCrumb,
 } from '~/utils/category-routing'
 
+const { categoryDisplayName } = useCategoryDisplay()
+
 const DEFAULT_LIMIT = 20
 const reservedQueryKeys = new Set([
   'page',
@@ -82,7 +84,7 @@ if (!categorySlug.value || !categoryPath.value.length) {
 const breadcrumbs = computed<CategoryRouteCrumb[]>(() =>
   categoryPath.value.map((category, index, path) => ({
     id: category.id,
-    name: category.name,
+    name: categoryDisplayName(category),
     slug: category.slug,
     to: index < path.length - 1 ? categoryLandingPath(path.slice(0, index + 1)) : undefined,
   })),
@@ -225,7 +227,7 @@ onBeforeUnmount(() => {
 })
 
 useSeo(
-  () => currentCategory.value?.name || terms.value.seo.catalogTitle,
+  () => (currentCategory.value ? categoryDisplayName(currentCategory.value) : '') || terms.value.seo.catalogTitle,
   () => currentCategory.value?.description || terms.value.seo.catalogDescription,
 )
 </script>
@@ -237,7 +239,7 @@ useSeo(
 
       <div class="category__title-wrapper">
         <h1 class="category__title">
-          <BaseScribbleOutline>{{ currentCategory?.name || categorySlug }}</BaseScribbleOutline>
+          <BaseScribbleOutline>{{ (currentCategory ? categoryDisplayName(currentCategory) : '') || categorySlug }}</BaseScribbleOutline>
         </h1>
       </div>
 

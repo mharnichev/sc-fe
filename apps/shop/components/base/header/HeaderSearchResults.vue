@@ -2,6 +2,9 @@
 import type { CategoryTreeNodeDto, ProductSearchResponseDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { categoryGoodsDestination } from '~/utils/category-routing'
+import { localizedProductSuggestion } from '~/utils/product-localization'
+
+const { categoryDisplayName } = useCategoryDisplay()
 
 const props = defineProps<{
   query: string
@@ -15,7 +18,14 @@ const emit = defineEmits<{
   suggestion: [value: string]
 }>()
 
-const { terms } = useShopLocale()
+const { terms, locale } = useShopLocale()
+const suggestionLabel = (suggestion: string) => {
+  const category = props.results.categories.find(category => category.name === suggestion)
+  return category
+    ? categoryDisplayName(category)
+    : localizedProductSuggestion(suggestion, props.results.products, locale.value)
+}
+
 const hasResults = computed(() =>
   props.results.suggestions.length > 0
   || props.results.products.length > 0
@@ -54,7 +64,7 @@ const selectProductResult = (event: MouseEvent) => {
               :to="categoryLink(category)"
               @click="emit('select')"
             >
-              <BaseHoverUnderlineText>{{ category.name }}</BaseHoverUnderlineText>
+              <BaseHoverUnderlineText>{{ categoryDisplayName(category) }}</BaseHoverUnderlineText>
             </NuxtLink>
           </li>
         </ul>
@@ -69,7 +79,7 @@ const selectProductResult = (event: MouseEvent) => {
               class="header-search-results__item header-search-results__item--category"
               @click="emit('suggestion', suggestion)"
             >
-              <BaseHoverUnderlineText>{{ suggestion }}</BaseHoverUnderlineText>
+              <BaseHoverUnderlineText>{{ suggestionLabel(suggestion) }}</BaseHoverUnderlineText>
             </button>
           </li>
         </ul>
