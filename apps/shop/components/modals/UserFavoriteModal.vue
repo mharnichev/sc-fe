@@ -2,6 +2,8 @@
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
+const { productDisplayName } = useProductDisplay()
+
 const props = defineProps<{
   modelValue: boolean
 }>()
@@ -41,14 +43,14 @@ const isInCart = (productId: number) =>
     <div class="favorite-sidebar">
       <div v-if="favorites.products.length" class="favorite-sidebar__list">
         <article v-for="product in favorites.products" :key="product.id" class="favorite-sidebar__item" :class="{ 'favorite-sidebar__item--unavailable': isProductUnavailable(product) }">
-          <img :src="productImage(product)" :alt="product.name" class="favorite-sidebar__image">
+          <img :src="productImage(product)" :alt="productDisplayName(product)" class="favorite-sidebar__image">
           <div class="favorite-sidebar__body">
             <p class="favorite-sidebar__brand">{{ product.brand.name }}</p>
             <NuxtLink v-if="!isProductHidden(product)" :to="`/products/${product.slug}`" class="favorite-sidebar__name" @click="hideFavoriteModal">
-              <BaseHoverUnderlineText>{{ product.name }}</BaseHoverUnderlineText>
+              <BaseHoverUnderlineText>{{ productDisplayName(product) }}</BaseHoverUnderlineText>
             </NuxtLink>
             <span v-else class="favorite-sidebar__name favorite-sidebar__name--unavailable" aria-disabled="true">
-              {{ product.name }}
+              {{ productDisplayName(product) }}
             </span>
             <strong class="favorite-sidebar__price">{{ formatPrice(product.price) }}</strong>
             <p v-if="isProductUnavailable(product)" class="favorite-sidebar__unavailable">{{ terms.favorites.unavailable }}</p>

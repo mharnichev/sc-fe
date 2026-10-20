@@ -3,6 +3,8 @@ import type { ProductDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
+const { productDisplayName } = useProductDisplay()
+
 type BasketSidebarTab = 'basket' | 'recently-viewed'
 
 const props = defineProps<{
@@ -50,7 +52,7 @@ const productImage = (product: ProductDto) =>
   product.images[0]?.image || product.images[0]?.image_url || 'https://placehold.co/160x160'
 
 const unavailableMessage = computed(() => terms.value.checkout.unavailableProducts(
-  cart.unavailableItems.map(item => item.product.name).join(', '),
+  cart.unavailableItems.map(item => productDisplayName(item.product)).join(', '),
 ))
 </script>
 
@@ -104,17 +106,17 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
               <span class="basket-sidebar__divider-line" />
             </div>
             <article class="basket-sidebar__item" :class="{ 'basket-sidebar__item--unavailable': isProductUnavailable(item.product) }">
-              <img :src="productImage(item.product)" :alt="item.product.name" class="basket-sidebar__image">
+              <img :src="productImage(item.product)" :alt="productDisplayName(item.product)" class="basket-sidebar__image">
               <div class="basket-sidebar__body">
                 <div>
                   <p class="basket-sidebar__brand">{{ item.product.brand.name }}</p>
                   <div class="basket-sidebar__title-row">
                     <div class="basket-sidebar__title-copy">
                       <NuxtLink v-if="!isProductHidden(item.product)" :to="`/products/${item.product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
-                        <BaseHoverUnderlineText>{{ item.product.name }}</BaseHoverUnderlineText>
+                        <BaseHoverUnderlineText>{{ productDisplayName(item.product) }}</BaseHoverUnderlineText>
                       </NuxtLink>
                       <span v-else class="basket-sidebar__name basket-sidebar__name--unavailable" aria-disabled="true">
-                        {{ item.product.name }}
+                        {{ productDisplayName(item.product) }}
                       </span>
                       <p v-if="isProductUnavailable(item.product)" class="basket-sidebar__unavailable">
                         {{ terms.basket.unavailable }}
@@ -132,7 +134,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
                         :max="cart.maxQuantity(item.product, item.quantity)"
                         :disabled="cart.syncing"
                         :disable-increase="isProductUnavailable(item.product)"
-                        :aria-label="terms.checkout.quantityFor(item.product.name)"
+                        :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
                         @update:model-value="cart.update(item.product.id, $event)"
                       />
                       <BaseButton class="basket-sidebar__remove" type="button" variant="text" @click="cart.remove(item.product.id)">

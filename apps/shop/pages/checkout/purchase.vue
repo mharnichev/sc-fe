@@ -4,6 +4,8 @@ import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
 import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
 import { isProductUnavailable } from '~/utils/product-visibility'
 
+const { productDisplayName } = useProductDisplay()
+
 const cart = useCartStore()
 const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
@@ -148,7 +150,7 @@ const canSubmit = computed(() =>
 )
 const unavailableItems = computed(() => cart.items.filter(item => isProductUnavailable(item.product)))
 const unavailableMessage = computed(() => terms.value.checkout.unavailableProducts(
-  unavailableItems.value.map(item => item.product.name).join(', '),
+  unavailableItems.value.map(item => productDisplayName(item.product)).join(', '),
 ))
 
 watch(() => auth.customer, customer => {
@@ -326,13 +328,13 @@ useSeo(
               <article class="checkout-order-list__item">
               <img
                 :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
-                :alt="item.product.images[0]?.alt || item.product.name"
+                :alt="item.product.images[0]?.alt || productDisplayName(item.product)"
               >
               <div class="checkout-order-list__body">
                 <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
                 <div class="checkout-order-list__title-row">
                   <div class="checkout-order-list__title-copy">
-                    <h3>{{ item.product.name }}</h3>
+                    <h3>{{ productDisplayName(item.product) }}</h3>
                     <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
                       {{ terms.basket.unavailable }}
                     </p>
@@ -349,7 +351,7 @@ useSeo(
                       :max="cart.maxQuantity(item.product, item.quantity)"
                       :disabled="cart.syncing"
                       :disable-increase="isProductUnavailable(item.product)"
-                      :aria-label="terms.checkout.quantityFor(item.product.name)"
+                      :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
                       @update:model-value="cart.update(item.product.id, $event)"
                     />
                   </div>
@@ -486,13 +488,13 @@ useSeo(
                 <article class="checkout-order-list__item">
                 <img
                   :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
-                  :alt="item.product.images[0]?.alt || item.product.name"
+                  :alt="item.product.images[0]?.alt || productDisplayName(item.product)"
                 >
                 <div class="checkout-order-list__body">
                   <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
                   <div class="checkout-order-list__title-row">
                     <div class="checkout-order-list__title-copy">
-                      <h3>{{ item.product.name }}</h3>
+                      <h3>{{ productDisplayName(item.product) }}</h3>
                       <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
                         {{ terms.basket.unavailable }}
                       </p>
@@ -509,7 +511,7 @@ useSeo(
                         :max="cart.maxQuantity(item.product, item.quantity)"
                         :disabled="cart.syncing"
                         :disable-increase="isProductUnavailable(item.product)"
-                        :aria-label="terms.checkout.quantityFor(item.product.name)"
+                        :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
                         @update:model-value="cart.update(item.product.id, $event)"
                       />
                     </div>

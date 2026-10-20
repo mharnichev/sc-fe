@@ -1,6 +1,7 @@
 export type EntityStatus = 'active' | 'inactive' | 'draft' | 'pending' | 'confirmed' | 'paid' | 'new'
 
 export interface CategoryDto {
+  name_en?: string | null
   id: number
   name: string
   slug: string
@@ -9,6 +10,7 @@ export interface CategoryDto {
 }
 
 export interface CategoryPathItemDto {
+  name_en?: string | null
   id: number
   name: string
   slug: string
@@ -42,6 +44,8 @@ export interface ProductImageDto {
 }
 
 export interface ProductDto {
+  name_en?: string | null
+  product_type_en?: string | null
   id: number
   category_id: number
   brand_id: number

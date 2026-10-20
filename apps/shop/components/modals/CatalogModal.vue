@@ -12,6 +12,8 @@ type CatalogNavLink = {
   category?: CategoryTreeNodeDto | null
 }
 
+const { categoryDisplayName } = useCategoryDisplay()
+
 const props = defineProps<{
   modelValue: boolean
   initialCategories?: CategoryTreeNodeDto[]
@@ -75,7 +77,7 @@ const activeCategory = computed(() => showBrands.value ? null : activePath.value
 const visibleCategories = computed(() => activeCategory.value?.children || [])
 const panelKey = computed(() => showBrands.value ? 'brands' : activePath.value.map(category => category.id).join('-') || 'root')
 const transitionName = computed(() => `catalog-sidebar-${direction.value}`)
-const levelTitle = computed(() => showBrands.value ? terms.value.catalog.allBrands : activeCategory.value?.name || terms.value.header.popularNavigation)
+const levelTitle = computed(() => showBrands.value ? terms.value.catalog.allBrands : (activeCategory.value ? categoryDisplayName(activeCategory.value) : '') || terms.value.header.popularNavigation)
 const navigationLinks = computed(() => categoryLinks.map(link => ({
   ...link,
   category: findCategory(categories.value, 'slug' in link ? link.slug : undefined),
@@ -352,7 +354,7 @@ const goBack = () => {
               @click="goBack"
             >
               <BaseIcon name="chevron-left" size="xxs" />
-              <span>{{ showBrands ? terms.home.brandsEyebrow : activeCategory?.name }}</span>
+              <span>{{ showBrands ? terms.home.brandsEyebrow : (activeCategory ? categoryDisplayName(activeCategory) : '') }}</span>
             </button>
 
             <div
@@ -473,7 +475,7 @@ const goBack = () => {
                     type="button"
                     @click="openCategory(category)"
                   >
-                    <span>{{ category.name }}</span>
+                    <span>{{ categoryDisplayName(category) }}</span>
                     <BaseIcon class="catalog-sidebar__chevron" name="chevron-right" size="xxs" />
                   </button>
                   <NuxtLink
@@ -482,7 +484,7 @@ const goBack = () => {
                     :to="categoryDestination(categories, category)"
                     @click="hideCatalogModal"
                   >
-                    <span>{{ category.name }}</span>
+                    <span>{{ categoryDisplayName(category) }}</span>
                   </NuxtLink>
                   </li>
                 </template>

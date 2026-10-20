@@ -3,10 +3,11 @@ import { storeToRefs } from 'pinia'
 
 const DISPLAY_DURATION_MS = 2600
 
+const { productDisplayName } = useProductDisplay()
 const toast = useToastStore()
 const modal = useModalStore()
 const { terms } = useShopLocale()
-const { isVisible, kind, productName, productImage, requestId } = storeToRefs(toast)
+const { isVisible, kind, productName, productNameEn, productImage, requestId } = storeToRefs(toast)
 
 let dismissTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -24,7 +25,7 @@ const content = computed(() => {
     return {
       icon: 'heart',
       title: terms.value.toast.favoriteAddedTitle,
-      message: terms.value.toast.favoriteAddedMessage(productName.value),
+      message: terms.value.toast.favoriteAddedMessage(productDisplayName({ name: productName.value, name_en: productNameEn.value })),
       action: '',
     }
   }
@@ -32,7 +33,7 @@ const content = computed(() => {
   return {
     icon: 'shopping-cart',
     title: terms.value.toast.cartAddedTitle,
-    message: terms.value.toast.cartAddedMessage(productName.value),
+    message: terms.value.toast.cartAddedMessage(productDisplayName({ name: productName.value, name_en: productNameEn.value })),
     action: '',
   }
 })

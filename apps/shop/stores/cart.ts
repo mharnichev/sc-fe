@@ -118,7 +118,7 @@ export const useCartStore = defineStore('cart', {
           this.error = terms.value.basket.unavailable
           return
         }
-        useToastStore().show('cart-added', added.name, added.images[0]?.image || added.images[0]?.image_url || '')
+        useToastStore().show('cart-added', added.name, added.images[0]?.image || added.images[0]?.image_url || '', added.name_en ?? null)
       }
       catch {
         if (!isCurrentSession()) return

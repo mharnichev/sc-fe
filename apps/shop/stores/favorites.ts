@@ -60,6 +60,7 @@ export const useFavoritesStore = defineStore('favorites', {
           'favorite-auth-required',
           product?.name,
           product?.images[0]?.image || product?.images[0]?.image_url || '',
+          product?.name_en ?? null,
         )
         return
       }
@@ -84,6 +85,7 @@ export const useFavoritesStore = defineStore('favorites', {
             'favorite-added',
             serverItem.product.name,
             serverItem.product.images[0]?.image || serverItem.product.images[0]?.image_url || '',
+            serverItem.product.name_en ?? null,
           )
         }
       }

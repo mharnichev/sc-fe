@@ -4,6 +4,8 @@ import { NuxtLink } from '#components'
 import { getProductDiscount } from '~/utils/product-status'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
+const { productDisplayName, productDisplayType } = useProductDisplay()
+
 const props = defineProps<{
   product: ProductDto
 }>()
@@ -16,9 +18,9 @@ const { formatPrice } = useShopPriceFormatter()
 const images = computed(() => {
   const available = props.product.images.flatMap(image => {
     const src = image.image || image.image_url
-    return src ? [{ src, alt: image.alt || props.product.name }] : []
+    return src ? [{ src, alt: image.alt || productDisplayName(props.product) }] : []
   })
-  return available.length ? available : [{ src: 'https://placehold.co/640x640?text=Product', alt: props.product.name }]
+  return available.length ? available : [{ src: 'https://placehold.co/640x640?text=Product', alt: productDisplayName(props.product) }]
 })
 const activeImage = ref(0)
 const previewReady = ref(false)
@@ -61,7 +63,7 @@ watch(images, () => {
   previewReady.value = false
   lastWheelTime = -Infinity
 })
-const productType = computed(() => props.product.product_type || props.product.category.name)
+const productType = computed(() => productDisplayType(props.product))
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
 const discount = computed(() => getProductDiscount(props.product))
@@ -192,7 +194,7 @@ const toggleCart = async () => {
               itemprop="name"
             >
               <BaseHoverUnderlineText class="catalog-product-tile__name-text">
-                {{ product.name }}
+                {{ productDisplayName(product) }}
               </BaseHoverUnderlineText>
             </h3>
           </component>
@@ -255,7 +257,7 @@ const toggleCart = async () => {
         >
           <h3 class="catalog-product-tile__mobile-name">
             <BaseHoverUnderlineText class="catalog-product-tile__mobile-name-text">
-              {{ product.name }}
+              {{ productDisplayName(product) }}
             </BaseHoverUnderlineText>
           </h3>
         </component>

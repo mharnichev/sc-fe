@@ -37,6 +37,7 @@ type PublicProductParameters =
   | undefined
 
 interface PublicCategoryDto {
+  name_en?: string | null
   id: number
   name: string
   slug: string
@@ -63,6 +64,7 @@ interface PublicBrandDto {
 }
 
 interface PublicProductVolumeVariantDto {
+  name_en?: string | null
   id: number
   slug: string
   volume_ml: number
@@ -73,6 +75,8 @@ interface PublicProductVolumeVariantDto {
 }
 
 interface PublicProductDto {
+  name_en?: string | null
+  product_type_en?: string | null
   id: number
   category_id: number | null
   brand_id: number | null
@@ -109,7 +113,7 @@ interface PublicProductDto {
   image_url?: string | null
   attributes_json?: Record<string, unknown> | null
   parameters?: PublicProductParameters
-  category_tree?: Array<{ id: number, name: string, slug: string }>
+  category_tree?: Array<{ id: number, name: string, name_en?: string | null, slug: string }>
   average_rating?: string | number | null
   reviews_count?: number
   volume_variants?: PublicProductVolumeVariantDto[]
@@ -121,6 +125,7 @@ type ShopProductDto = ProductDto & {
   is_top?: boolean | null
   is_popular?: boolean | null
   volume_variants: Array<{
+    name_en?: string | null
     id: number
     slug: string
     volume_ml: number
@@ -242,6 +247,7 @@ const mapCategory = (category?: PublicCategoryDto | null): CategoryDto => {
   return {
     id: category.id,
     name: category.name,
+    name_en: category.name_en ?? null,
     slug: category.slug,
     description: category.description,
     status: resolveStatus(category.status, category.is_active),
@@ -314,7 +320,7 @@ const mapProductImages = (product: PublicProductDto, resolveAssetUrl: (url: stri
         id: typeof image === 'string' ? undefined : image.id,
         image: url,
         image_url: url,
-        alt: typeof image === 'string' ? product.name : image.alt ?? product.name,
+        alt: typeof image === 'string' ? null : image.alt ?? null,
         sort_order: typeof image === 'string' ? index : image.sort_order ?? index,
       })
     })
@@ -333,7 +339,7 @@ const mapProductImages = (product: PublicProductDto, resolveAssetUrl: (url: stri
     return {
       image: url,
       image_url: url,
-      alt: index === 0 ? product.name : null,
+      alt: null,
       sort_order: index,
     }
   })
@@ -376,6 +382,8 @@ const mapProduct = (product: PublicProductDto, resolveAssetUrl: (url: string) =>
     category_id: product.category_id ?? product.category?.id ?? 0,
     brand_id: product.brand_id ?? product.brand?.id ?? 0,
     name: product.model_name ?? product.name,
+    name_en: product.name_en ?? null,
+    product_type_en: product.product_type_en ?? null,
     old_name: product.old_name ?? product.name,
     product_type: product.product_type ?? null,
     package_size: product.package_size ?? null,

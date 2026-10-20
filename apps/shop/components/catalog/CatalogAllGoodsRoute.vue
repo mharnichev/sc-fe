@@ -3,6 +3,8 @@ import type { CategoryFilterGroupDto, CategoryTreeNodeDto } from '@shared-types'
 import { isMonochromeBrandLogo, localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 
+const { categoryDisplayName } = useCategoryDisplay()
+
 const DEFAULT_LIMIT = 20
 const reservedQueryKeys = new Set([
   'page',
@@ -131,13 +133,13 @@ const buildCategoryFilterGroups = (
 
   const directLeafValues = node.children
     .filter(child => !child.children.length)
-    .map(child => ({ slug: child.slug, name: child.name, count: 0 }))
+    .map(child => ({ slug: child.slug, name: categoryDisplayName(child), count: 0 }))
   const standaloneRootValues = isRoot && !node.children.length
-    ? [{ slug: node.slug, name: node.name, count: 0 }]
+    ? [{ slug: node.slug, name: categoryDisplayName(node), count: 0 }]
     : []
   const values = directLeafValues.length ? directLeafValues : standaloneRootValues
   const currentGroup: CategoryFilterGroupDto[] = values.length
-    ? [{ slug: `category:${node.slug}`, name: node.name, values }]
+    ? [{ slug: `category:${node.slug}`, name: categoryDisplayName(node), values }]
     : []
 
   return [
