@@ -361,6 +361,7 @@ export interface OrderProjections {
   fulfillment_method?: string | null
   revision?: number
   payment_status?: string
+  payment_channel?: 'online_monobank' | null
   fulfillment_status?: string
   fiscal_status?: string
   receipt_delivery_status?: string

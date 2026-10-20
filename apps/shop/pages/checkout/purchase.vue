@@ -126,9 +126,17 @@ const deliveryMethodOptions = computed(() => [
   { label: terms.value.checkout.deliveryOptions.warehouse, value: 'warehouse' },
   { label: terms.value.checkout.deliveryOptions.courier, value: 'courier' },
 ])
+const onlinePaymentEnabled = ref(false)
+onMounted(async () => {
+  try {
+    const result = await useApi()<{ enabled: boolean }>('/public/orders/online-payment-capabilities', { retry: 0 })
+    onlinePaymentEnabled.value = result.enabled === true
+  } catch { onlinePaymentEnabled.value = false }
+})
 const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
   { label: terms.value.checkout.paymentOptions.cardOnDelivery, value: 'cardOnDelivery' },
+  ...(onlinePaymentEnabled.value ? [{ label: 'Онлайн карткою', value: 'onlineCard' }] : []),
 ])
 const isDeliveryValid = computed(() => {
   if (!selectedCity.value) return false
@@ -303,6 +311,8 @@ useSeo(
       </div>
       <p v-if="cartPreserved" role="status">Замовлення підтверджено. Після повторної перевірки кошик залишено без змін, щоб зберегти додані вами товари. Перегляньте його перед наступним замовленням.</p>
       <OrderProjections :order="state.order" />
+      <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="outline-dark">Сторінка статусу оплати</BaseButton>
+      <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">Захищений статус доставки</BaseButton>
       <BaseButton to="/catalog" variant="outline-dark">{{ terms.common.catalog }}</BaseButton>
