@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { productDisplayImage } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowPathIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
 import OrderShopCarrierReturns from '~/components/orders/OrderShopCarrierReturns.vue'
 import OrderShopNPReturns from '~/components/orders/OrderShopNPReturns.vue'
@@ -42,9 +43,12 @@ const fiscalProfileError = ref(''), fiscalProfileLoading = ref(false)
 const usesCheckbox = computed(() => usesShopFiscal.value && shopFiscalProfile.value === 'checkbox')
 const fiscalProfileReady = computed(() => !usesShopFiscal.value || (shopFiscalProfile.value !== null && !fiscalProfileLoading.value && !fiscalProfileError.value))
 const isPosSale = computed(() => order.value?.channel === 'backoffice_pos')
-const qrOwnsSale = ref(false)
+const legacyQrOwnsSale = ref(false)
+const masterMonoSelected = ref(false), masterMonoReady = ref(false), masterMonoBusy = ref(false), masterMonoHandoverAllowed = ref(false)
+const qrOwnsSale = computed(() => legacyQrOwnsSale.value || (isBarber.value && (masterMonoSelected.value || (isPosSale.value && !masterMonoReady.value))))
+watch(masterMonoSelected, value => { if (value) legacyQrOwnsSale.value = false }, { flush: 'sync' })
 const ettnOwner = ref<'sc_manual' | 'checkbox_ettn' | null>(null)
-watch(() => route.params.id, () => { ettnOwner.value = null; qrOwnsSale.value = false })
+watch(() => route.params.id, () => { ettnOwner.value = null; legacyQrOwnsSale.value = false; masterMonoSelected.value = false; masterMonoReady.value = false; masterMonoBusy.value = false; masterMonoHandoverAllowed.value = false })
 const orderId = computed(() => route.params.id as string)
 let orderContext = 0
 watch([orderId, () => auth.user?.id], () => { orderContext++ }, { flush: 'sync' })
@@ -226,7 +230,7 @@ const paymentEvidence = ref('')
 const handoverEvidence = ref('')
 const paymentCommand = useOrderSalesCommand<OrderPaymentCommand>('payment', orderId)
 const handoverCommand = useOrderSalesCommand<OrderHandoverCommand>('handover', orderId)
-const commandBusy = computed(() => paymentCommand.busy.value || handoverCommand.busy.value)
+const commandBusy = computed(() => paymentCommand.busy.value || handoverCommand.busy.value || (isBarber.value && masterMonoBusy.value))
 const fiscalRefresh = ref(0)
 const profileApi = useApi()
 let fiscalProfileSequence = 0, fiscalProfileActive = true, fiscalProfileScope = ''
@@ -270,8 +274,11 @@ const recordPayment = async () => {
     (body, key) => api.recordOrderPayment(id, body, key), async () => { if (generation !== orderContext) return; paymentCommand.clear(); paymentEvidence.value = ''; await reloadSales() })
   if (generation === orderContext && !paymentCommand.intent.value && paymentCommand.error.value) await reloadSales()
 }
+const canUseHandover = computed(() => !!order.value && String(order.value.id) === orderId.value && (isBarber.value
+  ? isPosSale.value && !order.value.simulation && (masterMonoHandoverAllowed.value || !!handoverCommand.intent.value) && !!auth.user?.is_active && !!auth.accessToken && auth.user.can_record_sales === true && auth.user.can_accept_qr_payments === true
+  : !!order.value.simulation))
 const handover = async () => {
-  if (!order.value?.simulation || (!order.value.sales_actions?.can_handover && !handoverCommand.intent.value) || commandBusy.value) return
+  if (!canUseHandover.value || !order.value || (!order.value.sales_actions?.can_handover && !handoverCommand.intent.value) || commandBusy.value) return
   if (!handoverEvidence.value.trim() && !handoverCommand.intent.value) return
   const id = order.value.id, generation = orderContext
   await handoverCommand.execute({ expected_revision: order.value.revision!, evidence: handoverEvidence.value.trim() },
@@ -442,14 +449,16 @@ const updateStatus = async () => {
       <OrderShopPayments v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
       <OrderShopPaymentResolution v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
       <OrderShopOperations v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
-      <OrderQrMock v-if="order.channel === 'backoffice_pos' && order.simulation" :order="order" :refresh-token="fiscalRefresh" @owner="qrOwnsSale = $event" @changed="reloadSales" />
+      <section v-if="isBarber && order.channel === 'backoffice_pos' && order.simulation" aria-label="Історичний тестовий продаж" class="rounded-2xl border border-amber-200 p-4"><p role="status">Це історичний тестовий запис. Оплата та видача недоступні. Для продажу створіть нове замовлення.</p></section>
+      <OrderMasterMono v-if="isBarber && order.channel === 'backoffice_pos' && !order.simulation" :order="order" :refresh-token="fiscalRefresh" :blocked="paymentCommand.busy.value || handoverCommand.busy.value || !!paymentCommand.intent.value || !!handoverCommand.intent.value || legacyQrOwnsSale" @selected="masterMonoSelected = $event" @ready="masterMonoReady = $event" @busy="masterMonoBusy = $event" @handover-allowed="masterMonoHandoverAllowed = $event" @changed="reloadSales" />
+      <OrderQrMock v-if="order.channel === 'backoffice_pos' && order.simulation && !isBarber" :order="order" :refresh-token="fiscalRefresh" @owner="legacyQrOwnsSale = $event" @changed="reloadSales" />
       <section v-if="order.channel !== 'shop' && !orderUsesNovaPoshta(order)" class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         <h2 class="flex items-center gap-2 text-lg font-semibold"><CreditCardIcon class="h-5 w-5" aria-hidden="true" />{{ isPosSale ? '3. Передайте товар' : 'Оплата та видача' }}</h2>
         <p v-if="isPosSale && order.handovers?.length" role="status" class="font-semibold text-emerald-700">Видачу підтверджено. Продаж завершено.</p>
-        <p v-else-if="isPosSale && order.sales_actions?.can_handover" class="text-ui-secondary">Оплата підтверджена. Передайте товар клієнту та окремо зафіксуйте видачу нижче.</p>
+        <p v-else-if="isPosSale && order.sales_actions?.can_handover && (!isBarber || canUseHandover)" class="text-ui-secondary">Оплата підтверджена. Передайте товар клієнту та окремо зафіксуйте видачу нижче.</p>
         <p v-else-if="isPosSale" class="text-ui-secondary">Спочатку дочекайтеся підтвердження оплати та чека. Після цього тут з’явиться підтвердження видачі.</p>
         <p v-if="order.simulation" class="text-amber-700" role="status">Ізольована тестова симуляція. Записи не підтверджують реальний розрахунок або реальну видачу.</p>
-        <p v-else>Лише підготовка замовлення. Реальні оплата та видача заблоковані до дозволеного фіскального сценарію.</p>
+        <p v-else-if="!isBarber || !isPosSale">Лише підготовка замовлення. Реальні оплата та видача заблоковані до дозволеного фіскального сценарію.</p>
         <details v-if="!isBarber && order.sales_actions?.blocking_reasons?.length" class="text-sm text-ui-secondary"><summary class="cursor-pointer">Чому дія недоступна: технічні причини</summary><p v-for="reason in order.sales_actions.blocking_reasons" :key="reason" class="mt-2 break-words">{{ reason }}</p></details>
         <details v-if="!isBarber && !qrOwnsSale && order.simulation && (order.sales_actions?.can_record_payment || paymentCommand.intent.value)" :open="!isPosSale || !!paymentCommand.intent.value"><summary class="cursor-pointer font-medium">Інший тестовий спосіб оплати</summary><div class="mt-3 grid gap-3 sm:grid-cols-2">
           <label>Спосіб тестової оплати<BaseSelect v-model="paymentMethod" native :disabled="commandBusy || !!paymentCommand.intent.value"><option value="cash">Готівка</option><option value="card">Картка (без списання)</option></BaseSelect></label>
@@ -457,11 +466,11 @@ const updateStatus = async () => {
           <BaseButton :loading="paymentCommand.busy.value" :disabled="commandBusy || (!paymentEvidence.trim() && !paymentCommand.intent.value)" @click="recordPayment">{{ paymentCommand.intent.value ? 'Повторити тестову оплату' : 'Записати тестову оплату' }}</BaseButton>
         </div></details>
         <p v-if="paymentCommand.error.value" role="alert" class="text-rose-600">{{ paymentCommand.error.value }}</p>
-        <div v-if="order.simulation && (order.sales_actions?.can_handover || handoverCommand.intent.value)" class="space-y-3">
-          <BaseInput v-model="handoverEvidence" label="Підстава тестової видачі" :disabled="commandBusy || !!handoverCommand.intent.value" />
-          <BaseButton variant="primary" size="lg" :loading="handoverCommand.busy.value" :disabled="commandBusy || (!handoverEvidence.trim() && !handoverCommand.intent.value)" @click="handover">{{ handoverCommand.intent.value ? 'Повторити тестову видачу' : 'Підтвердити тестову видачу' }}</BaseButton>
+        <div v-if="canUseHandover && (order.sales_actions?.can_handover || handoverCommand.intent.value)" class="space-y-3">
+          <BaseInput v-model="handoverEvidence" :label="order.simulation ? 'Підстава тестової видачі' : 'Підстава видачі'" :disabled="commandBusy || !!handoverCommand.intent.value" />
+          <BaseButton variant="primary" size="lg" :loading="handoverCommand.busy.value" :disabled="commandBusy || (!handoverEvidence.trim() && !handoverCommand.intent.value)" @click="handover">{{ order.simulation ? (handoverCommand.intent.value ? 'Повторити тестову видачу' : 'Підтвердити тестову видачу') : (handoverCommand.intent.value ? 'Повторити підтвердження видачі' : 'Підтвердити видачу') }}</BaseButton>
         </div>
-        <p v-if="handoverCommand.error.value" role="alert" class="text-rose-600">{{ handoverCommand.error.value }}</p>
+        <p v-if="handoverCommand.error.value" role="alert" class="text-rose-600">{{ isBarber ? 'Видачу ще не підтверджено. Перевірте стан або зверніться до адміністратора.' : handoverCommand.error.value }}</p>
         <details v-if="!isBarber && (order.payments?.length || order.handovers?.length)"><summary class="cursor-pointer py-2 text-sm font-medium">Історія оплати та видачі</summary><div class="mt-2 space-y-2 text-sm">        <ul v-if="!isBarber" class="space-y-2"><li v-for="payment in order.payments || []" :key="payment.id">{{ payment.simulation ? 'Тестова оплата' : 'Оплата' }} · {{ formatMoney((payment.amount_minor / 100).toFixed(2)) }} · {{ payment.method }} · {{ payment.source }} · {{ payment.evidence }} · {{ formatDateTime(payment.created_at) }}</li></ul>
         <ul v-if="!isBarber" class="space-y-2"><li v-for="fact in order.handovers || []" :key="fact.id">{{ fact.simulation ? 'Тестова видача' : 'Видача' }} · {{ fact.evidence }} · {{ formatDateTime(fact.created_at) }}</li></ul>
 </div></details>
