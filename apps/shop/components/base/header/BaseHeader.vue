@@ -59,7 +59,7 @@ const categoryMenuStyle = computed(() => {
   return {
     '--category-menu-left': `${categoryMenuLeft.value}px`,
     '--category-menu-width': 'min(24rem, calc(100vw - 3rem))',
-    '--category-menu-height': `${Math.min(26, Math.max(12, 5 + compactRows * 2.65))}rem`,
+    '--category-menu-height': `${Math.min(26, Math.max(12, 5 + compactRows * 5.5))}rem`,
   }
 })
 const activeRouteCategorySlug = computed(() =>
@@ -441,6 +441,7 @@ onBeforeUnmount(() => {
             <ul v-if="activeCategory" class="cl__compact-list">
               <li v-for="subCategory in activeCategory.children" :key="subCategory.id">
                 <NuxtLink class="cl__compact-link" :to="categoryLink(subCategory)" @click="closeOverlays">
+                  <CategoryArtwork class="cl__compact-artwork" :slug="subCategory.slug" />
                   <span><BaseHoverUnderlineText>{{ categoryDisplayName(subCategory) }}</BaseHoverUnderlineText></span>
                 </NuxtLink>
               </li>
@@ -875,7 +876,7 @@ onBeforeUnmount(() => {
   display: flex;
   min-height: 2.75rem;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding: 0.65rem 0.75rem;
   color: #525252;
@@ -883,6 +884,8 @@ onBeforeUnmount(() => {
   font-weight: 650;
   transition: color 180ms ease;
 }
+
+.cl__compact-artwork { width: 4rem; flex: 0 0 4rem; }
 
 .cl__compact-link:hover,
 .cl__compact-link:focus-visible {

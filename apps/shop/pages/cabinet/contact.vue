@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CustomerOrderDto, PaginatedResponse, ShopFeedbackRequestDto, ShopFeedbackResponseDto } from '@shared-types'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const auth = useCustomerAuthStore()
 const api = useApi()
@@ -123,7 +124,7 @@ useSeo(() => terms.value.cabinet.contactUs, () => terms.value.cabinet.contactInt
           {{ state.loading ? terms.checkout.processing : terms.contacts.send }}
         </BaseButton>
         <p v-if="state.done" class="account-contact__success" role="status">{{ terms.cabinet.accountContactSuccess }}</p>
-        <p v-if="state.error" class="account-contact__error" role="alert">{{ state.error }}</p>
+        <p v-if="state.error" class="account-contact__error" role="alert">{{ runtimeMessage(state.error) }}</p>
       </form>
     </div>
     </main>

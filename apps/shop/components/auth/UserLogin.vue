@@ -2,6 +2,7 @@
 import type { CustomerOtpRequestResponseDto } from '@shared-types'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
 import type { ShopAuthType } from './auth.types'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const auth = useCustomerAuthStore()
 const { terms } = useShopLocale()
@@ -51,7 +52,7 @@ const requestOtp = async () => {
         :label="terms.auth.phone"
         required
         :disabled="auth.loading"
-        :error="errorMessage"
+        :error="runtimeMessage(errorMessage)"
       />
 
       <BaseButton type="submit" block :disabled="auth.loading || phone.trim().length < 7">

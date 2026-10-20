@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { runtimeMessage } = useShopRuntimeDisplay()
 const auth = useCustomerAuthStore()
 const { terms } = useShopLocale()
 
@@ -152,7 +153,7 @@ useSeo(
             <p v-if="expired" class="cabinet-settings__error">{{ terms.auth.phoneCodeExpired }}</p>
           </template>
           <p v-if="otp.sendsLeft === 0" class="cabinet-settings__error">{{ terms.auth.phoneLimit }}</p>
-          <p v-if="otp.error" role="alert" class="cabinet-settings__error">{{ otp.error }}</p>
+          <p v-if="otp.error" role="alert" class="cabinet-settings__error">{{ runtimeMessage(otp.error) }}</p>
           <p v-if="otp.done" role="status" class="cabinet-settings__success">{{ terms.cabinet.saved }}</p>
           </div>
           <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" />
@@ -172,7 +173,7 @@ useSeo(
           {{ state.loading ? terms.checkout.processing : terms.cabinet.saveProfile }}
         </BaseButton>
         <p v-if="state.done" class="cabinet-settings__success">{{ terms.cabinet.saved }}</p>
-        <p v-if="state.error" class="cabinet-settings__error">{{ state.error }}</p>
+        <p v-if="state.error" class="cabinet-settings__error">{{ runtimeMessage(state.error) }}</p>
       </div>
     </form>
   </CabinetShell>

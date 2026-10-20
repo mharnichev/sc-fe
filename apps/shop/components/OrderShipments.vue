@@ -3,6 +3,7 @@ import type { CustomerOrder, CustomerShipment, TrackingRefreshResponse } from '~
 import { deliveryStatus, retrySeconds, shipmentStatusLabel, shipmentStatusIcon, shipmentStatusTone } from '~/utils/shipmentStatus'
 import { orderReceiptDates } from '~/utils/orderReceiptDates'
 import { orderTrackingText } from '~/utils/orderTrackingText'
+const { runtimeMessage, orderItemName } = useShopRuntimeDisplay()
 const props = defineProps<{ shipments?: CustomerShipment[], orderId?: number, items?: CustomerOrder['items'] }>()
 const emit = defineEmits<{ updated: [], unavailable: [] }>()
 const { locale, dateLocale } = useShopLocale()
@@ -118,7 +119,10 @@ const formatTime = (value?: string | null) => {
   return Number.isNaN(date.getTime()) ? text.value.invalidDate : date.toLocaleString(dateLocale.value, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Kyiv' })
 }
 const receiptDates = computed(() => new Map((props.shipments || []).flatMap(shipment => orderReceiptDates([shipment])).map(receipt => [receipt.id, receipt.date])))
-const itemName = (id: number) => props.items?.find(item => item.id === id)?.product_name || `${text.value.item} #${id}`
+const itemName = (id: number) => {
+  const item = props.items?.find(item => item.id === id)
+  return item ? orderItemName(item) : `${text.value.item} #${id}`
+}
 </script>
 <template>
   <section v-if="shipments?.length" :aria-label="text.shipments" class="shipments">
@@ -131,7 +135,7 @@ const itemName = (id: number) => props.items?.find(item => item.id === id)?.prod
     <p v-if="shipments.every(shipment => shipment.simulation)" class="shipments__note">{{ locale === 'en' ? 'Test data' : 'Тестові дані' }}</p>
     <p v-if="copyResult" role="status">{{ text[copyResult] }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="error" role="alert">{{ runtimeMessage(error) }}</p>
     <article v-for="shipment in shipments" :key="shipment.id" class="shipments__card soft-surface" :aria-label="`${text.shipments} #${shipment.id}`">
       <p v-if="shipment.simulation && shipments.some(parcel => !parcel.simulation)" class="shipments__note">{{ locale === 'en' ? 'Test shipment' : 'Тестове відправлення' }}</p>
       <p v-if="shipment.return_of_shipment_id">{{ text.returnOf }} #{{ shipment.return_of_shipment_id }}</p>

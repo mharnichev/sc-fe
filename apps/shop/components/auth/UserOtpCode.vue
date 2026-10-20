@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ShopAuthType } from './auth.types'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const props = withDefaults(defineProps<{
   phone: string
@@ -108,7 +109,7 @@ onBeforeUnmount(() => {
         required
         placeholder="000000"
         :disabled="auth.loading"
-        :error="errorMessage"
+        :error="runtimeMessage(errorMessage)"
       />
 
       <BaseButton type="submit" block :disabled="auth.loading || otpCode.trim().length < 4">
@@ -141,7 +142,7 @@ onBeforeUnmount(() => {
       </BaseButton>
     </form>
 
-    <p v-if="statusMessage" class="text-sm text-emerald-700">{{ statusMessage }}</p>
+    <p v-if="statusMessage" class="text-sm text-emerald-700">{{ runtimeMessage(statusMessage) }}</p>
     <p v-if="debugCode" class="text-xs text-neutral-500">{{ terms.auth.devCode(debugCode) }}</p>
   </section>
 </template>

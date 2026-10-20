@@ -1,4 +1,14 @@
 <script setup lang="ts">
+const { runtimeMessage } = useShopRuntimeDisplay()
+const { locale } = useShopLocale()
+const { formatPrice } = useShopPriceFormatter()
+const mockText = computed(() => locale.value === 'en' ? {
+  title: 'MOCK test document', notice: 'Local simulation. This is not a real fiscal receipt. Nothing was sent to the tax authority.',
+  loading: 'Loading MOCK…', returned: 'MOCK return', sale: 'MOCK sale', item: 'Item', total: 'MOCK total', refresh: 'Refresh MOCK document',
+} : {
+  title: 'Тестовий документ MOCK', notice: 'Локальна симуляція. Не є фактичним фіскальним чеком. До ДПС не надсилалось.',
+  loading: 'Завантаження MOCK…', returned: 'Повернення MOCK', sale: 'Продаж MOCK', item: 'Товар', total: 'Сума MOCK', refresh: 'Оновити MOCK документ',
+})
 definePageMeta({ layout: false })
 interface PublicMockDocument { kind: 'sale' | 'return', items: Array<{ name: string | null, quantity: number, total_minor: number }>, amount_minor: number, currency: 'UAH', notice: string, simulation: true, is_sent_dps: false }
 const route = useRoute(), config = useRuntimeConfig()
@@ -19,8 +29,8 @@ const load = async () => {
 }
 watch(() => route.params.token, () => { if (import.meta.client) void load() }, { immediate: true })
 onMounted(() => { if (!loading.value && !document.value && !error.value) void load() })
-useHead({ title: 'Тестовий документ MOCK', meta: [{ name: 'robots', content: 'noindex,nofollow,noarchive' }, { name: 'referrer', content: 'no-referrer' }] })
-const money = (amount: number) => `${(amount / 100).toFixed(2)} грн`
+useHead(() => ({ title: mockText.value.title, meta: [{ name: 'robots', content: 'noindex,nofollow,noarchive' }, { name: 'referrer', content: 'no-referrer' }] }))
+const money = (amount: number) => formatPrice(amount / 100)
 </script>
-<template><main class="mock-document"><h1>Тестовий документ MOCK</h1><p>Локальна симуляція. Не є фактичним фіскальним чеком. До ДПС не надсилалось.</p><p v-if="loading">Завантаження MOCK…</p><p v-if="error" role="alert">{{ error }}</p><article v-if="document"><h2>{{ document.kind === 'return' ? 'Повернення MOCK' : 'Продаж MOCK' }}</h2><ul><li v-for="(item, index) in document.items" :key="index">{{ item.name || 'Товар' }} · {{ item.quantity }} · {{ money(item.total_minor) }}</li></ul><p>Сума MOCK: {{ money(document.amount_minor) }}</p><p>{{ document.notice }}</p></article><BaseButton :disabled="loading" @click="load">Оновити MOCK документ</BaseButton></main></template>
+<template><main class="mock-document"><h1>{{ mockText.title }}</h1><p>{{ mockText.notice }}</p><p v-if="loading">{{ mockText.loading }}</p><p v-if="error" role="alert">{{ runtimeMessage(error) }}</p><article v-if="document"><h2>{{ document.kind === 'return' ? mockText.returned : mockText.sale }}</h2><ul><li v-for="(item, index) in document.items" :key="index">{{ item.name || mockText.item }} · {{ item.quantity }} · {{ money(item.total_minor) }}</li></ul><p>{{ mockText.total }}: {{ money(document.amount_minor) }}</p><p>{{ document.notice }}</p></article><BaseButton :disabled="loading" @click="load">{{ mockText.refresh }}</BaseButton></main></template>
 <style scoped>.mock-document{display:grid;gap:1rem;max-width:44rem;margin:2rem auto;padding:1rem}.mock-document h1{font-size:1.5rem;font-weight:800}.mock-document article{display:grid;gap:1rem;border:1px solid #ccc;padding:1rem}</style>

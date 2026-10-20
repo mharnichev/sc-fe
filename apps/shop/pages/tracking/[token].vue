@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CustomerShipment } from '~/types/order'
+const { runtimeText, runtimeMessage } = useShopRuntimeDisplay()
 const route = useRoute()
 const api = useApi()
 const shipments = ref<CustomerShipment[]>([])
@@ -19,8 +20,8 @@ const load = async () => {
   finally { if (current === generation) loading.value = false }
 }
 watch(() => route.params.token, load, { immediate: true })
-useSeo(() => 'Захищений статус доставки', () => 'Статус доставки замовлення')
+useSeo(() => runtimeText.value.trackingTitle, () => runtimeText.value.trackingDescription)
 useHead({ meta: [{ name: 'robots', content: 'noindex,nofollow' }, { name: 'referrer', content: 'no-referrer' }] })
 </script>
-<template><main class="tracking-page"><h1>Статус доставки</h1><p v-if="loading">Завантаження…</p><p v-if="error" role="alert">{{ error }}</p><OrderShipments :shipments="shipments" /><p v-if="!loading && !error && !shipments.length">Відправлення ще не підготовлено.</p><BaseButton :disabled="loading" @click="load">Оновити статус</BaseButton></main></template>
+<template><main class="tracking-page"><h1>{{ runtimeText.trackingHeading }}</h1><p v-if="loading">{{ runtimeText.loading }}</p><p v-if="error" role="alert">{{ runtimeMessage(error) }}</p><OrderShipments :shipments="shipments" /><p v-if="!loading && !error && !shipments.length">{{ runtimeText.noShipments }}</p><BaseButton :disabled="loading" @click="load">{{ runtimeText.refreshTracking }}</BaseButton></main></template>
 <style scoped>.tracking-page { display:grid;gap:1rem;max-width:48rem;margin:2rem auto;padding:1rem; }.tracking-page h1{font-size:1.5rem;font-weight:800;}</style>

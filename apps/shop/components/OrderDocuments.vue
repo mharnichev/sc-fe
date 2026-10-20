@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PreliminaryDocument } from '~/types/order'
+const { runtimeText, runtimeMessage } = useShopRuntimeDisplay()
 const props = defineProps<{ orderId: number, documents?: PreliminaryDocument[], guest?: boolean }>()
 const api = useApi()
 const auth = useCustomerAuthStore()
@@ -40,13 +41,13 @@ const openDocument = async (document: PreliminaryDocument) => {
 </script>
 
 <template>
-  <section aria-label="Документи замовлення">
-    <h2>Документи</h2>
-    <p>Попереднє замовлення. Не є фіскальним чеком</p>
-    <p v-if="!documents?.length">Попередній документ ще не створено.</p>
+  <section :aria-label="runtimeText.documentsLabel">
+    <h2>{{ runtimeText.documentsTitle }}</h2>
+    <p>{{ runtimeText.preliminaryNotice }}</p>
+    <p v-if="!documents?.length">{{ runtimeText.noDocument }}</p>
     <BaseButton v-for="document in documents || []" :key="document.id" variant="outline-dark" :disabled="busy" @click="openDocument(document)">
-      {{ document.number }} · версія {{ document.version }} · Перегляд / друк
+      {{ document.number }} · {{ runtimeText.version }} {{ document.version }} · {{ runtimeText.print }}
     </BaseButton>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="error" role="alert">{{ runtimeMessage(error) }}</p>
   </section>
 </template>

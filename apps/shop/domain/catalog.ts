@@ -37,6 +37,7 @@ type PublicProductParameters =
   | undefined
 
 interface PublicCategoryDto {
+  description_en?: string | null
   name_en?: string | null
   id: number
   name: string
@@ -75,6 +76,9 @@ interface PublicProductVolumeVariantDto {
 }
 
 interface PublicProductDto {
+  description_en?: string | null
+  short_description_en?: string | null
+  ingredients_en?: string | null
   name_en?: string | null
   product_type_en?: string | null
   id: number
@@ -250,6 +254,7 @@ const mapCategory = (category?: PublicCategoryDto | null): CategoryDto => {
     name_en: category.name_en ?? null,
     slug: category.slug,
     description: category.description,
+    description_en: category.description_en ?? null,
     status: resolveStatus(category.status, category.is_active),
   }
 }
@@ -390,6 +395,9 @@ const mapProduct = (product: PublicProductDto, resolveAssetUrl: (url: string) =>
     slug: product.slug,
     sku: product.sku ?? '',
     short_description: product.short_description,
+    short_description_en: product.short_description_en ?? null,
+    description_en: product.description_en ?? null,
+    ingredients_en: product.ingredients_en ?? null,
     description: product.description ?? '',
     ingredients: product.ingredients ?? null,
     price: pricing.price,

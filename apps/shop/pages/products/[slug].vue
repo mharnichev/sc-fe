@@ -5,10 +5,12 @@ import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 import { isProductUnavailable } from '~/utils/product-visibility'
+import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const { categoryDisplayName } = useCategoryDisplay()
 
-const { productDisplayName, productDisplayType } = useProductDisplay()
+const { productDisplayName, productDisplayType, productDisplayContent } = useProductDisplay()
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -18,7 +20,7 @@ const cart = useCartStore()
 const favorites = useFavoritesStore()
 const auth = useCustomerAuthStore()
 const recentlyViewed = useRecentlyViewedStore()
-const { terms, dateLocale } = useShopLocale()
+const { terms, dateLocale, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
 
 const emptyReviews: ProductReviewListDto = { total: 0, average_rating: null, items: [] }
@@ -92,7 +94,7 @@ const removeCompositionFromDescription = (value: string) => {
 }
 
 const galleryImages = computed(() => product.value?.images || [])
-const productComposition = computed(() => htmlToText(product.value?.ingredients))
+const productComposition = computed(() => htmlToText(product.value ? productDisplayContent(product.value, 'ingredients') : ''))
 const hasComposition = computed(() => Boolean(productComposition.value))
 const galleryItems = computed(() => {
   const items: Array<{
@@ -141,11 +143,11 @@ const productBreadcrumbItems = computed<CategoryRouteCrumb[]>(() => {
 const averageRating = computed(() => reviewsPage.value?.average_rating || product.value?.average_rating || null)
 const reviewsCount = computed(() => reviewsPage.value?.total ?? product.value?.reviews_count ?? 0)
 const productDescriptionHtml = computed(() => {
-  const description = product.value?.description?.trim() || ''
+  const description = (product.value ? productDisplayContent(product.value, 'description') : '').trim()
   return productComposition.value ? removeCompositionFromDescription(description) : description
 })
 const plainProductDescription = computed(() =>
-  htmlToText(productDescriptionHtml.value || product.value?.short_description || ''),
+  htmlToText(productDescriptionHtml.value || (product.value ? productDisplayContent(product.value, 'short_description') : '')),
 )
 const isFavorite = computed(() => product.value ? favorites.has(product.value.id) : false)
 const isInCart = computed(() => product.value ? cart.items.some(item => item.product.id === product.value?.id) : false)
@@ -159,7 +161,7 @@ const hasVolumeVariants = computed(() =>
 )
 const volumeTabs = computed(() =>
   availableVolumeVariants.value.map(variant => ({
-    label: variant.volume_label,
+    label: localizedVolumeLabel(variant, locale.value),
     value: String(variant.id),
     to: variant.id === product.value?.id ? undefined : `/products/${variant.slug}`,
   })),
@@ -176,23 +178,24 @@ const brandCatalogRoute = computed(() => ({
   path: '/catalog',
   query: { brand: product.value?.brand.slug || undefined },
 }))
-const isBrandCharacteristic = (name: string) =>
-  name.trim().toLocaleLowerCase() === terms.value.catalog.brand.trim().toLocaleLowerCase()
-const isCategoryCharacteristic = (name: string) =>
-  name.trim().toLocaleLowerCase() === terms.value.catalog.category.trim().toLocaleLowerCase()
-const isProductCodeCharacteristic = (name: string) =>
-  name.trim().toLocaleLowerCase() === terms.value.catalog.productCode.trim().toLocaleLowerCase()
+const isBrandCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'brand'
+const isCategoryCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'category'
+const isProductCodeCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'code'
 const parameterEntries = computed(() =>
-  Object.entries(product.value?.parameters || {}).filter(([name]) =>
-    !isCategoryCharacteristic(name) && !isProductCodeCharacteristic(name),
-  ),
+  Object.entries(product.value?.parameters || {})
+    .filter(([name]) => !isCategoryCharacteristic(name) && !isProductCodeCharacteristic(name))
+    .map(([name, value]) => [
+      localizedMetadataLabel(name, name, locale.value),
+      localizedMetadataValue(name, value, locale.value),
+    ]),
 )
+const volumeLabel = computed(() => localizedMetadataLabel('volume', 'Об’єм', locale.value))
 const fallbackCharacteristicEntries = computed(() => {
   if (!product.value) return []
 
   return [
     [terms.value.catalog.brand, product.value.brand.name],
-    ['Об’єм', product.value.package_size || ''],
+    [volumeLabel.value, localizedPackageSize(product.value.package_size || '', locale.value)],
   ].filter(([, value]) => value)
 })
 const characteristicEntries = computed(() =>
@@ -369,8 +372,8 @@ const deleteReview = async (reviewId: number) => {
 }
 
 useSeo(
-  () => product.value?.seo_title || (product.value ? productDisplayName(product.value) : '') || terms.value.seo.productFallbackTitle,
-  () => product.value?.seo_description || product.value?.short_description || plainProductDescription.value || terms.value.seo.productFallbackDescription,
+  () => (locale.value === 'en' ? '' : product.value?.seo_title) || (product.value ? productDisplayName(product.value) : '') || terms.value.seo.productFallbackTitle,
+  () => (locale.value === 'en' ? plainProductDescription.value : product.value?.seo_description) || (product.value ? productDisplayContent(product.value, 'short_description') : '') || plainProductDescription.value || terms.value.seo.productFallbackDescription,
 )
 
 useHead(() => ({
@@ -561,7 +564,7 @@ useHead(() => ({
             </section>
 
             <div v-if="hasVolumeVariants" class="product-buy__variants">
-              <span class="product-buy__variants-label">Об’єм</span>
+              <span class="product-buy__variants-label">{{ volumeLabel }}</span>
               <CatalogSortTabs
                 class="product-buy__variants-tabs"
                 :model-value="String(product.id)"
@@ -596,8 +599,8 @@ useHead(() => ({
                 {{ isInCart ? terms.product.removeFromCart : terms.product.addToCart }}
               </BaseButton>
             </div>
-            <p v-if="cart.error" class="product-page__error">{{ cart.error }}</p>
-            <p v-if="favorites.error" class="product-page__error">{{ favorites.error }}</p>
+            <p v-if="cart.error" class="product-page__error">{{ runtimeMessage(cart.error) }}</p>
+            <p v-if="favorites.error" class="product-page__error">{{ runtimeMessage(favorites.error) }}</p>
           </section>
 
           <!-- Temporarily hidden product delivery block.

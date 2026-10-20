@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import type { CategoryTreeNodeDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import {
-  categoryDestination,
   categoryGoodsPath,
   categoryLandingPath,
   categoryPathBySegments,
   type CategoryRouteCrumb,
 } from '~/utils/category-routing'
 
-const { categoryDisplayName } = useCategoryDisplay()
+const { categoryDisplayName, categoryDisplayDescription } = useCategoryDisplay()
 
 const props = defineProps<{
   segments: string[]
@@ -28,7 +26,7 @@ const categoryPath = computed(() => categoryPathBySegments(categoryTree.value ||
 const currentCategory = computed(() => categoryPath.value[categoryPath.value.length - 1] || null)
 
 if (!slugSegments.value.length || !categoryPath.value.length || !currentCategory.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Category not found' })
+  throw createError({ statusCode: 404, statusMessage: 'Category not found', fatal: true })
 }
 
 const breadcrumbs = computed<CategoryRouteCrumb[]>(() =>
@@ -41,12 +39,10 @@ const breadcrumbs = computed<CategoryRouteCrumb[]>(() =>
 )
 
 const goodsPath = computed(() => categoryGoodsPath(categoryPath.value))
-const childLink = (child: CategoryTreeNodeDto) =>
-  categoryDestination(categoryTree.value || [], child)
 
 useSeo(
   () => (currentCategory.value ? categoryDisplayName(currentCategory.value) : '') || terms.value.seo.catalogTitle,
-  () => currentCategory.value?.description || terms.value.seo.catalogDescription,
+  () => (currentCategory.value ? categoryDisplayDescription(currentCategory.value) : '') || terms.value.seo.catalogDescription,
 )
 </script>
 
@@ -60,8 +56,8 @@ useSeo(
         <h1 class="category-landing__title">
           <BaseScribbleOutline>{{ (currentCategory ? categoryDisplayName(currentCategory) : '') }}</BaseScribbleOutline>
         </h1>
-        <p v-if="currentCategory?.description" class="category-landing__description">
-          {{ currentCategory.description }}
+        <p v-if="currentCategory && categoryDisplayDescription(currentCategory)" class="category-landing__description">
+          {{ categoryDisplayDescription(currentCategory) }}
         </p>
       </div>
 
@@ -70,21 +66,11 @@ useSeo(
       </BaseButton>
     </div>
 
-    <ul v-if="currentCategory?.children.length" class="category-landing__grid">
-      <li v-for="child in currentCategory.children" :key="child.id">
-        <NuxtLink class="category-landing__card" :to="childLink(child)">
-          <span class="category-landing__card-icon">
-            <BaseIcon name="catalog" size="xs" />
-          </span>
-          <span class="category-landing__card-body">
-            <strong><BaseHoverUnderlineText>{{ categoryDisplayName(child) }}</BaseHoverUnderlineText></strong>
-            <span v-if="child.description">{{ child.description }}</span>
-            <span v-else>{{ child.children.length ? terms.catalog.sidebarFallbackTitle : terms.catalog.productsSuffix }}</span>
-          </span>
-          <BaseIcon name="chevron-right" size="xxs" />
-        </NuxtLink>
-      </li>
-    </ul>
+    <CatalogCategoryCards
+      v-if="currentCategory?.children.length"
+      :categories="currentCategory.children"
+      :tree="categoryTree || []"
+    />
 
     <FeedbackState v-else class="category-landing__empty" kind="empty" :seed="currentCategory?.slug" :title="terms.catalog.empty">
       <BaseButton :to="goodsPath" variant="outline-dark">
@@ -121,68 +107,6 @@ useSeo(
   color: #737373;
   font-size: 0.95rem;
   line-height: 1.7;
-}
-
-.category-landing__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-  gap: 0.75rem;
-}
-
-.category-landing__card {
-  display: grid;
-  min-height: 7rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.875rem;
-  border: 0;
-  background: #ffffff;
-  padding: 1rem;
-  color: #0a0a0a;
-  transition:
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.category-landing__card:hover,
-.category-landing__card:focus-visible {
-  box-shadow: 0 1rem 1.5rem rgb(10 10 10 / 0.08);
-  transform: translateY(-0.125rem);
-}
-
-.category-landing__card-icon {
-  display: inline-flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  background: var(--sc-surface-muted);
-  color: #0a0a0a;
-}
-
-.category-landing__card-body {
-  display: grid;
-  min-width: 0;
-  gap: 0.25rem;
-}
-
-.category-landing__card-body strong {
-  overflow: hidden;
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.category-landing__card-body span {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #737373;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .category-landing__empty {
