@@ -2,6 +2,7 @@
 import type { CustomerOrder } from '~/types/order'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { orderTrackingText, shopOrderHasTestProjection, shopOrderHasCheckboxProjection, shopOrderHasNPReturnProjection, shopOrderHasPaymentResolutionProjection, shopOrderHasPaymentProjection } from '~/utils/orderTrackingText'
+const { runtimeText, runtimeMessage, orderItemName } = useShopRuntimeDisplay()
 
 const route = useRoute()
 const auth = useCustomerAuthStore()
@@ -17,22 +18,25 @@ const formatDate = (value: string) => {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(dateLocale.value, { dateStyle: 'long' }).format(date)
 }
+const normalizedMethod = (value: string) => value.replace(/[\s_-]/g, '').toLowerCase()
 const paymentLabel = computed(() => {
-  if (!order.value?.payment_method) return ''
-  if (order.value.payment_method === 'cashOnDelivery') return terms.value.checkout.paymentOptions.cashOnDelivery
-  if (order.value.payment_method === 'cardOnDelivery') return terms.value.checkout.paymentOptions.cardOnDelivery
-  return order.value.payment_method
+  const method = normalizedMethod(order.value?.payment_method || '')
+  if (!method) return ''
+  if (['cashondelivery', 'cod'].includes(method)) return terms.value.checkout.paymentOptions.cashOnDelivery
+  if (method === 'cardondelivery') return terms.value.checkout.paymentOptions.cardOnDelivery
+  if (['card', 'online', 'onlinecard', 'monobank'].includes(method)) return runtimeText.value.card
+  return method === 'cash' ? runtimeText.value.cash : runtimeText.value.unknownPayment
 })
 const deliveryLabel = computed(() => {
   if (!order.value) return ''
-  const method = order.value.shipping_method
-    ? order.value.shipping_method === 'warehouse'
-      ? terms.value.cabinet.warehouse
-      : order.value.shipping_method === 'courier'
-        ? terms.value.cabinet.courier
-        : order.value.shipping_method
-    : ''
-  return [order.value.shipping_company, method].filter(Boolean).join(' · ')
+  const rawMethod = normalizedMethod(order.value.shipping_method || '')
+  const method = !rawMethod ? '' : rawMethod === 'warehouse' ? terms.value.cabinet.warehouse
+    : rawMethod === 'courier' ? terms.value.cabinet.courier
+      : ['pickup', 'selfpickup'].includes(rawMethod) ? runtimeText.value.pickup : runtimeText.value.unknownDelivery
+  const carrierCode = normalizedMethod(order.value.shipping_company || '')
+  const carrier = !carrierCode ? ''
+    : ['novapost', 'novaposhta', 'новапошта', 'новаяпочта'].includes(carrierCode) ? runtimeText.value.novaPost : runtimeText.value.unknownCarrier
+  return [carrier, method].filter(Boolean).join(' · ')
 })
 const addressLines = computed(() => {
   if (!order.value) return []
@@ -96,14 +100,14 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
           <OrderCustomerStatus v-if="order.status === 'cancelled' || order.shipments?.length !== 1" class="order-detail__status" :order="order" carrier-icon />
         </header>
         <OrderProjections v-if="shopOrderHasPaymentProjection(order) || shopOrderHasTestProjection(order) || shopOrderHasCheckboxProjection(order) || shopOrderHasNPReturnProjection(order) || shopOrderHasPaymentResolutionProjection(order)" :order="order" />
-        <p v-if="state.error" role="alert">{{ state.error }} {{ trackingText.preserved }}</p>
+        <p v-if="state.error" role="alert">{{ runtimeMessage(state.error) }} {{ trackingText.preserved }}</p>
         <OrderPayment v-if="order.payment_method === 'onlineCard' || order.payment_channel === 'online_monobank'" :order-id="order.id" />
         <OrderDocuments v-if="order.preliminary_documents?.length" :order-id="order.id" :documents="order.preliminary_documents" />
         <section class="order-detail__section">
           <h2>{{ terms.cabinet.items }}</h2>
           <ul class="order-detail__items">
             <li v-for="item in order.items" :key="item.id" class="order-detail__item">
-              <div class="order-detail__product"><NuxtLink class="order-detail__product-link" :aria-label="item.product_name || `${terms.cabinet.product} #${item.product_id}`" :to="`/products/id/${item.product_id}`"><OrderItemImage :src="item.product_image_url" :name="item.product_name" /><div class="order-detail__item-copy"><h3>{{ item.product_name || `${terms.cabinet.product} #${item.product_id}` }}</h3><p v-if="item.product_sku">{{ terms.cabinet.sku }}: {{ item.product_sku }}</p></div></NuxtLink><BaseQuantityStepper variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(item.product_name || `${terms.cabinet.product} #${item.product_id}`)" /></div>
+              <div class="order-detail__product"><NuxtLink class="order-detail__product-link" :aria-label="orderItemName(item)" :to="`/products/id/${item.product_id}`"><OrderItemImage :src="item.product_image_url" :name="orderItemName(item)" /><div class="order-detail__item-copy"><h3>{{ orderItemName(item) }}</h3><p v-if="item.product_sku">{{ terms.cabinet.sku }}: {{ item.product_sku }}</p></div></NuxtLink><BaseQuantityStepper variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(orderItemName(item))" /></div>
               <dl class="order-detail__item-meta"><div><dt>{{ terms.cabinet.price }}</dt><dd>{{ formatPrice(item.price) }}</dd></div><div v-if="item.total_price != null && item.quantity > 1"><dt>{{ terms.common.total }}</dt><dd>{{ formatPrice(item.total_price) }}</dd></div></dl>
             </li>
           </ul>

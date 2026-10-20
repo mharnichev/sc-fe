@@ -1,3 +1,4 @@
+import { useShopRuntimeDisplay } from './runtime-localization-harness.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
@@ -13,7 +14,7 @@ for (const change of ['actor', 'order', 'unmount']) {
     const popups = [], cleanup = []
     let complete
     const response = new Promise(resolve => { complete = resolve })
-    Object.assign(globalThis, vue, {
+    Object.assign(globalThis, vue, { useShopRuntimeDisplay,
       defineProps: () => props, useCustomerAuthStore: () => auth, useApi: () => async () => response,
       onBeforeUnmount: callback => cleanup.push(callback),
       window: { open: () => { const popup = { closed: false, close() { this.closed = true }, location: { replacements: [], replace(url) { this.replacements.push(url) } } }; popups.push(popup); return popup }, setTimeout: () => 0 },

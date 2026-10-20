@@ -8,7 +8,7 @@ import {
   type CategoryRouteCrumb,
 } from '~/utils/category-routing'
 
-const { categoryDisplayName } = useCategoryDisplay()
+const { categoryDisplayName, categoryDisplayDescription } = useCategoryDisplay()
 
 const DEFAULT_LIMIT = 20
 const reservedQueryKeys = new Set([
@@ -78,7 +78,7 @@ const categoryPath = computed(() => categoryPathBySegments(categoryTree.value ||
 const currentCategory = computed(() => categoryPath.value[categoryPath.value.length - 1] || null)
 
 if (!categorySlug.value || !categoryPath.value.length) {
-  throw createError({ statusCode: 404, statusMessage: 'Category not found' })
+  throw createError({ statusCode: 404, statusMessage: 'Category not found', fatal: true })
 }
 
 const breadcrumbs = computed<CategoryRouteCrumb[]>(() =>
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
 
 useSeo(
   () => (currentCategory.value ? categoryDisplayName(currentCategory.value) : '') || terms.value.seo.catalogTitle,
-  () => currentCategory.value?.description || terms.value.seo.catalogDescription,
+  () => (currentCategory.value ? categoryDisplayDescription(currentCategory.value) : '') || terms.value.seo.catalogDescription,
 )
 </script>
 

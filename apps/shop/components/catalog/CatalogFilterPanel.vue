@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CategoryFilterGroupDto, CategoryFiltersDto } from '@shared-types'
+import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue } from '~/utils/catalog-metadata-localization'
 
 const props = withDefaults(defineProps<{
   groups: CategoryFilterGroupDto[]
@@ -30,7 +31,7 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const { terms } = useShopLocale()
+const { terms, locale } = useShopLocale()
 const expandedGroups = ref<Record<string, boolean>>({})
 const DEFAULT_VISIBLE_VALUES = 5
 
@@ -42,19 +43,16 @@ const selectedEntries = computed(() =>
 const selectedCount = computed(() => selectedEntries.value.length)
 const hasCatalogFilters = computed(() => Boolean(props.query))
 
-const localizedGroupName = (slug: string, name: string) => {
-  const key = `${slug} ${name}`.toLocaleLowerCase('en')
-  if (/\b(size|sizes|rozmir|розмір)\b/.test(key)) return terms.value.catalog.size
-  if (/\b(color|colors|colour|colours|kolir|колір)\b/.test(key)) return terms.value.catalog.color
-  return name
-}
+const localizedGroupName = (slug: string, name: string) => localizedMetadataLabel(slug, name, locale.value)
+const localizedValueName = (slug: string, groupName: string, value: string) =>
+  localizedMetadataValue(catalogCharacteristicKind(slug) ? slug : groupName, value, locale.value)
 
 const selectedLabel = (groupSlug: string, valueSlug: string) => {
   const group = props.groups.find(item => item.slug === groupSlug)
   const value = group?.values.find(item => item.slug === valueSlug)
   return {
     group: localizedGroupName(groupSlug, group?.name || groupSlug),
-    value: value?.name || valueSlug,
+    value: localizedValueName(groupSlug, group?.name || groupSlug, value?.name || valueSlug),
   }
 }
 
@@ -149,7 +147,7 @@ const toggleGroupExpansion = (groupSlug: string) => {
             <li v-for="value in visibleValues(group)" :key="value.slug">
               <BaseCheckbox
                 :model-value="isSelected(group.slug, value.slug)"
-                :label="value.name"
+                :label="localizedValueName(group.slug, group.name, value.name)"
                 :description="showGroupCount(group.slug) ? terms.catalog.filterProductCount(value.count) : ''"
                 :disabled="isDisabled(group.slug, value.slug)"
                 @update:model-value="emit('toggle-filter', group.slug, value.slug, $event)"

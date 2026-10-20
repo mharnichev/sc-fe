@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import {
+  EnvelopeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  LockClosedIcon,
   MoonIcon,
   SunIcon,
 } from '@heroicons/vue/24/outline'
@@ -13,6 +17,7 @@ const { isLightTheme, themeToggleLabel, toggleTheme } = useBackofficeTheme()
 const toast = useBaseToastNotification()
 const form = reactive({ email: '', password: '' })
 const pending = ref(false)
+const passwordVisible = ref(false)
 const loginRedirectPath = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
@@ -65,19 +70,44 @@ const submit = async () => {
           </h3>
         </div>
         <div class="space-y-2">
-          <label class="text-sm font-medium text-white/68">Email</label>
-          <BaseInput v-model="form.email"
-            placeholder="Введіть email"
-            autocomplete="username"
-            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30" />
+          <label for="login-email" class="text-sm font-medium text-white/68">Email</label>
+          <div class="relative">
+            <EnvelopeIcon class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50" aria-hidden="true" />
+            <BaseInput
+              id="login-email"
+              v-model="form.email"
+              placeholder="Введіть email"
+              autocomplete="username"
+              input-class="base-control pl-12 pr-4 py-3 text-sm"
+              class="w-full rounded-2xl border border-white/10 bg-white/[0.065] text-white outline-none transition placeholder:text-white/35 focus:border-white/30"
+            />
+          </div>
         </div>
         <div class="space-y-2">
-          <label class="text-sm font-medium text-white/68">Пароль</label>
-          <BaseInput v-model="form.password"
-            type="password"
-            placeholder="Введіть пароль"
-            autocomplete="current-password"
-            class="w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-white/30" />
+          <label for="login-password" class="text-sm font-medium text-white/68">Пароль</label>
+          <div class="relative">
+            <LockClosedIcon class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50" aria-hidden="true" />
+            <BaseInput
+              id="login-password"
+              v-model="form.password"
+              :type="passwordVisible ? 'text' : 'password'"
+              placeholder="Введіть пароль"
+              autocomplete="current-password"
+              input-class="base-control pl-12 pr-12 py-3 text-sm"
+              class="w-full rounded-2xl border border-white/10 bg-white/[0.065] text-white outline-none transition placeholder:text-white/35 focus:border-white/30"
+            />
+            <BaseButton
+              type="button"
+              class="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-2xl text-white/50 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+              :aria-label="passwordVisible ? 'Приховати пароль' : 'Показати пароль'"
+              :title="passwordVisible ? 'Приховати пароль' : 'Показати пароль'"
+              aria-controls="login-password"
+              @click="passwordVisible = !passwordVisible"
+            >
+              <EyeSlashIcon v-if="passwordVisible" class="h-5 w-5" aria-hidden="true" />
+              <EyeIcon v-else class="h-5 w-5" aria-hidden="true" />
+            </BaseButton>
+          </div>
         </div>
         <BaseButton
           type="submit"

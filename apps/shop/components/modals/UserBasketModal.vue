@@ -2,6 +2,7 @@
 import type { ProductDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const { productDisplayName } = useProductDisplay()
 
@@ -196,7 +197,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
           <span>{{ terms.basket.beforeDelivery }}</span>
           <strong>{{ formatPrice(cart.total) }}</strong>
         </div>
-        <p v-if="cart.error" class="basket-sidebar__unavailable-summary" role="alert">{{ cart.error }}</p>
+        <p v-if="cart.error" class="basket-sidebar__unavailable-summary" role="alert">{{ runtimeMessage(cart.error) }}</p>
         <p v-if="cart.hasUnavailableItems" class="basket-sidebar__unavailable-summary" role="alert">
           {{ unavailableMessage }}
         </p>

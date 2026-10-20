@@ -2,6 +2,7 @@
 import type { PaginatedResponse } from '@shared-types'
 import type { CustomerOrder } from '~/types/order'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+const { orderItemName } = useShopRuntimeDisplay()
 
 const PAGE_SIZE = 10
 const auth = useCustomerAuthStore()
@@ -92,11 +93,11 @@ useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHis
               </div>
               <ul v-if="order.items?.length" class="purchase-history__products" :aria-label="terms.cabinet.items">
                 <li v-for="item in order.items.slice(0, 3)" :key="item.id">
-                  <NuxtLink class="purchase-history__product-link" :aria-label="item.product_name || `${terms.cabinet.product} #${item.product_id}`" :to="`/products/id/${item.product_id}`">
-                  <OrderItemImage :src="item.product_image_url" :name="item.product_name" />
-                  <span class="purchase-history__product-name">{{ item.product_name || `${terms.cabinet.product} #${item.product_id}` }}</span>
+                  <NuxtLink class="purchase-history__product-link" :aria-label="orderItemName(item)" :to="`/products/id/${item.product_id}`">
+                  <OrderItemImage :src="item.product_image_url" :name="orderItemName(item)" />
+                  <span class="purchase-history__product-name">{{ orderItemName(item) }}</span>
                   </NuxtLink>
-                  <BaseQuantityStepper class="purchase-history__quantity" variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(item.product_name || `${terms.cabinet.product} #${item.product_id}`)" />
+                  <BaseQuantityStepper class="purchase-history__quantity" variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(orderItemName(item))" />
                 </li>
                 <li v-if="order.items.length > 3">+ {{ order.items.length - 3 }}</li>
               </ul>

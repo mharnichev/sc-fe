@@ -3,6 +3,7 @@ import { guestShipmentPath } from '~/utils/shipmentStatus'
 import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
 import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
 import { isProductUnavailable } from '~/utils/product-visibility'
+const { runtimeText, runtimeMessage, orderItemName } = useShopRuntimeDisplay()
 
 const { productDisplayName } = useProductDisplay()
 
@@ -301,7 +302,7 @@ useSeo(
       <h1 ref="confirmationHeading" tabindex="-1" data-testid="order-number">№ {{ state.order.id }}</h1>
       <div class="checkout-order-list" data-testid="confirmed-order-items">
         <article v-for="item in state.order.items" :key="item.id" class="checkout-confirmation__item">
-          <span>{{ item.product_name }}</span>
+          <span>{{ orderItemName(item) }}</span>
           <span>× {{ item.quantity }}</span>
         </article>
       </div>
@@ -309,22 +310,22 @@ useSeo(
         <span>{{ terms.common.total }}</span>
         <strong data-testid="confirmed-order-total">{{ formatPrice(state.order.total_amount) }}</strong>
       </div>
-      <p v-if="cartPreserved" role="status">Замовлення підтверджено. Після повторної перевірки кошик залишено без змін, щоб зберегти додані вами товари. Перегляньте його перед наступним замовленням.</p>
+      <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
       <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="outline-dark">Сторінка статусу оплати</BaseButton>
       <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
-      <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">Захищений статус доставки</BaseButton>
+      <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
       <BaseButton to="/catalog" variant="outline-dark">{{ terms.common.catalog }}</BaseButton>
     </div>
   </section>
 
   <section v-else class="checkout-page">
-    <p v-if="otherScopePending" class="checkout-card" role="status">Є непідтверджений запит в іншій сесії покупця. Поверніться до початкового облікового запису (або гостьового режиму), щоб безпечно перевірити результат.</p>
+    <p v-if="otherScopePending" class="checkout-card" role="status">{{ runtimeText.otherSession }}</p>
     <section v-if="retryAvailable" class="checkout-card" role="status">
-      <p>Результат попереднього запиту ще не підтверджено. Повторна перевірка використовує той самий запит і не створює друге замовлення.</p>
-      <BaseButton :disabled="state.loading" @click="retryIntent">Перевірити / повторити попереднє замовлення</BaseButton>
-      <p v-if="state.error" role="alert">{{ state.error }}</p>
+      <p>{{ runtimeText.retryNotice }}</p>
+      <BaseButton :disabled="state.loading" @click="retryIntent">{{ runtimeText.retryOrder }}</BaseButton>
+      <p v-if="state.error" role="alert">{{ runtimeMessage(state.error) }}</p>
     </section>
     <div class="checkout-page__body">
       <div class="checkout-page__user-info">
@@ -416,17 +417,17 @@ useSeo(
               </BaseField>
               <BaseAutocomplete v-model="cityQuery" :label="terms.checkout.city" :placeholder="terms.checkout.cityPlaceholder"
                 :options="(selectedCity ? [selectedCity] : cities.items.value).map(item => ({ value: item.ref, label: item.label }))" :loading="cities.loading.value"
-                :error="cities.error.value" :empty-text="cityQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
+                :error="runtimeMessage(cities.error.value)" :empty-text="cityQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
                 :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" required @select="chooseCity" @retry="cities.retry" />
               <div class="checkout-popular" :aria-label="deliveryText.popular">
                 <span>{{ deliveryText.popular }}:</span>
                 <BaseButton v-for="city in popularCities" :key="city" size="xs" variant="text" @click="choosePopularCity(city)">{{ city }}</BaseButton>
               </div>
               <p v-if="popular.loading.value" role="status">{{ deliveryText.loading }}</p>
-              <div v-if="popular.error.value" role="alert">{{ popular.error.value }} <BaseButton variant="text" size="sm" @click="popular.retry">{{ deliveryText.retry }}</BaseButton></div>
+              <div v-if="popular.error.value" role="alert">{{ runtimeMessage(popular.error.value) }} <BaseButton variant="text" size="sm" @click="popular.retry">{{ deliveryText.retry }}</BaseButton></div>
               <BaseAutocomplete v-if="form.shippingMethod === 'warehouse'" v-model="branchQuery" :label="terms.checkout.warehouse"
                 :placeholder="deliveryText.branch" :options="(selectedBranch ? [selectedBranch] : branches.items.value).map(item => ({ value: item.ref, label: item.label }))"
-                :loading="branches.loading.value" :error="branches.error.value" :empty-text="deliveryText.empty"
+                :loading="branches.loading.value" :error="runtimeMessage(branches.error.value)" :empty-text="deliveryText.empty"
                 :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" :disabled="!selectedCity" required
                 @select="chooseBranch" @retry="branches.retry" />
               <template v-else>
@@ -436,7 +437,7 @@ useSeo(
                   <BaseInput v-if="manualStreet" v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" :disabled="!selectedCity?.delivery_available" required />
                   <BaseAutocomplete v-else v-model="streetQuery" :label="terms.checkout.street" :placeholder="deliveryText.street"
                     :options="(selectedStreet ? [selectedStreet] : streets.items.value).map(item => ({ value: item.ref, label: item.label }))" :loading="streets.loading.value"
-                    :error="streets.error.value" :empty-text="streetQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
+                    :error="runtimeMessage(streets.error.value)" :empty-text="streetQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
                     :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" :disabled="!selectedCity?.delivery_available"
                     required @select="chooseStreet" @retry="streets.retry" />
                   <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" :disabled="!selectedStreet && !manualStreet" required />
@@ -481,7 +482,7 @@ useSeo(
             <BaseButton type="submit" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ state.error || cart.error }}</p>
+            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
         </form>
       </div>
@@ -531,7 +532,7 @@ useSeo(
               </template>
             </div>
             <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
-            <p v-if="cart.error" class="checkout-page__error">{{ cart.error }}</p>
+            <p v-if="cart.error" class="checkout-page__error">{{ runtimeMessage(cart.error) }}</p>
           </section>
 
           <section class="checkout-card checkout-card--finish">
@@ -542,7 +543,7 @@ useSeo(
             <BaseButton type="submit" form="shop-checkout-form" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ state.error || cart.error }}</p>
+            <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
         </div>
       </aside>

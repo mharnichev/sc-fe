@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { runtimeMessage } = useShopRuntimeDisplay()
 const domain = useCatalogDomain()
 const { terms } = useShopLocale()
 
@@ -77,7 +78,7 @@ useSeo(
           {{ state.loading ? terms.checkout.processing : terms.contacts.send }}
         </BaseButton>
         <p v-if="state.done" class="contact-page__success">{{ terms.contacts.feedbackSuccess }}</p>
-        <p v-if="state.error" class="contact-page__error">{{ state.error }}</p>
+        <p v-if="state.error" class="contact-page__error">{{ runtimeMessage(state.error) }}</p>
       </form>
     </div>
 

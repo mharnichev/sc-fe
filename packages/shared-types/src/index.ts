@@ -1,6 +1,7 @@
 export type EntityStatus = 'active' | 'inactive' | 'draft' | 'pending' | 'confirmed' | 'paid' | 'new'
 
 export interface CategoryDto {
+  description_en?: string | null
   name_en?: string | null
   id: number
   name: string
@@ -44,6 +45,9 @@ export interface ProductImageDto {
 }
 
 export interface ProductDto {
+  description_en?: string | null
+  short_description_en?: string | null
+  ingredients_en?: string | null
   name_en?: string | null
   product_type_en?: string | null
   id: number
@@ -156,6 +160,7 @@ export interface ShopCustomerDto {
 }
 
 export interface CustomerOrderItemDto {
+  product_name_en?: string | null
   id: number
   product_id: number
   quantity: number
@@ -392,6 +397,7 @@ export interface AvailableSlotDto {
 }
 
 export interface OrderItemDto {
+  product_name_en?: string | null
   id: number
   product_id: number
   product_name: string

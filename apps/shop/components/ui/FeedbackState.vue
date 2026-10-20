@@ -4,12 +4,14 @@ import FeedbackFace from './FeedbackFace.vue'
 
 const props = withDefaults(defineProps<{
   title: string
+  titleTag?: 'h1' | 'h2'
   description?: string
   kind?: FeedbackStateKind
   face?: FeedbackFaceName
   seed?: string | number
   compact?: boolean
 }>(), {
+  titleTag: 'h2',
   description: '',
   kind: 'empty',
   face: undefined,
@@ -46,9 +48,11 @@ const selectedFace = computed<FeedbackFaceName>(() => {
     :class="[`feedback-state--${kind}`, { 'feedback-state--compact': compact }]"
     role="status"
   >
-    <FeedbackFace class="feedback-state__face" :name="selectedFace" />
+    <slot name="illustration">
+      <FeedbackFace class="feedback-state__face" :name="selectedFace" />
+    </slot>
     <div class="feedback-state__copy">
-      <h2 class="feedback-state__title">{{ title }}</h2>
+      <component :is="titleTag" class="feedback-state__title">{{ title }}</component>
       <p v-if="description" class="feedback-state__description">{{ description }}</p>
     </div>
     <div v-if="$slots.default" class="feedback-state__actions">

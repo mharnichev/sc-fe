@@ -1,0 +1,398 @@
+[
+  {
+    "id": 1,
+    "slug": "kosmetika",
+    "parent_id": null,
+    "file": "1-kosmetika.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "ccc16d9e5f811596217cecc0fba0fe77cbb756338252c085d976b7a34deb90e6"
+  },
+  {
+    "id": 2,
+    "slug": "kosmetika-pislia-golinnia",
+    "parent_id": 1,
+    "file": "2-kosmetika-pislia-golinnia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "545c1fd9b5c5b792f275be8985cc6f8bf29e75a3ccba5f1adf03196eea8bfd05"
+  },
+  {
+    "id": 3,
+    "slug": "kosmetika-pislia-golinnia-losion",
+    "parent_id": 2,
+    "file": "3-kosmetika-pislia-golinnia-losion.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "77b4199d37c746737fe4206ce5794b9f07d0f86171ef4eb347eeb55c47c6573c"
+  },
+  {
+    "id": 4,
+    "slug": "kosmetika-do-golinnia",
+    "parent_id": 1,
+    "file": "4-kosmetika-do-golinnia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "1dcbce272d35aa585c405c6b1063fcd94e5de5f5235a66591b5ad5e9b21e9f0c"
+  },
+  {
+    "id": 5,
+    "slug": "kosmetika-dlia-volossia",
+    "parent_id": 1,
+    "file": "5-kosmetika-dlia-volossia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "c93aa8e156bdcd8c27ece300cda2187aa8d251a4be3fa9d8d315a3e5f87fb175"
+  },
+  {
+    "id": 6,
+    "slug": "kosmetika-dlia-volossia-shampun",
+    "parent_id": 5,
+    "file": "6-kosmetika-dlia-volossia-shampun.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "d20081de2a9d71c5cf6b829651649610dd2dca426e414fa6d6372c2b4fe6bcbe"
+  },
+  {
+    "id": 7,
+    "slug": "kosmetika-dlia-volossia-konditsioneri",
+    "parent_id": 5,
+    "file": "7-kosmetika-dlia-volossia-konditsioneri.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "8ff051d3f7234f9e537b3d747b587de0448b960161ee7e085d2ddfe59436303b"
+  },
+  {
+    "id": 8,
+    "slug": "kosmetika-dlia-borodi",
+    "parent_id": 1,
+    "file": "8-kosmetika-dlia-borodi.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "2ec0c16bbee9f432a4e4806ba256e4d3cbb1022776efbd0d07f2a292942dabb6"
+  },
+  {
+    "id": 9,
+    "slug": "kosmetika-dlia-borodi-balzam",
+    "parent_id": 8,
+    "file": "9-kosmetika-dlia-borodi-balzam.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "834a3438768ee644104ee8f505cfe46256251a2bb2fc52be83839ce2918fcb79"
+  },
+  {
+    "id": 10,
+    "slug": "kosmetika-ukladochni",
+    "parent_id": 1,
+    "file": "10-kosmetika-ukladochni.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "6cfa50661fca3a55b96ee66a56048c4b7cb2f32919e8263d3aca03d125397b01"
+  },
+  {
+    "id": 11,
+    "slug": "kosmetika-ukladochni-pasta",
+    "parent_id": 10,
+    "file": "11-kosmetika-ukladochni-pasta.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "00c20b30bf02173cda2d909c52360adeef593dd0c8441918916007023e73af40"
+  },
+  {
+    "id": 12,
+    "slug": "kosmetika-ukladochni-glina",
+    "parent_id": 10,
+    "file": "12-kosmetika-ukladochni-glina.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "439139ba42327bcb5873392acbab4d3ecf6abaea773a7cc6a0984770a2013af8"
+  },
+  {
+    "id": 14,
+    "slug": "profesiini-grebeni-ta-shchitki",
+    "parent_id": null,
+    "file": "14-profesiini-grebeni-ta-shchitki.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "fa96c35ddef2d7c9a4306b176042fe9b61c19a3cc286f50a324c829f92d994c2"
+  },
+  {
+    "id": 15,
+    "slug": "kosmetika-ukladochni-pomada",
+    "parent_id": 10,
+    "file": "15-kosmetika-ukladochni-pomada.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "50ede88066674c3d58e2796afeee5b8b5fa45d388f2c8c5c1c116ba04bcc8437"
+  },
+  {
+    "id": 16,
+    "slug": "kosmetika-dlia-golinnia",
+    "parent_id": 1,
+    "file": "16-kosmetika-dlia-golinnia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "6e7ac41382fc824da2a3b6f758be7b0ef3a5ff50d4044ee5fd2dfee5d3beebf4"
+  },
+  {
+    "id": 17,
+    "slug": "kosmetika-dlia-golinnia-krem",
+    "parent_id": 16,
+    "file": "17-kosmetika-dlia-golinnia-krem.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "289d4a15c188157171fe4e0b2ba18e50b9873830feeed783054cdf46fc705d91"
+  },
+  {
+    "id": 20,
+    "slug": "kosmetika-nabori",
+    "parent_id": 1,
+    "file": "20-kosmetika-nabori.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "fa4e5ce869582999f8a6f9414363046d055552d25faaeaea3d4b038fb955a24c"
+  },
+  {
+    "id": 21,
+    "slug": "kosmetika-nabori-golinnia",
+    "parent_id": 20,
+    "file": "21-kosmetika-nabori-golinnia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "94aa9b3154883fc27073669289a155edab131c4a05105116e4c3d9428e809f46"
+  },
+  {
+    "id": 22,
+    "slug": "kosmetika-nabori-boroda",
+    "parent_id": 20,
+    "file": "22-kosmetika-nabori-boroda.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "2ef79f3413f9b55a3b614b0f8b1c126a267d5e64811fe70f78d57367e620fdf0"
+  },
+  {
+    "id": 23,
+    "slug": "kosmetika-dlia-golinnia-pomazki",
+    "parent_id": 16,
+    "file": "23-kosmetika-dlia-golinnia-pomazki.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "ed19852f614e6ad73f9070fafcc61a3933ea0bdd32846feaee42bb0cad6132b7"
+  },
+  {
+    "id": 26,
+    "slug": "kosmetika-pislia-golinnia-vid-poriziv",
+    "parent_id": 2,
+    "file": "26-kosmetika-pislia-golinnia-vid-poriziv.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "81a02ccb8a677386400d84497b69ce82baa67adba9315be66a16cf20c20f2446"
+  },
+  {
+    "id": 27,
+    "slug": "kosmetika-dlia-tila",
+    "parent_id": 1,
+    "file": "27-kosmetika-dlia-tila.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "bd84ef60a328c2e677e9f81593788eb543f1200a2d823e82470b3ea8d05b8abb"
+  },
+  {
+    "id": 28,
+    "slug": "kosmetika-dlia-tila-gigiena",
+    "parent_id": 27,
+    "file": "28-kosmetika-dlia-tila-gigiena.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "14dd75630d9feb6e12870b5d3f60cd683ce44e9285d5d818e7e98de0e6b6ae1b"
+  },
+  {
+    "id": 29,
+    "slug": "kosmetika-ukladochni-visk",
+    "parent_id": 10,
+    "file": "29-kosmetika-ukladochni-visk.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "e132422aac41088859c3763782e5b9e2bf3033b64ce2d14aa0ab8772722bc9a4"
+  },
+  {
+    "id": 30,
+    "slug": "kosmetika-ukladochni-sprei-tonik",
+    "parent_id": 10,
+    "file": "30-kosmetika-ukladochni-sprei-tonik.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "f1891fda990d219ddaf802a870f3457b4161ce470bdce86cc45e2096138eb793"
+  },
+  {
+    "id": 32,
+    "slug": "kosmetika-dlia-volossia-kamufliazh",
+    "parent_id": 5,
+    "file": "32-kosmetika-dlia-volossia-kamufliazh.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "364722da7f46e11bab9a0fb8e5892f1c7c555f778d7aa670c1532ccbe6eab8cf"
+  },
+  {
+    "id": 34,
+    "slug": "kosmetika-ukladochni-pudra",
+    "parent_id": 10,
+    "file": "34-kosmetika-ukladochni-pudra.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "54c9ce09b7c0d6a8c4e9c640e9f5c2ea6a2d28da93968efbfedc58a8d16a9ce8"
+  },
+  {
+    "id": 35,
+    "slug": "kosmetika-pislia-golinnia-balzam",
+    "parent_id": 2,
+    "file": "35-kosmetika-pislia-golinnia-balzam.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "6f538da7d62cd6290401e700c97e7782795ef9a63b3e09bbb591913d5155449d"
+  },
+  {
+    "id": 36,
+    "slug": "kosmetika-dlia-tila-dlia-oblichchia",
+    "parent_id": 27,
+    "file": "36-kosmetika-dlia-tila-dlia-oblichchia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "a50d2e0182fa65c2ddeec6775ab03bb3afa2eda41cd761bb5799017fc4493346"
+  },
+  {
+    "id": 37,
+    "slug": "kosmetika-dlia-tila-dlia-oblichchia-ochishchennia-ta-tonizatsiia",
+    "parent_id": 36,
+    "file": "37-kosmetika-dlia-tila-dlia-oblichchia-ochishchennia-ta-tonizatsiia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "5f6850b7240e0cc129e96035de2606c835e67a1a5e81b88ea313d139e2efe1dc"
+  },
+  {
+    "id": 38,
+    "slug": "kosmetika-dlia-borodi-oliia",
+    "parent_id": 8,
+    "file": "38-kosmetika-dlia-borodi-oliia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "4a8c92dcb901b2ee9c4537e7db6c8e8e3cb6b31c184c6acf35a87789d5f1b8d3"
+  },
+  {
+    "id": 40,
+    "slug": "kosmetika-pislia-golinnia-odekolon",
+    "parent_id": 2,
+    "file": "40-kosmetika-pislia-golinnia-odekolon.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "c8ee255686b17054ec1a13e9a245f2a0aa888c9a97910f4ea4d35f1637874cbf"
+  },
+  {
+    "id": 43,
+    "slug": "kosmetika-dlia-borodi-shchitki",
+    "parent_id": 8,
+    "file": "43-kosmetika-dlia-borodi-shchitki.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "9ce6aa4e1aac2005db8cc3f3097c25c02f7da3cea58622016fa5d193dd62ec04"
+  },
+  {
+    "id": 44,
+    "slug": "kosmetika-dlia-golinnia-pina",
+    "parent_id": 16,
+    "file": "44-kosmetika-dlia-golinnia-pina.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "c9680baebacf72d3d83c6223ed1c0820a388458d53c474acc74543f08c147f70"
+  },
+  {
+    "id": 45,
+    "slug": "kosmetika-dlia-golinnia-gel",
+    "parent_id": 16,
+    "file": "45-kosmetika-dlia-golinnia-gel.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "3098528932d8b699e709caf8babcfa622b8b28390dd72859f4218665e4578cfc"
+  },
+  {
+    "id": 47,
+    "slug": "kosmetika-ukladochni-gel",
+    "parent_id": 10,
+    "file": "47-kosmetika-ukladochni-gel.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "2273ac699640b455150a057b03382a54099ae64ffa1f9ca82429f7c62036add9"
+  },
+  {
+    "id": 48,
+    "slug": "kosmetika-ukladochni-krem",
+    "parent_id": 10,
+    "file": "48-kosmetika-ukladochni-krem.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "a5d06d60244d0dbce700e9ac10dbfdd97f763f21f46d7884082aff6361257237"
+  },
+  {
+    "id": 55,
+    "slug": "kosmetika-dlia-golinnia-milo",
+    "parent_id": 16,
+    "file": "55-kosmetika-dlia-golinnia-milo.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "04419a9b56d401c27bfa8855409428cea2ca31812f05fe7145cc67d0560611aa"
+  },
+  {
+    "id": 59,
+    "slug": "kosmetika-dlia-volossia-sirovatki-ta-piling",
+    "parent_id": 5,
+    "file": "59-kosmetika-dlia-volossia-sirovatki-ta-piling.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "d10f87e5cf94fb85aba147aa7573b5d9418e6ee6c543da2400f6ecf730aa2d26"
+  },
+  {
+    "id": 64,
+    "slug": "instrumenti",
+    "parent_id": null,
+    "file": "64-instrumenti.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "b00b1ba979add66a1f72bfe22f940beca2684fb23f1a2b47ae15e5f25767993f"
+  },
+  {
+    "id": 65,
+    "slug": "kosmetika-nabori-oblichchia",
+    "parent_id": 20,
+    "file": "65-kosmetika-nabori-oblichchia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "2946864017ac10a2b39f5b67695c19fbe7da21a8cf70df19e6e0e2d94c55e1bd"
+  },
+  {
+    "id": 82,
+    "slug": "kosmetika-nabori-volossia",
+    "parent_id": 20,
+    "file": "82-kosmetika-nabori-volossia.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "3b7bd7bf6c9541591998598c31a07de0264d9c26e6da466780af068dd3e5eedf"
+  },
+  {
+    "id": 83,
+    "slug": "kosmetika-dlia-tila-dezodorant",
+    "parent_id": 27,
+    "file": "83-kosmetika-dlia-tila-dezodorant.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "f8d8d9a634c73ef73927ebdbd63f9aece917348c50d02b9fc42d3b203fdbfaaa"
+  },
+  {
+    "id": 89,
+    "slug": "kosmetika-dlia-golinnia-britvi-ta-leza",
+    "parent_id": 16,
+    "file": "89-kosmetika-dlia-golinnia-britvi-ta-leza.png",
+    "width": 512,
+    "height": 512,
+    "source_sha256": "a1a5350bd7c5b7e6e1b95a8757fb9cea55602b78f12a3f69134b4ff851d7a346"
+  }
+]

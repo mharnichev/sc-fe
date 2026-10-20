@@ -414,6 +414,12 @@ useSeo(
         </div>
       </div>
 
+      <CatalogCategoryCards
+        v-if="!topOnly && !category && !brand && !query"
+        :categories="(categoryTree || []).filter(node => !isBrandCategoryBranch(node))"
+        :tree="categoryTree || []"
+      />
+
       <section v-if="selectedBrand" class="catalog-route__brand-info">
         <span v-if="selectedBrandLogoUrl" class="catalog-route__brand-logo">
           <span
