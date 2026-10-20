@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { orderPaymentMethodLabel } from '~/utils/orderSales'
 import { productDisplayImage } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowPathIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
@@ -135,7 +136,7 @@ const syncRows = computed(() => {
   const item = order.value
   if (!item) return []
   return [
-    { label: 'Метод оплати', value: item.payment_method },
+    { label: 'Метод оплати', value: orderPaymentMethodLabel(item) },
     { label: 'External ID', value: item.external_id },
     { label: 'Sync status', value: item.external_sync_status },
     { label: 'Sync error', value: item.external_sync_error },
@@ -446,6 +447,7 @@ const updateStatus = async () => {
       </div></details>
       <div class="space-y-4">
       <section v-if="usesShopFiscal && !fiscalProfileReady" class="rounded-xl border border-amber-300 p-4" aria-label="Перевірка фіскального профілю"><p role="status">{{ fiscalProfileError || 'Перевіряємо серверний фіскальний профіль. Нові фіскальні дії тимчасово заблоковано; збережений запит не змінено.' }}</p><BaseButton :disabled="fiscalProfileLoading" @click="loadFiscalProfile">Оновити фіскальний профіль</BaseButton></section>
+      <p v-if="order.channel === 'shop' && !isBarber" class="text-sm font-medium" aria-label="Спосіб оплати">Спосіб оплати: {{ orderPaymentMethodLabel(order) }}</p>
       <OrderShopPayments v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
       <OrderShopPaymentResolution v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
       <OrderShopOperations v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />

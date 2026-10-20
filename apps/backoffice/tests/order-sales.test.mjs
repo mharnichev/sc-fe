@@ -66,3 +66,11 @@ test('actual command runtime persists before send, deduplicates clicks and reloa
   await rejection.execute({ items: [] }, async () => { throw { status: 409, data: { detail: { code: 'idempotency_conflict' } } } }, async () => {})
   assert.ok(rejection.intent.value)
 })
+
+test('online confirmation remains distinct from pending choice, ordinary card and COD', () => {
+  assert.equal(utils.orderPaymentMethodLabel({ payment_method: 'card', payment_channel: 'online_monobank' }), 'Онлайн через mono')
+  assert.equal(utils.orderPaymentMethodLabel({ payment_method: 'onlineCard' }), 'Онлайн через mono — очікує оплати')
+  assert.equal(utils.orderPaymentMethodLabel({ payment_method: 'card' }), 'Картка')
+  assert.equal(utils.orderPaymentMethodLabel({ payment_method: 'cashOnDelivery' }), 'Накладений платіж (готівка)')
+  assert.equal(utils.orderPaymentMethodLabel({ payment_method: null }), '—')
+})

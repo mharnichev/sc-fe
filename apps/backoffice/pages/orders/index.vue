@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { orderPaymentMethodLabel } from '~/utils/orderSales'
 import OrderProjections from '~/components/orders/OrderProjections.vue'
 import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { OrderSummary } from '~/composables/useBackofficeApi'
@@ -78,7 +79,7 @@ const prev = async () => {
               <p class="text-xs text-ui-muted">{{ deliveryLabel(order) }}</p>
             </td>
             <td data-label="Оплата" class="text-ui-secondary">
-              <p>{{ order.payment_method || '—' }}</p>
+              <p>{{ orderPaymentMethodLabel(order) }}</p>
               <OrderProjections :order="order" />
             </td>
             <td data-label="Sync" class="text-ui-secondary">

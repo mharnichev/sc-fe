@@ -28,3 +28,16 @@ export const orderStatusOptions = (legacy: boolean) => [
   ...(legacy ? [{ value: 'paid', label: 'Оплачено (історичне)' }, { value: 'completed', label: 'Завершено (історичне)' }] : []),
   { value: 'cancelled', label: 'Скасовано' },
 ]
+
+// Confirmation provenance, not the selected checkout method, identifies a paid
+// online transaction. Keep ordinary card and COD payments distinct.
+export const orderPaymentMethodLabel = (order: { payment_channel?: string | null, payment_method?: string | null }): string => {
+  if (order.payment_channel === 'online_monobank') return 'Онлайн через mono'
+  if (order.payment_method === 'onlineCard') return 'Онлайн через mono — очікує оплати'
+  const labels: Record<string, string> = {
+    cash: 'Готівка', card: 'Картка', bank_transfer: 'Банківський переказ',
+    cod: 'Накладений платіж', cashOnDelivery: 'Накладений платіж (готівка)',
+    cardOnDelivery: 'Накладений платіж (картка)', monobank_qr: 'QR mono',
+  }
+  return labels[order.payment_method || ''] || order.payment_method || '—'
+}

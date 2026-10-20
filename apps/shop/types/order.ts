@@ -52,17 +52,31 @@ export interface OrderProjections {
   fulfillment_method?: 'pickup' | 'nova_poshta' | null
   revision?: number
   payment_status?: string
+  payment_channel?: string | null
   fulfillment_status?: string
   fiscal_status?: string
   receipt_delivery_status?: string
   preliminary_documents?: PreliminaryDocument[]
 }
-export type CheckoutOrder = OrderDto & OrderProjections
+export type CheckoutOrder = OrderDto & OrderProjections & { guest_payment_token?: string | null, payment_method?: string }
 export type CustomerOrder = Omit<CustomerOrderDto, 'items'> & OrderProjections & {
   items: Array<CustomerOrderDto['items'][number] & { product_image_url?: string | null }>
 }
 
 export interface TrackingRefreshResponse {
   status: 'queued' | 'cooldown' | 'disabled' | 'no_real_shipments'
+  retry_after_seconds: number
+}
+
+export interface OnlinePayment {
+  order_id: number
+  enabled: boolean
+  status: 'not_started' | 'creation_unknown' | 'waiting' | 'paid_receipt_pending' | 'accepted' | 'requires_review'
+  paid: boolean
+  receipt_accepted: boolean
+  page_url: string | null
+  receipt_url: string | null
+  amount_minor: number
+  currency: 'UAH'
   retry_after_seconds: number
 }
