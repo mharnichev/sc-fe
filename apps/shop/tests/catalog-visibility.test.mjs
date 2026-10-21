@@ -51,7 +51,9 @@ test('wishlist distinguishes hidden navigation from purchase availability', () =
 test('recently viewed stays local and removes a hidden product after a 404', () => {
   assert.match(recentlyViewedSource, /\.filter\(isProductEffectivelyVisible\)/)
   assert.match(recentlyViewedSource, /removeBySlug\(slug: string\)/)
-  assert.doesNotMatch(recentlyViewedSource, /useCatalogDomain|\$fetch|useFetch/)
+  assert.match(recentlyViewedSource, /refreshLegacyProductPresentation/)
+  assert.match(recentlyViewedSource, /useCatalogDomain\(\)\.getProduct/)
+  assert.doesNotMatch(recentlyViewedSource, /recordProductView|addServerCartItem|addWishlistItem/)
   assert.match(productPageSource, /isNotFoundError/)
   assert.match(productPageSource, /recentlyViewed\.removeBySlug/)
   assert.match(productPageSource, /isProductUnavailable\(product\) && !isInCart/)

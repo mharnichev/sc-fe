@@ -1,4 +1,5 @@
 import type { ProductDto } from '@shared-types'
+import { refreshLegacyProductPresentation } from '~/utils/product-presentation-refresh'
 import { isProductEffectivelyVisible } from '~/utils/product-visibility'
 
 interface RecentlyViewedSnapshot {
@@ -66,10 +67,20 @@ export const useRecentlyViewedStore = defineStore('recently-viewed', {
             products.findIndex(candidate => candidate.id === product.id) === index,
           )
           .slice(0, HISTORY_LIMIT)
+        void this.refreshTranslations()
       }
       catch {
         localStorage.removeItem(STORAGE_KEY)
       }
+    },
+    async refreshTranslations() {
+      if (!import.meta.client || !this.products.length) return
+      await refreshLegacyProductPresentation([...this.products], useCatalogDomain().getProduct, (saved, enriched) => {
+        const index = this.products.indexOf(saved)
+        if (index < 0) return
+        this.products.splice(index, 1, enriched)
+        persistProducts(this.products)
+      })
     },
     add(product: ProductDto) {
       if (!import.meta.client) return

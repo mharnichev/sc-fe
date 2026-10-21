@@ -1,0 +1,26 @@
+export const productPageCopy = {
+  uk: {
+    gallery: 'Галерея товару', compositionTitle: 'Склад продукту', composition: 'Склад',
+    galleryNavigation: 'Навігація галереєю', characteristics: 'Характеристики', description: 'Опис',
+    chooseVolume: 'Оберіть об’єм товару', previousImage: 'Попереднє зображення', nextImage: 'Наступне зображення',
+    zoomOut: 'Зменшити зображення', zoomIn: 'Збільшити зображення', otherImages: 'Інші зображення товару',
+    loadingProduct: 'Завантаження товару', notFoundTitle: 'Товар не знайдено', loadErrorTitle: 'Не вдалося завантажити товар',
+    notFoundDescription: 'Перевірте адресу або поверніться до каталогу.', loadErrorDescription: 'Спробуйте оновити дані або поверніться до каталогу.',
+    retry: 'Спробувати ще раз', backToCatalog: 'До каталогу',
+    openImage: (index: number, name: string) => `Відкрити зображення ${index} товару ${name}`,
+    goToSlide: (index: number, total: number) => `Перейти до слайду ${index} з ${total}`,
+    showImage: (index: number) => `Показати зображення ${index}`,
+  },
+  en: {
+    gallery: 'Product gallery', compositionTitle: 'Product ingredients', composition: 'Ingredients',
+    galleryNavigation: 'Gallery navigation', characteristics: 'Characteristics', description: 'Description',
+    chooseVolume: 'Choose a product volume', previousImage: 'Previous image', nextImage: 'Next image',
+    zoomOut: 'Zoom out', zoomIn: 'Zoom in', otherImages: 'Other product images',
+    loadingProduct: 'Loading product', notFoundTitle: 'Product not found', loadErrorTitle: 'Could not load the product',
+    notFoundDescription: 'Check the address or return to the catalog.', loadErrorDescription: 'Try refreshing the data or return to the catalog.',
+    retry: 'Try again', backToCatalog: 'Back to catalog',
+    openImage: (index: number, name: string) => `Open image ${index} of ${name}`,
+    goToSlide: (index: number, total: number) => `Go to slide ${index} of ${total}`,
+    showImage: (index: number) => `Show image ${index}`,
+  },
+} as const

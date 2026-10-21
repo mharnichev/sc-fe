@@ -1,3 +1,5 @@
+import { refreshLegacyProductPresentation } from '~/utils/product-presentation-refresh'
+
 const readSnapshot = <T>(key: string): Partial<T> | null => {
   const snapshot = localStorage.getItem(key)
   if (!snapshot) return null
@@ -60,6 +62,19 @@ export default defineNuxtPlugin(() => {
         customer: state.customer,
       }))
     }, { immediate: true })
+
+    if (scope === 'guest') {
+      const snapshots = [...(cart.items || []).map(item => item.product), ...(favorites.products || [])]
+      if (snapshots.length) {
+        const isCurrentSession = customerAuth.captureSession()
+        void refreshLegacyProductPresentation(snapshots, useCatalogDomain().getProduct, (saved, enriched) => {
+          const cartItem = cart.items.find(item => item.product === saved)
+          if (cartItem) cartItem.product = enriched
+          const favoriteIndex = favorites.products.indexOf(saved)
+          if (favoriteIndex >= 0) favorites.products.splice(favoriteIndex, 1, enriched)
+        }, () => isCurrentSession() && !customerAuth.isAuthenticated && cart.ownerScope === 'guest' && favorites.ownerScope === 'guest')
+      }
+    }
 
     if (customerAuth.accessToken) {
       void Promise.allSettled([
