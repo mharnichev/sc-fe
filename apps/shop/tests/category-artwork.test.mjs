@@ -47,13 +47,13 @@ test('every image has a valid category path, including repeated leaf names in di
   assert.notEqual(categoryArtwork('kosmetika-pislia-golinnia-balzam').file, categoryArtwork('kosmetika-dlia-borodi-balzam').file)
 })
 
-test('illustrated cards retain the existing localized description and empty-description fallback contract', async () => {
+test('illustrated cards retain localized descriptions without generic fallback subtitles', async () => {
   const cards = await read('../components/catalog/CatalogCategoryCards.vue')
   const landing = await read('../components/catalog/CatalogCategoryLandingRoute.vue')
   assert.match(cards, /categoryDisplayName, categoryDisplayDescription/)
   assert.match(cards, /v-if="categoryDisplayDescription\(category\)"/)
   assert.match(cards, /\{\{ categoryDisplayDescription\(category\) \}\}/)
-  assert.match(cards, /terms\.catalog\.sidebarFallbackTitle : terms\.catalog\.productsSuffix/)
+  assert.doesNotMatch(cards, /terms\.catalog\.(sidebarFallbackTitle|productsSuffix)/)
   assert.match(landing, /categoryDisplayDescription\(currentCategory\)/)
   assert.match(landing, /<CatalogCategoryCards/)
 })

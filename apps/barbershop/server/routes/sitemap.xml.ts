@@ -26,6 +26,7 @@ type SitemapRoute = {
 
 const staticRoutes: SitemapRoute[] = [
   { loc: '/', priority: '1.0', changefreq: 'weekly' },
+  { loc: '/znyzhka-dlia-zsu', priority: '0.8', changefreq: 'monthly' },
   { loc: '/barbershop-odesa', priority: '0.9', changefreq: 'monthly' },
   { loc: '/services', priority: '0.8', changefreq: 'weekly' },
   { loc: '/masters', priority: '0.8', changefreq: 'weekly' },

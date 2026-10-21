@@ -2,7 +2,7 @@
 import logoNameDark from '~/assets/images/main/sc-logo-name-dark.webp'
 import logoVinylDark from '~/assets/logo-vinyl-dark.webp'
 
-const { terms } = useTerms()
+const { locale, terms } = useTerms()
 const { resetCookieConsent } = useCookieConsent()
 const { trackContactClick, trackEvent } = useAnalytics()
 
@@ -116,6 +116,11 @@ onMounted(() => {
             <p>
               <NuxtLink to="/barbershop-odesa" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.common.localSeoPage }}</BaseHoverUnderlineText>
+              </NuxtLink>
+            </p>
+            <p>
+              <NuxtLink to="/znyzhka-dlia-zsu" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ locale === 'en' ? 'Military discount' : 'Знижка для ЗСУ' }}</BaseHoverUnderlineText>
               </NuxtLink>
             </p>
             <p>

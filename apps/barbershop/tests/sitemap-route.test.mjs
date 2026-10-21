@@ -45,6 +45,7 @@ test('successful sitemap uses bounded upstream requests and excludes private pat
   const event = { headers: {} }
   const xml = await handleSitemap(event)
   assert.equal(requests.length, 3)
+  assert.match(xml, /https:\/\/soulcuts\.com\.ua\/znyzhka-dlia-zsu/)
   assert.ok(requests.every(request => request.options.timeout === 5000 && request.options.retry === 0))
   assert.match(xml, /https:\/\/soulcuts\.com\.ua\/services\/safe/)
   assert.match(xml, /https:\/\/soulcuts\.com\.ua\/masters\/safe/)
