@@ -14,6 +14,7 @@ const contacts = computed(() => [
 ])
 
 const submit = async () => {
+  if (state.loading) return
   state.loading = true
   state.done = false
   state.error = ''
@@ -71,7 +72,7 @@ useSeo(
           <h2>{{ terms.contacts.feedbackTitle }}</h2>
           <p>{{ terms.contacts.feedbackText }}</p>
         </div>
-        <BaseInput v-model="form.name" :label="terms.checkout.firstName" required autocomplete="name" />
+        <BaseInput v-model="form.name" rule="name" :label="terms.checkout.firstName" required autocomplete="name" />
         <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" required autocomplete="email" />
         <BaseTextarea v-model="form.text" :label="terms.contacts.message" required :rows="5" />
         <BaseButton type="submit" :disabled="state.loading">

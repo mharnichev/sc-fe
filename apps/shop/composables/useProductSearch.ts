@@ -1,3 +1,4 @@
+import { sanitizeInput } from '~/utils/inputSafety'
 import type { ProductSearchResponseDto } from '@shared-types'
 
 const emptySearchResponse = (): ProductSearchResponseDto => ({
@@ -11,17 +12,21 @@ export const useProductSearch = (limit = 6) => {
   const domain = useCatalogDomain()
   const searchCache = useState<Record<string, ProductSearchResponseDto>>('shop-product-search-cache', () => ({}))
   const lastSearchTerm = useState<string>('shop-last-product-search-term', () => '')
-  const searchTerm = ref(
+  const rawSearchTerm = ref(
     Array.isArray(route.query.q)
       ? String(route.query.q[0] || '')
       : String(route.query.q || ''),
   )
+  const searchTerm = computed({
+    get: () => sanitizeInput(rawSearchTerm.value, 'search'),
+    set: (value: string) => { rawSearchTerm.value = sanitizeInput(value, 'search') },
+  })
   const suggestions = ref<ProductSearchResponseDto>(emptySearchResponse())
   const isSearchLoading = ref(false)
   let searchTimer: ReturnType<typeof setTimeout> | undefined
   let searchRequest = 0
 
-  const normalizedSearchTerm = computed(() => searchTerm.value.trim())
+  const normalizedSearchTerm = computed(() => sanitizeInput(searchTerm.value, 'search').trim())
   const searchCacheKey = (term: string) => `${limit}:${term.toLocaleLowerCase()}`
   const hasSearchQuery = computed(() => normalizedSearchTerm.value.length >= 3)
   const hasSearchResults = computed(() =>
@@ -63,7 +68,7 @@ export const useProductSearch = (limit = 6) => {
     if (searchTimer) clearTimeout(searchTimer)
     if (!import.meta.client) return
 
-    const term = value.trim()
+    const term = sanitizeInput(value, 'search').trim()
     const request = ++searchRequest
     if (term.length < 3) {
       isSearchLoading.value = false

@@ -123,8 +123,8 @@ useSeo(
           <p>{{ terms.cabinet.personalDataText }}</p>
         </div>
         <div class="cabinet-settings__fields cabinet-settings__fields--two">
-          <BaseInput v-model="form.name" :label="terms.checkout.firstName" autocomplete="given-name" />
-          <BaseInput v-model="form.surname" :label="terms.checkout.lastName" autocomplete="family-name" />
+          <BaseInput v-model="form.name" rule="name" :label="terms.checkout.firstName" autocomplete="given-name" />
+          <BaseInput v-model="form.surname" rule="name" :label="terms.checkout.lastName" autocomplete="family-name" />
         </div>
       </section>
 
@@ -165,7 +165,7 @@ useSeo(
           <h2>{{ terms.cabinet.birthDate }}</h2>
           <p>{{ terms.cabinet.birthDateText }}</p>
         </div>
-        <BaseInput v-model="form.birthday" type="date" :label="terms.cabinet.birthDate" />
+        <BaseInput v-model="form.birthday" type="date" min="1900-01-01" :max="new Date().toISOString().slice(0, 10)" :label="terms.cabinet.birthDate" />
       </section>
 
       <div class="cabinet-settings__actions">

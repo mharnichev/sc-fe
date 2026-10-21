@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { boundedInteger } from '~/utils/inputSafety'
 const props = withDefaults(defineProps<{
   min?: number
   max?: number
@@ -9,7 +10,7 @@ const props = withDefaults(defineProps<{
   variant?: 'default' | 'stacked'
 }>(), {
   min: 0,
-  max: Number.POSITIVE_INFINITY,
+  max: 999,
   step: 1,
   disabled: false,
   disableIncrease: false,
@@ -22,9 +23,20 @@ const { terms } = useShopLocale()
 
 const resolvedAriaLabel = computed(() => props.ariaLabel || terms.value.quantity.label)
 
-const clamp = (value: number) => Math.min(props.max, Math.max(props.min, value))
+const clamp = (value: number) => boundedInteger(value, props.min, Math.min(props.max, 999))
 const update = (value: number) => {
   model.value = clamp(value)
+}
+const onInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  // Clearing the field is a draft, not an instruction to remove the cart item.
+  if (!input.value || !Number.isInteger(input.valueAsNumber)) return
+  update(input.valueAsNumber)
+  input.value = String(model.value)
+}
+const onBlur = (event: Event) => {
+  update(Number.isFinite(model.value) ? model.value : props.min)
+  ;(event.target as HTMLInputElement).value = String(model.value)
 }
 </script>
 
@@ -43,15 +55,16 @@ const update = (value: number) => {
       -
     </button>
     <input
-      v-model.number="model"
+      :value="model"
+      @input="onInput"
       class="base-quantity-stepper__input"
       type="number"
       :min="min"
-      :max="Number.isFinite(max) ? max : undefined"
+      :max="Math.min(max, 999)"
       :step="step"
       :disabled="disabled"
       :aria-label="resolvedAriaLabel"
-      @blur="update(Number.isFinite(model) ? model : min)"
+      @blur="onBlur"
     >
     <button
       class="base-quantity-stepper__button"

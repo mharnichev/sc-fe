@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useId } from 'vue'
+import { sanitizeInput } from '~/utils/inputSafety'
 const props = withDefaults(defineProps<{
   label: string; options: Array<{ value: string; label: string }>; loading?: boolean; error?: string;
   placeholder?: string; disabled?: boolean; required?: boolean; emptyText?: string; loadingText?: string; retryText?: string
@@ -10,6 +11,14 @@ const id = `autocomplete-${useId()}`
 const open = ref(false)
 const active = ref(-1)
 watch(() => props.options, () => { active.value = -1 })
+const onInput = (event: Event) => {
+  if ((event as InputEvent).isComposing) return
+  const input = event.target as HTMLInputElement
+  input.value = sanitizeInput(input.value, 'address')
+  model.value = input.value
+  open.value = true
+  active.value = -1
+}
 const choose = (index: number) => {
   const option = props.options[index]
   if (!option) return
@@ -42,12 +51,12 @@ const keydown = (event: KeyboardEvent) => {
 <template>
   <BaseField v-slot="{ id: fieldId, descriptionId, errorId, invalid }" :id="id" :label="label" :error="error" :required="required" :disabled="disabled">
     <div class="base-autocomplete" @focusout="focusout">
-      <input :id="fieldId" v-model="model" class="base-control" :class="{ 'base-control--invalid': invalid }"
+      <input :id="fieldId" :value="model" maxlength="160" class="base-control" :class="{ 'base-control--invalid': invalid }"
         role="combobox" aria-autocomplete="list" :aria-expanded="open && !disabled" :aria-controls="`${id}-list`"
         :aria-activedescendant="open && active >= 0 ? `${id}-option-${active}` : undefined"
         :aria-describedby="[descriptionId, errorId].filter(Boolean).join(' ') || undefined" :aria-invalid="invalid || undefined"
         :aria-busy="loading" :placeholder="placeholder" :disabled="disabled" :required="required" autocomplete="off"
-        @focus="open = true" @input="open = true; active = -1" @keydown="keydown">
+        @focus="open = true" @input="onInput" @compositionend="onInput" @keydown="keydown">
       <div v-if="open && !disabled" class="base-autocomplete__popup">
         <ul :id="`${id}-list`" role="listbox" :aria-label="label" class="base-autocomplete__list">
           <li v-for="(option, index) in options" :id="`${id}-option-${index}`" :key="option.value" role="option"

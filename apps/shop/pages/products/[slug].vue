@@ -331,7 +331,7 @@ const formatDate = (value: string) => new Intl.DateTimeFormat(dateLocale.value, 
 }).format(new Date(value))
 
 const submitReview = async () => {
-  if (!product.value || !auth.isAuthenticated || !reviewForm.text.trim()) return
+  if (reviewState.loading || !product.value || !auth.isAuthenticated || !reviewForm.text.trim()) return
 
   reviewState.loading = true
   reviewState.error = ''
@@ -678,7 +678,7 @@ useHead(() => ({
             </div>
           </div>
           <BaseTextarea
-            v-model="reviewForm.text"
+            v-model="reviewForm.text" rule="review"
             :label="terms.product.review"
             :rows="5"
             :disabled="!auth.isAuthenticated"

@@ -66,8 +66,8 @@ importers:
   apps/barbershop:
     dependencies:
       '@dobrodesk/widget':
-        specifier: 0.3.1
-        version: 0.3.1
+        specifier: 0.3.2
+        version: 0.3.2
       '@heroicons/vue':
         specifier: ^2.1.5
         version: 2.2.0(vue@3.5.40(typescript@6.0.2))
@@ -312,9 +312,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       postcss-selector-parser: ^7.0.0
-
-  '@dobrodesk/widget@0.3.1':
-    resolution: {integrity: sha512-knRM/aNJWShe2wQx/bZGPgpbHsbzF1AKchH2y8Cykcz+Wrh1TGaHnBEdaOFeEVwxN9XryRnmvxgfZTbICdbdWw==}
 
   '@dobrodesk/widget@0.3.2':
     resolution: {integrity: sha512-vd8rSVcHV1grizj/BHm5VT8wXnUS1rdx4XW1OYxdZN/ug2jsD6Sn35/NB/ByufFVE3cualUb8/j896xBHpWknw==}
@@ -4368,8 +4365,6 @@ snapshots:
   '@csstools/selector-specificity@5.0.0(postcss-selector-parser@7.1.1)':
     dependencies:
       postcss-selector-parser: 7.1.1
-
-  '@dobrodesk/widget@0.3.1': {}
 
   '@dobrodesk/widget@0.3.2': {}
 

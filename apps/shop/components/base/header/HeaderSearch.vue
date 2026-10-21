@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { sanitizeInput } from '~/utils/inputSafety'
+const onSearchInput = (event: Event) => {
+  if ((event as InputEvent).isComposing) return
+  const input = event.target as HTMLInputElement
+  input.value = sanitizeInput(input.value, 'search')
+  searchTerm.value = input.value
+}
 import type { CategoryTreeNodeDto } from '@shared-types'
 
 const TYPE_MS = 95
@@ -179,7 +186,10 @@ defineExpose({ closeSearch })
     <div class="header-search__control">
       <input
         ref="searchInput"
-        v-model="searchTerm"
+        :value="searchTerm"
+        maxlength="120"
+        @input="onSearchInput"
+        @compositionend="onSearchInput"
         class="header-search__field"
         type="search"
         :placeholder="animatedSearchPlaceholder"

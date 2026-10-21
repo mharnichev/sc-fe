@@ -1,5 +1,9 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { sanitizeInput, inputLimits, type InputRule } from '~/utils/inputSafety'
+
+const props = withDefaults(defineProps<{
+  accessibleLabel?: string
+  rule?: InputRule
   id?: string
   label?: string
   description?: string
@@ -34,6 +38,18 @@ withDefaults(defineProps<{
 })
 
 const model = defineModel<string | number>({ default: '' })
+const resolvedRule = computed<InputRule>(() => props.rule || (props.autocomplete === 'one-time-code' ? 'otp' : props.type === 'email' ? 'email' : props.type === 'tel' ? 'phone' : props.type === 'search' ? 'search' : 'text'))
+const nativeValue = computed(() => ['number', 'date', 'datetime-local', 'password'].includes(props.type))
+const onInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if ((event as InputEvent).isComposing) return
+  // Do not turn an invalid pasted OTP into a different, valid code.
+  const value = nativeValue.value || ['otp', 'email'].includes(resolvedRule.value) ? input.value : sanitizeInput(input.value, resolvedRule.value)
+  input.value = value
+  model.value = props.type === 'number' && value !== '' && Number.isFinite(input.valueAsNumber)
+    ? input.valueAsNumber : value
+  if (props.type === 'number') nextTick(() => { input.value = String(model.value) })
+}
 </script>
 
 <template>
@@ -49,7 +65,12 @@ const model = defineModel<string | number>({ default: '' })
     <div class="base-input__control" :class="{ 'base-input__control--trailing': $slots.trailing }">
     <input
       :id="fieldId"
-      v-model="model"
+      :aria-label="accessibleLabel"
+      :value="model"
+      :maxlength="nativeValue || resolvedRule === 'otp' ? undefined : inputLimits[resolvedRule]"
+      :pattern="resolvedRule === 'otp' ? '[0-9]{6}' : undefined"
+      @input="onInput"
+      @compositionend="onInput"
       class="base-control"
       :class="[
         `base-control--${tone}`,
