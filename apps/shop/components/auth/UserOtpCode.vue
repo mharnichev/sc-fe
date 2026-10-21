@@ -31,6 +31,7 @@ const formattedCountdown = computed(() => {
 })
 
 const resendAvailable = computed(() => countdown.value <= 0)
+const isOtpComplete = computed(() => /^\d{6}$/.test(otpCode.value.trim()))
 
 const startCountdown = () => {
   countdown.value = 120
@@ -48,7 +49,7 @@ const startCountdown = () => {
 
 const verifyOtp = async () => {
   const code = otpCode.value.trim()
-  if (!props.phone || code.length < 4 || auth.loading) return
+  if (!props.phone || !isOtpComplete.value || auth.loading) return
 
   errorMessage.value = ''
   statusMessage.value = ''
@@ -77,8 +78,8 @@ const resendOtp = async () => {
   }
 }
 
-watch(otpCode, value => {
-  if (value.trim().length >= 6) verifyOtp()
+watch(otpCode, () => {
+  if (isOtpComplete.value) void verifyOtp()
 })
 
 onMounted(startCountdown)
@@ -112,7 +113,7 @@ onBeforeUnmount(() => {
         :error="runtimeMessage(errorMessage)"
       />
 
-      <BaseButton type="submit" block :disabled="auth.loading || otpCode.trim().length < 4">
+      <BaseButton type="submit" block :disabled="auth.loading || !isOtpComplete">
         {{ auth.loading ? terms.auth.checking : terms.auth.confirm }}
       </BaseButton>
 
