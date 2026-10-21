@@ -132,6 +132,9 @@ const firstVisitOffer = computed(() => firstVisitOffers(offers.value)
 const serviceName = computed(() => localizedService.serviceName(service))
 const serviceDescription = computed(() => localizedService.serviceDescription(service))
 const guide = computed(() => serviceGuide(service.base_service_id, service.title_uk || service.name, locale.value))
+const relatedServices = computed(() => indexableServiceCatalog(serviceCatalog.value)
+  .filter(item => guide.value?.relatedServiceIds.includes(item.base_service_id ?? 0))
+  .map(item => ({ name: localizedService.serviceName(item), path: serviceSeoPath(item) })))
 const bookingPath = seoBookingPath({ serviceSlug: serviceSeoSlug(service) })
 const indexableMasters = computed(() => indexablePublicMasters(masters.value))
 const indexableMastersById = computed(() =>
@@ -221,6 +224,7 @@ const copy = computed(() => locale.value === 'en'
       price: 'Price',
       preparation: 'Before your visit',
       relatedTitle: 'More from Soul Cuts',
+      compareTitle: 'Compare services before booking',
       result: 'What to discuss with your barber',
       services: 'All services',
     }
@@ -237,6 +241,7 @@ const copy = computed(() => locale.value === 'en'
       price: 'Вартість',
       preparation: 'Перед візитом',
       relatedTitle: 'Більше про Soul Cuts',
+      compareTitle: 'Порівняйте послуги перед записом',
       result: 'Що обговорити з барбером',
       services: 'Усі послуги',
     })
@@ -253,8 +258,7 @@ const sentence = (value: string) => {
 }
 const seoDescription = computed(() =>
   [
-    sentence(serviceDescription.value),
-    guide.value ? sentence(guide.value.intro) : '',
+    sentence(guide.value?.intro || serviceDescription.value),
     priceSummary.value ? `${copy.value.price}: ${priceSummary.value}.` : '',
     durationSummary.value ? `${copy.value.duration}: ${durationSummary.value}.` : '',
   ].filter(Boolean).join(' '),
@@ -297,7 +301,7 @@ useSeo(
 )
 useServiceStructuredData(() => ({
   name: serviceName.value,
-  description: [serviceDescription.value, guide.value?.intro].filter(Boolean).join(' '),
+  description: guide.value?.intro || serviceDescription.value,
   durationMinutes: offerDurations.length === 1 ? offerDurations[0] : null,
   path: servicePath,
   offers: service.barber_services.map((offer) => {
@@ -339,10 +343,7 @@ if (faqItems.value.length) {
               {{ serviceName }}
             </h1>
             <p class="mt-6 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
-              {{ serviceDescription }}
-            </p>
-            <p v-if="guide" class="mt-4 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
-              {{ guide.intro }}
+              {{ guide?.intro || serviceDescription }}
             </p>
             <BookingPromotionNotice v-if="firstVisitOffer" :offer="firstVisitOffer" theme="light" class="mt-5 max-w-2xl" />
 
@@ -382,6 +383,17 @@ if (faqItems.value.length) {
           <h2 class="text-xl font-semibold text-stone-950">{{ copy.result }}</h2>
           <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.result }}</p>
         </article>
+      </div>
+    </section>
+
+    <section v-if="relatedServices.length" class="border-b border-stone-300 bg-white py-8">
+      <div class="site-container">
+        <h2 class="text-xl font-semibold text-stone-950">{{ copy.compareTitle }}</h2>
+        <nav class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-800" :aria-label="copy.compareTitle">
+          <NuxtLink v-for="item in relatedServices" :key="item.path" :to="item.path">
+            <BaseHoverUnderlineText>{{ item.name }}</BaseHoverUnderlineText>
+          </NuxtLink>
+        </nav>
       </div>
     </section>
 

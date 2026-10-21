@@ -1,4 +1,5 @@
 import type { MasterDto, ServiceCatalogBarberServiceDto, ServiceCatalogItemDto, ServiceDto, ServicePromotionDto } from '@shared-types'
+import { hasServiceGuide } from '~/data/serviceGuideNames'
 import { activeBaseCatalogItems, activeMasterServices } from '~/composables/useActiveServiceCatalog'
 
 type SluggedEntity = {
@@ -208,7 +209,8 @@ const hasApprovedServiceContent = (service: ServiceCatalogItemDto) =>
   && Boolean(
     cleanText(service.description_uk)
     || cleanText(service.description_en)
-    || cleanText(service.description),
+    || cleanText(service.description)
+    || hasServiceGuide(service.base_service_id, service.title_uk || service.name),
   )
 
 const normalizedServiceName = (service: ServiceCatalogItemDto) =>
