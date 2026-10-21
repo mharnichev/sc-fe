@@ -4,6 +4,7 @@ import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
+import { productPageCopy } from '~/utils/product-page-localization'
 import { isProductUnavailable } from '~/utils/product-visibility'
 import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
 const { runtimeMessage } = useShopRuntimeDisplay()
@@ -21,6 +22,7 @@ const favorites = useFavoritesStore()
 const auth = useCustomerAuthStore()
 const recentlyViewed = useRecentlyViewedStore()
 const { terms, dateLocale, locale } = useShopLocale()
+const productText = computed(() => productPageCopy[locale.value === 'en' ? 'en' : 'uk'])
 const { formatPrice } = useShopPriceFormatter()
 
 const emptyReviews: ProductReviewListDto = { total: 0, average_rating: null, items: [] }
@@ -423,7 +425,7 @@ useHead(() => ({
                 ref="mobileGallery"
                 class="product-gallery__track"
                 :class="{ 'product-gallery__track--single-image': galleryImages.length === 1 }"
-                aria-label="Галерея товару"
+                :aria-label="productText.gallery"
                 @scroll.passive="updateActiveGallerySlide"
               >
                 <template v-for="(item, index) in galleryItems" :key="item.type === 'image' ? item.image.image : 'composition'">
@@ -432,7 +434,7 @@ useHead(() => ({
                     class="product-gallery__image-button"
                     type="button"
                     variant="borderless"
-                    :aria-label="`Відкрити зображення ${item.imageIndex + 1} товару ${productDisplayName(product)}`"
+                    :aria-label="productText.openImage(item.imageIndex + 1, productDisplayName(product))"
                     @click="openGalleryImage(item.image.image)"
                   >
                     <img
@@ -446,9 +448,9 @@ useHead(() => ({
                   <article
                     v-else
                     class="product-gallery__composition-card"
-                    aria-label="Склад продукту"
+                    :aria-label="productText.compositionTitle"
                   >
-                    <BaseBadge class="product-gallery__composition-label" tone="neutral">Склад</BaseBadge>
+                    <BaseBadge class="product-gallery__composition-label" tone="neutral">{{ productText.composition }}</BaseBadge>
                     <div class="product-gallery__composition-content">
                       <p>{{ productComposition }}</p>
                     </div>
@@ -456,7 +458,7 @@ useHead(() => ({
                 </template>
               </div>
 
-              <div v-if="galleryItems.length > 1" class="product-gallery__indicator" aria-label="Навігація галереєю">
+              <div v-if="galleryItems.length > 1" class="product-gallery__indicator" :aria-label="productText.galleryNavigation">
                 <BaseButton
                   v-for="(_, index) in galleryItems"
                   :key="index"
@@ -465,7 +467,7 @@ useHead(() => ({
                   variant="borderless"
                   shape="circle"
                   :class="{ 'product-gallery__indicator-button--active': activeGallerySlideIndex === index }"
-                  :aria-label="`Перейти до слайду ${index + 1} з ${galleryItems.length}`"
+                  :aria-label="productText.goToSlide(index + 1, galleryItems.length)"
                   :aria-current="activeGallerySlideIndex === index ? 'true' : undefined"
                   @click="scrollGalleryTo(index)"
                 />
@@ -515,7 +517,7 @@ useHead(() => ({
             </div>
 
             <section v-if="characteristicEntries.length" class="product-characteristics">
-              <h2 class="product-section-title">Характеристики</h2>
+              <h2 class="product-section-title">{{ productText.characteristics }}</h2>
               <dl class="product-characteristics__list">
                 <div
                   v-for="[name, value] in characteristicEntries"
@@ -569,7 +571,7 @@ useHead(() => ({
                 class="product-buy__variants-tabs"
                 :model-value="String(product.id)"
                 :tabs="volumeTabs"
-                aria-label="Оберіть об’єм товару"
+                :aria-label="productText.chooseVolume"
               />
             </div>
 
@@ -618,7 +620,7 @@ useHead(() => ({
           -->
 
           <section v-if="productDescriptionHtml" class="product-description" itemprop="description">
-            <h2 class="product-section-title">Опис</h2>
+            <h2 class="product-section-title">{{ productText.description }}</h2>
             <div class="product-description__html" v-html="productDescriptionHtml" />
           </section>
         </div>
@@ -692,7 +694,7 @@ useHead(() => ({
             <p class="product-reviews__muted">{{ terms.product.signInToReview }}</p>
             <CustomerAuthDialog />
           </div>
-          <p v-if="reviewState.error" class="product-page__error">{{ reviewState.error }}</p>
+          <p v-if="reviewState.error" class="product-page__error">{{ runtimeMessage(reviewState.error) }}</p>
         </form>
       </section>
 
@@ -721,7 +723,7 @@ useHead(() => ({
           type="button"
           variant="outline-dark"
           shape="circle"
-          aria-label="Попереднє зображення"
+          :aria-label="productText.previousImage"
           @click="moveGalleryModalImage(-1)"
         >
           <BaseIcon name="chevron-left" size="xxs" />
@@ -730,7 +732,7 @@ useHead(() => ({
         <button
           class="product-gallery-modal__stage"
           type="button"
-          :aria-label="isGalleryImageZoomed ? 'Зменшити зображення' : 'Збільшити зображення'"
+          :aria-label="isGalleryImageZoomed ? productText.zoomOut : productText.zoomIn"
           @click="toggleGalleryImageZoom"
         >
           <Transition name="product-gallery-modal-image" mode="out-in">
@@ -747,7 +749,7 @@ useHead(() => ({
         <div
           v-if="galleryImages.length > 1"
           class="product-gallery-modal__thumbnails"
-          aria-label="Інші зображення товару"
+          :aria-label="productText.otherImages"
         >
           <BaseButton
             v-for="(image, index) in galleryImages"
@@ -756,7 +758,7 @@ useHead(() => ({
             :class="{ 'product-gallery-modal__thumbnail--active': image.image === selectedModalImage }"
             type="button"
             variant="borderless"
-            :aria-label="`Показати зображення ${index + 1}`"
+            :aria-label="productText.showImage(index + 1)"
             :aria-current="image.image === selectedModalImage ? 'true' : undefined"
             @click="selectImage(image.image)"
           >
@@ -770,7 +772,7 @@ useHead(() => ({
           type="button"
           variant="outline-dark"
           shape="circle"
-          aria-label="Наступне зображення"
+          :aria-label="productText.nextImage"
           @click="moveGalleryModalImage(1)"
         >
           <BaseIcon name="chevron-right" size="xxs" />
@@ -782,7 +784,7 @@ useHead(() => ({
   <section
     v-else-if="!productError"
     class="product-page product-page--loading"
-    aria-label="Завантаження товару"
+    :aria-label="productText.loadingProduct"
     aria-busy="true"
   >
     <div class="product-page__container">
@@ -861,15 +863,15 @@ useHead(() => ({
   <section v-else class="product-page product-page--error">
     <FeedbackState
       kind="error"
-      :title="isNotFoundError(productError) ? 'Товар не знайдено' : 'Не вдалося завантажити товар'"
-      :description="isNotFoundError(productError) ? 'Перевірте адресу або поверніться до каталогу.' : 'Спробуйте оновити дані або поверніться до каталогу.'"
+      :title="isNotFoundError(productError) ? productText.notFoundTitle : productText.loadErrorTitle"
+      :description="isNotFoundError(productError) ? productText.notFoundDescription : productText.loadErrorDescription"
       :seed="String(route.params.slug)"
     >
       <BaseButton v-if="!isNotFoundError(productError)" type="button" @click="refreshProduct">
-        Спробувати ще раз
+        {{ productText.retry }}
       </BaseButton>
       <BaseButton to="/catalog" variant="outline-dark">
-        До каталогу
+        {{ productText.backToCatalog }}
       </BaseButton>
     </FeedbackState>
   </section>

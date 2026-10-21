@@ -54,7 +54,8 @@ const setup = async (t, overrides = {}, storage = new Map()) => {
   cart = cartModule.useCartStore(instance)
   favorites = favoritesModule.useFavoritesStore(instance)
   return { auth, cart, favorites, domain, calls, toasts, storage, startPersistence: async () => {
-    const plugin = await importSource(await readFile(new URL('../plugins/persist.client.ts', import.meta.url), 'utf8'))
+    Object.assign(globalThis, await importSource(await readFile(new URL('../utils/product-presentation-refresh.ts', import.meta.url), 'utf8')))
+    const plugin = await importSource((await readFile(new URL('../plugins/persist.client.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, ''))
     plugin.default()
     ready()
   } }

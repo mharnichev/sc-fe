@@ -50,7 +50,7 @@ const switchTab = (value: string) => {
     }"
     :style="{ '--catalog-tab-index': activeIndex, '--catalog-tab-count': tabs.length }"
     role="tablist"
-    :aria-label="ariaLabel || 'Сортування'"
+    :aria-label="ariaLabel || terms.catalog.sort"
   >
     <component
       v-for="tab in tabs"
