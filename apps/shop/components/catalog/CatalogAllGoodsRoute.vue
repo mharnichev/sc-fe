@@ -404,7 +404,13 @@ useSeo(
 <template>
   <section class="catalog-route">
     <div class="catalog-route__container">
-      <div class="catalog-route__title-wrapper">
+      <CatalogBreadcrumbs
+        v-if="!topOnly"
+        :items="[{ id: 0, slug: 'catalog', name: terms.catalog.title }]"
+      />
+      <h1 v-if="!topOnly" class="sr-only">{{ terms.catalog.title }}</h1>
+
+      <div v-if="topOnly" class="catalog-route__title-wrapper">
         <div>
           <p v-if="topOnly" class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
           <h1 class="catalog-route__title section-title type-title-strong">

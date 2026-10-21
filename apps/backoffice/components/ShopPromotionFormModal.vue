@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { productDisplayImage } from '~/utils/productImages'
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -32,6 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const api = useBackofficeApi()
+const assetUrl = useAssetUrl()
 const toast = useBaseToastNotification()
 const { apiErrorMessage, formatMoney, normalizeItems } = useBookingFormatting()
 
@@ -89,6 +91,7 @@ const normalizeNumberIds = (values?: Array<number | string> | null) =>
 const productOptions = computed(() => products.value.map(product => ({
   value: product.id,
   label: product.name,
+  imageUrl: assetUrl(productDisplayImage(product)),
   description: product.sku ? `SKU: ${product.sku}` : null,
   searchText: `${product.name} ${product.sku || ''}`,
 })))
