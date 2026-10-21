@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { safeRequestBody } from '~/utils/inputSafety'
 import { guestShipmentPath } from '~/utils/shipmentStatus'
 import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
 import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
 import { isProductUnavailable } from '~/utils/product-visibility'
 const { runtimeText, runtimeMessage, orderItemName } = useShopRuntimeDisplay()
+const { paymentText } = usePaymentDisplay()
 
 const { productDisplayName } = useProductDisplay()
 
@@ -137,7 +139,7 @@ onMounted(async () => {
 const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
   { label: terms.value.checkout.paymentOptions.cardOnDelivery, value: 'cardOnDelivery' },
-  ...(onlinePaymentEnabled.value ? [{ label: 'Онлайн карткою', value: 'onlineCard' }] : []),
+  ...(onlinePaymentEnabled.value ? [{ label: paymentText.value.option, value: 'onlineCard' }] : []),
 ])
 const isDeliveryValid = computed(() => {
   if (!selectedCity.value) return false
@@ -280,7 +282,10 @@ const submit = async () => {
     },
     items: cart.items.map(item => ({ product_id: item.product.id, quantity: item.quantity })),
   }
-  const intent = { key: crypto.randomUUID(), body, scope: customerScope.value }
+  let safeBody: CheckoutOrderRequest
+  try { safeBody = safeRequestBody('/public/orders', 'POST', body) as CheckoutOrderRequest }
+  catch (error) { state.error = error instanceof Error ? error.message : 'Перевірте дані замовлення.'; return }
+  const intent = { key: crypto.randomUUID(), body: safeBody, scope: customerScope.value }
   // Persist before the HTTP request; never send if durable retry storage is unavailable.
   try { sessionStorage.setItem(intentStorageKey, JSON.stringify(intent)) }
   catch { state.error = 'Дозвольте збереження сесії браузера для безпечного оформлення замовлення.'; return }
@@ -312,7 +317,7 @@ useSeo(
       </div>
       <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
-      <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="outline-dark">Сторінка статусу оплати</BaseButton>
+      <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="outline-dark">{{ paymentText.statusPage }}</BaseButton>
       <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
@@ -388,8 +393,8 @@ useSeo(
               <h2>{{ terms.checkout.contact }}</h2>
             </div>
             <div class="checkout-form__grid checkout-form__grid--two">
-              <BaseInput v-model="form.firstName" :label="terms.checkout.firstName" required autocomplete="given-name" />
-              <BaseInput v-model="form.lastName" :label="terms.checkout.lastName" required autocomplete="family-name" />
+              <BaseInput v-model="form.firstName" rule="name" :label="terms.checkout.firstName" required autocomplete="given-name" />
+              <BaseInput v-model="form.lastName" rule="name" :label="terms.checkout.lastName" required autocomplete="family-name" />
               <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" />
               <BasePhoneInput v-model="form.phoneNumber" :label="terms.checkout.phone" required />
             </div>
@@ -434,14 +439,14 @@ useSeo(
                 <p v-if="selectedCity && !selectedCity.delivery_available" role="status">{{ deliveryText.noCourier }}</p>
                 <BaseCheckbox id="manual-delivery-street" v-model="manualStreet" :label="deliveryText.manualStreet" :disabled="!selectedCity?.delivery_available" />
                 <div class="checkout-form__grid checkout-form__grid--three">
-                  <BaseInput v-if="manualStreet" v-model="form.shippingStreet" :label="terms.checkout.street" autocomplete="address-line1" :disabled="!selectedCity?.delivery_available" required />
+                  <BaseInput v-if="manualStreet" v-model="form.shippingStreet" rule="address" :label="terms.checkout.street" autocomplete="address-line1" :disabled="!selectedCity?.delivery_available" required />
                   <BaseAutocomplete v-else v-model="streetQuery" :label="terms.checkout.street" :placeholder="deliveryText.street"
                     :options="(selectedStreet ? [selectedStreet] : streets.items.value).map(item => ({ value: item.ref, label: item.label }))" :loading="streets.loading.value"
                     :error="runtimeMessage(streets.error.value)" :empty-text="streetQuery.trim().length < 2 ? deliveryText.short : deliveryText.empty"
                     :loading-text="deliveryText.loading" :retry-text="deliveryText.retry" :disabled="!selectedCity?.delivery_available"
                     required @select="chooseStreet" @retry="streets.retry" />
-                  <BaseInput v-model="form.buildingNumber" :label="terms.checkout.building" autocomplete="address-line2" :disabled="!selectedStreet && !manualStreet" required />
-                  <BaseInput v-model="form.shippingApartment" :label="terms.checkout.apartment" :disabled="!selectedStreet && !manualStreet" />
+                  <BaseInput v-model="form.buildingNumber" rule="unit" :label="terms.checkout.building" autocomplete="address-line2" :disabled="!selectedStreet && !manualStreet" required />
+                  <BaseInput v-model="form.shippingApartment" rule="unit" :label="terms.checkout.apartment" :disabled="!selectedStreet && !manualStreet" />
                 </div>
               </template>
               <p v-if="cities.stale.value || branches.stale.value || streets.stale.value" role="status">{{ deliveryText.stale }}</p>
@@ -474,7 +479,7 @@ useSeo(
               <h2>{{ terms.checkout.notes }}</h2>
             </div>
             <div class="checkout-form__grid">
-              <BaseTextarea v-model="form.comment" :label="terms.checkout.deliveryNotes" :rows="3" />
+              <BaseTextarea v-model="form.comment" rule="note" :label="terms.checkout.deliveryNotes" :rows="3" />
             </div>
           </section>
 

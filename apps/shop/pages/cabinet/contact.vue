@@ -54,6 +54,7 @@ watch(() => auth.isAuthenticated, isAuthenticated => {
 }, { immediate: true })
 
 const submit = async () => {
+  if (state.loading) return
   state.loading = true
   state.done = false
   state.error = ''
@@ -108,7 +109,7 @@ useSeo(() => terms.value.cabinet.contactUs, () => terms.value.cabinet.contactInt
       </section>
 
       <form class="account-contact__form" @submit.prevent="submit">
-        <BaseInput v-model="form.name" :label="terms.checkout.firstName" required autocomplete="name" />
+        <BaseInput v-model="form.name" rule="name" :label="terms.checkout.firstName" required autocomplete="name" />
         <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" required autocomplete="email" />
         <BaseSelect v-model="form.topic" :label="terms.cabinet.contactTopic" :options="topicOptions" required />
         <BaseSelect

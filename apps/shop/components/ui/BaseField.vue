@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+const { runtimeMessage } = useShopRuntimeDisplay()
 
 const props = withDefaults(defineProps<{
   id?: string
@@ -41,7 +42,7 @@ const errorId = computed(() => props.error ? `${fieldId.value}-error` : undefine
       {{ description }}
     </p>
     <p v-if="error" :id="errorId" class="base-field__error">
-      {{ error }}
+      {{ runtimeMessage(error) }}
     </p>
   </div>
 </template>

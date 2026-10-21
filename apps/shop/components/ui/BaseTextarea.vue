@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { sanitizeInput, inputLimits, type InputRule } from '~/utils/inputSafety'
+const props = withDefaults(defineProps<{
+  rule?: Extract<InputRule, 'message' | 'review' | 'note'>
   id?: string
   label?: string
   description?: string
@@ -11,6 +13,7 @@ withDefaults(defineProps<{
   disabled?: boolean
   tone?: 'light' | 'dark'
 }>(), {
+  rule: 'message',
   id: '',
   label: '',
   description: '',
@@ -24,6 +27,12 @@ withDefaults(defineProps<{
 })
 
 const model = defineModel<string>({ default: '' })
+const onInput = (event: Event) => {
+  const input = event.target as HTMLTextAreaElement
+  if ((event as InputEvent).isComposing) return
+  input.value = sanitizeInput(input.value, props.rule)
+  model.value = input.value
+}
 </script>
 
 <template>
@@ -38,7 +47,11 @@ const model = defineModel<string>({ default: '' })
   >
     <textarea
       :id="fieldId"
-      v-model="model"
+      :value="model"
+      :maxlength="inputLimits[rule]"
+      :minlength="rule === 'message' ? 10 : rule === 'review' ? 3 : undefined"
+      @input="onInput"
+      @compositionend="onInput"
       class="base-control base-control--textarea"
       :class="[
         `base-control--${tone}`,

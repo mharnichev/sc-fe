@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['shop-checkout.mock.spec.ts', 'order-intent.mock.spec.ts', 'cart-checkout/nova-directory.spec.ts'],
+  testMatch: ['shop-checkout.mock.spec.ts', 'order-intent.mock.spec.ts', 'cart-checkout/nova-directory.spec.ts', 'input-safety.mock.spec.ts'],
   workers: 1, timeout: 45000, reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:6097', trace: 'retain-on-failure' },
   projects: [
