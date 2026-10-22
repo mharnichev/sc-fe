@@ -388,6 +388,8 @@ export interface OrderSummary extends OrderProjections {
 }
 
 export interface OrderItemResponse {
+  product_image_url?: string | null
+  product_variant?: string | null
   id: number
   product_id: number
   quantity: number
@@ -412,6 +414,7 @@ export interface OrderPaymentFact {
 }
 export interface OrderHandoverFact { id: number, evidence: string, operator_id: number, simulation: boolean, created_at: string }
 export interface OrderResponse extends OrderProjections {
+  callback_requested?: boolean | null
   payments?: OrderPaymentFact[]
   handovers?: OrderHandoverFact[]
   id: number

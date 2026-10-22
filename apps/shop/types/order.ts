@@ -5,6 +5,7 @@ export interface CheckoutOrderRequest {
   lastName: string
   email?: string
   phoneNumber: string
+  callbackRequested?: boolean // New checkouts send a boolean; old stored intents may omit it.
   shippingCompany: string
   shippingMethod: string
   shippingArea: string
@@ -45,6 +46,7 @@ export interface CustomerShipment {
   events?: Array<{ raw_status: string, normalized_status: string, event_at: string | null, observed_at: string }>
 }
 export interface OrderProjections {
+  callback_requested?: boolean | null
   shipments?: CustomerShipment[]
   delivery_summary?: Record<string, number>
   guest_tracking_url?: string | null
@@ -58,9 +60,26 @@ export interface OrderProjections {
   receipt_delivery_status?: string
   preliminary_documents?: PreliminaryDocument[]
 }
-export type CheckoutOrder = OrderDto & OrderProjections & { guest_payment_token?: string | null, payment_method?: string }
+// Public order responses use persisted item prices and presentation, not today's catalog.
+export interface CheckoutOrderItem {
+  id: number
+  product_id: number
+  product_name: string
+  product_name_en?: string | null
+  product_sku?: string | null
+  product_image_url?: string | null
+  product_variant?: string | null
+  quantity: number
+  price: string
+  total_price?: string | null
+}
+export type CheckoutOrder = Pick<OrderDto, 'id' | 'status' | 'total_amount'> & OrderProjections & {
+  items: CheckoutOrderItem[]
+  guest_payment_token?: string | null
+  payment_method?: string
+}
 export type CustomerOrder = Omit<CustomerOrderDto, 'items'> & OrderProjections & {
-  items: Array<CustomerOrderDto['items'][number] & { product_image_url?: string | null }>
+  items: Array<CustomerOrderDto['items'][number] & { product_image_url?: string | null, product_variant?: string | null }>
 }
 
 export interface TrackingRefreshResponse {
