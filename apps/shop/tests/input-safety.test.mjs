@@ -166,3 +166,12 @@ test('malformed email is rejected rather than silently changing the recipient', 
   }
   assert.equal(checkedInput(' buyer+tag@example.test ', 'email', true), 'buyer+tag@example.test')
 })
+
+test('checkout keeps both explicit callback choices and leaves old pending intents unchanged', () => {
+ const order = { firstName: 'Олег', lastName: 'Іваненко', phoneNumber: '+380991234567' }
+ for (const callbackRequested of [false, true]) {
+  const safe = safeRequestBody('/public/orders', 'POST', { ...order, callbackRequested })
+  assert.equal(safe.callbackRequested, callbackRequested)
+ }
+ assert.equal(Object.hasOwn(safeRequestBody('/public/orders', 'POST', order), 'callbackRequested'), false)
+})

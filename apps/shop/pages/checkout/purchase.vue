@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { readCheckoutConfirmation, saveCheckoutConfirmation } from '~/utils/checkoutConfirmation'
 import { safeRequestBody } from '~/utils/inputSafety'
 import { guestShipmentPath } from '~/utils/shipmentStatus'
 import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
 import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
 import { isProductUnavailable } from '~/utils/product-visibility'
-const { runtimeText, runtimeMessage, orderItemName } = useShopRuntimeDisplay()
+const { runtimeText, runtimeMessage } = useShopRuntimeDisplay()
 const { paymentText } = usePaymentDisplay()
+const shopAsset = useShopAsset()
 
 const { productDisplayName } = useProductDisplay()
 
+const route = useRoute()
+const router = useRouter()
 const cart = useCartStore()
 const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
@@ -20,6 +24,7 @@ const form = reactive({
   lastName: '',
   email: '',
   phoneNumber: '',
+  callbackRequested: false,
   shippingCompany: 'novaPost',
   shippingMethod: 'warehouse',
   shippingArea: '',
@@ -141,6 +146,15 @@ const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cardOnDelivery, value: 'cardOnDelivery' },
   ...(onlinePaymentEnabled.value ? [{ label: paymentText.value.option, value: 'onlineCard' }] : []),
 ])
+const paymentChoiceText = computed(() => locale.value === 'uk' ? {
+  introduction: 'Оберіть зручний спосіб оплати.',
+  onlineDescription: 'Після створення замовлення ви зможете перейти на захищену сторінку платіжного провайдера та оплатити карткою.',
+  onlineConfirmation: 'Замовлення створено. Завершіть оплату.',
+} : {
+  introduction: 'Choose how you would like to pay.',
+  onlineDescription: 'After placing your order, you can continue to the payment provider’s secure page and pay by card.',
+  onlineConfirmation: 'Order created. Complete your payment.',
+})
 const isDeliveryValid = computed(() => {
   if (!selectedCity.value) return false
   if (form.shippingMethod === 'warehouse') return Boolean(selectedBranch.value)
@@ -153,6 +167,7 @@ const canSubmit = computed(() =>
     && !otherScopePending.value
     && !cart.syncing
     && !cart.hasUnavailableItems
+    && (form.paymentMethod !== 'onlineCard' || onlinePaymentEnabled.value)
     && form.firstName.trim()
     && form.lastName.trim()
     && form.phoneNumber.trim()
@@ -203,13 +218,17 @@ const restoreIntent = () => {
   }
   catch { state.error = 'Не вдалося відновити запит замовлення.' }
 }
-onNuxtReady(() => { sessionReady.value = true; restoreIntent() })
+const restoreConfirmation = () => {
+  const id = typeof route.query.confirmation === 'string' ? Number(route.query.confirmation) : NaN
+  try { state.order = readCheckoutConfirmation(sessionStorage, customerScope.value, id) } catch { state.order = null }
+}
+onNuxtReady(() => { sessionReady.value = true; restoreIntent(); if (!pendingIntent.value && !otherScopePending.value) restoreConfirmation() })
 watch([customerScope, () => auth.sessionRevision], ([_scope], [previousScope]) => {
   state.order = null
   state.error = ''
   if (previousScope !== 'guest') {
     // Contact and delivery belong to the previous buyer, even after confirmation.
-    Object.assign(form, { firstName: '', lastName: '', email: '', phoneNumber: '', comment: '', shippingCity: '', shippingArea: '' })
+    Object.assign(form, { firstName: '', lastName: '', email: '', phoneNumber: '', callbackRequested: false, comment: '', shippingCity: '', shippingArea: '' })
     selectedCity.value = null
     cityQuery.value = ''
     resetAddress()
@@ -217,6 +236,9 @@ watch([customerScope, () => auth.sessionRevision], ([_scope], [previousScope]) =
     if (customer) Object.assign(form, { firstName: customer.name || '', lastName: customer.surname || '', email: customer.email || '', phoneNumber: customer.phone || '' })
   }
   restoreIntent()
+  if (previousScope !== 'guest') {
+    try { sessionStorage.removeItem(`shop-checkout-confirmation-v1:${previousScope}:${route.query.confirmation}`) } catch {}
+  }
 })
 
 const sendIntent = async (intent: PendingCheckout) => {
@@ -237,6 +259,10 @@ const sendIntent = async (intent: PendingCheckout) => {
     const result = await domain.createOrder(intent.body, intent.key)
     if (!ownsIntent()) return
     state.order = result
+    try {
+      saveCheckoutConfirmation(sessionStorage, intent.scope, result)
+      void router.replace({ query: { ...route.query, confirmation: String(result.id) } })
+    } catch { /* In-memory confirmation remains available. */ }
     pendingIntent.value = null
     sessionStorage.removeItem(intentStorageKey)
     if (auth.isAuthenticated) await cart.syncFromServer()
@@ -303,25 +329,21 @@ useSeo(
 <template>
   <section v-if="state.order" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
     <div class="checkout-card checkout-confirmation__card">
-      <p class="checkout-page__success" role="status">{{ terms.checkout.orderSuccess }}</p>
-      <h1 ref="confirmationHeading" tabindex="-1" data-testid="order-number">№ {{ state.order.id }}</h1>
-      <div class="checkout-order-list" data-testid="confirmed-order-items">
-        <article v-for="item in state.order.items" :key="item.id" class="checkout-confirmation__item">
-          <span>{{ orderItemName(item) }}</span>
-          <span>× {{ item.quantity }}</span>
-        </article>
-      </div>
+      <h1 ref="confirmationHeading" class="checkout-page__success" tabindex="-1">{{ state.order.payment_method === 'onlineCard' ? paymentChoiceText.onlineConfirmation : terms.checkout.orderSuccess }}</h1>
+      <p class="checkout-confirmation__number" data-testid="order-number">№ {{ state.order.id }}</p>
+      <CheckoutOrderItems :items="state.order.items" />
+      <OrderCallbackPreference :requested="state.order.callback_requested" />
       <div class="checkout-total">
         <span>{{ terms.common.total }}</span>
         <strong data-testid="confirmed-order-total">{{ formatPrice(state.order.total_amount) }}</strong>
       </div>
       <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
-      <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="outline-dark">{{ paymentText.statusPage }}</BaseButton>
-      <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" />
+      <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="borderless">{{ paymentText.statusPage }}</BaseButton>
+      <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
-      <BaseButton to="/catalog" variant="outline-dark">{{ terms.common.catalog }}</BaseButton>
+      <BaseButton to="/catalog" variant="borderless">{{ terms.common.catalog }}</BaseButton>
     </div>
   </section>
 
@@ -337,10 +359,7 @@ useSeo(
         <aside class="checkout-card checkout-card--mobile">
           <h2>{{ terms.checkout.orderSummary }}</h2>
           <div v-if="cart.items.length" class="checkout-order-list">
-            <template v-for="(item, index) in cart.items" :key="item.product.id">
-              <div v-if="index > 0" class="checkout-order-list__divider" aria-hidden="true">
-                <span class="checkout-order-list__divider-line" />
-              </div>
+            <template v-for="item in cart.items" :key="item.product.id">
               <article class="checkout-order-list__item">
               <img
                 :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
@@ -399,6 +418,9 @@ useSeo(
               <BasePhoneInput v-model="form.phoneNumber" :label="terms.checkout.phone" required />
             </div>
             <CustomerAuthDialog v-if="!auth.isAuthenticated" />
+            <BaseCheckbox id="checkout-callback-requested" v-model="form.callbackRequested"
+              :label="locale === 'uk' ? 'Передзвоніть мені для уточнення деталей замовлення' : 'Call me to clarify my order details'"
+              :description="locale === 'uk' ? 'Необов’язково. Дзвінок не є умовою оформлення замовлення.' : 'Optional. A confirmation call is not required to place your order.'" />
           </section>
 
           <section class="checkout-card">
@@ -453,22 +475,35 @@ useSeo(
             </div>
           </section>
 
-          <section class="checkout-card">
+          <section class="checkout-card checkout-card--payment soft-surface">
             <div class="checkout-card__head">
               <span>3</span>
               <h2>{{ terms.common.payment }}</h2>
             </div>
-            <BaseField :label="terms.common.payment">
-              <div class="checkout-choice-list">
-                <BaseRadio
+            <p class="checkout-payment-introduction">{{ paymentChoiceText.introduction }}</p>
+            <BaseField>
+              <div class="checkout-payment-methods" role="radiogroup" :aria-label="terms.common.payment">
+                <div
                   v-for="option in paymentOptions"
-                  :id="`payment-method-${option.value}`"
                   :key="option.value"
-                  v-model="form.paymentMethod"
-                  name="paymentMethod"
-                  :label="option.label"
-                  :value="option.value"
-                />
+                  class="checkout-payment-method"
+                  :class="{ 'checkout-payment-method--selected': form.paymentMethod === option.value }"
+                >
+                  <BaseRadio
+                    :id="`payment-method-${option.value}`"
+                    v-model="form.paymentMethod"
+                    name="paymentMethod"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                  <div v-if="option.value === 'onlineCard' && form.paymentMethod === 'onlineCard'" class="checkout-payment-method__details">
+                    <p>{{ paymentChoiceText.onlineDescription }}</p>
+                    <div class="checkout-payment-method__cards" role="group" :aria-label="locale === 'uk' ? 'Підтримувані картки: Visa, Mastercard' : 'Accepted cards: Visa, Mastercard'">
+                      <img :src="shopAsset('/payment-brands/visa-white.png')" alt="Visa" width="56" height="18">
+                      <img :src="shopAsset('/payment-brands/mastercard.svg')" alt="Mastercard" width="50" height="32">
+                    </div>
+                  </div>
+                </div>
               </div>
             </BaseField>
           </section>
@@ -487,6 +522,7 @@ useSeo(
             <BaseButton type="submit" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
+            <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
         </form>
@@ -497,10 +533,7 @@ useSeo(
           <section class="checkout-card">
             <h2>{{ terms.checkout.orderSummary }}</h2>
             <div v-if="cart.items.length" class="checkout-order-list">
-              <template v-for="(item, index) in cart.items" :key="item.product.id">
-                <div v-if="index > 0" class="checkout-order-list__divider" aria-hidden="true">
-                  <span class="checkout-order-list__divider-line" />
-                </div>
+              <template v-for="item in cart.items" :key="item.product.id">
                 <article class="checkout-order-list__item">
                 <img
                   :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
@@ -548,6 +581,7 @@ useSeo(
             <BaseButton type="submit" form="shop-checkout-form" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
+            <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
         </div>
@@ -580,11 +614,7 @@ useSeo(
   font-weight: 800;
 }
 
-.checkout-confirmation__item {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
+.checkout-confirmation__number { color: #525252; font-size: 1.125rem; font-weight: 700; }
 
 .checkout-page__user-info,
 .checkout-form,
@@ -596,9 +626,10 @@ useSeo(
 .checkout-card {
   display: grid;
   gap: 1rem;
-  background: #ffffff;
   padding: 1rem;
 }
+
+.checkout-card:not(.soft-surface) { background: #ffffff; }
 
 .checkout-card__head {
   display: flex;
@@ -636,15 +667,76 @@ useSeo(
   gap: 0.5rem;
 }
 
+.checkout-payment-introduction {
+  margin: -0.25rem 0 0;
+  color: #737373;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.checkout-payment-methods {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkout-payment-method {
+  background: transparent;
+}
+
+.checkout-payment-method--selected :deep(.base-choice__label) {
+  font-weight: 800;
+}
+
+.checkout-payment-method:has(input:focus-visible) {
+  outline: 2px solid #0a0a0a;
+  outline-offset: 3px;
+}
+
+.checkout-payment-method :deep(.base-choice) {
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.checkout-payment-method__details {
+  display: grid;
+  gap: 0.875rem;
+  padding: 0 1rem 1rem 3.25rem;
+  color: #525252;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.checkout-payment-method__cards {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1.125rem;
+  background: #0a0a0a;
+  border-radius: 4px;
+}
+
+.checkout-payment-method__cards img {
+  display: block;
+  flex: none;
+  object-fit: contain;
+  max-width: 100%;
+}
+
+.checkout-card--payment { padding: 1.25rem; }
+
 .checkout-page :deep(.base-control) {
   border-width: 0;
 }
 
 .checkout-page :deep(.base-control:focus),
 .checkout-page :deep(.base-control:focus-visible) {
-  border-color: transparent;
-  box-shadow: none;
-  outline: none;
+  outline: 2px solid #0a0a0a;
+  outline-offset: 2px;
 }
 
 .checkout-page :deep(.base-choice) {
@@ -677,16 +769,6 @@ useSeo(
   background: #ffffff;
   font-size: 0.8rem;
   padding: 0.65rem;
-}
-
-.checkout-order-list__divider {
-  padding: 0.75rem 0.65rem;
-}
-
-.checkout-order-list__divider-line {
-  display: block;
-  height: 1px;
-  background: rgb(10 10 10 / 0.08);
 }
 
 .checkout-order-list__item img {

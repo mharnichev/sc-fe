@@ -101,13 +101,14 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
         </header>
         <OrderProjections v-if="shopOrderHasPaymentProjection(order) || shopOrderHasTestProjection(order) || shopOrderHasCheckboxProjection(order) || shopOrderHasNPReturnProjection(order) || shopOrderHasPaymentResolutionProjection(order)" :order="order" />
         <p v-if="state.error" role="alert">{{ runtimeMessage(state.error) }} {{ trackingText.preserved }}</p>
+        <OrderCallbackPreference :requested="order.callback_requested" />
         <OrderPayment v-if="order.payment_method === 'onlineCard' || order.payment_channel === 'online_monobank'" :order-id="order.id" />
         <OrderDocuments v-if="order.preliminary_documents?.length" :order-id="order.id" :documents="order.preliminary_documents" />
         <section class="order-detail__section">
           <h2>{{ terms.cabinet.items }}</h2>
           <ul class="order-detail__items">
             <li v-for="item in order.items" :key="item.id" class="order-detail__item">
-              <div class="order-detail__product"><NuxtLink class="order-detail__product-link" :aria-label="orderItemName(item)" :to="`/products/id/${item.product_id}`"><OrderItemImage :src="item.product_image_url" :name="orderItemName(item)" /><div class="order-detail__item-copy"><h3>{{ orderItemName(item) }}</h3><p v-if="item.product_sku">{{ terms.cabinet.sku }}: {{ item.product_sku }}</p></div></NuxtLink><BaseQuantityStepper variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(orderItemName(item))" /></div>
+              <div class="order-detail__product"><NuxtLink class="order-detail__product-link" :aria-label="orderItemName(item)" :to="`/products/id/${item.product_id}`"><OrderItemImage :src="item.product_image_url" :name="orderItemName(item)" /><div class="order-detail__item-copy"><h3>{{ orderItemName(item) }}</h3><p v-if="item.product_variant">{{ item.product_variant }}</p><p v-if="item.product_sku">{{ terms.cabinet.sku }}: {{ item.product_sku }}</p></div></NuxtLink><BaseQuantityStepper variant="stacked" :model-value="item.quantity" :min="1" disabled :aria-label="terms.checkout.quantityFor(orderItemName(item))" /></div>
               <dl class="order-detail__item-meta"><div><dt>{{ terms.cabinet.price }}</dt><dd>{{ formatPrice(item.price) }}</dd></div><div v-if="item.total_price != null && item.quantity > 1"><dt>{{ terms.common.total }}</dt><dd>{{ formatPrice(item.total_price) }}</dd></div></dl>
             </li>
           </ul>
