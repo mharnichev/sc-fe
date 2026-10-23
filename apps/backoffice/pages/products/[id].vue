@@ -119,6 +119,7 @@ const initialValue = computed<ProductPayload | undefined>(() => {
     ingredients: product.value.ingredients,
     short_description: product.value.short_description,
     price: Number(product.value.price),
+    shop_price: product.value.shop_price == null ? null : Number(product.value.shop_price),
     recommended_retail_price: product.value.recommended_retail_price ? Number(product.value.recommended_retail_price) : null,
     sku: product.value.sku,
     stock_quantity: product.value.stock_quantity,
