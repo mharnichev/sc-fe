@@ -4,7 +4,7 @@ const products = Array.from({ length: 8 }, (_, index) => ({
   id: index + 9100, category_id: 1, brand_id: 1,
   name: index === 0 ? 'The BlueBeards Revenge Professional Shampoo Long Product Name For Daily Hair Care' : `Fixture grooming product ${index + 1}`,
   name_en: `Fixture grooming product ${index + 1}`, product_type: 'Шампунь для щоденного догляду', product_type_en: 'Daily shampoo',
-  package_size: '500 мл', slug: `recent-fixture-${index + 1}`, sku: `RECENT-${index + 1}`,
+  package_size: index === 1 ? '500 ml + 250 ml refill pack' : index === 2 ? 500 : '500 мл', slug: `recent-fixture-${index + 1}`, sku: `RECENT-${index + 1}`,
   short_description: null, description: 'Mocked product', price: '12345.00', shop_price: '12345.00', compare_at_price: '15000.00', stock: 10,
   status: 'active', seo_title: null, seo_description: null, meta_keywords: null,
   category: { id: 1, name: 'Шампуні', name_en: 'Shampoo', slug: 'shampoo', parent_id: null },
@@ -75,6 +75,11 @@ for (const width of [320, 390, 768, 1440]) {
       })).toBe(true)
       const [badgeBox, buttonBox] = await Promise.all([badge.boundingBox(), purchase.locator('.catalog-product-tile__cart').boundingBox()])
       expect(badgeBox!.x + badgeBox!.width <= buttonBox!.x + 1 || badgeBox!.y + badgeBox!.height <= buttonBox!.y + 1).toBe(true)
+      const longRow = recent.locator('.catalog-product-tile__mobile-purchase-row').nth(1)
+      const longBadge = longRow.locator('.catalog-product-tile__volume')
+      const [longBox, longButton] = await Promise.all([longBadge.boundingBox(), longRow.locator('.catalog-product-tile__cart').boundingBox()])
+      expect(await longBadge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+      expect(longBox!.x + longBox!.width <= longButton!.x + 1 || longBox!.y + longBox!.height <= longButton!.y + 1).toBe(true)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
     const fitted = await recent.locator('.catalog-product-tile').first().evaluate(tile => {

@@ -87,9 +87,20 @@ test('mount observes both grid and viewport; unmount releases observer and resiz
 
 test('tile presentation retains localized metadata, cart guards, hidden links and review-only ratings', async () => {
   const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
-  assert.match(tile, /localizedPackageSize\(props\.product\.package_size\?\.trim\(\) \|\| '', locale\.value\)/)
+  assert.match(tile, /localizedPackageSize\(typeof props\.product\.package_size === 'string'/)
   assert.equal(tile.match(/:disabled="cart\.syncing \|\| \(isUnavailable && !isInCart\)"/g)?.length, 2)
   assert.equal(tile.match(/:is="isHidden \? 'div' : NuxtLink"/g)?.length, 3)
   assert.match(tile, /Number\(product\.average_rating\) > 0 \|\| product\.reviews_count > 0/)
   assert.match(tile, /await cart\.toggle\(props\.product\)/)
+})
+
+test('persisted malformed package metadata cannot crash tile computation', async () => {
+  const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
+  const expression = tile.match(/const packageSize = computed\(\(\) => (.*)\)/)[1]
+  for (const value of [undefined, null, 500, {}, ['500 ml'], ' 500 ml ']) {
+    const result = vm.runInNewContext(expression, {
+      props: { product: { package_size: value } }, locale: { value: 'en' }, localizedPackageSize: value => value,
+    })
+    assert.equal(result, typeof value === 'string' ? value.trim() : '')
+  }
 })

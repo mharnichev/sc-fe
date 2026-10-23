@@ -64,7 +64,7 @@ watch(images, () => {
   previewReady.value = false
   lastWheelTime = -Infinity
 })
-const packageSize = computed(() => localizedPackageSize(props.product.package_size?.trim() || '', locale.value))
+const packageSize = computed(() => localizedPackageSize(typeof props.product.package_size === 'string' ? props.product.package_size.trim() : '', locale.value))
 const productType = computed(() => productDisplayType(props.product))
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
@@ -843,7 +843,8 @@ const toggleCart = async () => {
 
   .catalog-product-tile__volume.base-badge {
     flex-shrink: 0;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     padding: 0.4rem 0.5rem;
     font-size: 0.6875rem;
   }
