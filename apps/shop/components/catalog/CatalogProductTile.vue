@@ -842,6 +842,7 @@ const toggleCart = async () => {
   }
 
   .catalog-product-tile__volume.base-badge {
+    max-width: 100%;
     flex-shrink: 0;
     white-space: normal;
     overflow-wrap: anywhere;

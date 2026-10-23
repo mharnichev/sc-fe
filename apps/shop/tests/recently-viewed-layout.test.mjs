@@ -92,6 +92,7 @@ test('tile presentation retains localized metadata, cart guards, hidden links an
   assert.equal(tile.match(/:is="isHidden \? 'div' : NuxtLink"/g)?.length, 3)
   assert.match(tile, /Number\(product\.average_rating\) > 0 \|\| product\.reviews_count > 0/)
   assert.match(tile, /await cart\.toggle\(props\.product\)/)
+  assert.match(tile, /\.catalog-product-tile__volume\.base-badge\s*\{\s*max-width: 100%;\s*flex-shrink: 0;\s*white-space: normal;\s*overflow-wrap: anywhere;/)
 })
 
 test('persisted malformed package metadata cannot crash tile computation', async () => {
