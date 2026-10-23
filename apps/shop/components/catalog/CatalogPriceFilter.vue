@@ -24,16 +24,16 @@ const toNumber = (value: string | number | null | undefined, fallback = 0) => {
   return Number.isFinite(numeric) ? numeric : fallback
 }
 
-const minBound = computed(() => toNumber(props.minLimit, 0))
+const minBound = computed(() => Math.max(0, Math.round(toNumber(props.minLimit, 0))))
 const maxBound = computed(() => {
-  const max = toNumber(props.maxLimit, minBound.value)
+  const max = Math.max(0, Math.round(toNumber(props.maxLimit, minBound.value)))
   return max > minBound.value ? max : minBound.value + 1
 })
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-const currentMin = computed(() => toNumber(props.minValue, minBound.value))
-const currentMax = computed(() => toNumber(props.maxValue, maxBound.value))
+const currentMin = computed(() => clamp(Math.round(toNumber(props.minValue, minBound.value)), minBound.value, maxBound.value))
+const currentMax = computed(() => clamp(Math.round(toNumber(props.maxValue, maxBound.value)), currentMin.value, maxBound.value))
 const minPercent = computed(() =>
   clamp(((currentMin.value - minBound.value) / (maxBound.value - minBound.value)) * 100, 0, 100),
 )
@@ -53,11 +53,6 @@ const setMax = (value: string | number, shouldCommit = false) => {
   if (shouldCommit) emit('change')
 }
 
-const inputValue = (event: Event) => (event.target as HTMLInputElement | null)?.value || ''
-const onMinInput = (event: Event) => setMin(inputValue(event))
-const onMaxInput = (event: Event) => setMax(inputValue(event))
-const onMinRangeChange = (event: Event) => setMin(inputValue(event), true)
-const onMaxRangeChange = (event: Event) => setMax(inputValue(event), true)
 </script>
 
 <template>
@@ -69,60 +64,58 @@ const onMaxRangeChange = (event: Event) => setMax(inputValue(event), true)
     }"
   >
     <div class="catalog-price-filter__inputs">
-      <input
-        class="base-control base-control--light catalog-price-filter__input"
-        :value="minValue"
+      <BaseInput
+        class="catalog-price-filter__input"
+        :model-value="minValue"
         type="number"
         inputmode="decimal"
         :min="minBound"
         :max="maxBound"
         :placeholder="String(minBound)"
         :disabled="disabled"
-        aria-label="Minimum price"
-        @input="onMinInput"
+        accessible-label="Minimum price"
+        @update:model-value="setMin"
         @change="emit('change')"
-      >
+      />
       <span class="catalog-price-filter__dash" aria-hidden="true">-</span>
-      <input
-        class="base-control base-control--light catalog-price-filter__input"
-        :value="maxValue"
+      <BaseInput
+        class="catalog-price-filter__input"
+        :model-value="maxValue"
         type="number"
         inputmode="decimal"
         :min="minBound"
         :max="maxBound"
         :placeholder="String(maxBound)"
         :disabled="disabled"
-        aria-label="Maximum price"
-        @input="onMaxInput"
+        accessible-label="Maximum price"
+        @update:model-value="setMax"
         @change="emit('change')"
-      >
+      />
     </div>
 
     <div class="catalog-price-filter__slider">
       <div class="catalog-price-filter__track" />
       <div class="catalog-price-filter__selected" />
-      <input
+      <BaseRange
         class="catalog-price-filter__range catalog-price-filter__range--min"
-        type="range"
         :min="minBound"
         :max="maxBound"
         :value="currentMin"
         :disabled="disabled"
-        aria-label="Minimum price"
-        @input="onMinInput"
-        @change="onMinRangeChange"
-      >
-      <input
+        accessible-label="Minimum price"
+        @update:model-value="setMin"
+        @change="emit('change')"
+      />
+      <BaseRange
         class="catalog-price-filter__range catalog-price-filter__range--max"
-        type="range"
         :min="minBound"
         :max="maxBound"
         :value="currentMax"
         :disabled="disabled"
-        aria-label="Maximum price"
-        @input="onMaxInput"
-        @change="onMaxRangeChange"
-      >
+        accessible-label="Maximum price"
+        @update:model-value="setMax"
+        @change="emit('change')"
+      />
     </div>
   </div>
 </template>

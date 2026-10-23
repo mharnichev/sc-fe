@@ -5,6 +5,7 @@ import test from 'node:test'
 import ts from 'typescript'
 import { sourceModule } from './runtime-localization-harness.mjs'
 const { safeRequestBody } = await sourceModule(readFileSync(new URL('../utils/inputSafety.ts', import.meta.url), 'utf8'))
+const reminder = await sourceModule(readFileSync(new URL('../utils/checkoutReminder.ts', import.meta.url), 'utf8'))
 
 const page = readFileSync(new URL('../pages/checkout/purchase.vue', import.meta.url), 'utf8')
 const source = page.slice(page.indexOf('// Keep the exact submitted intent'), page.indexOf('\nuseSeo('))
@@ -17,6 +18,7 @@ const loadCheckout = (uncertain = false) => {
   const cart = { items: [{ product: { id: 1 }, quantity: 2 }], clear() { this.items = [] } }
   const state = { loading: false, order: null, error: '' }
   const context = vm.createContext({
+    ...reminder,
     ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), watch() {},
     onNuxtReady: fn => fn(), onBeforeUnmount() {},
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },

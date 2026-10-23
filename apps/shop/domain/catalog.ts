@@ -97,6 +97,7 @@ interface PublicProductDto {
   price: string | number
   compare_at_price?: string | number | null
   recommended_retail_price?: string | number | null
+  shop_price?: string | number | null
   discount_percent?: string | number | null
   is_new?: boolean | null
   is_top?: boolean | null
@@ -402,6 +403,7 @@ const mapProduct = (product: PublicProductDto, resolveAssetUrl: (url: string) =>
     ingredients: product.ingredients ?? null,
     price: pricing.price,
     recommended_retail_price: decimalString(product.recommended_retail_price),
+    shop_price: decimalString(product.shop_price),
     compare_at_price: pricing.compareAtPrice,
     stock: product.stock ?? product.stock_quantity ?? 0,
     status: resolveStatus(product.status, product.is_active),
@@ -663,7 +665,12 @@ export const useCatalogDomain = () => {
   const getNovaPoshtaWarehouseTypes = () =>
     api<DeliveryListResponseDto>('/public/delivery/np/warehouse-types')
 
-  const createOrder = (body: CheckoutOrderRequest, idempotencyKey: string) => api<CheckoutOrder>('/public/orders', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey }, retry: 0 })
+  const createOrder = (body: CheckoutOrderRequest, idempotencyKey: string, reminderKey?: string) => api<CheckoutOrder>('/public/orders', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey, ...(reminderKey ? { 'X-Checkout-Key': reminderKey } : {}) }, retry: 0 })
+
+  const recoverCheckout = async (token: string) => {
+    const result = await api<{ locale: 'uk' | 'en', checkout_key: string, changes: string[], items: Array<{ product_id: number, quantity: number, variant?: string, product: PublicProductDto }> }>('/public/checkout-reminders/recover', { method: 'POST', body: { token }, retry: 0 })
+    return { ...result, items: result.items.map(item => ({ ...item, product: mapProduct(item.product, resolveAssetUrl) })) }
+  }
 
   const sendFeedback = (body: ShopFeedbackRequestDto) =>
     api<ShopFeedbackResponseDto>('/public/feedback/email', { method: 'POST', body })
@@ -692,6 +699,7 @@ export const useCatalogDomain = () => {
     getNovaPoshtaWarehouses,
     getNovaPoshtaWarehouseTypes,
     createOrder,
+    recoverCheckout,
     sendFeedback,
   }
 }

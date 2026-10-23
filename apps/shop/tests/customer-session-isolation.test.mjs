@@ -38,6 +38,7 @@ const setup = async (t, overrides = {}, storage = new Map()) => {
   }
   Object.assign(globalThis, {
     defineStore: pinia.defineStore,
+    useState: (_key, init) => ({ value: init() }),
     useCustomerAuthStore: () => auth, useCartStore: () => cart, useFavoritesStore: () => favorites,
     useApi: () => overrides.api || (async () => customer(auth.customer.id)),
     useCatalogDomain: () => domain,

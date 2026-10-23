@@ -16,7 +16,7 @@ for (const scenario of ['first restore', 'middleware restored', 'logout before i
     const cart = { $state: {}, $patch() {}, $subscribe() {}, prepareSession() {}, syncFromServer: async () => {} }
     const favorites = { $state: {}, $patch() {}, $subscribe() {}, prepareSession() {}, syncFromServer: async () => {} }
     let ready, auth
-    Object.assign(globalThis, { defineStore: pinia.defineStore, defineNuxtPlugin: setup => setup, onNuxtReady: callback => { ready = callback },
+    Object.assign(globalThis, { useState: (_key, init) => ({ value: init() }), defineStore: pinia.defineStore, defineNuxtPlugin: setup => setup, onNuxtReady: callback => { ready = callback },
       useApi: () => async () => ({ ...auth.customer }), useCartStore: () => cart, useFavoritesStore: () => favorites,
       localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) } })
     const authSource = await readFile(new URL('../stores/customerAuth.ts', import.meta.url), 'utf8')

@@ -89,7 +89,7 @@ const guestSetup = async (t, getProduct) => {
   const { useCartStore } = await sourceModule((await read('../stores/cart.ts')).replace(/^import .*\n/gm, ''))
   const { useFavoritesStore } = await sourceModule((await read('../stores/favorites.ts')).replace(/^import .*\n/gm, ''))
   const cart = useCartStore(env.instance), favorites = useFavoritesStore(env.instance)
-  Object.assign(globalThis, { useCartStore: () => cart, useFavoritesStore: () => favorites })
+  Object.assign(globalThis, { useState: (_key, init) => ({ value: init() }), useCartStore: () => cart, useFavoritesStore: () => favorites })
   const plugin = await sourceModule((await read('../plugins/persist.client.ts')).replace(/^import .*\n/gm, ''))
   plugin.default(); ready()
   return { ...env, auth, cart, favorites, ready }

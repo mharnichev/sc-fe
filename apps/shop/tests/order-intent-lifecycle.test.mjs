@@ -5,6 +5,7 @@ import vm from 'node:vm'
 import ts from 'typescript'
 import { sourceModule } from './runtime-localization-harness.mjs'
 const { safeRequestBody } = await sourceModule(readFileSync(new URL('../utils/inputSafety.ts', import.meta.url), 'utf8'))
+const reminder = await sourceModule(readFileSync(new URL('../utils/checkoutReminder.ts', import.meta.url), 'utf8'))
 
 const page = readFileSync(new URL('../pages/checkout/purchase.vue', import.meta.url), 'utf8')
 const source = page.slice(page.indexOf('// Keep the exact submitted intent'), page.indexOf('\nuseSeo('))
@@ -16,7 +17,7 @@ const load = (storage, send) => {
   let dispose
   const auth = { isAuthenticated: false, sessionRevision: 0, captureSession() { const revision = this.sessionRevision; return () => revision === this.sessionRevision } }
   const state = { loading: false, order: null, error: '' }
-  const context = vm.createContext({ safeRequestBody, ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), watch() {}, onNuxtReady: fn => fn(), onBeforeUnmount: fn => { dispose = fn }, auth, state,
+  const context = vm.createContext({ ...reminder, safeRequestBody, ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), watch() {}, onNuxtReady: fn => fn(), onBeforeUnmount: fn => { dispose = fn }, auth, state,
     sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, crypto: { randomUUID: () => 'new-intent' },
     cart: { items: [{ product: { id: 1 }, quantity: 1 }], clear() {} }, form: { firstName: 'Fixture', lastName: 'Buyer', phoneNumber: '+380501234567', email: '', shippingStreet: '' }, selectedCity: { value: null }, selectedBranch: { value: null }, selectedStreet: { value: null }, unavailableItems: { value: [] }, canSubmit: { value: true }, unavailableMessage: { value: '' }, terms: { value: { checkout: { failed: 'failed' } } }, domain: { createOrder: send } })
   vm.runInContext(code + '\nglobalThis.checkout = { sendIntent, submit, pendingIntent }', context)
