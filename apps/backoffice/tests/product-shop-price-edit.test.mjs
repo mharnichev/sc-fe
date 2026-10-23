@@ -56,3 +56,19 @@ test('explicit manual price edits and explicit clearing retain their intended pa
   state.shop_price = ''
   assert.equal(payload(state).shop_price, null)
 })
+
+test('compact overview uses base price only for absent shop prices and never mutates product prices', () => {
+  const metrics = declaration('../pages/products/[id].vue', 'productMetrics')
+  for (const [value, expected] of [[null, '100.00'], [undefined, '100.00'], [0, 0], ['0.00', '0.00'], ['180.00', '180.00']]) {
+    const record = Object.freeze({ ...product, shop_price: value })
+    const result = new Function('product', 'computed', 'formatPrice', 'CurrencyDollarIcon', 'TagIcon', 'CubeIcon', `${metrics}; return productMetrics;`)(
+      { value: record }, fn => fn(), value => value, null, null, null,
+    )
+    assert.equal(result.find(metric => metric.label === 'Ціна магазину').value, expected)
+    assert.equal(record.shop_price, value)
+    assert.equal(record.price, '100.00')
+    assert.ok(result.some(metric => metric.label === 'На складі'))
+    assert.ok(result.some(metric => metric.label === 'У резерві'))
+    assert.ok(result.some(metric => metric.label === 'Доступно'))
+  }
+})

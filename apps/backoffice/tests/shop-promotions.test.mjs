@@ -58,7 +58,7 @@ test('backoffice surfaces structured backend validation details', () => {
 
 test('product and order pages preserve product promotion scope and historical snapshots', () => {
   assert.match(productSource, /api\.adminGetShopPromotions\(1, 100, \{ product_id: Number\(productId\.value\) \}\)/)
-  assert.match(productSource, /Акції товара/)
+  assert.match(productSource, /Акції товару/)
   assert.match(productSource, /Создати акцію для цього товару|Створити акцію для цього товару/)
   assert.match(productSource, /:initial-product-ids="\[product\.id\]"/)
   assert.match(orderSource, /item\.base_price/)

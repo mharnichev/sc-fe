@@ -255,6 +255,7 @@ const prev = async () => {
             <td data-label="Бренд" class="text-ui-secondary">{{ item.brand?.name || '—' }}</td>
             <td data-label="Ціноутворення" class="min-w-56 text-ui-secondary">
               <p>Базова ціна: {{ item.price }}</p>
+              <p>Наша ціна: {{ item.shop_price ?? item.price }}</p>
               <p class="mt-1 text-xs text-ui-muted">Промоційна ціна не повертається backoffice endpoint.</p>
               <NuxtLink :to="`/shop-promotions?product_id=${item.id}`" class="mt-2 inline-block text-xs font-medium text-cyan-700 hover:underline">Акції товару</NuxtLink>
             </td>

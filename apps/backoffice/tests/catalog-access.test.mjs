@@ -97,7 +97,7 @@ test('mounted editor, gallery and settings mutation callbacks recheck the curren
     let actor = { id: 1, role: 'admin' }
     const mutations = [], emissions = []
     const globals = {
-      ref: value => ({ value }), reactive: value => value, computed: fn => ({ get value() { return fn() } }), watch: () => {}, onMounted: () => {}, onBeforeUnmount: () => {},
+      ref: value => ({ value }), reactive: value => value, computed: fn => ({ get value() { return fn() } }), watch: () => {}, onMounted: () => {}, onBeforeUnmount: () => {}, provide: () => {}, useId: () => 'fixture',
       defineProps: () => ({ productId: 8, initialImages: [], legacyImageUrls: [], categories: [], brands: [] }), withDefaults: props => props,
       defineEmits: () => (...args) => emissions.push(args), useAuthStore: () => ({ get user() { return actor } }),
       canManageCatalog, categoryPathLabels: () => new Map(), slugify: value => value, useAssetUrl: () => value => value,

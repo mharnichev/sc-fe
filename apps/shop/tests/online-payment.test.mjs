@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import test from 'node:test'
 import ts from 'typescript'
+import { commerceTelemetry } from './runtime-localization-harness.mjs'
 const source = readFileSync(new URL('../composables/useOrderPayment.ts', import.meta.url), 'utf8')
 const load = () => {
   const calls = [], timers = [], events = {}, stored = new Map(), watches = []
@@ -13,6 +14,7 @@ const load = () => {
   const state = { response: { status: 'waiting', page_url: 'https://pay.mbnk.biz/abc', enabled: true }, resolve: null, delayed: false }
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
     exports, URL, document, crypto: { randomUUID: () => 'stable-id' },
+    require: name => { assert.equal(name, '~/utils/commerceTelemetry'); return commerceTelemetry },
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
     useApi: () => async (path, options) => { calls.push({ path, options }); if (state.delayed) await new Promise(resolve => state.resolve = resolve); return state.response },
     useCustomerAuthStore: () => auth, ref: value => ({ value }), watch: (identity, reset) => watches.push(reset),

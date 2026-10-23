@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { commerceBreadcrumb, reportCommerceError } from '~/utils/commerceTelemetry'
 import { readCheckoutConfirmation, saveCheckoutConfirmation } from '~/utils/checkoutConfirmation'
 import { safeRequestBody } from '~/utils/inputSafety'
 import { readReminderOrderKey, reminderOrderStorageKey, reminderStorageKey } from '~/utils/checkoutReminder'
@@ -144,7 +145,10 @@ onMounted(async () => {
   try {
     const result = await useApi()<{ enabled: boolean }>('/public/orders/online-payment-capabilities', { retry: 0 })
     onlinePaymentEnabled.value = result.enabled === true
-  } catch { onlinePaymentEnabled.value = false }
+  } catch (cause) {
+    onlinePaymentEnabled.value = false
+    reportCommerceError('checkout.payment_capabilities_failed', cause, { flow: 'checkout' })
+  }
 })
 const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
@@ -260,10 +264,12 @@ const sendIntent = async (intent: PendingCheckout) => {
   if (!ownsIntent()) return
   state.loading = true
   state.error = ''
+  commerceBreadcrumb('checkout.create_order', { flow: 'checkout', payment_method: intent.body.paymentMethod })
   try {
     const result = await domain.createOrder(intent.body, intent.key, intent.reminderKey)
     if (!ownsIntent()) return
     state.order = result
+    commerceBreadcrumb('checkout.order_created', { flow: 'checkout', order_id: result.id, payment_method: result.payment_method })
     try {
       saveCheckoutConfirmation(sessionStorage, intent.scope, result)
       void router.replace({ query: { ...route.query, confirmation: String(result.id) } })
@@ -285,6 +291,7 @@ const sendIntent = async (intent: PendingCheckout) => {
       ? (error.data as { detail?: unknown })?.detail : undefined
     const stockRejected = status === 409 && typeof detail === 'string'
       && /^Insufficient stock for product \d+; backorders are disabled$/.test(detail)
+    if (!stockRejected) reportCommerceError('checkout.create_order_failed', error, { flow: 'checkout', payment_method: intent.body.paymentMethod })
     if ([400, 422].includes(status) || stockRejected) {
       pendingIntent.value = null
       sessionStorage.removeItem(intentStorageKey)
@@ -318,10 +325,16 @@ const submit = async () => {
   let safeBody: CheckoutOrderRequest
   try { safeBody = safeRequestBody('/public/orders', 'POST', body) as CheckoutOrderRequest }
   catch (error) { state.error = error instanceof Error ? error.message : 'Перевірте дані замовлення.'; return }
-  const intent = { key: crypto.randomUUID(), body: safeBody, scope: customerScope.value, reminderKey: readReminderOrderKey(sessionStorage, customerScope.value) }
+  let intent: PendingCheckout
   // Persist before the HTTP request; never send if durable retry storage is unavailable.
-  try { sessionStorage.setItem(intentStorageKey, JSON.stringify(intent)) }
-  catch { state.error = 'Дозвольте збереження сесії браузера для безпечного оформлення замовлення.'; return }
+  try {
+    intent = { key: crypto.randomUUID(), body: safeBody, scope: customerScope.value, reminderKey: readReminderOrderKey(sessionStorage, customerScope.value) }
+    sessionStorage.setItem(intentStorageKey, JSON.stringify(intent))
+  }
+  catch (cause) {
+    reportCommerceError('checkout.intent_storage_failed', cause, { flow: 'checkout', payment_method: form.paymentMethod })
+    state.error = 'Дозвольте збереження сесії браузера для безпечного оформлення замовлення.'; return
+  }
   pendingIntent.value = intent
   cartMayClear.value = true
   await sendIntent(intent)
@@ -363,56 +376,21 @@ useSeo(
     </section>
     <div class="checkout-page__body">
       <div class="checkout-page__user-info">
-        <aside class="checkout-card checkout-card--mobile">
-          <h2>{{ terms.checkout.orderSummary }}</h2>
-          <div v-if="cart.items.length" class="checkout-order-list">
-            <template v-for="item in cart.items" :key="item.product.id">
-              <article class="checkout-order-list__item">
-              <img
-                :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
-                :alt="item.product.images[0]?.alt || productDisplayName(item.product)"
-              >
-              <div class="checkout-order-list__body">
-                <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
-                <div class="checkout-order-list__title-row">
-                  <div class="checkout-order-list__title-copy">
-                    <h3>{{ productDisplayName(item.product) }}</h3>
-                    <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
-                      {{ terms.basket.unavailable }}
-                    </p>
-                    <strong class="checkout-order-list__price">
-                      {{ formatPrice(Number(item.product.price) * item.quantity) }}
-                    </strong>
-                  </div>
-                  <div class="checkout-order-list__actions">
-                    <BaseQuantityStepper
-                      class="checkout-order-list__stepper"
-                      variant="stacked"
-                      :model-value="item.quantity"
-                      :min="0"
-                      :max="cart.maxQuantity(item.product, item.quantity)"
-                      :disabled="cart.syncing"
-                      :disable-increase="isProductUnavailable(item.product)"
-                      :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
-                      @update:model-value="cart.update(item.product.id, $event)"
-                    />
-                  </div>
-                </div>
-              </div>
-              </article>
-            </template>
-          </div>
-          <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
-          <div class="checkout-total">
-            <span>{{ terms.common.total }}</span>
-            <strong>{{ formatPrice(cart.total) }}</strong>
-          </div>
-        </aside>
+
 
         <form id="shop-checkout-form" class="checkout-form" @submit.prevent="submit">
           <p v-if="unavailableItems.length" class="checkout-page__error checkout-page__unavailable" role="alert">
             {{ unavailableMessage }}
           </p>
+          <section class="checkout-card checkout-contact">
+            <div class="checkout-contact__head">
+              <h2>{{ terms.checkout.contact }}</h2>
+              <CustomerAuthDialog v-if="!auth.isAuthenticated" :label="terms.common.signIn" size="xs" />
+            </div>
+            <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" @focusout="onCheckoutEmailCheckpoint" @keydown.enter.prevent="onCheckoutEmailCheckpoint" />
+            <CheckoutServiceReminder :email="form.email" :checkpoint-revision="emailCheckpointRevision" :active="sessionReady && !state.loading && !pendingIntent && !otherScopePending" />
+          </section>
+
           <section class="checkout-card">
             <div class="checkout-card__head">
               <span>1</span>
@@ -421,11 +399,8 @@ useSeo(
             <div class="checkout-form__grid checkout-form__grid--two">
               <BaseInput v-model="form.firstName" rule="name" :label="terms.checkout.firstName" required autocomplete="given-name" />
               <BaseInput v-model="form.lastName" rule="name" :label="terms.checkout.lastName" required autocomplete="family-name" />
-              <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" @focusout="onCheckoutEmailCheckpoint" @keydown.enter.prevent="onCheckoutEmailCheckpoint" />
               <BasePhoneInput v-model="form.phoneNumber" :label="terms.checkout.phone" required />
-              <CheckoutServiceReminder :email="form.email" :checkpoint-revision="emailCheckpointRevision" :active="sessionReady && !state.loading && !pendingIntent && !otherScopePending" />
             </div>
-            <CustomerAuthDialog v-if="!auth.isAuthenticated" />
             <BaseCheckbox id="checkout-callback-requested" v-model="form.callbackRequested"
               :label="locale === 'uk' ? 'Передзвоніть мені для уточнення деталей замовлення' : 'Call me to clarify my order details'"
               :description="locale === 'uk' ? 'Необов’язково. Дзвінок не є умовою оформлення замовлення.' : 'Optional. A confirmation call is not required to place your order.'" />
@@ -526,11 +501,60 @@ useSeo(
             </div>
           </section>
 
+          <aside class="checkout-card checkout-card--mobile checkout-card--mobile-summary">
+            <h2>{{ terms.checkout.orderSummary }}</h2>
+            <div v-if="cart.items.length" class="checkout-order-list">
+              <template v-for="item in cart.items" :key="item.product.id">
+
+                <article class="checkout-order-list__item">
+                <img
+                  :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
+                  :alt="item.product.images[0]?.alt || productDisplayName(item.product)"
+                >
+                <div class="checkout-order-list__body">
+                  <p class="checkout-order-list__brand">{{ item.product.brand.name }}</p>
+                  <div class="checkout-order-list__title-row">
+                    <div class="checkout-order-list__title-copy">
+                      <h3>{{ productDisplayName(item.product) }}</h3>
+                      <p v-if="isProductUnavailable(item.product)" class="checkout-page__item-unavailable">
+                        {{ terms.basket.unavailable }}
+                      </p>
+                      <strong class="checkout-order-list__price">
+                        {{ formatPrice(Number(item.product.price) * item.quantity) }}
+                      </strong>
+                    </div>
+                    <div class="checkout-order-list__actions">
+                      <BaseQuantityStepper
+                        class="checkout-order-list__stepper"
+                        variant="stacked"
+                        :model-value="item.quantity"
+                        :min="0"
+                        :max="cart.maxQuantity(item.product, item.quantity)"
+                        :disabled="cart.syncing"
+                        :disable-increase="isProductUnavailable(item.product)"
+                        :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
+                        @update:model-value="cart.update(item.product.id, $event)"
+                      />
+                    </div>
+                  </div>
+                </div>
+                </article>
+              </template>
+            </div>
+            <p v-else class="checkout-page__muted">{{ terms.checkout.cartEmpty }}</p>
+            <div class="checkout-total">
+              <span>{{ terms.common.total }}</span>
+              <strong>{{ formatPrice(cart.total) }}</strong>
+            </div>
+          </aside>
+
           <section class="checkout-card checkout-card--finish checkout-card--mobile">
             <BaseButton type="submit" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <BaseButton type="button" variant="text" size="xs" @click="paymentTermsOpen = true">{{ paymentTermsTitle }}</BaseButton>
+            <BaseButton class="checkout-payment-terms" type="button" variant="text" size="xs" @click="paymentTermsOpen = true">
+              <BaseHoverUnderlineText>{{ paymentTermsTitle }}</BaseHoverUnderlineText>
+            </BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
@@ -543,6 +567,7 @@ useSeo(
             <h2>{{ terms.checkout.orderSummary }}</h2>
             <div v-if="cart.items.length" class="checkout-order-list">
               <template v-for="item in cart.items" :key="item.product.id">
+
                 <article class="checkout-order-list__item">
                 <img
                   :src="item.product.images[0]?.image || item.product.images[0]?.image_url || 'https://placehold.co/160x160?text=Product'"
@@ -590,7 +615,9 @@ useSeo(
             <BaseButton type="submit" form="shop-checkout-form" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
-            <BaseButton type="button" variant="text" size="xs" @click="paymentTermsOpen = true">{{ paymentTermsTitle }}</BaseButton>
+            <BaseButton class="checkout-payment-terms" type="button" variant="text" size="xs" @click="paymentTermsOpen = true">
+              <BaseHoverUnderlineText>{{ paymentTermsTitle }}</BaseHoverUnderlineText>
+            </BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
@@ -598,6 +625,7 @@ useSeo(
       </aside>
     </div>
   </section>
+
   <BaseModal v-model="paymentTermsOpen" type="bottom" full-height>
     <template #header-title>{{ paymentTermsTitle }}</template>
     <CheckoutPaymentTerms />
@@ -624,11 +652,17 @@ useSeo(
 }
 
 .checkout-confirmation__card h1 {
-  font-size: clamp(2rem, 6vw, 4rem);
+  font-size: 1.75rem;
   font-weight: 800;
 }
 
-.checkout-confirmation__number { color: #525252; font-size: 1.125rem; font-weight: 700; }
+.checkout-confirmation__number {
+  color: #525252;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+
 
 .checkout-page__user-info,
 .checkout-form,
@@ -640,6 +674,7 @@ useSeo(
 .checkout-card {
   display: grid;
   gap: 1rem;
+
   padding: 1rem;
 }
 
@@ -672,6 +707,19 @@ useSeo(
 .checkout-form__grid {
   display: grid;
   gap: 1rem;
+}
+
+.checkout-contact__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.checkout-contact__head h2 {
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .checkout-popular { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; font-size: .8rem; }
@@ -759,6 +807,23 @@ useSeo(
 
 .checkout-card--finish {
   align-content: start;
+  gap: 0.5rem;
+}
+
+.checkout-payment-terms {
+  justify-self: center;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.checkout-card--mobile-summary {
+  padding-bottom: 0;
+}
+
+.checkout-card--finish.checkout-card--mobile {
+  padding-top: 0;
 }
 
 .checkout-card--mobile {
@@ -878,6 +943,27 @@ useSeo(
 
   .checkout-form__grid--three {
     grid-template-columns: 1fr 0.5fr 0.5fr;
+  }
+}
+
+@media (max-width: 1023px) {
+  .checkout-order-list__title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .checkout-order-list__title-copy {
+    display: contents;
+  }
+
+  .checkout-order-list__title-copy h3,
+  .checkout-order-list__title-copy .checkout-page__item-unavailable {
+    grid-column: 1 / -1;
+  }
+
+  .checkout-order-list__price {
+    margin-top: 0;
   }
 }
 
