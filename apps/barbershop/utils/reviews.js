@@ -23,7 +23,7 @@ const normalizedPathname = pathname =>
     : ''
 
 export const isTokenizedReviewLocation = (pathname, hash) =>
-  (normalizedPathname(pathname) === '/masters' || normalizedPathname(pathname) === '/review')
+  (normalizedPathname(pathname) === '/masters' || normalizedPathname(pathname) === '/en/masters' || normalizedPathname(pathname) === '/review')
   && Boolean(reviewTokenFromHash(hash))
 
 export const isValidReviewRating = rating =>

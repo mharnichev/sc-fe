@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { blogCanonicalUrl } from '~/utils/blogSeo'
 import { formatPostDate, formatReadMinutes, getFeaturedPost, getLatestPosts } from '~/data/posts'
 
 const { locale, terms } = useBlogLocale()
@@ -13,6 +14,10 @@ const handleFeaturedPostClick = (source: string) => {
     source,
   })
 }
+
+const canonicalUrl = blogCanonicalUrl(String(useRuntimeConfig().public.siteUrl), '/')
+
+useHead({ link: [{ rel: 'canonical', href: canonicalUrl }] })
 
 useSeoMeta({
   title: () => terms.value.homeTitle,

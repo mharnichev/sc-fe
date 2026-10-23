@@ -327,9 +327,9 @@ if (faqItems.value.length) {
         <nav :aria-label="copy.breadcrumbLabel" class="mb-10 text-sm text-stone-600">
           <ol class="flex flex-wrap items-center gap-2">
             <li>
-              <NuxtLink to="/services" class="transition hover:text-stone-950">
+              <LocaleLink to="/services" class="transition hover:text-stone-950">
                 <BaseHoverUnderlineText>{{ copy.services }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </li>
             <li aria-hidden="true">/</li>
             <li class="service-name-wrap min-w-0 text-stone-950" aria-current="page">{{ serviceName }}</li>
@@ -390,9 +390,9 @@ if (faqItems.value.length) {
       <div class="site-container">
         <h2 class="text-xl font-semibold text-stone-950">{{ copy.compareTitle }}</h2>
         <nav class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-800" :aria-label="copy.compareTitle">
-          <NuxtLink v-for="item in relatedServices" :key="item.path" :to="item.path">
+          <LocaleLink v-for="item in relatedServices" :key="item.path" :to="item.path">
             <BaseHoverUnderlineText>{{ item.name }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
         </nav>
       </div>
     </section>
@@ -408,12 +408,12 @@ if (faqItems.value.length) {
             :key="offer.id"
             class="border border-stone-200 bg-stone-50 p-5"
           >
-            <NuxtLink
+            <LocaleLink
               :to="offer.path"
               class="text-xl font-semibold text-stone-950"
             >
               <BaseHoverUnderlineText>{{ offer.name }}</BaseHoverUnderlineText>
-            </NuxtLink>
+            </LocaleLink>
             <dl class="mt-5 flex flex-wrap gap-x-8 gap-y-3 text-sm text-stone-700">
               <div>
                 <dt class="type-meta text-xs text-stone-500">{{ copy.price }}</dt>
@@ -450,12 +450,12 @@ if (faqItems.value.length) {
       <div class="site-container">
         <h2 class="type-meta text-xs text-stone-500">{{ copy.relatedTitle }}</h2>
         <nav class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-800" :aria-label="copy.relatedTitle">
-          <NuxtLink to="/services">
+          <LocaleLink to="/services">
             <BaseHoverUnderlineText>{{ copy.services }}</BaseHoverUnderlineText>
-          </NuxtLink>
-          <NuxtLink to="/barbershop-odesa">
+          </LocaleLink>
+          <LocaleLink to="/barbershop-odesa">
             <BaseHoverUnderlineText>{{ copy.local }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
           <a href="/blog/">
             <BaseHoverUnderlineText>{{ copy.journal }}</BaseHoverUnderlineText>
           </a>

@@ -44,6 +44,7 @@ test('unknown or renamed catalog services retain the generic detail page', () =>
   assert.equal(serviceGuide(999, 'Інша послуга', 'uk'), null)
   assert.equal(serviceGuide(7, 'Інша послуга', 'en'), null)
   assert.equal(serviceGuide(null, 'Стрижка', 'uk'), null)
+  assert.equal(serviceGuide(15, 'Стрижка машинкою+стрижка бороди ЗСУ', 'uk'), null)
   assert.match(pageSource, /v-if="guide"/)
   assert.match(pageSource, /statusCode: 404/)
 })

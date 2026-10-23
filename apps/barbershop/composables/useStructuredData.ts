@@ -1,3 +1,4 @@
+import { localizedPublicPath } from '~/utils/localeRoutes'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import defaultBusinessImage from '~/assets/images/main/sc-open-img.webp'
 
@@ -72,9 +73,18 @@ export const useJsonLd = (key: string, value: MaybeRefOrGetter<JsonLdValue>) => 
   })
 }
 
+const useSchemaSiteUrl = () => {
+  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { locale } = useTerms()
+  return {
+    siteUrl,
+    absoluteUrl: (path = '/') => absoluteUrl(localizedPublicPath(path, locale.value)),
+  }
+}
+
 export const useLocalBusinessStructuredData = () => {
   const { terms } = useTerms()
-  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { absoluteUrl, siteUrl } = useSchemaSiteUrl()
 
   useJsonLd('local-business-schema', () => ({
     '@context': 'https://schema.org',
@@ -149,7 +159,7 @@ export const useLocalBusinessStructuredData = () => {
 export const useServiceCatalogStructuredData = (
   items: MaybeRefOrGetter<readonly ServiceStructuredDataItem[]>,
 ) => {
-  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { absoluteUrl, siteUrl } = useSchemaSiteUrl()
   const { terms } = useTerms()
 
   useJsonLd('service-catalog-schema', () => ({
@@ -188,7 +198,7 @@ export const useServiceCatalogStructuredData = (
 export const useServiceStructuredData = (
   value: MaybeRefOrGetter<ServiceDetailStructuredDataValue>,
 ) => {
-  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { absoluteUrl, siteUrl } = useSchemaSiteUrl()
 
   useJsonLd('service-detail-schema', () => {
     const service = toValue(value)
@@ -242,7 +252,7 @@ export const useServiceStructuredData = (
 export const useBarberStructuredData = (
   value: MaybeRefOrGetter<BarberStructuredDataValue>,
 ) => {
-  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { absoluteUrl, siteUrl } = useSchemaSiteUrl()
 
   useJsonLd('barber-profile-schema', () => {
     const barber = toValue(value)
@@ -376,7 +386,7 @@ export const useWebPageStructuredData = (
   path?: MaybeRefOrGetter<string>,
 ) => {
   const route = useRoute()
-  const { absoluteUrl, siteUrl } = useSiteUrl()
+  const { absoluteUrl, siteUrl } = useSchemaSiteUrl()
   const { locale } = useTerms()
 
   useJsonLd('web-page-schema', () => {
@@ -407,7 +417,7 @@ export const useBreadcrumbStructuredData = (
   breadcrumbs?: MaybeRefOrGetter<readonly { name: string, path: string }[]>,
 ) => {
   const route = useRoute()
-  const { absoluteUrl } = useSiteUrl()
+  const { absoluteUrl } = useSchemaSiteUrl()
   const { terms } = useTerms()
 
   useJsonLd('breadcrumb-schema', () => {

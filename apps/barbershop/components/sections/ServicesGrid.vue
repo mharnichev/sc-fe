@@ -28,6 +28,8 @@ const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
 const { trackEvent } = useAnalytics()
 const route = useRoute()
+const { localePath } = useTerms()
+const isHomePage = computed(() => route.path === '/' || route.path === '/en' || route.path === '/en/')
 const { offers } = useBookingPromotions()
 // Catalogue text and links belong in SSR; Nuxt reuses this payload on hydration.
 const { data: serviceCatalog, pending: servicesPending, error: servicesError, refresh: refreshServices } = await useAsyncData('home-services-grid', async () =>
@@ -122,8 +124,8 @@ const selectService = async (service: ServiceCatalogItemDto) => {
     source: 'services_grid',
   })
 
-  if (route.path !== '/') {
-    await navigateTo(serviceBookingPath(service))
+  if (!isHomePage.value) {
+    await navigateTo(localePath(serviceBookingPath(service)))
     return
   }
 
@@ -152,13 +154,13 @@ const selectService = async (service: ServiceCatalogItemDto) => {
           <p class="text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
             {{ displaySectionDescription }}
           </p>
-          <NuxtLink
-            v-if="route.path === '/' || showCatalogueLink"
+          <LocaleLink
+            v-if="isHomePage || showCatalogueLink"
             to="/services"
             class="type-meta mt-4 block w-fit text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
           >
             <BaseHoverUnderlineText>{{ catalogueLabel }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
         </div>
       </div>
 
@@ -225,20 +227,20 @@ const selectService = async (service: ServiceCatalogItemDto) => {
           <ServiceDescriptionAccordion
             :description="localizedService.serviceDescription(service) || terms.home.services.noDescription"
           />
-          <NuxtLink
+          <LocaleLink
             v-if="serviceDetailPath(service)"
             :to="serviceDetailPath(service)"
             class="service-detail-link type-meta -mt-1 w-fit text-[10px] font-semibold text-neutral-600 transition hover:text-neutral-950"
           >
             <BaseHoverUnderlineText>{{ detailLabel }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
           <button
             type="button"
             class="service-card__booking service-card__meta type-eyebrow flex items-center justify-between gap-4 px-3 py-3 text-xs text-neutral-500"
             @click="selectService(service)"
           >
             <span>{{ formatServiceDuration(service) }}</span>
-            <span>{{ route.path === '/' ? terms.home.services.choose : bookingLabel }}</span>
+            <span>{{ isHomePage ? terms.home.services.choose : bookingLabel }}</span>
           </button>
           <span
             v-if="isLegacyCodePromotion(service)"

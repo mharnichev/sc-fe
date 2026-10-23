@@ -11,6 +11,9 @@ import {
   serviceSeoPath,
   serviceStableId,
 } from '../../utils/seoRoutes'
+import { localizedPublicPath } from '../../utils/localeRoutes'
+import { serviceGuideLastmod } from '../../data/serviceGuideNames'
+import { isPublicServiceActive } from '../../composables/useActiveServiceCatalog'
 import {
   createSitemapCache,
   SITEMAP_FRESH_MS,
@@ -44,9 +47,6 @@ const xmlEscape = (value: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-
-const activeServiceRow = (service: PublicServiceDto) =>
-  service.is_active ?? service.status?.toLowerCase() !== 'inactive'
 
 const apiUrl = (base: string, path: string) =>
   `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
@@ -84,14 +84,20 @@ const buildSitemap = async (siteUrl: string, upstreamBase: string) => {
     throw new Error('Invalid public catalogue response')
   }
 
-  const activeServiceRows = services.filter(activeServiceRow)
+  const activeServiceRows = services.filter(isPublicServiceActive)
   const serviceRoutes: SitemapRoute[] = indexableServiceCatalog(catalog).map((service) => {
     const baseServiceId = serviceStableId(service)
-    const lastmod = latestIsoTimestamp(
-      activeServiceRows
+    const lastmod = latestIsoTimestamp([
+      ...catalog.filter(row => serviceStableId(row) === baseServiceId && isPublicServiceActive(row))
+        .map(row => row.updated_at || row.created_at),
+      serviceGuideLastmod(baseServiceId, service.title_uk || service.name),
+      ...service.barber_services
+        .filter(isPublicServiceActive)
+        .map(row => row.updated_at || row.created_at),
+      ...activeServiceRows
         .filter(row => row.base_service_id === baseServiceId)
-        .map(row => row.updated_at),
-    )
+        .map(row => row.updated_at || row.created_at),
+    ])
 
     return {
       loc: serviceSeoPath(service),
@@ -105,10 +111,10 @@ const buildSitemap = async (siteUrl: string, upstreamBase: string) => {
     priority: '0.7',
     changefreq: 'weekly',
     lastmod: latestIsoTimestamp([
-      master.updated_at,
+      master.updated_at || master.created_at,
       ...(master.services || [])
-        .filter(activeServiceRow)
-        .map(service => service.updated_at),
+        .filter(isPublicServiceActive)
+        .map(service => service.updated_at || service.created_at),
     ]),
   }))
   const routes = [...staticRoutes, ...serviceRoutes, ...masterRoutes]
@@ -119,7 +125,8 @@ const buildSitemap = async (siteUrl: string, upstreamBase: string) => {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    routes.map(route => routeXml(siteUrl, route)).join('\n'),
+    routes.flatMap(route => [route, { ...route, loc: localizedPublicPath(route.loc, 'en') }])
+      .map(route => routeXml(siteUrl, route)).join('\n'),
     '</urlset>',
     '',
   ].join('\n')

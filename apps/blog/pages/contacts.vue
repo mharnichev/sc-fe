@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { blogCanonicalUrl } from '~/utils/blogSeo'
 const { terms } = useBlogLocale()
 const { sendFeedback } = useBlogFeedback()
 const { trackBlogEvent } = useBlogAnalytics()
@@ -129,6 +130,10 @@ const trackContactClick = (type: string) => {
     source: 'contacts_page',
   })
 }
+
+const canonicalUrl = blogCanonicalUrl(String(useRuntimeConfig().public.siteUrl), '/contacts')
+
+useHead({ link: [{ rel: 'canonical', href: canonicalUrl }] })
 
 useSeoMeta({
   title: () => contact.value.seoTitle,

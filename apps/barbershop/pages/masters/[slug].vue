@@ -552,13 +552,13 @@ useBarberStructuredData(() => ({
     <section data-header-theme="light" class="section-y pt-24 sm:pt-28 md:pt-32">
       <div class="site-container">
         <nav class="flex flex-wrap items-center gap-2 text-sm text-neutral-500" :aria-label="pageLabels.masters">
-          <NuxtLink to="/" class="transition hover:text-neutral-950">
+          <LocaleLink to="/" class="transition hover:text-neutral-950">
             {{ pageLabels.backHome }}
-          </NuxtLink>
+          </LocaleLink>
           <span aria-hidden="true">/</span>
-          <NuxtLink to="/masters" class="transition hover:text-neutral-950">
+          <LocaleLink to="/masters" class="transition hover:text-neutral-950">
             {{ pageLabels.masters }}
-          </NuxtLink>
+          </LocaleLink>
           <span aria-hidden="true">/</span>
           <span class="text-neutral-950" aria-current="page">{{ fullName }}</span>
         </nav>

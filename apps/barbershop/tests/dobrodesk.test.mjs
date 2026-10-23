@@ -28,6 +28,12 @@ test('only approved public paths without query or hash are eligible', () => {
   assert.equal(check('/', {}, '#secret'), false)
   for (const path of ['/booking', '/booking/manage', '/booking/repeat', '/booking/cancel', '/booking/waitlist-offer', '/cabinet', '/cabinet/orders/123', '/checkout', '/checkout/purchase', '/favorites', '/unknown', '/blog']) assert.equal(check(path), false, path)
   assert.equal(check('/services/haircut'), true)
+  for (const path of ['/en/', '/en/services', '/en/masters/hlib-1', '/en/contacts']) {
+    assert.equal(check(path), true, path)
+    assert.equal(check(path, { token: 'secret' }), false)
+    assert.equal(check(path, {}, '#secret'), false)
+  }
+  for (const path of ['/en/booking', '/en/booking/manage', '/en/review', '/en/api/v1', '/en/blog', '/en/unknown']) assert.equal(check(path), false, path)
   assert.equal(check('/shop'), false)
   assert.equal(check('/shop/catalog'), false)
 })

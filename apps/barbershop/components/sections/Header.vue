@@ -6,13 +6,13 @@ const headerElement = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const headerTheme = ref<HeaderTheme>('dark')
 const shouldRenderDesktopNav = ref(false)
-const { locale, localeOptions, setLocale, terms } = useTerms()
+const { locale, localeOptions, setLocale, localePath, terms } = useTerms()
 const route = useRoute()
 let desktopNavMediaQuery: MediaQueryList | null = null
 let desktopMenuCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const menuItems = computed(() => [
-  ...(route.path === '/'
+  ...(localePath('/') === route.path || route.path === '/en'
     ? []
     : [{ label: terms.value.common.homeLink, href: '/' }]),
   ...terms.value.nav,
@@ -128,7 +128,7 @@ const scrollToHash = async (hash: string) => {
 
   const top = target.getBoundingClientRect().top + window.scrollY
 
-  window.history.replaceState(window.history.state, '', `/${hash}`)
+  window.history.replaceState(window.history.state, '', `${route.path}${window.location.search}${hash}`)
   window.scrollTo({
     top,
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
@@ -140,7 +140,7 @@ const scrollToHash = async (hash: string) => {
 const handleMenuItemClick = async (href: string) => {
   if (!import.meta.client) return
 
-  const url = new URL(href, window.location.origin)
+  const url = new URL(localePath(href), window.location.origin)
 
   if (!url.hash) {
     closeMenu()
@@ -235,16 +235,17 @@ onBeforeUnmount(() => {
 <template>
   <header ref="headerElement">
     <div class="fixed right-4 top-4 z-50 flex items-center gap-1 rounded-full border border-white/10 bg-neutral-950 px-1 py-1 text-white">
-      <button
+      <NuxtLink
         v-for="option in localeOptions"
         :key="option.code"
-        type="button"
+        :to="localePath(route.fullPath, option.code)"
+        :hreflang="option.code"
         class="rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-all duration-200"
         :class="locale === option.code ? 'bg-white text-neutral-950' : 'text-white/50 hover:text-white'"
-        @click="setLocale(option.code)"
+        @click.prevent="setLocale(option.code)"
       >
         {{ option.label }}
-      </button>
+      </NuxtLink>
 
       <div class="mx-0.5 h-4 w-px bg-white/10 lg:hidden" />
 
@@ -299,7 +300,7 @@ onBeforeUnmount(() => {
           :class="isOpen ? 'pointer-events-auto opacity-100 translate-y-0' : 'pointer-events-none -translate-y-2.5 opacity-0'"
           :style="{ transitionDelay: isOpen ? `${index * 50}ms` : '0ms' }"
         >
-          <NuxtLink
+          <LocaleLink
             :to="item.href"
             class="type-display group block text-left leading-[1.05] transition-colors duration-300"
             :class="menuLinkClass"
@@ -307,7 +308,7 @@ onBeforeUnmount(() => {
             @click.prevent="handleMenuItemClick(item.href)"
           >
             <AnimatedMenuText :text="item.label" />
-          </NuxtLink>
+          </LocaleLink>
         </div>
       </div>
     </nav>
@@ -342,7 +343,7 @@ onBeforeUnmount(() => {
               :style="raggedMenuSurfaceStyle"
               aria-hidden="true"
             />
-            <NuxtLink
+            <LocaleLink
               v-for="(item, index) in menuItems"
               :key="item.href"
               :to="item.href"
@@ -351,7 +352,7 @@ onBeforeUnmount(() => {
               @click.prevent="handleMenuItemClick(item.href)"
             >
               <AnimatedMenuText :text="item.label" />
-            </NuxtLink>
+            </LocaleLink>
           </div>
         </nav>
       </div>

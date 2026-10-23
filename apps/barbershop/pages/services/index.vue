@@ -50,12 +50,12 @@ useServiceCatalogStructuredData(structuredServices)
           </p>
         </div>
         <nav class="flex flex-col items-start gap-3 text-sm font-semibold text-stone-700" :aria-label="terms.pages.services.title">
-          <NuxtLink to="/masters" class="transition hover:text-stone-950">
+          <LocaleLink to="/masters" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ links.masters }}</BaseHoverUnderlineText>
-          </NuxtLink>
-          <NuxtLink to="/barbershop-odesa" class="transition hover:text-stone-950">
+          </LocaleLink>
+          <LocaleLink to="/barbershop-odesa" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ links.local }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
           <a href="/blog/" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ links.journal }}</BaseHoverUnderlineText>
           </a>

@@ -12,7 +12,7 @@ const { usePaymentDisplay } = await sourceModule((await readFile(new URL('../com
 
 test('WIP payment status and errors react UK → EN → UK without mutating provider data or requesting payments', async () => {
   const payment = vue.ref({ status: 'waiting', enabled: true, paid: false, receipt_accepted: false, page_url: 'https://pay.mbnk.biz/test', receipt_url: null })
-  const error = vue.ref('Не вдалося оновити оплату. Спробуйте ще раз.')
+  const error = vue.ref('')
   let actions = 0
   Object.assign(globalThis, vue, {
     usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }),
@@ -21,11 +21,12 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath };')
   const render = vue.compile(file.split('<template>')[1].split('</template>')[0])
   const html = () => {
-    const app = vue.createSSRApp({ setup: () => ({ ...component, payment, busy: false, error, pageUrl: payment.value.page_url, receiptUrl: payment.value.receipt_url, create() {}, refresh() {} }), render })
+    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
+    app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
     return renderToString(app)
   }
   const statuses = {
@@ -46,9 +47,22 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
       assert.ok(rendered.includes(expected[language === 'en' ? 1 : 0]))
       assert.ok(rendered.includes(component.paymentText.value.refresh))
       assert.equal(rendered.includes(component.paymentText.value.create), status === 'not_started')
+      assert.equal(rendered.includes('href="https://pay.mbnk.biz/test"'), status === 'waiting')
       assert.equal(JSON.stringify(payment.value), snapshot)
       assert.equal(actions, 0)
     }
+  }
+  payment.value.status = 'not_started'
+  error.value = 'Не вдалося оновити оплату. Спробуйте ще раз.'
+  for (const language of ['uk', 'en', 'uk']) {
+    locale.value = language
+    const rendered = await html()
+    assert.ok(!rendered.includes(component.paymentText.value.create))
+    assert.ok(rendered.includes(component.paymentText.value.connectionHint))
+    assert.ok(rendered.includes(component.paymentError.value))
+    assert.ok(rendered.includes(component.paymentText.value.refresh))
+    assert.equal(payment.value.status, 'not_started')
+    assert.equal(actions, 0)
   }
   payment.value.status = 'waiting'
   assert.equal(component.paymentError.value, error.value)

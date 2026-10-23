@@ -24,6 +24,8 @@ test('recognizes tokenized review entry only on masters and legacy review routes
 
   assert.equal(isTokenizedReviewLocation('/masters', tokenHash), true)
   assert.equal(isTokenizedReviewLocation('/masters/', tokenHash), true)
+  assert.equal(isTokenizedReviewLocation('/en/masters', tokenHash), true)
+  assert.equal(isTokenizedReviewLocation('/en/masters/', tokenHash), true)
   assert.equal(isTokenizedReviewLocation('/review', tokenHash), true)
   assert.equal(isTokenizedReviewLocation('/review/', tokenHash), true)
   assert.equal(isTokenizedReviewLocation('/', tokenHash), false)

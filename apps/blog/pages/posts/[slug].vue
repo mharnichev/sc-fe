@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { blogArticleSchema, blogCanonicalUrl, blogImageUrl, serializeBlogJsonLd } from '~/utils/blogSeo'
 import { getPostBySlug, getRelatedPosts, loadBlogPostImage, localizePost, type BlogPostImageKey } from '~/data/posts'
 
 type AssetModule = { default: string }
@@ -26,7 +27,8 @@ if (!rawPost) {
 
 const isUnlisted = rawPost.visibility === 'unlisted'
 const runtimeConfig = useRuntimeConfig()
-const articleUrl = `${String(runtimeConfig.public.siteUrl).replace(/\/+$/, '')}/posts/${rawPost.slug}`
+const siteUrl = String(runtimeConfig.public.siteUrl)
+const articleUrl = blogCanonicalUrl(siteUrl, `/posts/${rawPost.slug}`)
 
 if (isUnlisted) {
   const robotsHeader = useResponseHeader('X-Robots-Tag')
@@ -140,13 +142,18 @@ useSeoMeta({
   robots: isUnlisted ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow',
   ogTitle: () => post.value.title,
   ogDescription: () => post.value.excerpt,
-  ogImage: () => post.value.coverImage,
+  ogImage: () => blogImageUrl(siteUrl, post.value.coverImage),
   ogType: 'article',
   ogUrl: articleUrl,
   twitterCard: 'summary_large_image',
 })
 
 useHead(() => ({
+  script: [{
+    key: 'blog-article',
+    type: 'application/ld+json',
+    innerHTML: serializeBlogJsonLd(blogArticleSchema(siteUrl, post.value, locale.value)),
+  }],
   link: [
     {
       rel: 'canonical',
