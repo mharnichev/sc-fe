@@ -372,18 +372,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section v-if="catalogEditable" class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
+  <BaseCard v-if="catalogEditable" as="section" padding="sm" class="min-w-0 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h2 class="text-xl font-semibold text-slate-900">Фотографії товару</h2>
-        <p class="mt-1 text-sm text-slate-500">JPEG, PNG або WebP до 5 МБ. Перша активна фотографія є головною.</p>
+        <h2 class="flex items-center gap-2 text-base font-semibold text-ui-primary"><PhotoIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />Фотографії товару<BaseFieldHelp label="Фотографії товару" text="JPEG, PNG або WebP до 5 МБ. Перша активна фотографія є головною. Порядок можна змінити кнопками на картці." /></h2>
       </div>
       <div class="flex flex-wrap gap-2">
-        <BaseButton type="button" variant="neutral" :disabled="loading" @click="loadImages">
+        <BaseButton type="button" variant="neutral" size="sm" :disabled="loading" @click="loadImages">
           <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
           Оновити
         </BaseButton>
-        <BaseButton type="button" variant="primary" :disabled="reorderInProgress || deletePending" @click="uploadInput?.click()">
+        <BaseButton type="button" variant="primary" size="sm" :disabled="reorderInProgress || deletePending" @click="uploadInput?.click()">
           <PhotoIcon class="h-4 w-4" aria-hidden="true" />
           Додати фото
         </BaseButton>
@@ -391,7 +390,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="loading" class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500" aria-live="polite">Завантаження фотографій…</div>
+    <div v-if="loading" class="rounded-2xl bg-slate-50 p-4 text-sm text-ui-muted" aria-live="polite">Завантаження фотографій…</div>
     <div v-else-if="loadError" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700" role="alert">
       <span>{{ loadError }}</span>
       <BaseButton type="button" variant="neutral" @click="loadImages">Повторити</BaseButton>
@@ -400,10 +399,10 @@ onBeforeUnmount(() => {
     <div v-if="uploads.length" class="space-y-3 rounded-2xl border border-cyan-100 bg-cyan-50/50 p-4">
       <p class="text-sm font-semibold text-slate-800">Нові файли</p>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <article v-for="item in uploads" :key="item.id" class="flex gap-3 rounded-xl border border-slate-200 bg-white p-2">
+        <article v-for="item in uploads" :key="item.id" class="flex gap-3 rounded-xl border border-ui bg-ui-surface p-2">
           <img :src="item.previewUrl" alt="" class="h-16 w-16 shrink-0 rounded-lg object-cover">
           <div class="min-w-0 text-xs">
-            <p class="truncate font-medium text-slate-700">{{ item.file.name }}</p>
+            <p class="truncate font-medium text-ui-secondary">{{ item.file.name }}</p>
             <p v-if="item.status === 'uploading'" class="mt-1 text-cyan-700" aria-live="polite">Завантаження…</p>
             <p v-else-if="item.error" class="mt-1 text-rose-600">{{ item.error }}</p>
             <p v-else class="mt-1 text-emerald-600">Готово до завантаження</p>
@@ -416,27 +415,35 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="hasProductImages" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <article v-for="(image, index) in sortedImages" :key="image.id" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div class="relative aspect-[4/3] bg-slate-100">
-          <img
+    <div v-if="hasProductImages" class="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 lg:grid-cols-3">
+      <article v-for="(image, index) in sortedImages" :key="image.id" class="overflow-hidden rounded-2xl border border-ui bg-ui-surface">
+        <div class="relative h-28 bg-ui-subtle">
+          <a
             v-if="replacementDrafts[image.id]?.previewUrl || image.image_url"
-            :src="replacementDrafts[image.id]?.previewUrl || assetUrl(displayImageUrl(image))"
-            :alt="image.alt || 'Фотографія товару'"
-            class="h-full w-full object-cover"
-            :class="!image.is_active ? 'opacity-50' : ''"
+            :href="replacementDrafts[image.id]?.previewUrl || assetUrl(displayImageUrl(image))"
+            target="_blank"
+            rel="noreferrer"
+            class="block h-full w-full"
+            :aria-label="`Відкрити фото ${index + 1} у повному розмірі`"
           >
+            <img
+              :src="replacementDrafts[image.id]?.previewUrl || assetUrl(displayImageUrl(image))"
+              :alt="image.alt || 'Фотографія товару'"
+              class="h-full w-full object-contain"
+              :class="!image.is_active ? 'opacity-50' : ''"
+            >
+          </a>
           <div v-else class="flex h-full items-center justify-center text-sm text-slate-400">Немає зображення</div>
           <span v-if="image.id === mainImageId" class="absolute left-3 top-3 rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">Головна</span>
-          <span v-if="!image.is_active" class="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600">Прихована</span>
+          <span v-if="!image.is_active" class="absolute right-3 top-3 rounded-full bg-ui-surface px-3 py-1 text-xs font-medium text-ui-secondary">Прихована</span>
           <span v-if="replacementDrafts[image.id]" class="absolute bottom-3 left-3 rounded-full bg-cyan-700 px-3 py-1 text-xs font-medium text-white">Нове прев’ю</span>
         </div>
-        <div class="space-y-3 p-4">
+        <div class="space-y-2 p-2.5">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-xs text-slate-500">Фото {{ index + 1 }}</span>
+            <span class="text-xs text-ui-muted">Фото {{ index + 1 }}</span>
             <div class="flex gap-1">
-              <BaseButton type="button" variant="neutral" class="h-8 w-8 p-0" :disabled="index === 0 || reorderBlocked" aria-label="Перемістити вліво" title="Вище" @click="moveImage(image, -1)"><ArrowLeftIcon class="mx-auto h-4 w-4" /></BaseButton>
-              <BaseButton type="button" variant="neutral" class="h-8 w-8 p-0" :disabled="index === sortedImages.length - 1 || reorderBlocked" aria-label="Перемістити вправо" title="Нижче" @click="moveImage(image, 1)"><ArrowRightIcon class="mx-auto h-4 w-4" /></BaseButton>
+              <BaseButton type="button" variant="icon" class="h-8 w-8 p-0" :disabled="index === 0 || reorderBlocked" aria-label="Перемістити вліво" title="Вище" @click="moveImage(image, -1)"><ArrowLeftIcon class="mx-auto h-4 w-4" /></BaseButton>
+              <BaseButton type="button" variant="icon" class="h-8 w-8 p-0" :disabled="index === sortedImages.length - 1 || reorderBlocked" aria-label="Перемістити вправо" title="Нижче" @click="moveImage(image, 1)"><ArrowRightIcon class="mx-auto h-4 w-4" /></BaseButton>
               <BaseButton
                 type="button"
                 variant="danger-icon"
@@ -472,14 +479,14 @@ onBeforeUnmount(() => {
         </div>
       </article>
     </div>
-    <div v-else-if="!loading && !loadError && !legacyPreviewUrls.length" class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+    <div v-else-if="!loading && !loadError && !legacyPreviewUrls.length" class="rounded-2xl bg-slate-50 p-5 text-sm text-ui-muted">
       Галерея порожня. Додайте першу фотографію товару.
     </div>
 
     <div v-if="!hasProductImages && legacyPreviewUrls.length" class="space-y-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
       <p>Нижче показані старі зображення з URL. Після додавання ProductImage основною стане нова галерея.</p>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <a v-for="url in legacyPreviewUrls" :key="url" :href="assetUrl(url)" target="_blank" rel="noreferrer" class="overflow-hidden rounded-xl border border-amber-200 bg-white">
+        <a v-for="url in legacyPreviewUrls" :key="url" :href="assetUrl(url)" target="_blank" rel="noreferrer" class="overflow-hidden rounded-xl border border-amber-200 bg-ui-surface">
           <img :src="assetUrl(url)" alt="Старе зображення товару" class="aspect-square w-full object-cover">
         </a>
       </div>
@@ -494,5 +501,5 @@ onBeforeUnmount(() => {
       destructive
       @confirm="removeImage"
     />
-  </section>
+  </BaseCard>
 </template>

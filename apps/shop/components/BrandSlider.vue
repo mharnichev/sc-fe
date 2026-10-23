@@ -499,6 +499,22 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 1023px), (hover: none), (pointer: coarse) {
+  .brand-slider__card::before {
+    display: none;
+  }
+
+  .brand-slider__card:hover .brand-slider__logo,
+  .brand-slider__card:focus-visible .brand-slider__logo {
+    color: #292524;
+  }
+
+  .brand-slider__card:hover .brand-slider__logo img,
+  .brand-slider__card:focus-visible .brand-slider__logo img {
+    filter: none;
+  }
+}
+
 @keyframes brand-slider-fill-enter {
   from { transform: translate3d(0, -76%, 0); }
   to { transform: translate3d(0, 0, 0); }

@@ -6,6 +6,7 @@ const props = defineProps<{
 const recentlyViewed = useRecentlyViewedStore()
 const { terms } = useShopLocale()
 const viewport = ref<HTMLElement | null>(null)
+const cardWidth = ref<number | null>(null)
 const canScrollBack = ref(false)
 const canScrollForward = ref(false)
 let resizeObserver: ResizeObserver | undefined
@@ -22,14 +23,34 @@ const updateControls = () => {
   canScrollForward.value = element.scrollLeft + element.clientWidth < element.scrollWidth - 2
 }
 
+const updateLayout = () => {
+  const element = viewport.value
+  if (!element) return
+
+  // Match the actual catalog column, including space reserved for filters.
+  const grid = element.closest('main')?.querySelector<HTMLElement>('.catalog-product-grid')
+  const gridColumn = grid ? Number.parseFloat(getComputedStyle(grid).gridTemplateColumns) : NaN
+  const wide = window.matchMedia('(min-width: 1241px)').matches
+  const medium = window.matchMedia('(min-width: 568px)').matches
+  const track = element.querySelector<HTMLElement>('.recently-viewed-products__track')
+  const gap = track ? Number.parseFloat(getComputedStyle(track).columnGap) || 0 : 0
+  const columns = wide ? 4 : medium ? Math.max(1, Math.floor((element.clientWidth + gap) / (240 + gap))) : 2
+  cardWidth.value = Number.isFinite(gridColumn) && gridColumn > 0
+    ? gridColumn
+    : (element.clientWidth - gap * (columns - 1)) / columns
+  nextTick(updateControls)
+}
+
 const observeViewport = () => {
   resizeObserver?.disconnect()
   const element = viewport.value
   if (!element) return
 
-  resizeObserver = new ResizeObserver(updateControls)
+  resizeObserver = new ResizeObserver(updateLayout)
   resizeObserver.observe(element)
-  updateControls()
+  const grid = element.closest('main')?.querySelector<HTMLElement>('.catalog-product-grid')
+  if (grid) resizeObserver.observe(grid)
+  updateLayout()
 }
 
 const scrollProducts = (direction: -1 | 1) => {
@@ -38,7 +59,8 @@ const scrollProducts = (direction: -1 | 1) => {
 
   const item = element.querySelector<HTMLElement>('.recently-viewed-products__item')
   const itemWidth = item?.getBoundingClientRect().width || element.clientWidth
-  const gap = Number.parseFloat(getComputedStyle(element).columnGap) || 12
+  const track = element.querySelector<HTMLElement>('.recently-viewed-products__track')
+  const gap = track ? Number.parseFloat(getComputedStyle(track).columnGap) || 0 : 0
   element.scrollBy({
     left: direction * (itemWidth + gap),
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
@@ -46,6 +68,7 @@ const scrollProducts = (direction: -1 | 1) => {
 }
 
 onMounted(() => {
+  window.addEventListener('resize', updateLayout)
   recentlyViewed.hydrate()
   nextTick(observeViewport)
 })
@@ -56,6 +79,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateLayout)
   resizeObserver?.disconnect()
 })
 </script>
@@ -101,7 +125,7 @@ onBeforeUnmount(() => {
       :aria-label="terms.common.recentlyViewed"
       @scroll.passive="updateControls"
     >
-      <ul class="recently-viewed-products__track">
+      <ul class="recently-viewed-products__track" :style="cardWidth ? { gridAutoColumns: `${cardWidth}px` } : undefined">
         <li
           v-for="product in visibleProducts"
           :key="product.id"
@@ -165,9 +189,9 @@ onBeforeUnmount(() => {
 
 .recently-viewed-products__track {
   display: grid;
-  grid-auto-columns: minmax(9.125rem, 72vw);
+  grid-auto-columns: calc((100% - 0.35rem) / 2);
   grid-auto-flow: column;
-  gap: 0.75rem;
+  gap: 0.35rem;
 }
 
 .recently-viewed-products__item {
@@ -176,9 +200,10 @@ onBeforeUnmount(() => {
   scroll-snap-align: start;
 }
 
-@media (min-width: 520px) {
+@media (min-width: 568px) {
   .recently-viewed-products__track {
-    grid-auto-columns: minmax(15rem, calc((100% - 2.25rem) / 4));
+    grid-auto-columns: calc((100% - 2.25rem) / 4);
+    gap: 0.75rem;
   }
 }
 

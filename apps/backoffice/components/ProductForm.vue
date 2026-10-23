@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { canManageCatalog } from '~/utils/catalogAccess'
 import { categoryPathLabels } from '~/utils/categoryPaths'
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CodeBracketIcon, CubeIcon, PhotoIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
 import { slugify } from '@shared-utils'
 import type { Brand, Category, ProductPayload } from '~/composables/useBackofficeApi'
+
+provide('compactFieldHints', true)
+const formId = `product-form-${useId()}`
+const compactControlClass = 'base-control min-h-10 w-full px-3 py-2 text-sm'
 
 interface FilterRow {
   id: string
@@ -290,103 +294,62 @@ const submit = () => {
 </script>
 
 <template>
-  <form v-if="catalogEditable" class="space-y-6" @submit.prevent="submit">
-    <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 class="text-xl font-semibold text-slate-900">Основна інформація</h2>
+  <form v-if="catalogEditable" class="space-y-3 [&_.base-field__label]:min-h-8" @submit.prevent="submit">
+    <div class="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      <BaseCard as="section" padding="sm" class="space-y-3">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 class="flex items-center gap-2 text-base font-semibold text-ui-primary"><CubeIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />Основна інформація</h2>
           <BaseButton
             type="button"
-            class="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 sm:self-auto"
+            variant="secondary" size="sm" class="gap-1.5 sm:self-auto"
             @click="form.slug = slugify(form.name)"
           >
+            <ArrowPathIcon class="h-3.5 w-3.5" aria-hidden="true" />
             Згенерувати slug
           </BaseButton>
         </div>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Назва</span>
-            <BaseInput v-model="form.name" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Slug</span>
-            <BaseInput v-model="form.slug" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">SKU</span>
-            <BaseInput v-model="form.sku" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Статус доступності</span>
-            <BaseInput v-model="form.availability_status" placeholder="in_stock" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Ціна</span>
-            <BaseInput v-model.number="form.price" type="number" min="0.01" step="0.01" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Ціна магазину</span>
-            <BaseInput v-model.number="form.shop_price" type="number" min="0.01" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Рекомендована роздрібна ціна</span>
-            <BaseInput v-model.number="form.recommended_retail_price" type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <label class="space-y-2 text-sm text-slate-700">
-            <span class="font-medium">Кількість на складі</span>
-            <BaseInput v-model.number="form.stock_quantity" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-          </label>
-          <div class="rounded-2xl border border-slate-200 px-4 py-3">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <BaseInput label="Назва" :input-class="compactControlClass" v-model="form.name" required />
+          <BaseInput label="Slug" :input-class="compactControlClass" hint="Унікальна частина адреси товару. Можна згенерувати з назви." v-model="form.slug" required />
+          <BaseInput label="SKU" :input-class="compactControlClass" v-model="form.sku" />
+          <BaseInput label="Статус доступності" :input-class="compactControlClass" hint="Значення доступності з каталогу, наприклад in_stock." v-model="form.availability_status" placeholder="in_stock" />
+          <BaseInput label="Ціна" :input-class="compactControlClass" hint="Базова ціна товару. Ціну сайту можна задати окремо." v-model.number="form.price" type="number" min="0.01" step="0.01" required />
+          <BaseInput label="Наша ціна в магазині" :input-class="compactControlClass" hint="Ціна для сайту та замовлень. Акції застосовуються до неї." v-model.number="form.shop_price" type="number" min="0.01" step="0.01" />
+          <BaseInput label="Рекомендована роздрібна ціна" :input-class="compactControlClass" v-model.number="form.recommended_retail_price" type="number" min="0" step="0.01" />
+          <BaseInput label="Кількість на складі" :input-class="compactControlClass" hint="Поточний залишок товару." v-model.number="form.stock_quantity" type="number" min="0" />
+          <BaseField label="Публікація" hint="Неактивний товар прихований від покупців." as="div" root-class="space-y-1.5 text-sm">
             <BaseToggle v-model="form.is_active" label="Товар активний" />
-          </div>
+          </BaseField>
         </div>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Короткий опис</span>
-          <BaseTextarea v-model="form.short_description" rows="3" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Опис</span>
-          <BaseTextarea v-model="form.description" rows="7" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Склад</span>
-          <BaseTextarea v-model="form.ingredients" rows="5" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
-      </section>
+        <BaseTextarea label="Короткий опис" :textarea-class="compactControlClass" v-model="form.short_description" rows="2" />
+        <BaseTextarea label="Опис" :textarea-class="compactControlClass" v-model="form.description" rows="4" />
+        <BaseTextarea label="Склад" :textarea-class="compactControlClass" v-model="form.ingredients" rows="3" />
+      </BaseCard>
 
-      <section class="space-y-5 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="text-xl font-semibold text-slate-900">Зв’язки та медіа</h2>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Категорія</span>
-          <BaseSelect native v-model="form.category_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+      <BaseCard as="section" padding="sm" class="space-y-3">
+        <h2 class="flex items-center gap-2 text-base font-semibold text-ui-primary"><TagIcon class="h-4 w-4 text-ui-muted" aria-hidden="true" />Зв’язки та медіа</h2>
+        <BaseSelect :id="`${formId}-category`" :aria-labelledby="`${formId}-category-label`" label="Категорія" :class="compactControlClass" hint="Категорія визначає розділ товару в каталозі." native v-model="form.category_id">
             <option :value="null">Без категорії</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">
               {{ categoryLabels.get(category.id) || category.name }}
             </option>
           </BaseSelect>
-        </label>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Бренд</span>
-          <BaseSelect native v-model="form.brand_id" class="w-full rounded-2xl border border-slate-300 px-4 py-3">
+        <BaseSelect :id="`${formId}-brand`" :aria-labelledby="`${formId}-brand-label`" label="Бренд" hint="Виробник товару для пошуку та фільтрації каталогу." :class="compactControlClass" native v-model="form.brand_id">
             <option :value="null">Без бренду</option>
             <option v-for="brand in brands" :key="brand.id" :value="brand.id">
               {{ brand.name }}
             </option>
           </BaseSelect>
-        </label>
-        <details class="rounded-2xl border border-slate-200 p-4">
-          <summary class="cursor-pointer text-sm font-semibold text-slate-900">Зовнішні URL / старі зображення</summary>
-          <div class="mt-4 space-y-4">
-            <label class="space-y-2 text-sm text-slate-700">
-              <span class="font-medium">URL зображення</span>
-              <BaseInput v-model="form.image_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-            </label>
+        <details class="rounded-xl border border-ui px-3 py-2.5">
+          <summary class="cursor-pointer text-sm font-medium text-ui-primary"><PhotoIcon class="mr-1 inline h-4 w-4 text-ui-muted" aria-hidden="true" />Зовнішні URL / старі зображення</summary>
+          <div class="mt-3 space-y-3">
+            <BaseInput label="URL зображення" :input-class="compactControlClass" hint="Старе зовнішнє посилання. Завантажені фото керуються в галереї товару." v-model="form.image_url" />
             <div class="space-y-3">
               <div class="flex items-center justify-between gap-3">
-                <h3 class="text-sm font-semibold text-slate-900">Галерея</h3>
+                <h3 class="text-sm font-semibold text-ui-primary">Галерея</h3>
                 <BaseButton
                   type="button"
-                  class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-ui-secondary transition hover:bg-slate-50"
                   @click="addGalleryUrl"
                 >
                   <PlusIcon class="h-4 w-4" aria-hidden="true" />
@@ -397,13 +360,14 @@ const submit = () => {
                 <div v-for="(_, index) in galleryUrls" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto]">
                   <BaseInput
                     v-model="galleryUrls[index]"
+                    :label="`Зображення ${index + 1}`"
                     type="url"
                     placeholder="https://cdn.example.com/product.webp"
-                    class="w-full rounded-2xl border border-slate-300 px-4 py-3"
-                  />
+                    :input-class="compactControlClass"
+                 />
                   <BaseButton
                     type="button"
-                    class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50"
+                    class="inline-flex h-10 w-10 sm:mt-6 items-center justify-center rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-50"
                     aria-label="Видалити зображення з галереї"
                     title="Видалити"
                     @click="removeGalleryUrl(index)"
@@ -412,59 +376,44 @@ const submit = () => {
                   </BaseButton>
                 </div>
               </div>
-              <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              <p v-else class="rounded-lg bg-ui-subtle px-3 py-2 text-xs text-ui-muted">
                 Додаткові зображення не задані.
               </p>
-              <div v-if="galleryPreviewUrls.length" class="grid grid-cols-2 gap-3">
+              <div v-if="galleryPreviewUrls.length" class="grid grid-cols-3 gap-2">
                 <a
                   v-for="image in galleryPreviewUrls"
                   :key="image"
                   :href="image"
                   target="_blank"
                   rel="noreferrer"
-                  class="group overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                  class="group overflow-hidden rounded-2xl border border-ui bg-slate-50"
                 >
-                  <img :src="image" alt="" class="h-28 w-full object-cover transition group-hover:scale-[1.02]">
+                  <img :src="image" alt="" class="h-20 w-full object-cover transition group-hover:scale-[1.02]">
                 </a>
               </div>
             </div>
           </div>
         </details>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Зовнішній URL</span>
-          <BaseInput v-model="form.external_url" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-        </label>
+        <BaseInput label="Зовнішній URL" :input-class="compactControlClass" hint="Посилання на товар у зовнішньому джерелі." v-model="form.external_url" />
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-slate-900">Фільтри каталогу</h3>
+            <h3 class="text-sm font-semibold text-ui-primary">Фільтри каталогу</h3>
             <BaseButton
               type="button"
-              class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              class="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-ui-secondary transition hover:bg-slate-50"
               @click="addFilterRow"
             >
               <PlusIcon class="h-4 w-4" aria-hidden="true" />
               Додати
             </BaseButton>
           </div>
-          <div v-if="filterRows.length" class="space-y-4">
-            <div v-for="row in filterRows" :key="row.id" class="space-y-3 border-t border-slate-100 pt-4 first:border-t-0 first:pt-0">
-              <div class="grid gap-3 md:grid-cols-2">
-                <label class="space-y-2 text-sm text-slate-700">
-                  <span class="font-medium">Group slug</span>
-                  <BaseInput v-model="row.group_slug" placeholder="color" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-                </label>
-                <label class="space-y-2 text-sm text-slate-700">
-                  <span class="font-medium">Group name</span>
-                  <BaseInput v-model="row.group_name" placeholder="Color" class="w-full rounded-2xl border border-slate-300 px-4 py-3" @blur="normalizeFilterRowSlugs(row)" />
-                </label>
-                <label class="space-y-2 text-sm text-slate-700">
-                  <span class="font-medium">Value slug</span>
-                  <BaseInput v-model="row.value_slug" placeholder="black" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
-                </label>
-                <label class="space-y-2 text-sm text-slate-700">
-                  <span class="font-medium">Value name</span>
-                  <BaseInput v-model="row.value_name" placeholder="Black" class="w-full rounded-2xl border border-slate-300 px-4 py-3" @blur="normalizeFilterRowSlugs(row)" />
-                </label>
+          <div v-if="filterRows.length" class="space-y-3">
+            <div v-for="row in filterRows" :key="row.id" class="space-y-2 rounded-xl border border-ui p-3">
+              <div class="grid gap-2 sm:grid-cols-2">
+                <BaseInput label="Group slug" :input-class="compactControlClass" hint="Технічний ключ групи, наприклад color." v-model="row.group_slug" placeholder="color" />
+                <BaseInput label="Group name" :input-class="compactControlClass" hint="Назва групи. Порожній slug буде згенеровано автоматично." v-model="row.group_name" placeholder="Color" @blur="normalizeFilterRowSlugs(row)" />
+                <BaseInput label="Value slug" :input-class="compactControlClass" hint="Технічний ключ значення, наприклад black." v-model="row.value_slug" placeholder="black" />
+                <BaseInput label="Value name" :input-class="compactControlClass" hint="Назва значення. Порожній slug буде згенеровано автоматично." v-model="row.value_name" placeholder="Black" @blur="normalizeFilterRowSlugs(row)" />
               </div>
               <BaseButton
                 type="button"
@@ -476,26 +425,29 @@ const submit = () => {
               </BaseButton>
             </div>
           </div>
-          <p v-else class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          <p v-else class="rounded-lg bg-ui-subtle px-3 py-2 text-xs text-ui-muted">
             Фільтри каталогу не задані.
           </p>
         </div>
-        <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">Атрибути JSON</span>
+        <details :open="Boolean(parseError)" class="rounded-xl border border-ui px-3 py-2.5">
+          <summary class="cursor-pointer text-sm font-medium text-ui-primary"><CodeBracketIcon class="mr-1 inline h-4 w-4 text-ui-muted" aria-hidden="true" />Додаткові атрибути JSON</summary>
           <BaseTextarea
             v-model="attributesText"
-            rows="10"
-            class="w-full rounded-2xl border border-slate-300 px-4 py-3 font-mono text-xs"
-            @blur="syncStructuredFromAttributesText"
+            label="Атрибути JSON"
+            hint="Додаткові атрибути товару у форматі JSON. Галерея та фільтри синхронізуються з полями вище."
+            :error="parseError"
+            rows="6"
+            field-class="mt-3 space-y-1.5 text-sm"
+            textarea-class="base-control w-full px-3 py-2 font-mono text-xs"
+           @blur="syncStructuredFromAttributesText"
             @change="syncStructuredFromAttributesText"
-          />
-          <span v-if="parseError" class="block text-xs font-medium text-rose-600">{{ parseError }}</span>
-        </label>
-      </section>
+         />
+        </details>
+      </BaseCard>
     </div>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-      <BaseButton type="submit" :disabled="loading" class="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60">
+      <BaseButton type="submit" :disabled="loading" variant="primary" size="sm" :loading="loading">
         {{ submitLabel || 'Зберегти товар' }}
       </BaseButton>
     </div>

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import test from 'node:test'
 import ts from 'typescript'
-import { sourceModule } from './runtime-localization-harness.mjs'
+import { sourceModule, commerceTelemetry } from './runtime-localization-harness.mjs'
 const { safeRequestBody } = await sourceModule(readFileSync(new URL('../utils/inputSafety.ts', import.meta.url), 'utf8'))
 const reminder = await sourceModule(readFileSync(new URL('../utils/checkoutReminder.ts', import.meta.url), 'utf8'))
 
@@ -19,6 +19,7 @@ const loadCheckout = (uncertain = false) => {
   const state = { loading: false, order: null, error: '' }
   const context = vm.createContext({
     ...reminder,
+    ...commerceTelemetry,
     ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), watch() {},
     onNuxtReady: fn => fn(), onBeforeUnmount() {},
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },

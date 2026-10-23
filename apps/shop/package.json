@@ -13,6 +13,7 @@
     "@dobrodesk/widget": "0.3.2",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "@pinia/nuxt": "^0.5.5",
+    "@sentry/vue": "10.76.2",
     "@shared-types": "workspace:*",
     "@shared-utils": "workspace:*",
     "nuxt": "^3.21.7",

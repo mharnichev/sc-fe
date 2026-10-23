@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TrashIcon from './TrashIcon.vue'
 import { CheckIcon, QueueListIcon, ChevronDownIcon, MagnifyingGlassIcon, PhotoIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 export type BaseMultiSelectValue = string | number

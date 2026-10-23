@@ -24,6 +24,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || 'http://127.0.0.1:8000/api/v1',
     public: {
+      sentryDsn: '',
+      sentryEnvironment: 'production',
+      sentryRelease: '',
       dobrodeskEnabled: process.env.NUXT_PUBLIC_DOBRODESK_ENABLED === 'true',
       dobrodeskIntegrationId: process.env.NUXT_PUBLIC_DOBRODESK_INTEGRATION_ID || 'wgt_3ba0ea807f451e69170cb4bbfeb74ba0',
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api/v1',
