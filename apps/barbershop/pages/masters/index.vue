@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { unlocalizedPath } from '~/utils/localeRoutes'
 const { locale, terms } = useTerms()
 const domain = useBarbershopDomain()
 const { masterFullName } = useMasterDisplay()
@@ -40,7 +41,9 @@ const clearReviewToken = () => {
   clearPrivateReview()
 }
 
-onBeforeUnmount(clearReviewToken)
+onBeforeRouteLeave((to) => {
+  if (unlocalizedPath(to.path) !== '/masters') clearReviewToken()
+})
 </script>
 
 <template>
@@ -60,23 +63,23 @@ onBeforeUnmount(clearReviewToken)
             class="mt-7 flex flex-wrap gap-x-5 gap-y-3"
             :aria-label="pageCopy.profiles"
           >
-            <NuxtLink
+            <LocaleLink
               v-for="profile in profileLinks"
               :key="profile.id"
               :to="profile.path"
               class="text-sm font-semibold text-stone-700 transition hover:text-stone-950"
             >
               <BaseHoverUnderlineText>{{ profile.name }}</BaseHoverUnderlineText>
-            </NuxtLink>
+            </LocaleLink>
           </nav>
         </div>
         <nav class="flex flex-col items-start gap-3 text-sm font-semibold text-stone-700" :aria-label="terms.pages.masters.title">
-          <NuxtLink to="/services" class="transition hover:text-stone-950">
+          <LocaleLink to="/services" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ pageCopy.services }}</BaseHoverUnderlineText>
-          </NuxtLink>
-          <NuxtLink to="/barbershop-odesa" class="transition hover:text-stone-950">
+          </LocaleLink>
+          <LocaleLink to="/barbershop-odesa" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ pageCopy.local }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
           <a href="/blog/" class="transition hover:text-stone-950">
             <BaseHoverUnderlineText>{{ pageCopy.journal }}</BaseHoverUnderlineText>
           </a>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { blogCanonicalUrl } from '~/utils/blogSeo'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { getLocalizedPosts } from '~/data/posts'
 
@@ -8,6 +9,10 @@ const emptyPostsTitle = computed(() => locale.value === 'uk' ? 'Поки без 
 const emptyPostsDescription = computed(() => locale.value === 'uk'
   ? 'Ми вже готуємо наступний матеріал. Загляньте трохи пізніше.'
   : 'We are already preparing the next story. Check back soon.')
+
+const canonicalUrl = blogCanonicalUrl(String(useRuntimeConfig().public.siteUrl), '/posts')
+
+useHead({ link: [{ rel: 'canonical', href: canonicalUrl }] })
 
 useSeoMeta({
   title: () => terms.value.allPosts,

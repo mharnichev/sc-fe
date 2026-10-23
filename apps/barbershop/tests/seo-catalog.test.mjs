@@ -17,7 +17,8 @@ const seoUrl = await moduleUrl('../utils/seoRoutes.ts', [
   ["'~/data/serviceGuideNames'", JSON.stringify(guideUrl)],
   ["'~/composables/useActiveServiceCatalog'", JSON.stringify(activeUrl)],
 ])
-const { hasServiceGuide, serviceGuideNames } = await import(guideUrl)
+const { hasServiceGuide, serviceGuideNames, serviceGuideEditorialUpdatedAt, serviceGuideLastmod } = await import(guideUrl)
+const { activeCatalogItems, activeBaseCatalogItems, activeMasterServices, isPublicServiceActive, retiredBaseServiceReplacements } = await import(activeUrl)
 const { indexableServiceCatalog, serviceSeoPath } = await import(seoUrl)
 
 const service = (id, overrides = {}) => ({
@@ -40,6 +41,31 @@ test('guide identity requires an exact approved ID and trimmed Ukrainian name', 
   for (const id of [null, undefined, 999]) assert.equal(hasServiceGuide(id, 'Стрижка'), false)
   assert.equal(hasServiceGuide(7, null), false)
   assert.equal(hasServiceGuide(7, 'Інша послуга'), false)
+})
+
+test('retired ZSU service is excluded from public offers even while API rows remain active', () => {
+  const retired = service(15, { description_uk: 'Legacy service', is_active: true })
+  const available = service(3)
+  const masterRows = [{ id: 1500, base_service_id: 15, is_active: true }, { id: 300, base_service_id: 3 }]
+  assert.equal(retiredBaseServiceReplacements[15], 3)
+  assert.equal(isPublicServiceActive(masterRows[0]), false)
+  assert.deepEqual(activeCatalogItems([retired, available]).map(row => row.base_service_id), [3])
+  assert.equal(activeBaseCatalogItems([retired, available])[0].base_service_id, 3)
+  assert.deepEqual(activeMasterServices(masterRows), [masterRows[1]])
+  assert.deepEqual(indexableServiceCatalog([retired, available]).map(row => row.base_service_id), [3])
+  assert.equal(retired.is_active, true)
+  assert.equal(masterRows.length, 2)
+  assert.equal(hasServiceGuide(15, 'Стрижка машинкою+стрижка бороди ЗСУ'), false)
+})
+
+test('editorial modification dates cover only exact approved guides and stay tied to the published revision', () => {
+  assert.deepEqual(Object.keys(serviceGuideEditorialUpdatedAt), Object.keys(serviceGuideNames))
+  for (const [id, name] of Object.entries(serviceGuideNames)) {
+    assert.equal(serviceGuideLastmod(Number(id), name), '2026-10-21T12:59:14.000Z')
+  }
+  assert.equal(serviceGuideLastmod(7, 'Renamed service'), undefined)
+  assert.equal(serviceGuideLastmod(15, 'Стрижка машинкою+стрижка бороди ЗСУ'), undefined)
+  assert.equal(serviceGuideLastmod(null, 'Стрижка'), undefined)
 })
 
 test('approved guides allow the cheapest merged child haircut and shave without API descriptions', () => {

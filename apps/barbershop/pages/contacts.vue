@@ -56,7 +56,7 @@ const selectedMaster = computed(() =>
 )
 
 const availableServices = computed(() =>
-  (selectedMaster.value?.services || []).filter(service => service.is_active ?? service.status !== 'inactive'),
+  activeMasterServices(selectedMaster.value?.services),
 )
 
 const selectedServices = computed(() =>
@@ -320,7 +320,7 @@ const submit = async () => {
 </script>
 
 <template>
-  <div class="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+  <div class="grid grid-cols-1 gap-8 lg:grid-cols-[0.9fr_1.1fr]">
     <section class="space-y-6" data-reveal="soft">
       <div class="space-y-3">
         <p class="text-sm uppercase tracking-[0.3em] text-amber-700">{{ terms.pages.contacts.label }}</p>
@@ -346,8 +346,8 @@ const submit = async () => {
       </div>
     </section>
 
-    <form class="space-y-4 rounded-[2rem] bg-white p-6 shadow-sm" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
-      <div class="grid gap-4 md:grid-cols-2">
+    <form class="min-w-0 space-y-4 rounded-[2rem] bg-white p-6 shadow-sm" data-reveal="soft" data-reveal-delay="140" @submit.prevent="submit">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <input
           v-model="form.first_name"
           required
@@ -355,7 +355,7 @@ const submit = async () => {
           minlength="2"
           :maxlength="FORM_FIELD_LIMITS.name"
           :placeholder="terms.pages.contacts.placeholders.firstName"
-          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
+          class="glass-control glass-control--light min-w-0 max-w-full rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('first_name', FORM_FIELD_LIMITS.name)"
         >
         <input
@@ -365,11 +365,11 @@ const submit = async () => {
           minlength="2"
           :maxlength="FORM_FIELD_LIMITS.name"
           :placeholder="terms.pages.contacts.placeholders.lastName"
-          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
+          class="glass-control glass-control--light min-w-0 max-w-full rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('last_name', FORM_FIELD_LIMITS.name)"
         >
       </div>
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <input
           v-model="form.email"
           type="email"
@@ -377,7 +377,7 @@ const submit = async () => {
           autocomplete="email"
           :maxlength="FORM_FIELD_LIMITS.email"
           :placeholder="terms.pages.contacts.placeholders.email"
-          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
+          class="glass-control glass-control--light min-w-0 max-w-full rounded-2xl px-4 py-3 outline-none"
           @input="handleTextInput('email', FORM_FIELD_LIMITS.email)"
         >
         <input
@@ -389,13 +389,13 @@ const submit = async () => {
           maxlength="17"
           pattern="\+380\s\d{2}\s\d{3}\s\d{2}\s\d{2}"
           :placeholder="terms.pages.contacts.placeholders.phone"
-          class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none"
+          class="glass-control glass-control--light min-w-0 max-w-full rounded-2xl px-4 py-3 outline-none"
           @input="handlePhoneInput"
           @paste="handlePhonePasteEvent"
         >
       </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        <select v-model="form.master_id" required class="glass-control glass-control--light rounded-2xl px-4 py-3 outline-none">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <select v-model="form.master_id" required class="glass-control glass-control--light min-w-0 max-w-full rounded-2xl px-4 py-3 outline-none">
           <option value="">{{ terms.pages.contacts.placeholders.master }}</option>
           <option v-for="master in masters || []" :key="master.id" :value="master.id">{{ masterName(master) }}</option>
         </select>
@@ -444,7 +444,7 @@ const submit = async () => {
         required
         :min="minScheduledAt"
         :max="maxScheduledAt"
-        class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
+        class="glass-control glass-control--light min-w-0 max-w-full w-full rounded-2xl px-4 py-3 outline-none"
         @change="handleScheduledAtChange"
       >
       <p class="-mt-2 text-xs text-white/55">
@@ -455,7 +455,7 @@ const submit = async () => {
         rows="4"
         :maxlength="FORM_FIELD_LIMITS.comment"
         :placeholder="terms.pages.contacts.placeholders.notes"
-        class="glass-control glass-control--light w-full rounded-2xl px-4 py-3 outline-none"
+        class="glass-control glass-control--light min-w-0 max-w-full w-full rounded-2xl px-4 py-3 outline-none"
         @input="handleTextInput('note', FORM_FIELD_LIMITS.comment, { multiline: true })"
       />
       <BaseButton type="submit" :disabled="state.loading">

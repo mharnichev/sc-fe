@@ -1,6 +1,7 @@
 import type { ServiceCatalogBarberServiceDto, ServiceCatalogItemDto, ServiceDto } from '@shared-types'
 
 type ServiceActivity = {
+  base_service_id?: number | null
   is_active?: boolean | null
   status?: string | null
 }
@@ -10,7 +11,15 @@ type ServiceCatalogBarberServiceWithActivity = ServiceCatalogBarberServiceDto & 
 
 const inactiveStatuses = new Set(['inactive', 'неактивний'])
 
+// Retire only from the public offer; existing service rows and appointments remain intact.
+export const retiredBaseServiceReplacements: Readonly<Record<number, number>> = { 15: 3 }
+
+export const isRetiredPublicBaseService = (baseServiceId: number | null | undefined) =>
+  typeof baseServiceId === 'number' && Object.hasOwn(retiredBaseServiceReplacements, baseServiceId)
+
 export const isPublicServiceActive = (service: ServiceActivity) => {
+  if (isRetiredPublicBaseService(service.base_service_id)) return false
+
   if (service.is_active !== undefined && service.is_active !== null) {
     return service.is_active
   }

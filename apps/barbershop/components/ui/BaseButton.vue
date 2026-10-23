@@ -18,7 +18,8 @@ import type { RouteLocationRaw } from 'vue-router'
 import { computed, resolveComponent, useAttrs } from 'vue'
 
 const attrs = useAttrs()
-const nuxtLink = resolveComponent('NuxtLink')
+const { localePath } = useTerms()
+const nuxtLink = resolveComponent('LocaleLink')
 
 const props = withDefaults(defineProps<{
   to?: RouteLocationRaw
@@ -67,7 +68,7 @@ const componentProps = computed(() => {
 
   if (props.href) {
     return {
-      href: props.disabled ? undefined : props.href,
+      href: props.disabled ? undefined : localePath(props.href),
       target: props.target,
       rel: props.rel ?? (props.target === '_blank' ? 'noopener noreferrer' : undefined),
       'aria-disabled': props.disabled ? 'true' : undefined,

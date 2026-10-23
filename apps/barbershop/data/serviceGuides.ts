@@ -406,50 +406,6 @@ const guides: Record<number, LocalizedGuide> = {
         7
       ]
     }
-  },
-  "15": {
-    "uk": {
-      "intro": "Один візит для короткої стрижки голови під насадки та оформлення бороди.",
-      "choice": "Оберіть цей комплекс, якщо потрібно попрацювати з обома зонами. Для fade або роботи ножицями на голові оберіть «Стрижка + борода».",
-      "preparation": "Підготуйте побажання до волосся та бороди окремо: довжина, переходи, густота, контури. Покажіть референс або поясніть, що хочете змінити в поточній формі.",
-      "result": "Глеб підтвердив, що робота з бородою в обох його комплексах однакова за принципом вибору під задачу. Узгодьте контури й обсяг із вибраним майстром; гаряче полотенце не слід вважати обов’язковим для кожного візиту.",
-      "faq": [
-        {
-          "question": "Чим відрізняються два комплекси?",
-          "answer": "Способом стрижки волосся на голові: звичайна стрижка або проста машинка під насадки. Глеб пояснив, що принцип роботи з бородою в його комплексах однаковий."
-        },
-        {
-          "question": "Чи можна записатися на комплекс, якщо потрібна тільки борода?",
-          "answer": "Для роботи лише з бородою оберіть «Стрижка бороди». Так запис відповідатиме потрібній послузі."
-        }
-      ],
-      "relatedServiceIds": [
-        7,
-        4,
-        5
-      ]
-    },
-    "en": {
-      "intro": "One visit for a short guard-length clipper cut and beard shaping.",
-      "choice": "Choose this when both areas need attention. For a fade or scissor work on the head, choose Haircut + beard trim.",
-      "preparation": "Think about hair and beard preferences separately: lengths, transitions, fullness and outlines. Bring a reference or explain what you want to change.",
-      "result": "Hlib confirmed that he approaches beard work in both of his combined services according to the same individual task. Agree on outlines and scope with your barber; a hot towel is not an automatic part of every visit.",
-      "faq": [
-        {
-          "question": "What is different about the two combined services?",
-          "answer": "The cutting method on the head: a full haircut or a simple guard-length clipper cut. Hlib says he approaches the beard work in both of his combined services in the same way."
-        },
-        {
-          "question": "Should I book a combined appointment for beard work only?",
-          "answer": "Choose Beard trim if only your beard needs work, so the booking matches the service you need."
-        }
-      ],
-      "relatedServiceIds": [
-        7,
-        4,
-        5
-      ]
-    }
   }
 }
 

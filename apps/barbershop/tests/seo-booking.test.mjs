@@ -84,6 +84,8 @@ test('prefill waits for data and never replays over manual or existing selection
 test('URL intent is scoped to normal homepage booking, excluding drawer, repeat, and campaign flows', () => {
   const initial = { path: '/', mode: 'section', idPrefix: 'booking', hasRepeatBooking: false, hasCampaignOffer: false }
   assert.equal(isSeoBookingContext(initial), true)
+  assert.equal(isSeoBookingContext({ ...initial, path: '/en/' }), true)
+  assert.equal(isSeoBookingContext({ ...initial, path: '/en' }), true)
   assert.equal(isSeoBookingContext({ ...initial, path: '/booking/repeat' }), false)
   assert.equal(isSeoBookingContext({ ...initial, mode: 'drawer' }), false)
   assert.equal(isSeoBookingContext({ ...initial, idPrefix: 'other-booking' }), false)

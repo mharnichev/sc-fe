@@ -36,6 +36,7 @@ export const isDobrodeskPublicRoute = (route: Route, baseURL = '/') => {
   let path = route.path
   const base = baseURL.replace(/\/$/, '')
   if (base && (path === base || path.startsWith(`${base}/`))) path = path.slice(base.length) || '/'
+  if (path === '/en' || path.startsWith('/en/')) path = path.slice(3) || '/'
   path = path.replace(/\/$/, '') || '/'
   return ['/', '/about', '/contacts', '/terms', '/barbershop-odesa', '/services', '/masters'].includes(path)
     || /^\/(services|masters)\/[^/]+$/.test(path)

@@ -246,7 +246,7 @@ watch(teamMembers, (members) => {
                       :show-summary-details="false"
                       show-review-count
                     />
-                    <NuxtLink
+                    <LocaleLink
                       v-if="member.profilePath"
                       :to="member.profilePath"
                       class="group pointer-events-auto mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
@@ -255,7 +255,7 @@ watch(teamMembers, (members) => {
                       <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                       </svg>
-                    </NuxtLink>
+                    </LocaleLink>
                   </div>
                 </div>
               </div>
@@ -352,7 +352,7 @@ watch(teamMembers, (members) => {
                     :show-summary-details="false"
                     show-review-count
                   />
-                  <NuxtLink
+                  <LocaleLink
                     v-if="activeMember.profilePath"
                     :to="activeMember.profilePath"
                     class="group mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white"
@@ -361,7 +361,7 @@ watch(teamMembers, (members) => {
                     <svg class="h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                       <path d="m6 4 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                  </NuxtLink>
+                  </LocaleLink>
                 </div>
               </div>
             </Transition>

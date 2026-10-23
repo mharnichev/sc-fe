@@ -99,34 +99,34 @@ onMounted(() => {
               </a>
             </p>
             <p>
-              <NuxtLink to="/services" class="transition hover:text-white">
+              <LocaleLink to="/services" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.home.services.label }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
-              <NuxtLink to="/masters" class="transition hover:text-white">
+              <LocaleLink to="/masters" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.home.team.title }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
-              <NuxtLink to="/contacts" class="transition hover:text-white">
+              <LocaleLink to="/contacts" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.pages.contacts.label }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
-              <NuxtLink to="/barbershop-odesa" class="transition hover:text-white">
+              <LocaleLink to="/barbershop-odesa" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.common.localSeoPage }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
-              <NuxtLink to="/znyzhka-dlia-zsu" class="transition hover:text-white">
+              <LocaleLink to="/znyzhka-dlia-zsu" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ locale === 'en' ? 'Military discount' : 'Знижка для ЗСУ' }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
-              <NuxtLink to="/terms" class="transition hover:text-white">
+              <LocaleLink to="/terms" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </p>
             <p>
               <button

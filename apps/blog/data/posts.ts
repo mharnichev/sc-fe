@@ -144,6 +144,7 @@ export interface BlogPost {
   publishedAt: string
   category: LocalizedText
   author: LocalizedText
+  authorType: 'Person' | 'Organization'
   readMinutes: number
   coverImage: string
   coverImageMobile: string
@@ -168,6 +169,7 @@ export interface LocalizedBlogPost {
   publishedAt: string
   category: string
   author: string
+  authorType: 'Person' | 'Organization'
   readMinutes: number
   coverImage: string
   coverImageMobile: string
@@ -454,6 +456,7 @@ export const posts: BlogPost[] = [
       uk: 'Культура',
       en: 'Culture',
     },
+    authorType: 'Person',
     author: {
       uk: 'Гліб Аноцький',
       en: 'Hlib Anotskyi',
@@ -504,6 +507,7 @@ export const posts: BlogPost[] = [
       uk: 'Комʼюніті',
       en: 'Community',
     },
+    authorType: 'Organization',
     author: {
       uk: 'Soul Cuts',
       en: 'Soul Cuts',

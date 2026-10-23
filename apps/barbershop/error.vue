@@ -29,9 +29,9 @@ const description = computed(() => locale.value === 'uk'
       <button type="button" class="barbershop-error-page__button" @click="clearError({ redirect: '/' })">
         {{ locale === 'uk' ? 'На головну' : 'Home' }}
       </button>
-      <NuxtLink class="barbershop-error-page__link" to="/#booking">
+      <LocaleLink class="barbershop-error-page__link" to="/#booking">
         {{ locale === 'uk' ? 'Записатися' : 'Book now' }}
-      </NuxtLink>
+      </LocaleLink>
     </FeedbackState>
   </main>
 </template>

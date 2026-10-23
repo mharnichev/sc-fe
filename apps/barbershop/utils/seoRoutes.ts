@@ -27,8 +27,12 @@ export type PublicServiceDto = Omit<ServiceDto, 'active_promotion'> & {
 }
 
 export type PublicServiceCatalogItemDto = Omit<ServiceCatalogItemDto, 'active_promotion' | 'barber_services'> & SluggedEntity & {
+  created_at?: string
+  updated_at?: string
   active_promotion?: PublicServicePromotionDto | null
   barber_services: Array<Omit<ServiceCatalogBarberServiceDto, 'active_promotion'> & {
+    created_at?: string
+    updated_at?: string
     active_promotion?: PublicServicePromotionDto | null
   }>
 }

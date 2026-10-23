@@ -143,6 +143,16 @@ const staticAssetHeaders = {
 }
 
 export default defineNuxtConfig({
+  hooks: {
+    'pages:extend'(pages) {
+      const publicPages = pages.filter(page => !page.path.startsWith('/booking'))
+      pages.push(...publicPages.map(page => ({
+        ...page,
+        path: page.path === '/' ? '/en' : `/en${page.path}`,
+        name: `${String(page.name)}-en`,
+      })))
+    },
+  },
   devtools: { enabled: false },
   compatibilityDate: '2026-05-08',
   ssr: true,

@@ -1,4 +1,5 @@
 import { toValue, type MaybeRefOrGetter } from 'vue'
+import { isPublicLocalizedPage, localizedPublicPath, unlocalizedPath } from '~/utils/localeRoutes'
 import defaultOgImage from '~/assets/images/main/sc-open-img.webp'
 
 interface SeoOptions {
@@ -23,7 +24,7 @@ export const useSeo = (
   const { absoluteUrl } = useSiteUrl()
   const { locale, terms } = useTerms()
 
-  const pagePath = () => normalizeRoutePath(toValue(options.path) || route.path)
+  const pagePath = () => localizedPublicPath(normalizeRoutePath(toValue(options.path) || route.path), locale.value)
   const pageUrl = () => absoluteUrl(pagePath())
   const imageUrl = () => absoluteUrl(toValue(options.image) || defaultOgImage)
 
@@ -49,9 +50,20 @@ export const useSeo = (
   useHead({
     link: [
       {
+        key: 'canonical',
         rel: 'canonical',
         href: pageUrl,
       },
+      ...(isPublicLocalizedPage(route.path) ? (['uk', 'en'] as const) : []).map(language => ({
+        key: `alternate-${language}`,
+        rel: 'alternate',
+        hreflang: language,
+        href: () => absoluteUrl(localizedPublicPath(unlocalizedPath(pagePath()), language)),
+      })),
+      ...(isPublicLocalizedPage(route.path) ? [{
+        key: 'alternate-default', rel: 'alternate', hreflang: 'x-default',
+        href: () => absoluteUrl(unlocalizedPath(pagePath())),
+      }] : []),
     ],
   })
 

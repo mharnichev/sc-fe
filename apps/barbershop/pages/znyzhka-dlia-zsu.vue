@@ -74,7 +74,7 @@ useFaqStructuredData(() => page.value.faq)
           <h2 class="section-title md:text-4xl">{{ page.scopeTitle }}</h2>
           <p class="leading-8 text-neutral-700">{{ page.scope }}</p>
           <p class="border-l-2 border-amber-700 pl-5 text-sm leading-7 text-neutral-600">{{ page.conditions }}</p>
-          <NuxtLink to="/services" class="inline-block"><BaseHoverUnderlineText>{{ page.services }}</BaseHoverUnderlineText></NuxtLink>
+          <LocaleLink to="/services" class="inline-block"><BaseHoverUnderlineText>{{ page.services }}</BaseHoverUnderlineText></LocaleLink>
         </div>
         <div>
           <h2 class="section-title md:text-4xl">{{ page.stepsTitle }}</h2>
@@ -100,7 +100,7 @@ useFaqStructuredData(() => page.value.faq)
           </dl>
           <div class="flex flex-wrap gap-5">
             <a :href="terms.home.contact.mapUrl" target="_blank" rel="noopener noreferrer"><BaseHoverUnderlineText>{{ page.map }}</BaseHoverUnderlineText></a>
-            <NuxtLink to="/contacts"><BaseHoverUnderlineText>{{ page.contacts }}</BaseHoverUnderlineText></NuxtLink>
+            <LocaleLink to="/contacts"><BaseHoverUnderlineText>{{ page.contacts }}</BaseHoverUnderlineText></LocaleLink>
           </div>
         </div>
       </div>

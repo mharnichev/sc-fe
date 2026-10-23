@@ -41,7 +41,7 @@ export default defineNuxtPlugin({
 
       isPrivateReviewRoute.value = Boolean(
         reviewToken.value
-        && (to.path === '/masters' || to.path === '/masters/'),
+        && ['/masters', '/masters/', '/en/masters', '/en/masters/'].includes(to.path),
       )
     })
   },

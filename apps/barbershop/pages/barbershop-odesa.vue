@@ -468,11 +468,11 @@ useFaqStructuredData(() =>
             data-reveal="soft"
             :data-reveal-delay="Math.min(index, 5) * 60"
           >
-            <NuxtLink :to="service.path" class="group">
+            <LocaleLink :to="service.path" class="group">
               <h3 class="text-xl font-semibold text-neutral-950 transition group-hover:text-neutral-600">
                 {{ service.name }}
               </h3>
-            </NuxtLink>
+            </LocaleLink>
             <p class="mt-3 flex-1 text-sm leading-7 text-neutral-600">
               {{ service.description }}
             </p>
@@ -481,20 +481,20 @@ useFaqStructuredData(() =>
               <span v-if="service.price && service.duration" aria-hidden="true">/</span>
               <span v-if="service.duration">{{ service.duration }}</span>
             </p>
-            <NuxtLink
+            <LocaleLink
               :to="service.path"
               class="type-eyebrow mt-5 w-fit text-xs text-neutral-700 transition hover:text-neutral-950"
             >
               <BaseHoverUnderlineText>{{ page.serviceLink }}</BaseHoverUnderlineText>
-            </NuxtLink>
+            </LocaleLink>
           </article>
         </div>
 
         <p v-else class="mt-10 max-w-2xl bg-white p-5 text-sm leading-7 text-neutral-600">
           {{ page.servicesEmpty }}
-          <NuxtLink to="/services" class="font-semibold text-neutral-950">
+          <LocaleLink to="/services" class="font-semibold text-neutral-950">
             <BaseHoverUnderlineText>{{ page.servicesCta }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
         </p>
       </div>
     </section>
@@ -520,7 +520,7 @@ useFaqStructuredData(() =>
             data-reveal="soft"
             :data-reveal-delay="Math.min(index, 3) * 80"
           >
-            <NuxtLink :to="master.path" class="block overflow-hidden bg-white/5">
+            <LocaleLink :to="master.path" class="block overflow-hidden bg-white/5">
               <img
                 :src="master.image"
                 :alt="master.name"
@@ -529,14 +529,14 @@ useFaqStructuredData(() =>
                 class="aspect-square h-full w-full object-cover object-top transition duration-500 hover:scale-[1.025]"
                 loading="lazy"
               >
-            </NuxtLink>
+            </LocaleLink>
             <div class="min-w-0">
               <p v-if="master.role" class="type-eyebrow text-xs text-white/45">{{ master.role }}</p>
-              <NuxtLink :to="master.path" class="group">
+              <LocaleLink :to="master.path" class="group">
                 <h3 class="mt-2 text-2xl font-semibold text-white transition group-hover:text-white/65">
                   {{ master.name }}
                 </h3>
-              </NuxtLink>
+              </LocaleLink>
               <ul v-if="master.services.length" class="mt-4 flex flex-wrap gap-2">
                 <li
                   v-for="service in master.services"
@@ -546,21 +546,21 @@ useFaqStructuredData(() =>
                   {{ service }}
                 </li>
               </ul>
-              <NuxtLink
+              <LocaleLink
                 :to="master.path"
                 class="type-eyebrow mt-5 inline-flex text-xs text-white/75 transition hover:text-white"
               >
                 <BaseHoverUnderlineText>{{ page.masterLink }}</BaseHoverUnderlineText>
-              </NuxtLink>
+              </LocaleLink>
             </div>
           </article>
         </div>
 
         <p v-else class="mt-10 max-w-2xl border border-white/15 p-5 text-sm leading-7 text-white/65">
           {{ page.mastersEmpty }}
-          <NuxtLink to="/masters" class="font-semibold text-white">
+          <LocaleLink to="/masters" class="font-semibold text-white">
             <BaseHoverUnderlineText>{{ page.mastersCta }}</BaseHoverUnderlineText>
-          </NuxtLink>
+          </LocaleLink>
         </p>
       </div>
     </section>

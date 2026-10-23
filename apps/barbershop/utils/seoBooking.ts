@@ -102,7 +102,7 @@ export const isSeoBookingContext = (context: {
   idPrefix: string
   hasRepeatBooking: boolean
   hasCampaignOffer: boolean
-}) => context.path === '/'
+}) => ['/', '/en', '/en/'].includes(context.path)
   && context.mode === 'section'
   && context.idPrefix === 'booking'
   && !context.hasRepeatBooking

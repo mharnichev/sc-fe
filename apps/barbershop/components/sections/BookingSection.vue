@@ -982,7 +982,7 @@ const alternativeServiceIds = (masterId: number) => {
   return remapRecoveryServiceIds(
     selectedServiceIds.value,
     selectedMasterServices.value,
-    mastersById.value.get(masterId)?.services || [],
+    activeMasterServices(mastersById.value.get(masterId)?.services),
   )
 }
 
@@ -2518,9 +2518,9 @@ onBeforeUnmount(() => {
 
               <p v-if="activeStepIndex === lastStepIndex" class="mt-3 mb-1 text-[10px] leading-[14px] text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
-                <NuxtLink class="transition hover:text-white" to="/terms">
+                <LocaleLink class="transition hover:text-white" to="/terms">
                   <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
-                </NuxtLink>
+                </LocaleLink>
                 {{ terms.common.bookingConsentSuffix }}
               </p>
               <div class="booking-step-actions flex flex-row gap-3 sm:items-center">
