@@ -437,10 +437,15 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
 .basket-sidebar__total {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.9rem;
+}
+
+.basket-sidebar__total strong {
+  white-space: nowrap;
 }
 
 .basket-sidebar__unavailable-summary {

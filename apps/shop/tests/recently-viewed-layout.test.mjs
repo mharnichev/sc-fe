@@ -104,3 +104,14 @@ test('persisted malformed package metadata cannot crash tile computation', async
     assert.equal(result, typeof value === 'string' ? value.trim() : '')
   }
 })
+
+test('compact header and basket layout retain base-aware assets and valid copy', async () => {
+  const header = await readFile(new URL('../components/base/header/BaseHeader.vue', import.meta.url), 'utf8')
+  const basket = await readFile(new URL('../components/modals/UserBasketModal.vue', import.meta.url), 'utf8')
+  assert.match(header, /\.cl__compact-link\s*\{[^}]*justify-content: space-between/s)
+  assert.match(header, /:src="shopAsset\('\/soulcuts\/sc-logo-name-dark.webp'\)"/)
+  assert.match(basket, /\.basket-sidebar__total\s*\{[^}]*flex-wrap: wrap/s)
+  assert.match(basket, /terms\.basket\.beforeDelivery/)
+  assert.match(basket, /terms\.common\.checkout/)
+  assert.doesNotMatch(basket, /terms\.basket\.(discountNote|proceedToPayment)/)
+})
