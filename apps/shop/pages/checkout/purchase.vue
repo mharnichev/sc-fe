@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { readCheckoutConfirmation, saveCheckoutConfirmation } from '~/utils/checkoutConfirmation'
 import { safeRequestBody } from '~/utils/inputSafety'
+import { readReminderOrderKey, reminderOrderStorageKey, reminderStorageKey } from '~/utils/checkoutReminder'
 import { guestShipmentPath } from '~/utils/shipmentStatus'
 import type { CheckoutOrder, CheckoutOrderRequest } from '~/types/order'
 import type { NpSettlement, NpBranch, NpStreet } from '~/types/nova-poshta'
@@ -18,6 +19,10 @@ const domain = useCatalogDomain()
 const auth = useCustomerAuthStore()
 const { terms, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
+const emailCheckpointRevision = ref(0)
+const paymentTermsOpen = ref(false)
+const paymentTermsTitle = computed(() => locale.value === 'uk' ? 'Умови оплати та доставки' : 'Payment and delivery terms')
+const onCheckoutEmailCheckpoint = (event: Event) => { if (event.isTrusted) emailCheckpointRevision.value++ }
 
 const form = reactive({
   firstName: '',
@@ -189,7 +194,7 @@ watch(() => auth.customer, customer => {
 
 // Keep the exact submitted intent after a timeout, including when BE already emptied its cart.
 // sessionStorage limits contact/address retention to this tab's session.
-interface PendingCheckout { key: string, body: CheckoutOrderRequest, scope: string }
+interface PendingCheckout { key: string, body: CheckoutOrderRequest, scope: string, reminderKey?: string }
 const pendingIntent = ref<PendingCheckout | null>(null)
 const intentStorageKey = 'shop-checkout-intent-v1'
 const customerScope = computed(() => auth.isAuthenticated ? `customer:${auth.customer?.id}` : 'guest')
@@ -256,7 +261,7 @@ const sendIntent = async (intent: PendingCheckout) => {
   state.loading = true
   state.error = ''
   try {
-    const result = await domain.createOrder(intent.body, intent.key)
+    const result = await domain.createOrder(intent.body, intent.key, intent.reminderKey)
     if (!ownsIntent()) return
     state.order = result
     try {
@@ -265,6 +270,8 @@ const sendIntent = async (intent: PendingCheckout) => {
     } catch { /* In-memory confirmation remains available. */ }
     pendingIntent.value = null
     sessionStorage.removeItem(intentStorageKey)
+    sessionStorage.removeItem(reminderOrderStorageKey(intent.scope))
+    sessionStorage.removeItem(reminderStorageKey(intent.scope))
     if (auth.isAuthenticated) await cart.syncFromServer()
     else if (cartMayClear.value) cart.clear()
     else cartPreserved.value = cart.items.length > 0
@@ -311,7 +318,7 @@ const submit = async () => {
   let safeBody: CheckoutOrderRequest
   try { safeBody = safeRequestBody('/public/orders', 'POST', body) as CheckoutOrderRequest }
   catch (error) { state.error = error instanceof Error ? error.message : 'Перевірте дані замовлення.'; return }
-  const intent = { key: crypto.randomUUID(), body: safeBody, scope: customerScope.value }
+  const intent = { key: crypto.randomUUID(), body: safeBody, scope: customerScope.value, reminderKey: readReminderOrderKey(sessionStorage, customerScope.value) }
   // Persist before the HTTP request; never send if durable retry storage is unavailable.
   try { sessionStorage.setItem(intentStorageKey, JSON.stringify(intent)) }
   catch { state.error = 'Дозвольте збереження сесії браузера для безпечного оформлення замовлення.'; return }
@@ -414,8 +421,9 @@ useSeo(
             <div class="checkout-form__grid checkout-form__grid--two">
               <BaseInput v-model="form.firstName" rule="name" :label="terms.checkout.firstName" required autocomplete="given-name" />
               <BaseInput v-model="form.lastName" rule="name" :label="terms.checkout.lastName" required autocomplete="family-name" />
-              <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" />
+              <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" @focusout="onCheckoutEmailCheckpoint" @keydown.enter.prevent="onCheckoutEmailCheckpoint" />
               <BasePhoneInput v-model="form.phoneNumber" :label="terms.checkout.phone" required />
+              <CheckoutServiceReminder :email="form.email" :checkpoint-revision="emailCheckpointRevision" :active="sessionReady && !state.loading && !pendingIntent && !otherScopePending" />
             </div>
             <CustomerAuthDialog v-if="!auth.isAuthenticated" />
             <BaseCheckbox id="checkout-callback-requested" v-model="form.callbackRequested"
@@ -522,6 +530,7 @@ useSeo(
             <BaseButton type="submit" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
+            <BaseButton type="button" variant="text" size="xs" @click="paymentTermsOpen = true">{{ paymentTermsTitle }}</BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
@@ -581,6 +590,7 @@ useSeo(
             <BaseButton type="submit" form="shop-checkout-form" block :disabled="state.loading || retryAvailable || !canSubmit">
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
+            <BaseButton type="button" variant="text" size="xs" @click="paymentTermsOpen = true">{{ paymentTermsTitle }}</BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
           </section>
@@ -588,6 +598,10 @@ useSeo(
       </aside>
     </div>
   </section>
+  <BaseModal v-model="paymentTermsOpen" type="bottom" full-height>
+    <template #header-title>{{ paymentTermsTitle }}</template>
+    <CheckoutPaymentTerms />
+  </BaseModal>
 </template>
 
 <style scoped>

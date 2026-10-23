@@ -38,6 +38,7 @@ const form = reactive<ProductPayload>({
   short_description: props.initialValue?.short_description ?? null,
   price: props.initialValue?.price ?? 0,
   recommended_retail_price: props.initialValue?.recommended_retail_price ?? null,
+  shop_price: props.initialValue?.shop_price ?? null,
   sku: props.initialValue?.sku ?? null,
   stock_quantity: props.initialValue?.stock_quantity ?? 0,
   is_active: props.initialValue?.is_active ?? true,
@@ -278,6 +279,7 @@ const submit = () => {
     external_url: normalizeText(form.external_url ?? ''),
     availability_status: normalizeText(form.availability_status ?? ''),
     price: Number(form.price),
+    shop_price: form.shop_price == null || String(form.shop_price).trim() === '' ? null : Number(form.shop_price),
     recommended_retail_price: form.recommended_retail_price === null ? null : Number(form.recommended_retail_price),
     stock_quantity: Number(form.stock_quantity),
     attributes_json: attributesJson,
@@ -321,6 +323,10 @@ const submit = () => {
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Ціна</span>
             <BaseInput v-model.number="form.price" type="number" min="0.01" step="0.01" required class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">Ціна магазину</span>
+            <BaseInput v-model.number="form.shop_price" type="number" min="0.01" step="0.01" class="w-full rounded-2xl border border-slate-300 px-4 py-3" />
           </label>
           <label class="space-y-2 text-sm text-slate-700">
             <span class="font-medium">Рекомендована роздрібна ціна</span>

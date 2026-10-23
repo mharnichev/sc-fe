@@ -76,6 +76,8 @@ export default defineNuxtPlugin(() => {
       }
     }
 
+    useState<boolean>('shop-persistence-ready', () => false).value = true
+
     if (customerAuth.accessToken) {
       void Promise.allSettled([
         customerAuth.fetchMe(),

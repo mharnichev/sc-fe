@@ -64,6 +64,7 @@ export interface ProductDto {
   ingredients?: string | null
   price: string
   recommended_retail_price?: string | null
+  shop_price?: string | null
   compare_at_price: string | null
   stock: number
   status: string

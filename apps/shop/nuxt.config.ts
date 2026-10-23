@@ -39,6 +39,7 @@ export default defineNuxtConfig({
     ],
   },
   routeRules: {
+    '/checkout/recover': { headers: { 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' } },
     '/mock-fiscal-documents/**': { headers: { 'Referrer-Policy': 'no-referrer' } },
     '/**': {
       headers: {

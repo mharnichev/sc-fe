@@ -121,6 +121,7 @@ export interface Product {
   short_description: string | null
   price: string
   recommended_retail_price: string | null
+  shop_price?: string | null
   sku: string | null
   stock_quantity: number
   reserved_quantity: number
@@ -163,6 +164,7 @@ export interface ProductPayload {
   short_description: string | null
   price: number
   recommended_retail_price: number | null
+  shop_price?: number | null
   sku: string | null
   stock_quantity: number
   is_active: boolean
