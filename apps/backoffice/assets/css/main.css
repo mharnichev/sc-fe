@@ -2845,3 +2845,51 @@ html[data-backoffice-theme="light"] main .text-rose-700 {
     padding: 0.625rem;
   }
 }
+
+/* Home Screen and landscape notch protection; retain native page scrolling. */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.backoffice-login {
+  min-height: 100dvh;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+}
+.base-modal__panel {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (max-width: 1279px) {
+  .backoffice-shell-surface {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (max-width: 1279px) {
+  .backoffice-mobile-header,
+  .backoffice-mobile-header > header {
+    height: calc(4.5rem + env(safe-area-inset-top, 0px));
+    min-height: calc(4.5rem + env(safe-area-inset-top, 0px));
+  }
+  .backoffice-mobile-header > header {
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  }
+  #backoffice-mobile-menu {
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 4.5rem - env(safe-area-inset-top, 0px));
+  }
+  .base-modal__panel {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+.backoffice-login > .theme-toggle-button {
+  z-index: 10;
+  top: calc(1rem + env(safe-area-inset-top, 0px));
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+.network-status {
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}

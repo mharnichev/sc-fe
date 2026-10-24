@@ -14,6 +14,7 @@ const shellReady = computed(() => Boolean(auth.initialized && auth.accessToken &
       <AppSidebar v-model:collapsed="sidebarCollapsed" />
       <main class="min-w-0 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 xl:p-7">
         <div class="mx-auto w-full max-w-[1680px]">
+          <div class="mb-2 flex justify-end"><AppInstallHelp /></div>
           <slot />
         </div>
       </main>

@@ -8,7 +8,12 @@ export const useApi = (settings: { refreshOnUnauthorized?: boolean } = {}) => {
 
   const rawApi = $fetch.create({
     baseURL: apiBase,
+    cache: 'no-store',
+    retry: 0,
     onRequest({ options }) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('Немає з’єднання. Зміни не надіслано. Підключіться до інтернету та перевірте дані перед повторною спробою.')
+      }
       if (auth.accessToken) {
         const headers = new Headers(options.headers || {})
         headers.set('Authorization', `Bearer ${auth.accessToken}`)

@@ -218,7 +218,7 @@ const logout = () => {
 </script>
 
 <template>
-  <div class="sticky top-0 z-[220] h-[4.5rem] min-h-[4.5rem] xl:hidden">
+  <div class="backoffice-mobile-header sticky top-0 z-[220] h-[4.5rem] min-h-[4.5rem] xl:hidden">
     <header
       class="backoffice-shell-surface top-0 z-[220] h-[4.5rem] min-h-[4.5rem] shrink-0 border-b border-white/10 bg-black/70 px-4 py-3 text-white shadow-sm backdrop-blur-2xl xl:hidden"
       :class="menuOpen ? 'fixed inset-x-0' : 'relative'"

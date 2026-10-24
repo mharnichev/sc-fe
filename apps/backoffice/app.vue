@@ -3,6 +3,7 @@ useBackofficeTheme()
 </script>
 
 <template>
+  <NetworkStatus />
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>

@@ -71,7 +71,7 @@ test('late login response cannot resurrect a logged-out session', async () => {
 
 test('startup refresh failure cannot clear a newer login', async () => {
   const first = deferred(), refreshStarted = deferred()
-  const auth = loadAuth(() => { refreshStarted.resolve(); return first.promise }, { me: async () => { throw new Error('old access expired') } })
+  const auth = loadAuth(() => { refreshStarted.resolve(); return first.promise }, { me: async () => { throw { response: { status: 401 } } } })
   auth.accessToken = 'old'; auth.refreshToken = 'old-refresh'; auth.user = { id: 1 }
   const pending = auth.init()
   await refreshStarted.promise
@@ -93,4 +93,46 @@ test('read-only diagnostic 401 never refreshes tokens or logs out', async () => 
   vm.runInContext(compile(source) + '\nglobalThis.api = useApi({ refreshOnUnauthorized: false })', context)
   await assert.rejects(context.api('/backoffice/shop-operations-watch', { method: 'GET', retry: 0 }), error => error === failure)
   assert.equal(reads, 1); assert.equal(refreshes, 0); assert.equal(logouts, 0)
+})
+
+test('transient refresh errors retain credentials; rejected refresh clears them', async () => {
+  for (const status of [undefined, 503, 401, 403]) {
+    const failure = status ? { response: { status } } : new Error('connection lost')
+    const auth = loadAuth(async () => { throw failure })
+    auth.accessToken = 'fixture'; auth.refreshToken = 'fixture-refresh'; auth.user = { id: 1 }
+    if (status === 401 || status === 403) {
+      assert.equal(await auth.refreshSession(), false)
+      assert.equal(auth.refreshToken, '')
+      assert.equal(auth.user, null)
+    } else {
+      await assert.rejects(auth.refreshSession(), error => error === failure)
+      assert.equal(auth.refreshToken, 'fixture-refresh')
+      assert.equal(auth.user.id, 1)
+    }
+  }
+})
+
+test('cold-start connection failure retains credentials but does not trust persisted identity', async () => {
+  let refreshes = 0
+  const auth = loadAuth(async () => { refreshes++; throw Error('must not refresh on connection failure') }, { me: async () => { throw Error('offline') } })
+  auth.accessToken = 'fixture'; auth.refreshToken = 'fixture-refresh'; auth.user = { id: 1 }
+  await auth.init()
+  assert.equal(auth.user, null)
+  assert.equal(auth.refreshToken, 'fixture-refresh')
+  assert.equal(refreshes, 0)
+  assert.equal(auth.initialized, true)
+})
+
+test('offline requests fail before transport; no cache or automatic transport retries', async () => {
+  let sent = 0
+  const auth = { sessionRevision: 1, user: { id: 1 }, accessToken: 'fixture' }
+  const context = vm.createContext({ Headers, navigator: { onLine: false }, useRuntimeConfig: () => ({ public: { apiBase: '/api/v1' } }), useAuthStore: () => auth,
+    $fetch: { create: config => {
+      assert.equal(config.retry, 0); assert.equal(config.cache, 'no-store')
+      return async () => { config.onRequest({ options: {} }); sent++; return {} }
+    } } })
+  const source = readFileSync(new URL('../composables/useApi.ts', import.meta.url), 'utf8').replace('export const useApi', 'const useApi')
+  vm.runInContext(compile(source) + '\nglobalThis.api = useApi()', context)
+  await assert.rejects(context.api('/backoffice/bookings', { method: 'POST' }), /Зміни не надіслано/)
+  assert.equal(sent, 0)
 })
