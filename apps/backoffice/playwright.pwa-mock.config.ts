@@ -9,7 +9,7 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: 'NUXT_PUBLIC_API_BASE=http://127.0.0.1:9/api/v1 NITRO_PORT=6084 NITRO_HOST=127.0.0.1 node .output/server/index.mjs',
+    command: 'NUXT_PUBLIC_API_BASE=/api/v1 NITRO_PORT=6084 NITRO_HOST=127.0.0.1 node .output/server/index.mjs',
     url: 'http://127.0.0.1:6084', reuseExistingServer: false, timeout: 120000,
   },
 })
