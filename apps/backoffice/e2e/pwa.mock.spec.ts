@@ -28,13 +28,13 @@ test('manifest, metadata and real square PNG icons; no service worker', async ({
   expect(manifest.ok()).toBeTruthy()
   const data = await manifest.json()
   expect(data).toMatchObject({ id: '/', start_url: '/', scope: '/', display: 'standalone', name: 'Soul Cuts Backoffice' })
-  for (const [url, size] of [['/icons/apple-touch-icon.png', 180], ['/icons/icon-192.png', 192], ['/icons/icon-512.png', 512]] as const) {
+  for (const [url, size] of [['/icons/apple-touch-icon.png?v=af9b93e44fcf', 180], ['/icons/icon-192.png?v=0ee94bef73eb', 192], ['/icons/icon-512.png?v=649f658cda27', 512]] as const) {
     const response = await request.get(url), png = await response.body()
     expect(response.headers()['content-type']).toContain('image/png')
     expect(png.readUInt32BE(16)).toBe(size); expect(png.readUInt32BE(20)).toBe(size)
   }
   expect(await page.locator('meta[name="viewport"]').getAttribute('content')).toContain('viewport-fit=cover')
-  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('/icons/apple-touch-icon.png')
+  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('/icons/apple-touch-icon.png?v=af9b93e44fcf')
   expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0)
 })
 
