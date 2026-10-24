@@ -67,8 +67,9 @@ export const useAuthStore = defineStore('auth', {
             const user = await api.me()
             if (current()) this.user = user
           }
-          catch {
+          catch (cause: any) {
             if (!current()) return
+            if (cause?.response?.status !== 401 && cause?.response?.status !== 403) throw cause
             const refreshed = await this.refreshSession()
             if (!current()) return
             if (!refreshed) {
@@ -79,8 +80,10 @@ export const useAuthStore = defineStore('auth', {
             if (current()) this.user = user
           }
         }
-        catch {
-          if (current()) this.clearSession()
+        catch (cause: any) {
+          if (!current()) return
+          if (cause?.response?.status === 401 || cause?.response?.status === 403) this.clearSession()
+          else this.user = null // Require a fresh identity check after reconnecting; retain credentials for retry.
         }
         finally {
           if (current()) this.initialized = true
@@ -102,11 +105,14 @@ export const useAuthStore = defineStore('auth', {
         const config = useRuntimeConfig()
         const apiBase = typeof config.public.apiBase === 'string' ? config.public.apiBase : ''
         try {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error('Offline')
           const tokens = await $fetch<{ access_token: string, refresh_token: string, token_type: string }>(
             '/backoffice/auth/refresh',
             {
               baseURL: apiBase,
               method: 'POST',
+              cache: 'no-store',
+              retry: 0,
               body: { refresh_token: refreshToken },
             },
           )
@@ -115,7 +121,9 @@ export const useAuthStore = defineStore('auth', {
           this.refreshToken = tokens.refresh_token
           return true
         }
-        catch {
+        catch (cause: any) {
+          if (!current()) return false
+          if (cause?.response?.status !== 401 && cause?.response?.status !== 403) throw cause
           if (current()) this.clearSession()
           return false
         }

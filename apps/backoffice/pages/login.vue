@@ -32,7 +32,7 @@ const submit = async () => {
     const message =
       typeof cause === 'object' && cause && 'data' in cause && typeof cause.data === 'object' && cause.data && 'detail' in cause.data
         ? String(cause.data.detail)
-        : 'Невірні облікові дані'
+        : (navigator.onLine ? 'Не вдалося увійти. Перевірте дані та з’єднання.' : 'Немає з’єднання. Підключіться до інтернету й спробуйте ще раз.')
     toast.error(message)
   } finally {
     pending.value = false
@@ -116,6 +116,7 @@ const submit = async () => {
         >
           {{ pending ? 'Вхід...' : 'Увійти в backoffice' }}
         </BaseButton>
+      <div class="flex justify-center"><AppInstallHelp /></div>
       </form>
     </section>
   </div>

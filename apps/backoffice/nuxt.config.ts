@@ -9,6 +9,23 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-28',
   ssr: false,
   devtools: { enabled: false },
+  app: {
+    head: {
+      title: 'Soul Cuts Backoffice',
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
+      meta: [
+        { name: 'theme-color', content: '#171717' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'Soul Cuts' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      ],
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/icons/apple-touch-icon.png' },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/icons/icon-192.png' },
+      ],
+    },
+  },
   experimental: {
     viteEnvironmentApi: true,
   },
