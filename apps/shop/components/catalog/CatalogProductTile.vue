@@ -65,6 +65,9 @@ watch(images, () => {
   lastWheelTime = -Infinity
 })
 const packageSize = computed(() => localizedPackageSize(typeof props.product.package_size === 'string' ? props.product.package_size.trim() : '', locale.value))
+const buyLabel = computed(() => locale.value === 'uk' ? 'Купити' : 'Buy')
+const unavailableLabel = computed(() => locale.value === 'uk' ? 'Немає в наявності' : 'Out of stock')
+const inCartLabel = computed(() => locale.value === 'uk' ? 'У кошику' : 'In cart')
 const productType = computed(() => productDisplayType(props.product))
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
@@ -231,10 +234,12 @@ const toggleCart = async () => {
                 type="button"
                 size="xs"
                 :disabled="cart.syncing || (isUnavailable && !isInCart)"
-                :aria-label="isUnavailable ? terms.favorites.unavailable : (isInCart ? terms.product.removeFromCart : terms.product.addToCart)"
+                :aria-label="isInCart ? terms.product.removeFromCart : (isUnavailable ? unavailableLabel : terms.product.addToCart)"
                 @click="toggleCart"
               >
-                <BaseIcon :name="isInCart ? 'check' : 'shopping-cart'" size="xxs" />
+                {{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}
+                <BaseIcon v-if="isInCart" name="check" size="xxs" />
+                <BaseIcon v-else-if="!isUnavailable" name="arrow-right" size="xxs" />
               </BaseButton>
             </div>
           </div>
@@ -287,10 +292,12 @@ const toggleCart = async () => {
             type="button"
             size="xs"
             :disabled="cart.syncing || (isUnavailable && !isInCart)"
-            :aria-label="isUnavailable ? terms.favorites.unavailable : (isInCart ? terms.product.removeFromCart : terms.product.addToCart)"
+            :aria-label="isInCart ? terms.product.removeFromCart : (isUnavailable ? unavailableLabel : terms.product.addToCart)"
             @click="toggleCart"
           >
-            <BaseIcon :name="isInCart ? 'check' : 'shopping-cart'" size="xxs" />
+            {{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}
+            <BaseIcon v-if="isInCart" name="check" size="xxs" />
+            <BaseIcon v-else-if="!isUnavailable" name="arrow-right" size="xxs" />
           </BaseButton>
         </div>
         <p v-if="isUnavailable" class="catalog-product-tile__mobile-unavailable">{{ terms.favorites.unavailable }}</p>
@@ -574,6 +581,7 @@ const toggleCart = async () => {
 
 .catalog-product-tile__details-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -700,6 +708,8 @@ const toggleCart = async () => {
 
 .catalog-product-tile__bottom {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   margin-left: auto;
   opacity: 1;
   pointer-events: auto;
@@ -742,13 +752,17 @@ const toggleCart = async () => {
 .catalog-product-tile__cart {
   --sc-button-border: transparent;
 
-  width: 2.5rem;
-  min-width: 2.5rem;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
   height: 2.25rem;
   min-height: 2.25rem;
   flex: 0 0 auto;
-  border-radius: 4px;
-  padding: 0;
+  border-radius: 9999px;
+  padding: 0 0.875rem;
+  font-size: 0.8125rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .catalog-product-tile__cart--active {
@@ -839,6 +853,8 @@ const toggleCart = async () => {
 
   .catalog-product-tile__mobile-purchase-row .catalog-product-tile__cart {
     margin-left: auto;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
   }
 
   .catalog-product-tile__volume.base-badge {

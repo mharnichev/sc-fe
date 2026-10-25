@@ -6,6 +6,7 @@ import { locale, vue, useShopRuntimeDisplay, sourceModule } from './runtime-loca
 const { paymentCopy } = await sourceModule(await readFile(new URL('../utils/payment-localization.ts', import.meta.url), 'utf8'))
 const payment = vue.ref(null), error = vue.ref(''), busy = vue.ref(false)
 Object.assign(globalThis, vue, {
+  onMounted() {}, onBeforeUnmount() {},
   usePaymentDisplay: () => ({ paymentText: vue.computed(() => paymentCopy[locale.value]) }),
   useShopRuntimeDisplay,
   defineProps: () => ({ orderId: 42 }),

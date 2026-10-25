@@ -10,7 +10,11 @@ for (const authenticated of [false, true]) {
   let ordered = false, created = false, phase = 'not_started', posts = 0
   let paymentChannel: string | null = 'online_monobank'
   const external: string[] = []
-  await page.route('https://**', route => { external.push(route.request().url()); return route.abort() })
+  await page.route('https://**', route => {
+    external.push(route.request().url())
+    if (route.request().url() === 'https://pay.mbnk.biz/mock-invoice') return route.fulfill({ contentType: 'text/html', body: '<h1>Mock payment provider</h1>' })
+    return route.abort()
+  })
   await page.addInitScript(({ product, customer, authenticated }) => {
     localStorage.setItem('shop-cart', JSON.stringify({ items: [{ product, quantity: 2 }] }))
     if (authenticated) localStorage.setItem('shop-customer-auth', JSON.stringify({ accessToken: 'mock-only', tokenType: 'Bearer', customer }))
@@ -50,13 +54,17 @@ for (const authenticated of [false, true]) {
   await page.locator('label[for=payment-method-onlineCard]').click()
   await page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last().click()
   await expect(page.getByTestId('order-confirmation')).toBeVisible()
-  const create = page.getByRole('button', { name: 'Створити посилання на оплату' })
+  const create = page.getByRole('button', { name: 'Перейти до оплати' })
   await expect(create).toBeVisible(); expect(posts).toBe(0)
   await create.click()
+  await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
+  // The browser may block even an intercepted bank origin. Simulate its return
+  // without relying on provider HTML or changing browser security settings.
+  await page.goto('/payment/987')
+  await expect(page).toHaveURL(/\/payment\/987$/)
   const bank = page.getByRole('link', { name: 'Перейти до оплати' })
-  await expect(bank).toHaveAttribute('href', 'https://pay.mbnk.biz/mock-invoice'); await expect(bank).toHaveAttribute('target', '_blank')
+  await expect(bank).toHaveAttribute('href', 'https://pay.mbnk.biz/mock-invoice'); await expect(bank).not.toHaveAttribute('target', '_blank')
   expect(posts).toBe(1)
-  await page.getByRole('link', { name: 'Сторінка статусу оплати' }).click()
   await expect(page).toHaveURL(/\/payment\/987$/)
   await expect(bank).toBeVisible()
   await page.reload(); await expect(bank).toBeVisible()
@@ -85,7 +93,8 @@ for (const authenticated of [false, true]) {
     await expect(page.getByRole('link', { name: 'Переглянути фіскальний чек' })).toHaveCount(0)
     expect(posts).toBe(1)
   }
-  expect(external).toEqual([])
+  expect(external.filter(url => url !== 'https://pay.mbnk.biz/mock-invoice')).toEqual([])
+  expect(external.length).toBeLessThanOrEqual(1)
  })
 }
 for (const unavailable of ['disabled', 'error']) {

@@ -45,6 +45,7 @@ test('hosted links reject lookalike hosts, credentials, ports and unsafe invoice
 })
 test('guest mount only reads; explicit creation persists capability and stable idempotency key', async () => {
   const env = load(), payment = env.exports.useOrderPayment(() => 42, () => 'guest-capability')
+  env.state.response = { status: 'not_started', enabled: true, paid: false }
   env.mount(); await flush()
   assert.equal(env.calls.length, 1)
   assert.equal(env.timers[0], 30000)
@@ -86,6 +87,7 @@ test('poll projections retain receipt pending separately from accepted payment',
 })
 test('concurrent creation clicks send only one POST', async () => {
   const env = load(), payment = env.exports.useOrderPayment(() => 42, () => 'guest-capability')
+  env.state.response = { status: 'not_started', enabled: true, paid: false }
   env.mount(); await flush(); env.state.delayed = true
   const first = payment.create()
   await payment.create()

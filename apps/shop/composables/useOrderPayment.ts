@@ -19,6 +19,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   const payment = ref<OnlinePayment | null>(null)
   const busy = ref(false)
   const error = ref('')
+  const errorKind = ref<'access' | 'conflict' | 'connection' | ''>('')
   let generation = 0
   let timer: ReturnType<typeof setTimeout> | undefined
   let mounted = false
@@ -29,19 +30,24 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   const readStorage = (key: string) => { try { return sessionStorage.getItem(key) } catch { return null } }
   const writeStorage = (key: string, value: string) => { try { sessionStorage.setItem(key, value) } catch {} }
   const tokenKey = () => `shop-order-payment-token:${orderId()}`
+  const capability = () => guestToken() || (!auth.isAuthenticated ? readStorage(tokenKey()) : null)
   const request = async (create = false) => {
+    if (create && (!payment.value?.enabled || payment.value.status !== 'not_started' || payment.value.paid || error.value)) return
     if (!mounted || busy.value || document.hidden) return
     const current = generation
     const context = identity()
-    const isCurrent = () => mounted && current === generation && context === identity()
+    const token = capability()
+    const authenticated = auth.isAuthenticated
+    const ownsRequest = () => mounted && current === generation && context === identity() && authenticated === auth.isAuthenticated
+    const isCurrent = () => ownsRequest() && token === capability()
     busy.value = true; error.value = ''
+    if (errorKind.value !== 'access') errorKind.value = ''
     let missingCapability = false
     const telemetryData = () => ({ flow: 'payment' as const, order_id: orderId(), payment_status: payment.value?.status })
     if (create) commerceBreadcrumb('payment.start', telemetryData())
     try {
       const headers: Record<string, string> = {}
-      const token = guestToken() || (!auth.isAuthenticated ? readStorage(tokenKey()) : null)
-      if (!auth.isAuthenticated && !token) { missingCapability = true; throw new Error('missing capability') }
+      if (!auth.isAuthenticated && !token) { missingCapability = true; errorKind.value = 'access'; throw new Error('missing capability') }
       if (token && !auth.isAuthenticated) headers['X-Order-Payment-Token'] = token
       if (create) {
         const key = `shop-order-payment-intent:${orderId()}`
@@ -49,32 +55,46 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
         memoryIntents.set(key, headers['Idempotency-Key'])
         writeStorage(key, headers['Idempotency-Key'])
       }
-      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment`, { method: create ? 'POST' : 'GET', ...(create ? { body: {} } : {}), headers, retry: 0 })
+      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment`, { method: create ? 'POST' : 'GET', ...(create ? { body: {} } : {}), headers, retry: 0, timeout: 15000 })
       if (isCurrent()) {
         readFailures = 0
+        errorKind.value = ''
         const changed = payment.value?.status !== result.status
         payment.value = result
         if (changed || create) commerceBreadcrumb('payment.status', telemetryData())
+        return result
       }
     } catch (cause) {
       if (isCurrent()) {
+        const failure = cause as { statusCode?: number, status?: number, response?: { status?: number } }
+        const status = Number(failure?.statusCode || failure?.status || failure?.response?.status)
+        errorKind.value = errorKind.value === 'access' || missingCapability || [401, 403, 404, 410].includes(status) ? 'access'
+          : [409, 422].includes(status) ? 'conflict' : 'connection'
+        if (errorKind.value === 'access') payment.value = null
         error.value = 'Не вдалося оновити оплату. Спробуйте ще раз.'
         if (!create) readFailures++
-        if (!missingCapability && (create || readFailures >= 3)) {
+        if (!missingCapability && (create || readFailures >= 3 || [403, 404].includes(status))) {
           reportCommerceError(create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: create ? undefined : readFailures })
         }
       }
     }
     finally {
-      if (isCurrent()) {
+      if (ownsRequest()) {
         busy.value = false
         clearTimeout(timer)
-        if (!document.hidden && !['accepted', 'requires_review'].includes(payment.value?.status || '')) timer = setTimeout(() => { void request() }, 30000)
+        if (!isCurrent()) {
+          payment.value = null
+          errorKind.value = 'access'
+          return
+        }
+        const seconds = payment.value?.retry_after_seconds
+        const delay = typeof seconds === 'number' && Number.isFinite(seconds) ? Math.min(120, Math.max(5, seconds)) * 1000 : 30000
+        if (!document.hidden && errorKind.value !== 'access' && !['accepted', 'requires_review'].includes(payment.value?.status || '')) timer = setTimeout(() => { void request() }, delay)
       }
     }
   }
   const reset = () => {
-    stop(); readFailures = 0; payment.value = null; error.value = ''
+    stop(); readFailures = 0; payment.value = null; error.value = ''; errorKind.value = ''
     if (mounted) {
       if (guestToken() && !auth.isAuthenticated) writeStorage(tokenKey(), guestToken()!)
       void request()
@@ -84,5 +104,8 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   watch(identity, reset, { flush: 'sync' })
   onMounted(() => { mounted = true; document.addEventListener('visibilitychange', visibility); reset() })
   onBeforeUnmount(() => { mounted = false; stop(); document.removeEventListener('visibilitychange', visibility) })
-  return { payment, busy, error, refresh: () => request(), create: () => request(true) }
+  return {
+    payment, busy, error, errorKind, refresh: () => request(), create: () => request(true),
+    redirectFailed: (cause: unknown) => reportCommerceError('payment.redirect_failed', cause, { flow: 'payment', order_id: orderId() }),
+  }
 }

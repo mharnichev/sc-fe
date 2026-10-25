@@ -165,6 +165,9 @@ export const shopTerms = {
     checkout: {
       signedInAs: (name: string) => `Увійшли як ${name}`,
       contact: 'Контакти',
+      yourContact: 'Ваш контакт',
+      paymentTerms: 'Умови доставки та оплати',
+      authorize: 'Авторизуватись',
       firstName: 'Імʼя',
       lastName: 'Прізвище',
       email: 'Email',
@@ -231,6 +234,9 @@ export const shopTerms = {
     },
     basket: {
       beforeDelivery: 'До доставки',
+      orderTotal: 'Сума замовлення:',
+      discountNote: 'Остаточна сума підтверджується під час створення замовлення.',
+      proceedToPayment: 'Перейти до оплати',
       emptyTitle: 'Кошик порожній',
       emptyText: 'Додайте товари з каталогу, щоб перейти до оформлення.',
       browseCatalog: 'Переглянути каталог',
@@ -588,6 +594,9 @@ export const shopTerms = {
     checkout: {
       signedInAs: (name: string) => `Signed in as ${name}`,
       contact: 'Contact',
+      yourContact: 'Your contact',
+      paymentTerms: 'Delivery and payment terms',
+      authorize: 'Sign in',
       firstName: 'First name',
       lastName: 'Last name',
       email: 'Email',
@@ -654,6 +663,9 @@ export const shopTerms = {
     },
     basket: {
       beforeDelivery: 'Before delivery',
+      orderTotal: 'Order total:',
+      discountNote: 'The final total is confirmed when your order is placed.',
+      proceedToPayment: 'Proceed to payment',
       emptyTitle: 'Your basket is empty',
       emptyText: 'Add products from catalog to start checkout.',
       browseCatalog: 'Browse catalog',

@@ -22,7 +22,6 @@ const { terms, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
 const emailCheckpointRevision = ref(0)
 const paymentTermsOpen = ref(false)
-const paymentTermsTitle = computed(() => locale.value === 'uk' ? 'Умови оплати та доставки' : 'Payment and delivery terms')
 const onCheckoutEmailCheckpoint = (event: Event) => { if (event.isTrusted) emailCheckpointRevision.value++ }
 
 const form = reactive({
@@ -264,15 +263,21 @@ const sendIntent = async (intent: PendingCheckout) => {
   if (!ownsIntent()) return
   state.loading = true
   state.error = ''
+  let createdOrderId: number | undefined
   commerceBreadcrumb('checkout.create_order', { flow: 'checkout', payment_method: intent.body.paymentMethod })
   try {
     const result = await domain.createOrder(intent.body, intent.key, intent.reminderKey)
     if (!ownsIntent()) return
     state.order = result
+    createdOrderId = result.id
     commerceBreadcrumb('checkout.order_created', { flow: 'checkout', order_id: result.id, payment_method: result.payment_method })
     try {
       saveCheckoutConfirmation(sessionStorage, intent.scope, result)
-      void router.replace({ query: { ...route.query, confirmation: String(result.id) } })
+      void Promise.resolve(router.replace({ query: { ...route.query, confirmation: String(result.id) } })).catch(cause => {
+        if (checkoutActive && sessionCurrent() && intent.scope === customerScope.value) {
+          reportCommerceError('checkout.confirmation_navigation_failed', cause, { flow: 'checkout', order_id: result.id })
+        }
+      })
     } catch { /* In-memory confirmation remains available. */ }
     pendingIntent.value = null
     sessionStorage.removeItem(intentStorageKey)
@@ -283,6 +288,11 @@ const sendIntent = async (intent: PendingCheckout) => {
     else cartPreserved.value = cart.items.length > 0
   }
   catch (error: unknown) {
+    if (!checkoutActive || !sessionCurrent() || intent.scope !== customerScope.value) return
+    if (createdOrderId !== undefined) {
+      reportCommerceError('checkout.confirmation_cleanup_failed', error, { flow: 'checkout', order_id: createdOrderId, payment_method: intent.body.paymentMethod })
+      return
+    }
     if (!ownsIntent()) return
     cartMayClear.value = false
     const status = typeof error === 'object' && error && 'statusCode' in error ? Number(error.statusCode) : 0
@@ -384,8 +394,8 @@ useSeo(
           </p>
           <section class="checkout-card checkout-contact">
             <div class="checkout-contact__head">
-              <h2>{{ terms.checkout.contact }}</h2>
-              <CustomerAuthDialog v-if="!auth.isAuthenticated" :label="terms.common.signIn" size="xs" />
+              <h2>{{ terms.checkout.yourContact }}</h2>
+              <CustomerAuthDialog v-if="!auth.isAuthenticated" :label="terms.checkout.authorize" size="xs" />
             </div>
             <BaseInput v-model="form.email" type="email" :label="terms.checkout.email" autocomplete="email" @focusout="onCheckoutEmailCheckpoint" @keydown.enter.prevent="onCheckoutEmailCheckpoint" />
             <CheckoutServiceReminder :email="form.email" :checkpoint-revision="emailCheckpointRevision" :active="sessionReady && !state.loading && !pendingIntent && !otherScopePending" />
@@ -553,7 +563,7 @@ useSeo(
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
             <BaseButton class="checkout-payment-terms" type="button" variant="text" size="xs" @click="paymentTermsOpen = true">
-              <BaseHoverUnderlineText>{{ paymentTermsTitle }}</BaseHoverUnderlineText>
+              <BaseHoverUnderlineText>{{ terms.checkout.paymentTerms }}</BaseHoverUnderlineText>
             </BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
@@ -616,7 +626,7 @@ useSeo(
               {{ state.loading ? terms.checkout.processing : terms.checkout.placeOrder }}
             </BaseButton>
             <BaseButton class="checkout-payment-terms" type="button" variant="text" size="xs" @click="paymentTermsOpen = true">
-              <BaseHoverUnderlineText>{{ paymentTermsTitle }}</BaseHoverUnderlineText>
+              <BaseHoverUnderlineText>{{ terms.checkout.paymentTerms }}</BaseHoverUnderlineText>
             </BaseButton>
             <PaymentStatusIllustration v-if="state.error || cart.error" tone="error" />
             <p v-if="state.error || cart.error" class="checkout-page__error" role="alert">{{ runtimeMessage(state.error || cart.error) }}</p>
@@ -627,7 +637,7 @@ useSeo(
   </section>
 
   <BaseModal v-model="paymentTermsOpen" type="bottom" full-height>
-    <template #header-title>{{ paymentTermsTitle }}</template>
+    <template #header-title>{{ terms.checkout.paymentTerms }}</template>
     <CheckoutPaymentTerms />
   </BaseModal>
 </template>
