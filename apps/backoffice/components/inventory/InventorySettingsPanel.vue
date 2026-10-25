@@ -68,7 +68,7 @@ const save = async () => {
       </div>
       <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
       <div>
-        <BaseButton type="submit" variant="primary" size="sm" :loading="saving" class="w-full"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
+        <BaseButton type="submit" variant="primary" size="sm" :loading="saving" aria-label="Зберегти налаштування" class="w-full"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
       </div>
     </form>
   </BaseCard>

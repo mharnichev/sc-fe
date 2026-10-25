@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test'
-import { Buffer } from 'node:buffer'
 
 const staff = { id: 1, email: 'fixture@example.test', is_active: true, is_superuser: false, role: 'admin', master_id: null }
 const initialProduct = {
@@ -198,8 +197,8 @@ test('closing the product editor preserves a pending two-photo upload queue', as
   await page.goto('/products/238')
   await page.getByRole('button', { name: 'Редагувати товар', exact: true }).click()
   await page.locator('input[type="file"][multiple]').setInputFiles([
-    { name: 'first.png', mimeType: 'image/png', buffer: Buffer.from('fixture-first') },
-    { name: 'second.png', mimeType: 'image/png', buffer: Buffer.from('fixture-second') },
+    new URL('../public/icons/icon-192.png', import.meta.url).pathname,
+    new URL('../public/icons/icon-512.png', import.meta.url).pathname,
   ])
   await expect.poll(() => uploads).toBe(1)
   await page.getByRole('button', { name: 'Закрити редагування', exact: true }).click()

@@ -396,7 +396,7 @@ const logout = () => {
         :class="isActive(link.to) ? 'is-active' : ''"
       >
         <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span class="max-w-full">{{ link.label }}</span>
+        <span class="max-w-full" :class="{ truncate: link.to !== '/my-time-blocks' }">{{ link.label }}</span>
       </NuxtLink>
     </div>
   </nav>
