@@ -5,6 +5,7 @@ const props = withDefaults(defineProps<{
   labelClass?: string
   size?: 'sm' | 'md' | 'lg'
   inline?: boolean
+  inheritColor?: boolean
 }>(), {
   as: 'div',
   label: 'Завантаження…',
@@ -22,7 +23,7 @@ const spinnerClass = computed(() => ({
   <component
     :is="as"
     class="base-loader flex items-center justify-center gap-3 text-sm"
-    :class="inline ? 'inline-flex' : 'min-h-24 w-full px-5 py-8'"
+    :class="[inline ? 'inline-flex' : 'min-h-24 w-full px-5 py-8', inheritColor ? 'base-loader--inherit' : '']"
     role="status"
     aria-live="polite"
   >
@@ -30,3 +31,13 @@ const spinnerClass = computed(() => ({
     <span :class="labelClass">{{ label }}</span>
   </component>
 </template>
+
+<style scoped>
+.base-loader--inherit {
+  color: inherit;
+}
+.base-loader--inherit .base-loader__spinner {
+  border-color: currentColor;
+  border-top-color: transparent;
+}
+</style>

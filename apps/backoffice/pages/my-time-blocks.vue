@@ -283,28 +283,26 @@ const blockDeleteMessage = computed(() => {
     </BaseFilterPanel>
 
     <BaseCard as="section" padding="none" class="overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4"><div class="flex flex-wrap items-center gap-2 text-xs text-ui-secondary"><BaseBadge tone="success" dot>Доступно після блокувань</BaseBadge><BaseBadge tone="danger" dot>Заблокований час</BaseBadge><BaseBadge tone="neutral" dot>Вихідний</BaseBadge></div><p class="text-xs text-ui-muted">Дні прокручуються горизонтально</p></div>
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4"><div class="availability-legend flex flex-nowrap items-center gap-1 text-xs text-ui-secondary"><BaseBadge tone="success" dot aria-label="Доступно після блокувань">Доступно</BaseBadge><BaseBadge tone="danger" dot aria-label="Заблокований час">Блок</BaseBadge><BaseBadge tone="neutral" dot>Вихідний</BaseBadge></div><p class="text-xs text-ui-muted">Дні прокручуються горизонтально</p></div>
       <div class="flex min-h-11 items-center gap-2 border-b border-ui bg-ui-subtle px-3 py-2 text-xs md:px-4 md:text-sm"><span class="shrink-0 font-medium text-ui-muted">Вибрано</span><span class="min-w-0 truncate text-ui-primary">{{ selectedScheduleLabel }}</span></div>
       <BaseEmptyState v-if="!pending && !hasScheduleData" compact title="У цьому місяці ще немає інтервалів або записів" />
-      <ScheduleMatrixTable v-else caption="Мій графік робочого часу за днями місяця" :days="monthDays">
+      <ScheduleMatrixTable v-else class="my-availability-matrix" caption="Мій графік робочого часу за днями місяця" :days="monthDays">
         <template #leading-header>
-          <span class="flex w-full items-center justify-center md:hidden">
+          <span class="flex w-full items-center justify-center">
             <CalendarDaysIcon class="h-5 w-5" aria-hidden="true" />
             <span class="sr-only">Мій графік</span>
           </span>
-          <span class="hidden md:inline">Мій графік</span>
         </template>
         <template #day-header="{ day }"><span class="block text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ui-muted">{{ day.weekday }}</span><span class="mt-0.5 block text-sm font-semibold text-ui-primary">{{ day.dayNumber }}</span></template>
         <template #trailing-header>
-          <span class="flex w-full items-center justify-center md:hidden">
+          <span class="flex w-full items-center justify-center">
             <ChartBarSquareIcon class="h-5 w-5" aria-hidden="true" />
             <span class="sr-only">Завантаження</span>
           </span>
-          <span class="hidden md:inline">Завантаження</span>
         </template>
         <template #default="{ leadingCellClass, dayCellClass, trailingCellClass, todayCellClass }">
         <tr>
-          <th scope="row" :class="leadingCellClass"><span class="flex min-h-10 items-center justify-center md:hidden"><span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary"><img v-if="selfMasterImageUrl" :src="selfMasterImageUrl" alt="" class="h-full w-full object-cover"><span v-else>{{ selfMasterInitials }}</span></span><span class="sr-only">Моя доступність · {{ selfMasterName }}</span></span><div class="hidden md:block"><p class="text-sm font-semibold text-ui-primary">Моя доступність</p><p class="mt-0.5 text-[0.68rem] font-normal text-ui-muted">{{ workDays }} робочих дн. у місяці</p></div></th>
+          <th scope="row" :class="leadingCellClass"><span class="flex min-h-10 items-center justify-center"><span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary"><img v-if="selfMasterImageUrl" :src="selfMasterImageUrl" alt="" class="h-full w-full object-cover"><span v-else>{{ selfMasterInitials }}</span></span><span class="sr-only">Моя доступність · {{ selfMasterName }} · {{ workDays }} робочих дн. у місяці</span></span></th>
           <td v-for="day in monthDays" :key="day.date" :class="[dayCellClass, day.isToday ? todayCellClass : '']">
             <div v-if="scheduleByDay[day.date]?.availabilitySummary || scheduleByDay[day.date]?.blockSummary" class="space-y-1">
               <div v-if="scheduleByDay[day.date]?.availabilitySummary" class="flex min-h-10 items-start gap-1 rounded-lg border px-1.5 py-1.5" :class="scheduleByDay[day.date].availabilitySummary!.ranges.length ? 'border-emerald-500/20 bg-emerald-500/12' : 'border-amber-500/25 bg-amber-500/10'">
@@ -319,7 +317,7 @@ const blockDeleteMessage = computed(() => {
             </div>
             <span v-else class="flex min-h-8 items-center justify-center text-sm text-ui-muted">—</span>
           </td>
-          <td :class="trailingCellClass"><span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ loadPercent }}%</span><div class="hidden items-center justify-between gap-2 text-xs md:flex"><span class="font-semibold text-ui-primary">{{ loadPercent }}%</span><span class="text-ui-muted">{{ formatHours(bookedMinutes) }}</span></div><div class="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-ui-subtle md:block"><div class="h-full rounded-full bg-cyan-500 transition-all" :style="{ width: `${Math.min(100, loadPercent)}%` }" /></div><p class="mt-1 hidden text-[0.62rem] text-ui-muted md:block">{{ workDays }} дн. · {{ formatHours(scheduledMinutes) }}</p></td>
+          <td :class="trailingCellClass"><span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary">{{ loadPercent }}%</span><span class="sr-only">{{ formatHours(bookedMinutes) }} записано · {{ workDays }} дн. · {{ formatHours(scheduledMinutes) }} заплановано</span></td>
         </tr>
         </template>
       </ScheduleMatrixTable>
@@ -333,3 +331,28 @@ const blockDeleteMessage = computed(() => {
     <ConfirmActionModal :model-value="Boolean(blockSummaryToDelete)" title="Видалити блокування?" :message="blockDeleteMessage" confirm-label="Так, видалити" :context-items="blockDeleteContextItems" :pending="deletingBlockIds.length > 0" destructive @confirm="confirmDeleteBlockSummary" @update:model-value="handleBlockDeleteConfirmUpdate" />
   </div>
 </template>
+
+<style>
+.availability-legend .base-badge {
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.my-availability-matrix .schedule-matrix__edge {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+}
+
+.my-availability-matrix th:not(.schedule-matrix__edge),
+.my-availability-matrix td:not(.schedule-matrix__edge) {
+  width: 116px;
+  min-width: 116px;
+  padding-left: 3px !important;
+  padding-right: 3px !important;
+}
+</style>

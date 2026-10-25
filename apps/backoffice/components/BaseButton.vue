@@ -72,8 +72,7 @@ const variantClass = computed(() => {
     :class="[baseClass, variantClass, buttonClass, attrsClass]"
   >
     <slot v-if="loading" name="loading">
-      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
-      <span class="sr-only">{{ loadingLabel }}</span>
+      <BaseLoader as="span" inline size="sm" inherit-color :label="loadingLabel" label-class="sr-only" />
     </slot>
     <slot v-else />
   </button>

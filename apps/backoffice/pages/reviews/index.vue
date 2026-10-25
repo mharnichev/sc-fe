@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ArrowPathIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, CheckIcon, EyeIcon } from '@heroicons/vue/24/outline'
 import type { Master } from '~/composables/useBackofficeApi'
-import type { ReviewFilters } from '~/types/reviews'
+import type { BookingReviewSummary, ReviewFilters } from '~/types/reviews'
 import { formatModerationDuration, formatRating, formatReviewConversionRate, reviewModerationLabels, reviewRequestStateLabels, safeBookingReference } from '~/utils/reviews'
 
 definePageMeta({
@@ -12,9 +12,19 @@ definePageMeta({
 })
 
 const api = useBackofficeApi()
+const toast = useBaseToastNotification()
+const approvingIds = ref<Array<number | string>>([])
+const approvalErrors = ref<Record<string, string>>({})
+let disposed = false
+onBeforeUnmount(() => { disposed = true })
+onBeforeRouteLeave(() => { disposed = true })
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+watch(() => auth.sessionRevision, () => {
+  approvingIds.value = []
+  approvalErrors.value = {}
+}, { flush: 'sync' })
 const { apiErrorMessage, formatDateTime, masterName, normalizeItems } = useBookingFormatting()
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
 const page = ref(1)
@@ -156,6 +166,31 @@ const clearListFilters = async () => {
   await refreshListFirstPage()
 }
 const refreshAll = () => Promise.all([refresh(), refreshMetrics()])
+const approveReview = async (review: BookingReviewSummary) => {
+  if (!isAdmin.value || review.moderation_status !== 'pending' || approvingIds.value.includes(review.id)) return
+  const revision = auth.sessionRevision
+  const actorId = auth.user?.id
+  const current = () => !disposed && isAdmin.value && auth.sessionRevision === revision && auth.user?.id === actorId
+  approvingIds.value.push(review.id)
+  delete approvalErrors.value[String(review.id)]
+  try {
+    const approved = await api.adminApproveReview(review.id)
+    if (!current()) return
+    if (data.value) data.value.items = data.value.items.map(item => item.id === review.id ? approved : item)
+    toast.success('Відгук схвалено.')
+    // The mutation succeeded; a refresh error must not invite a duplicate approval.
+    const refreshed = await refreshAll().then(() => true, () => false)
+    if (current() && (!refreshed || error.value || metricsError.value)) {
+      toast.error('Відгук схвалено, але не вдалося оновити список або метрики. Оновіть дані.')
+    }
+  }
+  catch (cause) {
+    if (current()) approvalErrors.value[String(review.id)] = apiErrorMessage(cause, 'Не вдалося схвалити відгук.')
+  }
+  finally {
+    if (current()) approvingIds.value = approvingIds.value.filter(id => id !== review.id)
+  }
+}
 const validIsoDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const date = new Date(`${value}T00:00:00.000Z`)
@@ -324,7 +359,13 @@ const reviewStatusTone = (status: string): ReviewBadgeTone => {
                 <td><BaseBadge :tone="reviewStatusTone(review.moderation_status)">{{ reviewModerationLabels[review.moderation_status] }}</BaseBadge></td>
                 <td><BaseBadge v-if="review.request_state" :tone="reviewStatusTone(review.request_state)">{{ reviewRequestStateLabels[review.request_state] }}</BaseBadge><span v-else class="text-ui-muted">—</span></td>
                 <td class="text-ui-secondary">{{ formatDateTime(review.submitted_at) }}</td>
-                <td class="text-right"><NuxtLink :to="`/reviews/${review.id}`" class="base-button base-button--neutral min-h-9 gap-2 px-3 py-2 text-xs"><EyeIcon class="h-4 w-4" />Деталі</NuxtLink></td>
+                <td class="text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <BaseButton v-if="isAdmin && review.moderation_status === 'pending'" type="button" variant="success" size="sm" :loading="approvingIds.includes(review.id)" loading-label="Схвалення відгуку" :aria-label="`Схвалити відгук ${safeBookingReference(review.booking_reference)}`" @click="approveReview(review)"><CheckIcon class="h-4 w-4" aria-hidden="true" />Схвалити</BaseButton>
+                    <NuxtLink :to="`/reviews/${review.id}`" class="base-button base-button--neutral min-h-9 gap-2 px-3 py-2 text-xs"><EyeIcon class="h-4 w-4" />Деталі</NuxtLink>
+                  </div>
+                  <p v-if="approvalErrors[String(review.id)]" class="mt-1 max-w-64 text-xs text-ui-danger" role="alert">{{ approvalErrors[String(review.id)] }}</p>
+                </td>
               </tr>
         </BaseTable>
 

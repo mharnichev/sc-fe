@@ -9,7 +9,7 @@ const api = useBackofficeApi()
 const auth = useAuthStore()
 const assetUrl = useAssetUrl()
 const toast = useBaseToastNotification()
-const { masterName, serviceName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
+const { masterName, normalizeItems, normalizeTotal, apiErrorMessage } = useBookingFormatting()
 
 const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.role === 'admin'))
 const page = ref(1)
@@ -221,7 +221,6 @@ const clearFilters = async () => {
               <p class="text-sm text-ui-muted">{{ masterPositionLabel(master) }}</p>
               <p class="text-sm text-ui-muted">{{ master.phone || master.email || 'Без контактів' }}</p>
               <p v-if="masterRedirectId(master)" class="text-sm text-ui-muted">Онлайн-запис → {{ masterRedirectLabel(master) }}</p>
-              <p class="text-xs text-ui-muted">{{ master.services?.map(service => serviceName(service)).join(', ') || 'Немає призначених послуг' }}</p>
               <p v-if="ratingsByMaster.get(master.id)" class="mt-2 text-xs text-ui-secondary">
                 <span class="font-semibold ui-status-warning rounded-full px-2 py-0.5">{{ formatRating(ratingsByMaster.get(master.id)?.approved_average_rating) }} ★</span>
                 ·
