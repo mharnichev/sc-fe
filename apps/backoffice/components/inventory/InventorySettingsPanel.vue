@@ -51,30 +51,24 @@ const save = async () => {
 </script>
 
 <template>
-  <BaseCard v-if="catalogEditable" as="section" padding="sm" class="space-y-4">
+  <BaseCard v-if="catalogEditable" as="section" padding="sm" class="min-w-0 space-y-3">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="flex items-center gap-2 text-lg font-semibold text-ui-primary"><Cog6ToothIcon class="h-5 w-5 shrink-0 text-ui-muted" aria-hidden="true" />Налаштування товару</h2>
-        <p class="mt-1 text-sm text-ui-secondary">Штрихкод має бути унікальним. Залиште поле порожнім, якщо його ще немає.</p>
+        <h2 class="flex items-center gap-2 text-base font-semibold text-ui-primary"><Cog6ToothIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />Налаштування товару<BaseFieldHelp label="Налаштування товару" text="Штрихкод має бути унікальним для варіанта товару. Однакові фізичні одиниці використовують той самий код; інший розмір або варіант — окремий товар. Якщо виробник не надав штрихкод, можна використати внутрішній код або залишити поле порожнім." /></h2>
       </div>
-      <NuxtLink :to="`/inventory/movements?product_id=${productId}`" class="base-button base-button--neutral flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm">
+      <NuxtLink :to="`/inventory/movements?product_id=${productId}`" class="base-button base-button--neutral flex min-h-9 items-center justify-center gap-1.5 px-3 py-2 text-xs">
         <ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" />Рух товару
       </NuxtLink>
     </div>
 
-    <form class="grid gap-4 md:grid-cols-2 md:items-start" @submit.prevent="save">
+    <form class="grid gap-3" @submit.prevent="save">
       <BaseInput v-model="barcode" label="Штрихкод" hint="Унікальний код цього варіанта товару. Можна залишити порожнім." maxlength="64" autocomplete="off" placeholder="Наприклад, 482…" :disabled="saving"><template #icon><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
       <div class="space-y-2 rounded-xl bg-ui-subtle p-3">
-        <BaseToggle v-model="allowBackorder" label="Замовляти під закупівлю" :disabled="saving" />
-        <p class="text-xs text-ui-muted">Клієнт може замовити товар, навіть якщо його немає на складі.</p>
+        <div class="flex items-center gap-2"><BaseToggle v-model="allowBackorder" label="Замовляти під закупівлю" :disabled="saving" /><BaseFieldHelp label="Замовляти під закупівлю" text="Клієнт може замовити товар, навіть якщо його немає на складі." /></div>
       </div>
-      <div class="md:col-span-2 text-xs leading-5 text-ui-secondary">
-        <p>Один штрихкод ідентифікує один варіант товару; однакові фізичні одиниці використовують той самий код.</p>
-        <p>Інший розмір або варіант оформлюється як окремий товар. Якщо виробник не надав штрихкод, можна використати внутрішній код.</p>
-      </div>
-      <p v-if="errorMessage" class="md:col-span-2 text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
-      <div class="md:col-span-2">
-        <BaseButton type="submit" variant="primary" :loading="saving" class="min-h-11 w-full sm:w-auto"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
+      <p v-if="errorMessage" class="text-sm text-ui-danger" role="alert">{{ errorMessage }}</p>
+      <div>
+        <BaseButton type="submit" variant="primary" size="sm" :loading="saving" aria-label="Зберегти налаштування" class="w-full"><CheckIcon class="h-4 w-4" aria-hidden="true" />Зберегти налаштування</BaseButton>
       </div>
     </form>
   </BaseCard>

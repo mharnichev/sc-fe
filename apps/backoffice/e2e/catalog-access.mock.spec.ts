@@ -53,9 +53,10 @@ test('staff and superuser master retain management and see processed photos whil
     await expect(page.getByRole('link', { name: 'Додати товар', exact: true })).toBeVisible()
     await expect(page.locator('img[src$="processed.webp"]:visible').first()).toBeVisible()
     await page.goto('/products/8')
-    await expect(page.getByRole('button', { name: 'Додати фото', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Додати фото', exact: true })).toHaveCount(0)
     await expect(page.locator('img[src$="processed.webp"]:visible').first()).toBeVisible()
     await page.getByRole('button', { name: 'Редагувати товар', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Додати фото', exact: true })).toBeVisible()
     await page.getByText('Зовнішні URL / старі зображення', { exact: true }).click()
     await expect(page.getByLabel('URL зображення', { exact: true })).toHaveValue('/original.png')
   }

@@ -19,6 +19,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   submit: [payload: CalendarActionPayload]
+  openAvailability: [selection: { date: string, startTime: string, endTime: string }]
 }>()
 
 const {
@@ -164,6 +165,11 @@ const setAvailabilityPreset = (preset: AvailabilityPreset) => {
 }
 
 const setCalendarAction = (value: string | number | boolean) => {
+  if (props.pending || !props.modelValue) return
+  if (value === 'availability') {
+    emit('openAvailability', { date: form.date, startTime: form.start_time, endTime: form.end_time })
+    return
+  }
   form.action = value as CalendarActionType
 }
 

@@ -92,6 +92,25 @@ test('partial failure retains only failed days and retry reconciles lost POST re
   } finally { f.stop() }
 })
 
+test('slot time initializes the selected day, invalid slot time falls back to workday', async () => {
+  for (const [start, end, expectedStart, expectedEnd] of [
+    ['11:30', '12:00', '11:30', '12:00'],
+    ['12:00', '11:30', '09:30', '20:00'],
+    ['00:00', '23:59', '09:30', '20:00'],
+    ['bad', '12:00', '09:30', '20:00'],
+  ]) {
+    const f = fixture({ props: { initialStartTime: start, initialEndTime: end } })
+    try {
+      assert.equal(f.form.start_time, expectedStart)
+      assert.equal(f.form.end_time, expectedEnd)
+      assert.equal(f.drafts.value[0].start, expectedStart)
+      assert.equal(f.drafts.value[0].end, expectedEnd)
+      await f.submit()
+      assert.equal(f.calls[0].start_at, `2026-10-26T${expectedStart}:00+02:00`)
+    } finally { f.stop() }
+  }
+})
+
 for (const interruption of ['session', 'role', 'unmount', 'close', 'disabled', 'leave']) {
   test(`${interruption} during POST stops batch and suppresses stale UI events`, async () => {
     const pending = deferred()
