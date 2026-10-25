@@ -392,7 +392,7 @@ const logout = () => {
         v-for="link in barberBottomLinks"
         :key="link.to"
         :to="link.to"
-        class="backoffice-bottom-nav-link flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center text-[0.62rem] font-medium leading-tight transition"
+        class="backoffice-bottom-nav-link flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0 text-center text-[0.62rem] font-medium leading-tight transition"
         :class="isActive(link.to) ? 'is-active' : ''"
       >
         <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />

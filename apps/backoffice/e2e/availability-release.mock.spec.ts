@@ -94,7 +94,7 @@ test('mobile master navigation exposes availability with a fitting label', async
   const availability = nav.getByRole('link', { name: 'Моя доступність', exact: true })
   await expect(availability).toBeVisible()
   await expect(availability).toHaveAttribute('href', '/my-time-blocks')
-  expect(await availability.evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true)
+  expect(await nav.locator('a').evaluateAll(links => links.every(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight))).toBe(true)
   await availability.click()
   await expect(page).toHaveURL(/\/my-time-blocks$/)
   await expect(page.getByRole('button', { name: 'Відкрити час', exact: true })).toBeVisible()

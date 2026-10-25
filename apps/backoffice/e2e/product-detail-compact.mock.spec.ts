@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { Buffer } from 'node:buffer'
 
 const staff = { id: 1, email: 'fixture@example.test', is_active: true, is_superuser: false, role: 'admin', master_id: null }
 const initialProduct = {
@@ -164,7 +165,7 @@ test('compact inventory settings retain validation, pending lock and exact saved
   await expect(panel.getByRole('alert')).toContainText('Штрихкод уже використовується.')
   await expect(save).toBeEnabled()
   await barcode.fill(' unique-fixture ')
-  await backorder.click()
+  await panel.getByText('Замовляти під закупівлю', { exact: true }).click()
   await save.click()
   await expect(save).toBeDisabled()
   await expect(barcode).toBeDisabled()
