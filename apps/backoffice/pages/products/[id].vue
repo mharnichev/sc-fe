@@ -5,6 +5,8 @@ import { PencilIcon, ArrowLeftIcon, TagIcon, CurrencyDollarIcon, CubeIcon, Docum
 import { formatPrice } from '@shared-utils'
 import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } from '~/composables/useBackofficeApi'
 
+provide('compactFieldHints', true)
+
 const catalogAuth = useAuthStore()
 const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
@@ -268,8 +270,8 @@ const productMetadata = computed(() => product.value ? [
       </div>
 
       <div class="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.45fr)]">
-        <ProductImagesManager v-if="catalogEditable" :product-id="product.id" :initial-images="managedImages" :display-image-urls="product.display_image_urls" :display-image-sources="product.images" :legacy-image-urls="legacyGalleryImages" @change="managedImages = $event; refreshProduct()" />
-        <BaseCard v-else as="section" padding="sm" class="min-w-0 space-y-2">
+        <ProductImagesManager v-if="catalogEditable" v-show="editMode" :product-id="product.id" :initial-images="managedImages" :display-image-urls="product.display_image_urls" :display-image-sources="product.images" :legacy-image-urls="legacyGalleryImages" @change="managedImages = $event; refreshProduct()" />
+        <BaseCard v-if="!editMode || !catalogEditable" as="section" padding="sm" class="min-w-0 space-y-2">
           <h2 class="flex items-center gap-2 text-base font-semibold text-ui-primary"><PhotoIcon class="h-4 w-4" aria-hidden="true" />Зображення</h2>
           <div v-if="galleryImages.length" class="flex gap-2 overflow-x-auto">
             <a v-for="image in galleryImages" :key="image.url" :href="image.url" target="_blank" rel="noreferrer" class="shrink-0 rounded-xl border border-ui"><img :src="image.url" :alt="image.alt" class="h-28 w-28 object-contain" loading="lazy"></a>

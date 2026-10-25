@@ -145,7 +145,7 @@ const barberBottomLinks = computed(() =>
         { label: 'Дашборд', to: '/dashboard', icon: HomeIcon },
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Статистика', to: '/statistics', icon: ChartBarSquareIcon },
-        { label: 'Мої послуги', to: '/my-services', icon: SparklesIcon },
+        { label: 'Моя доступність', to: '/my-time-blocks', icon: ClockIcon },
       ]
     : [],
 )
@@ -396,7 +396,7 @@ const logout = () => {
         :class="isActive(link.to) ? 'is-active' : ''"
       >
         <component :is="link.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span class="max-w-full truncate">{{ link.label }}</span>
+        <span class="max-w-full">{{ link.label }}</span>
       </NuxtLink>
     </div>
   </nav>

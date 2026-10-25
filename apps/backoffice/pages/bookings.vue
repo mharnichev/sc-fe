@@ -413,18 +413,30 @@ const openActionModal = (selection: CalendarSelection) => {
   }
   selectedSelection.value = selection
   selectedDefaultAction.value = selectionDefaultAction(selection)
+  if (selectedDefaultAction.value === 'availability') {
+    openAvailabilitySelection(selection)
+    return
+  }
   actionModalOpen.value = true
 }
 
 const availabilityModalOpen = ref(false)
 const availabilityInitialDate = ref('')
+const availabilityInitialStart = ref('')
+const availabilityInitialEnd = ref('')
 watch(() => [auth.sessionRevision, auth.user?.id, selectedMasterId.value], () => {
   availabilityModalOpen.value = false
 }, { flush: 'sync' })
-const openDayAvailability = (day: CalendarDay) => {
-  if (!canSelectSlots.value) return
-  availabilityInitialDate.value = day.date
+const openAvailabilitySelection = (selection: { date: string, startTime: string, endTime: string }) => {
+  if (!canSelectSlots.value || actionPending.value) return
+  actionModalOpen.value = false
+  availabilityInitialDate.value = selection.date
+  availabilityInitialStart.value = selection.startTime
+  availabilityInitialEnd.value = selection.endTime
   availabilityModalOpen.value = true
+}
+const openDayAvailability = (day: CalendarDay) => {
+  openAvailabilitySelection({ date: day.date, startTime: calendar.workdayStart, endTime: calendar.workdayEnd })
 }
 const handleAvailabilitySaved = async (message: string) => {
   toastNotification.success(message)
@@ -885,6 +897,8 @@ const deleteSelectedBlock = async () => {
       :admin="isAdmin"
       :masters="masterOptions"
       :initial-date="availabilityInitialDate"
+      :initial-start-time="availabilityInitialStart"
+      :initial-end-time="availabilityInitialEnd"
       :initial-master-id="selectedMasterId"
       :disabled="!canSelectSlots || actionPending"
       @saved="handleAvailabilitySaved"
@@ -899,6 +913,7 @@ const deleteSelectedBlock = async () => {
       :master-name="selectedMasterLabel"
       :default-action="selectedDefaultAction"
       :pending="actionPending"
+      @open-availability="openAvailabilitySelection"
       @submit="submitCalendarAction"
     />
 

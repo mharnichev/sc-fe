@@ -4,7 +4,7 @@ import { initials } from '@shared-utils'
 import type { Master } from '~/composables/useBackofficeApi'
 
 type DayDraft = { date: string, start: string, end: string, error: string }
-const props = withDefaults(defineProps<{ modelValue: boolean, admin?: boolean, masters?: Master[], disabled?: boolean, initialDate?: string, initialMasterId?: number | null }>(), { admin: false, masters: () => [], disabled: false })
+const props = withDefaults(defineProps<{ modelValue: boolean, admin?: boolean, masters?: Master[], disabled?: boolean, initialDate?: string, initialMasterId?: number | null, initialStartTime?: string, initialEndTime?: string }>(), { admin: false, masters: () => [], disabled: false })
 const emit = defineEmits<{ 'update:modelValue': [value: boolean], saved: [message: string] }>()
 const api = useBackofficeApi()
 const auth = useAuthStore()
@@ -90,6 +90,10 @@ const fillForm = () => {
   form.master_id = ''; form.start_time = calendar.workdayStart; form.end_time = calendar.workdayEnd
   drafts.value = []; visibleMonth.value = todayInput().slice(0, 7); openMenu.value = null; formError.value = ''
   form.master_id = props.initialMasterId ? String(props.initialMasterId) : ''
+  if (props.initialStartTime && props.initialEndTime && !timeError(props.initialStartTime, props.initialEndTime)) {
+    form.start_time = props.initialStartTime
+    form.end_time = props.initialEndTime
+  }
   const date = props.initialDate
   if (date && validDate(date) && date >= todayInput() && date <= horizonEnd.value) {
     visibleMonth.value = date.slice(0, 7)
@@ -280,13 +284,13 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
           <section v-if="selectedDays.length" class="min-w-0" aria-label="Обрані дні">
             <h3 class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-ui-primary sm:text-sm" aria-live="polite"><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />Обрано днів: {{ selectedDays.length }}</h3>
             <div class="availability-drafts grid grid-cols-2 gap-1 overflow-y-auto">
-              <div v-for="day in selectedDays" :key="day.date" :data-selected-date="day.date" class="availability-draft rounded-lg border border-ui px-1 py-0.5 sm:px-2">
+              <div v-for="day in selectedDays" :key="day.date" :data-selected-date="day.date" class="availability-draft rounded-lg px-1 py-0.5 sm:px-2">
                 <div class="availability-draft-row grid min-w-0 items-center gap-1">
                   <span class="text-[10px] font-semibold text-ui-primary" :title="formatDate(day.date)">{{ compactDate(day.date) }}</span>
                   <BaseInput v-model="day.start" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-label="`Початок ${day.date}`" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="day.error = ''" />
                   <span class="text-center text-ui-muted" aria-hidden="true">-</span>
                   <BaseInput v-model="day.end" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-label="`Завершення ${day.date}`" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="day.error = ''" />
-                  <BaseButton type="button" class="flex h-7 w-[18px] items-center justify-center rounded-lg text-ui-muted" :aria-label="`Прибрати ${formatDate(day.date)}`" @click="toggleDate(day.date)"><XMarkIcon class="h-4 w-4" aria-hidden="true" /></BaseButton>
+                  <BaseButton type="button" class="availability-remove flex h-7 w-[18px] items-center justify-center rounded-lg" :aria-label="`Прибрати ${formatDate(day.date)}`" @click="toggleDate(day.date)"><XMarkIcon class="h-4 w-4" aria-hidden="true" /></BaseButton>
                 </div>
                 <p v-if="day.error" class="mt-1 text-xs text-red-500" role="alert">{{ day.error }}</p>
               </div>
@@ -336,6 +340,28 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
 </style>
 
 <style>
+.availability-draft {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent), color-mix(in srgb, var(--bo-control) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+}
+.availability-modal .availability-draft .availability-draft-row input.base-control {
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--bo-surface-elevated) 80%, transparent) !important;
+  box-shadow: none !important;
+}
+.availability-modal .availability-draft-row input:focus-visible { outline: 2px solid var(--bo-accent); outline-offset: -2px; }
+.availability-remove, .availability-remove svg { color: var(--bo-danger-text) !important; }
+@media (hover: hover) and (pointer: fine) {
+  .availability-remove:hover { background: var(--bo-danger-surface); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .availability-draft { background: var(--bo-surface-elevated); box-shadow: none; }
+}
+@media (forced-colors: active) {
+  .availability-draft { outline: 1px solid CanvasText; }
+  .availability-modal .availability-draft .availability-draft-row input.base-control { border-color: ButtonText !important; }
+  .availability-remove, .availability-remove svg { color: ButtonText !important; }
+}
 .availability-modal .availability-draft-row { grid-template-columns: 34px minmax(0, 1fr) 6px minmax(0, 1fr) 28px; gap: 3px; }
 .availability-modal .availability-draft-row input { min-height: 36px !important; height: 36px; border-radius: 6px; font-size: 12px !important; padding-left: 2px !important; padding-right: 2px !important; text-align: center; }
 .availability-modal .availability-draft-row button { width: 28px; min-height: 36px; }
