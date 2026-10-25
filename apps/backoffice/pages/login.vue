@@ -24,6 +24,7 @@ const loginRedirectPath = computed(() => {
 })
 
 const submit = async () => {
+  if (pending.value) return
   pending.value = true
   try {
     await auth.login(form.email, form.password)
@@ -76,6 +77,7 @@ const submit = async () => {
             <BaseInput
               id="login-email"
               v-model="form.email"
+              :disabled="pending"
               placeholder="Введіть email"
               autocomplete="username"
               input-class="base-control pl-12 pr-4 py-3 text-sm"
@@ -90,6 +92,7 @@ const submit = async () => {
             <BaseInput
               id="login-password"
               v-model="form.password"
+              :disabled="pending"
               :type="passwordVisible ? 'text' : 'password'"
               placeholder="Введіть пароль"
               autocomplete="current-password"
@@ -102,6 +105,7 @@ const submit = async () => {
               :aria-label="passwordVisible ? 'Приховати пароль' : 'Показати пароль'"
               :title="passwordVisible ? 'Приховати пароль' : 'Показати пароль'"
               aria-controls="login-password"
+              :disabled="pending"
               @click="passwordVisible = !passwordVisible"
             >
               <EyeSlashIcon v-if="passwordVisible" class="h-5 w-5" aria-hidden="true" />
@@ -111,10 +115,11 @@ const submit = async () => {
         </div>
         <BaseButton
           type="submit"
-          :disabled="pending"
-          class="primary-login-button w-full rounded-full border border-white/12 bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/88 disabled:opacity-60"
+          :loading="pending"
+          loading-label="Вхід..."
+          class="primary-login-button inline-flex h-12 items-center justify-center w-full rounded-full border border-white/12 bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/88 disabled:opacity-60"
         >
-          {{ pending ? 'Вхід...' : 'Увійти в backoffice' }}
+          Увійти в backoffice
         </BaseButton>
       <div class="flex justify-center"><AppInstallHelp /></div>
       </form>

@@ -340,27 +340,27 @@ watch(selectionError, value => {
 
 <template>
   <section class="booking-calendar-grid liquid-glass overflow-hidden rounded-[1.5rem]">
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.025] px-3 py-2">
-      <div class="flex flex-wrap items-center gap-2 text-xs text-white/55">
-        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-100">
+    <div class="min-w-0 border-b border-white/10 bg-white/[0.025] px-3 py-2">
+      <div class="booking-calendar-legend flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto py-0.5 text-xs text-white/55" tabindex="0" role="region" aria-label="Позначення календаря">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-100">
           <span class="h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-emerald-100/20" /> Відкрито
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
           <span class="h-2 w-2 rounded-full bg-white/30 ring-1 ring-white/20" /> Закрито
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
           <span class="h-2 w-2 rounded-full bg-[var(--success)]" /> Забукано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-white/80">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-white/80">
           <span class="h-2 w-2 rounded-full bg-white/75" /> Виконано
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-white/80 ring-1 ring-white/10">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full blocked-entry px-2 py-0.5 text-white/80 ring-1 ring-white/10">
           <span class="h-2 w-2 rounded-full bg-white/50" /> Блокування
         </span>
-        <span class="calendar-entry-hold inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-amber-50 ring-1 ring-amber-100/15">
+        <span class="calendar-entry-hold inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full px-2 py-0.5 text-amber-50 ring-1 ring-amber-100/15">
           <span class="h-2 w-2 rounded-full bg-amber-300/85" /> Утримання
         </span>
-        <span class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] px-2 py-0.5 text-white/42">
+        <span class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] px-2 py-0.5 text-white/42">
           <span class="h-2 w-2 rounded-full bg-white/25" /> Вихідний
         </span>
       </div>

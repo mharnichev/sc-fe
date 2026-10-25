@@ -416,38 +416,19 @@ const openActionModal = (selection: CalendarSelection) => {
   actionModalOpen.value = true
 }
 
-const openDayAvailability = async (day: CalendarDay) => {
-  const payload: CalendarActionPayload = {
-    action: 'availability',
-    service_id: null,
-    service_ids: [],
-    customer_name: '',
-    customer_phone: '',
-    customer_email: '',
-    note: '',
-    start_at: toKyivIso(day.date, calendar.workdayStart),
-    end_at: toKyivIso(day.date, calendar.workdayEnd),
-  }
-
-  actionError.value = validateCalendarPayload(payload)
-  if (actionError.value) {
-    toastNotification.warning(actionError.value)
-    return
-  }
-
-  actionPending.value = true
-  try {
-    await createAvailabilityWindow(payload)
-    toastNotification.success('День відкрито для запису.')
-    await refresh()
-  }
-  catch (cause) {
-    actionError.value = apiErrorMessage(cause, 'Не вдалося відкрити день для запису.')
-    toastNotification.error(actionError.value)
-  }
-  finally {
-    actionPending.value = false
-  }
+const availabilityModalOpen = ref(false)
+const availabilityInitialDate = ref('')
+watch(() => [auth.sessionRevision, auth.user?.id, selectedMasterId.value], () => {
+  availabilityModalOpen.value = false
+}, { flush: 'sync' })
+const openDayAvailability = (day: CalendarDay) => {
+  if (!canSelectSlots.value) return
+  availabilityInitialDate.value = day.date
+  availabilityModalOpen.value = true
+}
+const handleAvailabilitySaved = async (message: string) => {
+  toastNotification.success(message)
+  await refresh()
 }
 
 const handleEntryClick = (entry: CalendarDisplayEntry) => {
@@ -897,6 +878,16 @@ const deleteSelectedBlock = async () => {
       @update-schedule="updateSchedule"
       @update-pricing="updatePricing"
       @delete="deleteSelectedBooking"
+    />
+
+    <AvailabilityWindowFormModal
+      v-model="availabilityModalOpen"
+      :admin="isAdmin"
+      :masters="masterOptions"
+      :initial-date="availabilityInitialDate"
+      :initial-master-id="selectedMasterId"
+      :disabled="!canSelectSlots || actionPending"
+      @saved="handleAvailabilitySaved"
     />
 
     <BookingCalendarActionModal

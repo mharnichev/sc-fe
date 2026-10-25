@@ -93,10 +93,10 @@
   --sidebar-menu-bg: rgba(0, 0, 0, 0.90);
   --bottom-nav-bg: rgba(0, 0, 0, 0.88);
   --bottom-nav-border: rgba(255, 255, 255, 0.16);
-  --bottom-nav-active-bg: #ffffff;
-  --bottom-nav-active-text: #050505;
-  --bottom-nav-active-border: rgba(255, 255, 255, 0.78);
-  --bottom-nav-active-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  --bottom-nav-active-bg: #6fa77f;
+  --bottom-nav-active-text: #102418;
+  --bottom-nav-active-border: rgba(155, 213, 173, 0.6);
+  --bottom-nav-active-shadow: 0 3px 12px rgba(50, 111, 69, 0.22);
   --solid-control: var(--bo-control);
   --solid-control-hover: var(--bo-control-hover);
   --interactive-hover-text: #ffffff;
@@ -229,10 +229,10 @@ html[data-backoffice-theme="light"] {
   --sidebar-menu-bg: rgba(255, 255, 255, 0.94);
   --bottom-nav-bg: rgba(255, 255, 255, 0.98);
   --bottom-nav-border: rgba(15, 23, 42, 0.16);
-  --bottom-nav-active-bg: #0f172a;
+  --bottom-nav-active-bg: #477a57;
   --bottom-nav-active-text: #ffffff;
-  --bottom-nav-active-border: rgba(15, 23, 42, 0.72);
-  --bottom-nav-active-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
+  --bottom-nav-active-border: #477a57;
+  --bottom-nav-active-shadow: 0 3px 12px rgba(50, 111, 69, 0.18);
   --solid-control: var(--bo-control);
   --solid-control-hover: var(--bo-control-hover);
   --interactive-hover-text: rgba(15, 23, 42, 0.96);
@@ -1873,9 +1873,11 @@ html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b
   color: var(--text-secondary) !important;
 }
 
-.backoffice-bottom-nav-link:hover {
-  background: var(--solid-control-hover) !important;
-  color: var(--interactive-hover-text) !important;
+@media (hover: hover) and (pointer: fine) {
+  .backoffice-bottom-nav-link:not(.is-active):hover {
+    background: var(--solid-control-hover) !important;
+    color: var(--interactive-hover-text) !important;
+  }
 }
 
 .backoffice-bottom-nav-link.is-active {
@@ -1883,20 +1885,12 @@ html:not([data-backoffice-theme="light"]) .booking-select-menu [class*="border-b
   border-color: var(--bottom-nav-active-border) !important;
   color: var(--bottom-nav-active-text) !important;
   box-shadow: var(--bottom-nav-active-shadow) !important;
-  font-weight: 800;
+  font-weight: 700;
 }
 
-.backoffice-bottom-nav-link.is-active::before {
-  content: "";
-  position: absolute;
-  top: 0.25rem;
-  left: 50%;
-  height: 0.1875rem;
-  width: 1.5rem;
-  transform: translateX(-50%);
-  border-radius: 9999px;
-  background: currentColor;
-  opacity: 0.86;
+.backoffice-bottom-nav-link:focus-visible {
+  outline: 2px solid var(--bo-accent);
+  outline-offset: 2px;
 }
 
 html[data-backoffice-theme="light"] .backoffice-shell-surface [class*="text-white"],
@@ -1912,7 +1906,7 @@ html[data-backoffice-theme="light"] .backoffice-menu-surface [class*="bg-white/"
 
 .backoffice-shell-surface button:hover,
 .backoffice-menu-surface button:hover,
-.backoffice-shell-surface a:hover,
+.backoffice-shell-surface a:not(.backoffice-bottom-nav-link):hover,
 .backoffice-menu-surface a:hover {
   background: var(--solid-control-hover) !important;
 }

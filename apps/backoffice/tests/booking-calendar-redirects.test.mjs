@@ -131,7 +131,7 @@ test('admin schedule matrix keeps master identity compact with an accessible det
   assert.match(matrixSource, /w-16 min-w-16 max-w-16/)
 })
 
-test('monthly schedule matrix condenses mobile edges to icons and percentages', async () => {
+test('monthly schedule matrices retain accessible identities and compact load percentages', async () => {
   const [adminSource, masterSource, matrixSource] = await Promise.all([
     readFile(timeBlocksPage, 'utf8'),
     readFile(myTimeBlocksPage, 'utf8'),
@@ -141,14 +141,18 @@ test('monthly schedule matrix condenses mobile edges to icons and percentages', 
   for (const source of [adminSource, masterSource]) {
     assert.match(source, /ChartBarSquareIcon/)
     assert.match(source, /<span class="sr-only">Завантаження<\/span>/)
-    assert.match(source, /min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden/)
-    assert.match(source, /hidden items-center justify-between gap-2 text-xs md:flex/)
-    assert.match(source, /hidden h-1\.5 overflow-hidden rounded-full bg-ui-subtle md:block/)
   }
+  // Admin remains responsive; the personal matrix uses compact edges at every width.
+  assert.match(adminSource, /min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden/)
+  assert.match(adminSource, /hidden items-center justify-between gap-2 text-xs md:flex/)
+  assert.match(adminSource, /hidden h-1\.5 overflow-hidden rounded-full bg-ui-subtle md:block/)
+  assert.match(masterSource, /min-h-10 items-center justify-center text-sm font-semibold text-ui-primary\s*">\{\{ loadPercent \}\}%/)
+  assert.match(masterSource, /\.my-availability-matrix \.schedule-matrix__edge\s*\{[\s\S]*?width: 40px !important;[\s\S]*?min-width: 40px !important;/)
+  assert.match(masterSource, /\.my-availability-matrix td:not\(\.schedule-matrix__edge\)\s*\{[\s\S]*?min-width: 116px;/)
 
   assert.match(masterSource, /CalendarDaysIcon/)
   assert.match(masterSource, /<template #leading-header>[\s\S]*?<CalendarDaysIcon class="h-5 w-5" aria-hidden="true" \/>/)
-  assert.match(masterSource, /<template #trailing-header>[\s\S]*?<span class="flex w-full items-center justify-center md:hidden">\s*<ChartBarSquareIcon class="h-5 w-5" aria-hidden="true" \/>/)
+  assert.match(masterSource, /<template #trailing-header>[\s\S]*?<span class="flex w-full items-center justify-center">\s*<ChartBarSquareIcon class="h-5 w-5" aria-hidden="true" \/>/)
   assert.equal((masterSource.match(/<img v-if="selfMasterImageUrl"/g) || []).length, 1)
   assert.match(masterSource, /<span class="sr-only">Мій графік<\/span>/)
   assert.match(masterSource, /useAsyncData\('sidebar-public-masters', \(\) => api\.getPublicMasters\(\)\)/)
@@ -158,8 +162,12 @@ test('monthly schedule matrix condenses mobile edges to icons and percentages', 
   assert.match(masterSource, /const selfMasterInitials = computed\(\(\) => initials\(selfMasterName\.value\) \|\| 'SC'\)/)
   assert.match(masterSource, /<img v-if="selfMasterImageUrl" :src="selfMasterImageUrl" alt="" class="h-full w-full object-cover">/)
   assert.match(masterSource, /<span v-else>\{\{ selfMasterInitials \}\}<\/span>/)
-  assert.match(masterSource, /<span class="sr-only">Моя доступність · \{\{ selfMasterName \}\}<\/span>/)
-  assert.match(masterSource, /<div class="hidden md:block"><p class="text-sm font-semibold text-ui-primary">Моя доступність/)
+  assert.match(masterSource, /<span class="sr-only">Моя доступність · \{\{ selfMasterName \}\} · \{\{ workDays \}\} робочих дн\. у місяці<\/span>/)
+  const personalLoadCell = masterSource.match(/<td :class="trailingCellClass">([\s\S]*?)<\/td>/)?.[1]
+  assert.ok(personalLoadCell)
+  assert.match(personalLoadCell, /<span class="sr-only">\{\{ formatHours\(bookedMinutes\) \}\} записано/)
+  assert.doesNotMatch(personalLoadCell, /md:block|md:flex|<div|h-1\.5/)
+  assert.doesNotMatch(masterSource, /<div class="hidden md:block"><p class="text-sm font-semibold text-ui-primary">Моя доступність/)
   assert.match(adminSource, /UserIcon/)
   assert.match(adminSource, /<span class="sr-only">Майстер<\/span>/)
   assert.match(adminSource, /h-9 w-9 shrink-0 items-center justify-center rounded-full[^\n]*md:h-7 md:w-7/)
