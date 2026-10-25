@@ -13,11 +13,12 @@ const products = Array.from({ length: 8 }, (_, index) => ({
   category_tree: [], average_rating: '4.8', reviews_count: 12, parameters: {}, is_effectively_visible: true, is_available_for_purchase: true,
 }))
 
-async function fixture(page: Page) {
+async function fixture(page: Page, items = products, basket: typeof products = []) {
   const writes: string[] = []
-  await page.addInitScript(products => {
-    localStorage.setItem('shop-recently-viewed', JSON.stringify({ version: 1, products }))
-  }, products)
+  await page.addInitScript(({ items, basket }) => {
+    localStorage.setItem('shop-recently-viewed', JSON.stringify({ version: 1, products: items }))
+    if (basket.length) localStorage.setItem('shop-cart', JSON.stringify({ items: basket.map(product => ({ product, quantity: 1 })) }))
+  }, { items, basket })
   await page.route('**/*', route => {
     const url = new URL(route.request().url())
     return ['127.0.0.1', 'localhost'].includes(url.hostname) || ['data:', 'blob:'].includes(url.protocol) ? route.continue() : route.abort()
@@ -28,8 +29,9 @@ async function fixture(page: Page) {
       writes.push(`${request.method()} ${url.pathname}`)
       return route.fulfill({ status: 403, json: { detail: 'Mock fixture blocks mutations' } })
     }
-    if (url.pathname.endsWith('/products')) return route.fulfill({ json: { items: url.searchParams.get('is_top') === 'true' ? [] : products, total: products.length, limit: 12, offset: 0 } })
-    if (url.pathname.includes('/products/by-slug/')) return route.fulfill({ json: products[0] })
+    if (url.pathname.endsWith('/products')) return route.fulfill({ json: { items: url.searchParams.get('is_top') === 'true' ? [] : items, total: items.length, limit: 12, offset: 0 } })
+    if (url.pathname.includes('/products/by-slug/')) return route.fulfill({ json: items[0] })
+    if (/\/products\/\d+$/.test(url.pathname)) return route.fulfill({ json: items.find(item => item.id === Number(url.pathname.split('/').at(-1))) })
     if (url.pathname.endsWith('/brands') || url.pathname.endsWith('/categories')) return route.fulfill({ json: [] })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
@@ -43,6 +45,41 @@ async function fixture(page: Page) {
   await page.locator('a[href="/shop/"]:visible').first().click()
   await expect(page).toHaveURL(/\/shop\/$/)
   return writes
+}
+
+for (const [locale, width] of [['uk', 320], ['en', 1440]] as const) {
+  test(`buy/cart/unavailable labels and basket copy work in ${locale} at ${width}px`, async ({ page, context }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await context.addCookies([{ name: 'shop-locale', value: locale, url: 'http://127.0.0.1:6078' }])
+    const items = products.map((product, index) => index === 1 || index === 2 ? { ...product, stock: 0, is_available_for_purchase: false } : product)
+    const writes = await fixture(page, items, [items[2]!])
+    const tiles = page.locator('.catalog-product-grid').first().locator('.catalog-product-tile')
+    await expect(tiles).toHaveCount(items.length)
+    const button = (index: number) => tiles.nth(index).locator('.catalog-product-tile__cart:visible')
+    const buy = locale === 'uk' ? 'Купити' : 'Buy', inCart = locale === 'uk' ? 'У кошику' : 'In cart'
+    await expect(button(0)).toContainText(buy)
+    await expect(button(1)).toContainText(locale === 'uk' ? 'Немає в наявності' : 'Out of stock')
+    await expect(button(1)).toBeDisabled()
+    await expect(button(2)).toContainText(inCart)
+    await expect(button(2)).toBeEnabled()
+    await button(2).click()
+    await expect(button(2)).toBeDisabled()
+    await button(0).click()
+    await expect(button(0)).toContainText(inCart)
+    await button(0).click()
+    await expect(button(0)).toContainText(buy)
+    await button(0).click()
+    for (const control of await tiles.locator('.catalog-product-tile__cart:visible').all()) {
+      expect(await control.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+    }
+    await page.locator('.shop-header').getByRole('button', { name: locale === 'uk' ? 'Кошик' : 'Cart', exact: true }).filter({ visible: true }).click()
+    await expect(page.getByText(locale === 'uk' ? 'Сума замовлення:' : 'Order total:', { exact: true })).toBeVisible()
+    await expect(page.getByText(locale === 'uk' ? 'Остаточна сума підтверджується під час створення замовлення.' : 'The final total is confirmed when your order is placed.', { exact: true })).toBeVisible()
+    const proceed = page.getByRole('link', { name: locale === 'uk' ? 'Перейти до оплати' : 'Proceed to payment', exact: true })
+    await expect(proceed).toHaveAttribute('href', '/shop/checkout/purchase')
+    await page.screenshot({ path: `/tmp/shop-release-${locale}-${width}.png`, animations: 'disabled' })
+    expect(writes).toEqual([])
+  })
 }
 
 for (const width of [320, 390, 768, 1440]) {

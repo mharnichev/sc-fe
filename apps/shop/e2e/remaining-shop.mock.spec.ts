@@ -38,7 +38,7 @@ for (const width of [390, 1440]) {
     await email.fill('changed@example.test')
     await expect.poll(() => mutations.filter(item => item.path.endsWith('/cancel')).length).toBe(1)
     expect(mutations.at(-1)?.revision).toBe('2')
-    await page.getByRole('button', { name: 'Умови оплати та доставки', exact: true }).filter({ visible: true }).click()
+    await page.getByRole('button', { name: 'Умови доставки та оплати', exact: true }).filter({ visible: true }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect.poll(async () => {
       const box = await page.locator('.base-modal__container').boundingBox()

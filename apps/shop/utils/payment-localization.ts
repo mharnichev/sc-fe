@@ -2,7 +2,10 @@ export const paymentCopy = {
   uk: {
     option: 'Онлайн карткою', statusPage: 'Сторінка статусу оплати',
     title: 'Оплата замовлення', description: 'Захищений статус оплати замовлення', unavailable: 'Замовлення недоступне.',
-    label: 'Онлайн-оплата', heading: 'Онлайн-оплата карткою', create: 'Створити посилання на оплату',
+    label: 'Онлайн-оплата', heading: 'Онлайн-оплата карткою', create: 'Перейти до оплати',
+    accessTitle: 'Не вдалося відкрити оплату', accessHint: 'Поверніться у вкладку, де оформлювали замовлення, або увійдіть в акаунт покупця. Якщо посилання застаріло, зверніться до підтримки.',
+    conflictHint: 'Стан замовлення змінився. Оновіть статус перед наступною дією. Замовлення збережено.',
+    signIn: 'Увійти в акаунт', catalog: 'До каталогу',
     pay: 'Перейти до оплати', receipt: 'Переглянути фіскальний чек', refresh: 'Оновити статус оплати',
     updateError: 'Не вдалося оновити оплату. Спробуйте ще раз.',
     viewOrder: 'Переглянути замовлення та доставку',
@@ -22,7 +25,10 @@ export const paymentCopy = {
   en: {
     option: 'Pay online by card', statusPage: 'Payment status page',
     title: 'Order payment', description: 'Secure order payment status', unavailable: 'This order is unavailable.',
-    label: 'Online payment', heading: 'Pay online by card', create: 'Create a payment link',
+    label: 'Online payment', heading: 'Pay online by card', create: 'Proceed to payment',
+    accessTitle: 'Payment could not be opened', accessHint: 'Return to the tab where you placed the order, or sign in to the purchasing account. Contact support if the link has expired.',
+    conflictHint: 'The order has changed. Refresh its status before your next action. Your order is saved.',
+    signIn: 'Sign in', catalog: 'Browse catalog',
     pay: 'Proceed to payment', receipt: 'View fiscal receipt', refresh: 'Refresh payment status',
     updateError: 'Could not update the payment. Please try again.',
     viewOrder: 'View order and delivery',

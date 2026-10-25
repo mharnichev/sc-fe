@@ -13,20 +13,23 @@ const { usePaymentDisplay } = await sourceModule((await readFile(new URL('../com
 test('WIP payment status and errors react UK → EN → UK without mutating provider data or requesting payments', async () => {
   const payment = vue.ref({ status: 'waiting', enabled: true, paid: false, receipt_accepted: false, page_url: 'https://pay.mbnk.biz/test', receipt_url: null })
   const error = vue.ref('')
+  const errorKind = vue.ref('')
   let actions = 0
   Object.assign(globalThis, vue, {
+    onMounted() {}, onBeforeUnmount() {},
     usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }),
-    useOrderPayment: () => ({ payment, error, busy: vue.ref(false), refresh: () => { actions++ }, create: () => { actions++ } }),
+    useOrderPayment: () => ({ payment, error, errorKind, busy: vue.ref(false), refresh: () => { actions++ }, create: () => { actions++ } }),
     safePaymentUrl: value => value,
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment };')
   const render = vue.compile(file.split('<template>')[1].split('</template>')[0])
   const html = () => {
     const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
+    app.component('CustomerAuthDialog', { props: ['label'], setup: props => () => vue.h('button', props.label) })
     return renderToString(app)
   }
   const statuses = {
@@ -46,7 +49,8 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
       const rendered = await html()
       assert.ok(rendered.includes(expected[language === 'en' ? 1 : 0]))
       assert.ok(rendered.includes(component.paymentText.value.refresh))
-      assert.equal(rendered.includes(component.paymentText.value.create), status === 'not_started')
+      const buttons = [...rendered.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
+      assert.equal(buttons.some(([, label]) => label.includes(component.paymentText.value.create)), status === 'not_started')
       assert.equal(rendered.includes('href="https://pay.mbnk.biz/test"'), status === 'waiting')
       assert.equal(JSON.stringify(payment.value), snapshot)
       assert.equal(actions, 0)
@@ -83,6 +87,11 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   const accepted = await html()
   assert.ok(accepted.includes(component.paymentText.value.receipt))
   assert.ok(accepted.includes('https://cabinet.tax.gov.ua/cashregs/check?id=fixture'))
+  errorKind.value = 'access'
+  const denied = await html()
+  assert.ok(!denied.includes('href='), 'access denial must hide even a previously accepted receipt link')
+  assert.ok(denied.includes(component.paymentText.value.signIn))
+  errorKind.value = ''
   error.value = ''
   assert.equal(component.paymentError.value, '')
   error.value = 'Provider diagnostic stays unchanged'
@@ -93,7 +102,7 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
 
 test('WIP payment page retains numeric order validation while headings change locale', async () => {
   const route = vue.reactive({ params: { id: '12' } })
-  Object.assign(globalThis, vue, { usePaymentDisplay, useRoute: () => route, useSeo() {}, useHead() {} })
+  Object.assign(globalThis, vue, { usePaymentDisplay, useRoute: () => route, useCustomerAuthStore: () => ({ isAuthenticated: false }), useSeo() {}, useHead() {} })
   const source = (await readFile(new URL('../pages/payment/[id].vue', import.meta.url), 'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0]
   const component = await sourceModule(source + '\nexport { valid, id, paymentText };')
   locale.value = 'uk'; assert.equal(component.paymentText.value.title, 'Оплата замовлення')

@@ -194,15 +194,16 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
     <template v-if="activeTab === 'basket' && cart.items.length" #bottom-buttons>
       <div class="basket-sidebar__summary">
         <div class="basket-sidebar__total">
-          <span>{{ terms.basket.beforeDelivery }}</span>
+          <span>{{ terms.basket.orderTotal }}</span>
           <strong>{{ formatPrice(cart.total) }}</strong>
         </div>
+        <p class="basket-sidebar__discount-note">{{ terms.basket.discountNote }}</p>
         <p v-if="cart.error" class="basket-sidebar__unavailable-summary" role="alert">{{ runtimeMessage(cart.error) }}</p>
         <p v-if="cart.hasUnavailableItems" class="basket-sidebar__unavailable-summary" role="alert">
           {{ unavailableMessage }}
         </p>
         <BaseButton :to="cart.hasUnavailableItems ? undefined : '/checkout/purchase'" block :disabled="cart.syncing || cart.hasUnavailableItems" @click="hideBasketModal">
-          {{ terms.common.checkout }}
+          {{ terms.basket.proceedToPayment }}
         </BaseButton>
       </div>
     </template>
@@ -450,6 +451,12 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
 .basket-sidebar__unavailable-summary {
   color: #a16207;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.basket-sidebar__discount-note {
+  color: #737373;
   font-size: 0.75rem;
   line-height: 1.45;
 }
