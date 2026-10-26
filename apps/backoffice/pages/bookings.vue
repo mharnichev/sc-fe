@@ -414,10 +414,6 @@ const openActionModal = (selection: CalendarSelection) => {
   }
   selectedSelection.value = selection
   selectedDefaultAction.value = selectionDefaultAction(selection)
-  if (selectedDefaultAction.value === 'availability') {
-    openAvailabilitySelection(selection)
-    return
-  }
   actionModalOpen.value = true
 }
 
@@ -427,6 +423,7 @@ const availabilityInitialStart = ref('')
 const availabilityInitialEnd = ref('')
 watch(() => [auth.sessionRevision, auth.user?.id, selectedMasterId.value], () => {
   availabilityModalOpen.value = false
+  actionModalOpen.value = false
 }, { flush: 'sync' })
 const openAvailabilitySelection = (selection: { date: string, startTime: string, endTime: string }) => {
   if (!canSelectSlots.value || actionPending.value) return
@@ -436,9 +433,6 @@ const openAvailabilitySelection = (selection: { date: string, startTime: string,
   availabilityInitialEnd.value = selection.endTime
   availabilityModalOpen.value = true
 }
-const openDayAvailability = (day: CalendarDay) => {
-  openAvailabilitySelection({ date: day.date, startTime: calendar.workdayStart, endTime: calendar.workdayEnd })
-}
 const openAvailabilityPlanner = () => {
   if (actionPending.value || (!isAdmin.value && !canSelectSlots.value)) return
   actionModalOpen.value = false
@@ -446,6 +440,10 @@ const openAvailabilityPlanner = () => {
   availabilityInitialStart.value = ''
   availabilityInitialEnd.value = ''
   availabilityModalOpen.value = true
+}
+const openDayAvailability = (day: CalendarDay) => {
+  if (!canSelectSlots.value) return
+  openAvailabilitySelection({ date: day.date, startTime: calendar.workdayStart, endTime: calendar.workdayEnd })
 }
 const handleAvailabilitySaved = async (message: string) => {
   toastNotification.success(message)
@@ -666,10 +664,10 @@ const updateStatus = async (status: BookingStatus) => {
 }
 
 const updateSchedule = async (payload: BookingSchedulePayload) => {
-  if (!selected.value || !isAdmin.value || bookingBusy.value || selected.value.status === 'completed') return
+  if (!selected.value || !canManageCalendarBooking(selected.value) || bookingBusy.value || selected.value.status === 'completed') return
   pendingSchedule.value = true
   try {
-    if (await reconciliation.mutate(booking => api.adminUpdateBookingSchedule(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
+    if (await reconciliation.mutate(booking => isAdmin.value ? api.adminUpdateBookingSchedule(booking.id, payload) : api.updateMyBookingSchedule(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
       toastNotification.success('Час та послуги бронювання оновлено.')
       await refresh()
     }
@@ -677,10 +675,10 @@ const updateSchedule = async (payload: BookingSchedulePayload) => {
 }
 
 const updatePricing = async (payload: BookingPricingPayload) => {
-  if (!selected.value || !isAdmin.value || bookingBusy.value) return
+  if (!selected.value || !canManageCalendarBooking(selected.value) || bookingBusy.value || (!isAdmin.value && selected.value.status === 'completed')) return
   pendingPricing.value = true
   try {
-    if (await reconciliation.mutate(booking => api.adminUpdateBookingPricing(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
+    if (await reconciliation.mutate(booking => isAdmin.value ? api.adminUpdateBookingPricing(booking.id, payload) : api.updateMyBookingPricing(booking.id, payload), 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.')) {
       toastNotification.success('Ціни та акцію бронювання оновлено.')
       await refresh()
     }
@@ -889,8 +887,8 @@ const deleteSelectedBlock = async () => {
       :pending-schedule="pendingSchedule"
       :pending-pricing="pendingPricing"
       :pending-delete="pendingDelete"
-      :can-edit="Boolean(selected && selected.status !== 'completed' && isAdmin)"
-      :can-edit-pricing="isAdmin"
+      :can-edit="Boolean(selected && selected.status !== 'completed' && canManageCalendarBooking(selected))"
+      :can-edit-pricing="Boolean(selected && canManageCalendarBooking(selected))"
       :can-delete="Boolean(selected && canManageCalendarBooking(selected))"
       :masters="masterOptions"
       :services="serviceOptions"
@@ -923,7 +921,10 @@ const deleteSelectedBlock = async () => {
       :master-name="selectedMasterLabel"
       :default-action="selectedDefaultAction"
       :pending="actionPending"
-      @open-availability="openAvailabilitySelection"
+      :admin="isAdmin"
+      :masters="masterOptions"
+      :master-id="selectedMasterId"
+      @saved="handleAvailabilitySaved"
       @submit="submitCalendarAction"
     />
 

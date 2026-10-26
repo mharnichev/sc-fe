@@ -10,11 +10,11 @@ const vueRequire = createRequire(require.resolve('nuxt/package.json'))
 const vue = vueRequire('vue')
 const { parse, compileScript, compileTemplate } = vueRequire('@vue/compiler-sfc')
 const root = new URL('../', import.meta.url)
-const source = await readFile(new URL('components/AvailabilityWindowFormModal.vue', root), 'utf8')
+const source = await readFile(new URL('components/AvailabilityWindowForm.vue', root), 'utf8')
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { resolve, promise } }
 
 function fixture(options = {}) {
-  const props = vue.reactive({ modelValue: true, admin: true, masters: [{ id: 7 }], disabled: false, initialDate: '2026-10-26', initialMasterId: 7, ...options.props })
+  const props = vue.reactive({ active: true, admin: true, masters: [{ id: 7 }], disabled: false, initialDate: '2026-10-26', initialMasterId: 7, ...options.props })
   const auth = vue.reactive({ sessionRevision: 1, user: { id: 1, role: 'admin', master_id: 7 } })
   const calls = [], events = [], unmount = [], leave = []
   const windows = []
@@ -34,7 +34,7 @@ function fixture(options = {}) {
   const globals = {
     Date: class extends Date { static now() { return Date.parse('2026-10-25T00:00:00Z') } },
     ...vue, defineProps: () => props, withDefaults: value => value,
-    defineEmits: () => (...args) => events.push(args),
+    defineEmits: () => (...args) => { events.push(args); if (args[0] === 'complete') props.active = false },
     useBackofficeApi: () => api, useAuthStore: () => auth,
     useId: () => 'test', useAssetUrl: () => value => value, useBaseToastNotification: () => ({ warning() {} }),
     useBookingCalendar: () => ({ workdayStart: '09:30', workdayEnd: '20:00' }),
@@ -52,7 +52,7 @@ function fixture(options = {}) {
 }
 
 test('all owned Vue files compile with existing SFC compiler', async () => {
-  for (const path of ['components/AvailabilityWindowFormModal.vue', 'components/BaseInput.vue']) {
+  for (const path of ['components/AvailabilityWindowForm.vue', 'components/AvailabilityWindowFormModal.vue', 'components/BaseInput.vue']) {
     const { descriptor, errors } = parse(await readFile(new URL(path, root), 'utf8'))
     assert.deepEqual(errors, [])
     const script = compileScript(descriptor, { id: path })
@@ -62,10 +62,10 @@ test('all owned Vue files compile with existing SFC compiler', async () => {
 })
 
 test('opening reads date and slot time after the complete reactive parent prop batch', async () => {
-  const f = fixture({ props: { modelValue: false, initialDate: undefined, initialMasterId: null } })
+  const f = fixture({ props: { active: false, initialDate: undefined, initialMasterId: null } })
   try {
-    // Match Vue parent prop assignment order: modelValue arrives before draft props.
-    f.props.modelValue = true
+    // Match Vue parent prop assignment order: active arrives before draft props.
+    f.props.active = true
     f.props.initialDate = '2026-11-02'
     f.props.initialStartTime = '12:00'
     f.props.initialEndTime = '12:30'
@@ -82,9 +82,9 @@ test('opening reads date and slot time after the complete reactive parent prop b
 })
 
 test('batched opening focuses an existing day without creating a draft', async () => {
-  const f = fixture({ props: { modelValue: false, initialDate: undefined }, api: { adminGetAvailability: async () => [existingWindow(42)] } })
+  const f = fixture({ props: { active: false, initialDate: undefined }, api: { adminGetAvailability: async () => [existingWindow(42)] } })
   try {
-    f.props.modelValue = true
+    f.props.active = true
     f.props.initialDate = '2026-10-26'
     await vue.nextTick(); await vue.nextTick()
     assert.equal(f.focusedDate.value, '2026-10-26')
@@ -96,10 +96,10 @@ test('batched opening focuses an existing day without creating a draft', async (
 for (const interruption of ['close', 'session', 'unmount']) {
   test(`${interruption} before the opening batch flush prevents initialization`, async () => {
     let reads = 0
-    const f = fixture({ props: { modelValue: false }, api: { adminGetAvailability: async () => { reads++; return [] } } })
-    f.props.modelValue = true
+    const f = fixture({ props: { active: false }, api: { adminGetAvailability: async () => { reads++; return [] } } })
+    f.props.active = true
     f.props.initialDate = '2026-11-02'
-    if (interruption === 'close') f.props.modelValue = false
+    if (interruption === 'close') f.props.active = false
     if (interruption === 'session') f.auth.sessionRevision++
     if (interruption === 'unmount') f.stop()
     await vue.nextTick(); await vue.nextTick()
@@ -199,7 +199,7 @@ for (const interruption of ['session', 'role', 'unmount', 'close', 'disabled', '
     if (interruption === 'session') f.auth.sessionRevision++
     if (interruption === 'role') f.auth.user.role = 'barber'
     if (interruption === 'unmount') f.stop()
-    if (interruption === 'close') f.props.modelValue = false
+    if (interruption === 'close') f.props.active = false
     if (interruption === 'disabled') f.props.disabled = true
     if (interruption === 'leave') f.leave()
     const before = f.events.length
@@ -259,7 +259,11 @@ test('route leave during GET stops writes and cancelled navigation does not lock
     await first
     assert.equal(f.calls.length, 0)
     assert.equal(f.events.some(([event]) => event === 'saved'), false)
-    // A cancelled navigation leaves the component alive and permits an explicit retry.
+    // Route leave completes the form; explicit reactivation after cancelled navigation permits a fresh selection.
+    assert.equal(f.props.active, false)
+    f.props.active = true
+    await vue.nextTick(); await vue.nextTick()
+    f.toggleDate('2026-10-26')
     await f.submit()
     assert.equal(f.calls.length, 1)
   } finally { f.stop() }
@@ -356,7 +360,7 @@ for (const interruption of ['session', 'role', 'master', 'removed-master', 'clos
     if (interruption === 'role') f.auth.user.role = 'barber'
     if (interruption === 'master') f.form.master_id = '8'
     if (interruption === 'removed-master') f.props.masters = []
-    if (interruption === 'close') f.props.modelValue = false
+    if (interruption === 'close') f.props.active = false
     if (interruption === 'disabled') f.props.disabled = true
     if (interruption === 'unmount') f.stop()
     if (interruption === 'leave') f.leave()

@@ -31,7 +31,7 @@ export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
   })
 
   const canManageBooking = (masterId?: number | null, sourceMasterId?: number | null) =>
-    isAdmin.value || bookingBelongsToMaster(linkedMaster.value?.id, masterId, sourceMasterId)
+    isAdmin.value || bookingBelongsToMaster(linkedMaster.value?.id ?? auth.user?.master_id, masterId, sourceMasterId)
 
   return {
     isAdmin,

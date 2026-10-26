@@ -56,12 +56,14 @@ import { useId } from 'vue'
 const props = withDefaults(defineProps<{
   modelValue: boolean
   maxWidthClass?: string
+  fillHeight?: boolean
   ariaLabel?: string
   ariaLabelledby?: string
   closeOnBackdrop?: boolean
   closeOnEscape?: boolean
 }>(), {
   maxWidthClass: 'max-w-3xl',
+  fillHeight: false,
   ariaLabel: 'Діалогове вікно',
   closeOnBackdrop: true,
   closeOnEscape: true,
@@ -89,6 +91,15 @@ const setScrollLock = (locked: boolean) => {
     unlockDocumentScroll()
     lockedByInstance = false
   }
+}
+
+const prepareEnter = (element: Element) => {
+  element.removeAttribute('aria-hidden')
+  if (element instanceof HTMLElement) element.inert = false
+}
+const prepareLeave = (element: Element) => {
+  element.setAttribute('aria-hidden', 'true')
+  if (element instanceof HTMLElement) element.inert = true
 }
 
 const close = () => {
@@ -166,6 +177,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
+    <Transition name="base-modal" appear @before-enter="prepareEnter" @before-leave="prepareLeave">
     <div
       v-if="modelValue"
       class="base-modal__backdrop fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none px-0 py-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
@@ -174,8 +186,8 @@ onBeforeUnmount(() => {
     >
       <section
         ref="panelRef"
-        class="backoffice-modal-panel base-modal__panel liquid-glass flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[1.5rem] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[1.75rem]"
-        :class="maxWidthClass"
+        class="backoffice-modal-panel base-modal__panel liquid-glass flex w-full flex-col overflow-hidden rounded-t-[1.5rem] sm:rounded-[1.75rem]"
+        :class="[maxWidthClass, { 'base-modal__panel--fill': fillHeight }]"
         role="dialog"
         aria-modal="true"
         :aria-label="ariaLabelledby ? undefined : ariaLabel"
@@ -191,5 +203,27 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </div>
+    </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+.base-modal__panel { height: 95dvh; max-height: 95dvh; }
+.base-modal-enter-active, .base-modal-leave-active { transition: opacity 200ms ease; }
+.base-modal-enter-active .base-modal__panel, .base-modal-leave-active .base-modal__panel {
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.base-modal-enter-from, .base-modal-leave-to { opacity: 0; }
+.base-modal-enter-from .base-modal__panel { transform: translateY(18px) scale(0.99); }
+.base-modal-leave-to .base-modal__panel { transform: translateY(8px) scale(0.995); }
+.base-modal-leave-active { pointer-events: none; }
+@media (min-width: 640px) {
+  .base-modal__panel { height: auto; max-height: calc(100dvh - 3rem); }
+  .base-modal__panel--fill { height: calc(100dvh - 3rem); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .base-modal-enter-active, .base-modal-leave-active,
+  .base-modal-enter-active .base-modal__panel, .base-modal-leave-active .base-modal__panel { transition: none; }
+  .base-modal-enter-from .base-modal__panel, .base-modal-leave-to .base-modal__panel { transform: none; }
+}
+</style>

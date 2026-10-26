@@ -62,7 +62,7 @@ test('closed slot opens the multi-day picker with its exact time and no mutation
   const slot = page.locator('button[data-slot-id]:enabled').first()
   const interval = await slot.getAttribute('aria-label')
   await slot.click()
-  const dialog = page.getByRole('dialog', { name: 'Відкрити для запису', exact: true })
+  const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   const [start, end] = interval!.split('-')
   await expect(dialog.getByLabel('Початок для всіх', { exact: true })).toHaveValue(start)
@@ -78,11 +78,12 @@ test('manual booking open-time tab transfers the draft, never creates an interva
   await page.locator('button[data-slot-id*="2026-10-25"]:enabled').first().click()
   await expect(page.getByRole('heading', { name: 'Новий інтервал', exact: true })).toBeVisible()
   await page.getByRole('radio', { name: 'Відкрити', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Відкрити для запису', exact: true })
+  const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('[data-selected-date]')).toHaveCount(0)
   await expect(dialog.locator('[data-existing-date="2026-10-25"]')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Новий інтервал', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Новий інтервал', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
   expect(writes).toHaveLength(0)
 })
 
@@ -99,4 +100,58 @@ test('mobile master navigation exposes availability with a fitting label', async
   await expect(page).toHaveURL(/\/my-time-blocks$/)
   await expect(page.getByRole('button', { name: 'Відкрити час', exact: true })).toBeVisible()
   expect(writes).toHaveLength(0)
+})
+
+test('spanning windows cannot be closed as a single day', async ({ page }) => {
+  await fixture(page, false)
+  let deletes = 0
+  await page.route(/\/masters\/me\/availability(?:\?|$)/, route => route.fulfill({ json: [{ id: 51, master_id: 13, start_at: '2026-10-27T07:30:00Z', end_at: '2026-10-28T18:00:00Z' }] }))
+  await page.route('**/masters/me/availability/51', route => { deletes++; return route.fulfill({ status: 204 }) })
+  await page.goto('/my-time-blocks')
+  await page.getByRole('button', { name: 'Відкрити час', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('[data-date="2026-10-27"]').click()
+  await expect(dialog.getByRole('button', { name: 'Закрити день', exact: true })).toBeDisabled()
+  expect(deletes).toBe(0)
+})
+
+test('invalid schedule responses never enable mutations', async ({ page }) => {
+  const writes = await fixture(page, false)
+  await page.route(/\/masters\/me\/availability(?:\?|$)/, route => route.fulfill({ json: [{ id: -1, master_id: 13, start_at: 'invalid', end_at: 'invalid' }] }))
+  await page.goto('/my-time-blocks')
+  await page.getByRole('button', { name: 'Відкрити час', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('alert')).toBeVisible()
+  await expect(dialog.locator('[data-date="2026-10-27"]')).toBeDisabled()
+  expect(writes).toHaveLength(0)
+})
+
+test('session change fences an in-flight batch before its next mutation', async ({ page }) => {
+  const writes = await fixture(page, false)
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/masters/me/availability/windows', async route => {
+    writes.push(route.request().postDataJSON())
+    await gate
+    await route.fulfill({ json: { id: 70, master_id: 13, ...route.request().postDataJSON() } })
+  })
+  await page.goto('/my-time-blocks')
+  await page.getByRole('button', { name: 'Відкрити час', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('[data-date="2026-10-27"]').click()
+  await dialog.locator('[data-date="2026-10-28"]').click()
+  await dialog.getByRole('button', { name: /Відкрити 2/ }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  try {
+    await page.evaluate(() => {
+      const root = document.querySelector('#__nuxt') as Element & { __vue_app__?: { config: { globalProperties: { $pinia?: { _s: Map<string, { sessionRevision: number }> } } } } }
+      const auth = root.__vue_app__?.config.globalProperties.$pinia?._s.get('auth')
+      if (!auth) throw new Error('Auth store missing from test runtime')
+      auth.sessionRevision++
+    })
+    await expect(dialog).toHaveCount(0)
+    release()
+    await page.waitForTimeout(200)
+    expect(writes).toHaveLength(1)
+  } finally { release() }
 })

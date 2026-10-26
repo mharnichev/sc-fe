@@ -40,6 +40,7 @@ const {
   customerName,
   masterName,
   redirectedFromMasterName,
+  redirectedFromMasterId,
   bookingServiceIds,
   bookingServices,
   bookingServicesLabel,
@@ -75,7 +76,7 @@ const deleteConfirmOpen = ref(false)
 const phoneCopied = ref(false)
 let phoneCopiedTimeout: ReturnType<typeof setTimeout> | null = null
 const masterOptions = computed(() => props.masters || [])
-const { isAdmin, isBarber } = useBackofficeAccess(masterOptions)
+const { isAdmin, isBarber, canManageBooking } = useBackofficeAccess(masterOptions)
 
 const dateInputFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Kyiv',
@@ -218,8 +219,9 @@ const editableServiceOptions = computed(() => {
   return Array.from(byId.values())
 })
 
-const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && isAdmin.value && props.canEdit !== false))
-const canEditBookingPricing = computed(() => Boolean(props.booking && isAdmin.value && props.canEditPricing === true))
+const canManageCurrentBooking = computed(() => Boolean(props.booking && canManageBooking(props.booking.master_id, redirectedFromMasterId(props.booking))))
+const canEditBooking = computed(() => Boolean(props.booking && props.booking.status !== 'completed' && canManageCurrentBooking.value && props.canEdit !== false))
+const canEditBookingPricing = computed(() => Boolean(props.booking && canManageCurrentBooking.value && (isAdmin.value || props.booking.status !== 'completed') && props.canEditPricing === true))
 const canDeleteBooking = computed(() => Boolean(props.booking && props.canDelete !== false))
 const orderedAllowedStatuses = computed(() => {
   const order: BookingStatus[] = ['completed', 'cancelled', 'confirmed']
@@ -291,7 +293,7 @@ const submitPricing = () => {
       service_id: item.service_id,
       price_amount: Number(item.price_amount),
     })),
-    promotion_code: pricingForm.promotion_code || null,
+    ...(isAdmin.value ? { promotion_code: pricingForm.promotion_code || null } : {}),
   })
 }
 
@@ -400,7 +402,7 @@ onBeforeUnmount(() => {
     </template>
 
     <template #body>
-      <div v-if="booking" class="space-y-3 sm:space-y-6">
+      <div v-if="booking" class="booking-details-content space-y-2 sm:space-y-3">
         <div v-if="checking || notice || actionError" class="rounded-xl bg-slate-100 p-3 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100" aria-live="polite">
           <p v-if="checking" role="status">Перевіряємо актуальність запису…</p>
           <p v-if="notice" role="status">{{ notice }}</p>
@@ -408,14 +410,14 @@ onBeforeUnmount(() => {
           <BaseButton v-if="needsRefresh" :disabled="checking" class="mt-2" @click="emit('refresh')">Оновити дані</BaseButton>
         </div>
         <dl class="grid grid-cols-2 gap-2 sm:gap-3">
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <UserIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Клієнт
             </dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ customerName(booking) }}</dd>
           </div>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <PhoneIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Телефон
@@ -434,16 +436,28 @@ onBeforeUnmount(() => {
               </BaseButton>
             </dd>
           </div>
-          <div v-if="!isBarber" class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div v-if="!isBarber" class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Майстер</dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ masterName(resolvedMaster) }}</dd>
           </div>
-          <div v-if="redirectSourceName" class="backoffice-booking-redirect-card rounded-xl px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div v-if="redirectSourceName" class="backoffice-booking-redirect-card rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="backoffice-booking-redirect-label text-[11px] font-medium uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.18em]">Перенаправлено від</dt>
             <dd class="backoffice-booking-redirect-value mt-1 text-sm font-medium sm:mt-2 sm:text-base">{{ redirectSourceName }}</dd>
           </div>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" :class="isBarber && !redirectSourceName ? 'col-span-2' : ''">
-            <dt class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">Послуги</dt>
+          <div class="booking-tone booking-tone--services rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3" :class="isBarber && !redirectSourceName ? 'col-span-2' : ''">
+            <dt class="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500"><span>Послуги</span>
+            <BaseButton
+              v-if="canEditBooking && !serviceEditing"
+              type="button"
+              class="booking-edit-icon"
+              title="Редагувати послуги"
+              aria-label="Редагувати послуги бронювання"
+              :disabled="interactionBusy"
+              @click="serviceEditing = true"
+            >
+              <PencilIcon class="h-4 w-4" aria-hidden="true" />
+            </BaseButton>
+            </dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">
               {{ bookingServicesLabel(booking, services || []) }}
               <span v-if="resolvedServicesPriceLabel" class="mt-0.5 block text-xs font-medium text-slate-500 sm:text-sm">
@@ -451,12 +465,23 @@ onBeforeUnmount(() => {
               </span>
             </dd>
           </div>
-          <div class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div class="booking-tone booking-tone--price col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <BanknotesIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Оплата
+              <span class="flex-1">Оплата</span>
+              <BaseButton
+                v-if="canEditBookingPricing && !pricingEditing"
+                type="button"
+                class="booking-edit-icon"
+                :title="isAdmin ? 'Редагувати ціни та акцію' : 'Редагувати ціну'"
+                :aria-label="isAdmin ? 'Редагувати ціни та акцію бронювання' : 'Редагувати ціну бронювання'"
+                :disabled="interactionBusy"
+                @click="pricingEditing = true"
+              >
+                <PencilIcon class="h-4 w-4" aria-hidden="true" />
+              </BaseButton>
             </dt>
-            <dd class="mt-2 grid gap-2 text-sm sm:grid-cols-3">
+            <dd class="mt-1.5 grid grid-cols-3 gap-1.5 text-xs sm:text-sm">
               <span class="booking-money-card rounded-lg px-3 py-2">
                 <span class="block text-xs text-slate-500">Послуги</span>
                 <span class="font-semibold text-slate-900">{{ formatMoney(bookingSubtotal) }}</span>
@@ -474,20 +499,8 @@ onBeforeUnmount(() => {
               <ReceiptPercentIcon class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span class="min-w-0 break-words">Стрижка за акцією: {{ promotionLabel }}</span>
             </p>
-            <div v-if="canEditBookingPricing && !pricingEditing" class="mt-3">
-              <BaseButton
-                type="button"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
-                aria-label="Редагувати ціни та акцію бронювання"
-                :disabled="interactionBusy"
-                @click="pricingEditing = true"
-              >
-                <PencilIcon class="h-4 w-4" aria-hidden="true" />
-                Редагувати ціни та акцію
-              </BaseButton>
-            </div>
             <form
-              v-else-if="canEditBookingPricing"
+              v-if="canEditBookingPricing && pricingEditing"
               class="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200"
               @submit.prevent="submitPricing"
             >
@@ -504,7 +517,7 @@ onBeforeUnmount(() => {
                   inputmode="numeric"
                   input-class="base-control px-3 py-2 text-sm"
                 />
-                <label class="block space-y-1 text-xs text-slate-700 sm:text-sm">
+                <label v-if="isAdmin" class="block space-y-1 text-xs text-slate-700 sm:text-sm">
                   <span class="inline-flex items-center gap-1.5 font-medium">
                     <ReceiptPercentIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
                     Акція
@@ -519,72 +532,59 @@ onBeforeUnmount(() => {
                   />
                 </label>
                 <p v-if="pricingError" class="text-xs font-medium text-rose-600">{{ pricingError }}</p>
-                <p class="text-xs text-slate-500">Щоб прибрати застосовану знижку, виберіть «Без акції».</p>
+                <p v-if="isAdmin" class="text-xs text-slate-500">Щоб прибрати застосовану знижку, виберіть «Без акції».</p>
               </div>
-              <div class="backoffice-modal-actions mt-3">
-                <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
+              <div class="booking-edit-actions mt-2 grid grid-cols-2 gap-2">
+                <BaseButton type="submit" variant="success" size="sm" :disabled="interactionBusy">
                   <CheckCircleIcon v-if="!pendingPricing" class="h-4 w-4" aria-hidden="true" />
                   {{ pendingPricing ? 'Збереження...' : 'Зберегти' }}
                 </BaseButton>
-                <BaseButton type="button" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelPricingEditing">
+                <BaseButton type="button" variant="danger" size="sm" :disabled="interactionBusy" @click="cancelPricingEditing">
                   <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                   Скасувати
                 </BaseButton>
               </div>
             </form>
           </div>
-          <div v-if="canEditBooking && !serviceEditing" class="col-span-2">
-            <BaseButton
-              type="button"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
-              aria-label="Редагувати послуги бронювання"
-              :disabled="interactionBusy"
-              @click="serviceEditing = true"
-            >
-              <PencilIcon class="h-4 w-4" aria-hidden="true" />
-              Редагувати послуги
-            </BaseButton>
-          </div>
-          <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitServices">
+          <form v-if="canEditBooking && serviceEditing" class="booking-tone booking-tone--services col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3" @submit.prevent="submitServices">
             <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
-            <div class="backoffice-modal-actions mt-3">
-              <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
+            <div class="booking-edit-actions mt-2 grid grid-cols-2 gap-2">
+              <BaseButton type="submit" variant="success" size="sm" :disabled="interactionBusy">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </BaseButton>
-              <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelServiceEditing">
+              <BaseButton type="button" variant="danger" size="sm" :disabled="interactionBusy" @click="cancelServiceEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
               </BaseButton>
             </div>
           </form>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
-            <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
-              <PlayIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Час початку
+          <div class="booking-tone booking-tone--time col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3">
+            <dt class="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <ClockIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span class="flex-1">Час послуги</span>
+              <BaseButton
+                v-if="canEditBooking && !scheduleEditing"
+                type="button"
+                class="booking-edit-icon"
+                title="Редагувати час"
+                aria-label="Редагувати час бронювання"
+                :disabled="interactionBusy"
+                @click="scheduleEditing = true"
+              ><PencilIcon class="h-4 w-4" aria-hidden="true" /></BaseButton>
             </dt>
-            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ formatDateTime(bookingStart(booking)) }}</dd>
+            <dd class="mt-1 grid grid-cols-2 gap-3 text-sm font-medium text-slate-900">
+              <div class="min-w-0">
+                <span class="mb-1 flex items-center gap-1 text-[10px] font-normal text-slate-500"><PlayIcon class="h-3 w-3" aria-hidden="true" />Початок</span>
+                {{ formatDateTime(bookingStart(booking)) }}
+              </div>
+              <div class="min-w-0">
+                <span class="mb-1 flex items-center gap-1 text-[10px] font-normal text-slate-500"><StopIcon class="h-3 w-3" aria-hidden="true" />Завершення</span>
+                {{ formatDateTime(bookingEnd(booking)) }}
+              </div>
+            </dd>
           </div>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
-            <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
-              <StopIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Час завершення
-            </dt>
-            <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ formatDateTime(bookingEnd(booking)) }}</dd>
-          </div>
-          <div v-if="canEditBooking && !scheduleEditing" class="col-span-2">
-            <BaseButton
-              type="button"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
-              aria-label="Редагувати час бронювання"
-              :disabled="interactionBusy"
-              @click="scheduleEditing = !scheduleEditing"
-            >
-              <PencilIcon class="h-4 w-4" aria-hidden="true" />
-              Редагувати час
-            </BaseButton>
-          </div>
-          <form v-else-if="canEditBooking" class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4" @submit.prevent="submitSchedule">
+          <form v-if="canEditBooking && scheduleEditing" class="booking-tone booking-tone--time col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3" @submit.prevent="submitSchedule">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem] sm:items-end">
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Дата</span>
@@ -599,25 +599,25 @@ onBeforeUnmount(() => {
                 <BaseInput v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
               </label>
             </div>
-            <div class="backoffice-modal-actions mt-3">
-              <BaseButton type="submit" :disabled="interactionBusy" class="backoffice-modal-action-button backoffice-modal-action-primary">
+            <div class="booking-edit-actions mt-2 grid grid-cols-2 gap-2">
+              <BaseButton type="submit" variant="success" size="sm" :disabled="interactionBusy">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
                 {{ pendingSchedule ? 'Збереження...' : 'Зберегти' }}
               </BaseButton>
-              <BaseButton type="button" class="backoffice-modal-action-button backoffice-modal-action-neutral" @click="cancelScheduleEditing">
+              <BaseButton type="button" variant="danger" size="sm" :disabled="interactionBusy" @click="cancelScheduleEditing">
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                 Скасувати
               </BaseButton>
             </div>
           </form>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <CalendarDaysIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Створено
             </dt>
             <dd class="mt-1 text-sm font-medium text-slate-900 sm:mt-2 sm:text-base">{{ formatDateTime(booking.created_at) }}</dd>
           </div>
-          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+          <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
             <dt class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
               <CheckCircleIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Завершено
@@ -626,7 +626,7 @@ onBeforeUnmount(() => {
           </div>
         </dl>
 
-        <details class="group rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+        <details class="group rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
           <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-slate-900 [&::-webkit-details-marker]:hidden">
             Додаткова інформація
             <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" aria-hidden="true" />
@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
           </dl>
         </details>
 
-        <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-4">
+        <div class="rounded-xl bg-slate-50 px-3 py-2 sm:rounded-2xl sm:p-3">
           <p class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.18em]">
             <ChatBubbleLeftEllipsisIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Коментар клієнта
@@ -703,3 +703,57 @@ onBeforeUnmount(() => {
     </template>
   </BaseModal>
 </template>
+
+<style scoped>
+.booking-edit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--bo-success);
+  border-radius: 10px;
+  color: var(--bo-on-accent);
+  background: var(--bo-success);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+  transition: background-color 200ms ease;
+}
+.booking-edit-icon:focus-visible { outline: 2px solid var(--bo-success); outline-offset: 2px; }
+.booking-edit-icon:disabled { opacity: 0.45; }
+@media (hover: hover) and (pointer: fine) {
+  .booking-edit-icon:hover:not(:disabled) { background: var(--bo-accent-hover); }
+}
+.booking-details-content dl > div { min-width: 0; }
+.booking-details-content .booking-tone--price {
+  background: color-mix(in srgb, var(--bo-accent) 8%, var(--bo-surface-elevated));
+}
+.booking-details-content .booking-tone--time {
+  background: color-mix(in srgb, #8eb8bd 8%, var(--bo-surface-elevated));
+}
+.booking-details-content .booking-tone--services {
+  background: color-mix(in srgb, #d3bb91 8%, var(--bo-surface-elevated));
+}
+.booking-details-content .booking-tone {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+.booking-edit-actions > button { min-width: 0; width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .booking-edit-icon { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .booking-details-content .booking-tone { background: var(--bo-control); box-shadow: none; }
+}
+@media (forced-colors: active) {
+  .booking-edit-icon { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+}
+.booking-details-content .booking-money-card { min-width: 0; padding: 6px; overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+  .booking-details-content dl { gap: 6px; }
+  .booking-details-content dl > div { padding: 8px; }
+  .booking-details-content dt { font-size: 10px; letter-spacing: 0.03em; }
+  .booking-details-content dd { margin-top: 4px; font-size: 12px; }
+  .booking-details-content .booking-money-card > span:first-child { font-size: 10px; }
+}
+</style>
