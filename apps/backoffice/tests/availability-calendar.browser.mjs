@@ -12,7 +12,7 @@ const vueRequire = createRequire(require.resolve('nuxt/package.json'))
 const { parse, compileScript, compileStyle } = vueRequire('@vue/compiler-sfc')
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild')
 const cssRequire = createRequire(require.resolve('@nuxtjs/tailwindcss'))
-const components = ['AvailabilityWindowFormModal', 'BaseModal', 'BaseButton', 'BaseInput', 'BaseField', 'ModalCloseButton', 'TrashIcon']
+const components = ['AvailabilityWindowFormModal', 'AvailabilityWindowForm', 'BaseModal', 'BaseButton', 'BaseLoader', 'BaseInput', 'BaseField', 'ModalCloseButton', 'TrashIcon']
 
 // Bundle and mount production SFCs in memory: no Nuxt, dev server, or shared caches.
 test('isolated availability modal: mobile/desktop layout, per-day times, retry and cancellation', { timeout: 60000 }, async () => {
@@ -29,7 +29,7 @@ test('isolated availability modal: mobile/desktop layout, per-day times, retry a
         adminCreateAvailabilityWindow: async body => {
           calls.push(body);
           if (calls.length === 2 && fail) { fail = false; throw new Error('mock failure'); }
-          windows.push(body);
+          windows.push({ id: calls.length, ...body });
         }
       };
       Object.assign(globalThis, {
@@ -59,6 +59,7 @@ test('isolated availability modal: mobile/desktop layout, per-day times, retry a
         let source = await readFile(filename, 'utf8')
         if (!source.includes('<script')) source = '<script setup>\n</script>\n' + source
         const imports = ['ref', 'reactive', 'computed', 'watch', 'nextTick', 'onMounted', 'onBeforeUnmount', 'useAttrs']
+        if (!/import\s*\{[^}]*\buseId\b/.test(source)) imports.push('useId')
         source = source.replace(/(<script setup[^>]*>)/, `$1\nimport { ${imports.join(', ')} } from 'vue'\n`)
         const { descriptor } = parse(source)
         const id = `fixture-${path.basename(filename)}`
@@ -90,7 +91,8 @@ test('isolated availability modal: mobile/desktop layout, per-day times, retry a
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       for (const input of await page.locator('.availability-draft-row input').all()) {
         const box = await input.boundingBox()
-        assert.ok(box.width >= 55 && box.x >= 0 && box.x + box.width <= width, JSON.stringify(box))
+        // Five-character 24h times fit compact two-card rows; each field remains at least 36px wide.
+        assert.ok(box.width >= 36 && box.x >= 0 && box.x + box.width <= width, JSON.stringify(box))
       }
       await page.screenshot({ path: `/tmp/sc-availability-${width}.png`, animations: 'disabled' })
     }

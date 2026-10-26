@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EyeIcon } from '@heroicons/vue/24/outline'
-import type { Booking, BookingStatus } from '~/composables/useBackofficeApi'
+import type { Booking, BookingPricingPayload, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
 const toast = useBaseToastNotification()
@@ -51,6 +51,8 @@ const selected = ref<Booking | null>(null)
 const actionError = ref('')
 const pendingStatus = ref<BookingStatus | ''>('')
 const pendingDelete = ref(false)
+const pendingSchedule = ref(false)
+const pendingPricing = ref(false)
 const statusOptions = computed(() => [
   { value: '', label: 'Будь-який статус' },
   ...statuses.map(status => ({ value: status, label: formatBookingStatus(status) })),
@@ -114,6 +116,28 @@ const updateStatus = async (status: BookingStatus) => {
       await refresh()
     }
   } finally { pendingStatus.value = '' }
+}
+
+const updateSchedule = async (payload: BookingSchedulePayload) => {
+  if (!selected.value || bookingBusy.value || selected.value.status === 'completed') return
+  pendingSchedule.value = true
+  try {
+    if (await reconciliation.mutate(booking => api.updateMyBookingSchedule(booking.id, payload), 'Не вдалося зберегти час та послуги бронювання.')) {
+      toast.success('Час та послуги бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingSchedule.value = false }
+}
+
+const updatePricing = async (payload: BookingPricingPayload) => {
+  if (!selected.value || bookingBusy.value || selected.value.status === 'completed') return
+  pendingPricing.value = true
+  try {
+    if (await reconciliation.mutate(booking => api.updateMyBookingPricing(booking.id, payload), 'Не вдалося зберегти ціну бронювання.')) {
+      toast.success('Ціну бронювання оновлено.')
+      await refresh()
+    }
+  } finally { pendingPricing.value = false }
 }
 
 const deleteSelectedBooking = async () => {
@@ -252,11 +276,16 @@ const deleteSelectedBooking = async () => {
       :allowed-statuses="allowedStatusActions(selected)"
       :pending-status="pendingStatus"
       :pending-delete="pendingDelete"
-      :can-edit="false"
+      :can-edit="Boolean(selected && selected.status !== 'completed')"
+      :can-edit-pricing="Boolean(selected && selected.status !== 'completed')"
+      :pending-schedule="pendingSchedule"
+      :pending-pricing="pendingPricing"
       :can-delete="Boolean(selected)"
       :services="serviceOptions"
       @close="selected = null"
       @update-status="updateStatus"
+      @update-schedule="updateSchedule"
+      @update-pricing="updatePricing"
       @delete="deleteSelectedBooking"
     />
   </div>

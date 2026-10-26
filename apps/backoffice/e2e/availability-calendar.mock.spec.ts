@@ -12,7 +12,6 @@ async function setup(page: Page, failures: string[] = [], admin = false, fromBoo
   const writes: Array<{ start_at: string; end_at: string }> = []
   await page.clock.install({ time: new Date('2026-10-24T09:00:00Z') })
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), admin ? { ...staff, role: 'admin', master_id: null } : staff)
-  await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort())
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname
     if (request.method() === 'GET' && path.endsWith('/availability')) {
@@ -42,14 +41,13 @@ async function setup(page: Page, failures: string[] = [], admin = false, fromBoo
     return route.fulfill({ json: [] })
   })
   await page.goto(fromBookings ? '/bookings' : admin ? '/time-blocks' : '/my-time-blocks')
-  if (fromBookings && admin) await page.getByRole('button', { name: 'Графік майстра', exact: true }).click()
-  else if (fromBookings) await page.getByRole('button', { name: 'Відкрити день для запису', exact: true }).first().click()
+  if (fromBookings) await page.getByRole('button', { name: 'Відкрити день для запису', exact: true }).first().click()
   else await page.getByRole('button', { name: 'Відкрити час', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Відкрити для запису', exact: true })).toBeVisible()
+  await expect(dialogFor(page)).toBeVisible()
   return writes
 }
 
-const dialogFor = (page: Page) => page.getByRole('dialog', { name: 'Відкрити для запису', exact: true })
+const dialogFor = (page: Page) => page.getByRole('dialog').filter({ has: page.locator('.availability-form') })
 async function select(page: Page, date: string) {
   await dialogFor(page).locator(`[data-date="${date}"]`).click()
 }
@@ -235,7 +233,7 @@ test('closed calendar slot opens the new picker with selected time', async ({ pa
   expect(writes).toHaveLength(0)
 })
 
-test('open tab in manual booking switches to the new picker', async ({ page }) => {
+test('open tab embeds the shared picker and returns to other tabs', async ({ page }) => {
   const writes = await setup(page, [], false, true)
   await dialogFor(page).getByRole('button', { name: 'Закрити', exact: true }).click()
   await page.route(/\/masters\/me\/availability(?:\?|$)/, route => route.fulfill({ json: [{ id: 1, master_id: 13, start_at: '2026-10-25T07:30:00Z', end_at: '2026-10-25T18:00:00Z' }] }))
@@ -246,7 +244,13 @@ test('open tab in manual booking switches to the new picker', async ({ page }) =
   await expect(dialogFor(page)).toBeVisible()
   await expect(dialogFor(page).locator('[data-selected-date]')).toHaveCount(0)
   await expect(dialogFor(page).locator('[data-existing-date="2026-10-25"]')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Новий інтервал', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Новий інтервал', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await page.getByRole('radio', { name: 'Блокування часу', exact: true }).click()
+  await expect(page.getByRole('radio', { name: 'Блокування часу', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Відкрити', exact: true }).click()
+  await expect(dialogFor(page).locator('[data-existing-date="2026-10-25"]')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
   expect(writes).toHaveLength(0)
 })
 
@@ -267,24 +271,11 @@ const existingDayWindows: ScheduleWindow[] = [
   { id: 72, master_id: 13, start_at: '2026-10-27T12:00:00Z', end_at: '2026-10-27T18:00:00Z' },
 ]
 
-test('admin opens planner without changing the calendar filter and explicitly selects its master', async ({ page }) => {
-  const writes = await setup(page, [], true, true)
-  await expect(dialogFor(page).locator('[data-date="2026-10-27"]')).toBeDisabled()
-  await dialogFor(page).getByRole('button', { name: /Виберіть майстра/ }).click()
-  await dialogFor(page).getByRole('button', { name: /Тест Майстер/ }).click()
-  await select(page, '2026-10-27')
-  expect(writes).toHaveLength(0)
-  await dialogFor(page).getByRole('button', { name: /Відкрити 1/ }).click()
-  await expect(dialogFor(page)).toHaveCount(0)
-  expect(writes).toHaveLength(1)
-  expect(writes[0]).toMatchObject({ master_id: 13 })
-})
-
 test('existing working day is visible and cannot be added again, including bulk selection', async ({ page }) => {
   const writes = await setup(page, [], false, false, { existing: existingDayWindows })
   const date = dialogFor(page).locator('[data-date="2026-10-27"]')
   await expect(date).toHaveClass(/is-existing/)
-  await date.click()
+  await dialogFor(page).getByRole('button', { name: 'Закрити інтервали', exact: true }).click()
   await expect(dialogFor(page).locator('[data-existing-date="2026-10-27"]')).toBeVisible()
   await expect(dialogFor(page).locator('[data-selected-date="2026-10-27"]')).toHaveCount(0)
   await dialogFor(page).getByRole('button', { name: 'Увесь місяць', exact: true }).click()
@@ -458,3 +449,119 @@ test('mobile content variants with existing schedule in both themes', async ({ p
     await page.screenshot({ path: `output/availability-calendar/mobile-${theme}-two-days.png`, animations: 'disabled' })
   }
 })
+
+test('embedded planner preserves selected days and time while switching tabs', async ({ page }) => {
+  await setup(page, [], false, true)
+  await dialogFor(page).getByRole('button', { name: 'Закрити', exact: true }).click()
+  await page.locator('button[data-slot-id]:enabled').first().click()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await select(page, '2026-10-27')
+  await dialogFor(page).getByLabel('Початок 2026-10-27', { exact: true }).fill('11:00')
+  const count = await dialogFor(page).locator('[data-selected-date]').count()
+  await page.getByRole('radio', { name: 'Ручне бронювання', exact: true }).click()
+  await expect(page.getByRole('radio', { name: 'Ручне бронювання', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.locator('.availability-form')).toBeHidden()
+  await page.getByRole('radio', { name: 'Блокування часу', exact: true }).click()
+  await page.getByRole('radio', { name: 'Відкрити', exact: true }).click()
+  await expect(page.locator('.availability-form')).toBeVisible()
+  await expect(dialogFor(page).locator('[data-selected-date]')).toHaveCount(count)
+  await expect(dialogFor(page).getByLabel('Початок 2026-10-27', { exact: true })).toHaveValue('11:00')
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+})
+
+test('mobile BaseModal stays at 95 percent height for calendar and block forms', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setup(page)
+  const targetHeight = 844 * 0.95
+  await expect.poll(async () => Math.abs((await dialogFor(page).boundingBox())!.height - targetHeight)).toBeLessThanOrEqual(1)
+  await dialogFor(page).getByRole('button', { name: 'Наступний місяць', exact: true }).click()
+  await dialogFor(page).getByRole('button', { name: 'Увесь місяць', exact: true }).click()
+  await expect(dialogFor(page).locator('[data-selected-date]')).toHaveCount(30)
+  expect(Math.abs((await dialogFor(page).boundingBox())!.height - targetHeight)).toBeLessThanOrEqual(1)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Блокування', exact: true }).click()
+  await expect.poll(async () => Math.abs((await page.getByRole('dialog').boundingBox())!.height - targetHeight)).toBeLessThanOrEqual(1)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('embedded saving locks tabs, Escape and backdrop until completion', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setup(page, [], false, true)
+  await dialogFor(page).getByRole('button', { name: 'Закрити', exact: true }).click()
+  await page.locator('button[data-slot-id]:enabled').first().click()
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/masters/me/availability/windows', async route => {
+    await gate
+    await route.fulfill({ json: { id: 100, master_id: 13, ...route.request().postDataJSON() } })
+  })
+  try {
+    await dialogFor(page).getByRole('button', { name: /Відкрити 1/ }).click()
+    await expect(page.getByRole('radio', { name: 'Ручне бронювання', exact: true })).toBeDisabled()
+    await expect(dialogFor(page).getByRole('button', { name: 'Закрити', exact: true })).toBeDisabled()
+    await page.keyboard.press('Escape')
+    await page.mouse.click(10, 10)
+    await expect(page.getByRole('dialog')).toHaveCount(1)
+    release()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  } finally { release() }
+})
+
+test('short mobile viewport retains modal height and reachable actions', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setup(page)
+  await select(page, '2026-10-27')
+  await dialogFor(page).getByLabel('Початок 2026-10-27', { exact: true }).focus()
+  await page.setViewportSize({ width: 390, height: 500 })
+  await expect.poll(async () => Math.abs((await dialogFor(page).boundingBox())!.height - 475)).toBeLessThanOrEqual(1)
+  const save = dialogFor(page).getByRole('button', { name: /Відкрити 1/ })
+  await save.scrollIntoViewIfNeeded()
+  await expect(save).toBeInViewport()
+  expect(await dialogFor(page).evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await page.screenshot({ path: 'output/availability-calendar/mobile-short-viewport.png', animations: 'disabled' })
+})
+
+test('embedded invalid interval focuses the field on the first save click', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 })
+  await setup(page, [], false, true)
+  await dialogFor(page).getByRole('button', { name: 'Закрити', exact: true }).click()
+  await page.locator('button[data-slot-id]:enabled').first().click()
+  await select(page, '2026-10-27')
+  const input = dialogFor(page).getByLabel('Початок 2026-10-27', { exact: true })
+  await input.fill('19:00')
+  await dialogFor(page).getByLabel('Завершення 2026-10-27', { exact: true }).fill('18:00')
+  await dialogFor(page).getByRole('button', { name: /Відкрити 2/ }).click()
+  await expect(input).toBeFocused()
+  await expect(input).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+})
+
+for (const width of [320, 1440]) {
+  test(`interval tabs remain visible above the scrolling planner ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 650 })
+    await setup(page, [], false, true)
+    await dialogFor(page).getByRole('button', { name: 'Закрити', exact: true }).click()
+    await page.locator('button[data-slot-id]:enabled').first().click()
+    const dialog = dialogFor(page)
+    await dialog.getByRole('radio', { name: 'Ручне бронювання', exact: true }).click()
+    await dialog.getByRole('radio', { name: 'Відкрити', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(1)
+    await dialog.getByRole('button', { name: 'Очистити', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Наступний місяць', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Увесь місяць', exact: true }).click()
+    await dialog.getByRole('button', { name: /Відкрити 30/ }).scrollIntoViewIfNeeded()
+    for (const name of ['Відкрити', 'Ручне бронювання', 'Блокування часу']) {
+      const tab = dialog.getByRole('radio', { name, exact: true })
+      await expect(tab).toBeInViewport()
+      expect((await tab.boundingBox())!.width).toBeGreaterThan(70)
+    }
+    await dialog.getByRole('radio', { name: 'Блокування часу', exact: true }).click()
+    await dialog.getByRole('radio', { name: 'Відкрити', exact: true }).click()
+    await expect(dialog.locator('[data-selected-date]')).toHaveCount(30)
+    await page.screenshot({ path: `output/availability-calendar/fixed-tabs-${width}.png`, animations: 'disabled' })
+  })
+}

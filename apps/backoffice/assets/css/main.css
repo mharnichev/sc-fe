@@ -17,11 +17,11 @@
   --bo-accent: #6fa77f;
   --bo-accent-hover: #7fb68e;
   --bo-accent-active: #5d936d;
-  --bo-on-accent: #0b1710;
+  --bo-on-accent: #ffffff;
   --bo-action: #6fa77f;
   --bo-action-hover: #7fb68e;
   --bo-action-active: #5d936d;
-  --bo-on-action: #0b1710;
+  --bo-on-action: #ffffff;
   --bo-success: #6fa77f;
   --bo-success-surface: rgba(111, 167, 127, 0.14);
   --bo-success-text: #acd7b7;
@@ -446,11 +446,7 @@ body {
 .base-button--success {
   border-color: color-mix(in srgb, var(--bo-success) 62%, transparent);
   background: var(--bo-success);
-  color: #071b0c !important;
-}
-
-html[data-backoffice-theme="light"] .base-button--success {
-  color: #ffffff !important;
+  color: var(--bo-on-accent) !important;
 }
 
 .base-button--danger {
