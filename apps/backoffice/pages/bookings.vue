@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
@@ -438,6 +439,14 @@ const openAvailabilitySelection = (selection: { date: string, startTime: string,
 const openDayAvailability = (day: CalendarDay) => {
   openAvailabilitySelection({ date: day.date, startTime: calendar.workdayStart, endTime: calendar.workdayEnd })
 }
+const openAvailabilityPlanner = () => {
+  if (actionPending.value || (!isAdmin.value && !canSelectSlots.value)) return
+  actionModalOpen.value = false
+  availabilityInitialDate.value = ''
+  availabilityInitialStart.value = ''
+  availabilityInitialEnd.value = ''
+  availabilityModalOpen.value = true
+}
 const handleAvailabilitySaved = async (message: string) => {
   toastNotification.success(message)
   await refresh()
@@ -721,8 +730,9 @@ const deleteSelectedBlock = async () => {
         <p class="type-eyebrow ui-eyebrow text-xs md:text-sm">Календар</p>
         <h1 class="type-page-title mt-1 text-2xl text-ui-primary md:mt-2 md:text-3xl">Бронювання</h1>
       </div>
-      <div v-if="!isAdmin" class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
-        <NuxtLink to="/my-bookings" class="base-button base-button--neutral min-h-9 flex-1 px-3 py-2 text-xs sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
+      <div class="flex w-full flex-wrap gap-2 sm:w-auto md:gap-3">
+        <BaseButton type="button" variant="success" size="sm" :disabled="actionPending || (!isAdmin && !canSelectSlots)" @click="openAvailabilityPlanner"><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />{{ isAdmin ? 'Графік майстра' : 'Мій графік' }}</BaseButton>
+        <NuxtLink v-if="!isAdmin" to="/my-bookings" class="base-button base-button--neutral min-h-9 flex-1 px-3 py-2 text-xs sm:flex-none md:min-h-11 md:px-5 md:py-3 md:text-sm">
           Мої бронювання
         </NuxtLink>
       </div>
@@ -900,7 +910,7 @@ const deleteSelectedBlock = async () => {
       :initial-start-time="availabilityInitialStart"
       :initial-end-time="availabilityInitialEnd"
       :initial-master-id="selectedMasterId"
-      :disabled="!canSelectSlots || actionPending"
+      :disabled="actionPending || (!isAdmin && !canSelectSlots)"
       @saved="handleAvailabilitySaved"
     />
 

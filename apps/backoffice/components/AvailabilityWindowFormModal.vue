@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import { CalendarDaysIcon, CheckIcon, CheckCircleIcon, ClockIcon, BriefcaseIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, LockOpenIcon, UserCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ExclamationTriangleIcon, CalendarDaysIcon, CheckIcon, CheckCircleIcon, ClockIcon, BriefcaseIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, LockOpenIcon, UserCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { initials } from '@shared-utils'
-import type { Master } from '~/composables/useBackofficeApi'
+import type { Master, MasterAvailabilityWindow } from '~/composables/useBackofficeApi'
 
-type DayDraft = { date: string, start: string, end: string, error: string }
+type DayDraft = { date: string, start: string, end: string, error: string, errorSignature?: string, backendError?: string }
 const props = withDefaults(defineProps<{ modelValue: boolean, admin?: boolean, masters?: Master[], disabled?: boolean, initialDate?: string, initialMasterId?: number | null, initialStartTime?: string, initialEndTime?: string }>(), { admin: false, masters: () => [], disabled: false })
 const emit = defineEmits<{ 'update:modelValue': [value: boolean], saved: [message: string] }>()
+const instanceId = `availability-${useId()}`
+const fieldId = (kind: string, date?: string) => `${instanceId}-${kind}${date ? `-${date}` : ''}`
 const api = useBackofficeApi()
 const auth = useAuthStore()
 let generation = 0
 let disposed = false
 const sessionKey = () => JSON.stringify([auth.sessionRevision, auth.user?.id, auth.user?.role, auth.user?.master_id, auth.user?.is_superuser])
+const validActor = () => Boolean(auth.user && (props.admin ? auth.user.is_superuser || auth.user.role === 'admin' : auth.user.role === 'barber' || auth.user.is_superuser || auth.user.role === 'admin'))
+const operationFence = () => {
+  const revision = generation, identity = sessionKey(), admin = props.admin, master = form.master_id
+  return () => !disposed && revision === generation && identity === sessionKey() && props.modelValue && !props.disabled && props.admin === admin && form.master_id === master && validActor() && (!admin || Boolean(selectedMaster.value))
+}
 const assetUrl = useAssetUrl()
 const toast = useBaseToastNotification()
 const calendar = useBookingCalendar()
@@ -20,6 +27,130 @@ const drafts = ref<DayDraft[]>([])
 const selectedDays = computed(() => [...drafts.value].sort((a, b) => a.date.localeCompare(b.date)))
 const formError = ref('')
 const saving = ref(false)
+const focusedDate = ref('')
+const commonError = ref('')
+const closeError = ref('')
+const availabilityErrorRef = ref<HTMLElement | null>(null)
+const existingWindows = ref<MasterAvailabilityWindow[]>([])
+const availabilityLoading = ref(false)
+const availabilityError = ref('')
+const availabilityReady = ref(false)
+let requestVersion = 0
+let initializing = false
+const dateInKyiv = (value: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
+const timeInKyiv = (value: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
+const existingByDate = computed(() => {
+  const result: Record<string, MasterAvailabilityWindow[]> = {}
+  for (const window of existingWindows.value) {
+    let date = dateInKyiv(window.start_at)
+    if (date < todayInput()) date = todayInput()
+    const last = dateInKyiv(new Date(new Date(window.end_at).getTime() - 1).toISOString())
+    while (date <= last && date <= horizonEnd.value) {
+      if (date >= todayInput()) (result[date] ||= []).push(window)
+      date = addDaysInput(date, 1)
+    }
+  }
+  return result
+})
+const existingForFocusedDate = computed(() => existingByDate.value[focusedDate.value] || [])
+const hasSpanningWindow = computed(() => existingForFocusedDate.value.some(window => dateInKyiv(window.start_at) !== dateInKyiv(new Date(new Date(window.end_at).getTime() - 1).toISOString())))
+const isExisting = (date: string) => Boolean(existingByDate.value[date]?.length)
+const canPick = computed(() => !locked.value && availabilityReady.value && !availabilityLoading.value && !availabilityError.value)
+const hasErrors = computed(() => drafts.value.some(day => day.error))
+const localError = (cause: unknown, fallback: string) => {
+  const message = apiErrorMessage(cause, fallback)
+  if (message.includes('Availability window overlaps an existing window')) return 'Цей день уже є у графіку. Оновіть графік або виберіть інший день.'
+  if (message.includes('Availability window has active bookings')) return 'У цьому інтервалі є активні бронювання. Зверніться до адміністратора, щоб перенести записи.'
+  return /[іїєґІЇЄҐа-яА-Я]/.test(message) ? message : fallback
+}
+const resolvedOwnerId = () => {
+  let master = selectedMaster.value
+  const visited = new Set<number>()
+  while (master) {
+    if (visited.has(master.id)) return undefined
+    visited.add(master.id)
+    const redirect = master.booking_redirect_master_id
+    // An incomplete master list cannot reproduce the server's chained resolution.
+    if (redirect === undefined) return undefined
+    if (redirect === null) return master.id
+    master = props.masters.find(candidate => candidate.id === redirect) || null
+  }
+  return undefined
+}
+const loadAvailability = async () => {
+  const version = ++requestVersion
+  const current = operationFence()
+  availabilityReady.value = false
+  availabilityError.value = ''
+  if (!current() || (props.admin && !selectedMaster.value)) { availabilityLoading.value = false; existingWindows.value = []; return false }
+  availabilityLoading.value = true
+  const masterId = form.master_id
+  const ownerId = props.admin ? resolvedOwnerId() : undefined
+  try {
+    const filters = { date_from: toKyivIso(todayInput(), '00:00'), date_to: toKyivIso(addDaysInput(horizonEnd.value, 1), '00:00'), master_id: props.admin ? Number(masterId) : undefined }
+    const windows = props.admin ? await api.adminGetAvailability(filters) : await api.getMyAvailability(filters)
+    if (!current() || version !== requestVersion || masterId !== form.master_id) return false
+    // The selected-master-scoped backend resolves owners when local metadata is incomplete.
+    if (windows.some(window => !Number.isSafeInteger(window.id) || window.id <= 0 || !Number.isFinite(Date.parse(window.start_at)) || !Number.isFinite(Date.parse(window.end_at)) || Date.parse(window.start_at) >= Date.parse(window.end_at) || (ownerId !== undefined && window.master_id !== ownerId))) throw new Error('Invalid availability response')
+    existingWindows.value = windows
+    availabilityReady.value = true
+    return true
+  }
+  catch (cause) {
+    if (current() && version === requestVersion) availabilityError.value = localError(cause, 'Не вдалося завантажити графік. Спробуйте ще раз.')
+    return false
+  }
+  finally { if (current() && version === requestVersion) availabilityLoading.value = false }
+}
+const focusError = async () => {
+  const day = selectedDays.value.find(day => day.error)
+  if (!day) return
+  focusedDate.value = day.date
+  visibleMonth.value = day.date.slice(0, 7)
+  const current = operationFence()
+  await nextTick()
+  if (!current()) return
+  const input = document.getElementById(fieldId('start', day.date))
+  input?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  input?.focus({ preventScroll: true })
+}
+const validateDay = (day: DayDraft, preserveBackend = true) => {
+  let error = !validDate(day.date) || day.date < todayInput() || day.date > horizonEnd.value ? 'Дата поза дозволеним періодом.' : timeError(day.start, day.end)
+  if (!error && new Date(toKyivIso(day.date, day.end)).getTime() <= Date.now()) error = 'Минулий час не можна відкривати для запису.'
+  if (!error && preserveBackend && day.errorSignature === `${day.start}|${day.end}` && day.backendError) { day.error = day.backendError; return }
+  day.error = error
+  if (!error && day.errorSignature !== `${day.start}|${day.end}`) { day.errorSignature = undefined; day.backendError = undefined }
+}
+const editDay = (day: DayDraft) => {
+  if (day.error) validateDay(day)
+  focusedDate.value = day.date
+  formError.value = ''
+}
+const closeExistingDay = async () => {
+  if (!canPick.value || !existingForFocusedDate.value.length || focusedDate.value < todayInput() || hasSpanningWindow.value) return
+  const revision = ++generation
+  const active = operationFence()
+  const admin = props.admin
+  saving.value = true
+  const windows = [...existingForFocusedDate.value]
+  let deleted = 0
+  closeError.value = ''
+  try {
+    for (const window of windows) {
+      try {
+        if (!active()) return
+        if (admin) await api.adminDeleteAvailabilityWindow(window.id)
+        else await api.deleteMyAvailabilityWindow(window.id)
+        if (!active()) return
+        existingWindows.value = existingWindows.value.filter(item => item.id !== window.id)
+        deleted++
+      }
+      catch (cause) { if (!active()) return; closeError.value = localError(cause, 'Не вдалося закрити інтервал. Спробуйте ще раз.'); toast.error(closeError.value); break }
+    }
+    if (active() && deleted) emit('saved', `Закрито інтервалів: ${deleted}. Бронювання збережено.`)
+  }
+  finally { if (!disposed && revision === generation) saving.value = false }
+}
 const locked = computed(() => saving.value || props.disabled)
 const openMenu = ref<'master' | null>(null)
 const masterSelectRef = ref<HTMLElement | null>(null)
@@ -30,9 +161,7 @@ const addCalendarMonthsInput = (date: string, months: number) => {
   return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`
 }
 const horizonEnd = computed(() => addCalendarMonthsInput(todayInput(), 2))
-const validDate = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date)
-  && Number.isFinite(Date.parse(`${date}T12:00:00Z`))
-  && new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) === date
+const validDate = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date + 'T12:00:00Z')) && new Date(date + 'T12:00:00Z').toISOString().slice(0, 10) === date
 const visibleMonth = ref(todayInput().slice(0, 7))
 const monthLabel = computed(() => new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${visibleMonth.value}-01T12:00:00Z`)))
 const compactDate = (date: string) => `${date.slice(8)}.${date.slice(5, 7)}`
@@ -55,7 +184,10 @@ const toggleMenu = (_menu: 'master') => { if (!locked.value) openMenu.value = op
 const selectMaster = (master: Master) => { if (!locked.value) { form.master_id = String(master.id); openMenu.value = null } }
 const isSelected = (date: string) => drafts.value.some(day => day.date === date)
 const toggleDate = (date: string) => {
-  if (locked.value || date < todayInput() || date > horizonEnd.value) return
+  if (!canPick.value || !validDate(date) || date < todayInput() || date > horizonEnd.value) return
+  focusedDate.value = date
+  closeError.value = ''
+  if (isExisting(date)) return
   if (isSelected(date)) drafts.value = drafts.value.filter(day => day.date !== date)
   else drafts.value.push({ date, start: form.start_time, end: form.end_time, error: '' })
   formError.value = ''
@@ -66,28 +198,30 @@ const moveMonth = (offset: number) => {
   if (next >= todayInput().slice(0, 7) && next <= horizonEnd.value.slice(0, 7)) visibleMonth.value = next
 }
 const selectMonth = (weekdays: boolean) => {
-  if (locked.value) return
+  if (!canPick.value) return
   for (const day of monthDays.value) {
-    if (!day || day.disabled || isSelected(day.date)) continue
+    if (!day || day.disabled || isSelected(day.date) || isExisting(day.date)) continue
     const weekday = new Date(`${day.date}T12:00:00Z`).getUTCDay()
     if (!weekdays || (weekday !== 0 && weekday !== 6)) drafts.value.push({ date: day.date, start: form.start_time, end: form.end_time, error: '' })
   }
   formError.value = ''
 }
 const timeError = (start: string, end: string) => {
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) return 'Вкажіть час початку й завершення.'
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) return !start || !end ? 'Заповніть початок і завершення.' : 'Вкажіть час у форматі ГГ:ХХ, наприклад 09:30.'
   if (start >= end) return 'Початок має бути раніше завершення.'
   if (start < calendar.workdayStart || end > calendar.workdayEnd) return `Час має бути в межах ${calendar.workdayStart}–${calendar.workdayEnd}.`
   return ''
 }
 const applyTimes = () => {
   if (locked.value) return
-  formError.value = timeError(form.start_time, form.end_time)
-  if (formError.value) return
-  for (const day of drafts.value) { day.start = form.start_time; day.end = form.end_time; day.error = '' }
+  commonError.value = timeError(form.start_time, form.end_time)
+  if (commonError.value) return
+  formError.value = ''
+  for (const day of drafts.value) { day.start = form.start_time; day.end = form.end_time; day.error = ''; day.errorSignature = undefined; day.backendError = undefined }
 }
 const fillForm = () => {
   form.master_id = ''; form.start_time = calendar.workdayStart; form.end_time = calendar.workdayEnd
+  commonError.value = ''; closeError.value = ''; focusedDate.value = ''; existingWindows.value = []; availabilityReady.value = false
   drafts.value = []; visibleMonth.value = todayInput().slice(0, 7); openMenu.value = null; formError.value = ''
   form.master_id = props.initialMasterId ? String(props.initialMasterId) : ''
   if (props.initialStartTime && props.initialEndTime && !timeError(props.initialStartTime, props.initialEndTime)) {
@@ -97,24 +231,23 @@ const fillForm = () => {
   const date = props.initialDate
   if (date && validDate(date) && date >= todayInput() && date <= horizonEnd.value) {
     visibleMonth.value = date.slice(0, 7)
-    drafts.value = [{ date, start: form.start_time, end: form.end_time, error: '' }]
+    focusedDate.value = date
   }
 }
-const close = () => { if (!saving.value) emit('update:modelValue', false) }
+const close = () => { if (!saving.value) { invalidate(); emit('update:modelValue', false) } }
 const validate = () => {
-  if (!auth.user || (props.admin && !(auth.user.is_superuser || auth.user.role === 'admin'))) return 'Сесію змінено. Відкрийте форму знову.'
+  if (!validActor()) return 'Сесію змінено. Відкрийте форму знову.'
   if (props.admin && (!Number.isSafeInteger(Number(form.master_id)) || Number(form.master_id) <= 0 || !selectedMaster.value)) return 'Виберіть майстра.'
   if (!drafts.value.length) return 'Оберіть дні в календарі.'
   for (const day of drafts.value) {
-    day.error = !validDate(day.date) || day.date < todayInput() || day.date > horizonEnd.value ? 'Дата поза дозволеним періодом.' : timeError(day.start, day.end)
-    if (!day.error && new Date(toKyivIso(day.date, day.end)).getTime() <= Date.now()) day.error = 'Минулий час не можна відкривати для запису.'
+    validateDay(day, false)
   }
   return drafts.value.some(day => day.error) ? 'Перевірте час у позначених днях.' : ''
 }
 const submit = async () => {
-  if (locked.value || !props.modelValue || disposed) return
+  if (locked.value || availabilityLoading.value || !props.modelValue || disposed || !validActor()) return
   formError.value = validate()
-  if (formError.value) return
+  if (formError.value) { await focusError(); return }
   saving.value = true
   openMenu.value = null
   const failed: DayDraft[] = []
@@ -123,7 +256,8 @@ const submit = async () => {
   const identity = sessionKey()
   const admin = props.admin
   const masterId = Number(form.master_id)
-  const current = () => !disposed && revision === generation && identity === sessionKey() && props.modelValue && !props.disabled && props.admin === admin
+  const fence = operationFence()
+  const current = () => fence() && revision === generation && identity === sessionKey() && props.admin === admin && Number(form.master_id) === masterId
   const readWindows = (date: string) => {
     const filters = { date_from: toKyivIso(date, '00:00'), date_to: toKyivIso(addDaysInput(date, 1), '00:00'), master_id: masterId }
     return admin ? api.adminGetAvailability(filters) : api.getMyAvailability(filters)
@@ -132,6 +266,27 @@ const submit = async () => {
     Date.parse(window.start_at) === Date.parse(payload.start_at) && Date.parse(window.end_at) === Date.parse(payload.end_at))
   let created = 0
   try {
+    const ready = await loadAvailability()
+    if (!current()) return
+    if (!ready) {
+      formError.value = availabilityError.value || 'Оновіть графік і спробуйте ще раз.'
+      return
+    }
+    const conflicts = batch.filter(day => {
+      const windows = existingByDate.value[day.date] || []
+      if (!windows.length) return false
+      // Only an unchanged failed attempt may reconcile a previously committed POST.
+      const retry = day.backendError && day.errorSignature === `${day.start}|${day.end}`
+      return !retry || !matches(windows, { start_at: toKyivIso(day.date, day.start), end_at: toKyivIso(day.date, day.end) })
+    })
+    if (conflicts.length) {
+      const dates = new Set(conflicts.map(day => day.date))
+      focusedDate.value = conflicts[0].date
+      visibleMonth.value = conflicts[0].date.slice(0, 7)
+      drafts.value = drafts.value.filter(day => !dates.has(day.date))
+      formError.value = 'Частина обраних дат уже є у графіку. Їх прибрано з нових днів. Перевірте графік і збережіть решту.'
+      return
+    }
     for (const day of batch) {
       if (!current()) return
       const payload = { start_at: toKyivIso(day.date, day.start), end_at: toKyivIso(day.date, day.end) }
@@ -148,7 +303,7 @@ const submit = async () => {
       }
       catch (cause) {
         if (!current()) return
-        day.error = apiErrorMessage(cause, 'Не вдалося відкрити цей день.'); failed.push(day)
+        day.error = localError(cause, 'Не вдалося відкрити цей день.'); day.errorSignature = `${day.start}|${day.end}`; day.backendError = day.error; failed.push(day)
       }
     }
     if (!current()) return
@@ -160,29 +315,42 @@ const submit = async () => {
     }
     else emit('update:modelValue', false)
   }
-  finally { if (revision === generation && !disposed) saving.value = false }
+  finally {
+    if (revision === generation && !disposed) saving.value = false
+    if (current() && failed.length) await focusError()
+  }
 }
 const handleClickOutside = (event: MouseEvent) => {
   if (event.target instanceof Node && !masterSelectRef.value?.contains(event.target)) openMenu.value = null
 }
+const invalidate = () => { generation++; requestVersion++; saving.value = false; availabilityLoading.value = false; availabilityReady.value = false; existingWindows.value = []; availabilityError.value = ''; closeError.value = '' }
+let pendingOpen: { revision: number, identity: string } | null = null
 watch(() => props.modelValue, open => {
-  generation++
-  saving.value = false
-  if (open) fillForm()
-}, { immediate: true })
-watch(sessionKey, () => {
-  generation++
-  saving.value = false
-  drafts.value = []
-  emit('update:modelValue', false)
+  invalidate()
+  pendingOpen = open ? { revision: generation, identity: sessionKey() } : null
+}, { immediate: true, flush: 'sync' })
+watch(() => props.modelValue, open => {
+  const pending = pendingOpen
+  pendingOpen = null
+  if (!open || !pending || disposed || pending.revision !== generation || pending.identity !== sessionKey()) return
+  initializing = true
+  fillForm()
+  initializing = false
+  const current = operationFence()
+  void loadAvailability().then(ready => {
+    const date = props.initialDate
+    if (current() && ready && date && validDate(date) && focusedDate.value === date && !isExisting(date)) drafts.value = [{ date, start: form.start_time, end: form.end_time, error: '' }]
+  })
+}, { immediate: true, flush: 'post' })
+watch(() => [form.master_id, props.admin, props.disabled, props.masters.map(master => `${master.id}:${master.booking_redirect_master_id}`).join(',')], () => {
+  if (initializing || pendingOpen) return
+  invalidate(); drafts.value = []; focusedDate.value = ''; formError.value = ''
+  if (props.modelValue && !props.disabled) void loadAvailability()
 }, { flush: 'sync' })
+watch(sessionKey, () => { invalidate(); drafts.value = []; emit('update:modelValue', false) }, { flush: 'sync' })
 onMounted(() => document.addEventListener('mousedown', handleClickOutside))
-onBeforeRouteLeave(() => {
-  generation++
-  saving.value = false
-  emit('update:modelValue', false)
-})
-onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListener('mousedown', handleClickOutside) })
+onBeforeRouteLeave(() => { invalidate(); emit('update:modelValue', false) })
+onBeforeUnmount(() => { disposed = true; invalidate(); document.removeEventListener('mousedown', handleClickOutside) })
 </script>
 
 <template>
@@ -198,7 +366,7 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
     </template>
     <template #body>
       <form novalidate @submit.prevent="submit">
-        <fieldset :disabled="locked" class="min-w-0 space-y-1 sm:space-y-2">
+        <fieldset :disabled="locked" class="min-w-0 space-y-2.5">
         <div v-if="admin" ref="masterSelectRef" class="relative space-y-1 text-xs text-slate-700">
           <span class="inline-flex items-center gap-1.5 font-medium">
             <UserCircleIcon class="h-4 w-4 text-slate-500" aria-hidden="true" />
@@ -246,7 +414,13 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
         </div>
 
 
-          <div class="availability-layout grid min-w-0 items-start gap-1 md:grid-cols-2 md:gap-3">
+          <p v-if="admin && !form.master_id" class="text-xs text-ui-secondary">Спочатку виберіть майстра, щоб побачити його графік.</p>
+          <p v-else-if="availabilityLoading" class="text-xs text-ui-secondary" role="status">Завантажуємо графік…</p>
+          <div v-if="availabilityError" ref="availabilityErrorRef" tabindex="-1" class="availability-error rounded-lg p-2 text-xs" role="alert">
+            {{ availabilityError }}
+            <BaseButton type="button" variant="secondary" size="sm" :disabled="saving || availabilityLoading" @click="loadAvailability">Спробувати ще раз</BaseButton>
+          </div>
+          <div class="availability-layout grid min-w-0 items-start gap-2.5 md:grid-cols-2 md:gap-3">
           <section class="availability-calendar min-w-0" aria-label="Вибір днів">
             <div class="mb-1 flex items-center justify-between gap-2">
               <h3 class="flex min-w-0 items-center gap-1.5 text-sm font-semibold capitalize text-ui-primary" aria-live="polite"><CalendarDaysIcon class="h-4 w-4 shrink-0" aria-hidden="true" />{{ monthLabel }}</h3>
@@ -259,48 +433,66 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
             <div class="grid grid-cols-7 gap-0.5 text-center">
               <span v-for="weekday in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']" :key="weekday" class="py-0.5 text-[11px] text-ui-muted">{{ weekday }}</span>
               <template v-for="(day, index) in monthDays" :key="index">
-                <BaseButton type="button" v-if="day" class="availability-day" :class="{ 'is-selected': isSelected(day.date), 'is-today': day.date === todayInput() }" :disabled="locked || day.disabled" :data-date="day.date" :aria-label="formatDate(day.date)" :aria-pressed="isSelected(day.date)" @click="toggleDate(day.date)">{{ day.day }}</BaseButton>
+                <BaseButton type="button" v-if="day" class="availability-day" :class="{ 'is-selected': isSelected(day.date), 'is-today': day.date === todayInput(), 'is-existing': isExisting(day.date), 'is-editing': focusedDate === day.date, 'is-error': drafts.some(draft => draft.date === day.date && draft.error) }" :disabled="!canPick || day.disabled" :data-date="day.date" :aria-label="`${formatDate(day.date)}${day.date === todayInput() ? ', сьогодні' : ''}${isExisting(day.date) ? ', уже відкрито' : isSelected(day.date) ? ', обрано' : ''}`" :aria-current="day.date === todayInput() ? 'date' : undefined" :aria-pressed="isSelected(day.date)" @click="toggleDate(day.date)">
+                  <span>{{ day.day }}</span>
+                  <ExclamationTriangleIcon v-if="drafts.some(draft => draft.date === day.date && draft.error)" class="availability-day-status h-2.5 w-2.5" aria-hidden="true" />
+                  <ClockIcon v-else-if="isExisting(day.date)" class="availability-day-status h-2.5 w-2.5" aria-hidden="true" />
+                  <CheckIcon v-else-if="isSelected(day.date)" class="availability-day-status h-2.5 w-2.5" aria-hidden="true" />
+                  <span v-if="day.date === todayInput()" class="availability-today-dot" aria-hidden="true" />
+                </BaseButton>
                 <span v-else aria-hidden="true" />
               </template>
             </div>
             <div class="availability-shortcuts mt-1 flex flex-nowrap gap-1">
-              <BaseButton type="button" variant="secondary" size="sm" @click="selectMonth(true)"><BriefcaseIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Будні</BaseButton>
-              <BaseButton type="button" variant="secondary" size="sm" @click="selectMonth(false)"><CheckCircleIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Увесь місяць</BaseButton>
+              <BaseButton type="button" variant="secondary" size="sm" :disabled="!canPick" @click="selectMonth(true)"><BriefcaseIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Будні</BaseButton>
+              <BaseButton type="button" variant="secondary" size="sm" :disabled="!canPick" @click="selectMonth(false)"><CheckCircleIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Увесь місяць</BaseButton>
               <BaseButton type="button" variant="ghost" size="sm" :disabled="locked || !drafts.length" @click="drafts = []; formError = ''" aria-label="Очистити" title="Очистити"><TrashIcon class="h-3.5 w-3.5" aria-hidden="true" /><span class="hidden sm:inline">Очистити</span></BaseButton>
             </div>
 
+            <div class="availability-legend mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-ui-secondary">
+              <span><span class="legend-dot today" />Сьогодні</span><span><ClockIcon class="inline h-3 w-3" /> Вже відкрито</span><span><CheckIcon class="inline h-3 w-3" /> Нові дні</span><span><span class="legend-dot editing" />Редагування</span>
+            </div>
+            <section v-if="existingForFocusedDate.length" :data-existing-date="focusedDate" class="availability-existing mt-2 rounded-lg border border-ui p-2">
+              <h3 class="text-xs font-semibold text-ui-primary">{{ formatDate(focusedDate) }} · Уже відкрито</h3>
+              <ul class="mt-1 text-xs text-ui-secondary"><li v-for="window in existingForFocusedDate" :key="window.id">{{ timeInKyiv(window.start_at) }}–{{ timeInKyiv(window.end_at) }}<span v-if="dateInKyiv(window.start_at) !== dateInKyiv(new Date(new Date(window.end_at).getTime() - 1).toISOString())"> · {{ formatDate(dateInKyiv(window.start_at)) }} — {{ formatDate(dateInKyiv(new Date(new Date(window.end_at).getTime() - 1).toISOString())) }}</span></li></ul>
+              <p class="mt-1 text-[10px] text-ui-muted"><span v-if="hasSpanningWindow">Багатоденний інтервал не можна закрити дією для одного дня. </span>Бронювання не видаляються.</p>
+              <p v-if="closeError" class="availability-error mt-1 text-xs" role="alert">{{ closeError }}</p>
+              <BaseButton type="button" variant="danger-outline" size="sm" class="mt-2" :disabled="!canPick || hasSpanningWindow || focusedDate < todayInput()" @click="closeExistingDay">Закрити день</BaseButton>
+            </section>
           </section>
-          <div class="min-w-0 space-y-1 sm:space-y-2">
+          <div class="min-w-0 space-y-2.5">
           <section class="availability-common rounded-lg border border-ui p-1 sm:p-2">
             <h3 class="flex items-center gap-1.5 text-sm font-semibold text-ui-primary"><ClockIcon class="h-4 w-4" aria-hidden="true" />Спільний час</h3>
 
-            <div class="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_10px_minmax(0,1fr)_32px] items-end gap-1.5">
-              <BaseInput v-model="form.start_time" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" aria-label="Початок для всіх" input-class="base-control min-w-0 w-full px-2 py-1.5 text-sm" />
+            <div class="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_10px_minmax(0,1fr)_32px] items-center gap-1.5">
+              <BaseInput v-model="form.start_time" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-invalid="Boolean(commonError)" :aria-describedby="commonError ? fieldId('common-error') : fieldId('time-help')" aria-label="Початок для всіх" @input="commonError && (commonError = timeError(form.start_time, form.end_time))" @blur="commonError = timeError(form.start_time, form.end_time)" input-class="base-control min-w-0 w-full px-2 py-1.5 text-sm" />
               <span class="self-center text-center text-ui-muted" aria-hidden="true">-</span>
-              <BaseInput v-model="form.end_time" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" aria-label="Завершення для всіх" input-class="base-control min-w-0 w-full px-2 py-1.5 text-sm" />
+              <BaseInput v-model="form.end_time" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-invalid="Boolean(commonError)" :aria-describedby="commonError ? fieldId('common-error') : fieldId('time-help')" aria-label="Завершення для всіх" @input="commonError && (commonError = timeError(form.start_time, form.end_time))" @blur="commonError = timeError(form.start_time, form.end_time)" input-class="base-control min-w-0 w-full px-2 py-1.5 text-sm" />
               <BaseButton type="button" variant="success" class="flex h-8 w-8 items-center justify-center rounded-lg" aria-label="Застосувати до обраних" title="Застосувати до обраних" :disabled="locked || !drafts.length" @click="applyTimes"><CheckIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></BaseButton>
             </div>
+            <p :id="fieldId('time-help')" class="mt-1 text-[10px] text-ui-muted">ГГ:ХХ · {{ calendar.workdayStart }}–{{ calendar.workdayEnd }} · 24-годинний формат</p>
+            <p v-if="commonError" :id="fieldId('common-error')" class="availability-error mt-1 text-xs" role="alert">{{ commonError }}</p>
           </section>
           <section v-if="selectedDays.length" class="min-w-0" aria-label="Обрані дні">
             <h3 class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-ui-primary sm:text-sm" aria-live="polite"><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" />Обрано днів: {{ selectedDays.length }}</h3>
             <div class="availability-drafts grid grid-cols-2 gap-1 overflow-y-auto">
-              <div v-for="day in selectedDays" :key="day.date" :data-selected-date="day.date" class="availability-draft rounded-lg px-1 py-0.5 sm:px-2">
+              <div v-for="day in selectedDays" :key="day.date" :data-selected-date="day.date" :class="{ 'is-editing': focusedDate === day.date, 'is-error': day.error }" class="availability-draft rounded-lg px-1 py-0.5 sm:px-2">
                 <div class="availability-draft-row grid min-w-0 items-center gap-1">
-                  <span class="text-[10px] font-semibold text-ui-primary" :title="formatDate(day.date)">{{ compactDate(day.date) }}</span>
-                  <BaseInput v-model="day.start" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-label="`Початок ${day.date}`" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="day.error = ''" />
+                  <span class="text-[10px] font-semibold text-ui-primary" :title="formatDate(day.date)"><ExclamationTriangleIcon v-if="day.error" class="availability-error inline h-3 w-3" aria-hidden="true" />{{ compactDate(day.date) }}</span>
+                  <BaseInput v-model="day.start" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :id="fieldId('start', day.date)" :aria-invalid="Boolean(day.error)" :aria-describedby="day.error ? fieldId('error', day.date) : fieldId('time-help')" :aria-label="`Початок ${day.date}`" @focus="focusedDate = day.date" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="editDay(day)" @blur="validateDay(day)" />
                   <span class="text-center text-ui-muted" aria-hidden="true">-</span>
-                  <BaseInput v-model="day.end" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-label="`Завершення ${day.date}`" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="day.error = ''" />
+                  <BaseInput v-model="day.end" type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :spellcheck="false" :aria-invalid="Boolean(day.error)" :aria-describedby="day.error ? fieldId('error', day.date) : fieldId('time-help')" :aria-label="`Завершення ${day.date}`" @focus="focusedDate = day.date" required input-class="base-control min-w-0 w-full px-1 py-1 text-xs" @input="editDay(day)" @blur="validateDay(day)" />
                   <BaseButton type="button" class="availability-remove flex h-7 w-[18px] items-center justify-center rounded-lg" :aria-label="`Прибрати ${formatDate(day.date)}`" @click="toggleDate(day.date)"><XMarkIcon class="h-4 w-4" aria-hidden="true" /></BaseButton>
                 </div>
-                <p v-if="day.error" class="mt-1 text-xs text-red-500" role="alert">{{ day.error }}</p>
+                <p v-if="day.error" :id="fieldId('error', day.date)" class="availability-error mt-1 text-[10px]" role="alert">{{ day.error }}</p>
               </div>
             </div>
           </section>
           </div>
           </div>
-          <p v-if="formError" class="text-xs text-red-500" role="alert">{{ formError }}</p>
+          <div v-if="formError" class="availability-error text-xs" role="alert">{{ formError }} <BaseButton v-if="hasErrors" type="button" class="underline" @click="focusError">Перейти до помилки</BaseButton></div>
           <div class="backoffice-modal-actions">
-            <BaseButton type="submit" :disabled="locked || !drafts.length" :loading="saving" loading-label="Відкриття доступності" class="backoffice-modal-action-button backoffice-modal-action-success">
+            <BaseButton type="submit" :disabled="!canPick || !drafts.length" :loading="saving" loading-label="Відкриття доступності" class="backoffice-modal-action-button backoffice-modal-action-success">
               <LockOpenIcon class="h-4 w-4" aria-hidden="true" />
               Відкрити {{ drafts.length }} днів
             </BaseButton>
@@ -313,6 +505,7 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
 
 <style scoped>
 .availability-day {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 32px;
@@ -325,21 +518,54 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
   font-size: 13px;
   font-weight: 500;
 }
-.availability-day.is-today { border-color: var(--bo-accent); }
-.availability-day.is-selected {
-  background: var(--bo-accent) !important;
-  border-color: var(--bo-accent) !important;
-  color: var(--bo-on-action) !important;
-  font-weight: 700;
+.availability-day { background: color-mix(in srgb, var(--bo-surface-elevated) 65%, transparent); }
+.availability-day.is-existing {
+  background: linear-gradient(160deg, #4f7566, #3b5f52) !important;
+  color: #ffffff !important;
 }
+.availability-day.is-selected {
+  background: linear-gradient(160deg, #477950, #356540) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 2px 5px rgb(25 60 37 / 0.12);
+}
+.availability-day.is-editing {
+  background: linear-gradient(160deg, #3d6e94, #315f88) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 2px 6px rgb(30 65 95 / 0.18);
+}
+.availability-day.is-error {
+  background: linear-gradient(160deg, #a34b53, #84343d) !important;
+  color: #ffffff !important;
+}
+.availability-day-status {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  padding: 1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.17);
+  stroke-width: 2;
+}
+.availability-today-dot { position: absolute; bottom: 2px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--bo-warning); }
+.legend-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--bo-text-primary); margin-right: 3px; }
+.legend-dot.today { background: var(--bo-warning); }
+.legend-dot.editing { background: var(--bo-info); }
+.availability-error { color: var(--bo-danger-text); }
+.availability-existing { background: color-mix(in srgb, var(--bo-accent) 7%, transparent); }
+.availability-draft.is-editing { background: var(--bo-info-surface); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
+.availability-draft.is-error { background: var(--bo-danger-surface); box-shadow: none; }
 .availability-day:disabled { opacity: 0.3; cursor: not-allowed; }
-.availability-day:focus-visible { outline: 2px solid var(--bo-accent); outline-offset: 2px; }
+.availability-day:focus-visible { outline: 2px solid var(--bo-info); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) {
   .availability-day:not(:disabled):not(.is-selected):hover { background: var(--bo-surface-hover); }
 }
 </style>
 
 <style>
+/* Keep the dense list calm; the modal already supplies the glass backdrop. */
 .availability-draft {
   background: linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent), color-mix(in srgb, var(--bo-control) 82%, transparent);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
@@ -349,7 +575,10 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
   background: color-mix(in srgb, var(--bo-surface-elevated) 80%, transparent) !important;
   box-shadow: none !important;
 }
-.availability-modal .availability-draft-row input:focus-visible { outline: 2px solid var(--bo-accent); outline-offset: -2px; }
+.availability-modal .availability-draft-row input:focus-visible {
+  outline: 2px solid var(--bo-accent);
+  outline-offset: -2px;
+}
 .availability-remove, .availability-remove svg { color: var(--bo-danger-text) !important; }
 @media (hover: hover) and (pointer: fine) {
   .availability-remove:hover { background: var(--bo-danger-surface); }
@@ -362,18 +591,18 @@ onBeforeUnmount(() => { disposed = true; generation++; document.removeEventListe
   .availability-modal .availability-draft .availability-draft-row input.base-control { border-color: ButtonText !important; }
   .availability-remove, .availability-remove svg { color: ButtonText !important; }
 }
-.availability-modal .availability-draft-row { grid-template-columns: 34px minmax(0, 1fr) 6px minmax(0, 1fr) 28px; gap: 3px; }
-.availability-modal .availability-draft-row input { min-height: 36px !important; height: 36px; border-radius: 6px; font-size: 12px !important; padding-left: 2px !important; padding-right: 2px !important; text-align: center; }
-.availability-modal .availability-draft-row button { width: 28px; min-height: 36px; }
-.availability-modal .availability-drafts { grid-template-columns: minmax(0, 1fr); }
-.availability-drafts { max-height: clamp(160px, calc(100dvh - 430px), 420px); }
+.availability-draft-row { grid-template-columns: 28px minmax(0, 1fr) 6px minmax(0, 1fr) 18px; gap: 2px; }
+.availability-modal .availability-draft-row input { min-height: 28px !important; height: 28px; border-radius: 6px; font-size: 10px !important; padding-left: 1px !important; padding-right: 1px !important; text-align: center; }
+.availability-drafts { max-height: 216px; align-items: start; overscroll-behavior: contain; }
+.availability-common button { min-height: 32px; height: 32px; }
 .availability-calendar > div:first-child button { min-height: 28px; height: 28px; width: 28px; }
 .availability-shortcuts button { gap: 4px; padding: 4px 6px; white-space: nowrap; }
 .availability-modal .availability-layout > div > section:first-child input { min-height: 32px; height: 32px; padding-top: 4px; padding-bottom: 4px; }
 @media (max-width: 639px) {
+  .availability-drafts { max-height: 144px; }
   .availability-modal .base-modal__header button { min-height: 32px; height: 32px; width: 32px; }
   .availability-modal .availability-draft-row { gap: 2px; }
-  .availability-modal .availability-draft-row input { font-size: 12px; }
+  .availability-modal .availability-draft-row input { font-size: 10px; padding-left: 1px; padding-right: 1px; }
   .availability-modal .base-modal__header { padding: 6px; }
   .availability-modal .base-modal__header + div { padding: 6px; }
   .availability-modal .backoffice-modal-actions { margin-top: 4px; padding-top: 2px; padding-bottom: 0; }
