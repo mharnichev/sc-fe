@@ -123,3 +123,76 @@ for (const width of [390, 1440]) {
     await expect(edit).toBeVisible()
   })
 }
+
+for (const path of ['/my-bookings', '/bookings']) {
+  for (const width of [390, 1440]) {
+    test(`linked start end duration persists ${path} ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 })
+      const writes = await setup(page, path)
+      let dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: 'Редагувати час бронювання', exact: true }).click()
+      const start = dialog.getByLabel('Початок', { exact: true })
+      const end = dialog.getByLabel('Завершення', { exact: true })
+      const duration = dialog.getByLabel('Тривалість, хв', { exact: true })
+      await expect(start).toHaveValue('10:00')
+      await expect(end).toHaveValue('11:00')
+      await end.fill('12:00')
+      await expect(duration).toHaveValue('120')
+      await duration.fill('90')
+      await expect(end).toHaveValue('11:30')
+      await start.fill('12:00')
+      await expect(end).toHaveValue('13:30')
+      const form = duration.locator('xpath=ancestor::form')
+      const [a, b] = await form.locator('input[placeholder="ГГ:ХХ"]').evaluateAll(inputs => inputs.map(input => {
+        const { x, y } = input.getBoundingClientRect()
+        return { x, y }
+      }))
+      expect(Math.abs(a.y - b.y)).toBeLessThan(1)
+      expect(b.x).toBeGreaterThan(a.x)
+      await end.fill('11:00')
+      await form.getByRole('button', { name: 'Зберегти', exact: true }).click()
+      await expect(form.getByRole('alert')).toContainText('Завершення має бути пізніше')
+      expect(writes).toHaveLength(0)
+      await end.fill('13:15')
+      await expect(duration).toHaveValue('75')
+      await page.screenshot({ path: `output/booking-details/linked-time-${width}-${path === '/my-bookings' ? 'list' : 'calendar'}.png`, animations: 'disabled' })
+      await form.getByRole('button', { name: 'Зберегти', exact: true }).click()
+      await expect(dialog.getByRole('button', { name: 'Редагувати час бронювання', exact: true })).toBeVisible()
+      expect(writes[0]).toEqual({ path: '/api/v1/backoffice/masters/me/bookings/901', body: { start_at: '2026-10-27T10:00:00.000Z', end_at: '2026-10-27T11:15:00.000Z' } })
+      await dialog.getByRole('button', { name: 'Закрити', exact: true }).click()
+      if (path === '/my-bookings') await page.getByRole('button', { name: 'Переглянути бронювання', exact: true }).first().click()
+      else await page.getByRole('button', { name: /Тест редагування/ }).first().click()
+      dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: 'Редагувати час бронювання', exact: true }).click()
+      await expect(dialog.getByLabel('Початок', { exact: true })).toHaveValue('12:00')
+      await expect(dialog.getByLabel('Завершення', { exact: true })).toHaveValue('13:15')
+      await expect(dialog.getByLabel('Тривалість, хв', { exact: true })).toHaveValue('75')
+    })
+  }
+}
+
+for (const path of ['/my-bookings', '/bookings']) {
+  test(`failed schedule save retains draft and shows reason ${path}`, async ({ page }) => {
+    await setup(page, path)
+    let patches = 0
+    await page.route('**/masters/me/bookings/901', async route => {
+      if (route.request().method() !== 'PATCH') return route.fallback()
+      patches++
+      return route.fulfill({ status: 400, json: { detail: 'Slot is in the past' } })
+    })
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('button', { name: 'Редагувати час бронювання', exact: true }).click()
+    const start = dialog.getByLabel('Початок', { exact: true })
+    const end = dialog.getByLabel('Завершення', { exact: true })
+    await start.fill('12:00')
+    await end.fill('13:15')
+    const form = start.locator('xpath=ancestor::form')
+    await form.getByRole('button', { name: 'Зберегти', exact: true }).click()
+    await expect(form.getByRole('alert')).toContainText('Новий час початку вже минув')
+    await expect(start).toHaveValue('12:00')
+    await expect(end).toHaveValue('13:15')
+    await expect(dialog.getByLabel('Тривалість, хв', { exact: true })).toHaveValue('75')
+    await expect(form.getByRole('button', { name: 'Зберегти', exact: true })).toBeEnabled()
+    expect(patches).toBe(1)
+  })
+}

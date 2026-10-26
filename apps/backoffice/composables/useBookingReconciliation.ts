@@ -21,6 +21,8 @@ export const bookingActionErrorMessage = (cause: unknown, fallback: string) => {
     && detail.code === 'attributed_booking_cannot_be_deleted') {
     return 'Цей запис пов’язаний з акцією. Замість видалення скасуйте його, щоб зберегти історію.'
   }
+  if (detail === 'Slot is in the past') return 'Новий час початку вже минув. Виберіть майбутній час.'
+  if (detail === 'Booking must be within working hours 09:30-20:00 Europe/Kyiv') return 'Час послуги має бути в межах 09:30–20:00 за Києвом.'
   if (errorStatus(cause) === 403) return 'У вас немає доступу до цієї дії. Можливо, запис передано іншому майстру.'
   if (errorStatus(cause) === 404) return 'Цей запис більше недоступний. Оновіть дані або зверніться до адміністратора.'
   if (errorStatus(cause) === 409) return 'Дані запису або доступність часу змінилися. Перевірте актуальні дані та спробуйте ще раз.'
