@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recommendShopPrice } from '~/utils/shopPriceRecommendation'
 import { canManageCatalog } from '~/utils/catalogAccess'
 import { categoryPathLabels } from '~/utils/categoryPaths'
 import { ArrowPathIcon, CodeBracketIcon, CubeIcon, PhotoIcon, PlusIcon, TagIcon } from '@heroicons/vue/24/outline'
@@ -53,6 +54,11 @@ const form = reactive<ProductPayload>({
   brand_id: props.initialValue?.brand_id ?? null,
   category_id: props.initialValue?.category_id ?? null,
 })
+
+const shopPriceRecommendation = computed(() => recommendShopPrice(form.shop_price))
+const applyShopPriceRecommendation = () => {
+  if (shopPriceRecommendation.value !== null) form.shop_price = shopPriceRecommendation.value
+}
 
 const attributesText = ref(
   form.attributes_json ? JSON.stringify(form.attributes_json, null, 2) : '',
@@ -314,7 +320,20 @@ const submit = () => {
           <BaseInput label="SKU" :input-class="compactControlClass" v-model="form.sku" />
           <BaseInput label="Статус доступності" :input-class="compactControlClass" hint="Значення доступності з каталогу, наприклад in_stock." v-model="form.availability_status" placeholder="in_stock" />
           <BaseInput label="Ціна" :input-class="compactControlClass" hint="Базова ціна товару. Ціну сайту можна задати окремо." v-model.number="form.price" type="number" min="0.01" step="0.01" required />
-          <BaseInput label="Наша ціна в магазині" :input-class="compactControlClass" hint="Ціна для сайту та замовлень. Акції застосовуються до неї." v-model.number="form.shop_price" type="number" min="0.01" step="0.01" />
+          <div class="min-w-0 space-y-2">
+            <BaseInput :id="`${formId}-shop-price`" :aria-describedby="`${formId}-shop-price-policy ${formId}-shop-price-recommendation`" label="Наша ціна в магазині" :input-class="compactControlClass" hint="Ціна для сайту та замовлень. Акції застосовуються до неї." v-model.number="form.shop_price" type="number" min="0.01" step="0.01" />
+            <p :id="`${formId}-shop-price-policy`" class="text-xs text-ui-muted">
+              Підказка: найближча нижча ціла ціна із закінченням на 9, якщо зниження не перевищує 2%. Наприклад, 500 → 499 грн. Ви можете залишити будь-яку ціну; зміна застосовується лише кнопкою.
+            </p>
+            <div :id="`${formId}-shop-price-recommendation`" role="status" aria-live="polite" aria-atomic="true" class="text-xs text-ui-muted">
+              <template v-if="shopPriceRecommendation !== null">
+                <p>Рекомендація: {{ shopPriceRecommendation }} грн.</p>
+                <BaseButton type="button" variant="secondary" size="sm" class="mt-1" :disabled="loading || !catalogEditable" @click="applyShopPriceRecommendation">
+                  Застосувати {{ shopPriceRecommendation }} грн
+                </BaseButton>
+              </template>
+            </div>
+          </div>
           <BaseInput label="Рекомендована роздрібна ціна" :input-class="compactControlClass" v-model.number="form.recommended_retail_price" type="number" min="0" step="0.01" />
           <BaseInput label="Кількість на складі" :input-class="compactControlClass" hint="Поточний залишок товару." v-model.number="form.stock_quantity" type="number" min="0" />
           <BaseField label="Публікація" hint="Неактивний товар прихований від покупців." as="div" root-class="space-y-1.5 text-sm">
