@@ -59,7 +59,8 @@ const generatedId = useId()
 const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined) || (hasField.value ? `base-input-${generatedId}` : undefined))
 const hintId = computed(() => props.hint && fieldId.value ? `${fieldId.value}-hint` : undefined)
 const errorId = computed(() => props.error && fieldId.value ? `${fieldId.value}-error` : undefined)
-const describedBy = computed(() => errorId.value || hintId.value)
+const describedBy = computed(() => [...new Set([attrs['aria-describedby'], hintId.value, errorId.value].filter(Boolean).join(' ').split(/\s+/))].filter(Boolean).join(' ') || undefined)
+const ariaInvalid = computed(() => props.error ? true : attrs['aria-invalid'])
 const normalizedValue = computed(() => props.modelValue ?? props.value ?? '')
 const inputValue = computed(() => props.type === 'file' ? undefined : normalizedValue.value)
 
@@ -126,7 +127,7 @@ defineExpose({
       :readonly="readonly"
       :aria-label="attrs['aria-label'] || label || undefined"
       :aria-describedby="describedBy"
-      :aria-invalid="error ? true : undefined"
+      :aria-invalid="ariaInvalid"
       :class="['h-11', inputClass, attrsClass]"
       @input="handleInput"
       @change="emit('change', $event)"
@@ -155,7 +156,7 @@ defineExpose({
     :readonly="readonly"
     :aria-label="attrs['aria-label'] || label || undefined"
       :aria-describedby="describedBy"
-    :aria-invalid="error ? true : undefined"
+    :aria-invalid="ariaInvalid"
     :class="['h-11', inputClass, attrsClass]"
     @input="handleInput"
     @change="emit('change', $event)"
