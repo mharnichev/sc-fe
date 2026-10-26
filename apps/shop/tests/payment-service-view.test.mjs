@@ -10,6 +10,7 @@ Object.assign(globalThis, vue, {
   usePaymentDisplay: () => ({ paymentText: vue.computed(() => paymentCopy[locale.value]) }),
   useShopRuntimeDisplay,
   defineProps: () => ({ orderId: 42 }),
+  defineEmits: () => () => {},
   useOrderPayment: () => ({ payment, error, busy, refresh() {}, create() {} }),
   safePaymentUrl: value => value,
 })

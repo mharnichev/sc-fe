@@ -1,6 +1,14 @@
 import type { ProductDto } from '@shared-types'
 import { isProductUnavailable } from '~/utils/product-visibility'
 
+interface ToggleQueue {
+  tail: Promise<void>
+  cancelled: boolean
+  waiters: Set<() => void>
+}
+
+const toggleQueues = new WeakMap<object, ToggleQueue>()
+
 interface CartItem {
   product: ProductDto
   quantity: number
@@ -44,6 +52,12 @@ export const useCartStore = defineStore('cart', {
   },
   actions: {
     prepareSession(scope: string, preserveGuest = false) {
+      const queue = toggleQueues.get(this)
+      toggleQueues.delete(this)
+      if (queue) {
+        queue.cancelled = true
+        for (const finish of queue.waiters) finish()
+      }
       this.syncing = false
       this.error = ''
       if (preserveGuest && this.ownerScope === 'guest' && scope !== 'guest') return
@@ -54,13 +68,58 @@ export const useCartStore = defineStore('cart', {
       this.items = items.filter(item => item.quantity > 0)
     },
     async toggle(product: ProductDto) {
-      const isInCart = this.items.some(item => item.product.id === product.id)
-      if (isInCart) {
-        await this.remove(product.id)
-        return
+      const isCurrentSession = useCustomerAuthStore().captureSession()
+      const queue = toggleQueues.get(this) ?? { tail: Promise.resolve(), cancelled: false, waiters: new Set<() => void>() }
+      toggleQueues.set(this, queue)
+      const previous = queue.tail
+      const turn = new Promise<void>(resolve => {
+        const finish = () => {
+          queue.waiters.delete(finish)
+          resolve()
+        }
+        queue.waiters.add(finish)
+        previous.then(finish, finish)
+      })
+      const operation = turn.then(async () => {
+        if (queue.cancelled || !isCurrentSession()) return
+        if (this.syncing) {
+          await new Promise<void>(resolve => {
+            const finish = () => {
+              stop()
+              queue.waiters.delete(finish)
+              resolve()
+            }
+            const stop = watch(() => this.syncing, syncing => {
+              if (!syncing) finish()
+            }, { flush: 'sync' })
+            queue.waiters.add(finish)
+          })
+        }
+        if (queue.cancelled || !isCurrentSession()) return
+        if (this.items.some(item => item.product.id === product.id)) {
+          await this.remove(product.id)
+        }
+        else {
+          await this.add(product)
+        }
+      })
+      queue.tail = operation
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const finish = () => {
+            queue.waiters.delete(finish)
+            resolve()
+          }
+          queue.waiters.add(finish)
+          operation.then(finish, error => {
+            queue.waiters.delete(finish)
+            reject(error)
+          })
+        })
       }
-
-      await this.add(product)
+      finally {
+        if (toggleQueues.get(this) === queue && queue.tail === operation) toggleQueues.delete(this)
+      }
     },
     async refreshProduct(product: ProductDto) {
       const isCurrentSession = useCustomerAuthStore().captureSession()

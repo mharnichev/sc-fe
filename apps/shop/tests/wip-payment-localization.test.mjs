@@ -23,13 +23,14 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange };')
   const render = vue.compile(file.split('<template>')[1].split('</template>')[0])
   const html = () => {
     const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
     app.component('CustomerAuthDialog', { props: ['label'], setup: props => () => vue.h('button', props.label) })
+    app.component('BaseModal', { props: ['modelValue'], setup: (props, { slots }) => () => props.modelValue ? vue.h('dialog', slots.default?.()) : null })
     return renderToString(app)
   }
   const statuses = {

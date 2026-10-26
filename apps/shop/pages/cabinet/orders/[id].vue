@@ -102,7 +102,7 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
         <OrderProjections v-if="shopOrderHasPaymentProjection(order) || shopOrderHasTestProjection(order) || shopOrderHasCheckboxProjection(order) || shopOrderHasNPReturnProjection(order) || shopOrderHasPaymentResolutionProjection(order)" :order="order" />
         <p v-if="state.error" role="alert">{{ runtimeMessage(state.error) }} {{ trackingText.preserved }}</p>
         <OrderCallbackPreference :requested="order.callback_requested" />
-        <OrderPayment v-if="order.payment_method === 'onlineCard' || order.payment_channel === 'online_monobank'" :order-id="order.id" />
+        <OrderPayment v-if="order.payment_method === 'onlineCard' || order.payment_channel === 'online_monobank'" :order-id="order.id" :order-path="`/cabinet/orders/${order.id}`" @method-changed="loadOrder" />
         <OrderDocuments v-if="order.preliminary_documents?.length" :order-id="order.id" :documents="order.preliminary_documents" />
         <section class="order-detail__section">
           <h2>{{ terms.cabinet.items }}</h2>

@@ -98,4 +98,24 @@ export interface OnlinePayment {
   amount_minor: number
   currency: 'UAH'
   retry_after_seconds: number
+  reason?: string
+  actions?: {
+    start: boolean
+    continue_payment: boolean
+    refresh: boolean
+    retry: boolean
+    change_method: boolean
+    contact_support: boolean
+  }
+  revision?: number
+  attempt_id?: number | null
+  available_payment_methods?: string[]
+  order?: {
+    id: number
+    number: string
+    status: string
+    fulfillment_method: string | null
+    item_count: number
+    payment_method: string | null
+  } | null
 }

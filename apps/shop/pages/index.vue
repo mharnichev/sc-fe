@@ -95,7 +95,11 @@ useSeo(
         </BaseButton>
       </div>
 
-      <ul class="main-page__popular-list" :aria-label="terms.home.popularTitle">
+      <ul
+        class="main-page__popular-list"
+        :class="{ 'main-page__popular-list--single-row': !arePopularProductsLoading && popularProducts.length <= 4 }"
+        :aria-label="terms.home.popularTitle"
+      >
         <template v-if="arePopularProductsLoading">
           <li v-for="i in 12" :key="`popular-loading-${i}`" class="main-page__popular-card">
             <ProductCardSkeleton />
@@ -199,6 +203,10 @@ useSeo(
   .main-page__popular-list {
     grid-auto-columns: minmax(16.75rem, calc((100% - 2.25rem) / 4));
     grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .main-page__popular-list--single-row {
+    grid-template-rows: auto;
   }
 }
 </style>

@@ -104,7 +104,7 @@ for (const width of [320, 390, 768, 1440]) {
       const name = await recent.locator('.catalog-product-tile__mobile-name').first().boundingBox()
       expect(name!.width).toBeGreaterThanOrEqual(recentBox!.width - 40)
       const purchase = recent.locator('.catalog-product-tile__mobile-purchase-row').first()
-      const badge = purchase.locator('.catalog-product-tile__volume')
+      const badge = recent.locator('.catalog-product-tile__mobile-meta').first().locator('.catalog-product-tile__volume')
       expect(await badge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
       expect(await badge.evaluate(element => {
         const style = getComputedStyle(element)
@@ -113,7 +113,7 @@ for (const width of [320, 390, 768, 1440]) {
       const [badgeBox, buttonBox] = await Promise.all([badge.boundingBox(), purchase.locator('.catalog-product-tile__cart').boundingBox()])
       expect(badgeBox!.x + badgeBox!.width <= buttonBox!.x + 1 || badgeBox!.y + badgeBox!.height <= buttonBox!.y + 1).toBe(true)
       const longRow = recent.locator('.catalog-product-tile__mobile-purchase-row').nth(1)
-      const longBadge = longRow.locator('.catalog-product-tile__volume')
+      const longBadge = recent.locator('.catalog-product-tile__mobile-meta').nth(1).locator('.catalog-product-tile__volume')
       const [longBox, longButton] = await Promise.all([longBadge.boundingBox(), longRow.locator('.catalog-product-tile__cart').boundingBox()])
       expect(await longBadge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
       expect(longBox!.x + longBox!.width <= longButton!.x + 1 || longBox!.y + longBox!.height <= longButton!.y + 1).toBe(true)
@@ -126,6 +126,10 @@ for (const width of [320, 390, 768, 1440]) {
         .every(element => { const rect = element.getBoundingClientRect(); return rect.left >= box.left - 1 && rect.right <= box.right + 1 })
     })
     expect(fitted).toBe(true)
+    for (const tile of await recent.locator('.catalog-product-tile').all()) {
+      const [rating, favorite] = await Promise.all([tile.locator('.catalog-product-tile__rating').boundingBox(), tile.locator('.catalog-product-tile__favorite').boundingBox()])
+      expect(rating && favorite && (rating.y + rating.height <= favorite.y || favorite.y + favorite.height <= rating.y || rating.x + rating.width <= favorite.x || favorite.x + favorite.width <= rating.x)).toBe(true)
+    }
     await page.screenshot({ path: `output/recently-viewed-preview/${width}-start.png`, animations: 'disabled' })
     await expect(page.locator('vite-error-overlay')).toHaveCount(0)
     await expect(page.locator('vite-plugin-checker-error-overlay')).toHaveCount(0)

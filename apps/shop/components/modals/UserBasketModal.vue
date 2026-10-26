@@ -4,7 +4,7 @@ import FeedbackState from '~/components/ui/FeedbackState.vue'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 const { runtimeMessage } = useShopRuntimeDisplay()
 
-const { productDisplayName } = useProductDisplay()
+const { productDisplayName, productDisplayType } = useProductDisplay()
 
 type BasketSidebarTab = 'basket' | 'recently-viewed'
 
@@ -17,6 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const cart = useCartStore()
+const favorites = useFavoritesStore()
 const modal = useModalStore()
 const recentlyViewed = useRecentlyViewedStore()
 const { terms } = useShopLocale()
@@ -109,40 +110,51 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
             <article class="basket-sidebar__item" :class="{ 'basket-sidebar__item--unavailable': isProductUnavailable(item.product) }">
               <img :src="productImage(item.product)" :alt="productDisplayName(item.product)" class="basket-sidebar__image">
               <div class="basket-sidebar__body">
-                <div>
-                  <p class="basket-sidebar__brand">{{ item.product.brand.name }}</p>
-                  <div class="basket-sidebar__title-row">
-                    <div class="basket-sidebar__title-copy">
-                      <NuxtLink v-if="!isProductHidden(item.product)" :to="`/products/${item.product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
-                        <BaseHoverUnderlineText>{{ productDisplayName(item.product) }}</BaseHoverUnderlineText>
-                      </NuxtLink>
-                      <span v-else class="basket-sidebar__name basket-sidebar__name--unavailable" aria-disabled="true">
-                        {{ productDisplayName(item.product) }}
-                      </span>
-                      <p v-if="isProductUnavailable(item.product)" class="basket-sidebar__unavailable">
-                        {{ terms.basket.unavailable }}
-                      </p>
-                      <div class="basket-sidebar__meta">
-                        <span>{{ formatPrice(item.product.price) }}</span>
-                      </div>
-                    </div>
-                    <div class="basket-sidebar__actions">
-                      <BaseQuantityStepper
-                        class="basket-sidebar__qty"
-                        variant="stacked"
-                        :model-value="item.quantity"
-                        :min="0"
-                        :max="cart.maxQuantity(item.product, item.quantity)"
-                        :disabled="cart.syncing"
-                        :disable-increase="isProductUnavailable(item.product)"
-                        :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
-                        @update:model-value="cart.update(item.product.id, $event)"
-                      />
-                      <BaseButton class="basket-sidebar__remove" type="button" variant="text" @click="cart.remove(item.product.id)">
-                        {{ terms.common.remove }}
-                      </BaseButton>
-                    </div>
+                <div class="basket-sidebar__title-row">
+                  <div class="basket-sidebar__title-copy">
+                    <p class="basket-sidebar__brand">{{ item.product.brand.name }}</p>
+                    <NuxtLink v-if="!isProductHidden(item.product)" :to="`/products/${item.product.slug}`" class="basket-sidebar__name" @click="hideBasketModal">
+                      <BaseHoverUnderlineText>{{ productDisplayName(item.product) }}</BaseHoverUnderlineText>
+                    </NuxtLink>
+                    <span v-else class="basket-sidebar__name basket-sidebar__name--unavailable" aria-disabled="true">
+                      {{ productDisplayName(item.product) }}
+                    </span>
+                    <p v-if="productDisplayType(item.product)" class="basket-sidebar__type">{{ productDisplayType(item.product) }}</p>
+                    <p v-if="isProductUnavailable(item.product)" class="basket-sidebar__unavailable">
+                      {{ terms.basket.unavailable }}
+                    </p>
                   </div>
+                  <p class="basket-sidebar__meta">{{ formatPrice(item.product.price) }}</p>
+                </div>
+                <BaseQuantityStepper
+                  class="basket-sidebar__qty"
+                  variant="stacked"
+                  :model-value="item.quantity"
+                  :min="0"
+                  :max="cart.maxQuantity(item.product, item.quantity)"
+                  :disabled="cart.syncing"
+                  :disable-increase="isProductUnavailable(item.product)"
+                  :aria-label="terms.checkout.quantityFor(productDisplayName(item.product))"
+                  @update:model-value="cart.update(item.product.id, $event)"
+                />
+                <div class="basket-sidebar__actions">
+                  <BaseButton class="basket-sidebar__remove" type="button" variant="text" :disabled="cart.syncing" @click="cart.remove(item.product.id)">
+                    <BaseHoverUnderlineText :disabled="cart.syncing">{{ terms.common.remove }}</BaseHoverUnderlineText>
+                  </BaseButton>
+                  <BaseButton
+                    class="basket-sidebar__remove"
+                    :class="{ 'basket-sidebar__favorite--active': favorites.has(item.product.id) }"
+                    type="button"
+                    variant="text"
+                    :disabled="favorites.syncing || (isProductUnavailable(item.product) && !favorites.has(item.product.id))"
+                    :aria-pressed="favorites.has(item.product.id)"
+                    @click="favorites.toggle(item.product.id, item.product)"
+                  >
+                    <BaseIcon name="heart" size="xxs" effect="heart" />
+                    <BaseHoverUnderlineText :disabled="favorites.syncing || (isProductUnavailable(item.product) && !favorites.has(item.product.id))">
+                      {{ favorites.has(item.product.id) ? terms.product.removeFavorite : terms.product.saveFavorite }}
+                    </BaseHoverUnderlineText>
+                  </BaseButton>
                 </div>
               </div>
             </article>
@@ -405,17 +417,29 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
   font-weight: 600;
 }
 
-.basket-sidebar__meta {
+.basket-sidebar__type {
   margin-top: 0.3rem;
+  color: #737373;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.basket-sidebar__qty {
+  justify-self: start;
+}
+
+.basket-sidebar__meta {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 0.85rem;
   font-weight: 800;
 }
 
 .basket-sidebar__actions {
-  display: grid;
-  flex: 0 0 auto;
-  justify-items: center;
-  gap: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
 }
 
 .basket-sidebar__remove {
@@ -424,6 +448,31 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
   font-size: 0.75rem;
   font-weight: 700;
+  text-decoration: none;
+}
+
+.basket-sidebar__favorite--active :deep(.base-icon) {
+  color: #c01818;
+}
+
+.basket-sidebar__favorite--active :deep(svg) {
+  fill: currentColor;
+}
+
+@media (max-width: 479px) {
+  .basket-sidebar__item {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding-inline: 0;
+  }
+
+  .basket-sidebar__title-row {
+    gap: 0.5rem;
+  }
+
+  .basket-sidebar__meta {
+    font-size: 0.75rem;
+  }
 }
 
 .basket-sidebar__empty {
@@ -449,14 +498,14 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
   white-space: nowrap;
 }
 
-.basket-sidebar__unavailable-summary {
-  color: #a16207;
+.basket-sidebar__discount-note {
+  color: #737373;
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
-.basket-sidebar__discount-note {
-  color: #737373;
+.basket-sidebar__unavailable-summary {
+  color: #a16207;
   font-size: 0.75rem;
   line-height: 1.45;
 }

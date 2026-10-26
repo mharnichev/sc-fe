@@ -3,7 +3,7 @@ import myAppointmentsCalendarImage from '~/assets/images/customer-activity/my-ap
 import bookEngImage from '~/assets/images/booking/booking-en.webp'
 import bookUaImage from '~/assets/images/booking/booking-ua.webp'
 import { isDobrodeskEnabled, isDobrodeskPublicRoute } from '~/utils/dobrodesk'
-import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleBottomCenterTextIcon } from '@heroicons/vue/24/outline'
 import { acquireBodyScrollLock, releaseBodyScrollLock } from '~/utils/bodyScrollLock'
 
 const supportRoute = useRoute()
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
       :aria-label="locale === 'en' ? 'Open support chat' : 'Відкрити чат підтримки'"
       @click="supportOpenRequest++"
     >
-      <ChatBubbleLeftRightIcon class="h-7 w-7" aria-hidden="true" />
+      <ChatBubbleBottomCenterTextIcon class="h-7 w-7" aria-hidden="true" />
     </button>
     <button
       type="button"

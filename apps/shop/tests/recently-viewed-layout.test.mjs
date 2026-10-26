@@ -88,7 +88,12 @@ test('mount observes both grid and viewport; unmount releases observer and resiz
 test('tile presentation retains localized metadata, cart guards, hidden links and review-only ratings', async () => {
   const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
   assert.match(tile, /localizedPackageSize\(typeof props\.product\.package_size === 'string'/)
-  assert.equal(tile.match(/:disabled="cart\.syncing \|\| \(isUnavailable && !isInCart\)"/g)?.length, 2)
+  assert.equal(tile.match(/:disabled="cartPending \|\| \(isUnavailable && !isInCart\)"/g)?.length, 2)
+  assert.equal(tile.match(/:aria-busy="cartPending"/g)?.length, 2)
+  assert.equal(tile.match(/:aria-label="isInCart \? terms\.product\.removeFromCart : \(isUnavailable \? unavailableLabel : terms\.product\.addToCart\)"/g)?.length, 2)
+  assert.equal(tile.match(/isInCart \? inCartLabel : \(isUnavailable \? unavailableLabel : buyLabel\)/g)?.length, 2)
+  assert.match(tile, /if \(cartPending\.value\) return/)
+  assert.match(tile, /finally\s*\{\s*cartPending\.value = false/)
   assert.equal(tile.match(/:is="isHidden \? 'div' : NuxtLink"/g)?.length, 3)
   assert.match(tile, /Number\(product\.average_rating\) > 0 \|\| product\.reviews_count > 0/)
   assert.match(tile, /await cart\.toggle\(props\.product\)/)
@@ -103,6 +108,64 @@ test('persisted malformed package metadata cannot crash tile computation', async
       props: { product: { package_size: value } }, locale: { value: 'en' }, localizedPackageSize: value => value,
     })
     assert.equal(result, typeof value === 'string' ? value.trim() : '')
+  }
+})
+
+test('tile pending state rejects duplicate clicks and resets after success or failure', async () => {
+  const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
+  const handler = tile.slice(tile.indexOf('const cartPending ='), tile.indexOf('</script>'))
+  for (const fails of [false, true]) {
+    let finish, calls = 0
+    const pending = new Promise((resolve, reject) => { finish = () => fails ? reject(new Error('offline')) : resolve() })
+    const context = vm.createContext({ ref: value => ({ value }), props: { product: { id: 1 } }, cart: { toggle: () => { calls++; return pending } } })
+    vm.runInContext(handler + '\nglobalThis.handlers = { cartPending, toggleCart }', context)
+    const first = context.handlers.toggleCart()
+    assert.equal(context.handlers.cartPending.value, true)
+    await context.handlers.toggleCart()
+    assert.equal(calls, 1)
+    finish()
+    if (fails) await assert.rejects(first, /offline/)
+    else await first
+    assert.equal(context.handlers.cartPending.value, false)
+  }
+})
+
+test('mobile purchase row wraps full-size controls instead of shrinking or clipping prices', async () => {
+  const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
+  const mobile = tile.slice(tile.indexOf('@media (max-width: 519px)'))
+  assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row\s*\{[^}]*flex-wrap: wrap/s)
+  assert.match(mobile, /\.catalog-product-tile__mobile-layout \.catalog-product-tile__prices\s*\{[^}]*min-width: min-content;[^}]*flex: 0 0 auto/s)
+  assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row \.catalog-product-tile__cart\s*\{[^}]*max-width: 100%;[^}]*min-height: 2.75rem;[^}]*font-size: 12px;[^}]*white-space: normal/s)
+  assert.doesNotMatch(mobile, /font-size: [89]px/)
+})
+
+test('favorite uses article-relative placement below ratings, independent of metadata height', async () => {
+  const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
+  assert.match(tile, /<BaseButton\s+class="catalog-product-tile__favorite"[^]*?<\/BaseButton>\s*<div class="catalog-product-tile__body">/)
+  assert.match(tile, /\.catalog-product-tile__favorite\s*\{[^}]*position: absolute;\s*top: 3rem;\s*right: 0.75rem;\s*z-index: 3/s)
+  assert.match(tile, /\.catalog-product-tile__rating\s*\{[^}]*top: 1rem/s)
+  const mobile = tile.slice(tile.indexOf('@media (max-width: 519px)'))
+  assert.match(mobile, /\.catalog-product-tile__favorite,\s*\.catalog-product-tile__bottom\s*\{\s*opacity: 1;\s*pointer-events: auto;/)
+})
+
+test('release layout retains base-aware brands, basket controls and small home rows', async () => {
+  const brand = await readFile(new URL('../components/BrandSlider.vue', import.meta.url), 'utf8')
+  assert.match(brand, /shopAsset\(localBrandLogoUrl\(brand.slug\)\)/)
+  assert.match(brand, /grid-template-columns: auto minmax\(0, 1fr\) auto/)
+  const basket = await readFile(new URL('../components/modals/UserBasketModal.vue', import.meta.url), 'utf8')
+  assert.match(basket, /favorites\.toggle\(item.product.id, item.product\)/)
+  assert.match(basket, /:aria-pressed="favorites.has\(item.product.id\)"/)
+  assert.match(basket, /:disable-increase="isProductUnavailable\(item.product\)"/)
+  const home = await readFile(new URL('../pages/index.vue', import.meta.url), 'utf8')
+  assert.match(home, /!arePopularProductsLoading && popularProducts.length <= 4/)
+  assert.match(home, /main-page__popular-list--single-row\s*\{\s*grid-template-rows: auto/)
+  const bar = await readFile(new URL('../components/base/BaseBottomBar.vue', import.meta.url), 'utf8')
+  assert.match(bar, /base-bottom-bar--compact/)
+  assert.match(bar, /prefers-reduced-motion: reduce/)
+  for (const name of ['product-review', 'product-buy-arrow']) {
+    const icon = await readFile(new URL(`../public/lehko/icons/default/${name}.svg`, import.meta.url), 'utf8')
+    assert.match(icon, /<svg/)
+    assert.match(icon, /viewBox=/)
   }
 })
 

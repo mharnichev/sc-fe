@@ -205,84 +205,87 @@ onBeforeUnmount(() => {
         <p>{{ terms.home.brandsDescription }}</p>
       </div>
 
-      <div class="brand-slider__controls">
-        <BaseButton
-          type="button"
-          variant="outline-dark"
-          shape="circle"
-          :aria-label="terms.home.previousBrands"
-          :disabled="!canScrollBack"
-          @click="scrollBrands(-1)"
-        >
-          <BaseIcon name="chevron-left" size="xxs" />
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="outline-dark"
-          shape="circle"
-          :aria-label="terms.home.nextBrands"
-          :disabled="!canScrollForward"
-          @click="scrollBrands(1)"
-        >
-          <BaseIcon name="chevron-right" size="xxs" />
-        </BaseButton>
-      </div>
     </div>
 
-    <div
-      ref="viewport"
-      class="brand-slider__viewport"
-      :class="{ 'brand-slider__viewport--animating': isScrollAnimating }"
-      role="region"
-      :aria-label="terms.home.brandsSliderLabel"
-      tabindex="0"
-      @scroll.passive="updateControls"
-      @mouseenter="stopAutoScroll"
-      @mouseleave="startAutoScroll"
-      @focusin="stopAutoScroll"
-      @focusout="startAutoScroll"
-      @pointerdown="stopScrollAnimation"
-      @wheel.passive="stopScrollAnimation"
-    >
-      <ul class="brand-slider__track">
-        <template v-if="pending">
-          <li v-for="index in 5" :key="`brand-skeleton-${index}`" class="brand-slider__skeleton" aria-hidden="true">
-            <span />
-          </li>
-        </template>
-        <template v-else>
-          <li v-for="brand in visibleBrands" :key="brand.id" class="brand-slider__item">
-            <NuxtLink
-              class="brand-slider__card"
-              :class="{ 'brand-slider__card--leaving': leavingBrandIds.has(brand.id) }"
-              :to="{ path: '/catalog', query: { brand: brand.slug } }"
-              :aria-label="terms.home.viewBrand(brand.name)"
-              @mouseenter="markBrandEntering(brand.id)"
-              @mouseleave="markBrandLeaving(brand.id)"
-              @focus="markBrandEntering(brand.id)"
-              @blur="markBrandLeaving(brand.id)"
-            >
-              <span class="brand-slider__logo">
-                <span
-                  v-if="isMonochromeBrandLogo(brand.slug)"
-                  class="brand-slider__logo-mask"
-                  :style="brandLogoMaskStyle(brand)"
-                  role="img"
-                  :aria-label="brand.name"
-                />
-                <img
-                  v-else-if="brandLogoUrl(brand)"
-                  :src="brandLogoUrl(brand)"
-                  :alt="brand.name"
-                  width="240"
-                  height="120"
-                  loading="lazy"
-                >
-              </span>
-            </NuxtLink>
-          </li>
-        </template>
-      </ul>
+    <div class="brand-slider__carousel">
+      <BaseButton
+        class="brand-slider__previous"
+        type="button"
+        variant="outline-dark"
+        shape="circle"
+        :aria-label="terms.home.previousBrands"
+        :disabled="!canScrollBack"
+        @click="scrollBrands(-1)"
+      >
+        <BaseIcon name="chevron-left" size="xxs" />
+      </BaseButton>
+
+      <div
+        ref="viewport"
+        class="brand-slider__viewport"
+        :class="{ 'brand-slider__viewport--animating': isScrollAnimating }"
+        role="region"
+        :aria-label="terms.home.brandsSliderLabel"
+        tabindex="0"
+        @scroll.passive="updateControls"
+        @mouseenter="stopAutoScroll"
+        @mouseleave="startAutoScroll"
+        @focusin="stopAutoScroll"
+        @focusout="startAutoScroll"
+        @pointerdown="stopScrollAnimation"
+        @wheel.passive="stopScrollAnimation"
+      >
+        <ul class="brand-slider__track">
+          <template v-if="pending">
+            <li v-for="index in 5" :key="`brand-skeleton-${index}`" class="brand-slider__skeleton" aria-hidden="true">
+              <span />
+            </li>
+          </template>
+          <template v-else>
+            <li v-for="brand in visibleBrands" :key="brand.id" class="brand-slider__item">
+              <NuxtLink
+                class="brand-slider__card"
+                :class="{ 'brand-slider__card--leaving': leavingBrandIds.has(brand.id) }"
+                :to="{ path: '/catalog', query: { brand: brand.slug } }"
+                :aria-label="terms.home.viewBrand(brand.name)"
+                @mouseenter="markBrandEntering(brand.id)"
+                @mouseleave="markBrandLeaving(brand.id)"
+                @focus="markBrandEntering(brand.id)"
+                @blur="markBrandLeaving(brand.id)"
+              >
+                <span class="brand-slider__logo">
+                  <span
+                    v-if="isMonochromeBrandLogo(brand.slug)"
+                    class="brand-slider__logo-mask"
+                    :style="brandLogoMaskStyle(brand)"
+                    role="img"
+                    :aria-label="brand.name"
+                  />
+                  <img
+                    v-else-if="brandLogoUrl(brand)"
+                    :src="brandLogoUrl(brand)"
+                    :alt="brand.name"
+                    width="240"
+                    height="120"
+                    loading="lazy"
+                  >
+                </span>
+              </NuxtLink>
+            </li>
+          </template>
+        </ul>
+      </div>
+      <BaseButton
+        class="brand-slider__next"
+        type="button"
+        variant="outline-dark"
+        shape="circle"
+        :aria-label="terms.home.nextBrands"
+        :disabled="!canScrollForward"
+        @click="scrollBrands(1)"
+      >
+        <BaseIcon name="chevron-right" size="xxs" />
+      </BaseButton>
     </div>
   </section>
 </template>
@@ -319,10 +322,20 @@ onBeforeUnmount(() => {
   line-height: 1.75rem;
 }
 
-.brand-slider__controls {
-  display: flex;
-  flex: 0 0 auto;
+.brand-slider__carousel {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.brand-slider__previous,
+.brand-slider__next {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
 }
 
 .brand-slider__viewport {
