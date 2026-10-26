@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BanknotesIcon, CalendarDaysIcon, ChatBubbleLeftEllipsisIcon, CheckCircleIcon, ChevronDownIcon, ClipboardDocumentIcon, ClockIcon, EyeIcon, PencilIcon, PhoneIcon, PlayIcon, ReceiptPercentIcon, StopIcon, UserIcon, XCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { bookingEndTime, bookingTimeDuration, parseBookingTime } from '~/utils/bookingScheduleTime'
 import type { Booking, BookingPricingPayload, BookingSchedulePayload, BookingStatus } from '~/composables/useBackofficeApi'
 import type { Master, Promotion, Service } from '~/composables/useBackofficeApi'
 
@@ -57,6 +58,7 @@ const allowed = computed(() => props.booking?.status === 'completed' ? [] : prop
 const scheduleForm = reactive({
   date: '',
   start_time: '',
+  end_time: '',
   duration_minutes: 30,
 })
 const serviceForm = reactive({
@@ -122,6 +124,7 @@ const resetScheduleForm = () => {
   scheduleForm.date = dateInputFromDateTime(bookingStart(props.booking))
   scheduleForm.start_time = timeInputFromDateTime(bookingStart(props.booking))
   scheduleForm.duration_minutes = bookingDurationMinutes(props.booking)
+  scheduleForm.end_time = timeInputFromDateTime(bookingEnd(props.booking))
   scheduleError.value = ''
   scheduleEditing.value = false
 }
@@ -242,22 +245,45 @@ const statusActionIcon = (status: BookingStatus) => {
   return ClockIcon
 }
 
+const setScheduleStart = (value: unknown) => {
+  scheduleForm.start_time = String(value ?? '')
+  scheduleForm.end_time = bookingEndTime(scheduleForm.start_time, scheduleForm.duration_minutes)
+  scheduleError.value = ''
+}
+const setScheduleEnd = (value: unknown) => {
+  scheduleForm.end_time = String(value ?? '')
+  const duration = bookingTimeDuration(scheduleForm.start_time, scheduleForm.end_time)
+  if (duration !== null) scheduleForm.duration_minutes = duration
+  scheduleError.value = ''
+}
+const setScheduleDuration = (value: unknown) => {
+  scheduleForm.duration_minutes = Number(value)
+  scheduleForm.end_time = bookingEndTime(scheduleForm.start_time, scheduleForm.duration_minutes)
+  scheduleError.value = ''
+}
+const scheduleErrorId = `booking-schedule-error-${useId()}`
+
 const submitSchedule = () => {
   if (interactionBusy.value || !canEditBooking.value) return
   scheduleError.value = ''
-  if (!scheduleForm.date || !scheduleForm.start_time) {
+  if (!scheduleForm.date || parseBookingTime(scheduleForm.start_time) === null) {
     scheduleError.value = 'Вкажіть дату та час початку.'
     toast.warning(scheduleError.value)
     return
   }
-  if (!Number.isFinite(scheduleForm.duration_minutes) || scheduleForm.duration_minutes < 1) {
-    scheduleError.value = 'Тривалість має бути більше 0 хвилин.'
+  if (!Number.isInteger(scheduleForm.duration_minutes) || scheduleForm.duration_minutes < 1) {
+    scheduleError.value = 'Тривалість має бути цілим числом хвилин, більшим за 0.'
     toast.warning(scheduleError.value)
     return
   }
 
+  if (bookingTimeDuration(scheduleForm.start_time, scheduleForm.end_time) === null) {
+    scheduleError.value = 'Завершення має бути пізніше початку в межах одного дня (ГГ:ХХ, 24 години).'
+    toast.warning(scheduleError.value)
+    return
+  }
   const startAt = toKyivIso(scheduleForm.date, scheduleForm.start_time)
-  const endAt = new Date(new Date(startAt).getTime() + scheduleForm.duration_minutes * 60000).toISOString()
+  const endAt = toKyivIso(scheduleForm.date, scheduleForm.end_time)
   emit('updateSchedule', { start_at: startAt, end_at: endAt })
 }
 
@@ -335,7 +361,8 @@ const confirmDelete = () => {
   emit('delete')
 }
 
-watch(() => [props.booking?.id, props.booking?.status], () => {
+watch(() => [props.booking?.id, props.booking?.status], (values, previous) => {
+  if (previous && values.every((value, index) => value === previous[index])) return
   scheduleEditing.value = false
   serviceEditing.value = false
   pricingEditing.value = false
@@ -344,7 +371,9 @@ watch(() => [props.booking?.id, props.booking?.status], () => {
 
 watch(
   () => [props.booking?.id, props.booking ? bookingStart(props.booking) : '', props.booking ? bookingEnd(props.booking) : ''],
-  resetScheduleForm,
+  (values, previous) => {
+    if (!previous || values.some((value, index) => value !== previous[index])) resetScheduleForm()
+  },
   { immediate: true },
 )
 
@@ -585,20 +614,25 @@ onBeforeUnmount(() => {
             </dd>
           </div>
           <form v-if="canEditBooking && scheduleEditing" class="booking-tone booking-tone--time col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3" @submit.prevent="submitSchedule">
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem] sm:items-end">
-              <label class="space-y-1 text-xs font-medium text-slate-600">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:items-end">
+              <label class="col-span-2 min-w-0 space-y-1 text-xs font-medium text-slate-600 sm:col-span-1">
                 <span>Дата</span>
                 <BaseCalendar v-model="scheduleForm.date" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
               </label>
               <label class="space-y-1 text-xs font-medium text-slate-600">
                 <span>Початок</span>
-                <BaseInput v-model="scheduleForm.start_time" required type="time" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <BaseInput :model-value="scheduleForm.start_time" @update:model-value="setScheduleStart" required type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :aria-describedby="scheduleError || actionError ? scheduleErrorId : undefined" input-class="base-control min-w-0 w-full px-3 py-2 text-sm" />
               </label>
-              <label class="space-y-1 text-xs font-medium text-slate-600">
+              <label class="min-w-0 space-y-1 text-xs font-medium text-slate-600">
+                <span>Завершення</span>
+                <BaseInput :model-value="scheduleForm.end_time" @update:model-value="setScheduleEnd" required type="text" inputmode="text" placeholder="ГГ:ХХ" :maxlength="5" autocomplete="off" :aria-describedby="scheduleError || actionError ? scheduleErrorId : undefined" input-class="base-control min-w-0 w-full px-3 py-2 text-sm" />
+              </label>
+              <label class="col-span-2 min-w-0 space-y-1 text-xs font-medium text-slate-600 sm:col-span-1">
                 <span>Тривалість, хв</span>
-                <BaseInput v-model.number="scheduleForm.duration_minutes" required type="number" min="1" step="1" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <BaseInput :model-value="scheduleForm.duration_minutes" @update:model-value="setScheduleDuration" required type="number" min="1" step="1" input-class="base-control min-w-0 w-full px-3 py-2 text-sm" />
               </label>
             </div>
+            <p v-if="scheduleError || actionError" :id="scheduleErrorId" class="booking-schedule-error mt-2 text-xs" role="alert">{{ scheduleError || actionError }}</p>
             <div class="booking-edit-actions mt-2 grid grid-cols-2 gap-2">
               <BaseButton type="submit" variant="success" size="sm" :disabled="interactionBusy">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />
@@ -738,6 +772,7 @@ onBeforeUnmount(() => {
 .booking-details-content .booking-tone {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
 }
+.booking-schedule-error { color: var(--bo-danger-text); }
 .booking-edit-actions > button { min-width: 0; width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .booking-edit-icon { transition: none; }
