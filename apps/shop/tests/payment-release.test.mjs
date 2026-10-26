@@ -9,12 +9,12 @@ const run = (source, globals) => vm.runInNewContext(ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, globals)
 const flush = () => new Promise(resolve => setImmediate(resolve))
-// The deployed contract deliberately has no actions, reasons, attempts or revision.
+// Legacy responses remain supported during rolling releases.
 const waiting = () => ({ order_id: 42, enabled: true, status: 'waiting', paid: false,
   receipt_accepted: false, page_url: 'https://pay.mbnk.biz/invoice_42', receipt_url: null,
   amount_minor: 12345, currency: 'UAH', retry_after_seconds: 30 })
 const load = (token = 'guest-capability') => {
-  const calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = []
+  const calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = [], emitted = []
   const stored = new Map(), exports = {}, events = {}
   const props = { orderId: 42, guestToken: token }
   const auth = { isAuthenticated: false, customer: null, sessionRevision: 0, accessToken: null }
@@ -39,15 +39,15 @@ const load = (token = 'guest-capability') => {
   const payment = exports.useOrderPayment(() => props.orderId, () => props.guestToken)
   let navigate
   const viewGlobals = { ...globals, exports: {},
-    useOrderPayment: () => payment, defineProps: () => props,
+    useOrderPayment: () => payment, defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
     usePaymentDisplay: () => ({ paymentText: { value: {} } }), useShopRuntimeDisplay: () => ({ runtimeMessage: value => value }),
     safePaymentUrl: exports.safePaymentUrl,
     useRouter: () => ({ beforeEach: fn => { navigate = fn; return () => { navigate = undefined } } }),
     window: { location: { assign: url => { if (state.redirectFailure) throw state.redirectFailure; redirects.push(url) } } },
   }
   run(read('components/OrderPayment.vue').split('<script setup lang="ts">')[1].split('</script>')[0]
-    + '\nexports.view = { beginPayment, paid, settled, pageUrl, receiptUrl, accessDenied, hint, illustrationTone };', viewGlobals)
-  return { ...viewGlobals.exports.view, payment, props, auth, state, calls, timers, errors, redirects, exports,
+    + '\nexports.view = { beginPayment, paid, settled, pageUrl, receiptUrl, accessDenied, hint, illustrationTone, syncMethod, changeOpen };', viewGlobals)
+  return { ...viewGlobals.exports.view, payment, props, auth, state, calls, timers, errors, redirects, emitted, exports,
     document, events, stored, mount: () => mounts.forEach(fn => fn()), unmount: () => unmounts.forEach(fn => fn()),
     navigate: () => navigate(), actorChanged: () => watches[0]() }
 }
@@ -221,5 +221,88 @@ test('paid/settled semantics remain exact for contradictory legacy responses', a
     env.payment.payment.value = { ...waiting(), status, paid }
     assert.equal(env.paid.value, expectedPaid); assert.equal(env.settled.value, settled)
   }
+  env.unmount()
+})
+
+const changeable = () => ({ ...waiting(), status: 'not_started', page_url: null, revision: 3, attempt_id: null,
+  actions: { start: true, change_method: true, refresh: true }, available_payment_methods: ['cashOnDelivery'] })
+
+test('method change requires explicit complete authority; legacy/unsafe snapshots cannot write', async () => {
+  const env = load(); env.mount(); await flush()
+  for (const snapshot of [null, waiting(), { ...changeable(), actions: undefined },
+    { ...changeable(), revision: undefined }, { ...changeable(), revision: 0 },
+    { ...changeable(), attempt_id: undefined }, { ...changeable(), attempt_id: 7 },
+    { ...changeable(), paid: true }, { ...changeable(), status: 'waiting' }]) {
+    env.payment.payment.value = snapshot
+    const count = env.calls.length
+    await env.payment.changeMethod('cashOnDelivery')
+    assert.equal(env.calls.length, count)
+  }
+  env.payment.payment.value = changeable()
+  const count = env.calls.length
+  for (const method of ['cash', 'onlineCard', 'invalid']) await env.payment.changeMethod(method)
+  assert.equal(env.calls.length, count)
+  env.unmount()
+})
+
+test('method change writes revision/attempt with durable key, no retry and reconciles uncertainty by GET', async () => {
+  const env = load(); env.state.response = changeable(); env.mount(); await flush()
+  env.state.failure = new Error('timeout')
+  await env.payment.changeMethod('cashOnDelivery')
+  const first = env.calls.at(-1)
+  assert.equal(first.path, '/public/orders/42/online-payment/change-method')
+  assert.equal(first.options.method, 'POST')
+  assert.equal(first.options.retry, 0)
+  assert.equal(first.options.timeout, 15000)
+  assert.equal(JSON.stringify(first.options.body), JSON.stringify({ payment_method: 'cashOnDelivery', expected_revision: 3, expected_attempt_id: null }))
+  assert.equal(env.errors.at(-1)[0], 'payment.change_method_failed')
+  const count = env.calls.length
+  await env.payment.changeMethod('cashOnDelivery')
+  assert.equal(env.calls.length, count)
+  env.state.failure = null
+  await env.payment.refresh()
+  env.state.createResponse = { ...changeable(), reason: 'offline_payment_selected', revision: 4,
+    order: { payment_method: 'cashOnDelivery' }, actions: { start: false, change_method: false } }
+  await env.payment.changeMethod('cashOnDelivery')
+  assert.equal(env.calls.at(-1).options.headers['Idempotency-Key'], first.options.headers['Idempotency-Key'])
+  assert.equal(env.payment.payment.value.revision, 4)
+  const settledCount = env.calls.length
+  await env.payment.changeMethod('cashOnDelivery')
+  await env.payment.create()
+  assert.equal(env.calls.length, settledCount)
+  env.unmount()
+})
+
+test('method change ignores stale capability results and access denial clears private snapshot', async () => {
+  const env = load(); env.state.response = changeable(); env.mount(); await flush()
+  env.state.delay = true
+  const pending = env.payment.changeMethod('cashOnDelivery')
+  env.props.guestToken = 'replacement'; env.actorChanged()
+  env.state.resolve(); await pending
+  assert.equal(env.payment.payment.value?.reason, undefined)
+  env.state.delay = false; env.state.failure = { statusCode: 403 }
+  await env.payment.refresh()
+  assert.equal(env.payment.payment.value, null)
+  const count = env.calls.length
+  await env.payment.changeMethod('cashOnDelivery')
+  assert.equal(env.calls.length, count)
+  env.unmount()
+})
+
+test('GET reconciles committed method change after POST timeout and updates parent exactly once', async () => {
+  const env = load(); env.state.response = changeable(); env.mount(); await flush()
+  env.changeOpen.value = true
+  env.state.failure = new Error('timeout')
+  await env.payment.changeMethod('cashOnDelivery')
+  env.syncMethod()
+  assert.equal(env.emitted.length, 0)
+  env.state.failure = null
+  env.state.response = { ...changeable(), revision: 4, reason: 'offline_payment_selected', order: { payment_method: 'cashOnDelivery' } }
+  await env.payment.refresh()
+  env.syncMethod()
+  assert.equal(env.changeOpen.value, false)
+  assert.equal(JSON.stringify(env.emitted), JSON.stringify([['method-changed', 'cashOnDelivery']]))
+  await env.payment.refresh(); env.syncMethod()
+  assert.equal(env.emitted.length, 1)
   env.unmount()
 })

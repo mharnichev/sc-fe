@@ -31,8 +31,15 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   const writeStorage = (key: string, value: string) => { try { sessionStorage.setItem(key, value) } catch {} }
   const tokenKey = () => `shop-order-payment-token:${orderId()}`
   const capability = () => guestToken() || (!auth.isAuthenticated ? readStorage(tokenKey()) : null)
-  const request = async (create = false) => {
-    if (create && (!payment.value?.enabled || payment.value.status !== 'not_started' || payment.value.paid || error.value)) return
+  const request = async (create = false, paymentMethod?: string) => {
+    const change = paymentMethod !== undefined
+    if (create && (!payment.value?.enabled || payment.value.status !== 'not_started' || payment.value.paid || error.value || errorKind.value === 'access' || payment.value.actions?.start === false)) return
+    if (change && (!payment.value?.actions?.change_method || payment.value.status !== 'not_started'
+      || payment.value.paid || error.value || errorKind.value === 'access'
+      || !['cash', 'cashOnDelivery'].includes(paymentMethod)
+      || !payment.value.available_payment_methods?.includes(paymentMethod)
+      || !Number.isSafeInteger(payment.value.revision) || (payment.value.revision ?? 0) < 1
+      || payment.value.attempt_id !== null)) return
     if (!mounted || busy.value || document.hidden) return
     const current = generation
     const context = identity()
@@ -44,24 +51,27 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     if (errorKind.value !== 'access') errorKind.value = ''
     let missingCapability = false
     const telemetryData = () => ({ flow: 'payment' as const, order_id: orderId(), payment_status: payment.value?.status })
-    if (create) commerceBreadcrumb('payment.start', telemetryData())
+    if (create || change) commerceBreadcrumb(change ? 'payment.change_method' : 'payment.start', telemetryData())
     try {
       const headers: Record<string, string> = {}
       if (!auth.isAuthenticated && !token) { missingCapability = true; errorKind.value = 'access'; throw new Error('missing capability') }
       if (token && !auth.isAuthenticated) headers['X-Order-Payment-Token'] = token
-      if (create) {
-        const key = `shop-order-payment-intent:${orderId()}`
+      if (create || change) {
+        const key = change
+          ? `shop-order-payment-change:${orderId()}:${payment.value!.revision}:${payment.value!.attempt_id ?? 'none'}:${paymentMethod}`
+          : `shop-order-payment-intent:${orderId()}`
         headers['Idempotency-Key'] = readStorage(key) || memoryIntents.get(key) || crypto.randomUUID()
         memoryIntents.set(key, headers['Idempotency-Key'])
         writeStorage(key, headers['Idempotency-Key'])
       }
-      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment`, { method: create ? 'POST' : 'GET', ...(create ? { body: {} } : {}), headers, retry: 0, timeout: 15000 })
+      const body = change ? { payment_method: paymentMethod, expected_revision: payment.value!.revision, expected_attempt_id: payment.value!.attempt_id } : {}
+      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment${change ? '/change-method' : ''}`, { method: create || change ? 'POST' : 'GET', ...(create || change ? { body } : {}), headers, retry: 0, timeout: 15000 })
       if (isCurrent()) {
         readFailures = 0
         errorKind.value = ''
         const changed = payment.value?.status !== result.status
         payment.value = result
-        if (changed || create) commerceBreadcrumb('payment.status', telemetryData())
+        if (changed || create || change) commerceBreadcrumb('payment.status', telemetryData())
         return result
       }
     } catch (cause) {
@@ -72,9 +82,9 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
           : [409, 422].includes(status) ? 'conflict' : 'connection'
         if (errorKind.value === 'access') payment.value = null
         error.value = 'Не вдалося оновити оплату. Спробуйте ще раз.'
-        if (!create) readFailures++
-        if (!missingCapability && (create || readFailures >= 3 || [403, 404].includes(status))) {
-          reportCommerceError(create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: create ? undefined : readFailures })
+        if (!create && !change) readFailures++
+        if (!missingCapability && (create || change || readFailures >= 3 || [403, 404].includes(status))) {
+          reportCommerceError(change ? 'payment.change_method_failed' : create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: create || change ? undefined : readFailures })
         }
       }
     }
@@ -89,7 +99,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
         }
         const seconds = payment.value?.retry_after_seconds
         const delay = typeof seconds === 'number' && Number.isFinite(seconds) ? Math.min(120, Math.max(5, seconds)) * 1000 : 30000
-        if (!document.hidden && errorKind.value !== 'access' && !['accepted', 'requires_review'].includes(payment.value?.status || '')) timer = setTimeout(() => { void request() }, delay)
+        if (!document.hidden && errorKind.value !== 'access' && payment.value?.actions?.refresh !== false && !['accepted', 'requires_review'].includes(payment.value?.status || '')) timer = setTimeout(() => { void request() }, delay)
       }
     }
   }
@@ -106,6 +116,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   onBeforeUnmount(() => { mounted = false; stop(); document.removeEventListener('visibilitychange', visibility) })
   return {
     payment, busy, error, errorKind, refresh: () => request(), create: () => request(true),
+    changeMethod: (method: string) => request(false, method),
     redirectFailed: (cause: unknown) => reportCommerceError('payment.redirect_failed', cause, { flow: 'payment', order_id: orderId() }),
   }
 }

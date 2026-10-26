@@ -201,6 +201,11 @@ interface PendingCheckout { key: string, body: CheckoutOrderRequest, scope: stri
 const pendingIntent = ref<PendingCheckout | null>(null)
 const intentStorageKey = 'shop-checkout-intent-v1'
 const customerScope = computed(() => auth.isAuthenticated ? `customer:${auth.customer?.id}` : 'guest')
+const paymentMethodChanged = (method: string) => {
+  if (!state.order || !['cash', 'cashOnDelivery'].includes(method)) return
+  state.order.payment_method = method
+  try { saveCheckoutConfirmation(sessionStorage, customerScope.value, state.order) } catch { /* Keep the current confirmation in memory. */ }
+}
 const retryAvailable = computed(() => sessionReady.value && pendingIntent.value?.scope === customerScope.value)
 const sessionReady = ref(false)
 const otherScopePending = ref(false)
@@ -370,7 +375,7 @@ useSeo(
       <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
       <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="borderless">{{ paymentText.statusPage }}</BaseButton>
-      <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" />
+      <OrderPayment v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" @method-changed="paymentMethodChanged" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
       <BaseButton to="/catalog" variant="borderless">{{ terms.common.catalog }}</BaseButton>

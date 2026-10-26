@@ -2,7 +2,13 @@ import type { DobroDeskWidgetClient, DobroDeskWidgetOptions } from '@dobrodesk/w
 
 export const barbershopSupportAppearance: DobroDeskWidgetOptions['appearance'] = {
   mode: 'dark',
+  lightSurfaceStyle: 'white',
   tokens: {
+    light: {
+      surface: '#ffffff', raisedSurface: '#f5f5f4', text: '#0a0a0a',
+      mutedText: '#57534e', border: '#d6d3d1', accent: '#ffca2b',
+      onAccent: '#0a0a0a', link: '#0a0a0a', focus: '#0a0a0a',
+    },
     dark: {
       surface: '#0a0a0a',
       raisedSurface: '#171717',
@@ -21,7 +27,7 @@ export const barbershopSupportAppearance: DobroDeskWidgetOptions['appearance'] =
     borderWidth: '1px',
     shadow: 'strong',
   },
-  layout: { placement: 'bottom-right', offsetBlock: 128, offsetInline: 44 },
+  layout: { placement: 'bottom-right', offsetBlock: 128, offsetInline: 44, mobileFullscreen: false },
 }
 
 export const isDobrodeskEnabled = (value: unknown) => String(value) === 'true'

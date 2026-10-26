@@ -74,62 +74,25 @@ const isInCart = computed(() => cart.items.some(item => item.product.id === prop
 const discount = computed(() => getProductDiscount(props.product))
 const isHidden = computed(() => isProductHidden(props.product))
 const isUnavailable = computed(() => isProductUnavailable(props.product))
-const productName = ref<HTMLElement | null>(null)
-const nameNeedsScroll = ref(false)
-const nameScrollDistance = ref(0)
-let nameResizeObserver: ResizeObserver | undefined
-
-const measureNameOverflow = () => {
-  if (!productName.value) return
-  const element = productName.value
-  const visibleHeight = element.clientHeight
-  const originalClamp = element.style.getPropertyValue('-webkit-line-clamp')
-  const originalMaxHeight = element.style.getPropertyValue('max-height')
-  const originalOverflow = element.style.getPropertyValue('overflow')
-
-  element.style.setProperty('-webkit-line-clamp', 'unset')
-  element.style.setProperty('max-height', 'none')
-  element.style.setProperty('overflow', 'visible')
-  const contentHeight = element.scrollHeight
-
-  if (originalClamp) element.style.setProperty('-webkit-line-clamp', originalClamp)
-  else element.style.removeProperty('-webkit-line-clamp')
-  if (originalMaxHeight) element.style.setProperty('max-height', originalMaxHeight)
-  else element.style.removeProperty('max-height')
-  if (originalOverflow) element.style.setProperty('overflow', originalOverflow)
-  else element.style.removeProperty('overflow')
-
-  nameScrollDistance.value = Math.max(0, contentHeight - visibleHeight)
-  nameNeedsScroll.value = nameScrollDistance.value > 0
-}
-
-onMounted(() => {
-  measureNameOverflow()
-  const text = productName.value?.querySelector<HTMLElement>('.catalog-product-tile__name-text')
-  if (typeof ResizeObserver !== 'undefined' && productName.value && text) {
-    nameResizeObserver = new ResizeObserver(measureNameOverflow)
-    nameResizeObserver.observe(productName.value)
-    nameResizeObserver.observe(text)
-  }
-  window.addEventListener('resize', measureNameOverflow)
-})
-
-onBeforeUnmount(() => {
-  nameResizeObserver?.disconnect()
-  window.removeEventListener('resize', measureNameOverflow)
-})
-
 const toggleFavorite = async () => {
   await favorites.toggle(props.product.id, props.product)
 }
 
+const cartPending = ref(false)
 const toggleCart = async () => {
-  await cart.toggle(props.product)
+  if (cartPending.value) return
+  cartPending.value = true
+  try {
+    await cart.toggle(props.product)
+  }
+  finally {
+    cartPending.value = false
+  }
 }
 </script>
 
 <template>
-  <article class="catalog-product-tile" itemscope itemtype="https://schema.org/Product">
+  <article class="catalog-product-tile" :class="{ 'catalog-product-tile--unavailable': isUnavailable }" itemscope itemtype="https://schema.org/Product">
     <component
       :is="isHidden ? 'div' : NuxtLink"
       class="catalog-product-tile__link"
@@ -178,6 +141,33 @@ const toggleCart = async () => {
 
     </component>
 
+    <div
+      v-if="Number(product.average_rating) > 0 || product.reviews_count > 0"
+      class="catalog-product-tile__rating"
+    >
+      <span v-if="Number(product.average_rating) > 0" class="catalog-product-tile__rating-item">
+        <BaseIcon name="product-rating" size="xxs" class="catalog-product-tile__rating-star" />
+        {{ product.average_rating }}
+      </span>
+      <span v-if="product.reviews_count > 0" class="catalog-product-tile__rating-item">
+        <BaseIcon name="product-review" size="xxs" class="catalog-product-tile__rating-star" />
+        {{ product.reviews_count }}
+      </span>
+    </div>
+
+    <BaseButton
+      class="catalog-product-tile__favorite"
+      :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
+      type="button"
+      variant="light"
+      size="xs"
+      shape="circle"
+      :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
+      @click="toggleFavorite"
+    >
+      <BaseIcon name="heart" size="xxs" effect="heart" />
+    </BaseButton>
+
     <div class="catalog-product-tile__body">
       <div v-if="hasPreview" class="catalog-product-tile__dots" aria-hidden="true">
         <span
@@ -195,10 +185,7 @@ const toggleCart = async () => {
             :to="isHidden ? undefined : `/products/${product.slug}`"
           >
             <h3
-              ref="productName"
               class="catalog-product-tile__name type-title-title"
-              :class="{ 'catalog-product-tile__name--overflow': nameNeedsScroll }"
-              :style="{ '--catalog-name-scroll-distance': `${nameScrollDistance}px` }"
               itemprop="name"
             >
               <BaseHoverUnderlineText class="catalog-product-tile__name-text">
@@ -222,7 +209,7 @@ const toggleCart = async () => {
           </div>
         </div>
         <div class="catalog-product-tile__details">
-          <p v-if="productType" class="catalog-product-tile__type">{{ productType }}</p>
+          <p class="catalog-product-tile__type">{{ productType }}</p>
           <div class="catalog-product-tile__details-row">
             <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
             <div class="catalog-product-tile__bottom" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
@@ -230,33 +217,21 @@ const toggleCart = async () => {
               <meta itemprop="price" :content="product.price">
               <BaseButton
                 class="catalog-product-tile__cart"
-                :class="{ 'catalog-product-tile__cart--active': isInCart }"
+                :class="{ 'catalog-product-tile__cart--unavailable': isUnavailable, 'catalog-product-tile__cart--active': isInCart, 'catalog-product-tile__cart--buy': !isInCart && !isUnavailable }"
                 type="button"
                 size="xs"
-                :disabled="cart.syncing || (isUnavailable && !isInCart)"
+                :aria-busy="cartPending"
+                :disabled="cartPending || (isUnavailable && !isInCart)"
                 :aria-label="isInCart ? terms.product.removeFromCart : (isUnavailable ? unavailableLabel : terms.product.addToCart)"
                 @click="toggleCart"
               >
-                {{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}
-                <BaseIcon v-if="isInCart" name="check" size="xxs" />
-                <BaseIcon v-else-if="!isUnavailable" name="arrow-right" size="xxs" />
+                <span class="catalog-product-tile__cart-label">{{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}</span>
+                <BaseIcon v-if="cartPending" name="clock" size="xxs" />
+                <BaseIcon v-else-if="isInCart" name="check" size="xxs" />
+                <BaseIcon v-else-if="!isUnavailable" name="product-buy-arrow" size="xxs" class="catalog-product-tile__cart-arrow" />
               </BaseButton>
             </div>
           </div>
-          <div
-            v-if="Number(product.average_rating) > 0 || product.reviews_count > 0"
-            class="catalog-product-tile__rating"
-          >
-            <span v-if="Number(product.average_rating) > 0" class="catalog-product-tile__rating-item">
-              <BaseIcon name="product-rating" size="xxs" class="catalog-product-tile__rating-star" />
-              {{ product.average_rating }}
-            </span>
-            <span v-if="product.reviews_count > 0" class="catalog-product-tile__rating-item">
-              <BaseIcon name="dialog" size="xxs" />
-              {{ product.reviews_count }}
-            </span>
-          </div>
-          <p v-if="isUnavailable" class="catalog-product-tile__unavailable">{{ terms.favorites.unavailable }}</p>
         </div>
       </div>
 
@@ -273,6 +248,12 @@ const toggleCart = async () => {
               </BaseHoverUnderlineText>
             </h3>
           </component>
+        </div>
+        <div class="catalog-product-tile__mobile-meta">
+          <p class="catalog-product-tile__mobile-type">{{ productType }}</p>
+          <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
+        </div>
+        <div class="catalog-product-tile__mobile-purchase-row">
           <div class="catalog-product-tile__prices">
             <p v-if="discount" class="catalog-product-tile__old-price">
               {{ formatPrice(discount.compareAtPrice, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
@@ -282,40 +263,25 @@ const toggleCart = async () => {
               <small>{{ terms.catalog.currencyShort }}</small>
             </p>
           </div>
-        </div>
-        <p v-if="productType" class="catalog-product-tile__mobile-type">{{ productType }}</p>
-        <div class="catalog-product-tile__mobile-purchase-row">
-          <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
           <BaseButton
             class="catalog-product-tile__cart"
-            :class="{ 'catalog-product-tile__cart--active': isInCart }"
+            :class="{ 'catalog-product-tile__cart--unavailable': isUnavailable, 'catalog-product-tile__cart--active': isInCart, 'catalog-product-tile__cart--buy': !isInCart && !isUnavailable }"
             type="button"
             size="xs"
-            :disabled="cart.syncing || (isUnavailable && !isInCart)"
+            :aria-busy="cartPending"
+            :disabled="cartPending || (isUnavailable && !isInCart)"
             :aria-label="isInCart ? terms.product.removeFromCart : (isUnavailable ? unavailableLabel : terms.product.addToCart)"
             @click="toggleCart"
           >
-            {{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}
-            <BaseIcon v-if="isInCart" name="check" size="xxs" />
-            <BaseIcon v-else-if="!isUnavailable" name="arrow-right" size="xxs" />
+            <span class="catalog-product-tile__cart-label">{{ isInCart ? inCartLabel : (isUnavailable ? unavailableLabel : buyLabel) }}</span>
+            <BaseIcon v-if="cartPending" name="clock" size="xxs" />
+            <BaseIcon v-else-if="isInCart" name="check" size="xxs" />
+            <BaseIcon v-else-if="!isUnavailable" name="product-buy-arrow" size="xxs" class="catalog-product-tile__cart-arrow" />
           </BaseButton>
         </div>
-        <p v-if="isUnavailable" class="catalog-product-tile__mobile-unavailable">{{ terms.favorites.unavailable }}</p>
       </div>
     </div>
 
-    <BaseButton
-      class="catalog-product-tile__favorite"
-      :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
-      type="button"
-      variant="light"
-      size="xs"
-      shape="circle"
-      :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
-      @click="toggleFavorite"
-    >
-      <BaseIcon name="heart" size="xxs" effect="heart" />
-    </BaseButton>
 
   </article>
 </template>
@@ -342,7 +308,7 @@ const toggleCart = async () => {
   box-shadow: 0 0.375rem 1rem rgb(46 35 23 / 0.05);
 }
 
-.catalog-product-tile:has(.catalog-product-tile__unavailable) {
+.catalog-product-tile--unavailable {
   opacity: 0.68;
 }
 
@@ -461,13 +427,14 @@ const toggleCart = async () => {
 
 .catalog-product-tile__body {
   position: absolute;
+  height: auto;
   right: 0.75rem;
   bottom: 0.75rem;
   left: 0.75rem;
   z-index: 2;
   min-width: 0;
   border: 1px solid rgb(255 255 255 / 0.58);
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
   background: rgb(249 248 243 / 0.96);
   padding: 0.7rem 0.75rem 0.7rem 0.75rem;
   color: #26231f;
@@ -485,7 +452,8 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__desktop-layout {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .catalog-product-tile__mobile-layout {
@@ -495,7 +463,7 @@ const toggleCart = async () => {
 .catalog-product-tile__name {
   display: -webkit-box;
   position: relative;
-  max-height: 3.9em;
+  max-height: 2.6em;
   min-width: 0;
   overflow: hidden;
   color: #262626;
@@ -505,7 +473,7 @@ const toggleCart = async () => {
   line-height: 1.3;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
 .catalog-product-tile__name-link {
@@ -518,36 +486,15 @@ const toggleCart = async () => {
 
 .catalog-product-tile__name-text {
   display: block;
-  font-size: 14px;
+  font-size: inherit;
   font-weight: 600;
 }
 
-.catalog-product-tile__name--overflow .catalog-product-tile__name-text {
-  transform: translateY(0);
-}
-
-.catalog-product-tile:hover .catalog-product-tile__name--overflow,
-.catalog-product-tile:focus-within .catalog-product-tile__name--overflow {
-  -webkit-line-clamp: unset;
-}
-
-.catalog-product-tile:hover .catalog-product-tile__name--overflow .catalog-product-tile__name-text,
-.catalog-product-tile:focus-within .catalog-product-tile__name--overflow .catalog-product-tile__name-text {
-  animation: catalog-product-name-scroll 3.2s ease-in-out infinite alternate;
-}
-
-@keyframes catalog-product-name-scroll {
-  from {
-    transform: translateY(0);
-  }
-
-  to {
-    transform: translateY(calc(-1 * var(--catalog-name-scroll-distance)));
-  }
-}
-
 .catalog-product-tile__type {
-  margin: 0.375rem 0 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin: 0.1875rem 0 0;
   color: #737373;
   font-size: 0.75rem;
   line-height: 1.45;
@@ -560,35 +507,26 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__details {
-  max-height: none;
-  overflow: visible;
-  opacity: 1;
-  transition: max-height 220ms var(--catalog-product-tile-motion-easing), opacity 180ms var(--catalog-product-tile-motion-easing);
-}
-
-.catalog-product-tile:hover .catalog-product-tile__details,
-.catalog-product-tile:focus-within .catalog-product-tile__details {
-  max-height: 8rem;
-  opacity: 1;
-}
-
-.catalog-product-tile__unavailable {
-  padding-top: 0.375rem;
-  color: #a16207;
-  font-size: 0.7rem;
-  font-weight: 600;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
 }
 
 .catalog-product-tile__details-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-top: 1rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
 .catalog-product-tile__volume.base-badge {
+  max-width: 100%;
+  flex-shrink: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   max-width: 50%;
   border: 1px solid #d9d8d3;
   border-radius: 9999px;
@@ -598,24 +536,28 @@ const toggleCart = async () => {
   font-size: 0.8125rem;
   font-weight: 800;
   line-height: 1.1;
-  letter-spacing: 0;
+  letter-spacing: normal;
   text-transform: none;
   overflow-wrap: anywhere;
 }
 
 .catalog-product-tile__rating {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding-top: 0.5rem;
-  color: #737373;
+  gap: 1rem;
+  color: #635f55;
   font-size: 0.75rem;
+  pointer-events: none;
 }
 
 .catalog-product-tile__rating-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .catalog-product-tile__rating-star.base-icon {
@@ -624,20 +566,48 @@ const toggleCart = async () => {
 }
 
 .catalog-product-tile__favorite {
-  --sc-button-bg: #ffffff;
-  --sc-button-text: #737373;
-  --sc-button-fill: #fff1f2;
+  --sc-button-bg: linear-gradient(145deg, rgb(255 255 255 / 0.32), rgb(255 255 255 / 0.1));
+  --sc-button-text: #45413c;
+  --sc-button-fill: rgb(255 241 242 / 0.3);
   --sc-button-hover-text: #c01818;
-  --sc-button-border: rgb(10 10 10 / 0.1);
-  --sc-button-shadow: none;
+  --sc-button-border: transparent;
+  --sc-button-backdrop-filter: blur(16px) saturate(135%);
+
+  border: 0;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -1px 0 rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.1);
 
   position: absolute;
-  top: 0.75rem;
+  top: 3rem;
   right: 0.75rem;
+  z-index: 3;
   width: 2rem;
   min-width: 2rem;
   height: 2rem;
   min-height: 2rem;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .catalog-product-tile__favorite {
+    --sc-button-bg: rgb(249 248 243 / 0.94);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .catalog-product-tile__favorite {
+    --sc-button-bg: #f9f8f3;
+    --sc-button-border: #737373;
+    --sc-button-backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .catalog-product-tile__favorite {
+    --sc-button-bg: ButtonFace;
+    --sc-button-text: ButtonText;
+    --sc-button-border: ButtonText;
+    --sc-button-backdrop-filter: none;
+    box-shadow: none;
+  }
 }
 
 .catalog-product-tile__badges {
@@ -677,6 +647,12 @@ const toggleCart = async () => {
 
 .catalog-product-tile__favorite--active :deep(svg) {
   fill: currentColor;
+}
+
+@media (min-width: 1024px) {
+  .catalog-product-tile__primary {
+    gap: 1rem;
+  }
 }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
@@ -751,18 +727,38 @@ const toggleCart = async () => {
 
 .catalog-product-tile__cart {
   --sc-button-border: transparent;
+  --sc-button-bg: #1c1b18;
 
   width: auto;
   min-width: 0;
-  max-width: 100%;
-  height: 2.25rem;
-  min-height: 2.25rem;
+  height: 2rem;
+  min-height: 2rem;
   flex: 0 0 auto;
-  border-radius: 9999px;
-  padding: 0 0.875rem;
-  font-size: 0.8125rem;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  border-radius: 100px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.catalog-product-tile__cart--buy {
+  width: 92px;
+  min-width: 92px;
+}
+
+.catalog-product-tile__cart :deep(.sc-button__text) {
+  gap: 4px;
+}
+
+.catalog-product-tile__cart-label {
+  padding-left: 4px;
+}
+
+.catalog-product-tile__cart-arrow.base-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .catalog-product-tile__cart--active {
@@ -788,15 +784,39 @@ const toggleCart = async () => {
     display: none;
   }
 
-  .catalog-product-tile__mobile-layout {
+  .catalog-product-tile {
     display: block;
+    height: 0;
+    min-height: 0;
+    padding-top: calc(60% + 9.24rem);
+    aspect-ratio: auto;
+  }
+
+  .catalog-product-tile__link {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding-top: 0;
+    aspect-ratio: auto;
+  }
+
+  .catalog-product-tile__mobile-layout {
+    display: grid;
+    min-width: 0;
+    grid-template-rows: auto auto auto;
+    gap: 0.125rem;
   }
 
   .catalog-product-tile__body {
-    right: 0.5rem;
-    bottom: 0.5rem;
-    left: 0.5rem;
-    padding: 6px 8px;
+    position: absolute;
+    height: auto;
+    right: 0.25rem;
+    bottom: 0.375rem;
+    left: 0.25rem;
+    margin: 0;
+    padding: 8px 6px;
+    border-radius: 0.875rem;
   }
 
   .catalog-product-tile__mobile-layout .catalog-product-tile__primary {
@@ -806,6 +826,12 @@ const toggleCart = async () => {
   }
 
   .catalog-product-tile__mobile-layout .catalog-product-tile__prices {
+    display: flex;
+    min-width: min-content;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     text-align: left;
   }
 
@@ -820,7 +846,7 @@ const toggleCart = async () => {
 
   .catalog-product-tile__mobile-name {
     display: -webkit-box;
-    max-height: 3.9em;
+    max-height: 2.6em;
     overflow: hidden;
     color: #262626;
     font-size: 12px;
@@ -828,15 +854,27 @@ const toggleCart = async () => {
     line-height: 1.3;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
   }
 
   .catalog-product-tile__mobile-name-text :deep(.base-hover-underline-text__content) {
     font-size: 12px;
   }
 
+  .catalog-product-tile__mobile-meta {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
   .catalog-product-tile__mobile-type {
-    margin-top: 0.15rem;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    margin-top: 0;
     color: #737373;
     font-size: 10px;
     line-height: 1.35;
@@ -847,27 +885,51 @@ const toggleCart = async () => {
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
+    gap: 0.25rem;
+    margin-top: 0;
   }
 
   .catalog-product-tile__mobile-purchase-row .catalog-product-tile__cart {
+    max-width: 100%;
+    min-height: 2.75rem;
+    height: auto;
     margin-left: auto;
-    padding: 0 0.625rem;
-    font-size: 0.6875rem;
+    padding: 0.375rem 10px;
+    font-size: 12px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .catalog-product-tile__volume.base-badge {
-    max-width: 100%;
     flex-shrink: 0;
     white-space: normal;
-    overflow-wrap: anywhere;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.6875rem;
+    min-width: 0;
+    max-width: 50%;
+    padding: 0.375rem;
+    overflow: hidden;
+    font-size: 0.625rem;
   }
 
   .catalog-product-tile__mobile-layout .catalog-product-tile__price span {
-    font-size: 0.9375rem;
+    font-size: 12px;
+  }
+
+  .catalog-product-tile__mobile-purchase-row .catalog-product-tile__cart--unavailable {
+    width: 92px;
+    min-width: 0;
+    max-width: 92px;
+    padding-inline: 4px;
+    line-height: 1.25;
+    white-space: normal;
+    letter-spacing: 0;
+  }
+
+  .catalog-product-tile__mobile-layout .catalog-product-tile__price small {
+    font-size: 10px;
+  }
+
+  .catalog-product-tile__mobile-type {
+    flex: 1;
   }
 
   .catalog-product-tile__mobile-cart {
@@ -885,6 +947,9 @@ const toggleCart = async () => {
     opacity: 1;
     pointer-events: auto;
   }
+
+
+
   .catalog-product-tile__favorite,
   .catalog-product-tile__bottom {
     opacity: 1;
@@ -893,12 +958,26 @@ const toggleCart = async () => {
 
 }
 
-@media (hover: none) {
-  .catalog-product-tile__details {
-    max-height: 8rem;
-    opacity: 1;
+@media (max-width: 359px) {
+  .catalog-product-tile__body {
+    margin-inline: 0;
+    padding-inline: 6px;
   }
 
+  .catalog-product-tile__cart-label {
+    padding-left: 0;
+  }
+
+  .catalog-product-tile__mobile-layout .catalog-product-tile__price span {
+    font-size: 12px;
+  }
+
+  .catalog-product-tile__price small {
+    font-size: 10px;
+  }
+}
+
+@media (hover: none) {
   .catalog-product-tile__favorite,
   .catalog-product-tile__bottom {
     opacity: 1;

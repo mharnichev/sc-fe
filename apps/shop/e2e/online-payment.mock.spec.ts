@@ -4,6 +4,54 @@ const product = { id: 123, name: 'Mock pomade', slug: 'mock-pomade', price: '100
 const city = { ref: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', city_ref: null, name: 'Київ', label: 'Київ, тестова область', area: 'Тестова', region: '', delivery_available: true }
 const branch = { ref: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', settlement_ref: city.ref, city_ref: null, number: '1', label: 'Тестове відділення №1', name: 'Тестове відділення №1', address: 'Тестова, 1', type: 'warehouse', status: 'Working' }
 
+for (const mobile of [false, true]) {
+ for (const lostResponse of [false, true]) {
+ test(`predispatch method change is explicit and preserves one order (${mobile ? 'mobile' : 'desktop'}, ${lostResponse ? 'lost response' : 'success'})`, async ({ page }) => {
+  if (mobile) await page.setViewportSize({ width: 390, height: 844 })
+  let changes = 0
+  await page.route('https://**', route => route.abort())
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.includes('/987/online-payment')) {
+      expect(req.headers()['x-order-payment-token']).toBe('mock-payment-capability')
+      if (path.endsWith('/change-method')) {
+        expect(req.method()).toBe('POST')
+        expect(req.headers()['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/i)
+        expect(req.postDataJSON()).toEqual({ payment_method: 'cashOnDelivery', expected_revision: 3, expected_attempt_id: null })
+        changes++
+        if (lostResponse) { await route.abort('failed'); return }
+      } else expect(req.method()).toBe('GET')
+      await route.fulfill({ json: { order_id: 987, enabled: !changes, status: 'not_started', paid: false,
+        receipt_accepted: false, amount_minor: 20000, currency: 'UAH', retry_after_seconds: 30,
+        page_url: null, receipt_url: null, revision: changes ? 4 : 3, attempt_id: null,
+        reason: changes ? 'offline_payment_selected' : 'ready',
+        actions: { start: !changes, change_method: !changes, refresh: true },
+        available_payment_methods: changes ? [] : ['cashOnDelivery'],
+        order: { id: 987, number: '987', status: 'pending', fulfillment_method: 'nova_post', item_count: 2, payment_method: changes ? 'cashOnDelivery' : 'onlineCard' } } })
+      return
+    }
+    expect(req.method(), `Unexpected write ${path}`).toBe('GET')
+    await route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/payment/987')
+  await page.getByRole('button', { name: 'Обрати інший спосіб оплати' }).click()
+  await expect(page.getByRole('button', { name: 'Підтвердити спосіб оплати' })).toBeVisible()
+  expect(changes).toBe(0)
+  await page.getByRole('button', { name: 'Підтвердити спосіб оплати' }).click()
+  if (lostResponse) {
+    await expect(page.getByText('Не вдалося оновити оплату. Спробуйте ще раз.', { exact: true }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Оновити статус оплати', exact: true }).last().click()
+    await expect(page.getByRole('button', { name: 'Підтвердити спосіб оплати' })).toHaveCount(0)
+  }
+  await expect(page.getByRole('heading', { name: 'Оплата при отриманні', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+  expect(changes).toBe(1)
+  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate(el => el.clientWidth))
+ })
+ }
+}
+
 
 for (const authenticated of [false, true]) {
  test(`${authenticated ? 'customer' : 'guest'} online checkout keeps payment and receipt evidence separate`, async ({ page }) => {

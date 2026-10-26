@@ -7,6 +7,9 @@ const route = useRoute()
 const { terms } = useShopLocale()
 const isHydrated = ref(false)
 const isCabinet = computed(() => route.path === '/cabinet' || route.path.startsWith('/cabinet/'))
+const isCatalogRoute = computed(() => route.name === 'slug' || ['/catalog', '/products', '/brands', '/top'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
+const isCheckoutRoute = computed(() => ['/checkout', '/payment'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
+const isFavoritesRoute = computed(() => route.path === '/favorites' || route.path.startsWith('/favorites/'))
 const cabinetLinks = computed(() => [
   { to: '/cabinet/purchase-history', icon: 'clock', label: terms.value.cabinet.myOrders, active: route.path.startsWith('/cabinet/purchase-history') || route.path.startsWith('/cabinet/orders/') },
   { to: '/cabinet/settings', icon: 'settings', label: terms.value.cabinet.settings, active: route.path === '/cabinet' || route.path === '/cabinet/settings' || route.path.startsWith('/cabinet/settings/') },
@@ -24,7 +27,7 @@ const DARK_LUMINANCE_THRESHOLD = 140
 type SurfaceTheme = 'dark' | 'light'
 
 const bottomBarElement = ref<HTMLElement | null>(null)
-const isPartiallyHidden = ref(false)
+const isCompact = ref(false)
 const isOnDarkSurface = ref(false)
 const lastYPosition = ref(0)
 let toneFrame: number | undefined
@@ -141,7 +144,7 @@ const updateBottomBarVisibility = () => {
   const currentY = window.scrollY
 
   if (currentY <= ALWAYS_SHOW_TOP) {
-    isPartiallyHidden.value = false
+    isCompact.value = false
     lastYPosition.value = currentY
     updateBottomBarTone()
     return
@@ -150,7 +153,7 @@ const updateBottomBarVisibility = () => {
   const delta = currentY - lastYPosition.value
   if (Math.abs(delta) < SCROLL_DELTA) return
 
-  isPartiallyHidden.value = delta > 0
+  isCompact.value = delta > 0
   lastYPosition.value = currentY
   updateBottomBarTone()
 }
@@ -181,14 +184,14 @@ onBeforeUnmount(() => {
     :class="[
       'base-bottom-bar',
       {
-        'base-bottom-bar--partially-hidden': isPartiallyHidden && !isCabinet,
+        'base-bottom-bar--compact': isCompact && !isCabinet,
         'base-bottom-bar--cabinet': isCabinet,
         'base-bottom-bar--on-dark': isOnDarkSurface,
       },
     ]"
     :aria-label="isCabinet ? terms.common.cabinet : terms.header.shopActions"
   >
-    <NuxtLink to="/" class="base-bottom-bar__btn" :aria-label="terms.common.main">
+    <NuxtLink to="/" class="base-bottom-bar__btn" :class="{ 'base-bottom-bar__btn--active': route.path === '/' }" :aria-label="terms.common.main">
       <BaseIcon name="home" size="xxs" effect="button" />
     </NuxtLink>
 
@@ -207,18 +210,18 @@ onBeforeUnmount(() => {
     </template>
 
     <template v-else>
-    <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
+    <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isCatalogRoute }" :aria-current="isCatalogRoute ? 'page' : undefined" :aria-label="terms.common.catalog" @click="openCatalog">
       <BaseIcon name="catalog" size="xxs" effect="button" />
     </button>
 
-    <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.cart" @click="openBasket">
+    <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isCheckoutRoute }" :aria-current="isCheckoutRoute ? 'page' : undefined" :aria-label="terms.common.cart" @click="openBasket">
       <span class="base-bottom-bar__icon-wrap">
         <BaseIcon name="shopping-cart" size="xxs" effect="button" />
         <span v-if="cart.count" class="base-bottom-bar__count">{{ cart.count }}</span>
       </span>
     </button>
 
-    <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.favorites" @click="openFavorites">
+    <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isFavoritesRoute }" :aria-current="isFavoritesRoute ? 'page' : undefined" :aria-label="terms.common.favorites" @click="openFavorites">
       <span class="base-bottom-bar__icon-wrap">
         <BaseIcon name="heart" size="xxs" effect="button" />
         <span v-if="favorites.count" class="base-bottom-bar__count">{{ favorites.count }}</span>
@@ -227,7 +230,7 @@ onBeforeUnmount(() => {
 
     </template>
 
-    <button class="base-bottom-bar__btn" type="button" :aria-label="terms.common.account" @click="openAccount">
+    <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isCabinet }" :aria-current="isCabinet ? 'page' : undefined" :aria-label="terms.common.account" @click="openAccount">
       <span v-if="accountInitials" class="base-bottom-bar__avatar">{{ accountInitials }}</span>
       <FeedbackFace v-else class="base-bottom-bar__account-face" name="content-smile" />
     </button>
@@ -244,15 +247,26 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   height: 44px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.5);
+  border-radius: 4px;
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.88), rgb(245 245 245 / 0.76));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65), 0 2px 12px rgb(0 0 0 / 0.1);
   -webkit-backdrop-filter: blur(18px) saturate(1.3);
   backdrop-filter: blur(18px) saturate(1.3);
-  transform: translateY(0);
-  transition: transform 280ms cubic-bezier(0.3, 1, 0.3, 1);
-  will-change: transform;
+  transform: scale(1);
+  transform-origin: center bottom;
+  transition: transform 600ms cubic-bezier(0.3, 1, 0.3, 1);
 }
 
-.base-bottom-bar--partially-hidden {
-  transform: translateY(28px);
+.base-bottom-bar--compact {
+  transform: scale(0.9);
+}
+
+.base-bottom-bar--on-dark {
+  border-color: rgb(255 255 255 / 0.22);
+  background: linear-gradient(160deg, rgb(45 45 45 / 0.88), rgb(20 20 20 / 0.8));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 2px 12px rgb(0 0 0 / 0.22);
 }
 
 .base-bottom-bar__btn {
@@ -266,6 +280,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: #0a0a0a;
   cursor: pointer;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -297,6 +312,10 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: transparent;
   color: #0a0a0a;
+}
+
+.base-bottom-bar__btn :deep(.base-icon) {
+  scale: 0.85;
 }
 
 .base-bottom-bar__btn :deep(.base-icon__surface),
@@ -353,8 +372,16 @@ onBeforeUnmount(() => {
   display: inline-flex;
 }
 
-.base-bottom-bar--cabinet .base-bottom-bar__btn--active {
-  background: rgb(127 127 127 / 0.18);
+.base-bottom-bar .base-bottom-bar__btn--active {
+  margin: 4px;
+  border-radius: 8px;
+  background: #eeece7;
+  box-shadow: inset 0 0 0 1px rgb(105 94 75 / 0.04);
+}
+
+.base-bottom-bar--on-dark .base-bottom-bar__btn--active {
+  background: #46443f;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
 }
 
 .base-bottom-bar__count {
@@ -393,6 +420,24 @@ onBeforeUnmount(() => {
 .base-bottom-bar--on-dark .base-bottom-bar__avatar {
   background: #ffffff;
   color: #0a0a0a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .base-bottom-bar {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .base-bottom-bar {
+    background: #f5f5f5;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .base-bottom-bar--on-dark {
+    background: #202020;
+  }
 }
 
 @media (min-width: 768px) {
