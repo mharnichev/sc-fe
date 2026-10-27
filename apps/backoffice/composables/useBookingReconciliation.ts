@@ -23,6 +23,11 @@ export const bookingActionErrorMessage = (cause: unknown, fallback: string) => {
   }
   if (detail === 'Slot is in the past') return 'Новий час початку вже минув. Виберіть майбутній час.'
   if (detail === 'Booking must be within working hours 09:30-20:00 Europe/Kyiv') return 'Час послуги має бути в межах 09:30–20:00 за Києвом.'
+  if (detail === 'Master does not provide this service') return 'Ця послуга недоступна для майстра запису. Виберіть іншу.'
+  if (detail === 'Service not found') return 'Послуга більше недоступна. Оновіть список послуг і виберіть іншу.'
+  if (detail === "Booking slot is outside master's open availability") return 'Тривалість послуг виходить за відкриту доступність майстра. Змініть послуги або відкрийте потрібний час.'
+  if (detail === 'Booking slot overlaps an existing booking') return 'Час послуг перетинається з іншим записом. Змініть послуги або час бронювання.'
+  if (detail === 'Booking slot overlaps a blocked interval') return 'Час послуг перетинається з блокуванням. Змініть послуги або час бронювання.'
   if (errorStatus(cause) === 403) return 'У вас немає доступу до цієї дії. Можливо, запис передано іншому майстру.'
   if (errorStatus(cause) === 404) return 'Цей запис більше недоступний. Оновіть дані або зверніться до адміністратора.'
   if (errorStatus(cause) === 409) return 'Дані запису або доступність часу змінилися. Перевірте актуальні дані та спробуйте ще раз.'

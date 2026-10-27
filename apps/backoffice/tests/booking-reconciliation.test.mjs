@@ -172,3 +172,15 @@ test('removing a row absent after a list refresh never decrements its total', as
   remove(2, data, normalize)
   assert.equal(data.value.total, 9)
 })
+
+test('service validation failures explain why the selection cannot be saved', () => {
+  for (const [detail, message] of [
+    ['Master does not provide this service', /недоступна для майстра/],
+    ['Service not found', /Послуга більше недоступна/],
+    ["Booking slot is outside master's open availability", /відкриту доступність/],
+    ['Booking slot overlaps an existing booking', /іншим записом/],
+    ['Booking slot overlaps a blocked interval', /блокуванням/],
+  ]) {
+    assert.match(bookingActionErrorMessage({ response: { status: 400 }, data: { detail } }, 'Помилка'), message)
+  }
+})
