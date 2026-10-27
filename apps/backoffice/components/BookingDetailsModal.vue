@@ -288,7 +288,7 @@ const submitSchedule = () => {
 }
 
 const submitServices = () => {
-  if (interactionBusy.value || !canEditBooking.value) return
+  if (interactionBusy.value || !canEditBooking.value || !props.booking) return
   serviceError.value = ''
   const serviceIds = serviceForm.service_ids.map(Number).filter(Number.isFinite)
   if (!serviceIds.length) {
@@ -297,6 +297,11 @@ const submitServices = () => {
     return
   }
 
+  const currentIds = bookingServiceIds(props.booking)
+  if (serviceIds.length === currentIds.length && serviceIds.every((id, index) => id === currentIds[index])) {
+    resetServiceForm()
+    return
+  }
   emit('updateSchedule', { service_ids: serviceIds })
 }
 
@@ -379,7 +384,9 @@ watch(
 
 watch(
   () => [props.booking?.id, props.booking?.service_id, props.booking?.service_ids?.join(',') || ''],
-  resetServiceForm,
+  (values, previous) => {
+    if (!previous || values.some((value, index) => value !== previous[index])) resetServiceForm()
+  },
   { immediate: true },
 )
 
@@ -576,7 +583,8 @@ onBeforeUnmount(() => {
             </form>
           </div>
           <form v-if="canEditBooking && serviceEditing" class="booking-tone booking-tone--services col-span-2 rounded-xl px-3 py-2 sm:rounded-2xl sm:p-3" @submit.prevent="submitServices">
-            <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" />
+            <ServiceMultiSelect v-model="serviceForm.service_ids" :services="editableServiceOptions" :disabled="interactionBusy" />
+            <p v-if="serviceError || actionError" class="booking-schedule-error mt-2 text-xs" role="alert">{{ serviceError || actionError }}</p>
             <div class="booking-edit-actions mt-2 grid grid-cols-2 gap-2">
               <BaseButton type="submit" variant="success" size="sm" :disabled="interactionBusy">
                 <CheckCircleIcon v-if="!pendingSchedule" class="h-4 w-4" aria-hidden="true" />

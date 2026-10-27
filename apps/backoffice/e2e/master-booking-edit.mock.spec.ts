@@ -196,3 +196,52 @@ for (const path of ['/my-bookings', '/bookings']) {
     expect(patches).toBe(1)
   })
 }
+
+for (const path of ['/my-bookings', '/bookings']) {
+  for (const width of [390, 1440]) {
+    test(`master replaces service and reopens persisted selection ${path} ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 })
+      const writes = await setup(page, path)
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true }).click()
+      const trigger = dialog.locator('[data-multiselect-trigger]')
+      const initialForm = trigger.locator('xpath=ancestor::form')
+      await initialForm.getByRole('button', { name: 'Зберегти', exact: true }).click()
+      await expect(dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true })).toBeVisible()
+      expect(writes).toEqual([])
+      await dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true }).click()
+      await trigger.click()
+      await dialog.getByRole('checkbox', { name: /Стрижка/ }).click()
+      await dialog.getByRole('checkbox', { name: /Борода/ }).click()
+      await dialog.getByRole('button', { name: 'Закрити список', exact: true }).click()
+      const form = trigger.locator('xpath=ancestor::form')
+      await form.getByRole('button', { name: 'Зберегти', exact: true }).click()
+      await expect(dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true })).toBeVisible()
+      expect(writes).toEqual([{ path: '/api/v1/backoffice/masters/me/bookings/901', body: { service_ids: [12] } }])
+      await dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true }).click()
+      await expect(dialog.getByRole('group', { name: 'Вибрані значення: 1', exact: true })).toContainText('Борода')
+      await expect(dialog.getByRole('button', { name: 'Прибрати Стрижка', exact: true })).toHaveCount(0)
+    })
+  }
+  test(`rejected service change keeps draft with inline reason ${path}`, async ({ page }) => {
+    await setup(page, path)
+    let patches = 0
+    await page.route('**/masters/me/bookings/901', async route => {
+      if (route.request().method() !== 'PATCH') return route.fallback()
+      patches++
+      return route.fulfill({ status: 409, json: { detail: "Booking slot is outside master's open availability" } })
+    })
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('button', { name: 'Редагувати послуги бронювання', exact: true }).click()
+    const trigger = dialog.locator('[data-multiselect-trigger]')
+    await trigger.click()
+    await dialog.getByRole('checkbox', { name: /Борода/ }).click()
+    await dialog.getByRole('button', { name: 'Закрити список', exact: true }).click()
+    const form = trigger.locator('xpath=ancestor::form')
+    await form.getByRole('button', { name: 'Зберегти', exact: true }).click()
+    await expect(form.getByRole('alert')).toContainText('відкриту доступність')
+    await expect(form.getByRole('group', { name: 'Вибрані значення: 2', exact: true })).toContainText('Борода')
+    await expect(form.getByRole('button', { name: 'Зберегти', exact: true })).toBeEnabled()
+    expect(patches).toBe(1)
+  })
+}
