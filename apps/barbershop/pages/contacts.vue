@@ -7,7 +7,7 @@ import { kyivDateTimeLocalInput, kyivLocalDateTimeToIso } from '~/utils/kyivDate
 const { terms, locale } = useTerms()
 const domain = useBarbershopDomain()
 const localizedService = useLocalizedService()
-const { trackContactClick, trackEvent } = useAnalytics()
+const { trackContactClick, trackEvent, canTrackEvent } = useAnalytics()
 const bookingFunnel = useBookingFunnel()
 const { data: masters } = await useAsyncData('booking-masters', domain.getMasters)
 const maxSelectedServices = 3
@@ -75,7 +75,7 @@ const serviceSelected = (serviceId: number) => form.service_ids.includes(String(
 const serviceSelectionLimitReached = computed(() => form.service_ids.length >= maxSelectedServices)
 
 const recordBookingStart = (masterId?: number) => {
-  if (bookingFunnel.claimAnalyticsStart()) {
+  if (canTrackEvent() && bookingFunnel.claimAnalyticsStart()) {
     trackEvent('booking_start', {
       source: 'contacts_page',
     })
@@ -187,6 +187,7 @@ useSeo(
 )
 
 const submit = async () => {
+  if (state.loading) return
   const safeFirstName = sanitizeFormText(form.first_name, FORM_FIELD_LIMITS.name)
   const safeLastName = sanitizeFormText(form.last_name, FORM_FIELD_LIMITS.name)
   const safeEmail = sanitizeFormText(form.email, FORM_FIELD_LIMITS.email)
@@ -208,6 +209,9 @@ const submit = async () => {
   const serviceIds = form.service_ids.map(Number).filter(Number.isFinite)
   const masterId = Number(form.master_id)
   const scheduledAt = kyivLocalDateTimeToIso(form.scheduled_at)
+  const appointmentDate = form.scheduled_at.slice(0, 10)
+  const durationMinutes = selectedDurationMinutes.value
+  const customerPhone = formatPhoneForSubmit(form.phone)
   if (
     !serviceIds.length
     || !Number.isInteger(masterId)
@@ -224,22 +228,16 @@ const submit = async () => {
   state.success = ''
   state.error = ''
   state.browserSessionCreated = false
-  trackEvent('booking_submit', {
-    source: 'contacts_page',
-    master_id: masterId,
-    appointment_date: form.scheduled_at.slice(0, 10),
-    service_count: serviceIds.length,
-    duration_minutes: selectedDurationMinutes.value,
-  })
   try {
     const availableSlots = await domain.getAvailableSlots(
       masterId,
       serviceIds,
-      form.scheduled_at.slice(0, 10),
-      selectedDurationMinutes.value,
+      appointmentDate,
+      durationMinutes,
     )
     if (!includesBookingStart(availableSlots, scheduledAt)) {
       state.error = slotUnavailableMessage.value
+      trackEvent('booking_submit_failed', { booking_location: 'contacts_page', reason: 'slot_conflict' })
       bookingFunnel.recordInBackground('stale_schedule', {
         masterId,
         serviceId: serviceIds[0],
@@ -257,13 +255,20 @@ const submit = async () => {
       masterId,
       serviceId: serviceIds[0],
     })
+    trackEvent('booking_submit', {
+      source: 'contacts_page',
+      master_id: masterId,
+      appointment_date: appointmentDate,
+      service_count: serviceIds.length,
+      duration_minutes: durationMinutes,
+    })
     const bookingResult = await domain.createBooking({
       master_id: masterId,
       service_id: serviceIds[0],
       service_ids: serviceIds,
-      duration_minutes: selectedDurationMinutes.value,
+      duration_minutes: durationMinutes,
       customer_name: safeCustomerName,
-      customer_phone: formatPhoneForSubmit(form.phone),
+      customer_phone: customerPhone,
       customer_email: safeEmail,
       customer_comment: safeNote || null,
       start_at: scheduledAt,
@@ -274,9 +279,9 @@ const submit = async () => {
     trackEvent('booking_success', {
       source: 'contacts_page',
       master_id: masterId,
-      appointment_date: form.scheduled_at.slice(0, 10),
+      appointment_date: appointmentDate,
       service_count: serviceIds.length,
-      duration_minutes: selectedDurationMinutes.value,
+      duration_minutes: durationMinutes,
     })
     Object.assign(form, {
       first_name: '',
@@ -306,7 +311,7 @@ const submit = async () => {
       {
         source: 'contacts_page',
         master_id: masterId,
-        appointment_date: form.scheduled_at.slice(0, 10),
+        appointment_date: appointmentDate,
         reason: status === 409 ? 'slot_conflict' : funnelFailureEvent ? 'technical' : 'validation',
         status_code: Number.isInteger(status) ? status : undefined,
       },
