@@ -58,7 +58,7 @@ const quoteApi = useApi()
 const { offers: bookingOffers } = useBookingPromotions()
 const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
-const { trackEvent } = useAnalytics()
+const { trackEvent, canTrackEvent } = useAnalytics()
 const bookingFunnel = useBookingFunnel()
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
@@ -742,12 +742,12 @@ const selectService = (service: SelectableService) => {
   }
 
   if (!wasSelected && serviceSelected(service)) {
-    if (bookingFunnel.claimAnalyticsStart()) {
+    if (canTrackEvent() && bookingFunnel.claimAnalyticsStart()) {
       trackEvent('booking_start', {
         source: props.analyticsSource,
       })
-      bookingFunnel.recordInBackground('booking_start')
     }
+    bookingFunnel.recordInBackground('booking_start')
 
     trackEvent('select_service', {
       source: props.analyticsSource,
@@ -774,7 +774,7 @@ const selectMaster = (masterId: number) => {
   manualBookingSelection.value = true
   selectedMasterId.value = masterId
   resolveSelectedServiceForMaster()
-  if (bookingFunnel.claimAnalyticsStart()) {
+  if (canTrackEvent() && bookingFunnel.claimAnalyticsStart()) {
     trackEvent('booking_start', {
       source: props.analyticsSource,
     })
@@ -906,7 +906,10 @@ const refreshSlots = async () => {
     if (selectedSlotStart.value && !includesBookingStart(result, selectedSlotStart.value)) selectedSlotStart.value = ''
   }
   catch (error) {
-    if (ticket.current()) slotsError.value = error
+    if (ticket.current()) {
+      slotsError.value = error
+      trackEvent('booking_slots_load_failed', { booking_location: props.analyticsSource })
+    }
   }
   finally {
     if (ticket.current()) slotsPending.value = false
@@ -1222,12 +1225,14 @@ const openWaitlist = () => {
   waitlistState.value = 'form'
   waitlistOpen.value = true
   recordRecoveryEvent('waitlist_opened', selectedMasterId.value || undefined)
+  trackEvent('waitlist_opened', { booking_location: props.analyticsSource })
 }
 
 const waitlistNeedsName = computed(() => !waitlistNamePrefilled.value)
 const waitlistNeedsPhone = computed(() => !waitlistPhonePrefilled.value)
 
 const submitWaitlist = async () => {
+  if (waitlistState.value === 'submitting') return
   const customerName = sanitizeFormText(waitlistForm.customer_name, FORM_FIELD_LIMITS.fullName)
   const customerPhone = formatPhoneForSubmit(waitlistForm.customer_phone)
   if (customerName.length < 2 || !customerPhone || !waitlistForm.notification_consent || !selectedDate.value || !selectedServiceIds.value.length) {
@@ -1237,6 +1242,7 @@ const submitWaitlist = async () => {
 
   waitlistState.value = 'submitting'
   waitlistError.value = ''
+  trackEvent('waitlist_submit', { booking_location: props.analyticsSource })
   try {
     await domain.createWaitlistRequest(publicWaitlistPayload({
       customerName,
@@ -1252,11 +1258,13 @@ const submitWaitlist = async () => {
     form.customer_name = customerName
     form.customer_phone = formatPhoneInput(customerPhone)
     waitlistState.value = 'success'
+    trackEvent('waitlist_success', { booking_location: props.analyticsSource })
   }
   catch (error) {
     const status = (error as { response?: { status?: number }, status?: number })?.response?.status
       || (error as { status?: number })?.status
     waitlistState.value = status === 409 ? 'duplicate' : 'error'
+    trackEvent('waitlist_submit_failed', { booking_location: props.analyticsSource, reason: status === 409 ? 'duplicate' : status && status < 500 ? 'validation' : 'technical' })
     waitlistError.value = status === 409 ? recoveryCopy.value.duplicate : recoveryCopy.value.error
   }
 }
@@ -1301,6 +1309,7 @@ const selectRecoveryAlternative = async (slot: BookingAlternativeSlotDto) => {
   }
 }
 
+const trackedNoSlotObservations = new Set<string>()
 watch(
   [loadedSlotsKey, slotsPending, slotsError, visibleSlots, selectedDate, dateExplicitlySelected, activeStepIndex],
   () => {
@@ -1320,6 +1329,10 @@ watch(
       selectedMasterId.value!,
       selectedServiceIds.value[0],
     )
+    const observationKey = `${bookingFunnel.sessionId()}:${slotsKey.value}`
+    if (!trackedNoSlotObservations.has(observationKey) && trackEvent('booking_no_slot', { booking_location: props.analyticsSource })) {
+      trackedNoSlotObservations.add(observationKey)
+    }
     bookingFunnel.recordInBackground('no_slot', {
       masterId: selectedMasterId.value,
       serviceId: selectedServiceIds.value[0],

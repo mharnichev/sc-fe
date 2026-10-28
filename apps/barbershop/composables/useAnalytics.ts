@@ -11,14 +11,18 @@ export const useAnalytics = () => {
   const { isPrivateReviewRoute } = useReviewPrivacy()
   const route = useRoute()
 
+  const privateCustomerActivityContext = () => [
+    '/booking', '/booking/', '/booking/manage', '/booking/manage/',
+    '/booking/cancel', '/booking/cancel/', '/booking/repeat', '/booking/repeat/',
+  ].includes(route.path)
+  const canTrackEvent = () => import.meta.client && canUseAnalytics.value && Boolean(window.gtag)
+    && !privateCustomerActivityContext()
+
   const trackEvent = (eventName: string, params: AnalyticsEventParams = {}) => {
-    if (!import.meta.client || !canUseAnalytics.value || !window.gtag) return
+    if (!canTrackEvent()) return false
 
     const privateWaitlistOfferContext =
       route.path === '/booking/waitlist-offer' || route.path === '/booking/waitlist-offer/'
-    const privateCustomerActivityContext =
-      route.path === '/booking/manage' || route.path === '/booking/manage/' || route.path === '/booking/cancel' || route.path === '/booking/cancel/'
-    if (privateCustomerActivityContext) return
     const waitlistSafeParams = privateWaitlistOfferContext
       ? {
           ...params,
@@ -37,7 +41,8 @@ export const useAnalytics = () => {
       Object.entries(contextualParams).filter(([, value]) => value !== undefined && value !== ''),
     )
 
-    window.gtag('event', eventName, cleanParams)
+    window.gtag!('event', eventName, cleanParams)
+    return true
   }
 
   const trackContactClick = (linkType: string, location: string) => {
@@ -52,6 +57,7 @@ export const useAnalytics = () => {
 
   return {
     trackEvent,
+    canTrackEvent,
     trackContactClick,
   }
 }
