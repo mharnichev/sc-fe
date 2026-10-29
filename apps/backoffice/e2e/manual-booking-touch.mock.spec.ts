@@ -4,13 +4,24 @@ test.use({ isMobile: true, hasTouch: true })
 
 for (const width of [390, 1440]) {
   for (const theme of ['light', 'dark']) {
-    test(`touch manual services ${width} ${theme}`, async ({ page }) => {
+    test(`touch manual services ${width} ${theme}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 844 })
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))
       await page.clock.install({ time: new Date('2026-10-25T06:00:00Z') })
       const user = { id: 13, email: 'fixture@example.test', role: 'barber', master_id: 13, is_active: true, is_superuser: false }
-      await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture', refreshToken: '', user })), user)
+      await page.addInitScript(user => {
+        // API reads are fulfilled locally even in the network-isolated runtime.
+        Object.defineProperty(navigator, 'onLine', { get: () => true, configurable: true })
+        localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture', refreshToken: '', user }))
+      }, user)
+      const localServer = new URL(testInfo.project.use.baseURL || 'http://127.0.0.1:4040')
+      if (localServer.hostname !== '127.0.0.1') throw new Error('Manual service mocks require a local test server')
+      await page.route('**/*', route => {
+        const url = new URL(route.request().url())
+        if (!['GET', 'HEAD'].includes(route.request().method())) return route.fulfill({ status: 403, json: { detail: 'Unexpected mutation' } })
+        return url.origin === localServer.origin ? route.continue() : route.abort()
+      })
       await page.route('**/api/v1/**', async route => {
         const path = new URL(route.request().url()).pathname
         if (route.request().method() !== 'GET') return route.fulfill({ status: 403, json: { detail: 'Unexpected mutation' } })
@@ -28,6 +39,7 @@ for (const width of [390, 1440]) {
       const trigger = dialog.locator('[data-multiselect-trigger]')
       await trigger.tap()
       const search = dialog.getByPlaceholder('Пошук послуг')
+      await expect(search).not.toBeFocused()
       await search.fill('Послуга 20')
       // Touch focus may temporarily fall back to the page before the option click.
       await search.dispatchEvent('focusout', { relatedTarget: null })
@@ -59,7 +71,7 @@ for (const width of [390, 1440]) {
       await dialog.getByLabel('Ім’я клієнта', { exact: true }).focus()
       await expect(dialog.getByRole('checkbox')).toHaveCount(0)
       expect(errors).toEqual([])
-      await page.screenshot({ path: `output/service-select/manual-${width}-${theme}.png`, animations: 'disabled' })
+      await page.screenshot({ path: testInfo.outputPath(`manual-${width}-${theme}.png`), animations: 'disabled' })
     })
   }
 }

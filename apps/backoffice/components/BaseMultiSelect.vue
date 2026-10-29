@@ -49,6 +49,15 @@ const menuId = `multi-select-${useId()}`
 const failedImages = ref(new Set<string>())
 const open = ref(false)
 const query = ref('')
+let lastPointerType = ''
+let tabNavigation = false
+
+const rememberPointer = (event: PointerEvent) => {
+  lastPointerType = event.pointerType
+  tabNavigation = false
+}
+const resetPointer = () => { lastPointerType = '' }
+const shouldFocusSearch = () => lastPointerType !== 'touch' && lastPointerType !== 'pen'
 
 const keyFor = (value: BaseMultiSelectValue) => String(value)
 const selectedKeys = computed(() => new Set(props.modelValue.map(keyFor)))
@@ -107,10 +116,15 @@ const focusSearch = async () => {
   if (open.value && !props.disabled) searchInputRef.value?.focus()
 }
 
-const openMenu = async () => {
+const openMenu = async (focus = true) => {
   if (props.disabled) return
   open.value = true
-  await focusSearch()
+  if (focus) await focusSearch()
+}
+
+const toggleMenu = () => {
+  if (open.value) closeMenu()
+  else void openMenu(shouldFocusSearch())
 }
 
 const closeMenu = (restoreFocus = false) => {
@@ -137,7 +151,7 @@ const removeOption = (option: BaseMultiSelectOption) => {
 
 const clearAll = () => {
   if (!canClear.value) return
-  searchInputRef.value?.focus()
+  if (shouldFocusSearch()) searchInputRef.value?.focus()
   setValue(props.modelValue.filter(value =>
     props.options.some(option => keyFor(option.value) === keyFor(value) && option.disabled),
   ))
@@ -145,7 +159,7 @@ const clearAll = () => {
 
 const selectAllFiltered = () => {
   if (!canSelectAll.value) return
-  searchInputRef.value?.focus()
+  if (shouldFocusSearch()) searchInputRef.value?.focus()
   const remaining = props.showLimit ? Math.max(0, props.maxSelected - selectedKeys.value.size) : Infinity
   setValue([...props.modelValue, ...selectableFiltered.value.slice(0, remaining).map(option => option.value)])
 }
@@ -155,18 +169,27 @@ const selectFirstFiltered = () => {
   if (first) toggleOption(first)
 }
 
-const handleEscape = (event: KeyboardEvent) => {
-  if (!open.value) return
+const handleDocumentKeydown = (event: KeyboardEvent) => {
+  if (!open.value || event.key !== 'Escape') return
   event.preventDefault()
   event.stopPropagation()
   closeMenu(true)
 }
 
+const handleKeydown = (event: KeyboardEvent) => {
+  resetPointer()
+  tabNavigation = event.key === 'Tab'
+}
+
 const handleFocusOut = (event: FocusEvent) => {
-  // Mobile focus can fall back to the page while a tap is still in progress.
-  // Only a real outside control should close here; outside taps close via pointerdown.
   const nextTarget = event.relatedTarget
-  if (nextTarget === document.body || nextTarget === document.documentElement) return
+  const leftByTab = tabNavigation
+  tabNavigation = false
+  // Touch focus can temporarily fall back to the page before its click.
+  if (!nextTarget || nextTarget === document.body || nextTarget === document.documentElement) {
+    if (leftByTab) closeMenu()
+    return
+  }
   if (nextTarget instanceof Node && !rootRef.value?.contains(nextTarget)) closeMenu()
 }
 
@@ -174,11 +197,18 @@ watch(() => props.disabled, disabled => { if (disabled) closeMenu() })
 
 const handleDocumentPointerDown = (event: PointerEvent) => {
   if (!rootRef.value || rootRef.value.contains(event.target as Node)) return
+  resetPointer()
   closeMenu()
 }
 
-onMounted(() => document.addEventListener('pointerdown', handleDocumentPointerDown))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocumentPointerDown))
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
+  document.addEventListener('keydown', handleDocumentKeydown, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  document.removeEventListener('keydown', handleDocumentKeydown, true)
+})
 </script>
 
 <template>
@@ -197,7 +227,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
       <slot name="label" />
     </template>
 
-    <div ref="rootRef" @keydown.esc="handleEscape" @focusout="handleFocusOut">
+    <div ref="rootRef" @pointerdown="rememberPointer" @pointercancel="resetPointer" @click="resetPointer" @keydown="handleKeydown" @focusout="handleFocusOut">
       <div class="relative">
         <BaseButton
           type="button"
@@ -208,8 +238,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
           data-multiselect-trigger
           :aria-expanded="open"
           :aria-controls="open ? menuId : undefined"
-          @keydown.down.prevent="openMenu"
-          @click="open ? closeMenu() : openMenu()"
+          @keydown.down.prevent="openMenu()"
+          @click="toggleMenu"
         >
           <span v-if="label" class="sr-only">{{ label }}: </span>
           <span class="min-w-0 flex-1">
@@ -223,7 +253,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
           <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-500 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
         </BaseButton>
 
-        <div v-if="open" :id="menuId" role="group" :aria-label="label || placeholder" class="booking-select-menu absolute mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl" :class="menuClass">
+        <div v-if="open" :id="menuId" role="group" :aria-label="label || placeholder" class="booking-select-menu multi-select-menu absolute mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl" :class="menuClass">
           <div class="border-b border-slate-100 p-2">
             <div class="flex items-center gap-2">
               <div class="relative min-w-0 flex-1">
@@ -389,6 +419,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', handleDocument
 }
 .multi-select-options {
   max-height: min(15rem, 40dvh);
+}
+@media (pointer: coarse) {
+  :global(.base-modal__panel .multi-select-menu) {
+    position: static;
+  }
 }
 .multi-select-chips {
   scrollbar-width: thin;
