@@ -163,9 +163,11 @@ const handleEscape = (event: KeyboardEvent) => {
 }
 
 const handleFocusOut = (event: FocusEvent) => {
-  // Touch browsers can omit relatedTarget while an option is being tapped.
-  // Outside pointer presses are handled separately; only a known outside focus closes here.
-  if (event.relatedTarget instanceof Node && !rootRef.value?.contains(event.relatedTarget)) closeMenu()
+  // Mobile focus can fall back to the page while a tap is still in progress.
+  // Only a real outside control should close here; outside taps close via pointerdown.
+  const nextTarget = event.relatedTarget
+  if (nextTarget === document.body || nextTarget === document.documentElement) return
+  if (nextTarget instanceof Node && !rootRef.value?.contains(nextTarget)) closeMenu()
 }
 
 watch(() => props.disabled, disabled => { if (disabled) closeMenu() })
