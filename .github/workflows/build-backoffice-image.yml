@@ -1,0 +1,79 @@
+name: Build backoffice image
+
+on:
+  push:
+    branches:
+      - codex/manual-master-rewards-20261030
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: backoffice-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE_REPOSITORY: ghcr.io/mharnichev/sc-fe/admin
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set unique image tag
+        run: echo "IMAGE_TAG=${IMAGE_REPOSITORY}:rewards-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Build Linux backoffice
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/mharnichev/sc-fe" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --file apps/backoffice/Dockerfile --tag "$IMAGE_TAG" .
+
+      - name: Smoke final image without external network
+        run: |
+          set -euo pipefail
+          cid="$(docker run -d --network none "$IMAGE_TAG")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker exec "$cid" node --input-type=module -e '
+            for (let attempt = 0; attempt < 40; attempt++) {
+              try {
+                const response = await fetch("http://127.0.0.1:3000/login", { signal: AbortSignal.timeout(1000) });
+                if (response.ok && (await response.text()).includes("<html")) process.exit(0);
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            process.exit(1);
+          '
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" = "$GITHUB_SHA"
+
+      - name: Login to own registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish verified image and record immutable digest
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE_TAG"
+          docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/backoffice-image.json"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          image = json.loads((Path(os.environ['RUNNER_TEMP']) / 'backoffice-image.json').read_text())[0]
+          expected = os.environ['IMAGE_REPOSITORY']
+          digests = [value for value in image['RepoDigests'] if re.fullmatch(re.escape(expected) + r'@sha256:[a-f0-9]{64}', value)]
+          assert len(digests) == 1, 'Expected one immutable image digest'
+          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('Source: `' + os.environ['GITHUB_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nLinux runtime smoke: passed; external network disabled.\n')
+          print(digests[0])
+          PY
