@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      IMAGE_REPOSITORY: ghcr.io/mharnichev/sc-fe/admin
+      IMAGE_REPOSITORY: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
