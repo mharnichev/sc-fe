@@ -59,8 +59,15 @@ const generatedId = useId()
 const fieldId = computed(() => props.id || (typeof props.name === 'string' ? props.name : undefined) || (hasField.value ? `base-input-${generatedId}` : undefined))
 const hintId = computed(() => props.hint && fieldId.value ? `${fieldId.value}-hint` : undefined)
 const errorId = computed(() => props.error && fieldId.value ? `${fieldId.value}-error` : undefined)
-const describedBy = computed(() => [...new Set([attrs['aria-describedby'], hintId.value, errorId.value].filter(Boolean).join(' ').split(/\s+/))].filter(Boolean).join(' ') || undefined)
-const ariaInvalid = computed(() => props.error ? true : attrs['aria-invalid'])
+const describedBy = computed(() => [...new Set([
+  typeof attrs['aria-describedby'] === 'string' ? attrs['aria-describedby'] : undefined,
+  errorId.value || hintId.value,
+].filter(Boolean).join(' ').split(/\s+/))].filter(Boolean).join(' ') || undefined)
+const ariaInvalid = computed(() => {
+  if (props.error) return true
+  const value = attrs['aria-invalid']
+  return typeof value === 'boolean' || value === 'true' || value === 'false' || value === 'grammar' || value === 'spelling' ? value : undefined
+})
 const normalizedValue = computed(() => props.modelValue ?? props.value ?? '')
 const inputValue = computed(() => props.type === 'file' ? undefined : normalizedValue.value)
 

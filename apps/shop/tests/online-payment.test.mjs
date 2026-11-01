@@ -18,6 +18,7 @@ const load = () => {
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
     useApi: () => async (path, options) => { calls.push({ path, options }); if (state.delayed) await new Promise(resolve => state.resolve = resolve); return state.response },
     useCustomerAuthStore: () => auth, ref: value => ({ value }), watch: (identity, reset) => watches.push(reset),
+    useRouter: () => ({ beforeEach: () => () => {} }),
     onMounted: fn => mounted = fn, onBeforeUnmount: fn => unmount = fn,
     setTimeout: (_fn, ms) => { timers.push(ms); return 1 }, clearTimeout() {},
   })

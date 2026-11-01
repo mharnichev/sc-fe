@@ -3,7 +3,7 @@ const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
 const props = defineProps<{ orderId: number, guestToken?: string, orderPath?: string }>()
 const emit = defineEmits<{ 'method-changed': [method: string] }>()
-const { payment, busy, error, errorKind, refresh, create, changeMethod, redirectFailed } = useOrderPayment(() => props.orderId, () => props.guestToken)
+const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed } = useOrderPayment(() => props.orderId, () => props.guestToken)
 let active = false
 let navigationRevision = 0
 let removeNavigationGuard: (() => void) | undefined
@@ -22,6 +22,7 @@ const beginPayment = async () => {
   if (!active || revision !== navigationRevision || context !== identity() || error.value) return
   const url = result?.order_id === id && !result.paid && result.status === 'waiting' && result.actions?.continue_payment !== false ? safePaymentUrl(result.page_url) : null
   if (!url) return
+  recordRedirect()
   try { window.location.assign(url) }
   catch (cause) { redirectFailed(cause) }
 }
@@ -125,7 +126,7 @@ const amount = computed(() => {
     <p v-if="settled && !payment?.receipt_accepted" class="order-payment__hint">{{ paymentText.receiptPending }}</p>
     <div class="order-payment__actions">
       <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !accessDenied && !error" :disabled="busy" @click="beginPayment">{{ paymentText.create }}</BaseButton>
-      <BaseButton v-if="pageUrl && !accessDenied" :href="pageUrl" rel="noreferrer">{{ paymentText.pay }}</BaseButton>
+      <BaseButton v-if="pageUrl && !accessDenied" :href="pageUrl" rel="noreferrer" @click="recordRedirect">{{ paymentText.pay }}</BaseButton>
       <BaseButton v-if="receiptUrl && payment?.receipt_accepted && !accessDenied" :href="receiptUrl" target="_blank" rel="noopener noreferrer">{{ paymentText.receipt }}</BaseButton>
       <BaseButton variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
       <BaseButton v-if="canChange" variant="borderless" :disabled="busy" @click="openChange">{{ paymentText.changeMethod }}</BaseButton>
@@ -140,7 +141,7 @@ const amount = computed(() => {
       <div class="order-payment__method-form">
         <p>{{ paymentText.changeHint }}</p>
         <BaseRadio v-for="method in availableMethods" :key="method" :id="`order-${orderId}-${method}`" v-model="selectedMethod" :name="`order-${orderId}-payment-method`" :value="method" :label="method === 'cash' ? paymentText.pickupCash : paymentText.cash" :disabled="busy || !canChange" />
-        <p v-if="error" role="alert">{{ paymentError }}</p>
+        <p v-if="error" role="alert">{{ errorKind === 'conflict' ? paymentText.conflictHint : paymentError }}</p>
         <BaseButton v-if="error" variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
         <BaseButton :disabled="busy || !canChange || !availableMethods.includes(selectedMethod)" @click="confirmChange">{{ paymentText.confirmChange }}</BaseButton>
         <BaseButton variant="text" :disabled="busy" @click="changeOpen = false">{{ paymentText.cancel }}</BaseButton>

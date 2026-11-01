@@ -4,6 +4,66 @@ const product = { id: 123, name: 'Mock pomade', slug: 'mock-pomade', price: '100
 const city = { ref: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', city_ref: null, name: 'Київ', label: 'Київ, тестова область', area: 'Тестова', region: '', delivery_available: true }
 const branch = { ref: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', settlement_ref: city.ref, city_ref: null, number: '1', label: 'Тестове відділення №1', name: 'Тестове відділення №1', address: 'Тестова, 1', type: 'warehouse', status: 'Working' }
 
+for (const locale of ['uk', 'en'] as const) {
+ for (const status of [409, 422]) {
+ test(`method conflict ${status} stays localized inside modal and requires refresh (${locale})`, async ({ page, context }) => {
+  const english = locale === 'en'
+  const copy = {
+    change: english ? 'Choose another payment method' : 'Обрати інший спосіб оплати',
+    confirm: english ? 'Confirm payment method' : 'Підтвердити спосіб оплати',
+    refresh: english ? 'Refresh payment status' : 'Оновити статус оплати',
+    conflict: english ? 'The order has changed. Refresh its status before your next action. Your order is saved.' : 'Стан замовлення змінився. Оновіть статус перед наступною дією. Замовлення збережено.',
+    connection: english ? 'Could not update the payment. Please try again.' : 'Не вдалося оновити оплату. Спробуйте ще раз.',
+    access: english ? 'Payment could not be opened' : 'Не вдалося відкрити оплату',
+  }
+  let posts = 0, failure = 0
+  await context.addCookies([{ name: 'shop-locale', value: locale, url: 'http://127.0.0.1' }])
+  await page.route('https://**', route => route.abort())
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.includes('/987/online-payment')) {
+      if (path.endsWith('/change-method')) {
+        posts++
+        await route.fulfill({ status, json: { detail: 'Synthetic conflict' } }); return
+      }
+      expect(req.method()).toBe('GET')
+      if (failure) { await route.fulfill({ status: failure, json: {} }); return }
+      await route.fulfill({ json: { order_id: 987, enabled: true, status: 'not_started', paid: false,
+        receipt_accepted: false, page_url: null, receipt_url: null, amount_minor: 20000, currency: 'UAH', revision: 3, attempt_id: null,
+        actions: { start: true, change_method: true, refresh: true }, available_payment_methods: ['cashOnDelivery'] } }); return
+    }
+    expect(req.method()).toBe('GET')
+    await route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  await page.getByRole('button', { name: copy.change, exact: true }).click()
+  const modal = page.getByRole('dialog')
+  await modal.getByRole('button', { name: copy.confirm, exact: true }).click()
+  await expect(modal.getByRole('alert')).toHaveText(copy.conflict)
+  await expect(modal.getByRole('button', { name: copy.confirm, exact: true })).toBeDisabled()
+  expect(posts).toBe(1)
+  failure = 503
+  await modal.getByRole('button', { name: copy.refresh, exact: true }).click()
+  await expect(modal.getByRole('alert')).toHaveText(copy.connection)
+  failure = 0
+  await modal.getByRole('button', { name: copy.refresh, exact: true }).click()
+  await expect(modal.getByRole('alert')).toHaveCount(0)
+  await expect(modal.getByRole('button', { name: copy.confirm, exact: true })).toBeEnabled()
+  expect(posts).toBe(1)
+  await modal.getByRole('button', { name: copy.confirm, exact: true }).click()
+  await expect(modal.getByRole('alert')).toHaveText(copy.conflict)
+  expect(posts).toBe(2)
+  failure = 403
+  await modal.getByRole('button', { name: copy.refresh, exact: true }).click()
+  await expect(modal).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: copy.access, exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: /receipt|чек/i })).toHaveCount(0)
+  expect(posts).toBe(2)
+ })
+ }
+}
+
 for (const mobile of [false, true]) {
  for (const lostResponse of [false, true]) {
  test(`predispatch method change is explicit and preserves one order (${mobile ? 'mobile' : 'desktop'}, ${lostResponse ? 'lost response' : 'success'})`, async ({ page }) => {
@@ -34,7 +94,7 @@ for (const mobile of [false, true]) {
     expect(req.method(), `Unexpected write ${path}`).toBe('GET')
     await route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('/payment/987')
+  await page.goto('/shop/payment/987')
   await page.getByRole('button', { name: 'Обрати інший спосіб оплати' }).click()
   await expect(page.getByRole('button', { name: 'Підтвердити спосіб оплати' })).toBeVisible()
   expect(changes).toBe(0)
@@ -93,7 +153,7 @@ for (const authenticated of [false, true]) {
     if (path.endsWith('/np/branches')) { await route.fulfill({ json: { items: [branch], cached: true } }); return }
     await route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('/checkout/purchase')
+  await page.goto('/shop/checkout/purchase')
   await page.getByLabel('ІМʼЯ').fill('Synthetic'); await page.getByLabel('ПРІЗВИЩЕ').fill('Customer'); await page.getByLabel('ТЕЛЕФОН').fill(customer.phone)
   await page.getByRole('button', { name: 'Київ', exact: true }).click()
   await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue(city.label)
@@ -108,7 +168,7 @@ for (const authenticated of [false, true]) {
   await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
   // The browser may block even an intercepted bank origin. Simulate its return
   // without relying on provider HTML or changing browser security settings.
-  await page.goto('/payment/987')
+  await page.goto('/shop/payment/987')
   await expect(page).toHaveURL(/\/payment\/987$/)
   const bank = page.getByRole('link', { name: 'Перейти до оплати' })
   await expect(bank).toHaveAttribute('href', 'https://pay.mbnk.biz/mock-invoice'); await expect(bank).not.toHaveAttribute('target', '_blank')
@@ -126,7 +186,7 @@ for (const authenticated of [false, true]) {
   await expect(page.getByRole('link', { name: 'Переглянути фіскальний чек' })).toHaveAttribute('href', 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture')
   if (authenticated) {
     phase = 'paid_receipt_pending'
-    await page.goto('/cabinet/orders/987')
+    await page.goto('/shop/cabinet/orders/987')
     await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
     await page.reload()
     await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
@@ -149,7 +209,7 @@ for (const unavailable of ['disabled', 'error']) {
  test(`online checkout fails closed when capability ${unavailable}`, async ({ page }) => {
   await page.route('https://**', route => route.abort())
   await page.route('**/api/v1/**', route => route.fulfill(new URL(route.request().url()).pathname.endsWith('/online-payment-capabilities') ? unavailable === 'error' ? { status: 503, json: {} } : { json: { enabled: false } } : { json: { items: [], total: 0 } }))
-  await page.goto('/checkout/purchase')
+  await page.goto('/shop/checkout/purchase')
   await expect(page.locator('label[for=payment-method-cashOnDelivery]')).toBeVisible()
   await expect(page.locator('label[for=payment-method-onlineCard]')).toHaveCount(0)
  })

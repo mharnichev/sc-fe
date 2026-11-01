@@ -37,6 +37,21 @@ const previewAtPointer = (event: PointerEvent) => {
 }
 
 const resetPreview = () => { activeImage.value = 0 }
+const selectPreview = (index: number) => {
+  previewReady.value = true
+  activeImage.value = index
+}
+const resetOnFocusOut = (event: FocusEvent) => {
+  if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) resetPreview()
+}
+const failedImages = ref<string[]>([])
+const previewSource = (src: string) => failedImages.value.includes(src)
+  ? images.value.find(image => !failedImages.value.includes(image.src))?.src || 'https://placehold.co/640x640?text=Product'
+  : src
+const imageFailed = (event: Event) => {
+  const src = (event.target as HTMLImageElement).getAttribute('src')
+  if (src && !failedImages.value.includes(src)) failedImages.value.push(src)
+}
 
 const stepPreview = (direction: number) => {
   previewReady.value = true
@@ -61,6 +76,7 @@ const previewOnKey = (event: KeyboardEvent) => {
 
 watch(images, () => {
   resetPreview()
+  failedImages.value = []
   previewReady.value = false
   lastWheelTime = -Infinity
 })
@@ -92,7 +108,14 @@ const toggleCart = async () => {
 </script>
 
 <template>
-  <article class="catalog-product-tile" :class="{ 'catalog-product-tile--unavailable': isUnavailable }" itemscope itemtype="https://schema.org/Product">
+  <article
+    class="catalog-product-tile"
+    :class="{ 'catalog-product-tile--unavailable': isUnavailable }"
+    itemscope
+    itemtype="https://schema.org/Product"
+    @pointerleave="($event.pointerType === 'mouse') && resetPreview()"
+    @focusout="resetOnFocusOut"
+  >
     <component
       :is="isHidden ? 'div' : NuxtLink"
       class="catalog-product-tile__link"
@@ -124,7 +147,8 @@ const toggleCart = async () => {
                   'catalog-product-tile__image--single': !hasPreview,
                   'catalog-product-tile__image--unavailable': isUnavailable,
                 }"
-                :src="image.src"
+                :src="previewSource(image.src)"
+                @error="imageFailed"
                 :alt="image.alt"
                 width="240"
                 height="240"
@@ -169,13 +193,29 @@ const toggleCart = async () => {
     </BaseButton>
 
     <div class="catalog-product-tile__body">
-      <div v-if="hasPreview" class="catalog-product-tile__dots" aria-hidden="true">
-        <span
+      <div
+        v-if="hasPreview"
+        class="catalog-product-tile__dots"
+        role="group"
+        :aria-label="locale === 'uk' ? 'Фото товару' : 'Product images'"
+        @keydown.esc="resetPreview"
+      >
+        <BaseButton
           v-for="(_, index) in images"
           :key="index"
-          class="catalog-product-tile__dot"
-          :class="{ 'catalog-product-tile__dot--active': index === activeImage }"
-        />
+          class="catalog-product-tile__dot-target"
+          variant="borderless"
+          size="xs"
+          :aria-label="`${locale === 'uk' ? 'Фото' : 'Image'} ${index + 1} / ${images.length}`"
+          :aria-pressed="index === activeImage"
+          @click="selectPreview(index)"
+        >
+          <span
+            class="catalog-product-tile__dot"
+            :class="{ 'catalog-product-tile__dot--active': index === activeImage }"
+            aria-hidden="true"
+          />
+        </BaseButton>
       </div>
       <div class="catalog-product-tile__desktop-layout">
         <div class="catalog-product-tile__primary">
@@ -350,26 +390,27 @@ const toggleCart = async () => {
 
 .catalog-product-tile__dots {
   position: absolute;
-  top: -2.5rem;
+  top: -3.25rem;
   bottom: auto;
   left: 50%;
   z-index: 4;
   display: flex;
   max-width: 100%;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 0;
   border-radius: 1rem;
   background: #ffffff;
-  padding: 0.5rem 0.75rem;
+  padding: 0;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 0.375rem);
   transition: opacity 500ms var(--catalog-product-tile-motion-easing), transform 500ms var(--catalog-product-tile-motion-easing);
 }
 
-.catalog-product-tile__link:focus-visible ~ .catalog-product-tile__body .catalog-product-tile__dots {
+.catalog-product-tile:focus-within .catalog-product-tile__dots {
   opacity: 1;
+  pointer-events: auto;
   transform: translate(-50%, 0);
 }
 
@@ -380,11 +421,40 @@ const toggleCart = async () => {
 
   .catalog-product-tile:hover .catalog-product-tile__dots {
     opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+}
+
+.catalog-product-tile__dot-target.sc-button {
+  --sc-button-bg: transparent;
+  --sc-button-border: transparent;
+  --sc-button-fill: transparent;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  border-radius: 0;
+  pointer-events: inherit;
+}
+
+.catalog-product-tile__dot-target:focus-visible {
+  outline: 2px solid #262626;
+  outline-offset: -3px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .catalog-product-tile__dots {
+    opacity: 1;
+    pointer-events: auto;
     transform: translate(-50%, 0);
   }
 }
 
 .catalog-product-tile__dot {
+  display: block;
   width: 0.375rem;
   height: 0.375rem;
   flex: 0 0 auto;

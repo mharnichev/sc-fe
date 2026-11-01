@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
+import { vue } from './runtime-localization-harness.mjs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 const run = (source, globals) => vm.runInNewContext(ts.transpileModule(source, {
@@ -13,8 +14,14 @@ const flush = () => new Promise(resolve => setImmediate(resolve))
 const waiting = () => ({ order_id: 42, enabled: true, status: 'waiting', paid: false,
   receipt_accepted: false, page_url: 'https://pay.mbnk.biz/invoice_42', receipt_url: null,
   amount_minor: 12345, currency: 'UAH', retry_after_seconds: 30 })
-const load = (token = 'guest-capability') => {
+const load = (token = 'guest-capability', reactive = false) => {
   const calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = [], emitted = []
+  const signals = [], guards = new Set(), telemetry = {}
+  run(read('utils/commerceTelemetry.ts'), { exports: telemetry, Error, Date, Map, Number })
+  telemetry.configureCommerceTelemetry(signal => {
+    signals.push(signal)
+    if (signal.error) errors.push([signal.step, signal.error, signal.data])
+  })
   const stored = new Map(), exports = {}, events = {}
   const props = { orderId: 42, guestToken: token }
   const auth = { isAuthenticated: false, customer: null, sessionRevision: 0, accessToken: null }
@@ -23,11 +30,13 @@ const load = (token = 'guest-capability') => {
   const globals = {
     exports, URL, document, crypto: { randomUUID: () => 'stable-key' },
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
-    ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }),
+    Error,
+    ref: reactive ? vue.ref : value => ({ value }), computed: fn => ({ get value() { return fn() } }),
     watch: (_identity, fn) => watches.push(fn), onMounted: fn => mounts.push(fn), onBeforeUnmount: fn => unmounts.push(fn),
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length }, clearTimeout() {},
     useCustomerAuthStore: () => auth,
-    require: () => ({ commerceBreadcrumb() {}, reportCommerceError: (...args) => errors.push(args) }),
+    useRouter: () => ({ beforeEach: fn => { guards.add(fn); return () => guards.delete(fn) } }),
+    require: () => telemetry,
     useApi: () => async (path, options) => {
       calls.push({ path, options })
       if (state.delay && (options.method === 'POST' || state.delayReads)) await new Promise(resolve => { state.resolve = resolve })
@@ -37,19 +46,17 @@ const load = (token = 'guest-capability') => {
   }
   run(read('composables/useOrderPayment.ts'), globals)
   const payment = exports.useOrderPayment(() => props.orderId, () => props.guestToken)
-  let navigate
   const viewGlobals = { ...globals, exports: {},
     useOrderPayment: () => payment, defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
     usePaymentDisplay: () => ({ paymentText: { value: {} } }), useShopRuntimeDisplay: () => ({ runtimeMessage: value => value }),
     safePaymentUrl: exports.safePaymentUrl,
-    useRouter: () => ({ beforeEach: fn => { navigate = fn; return () => { navigate = undefined } } }),
     window: { location: { assign: url => { if (state.redirectFailure) throw state.redirectFailure; redirects.push(url) } } },
   }
   run(read('components/OrderPayment.vue').split('<script setup lang="ts">')[1].split('</script>')[0]
-    + '\nexports.view = { beginPayment, paid, settled, pageUrl, receiptUrl, accessDenied, hint, illustrationTone, syncMethod, changeOpen };', viewGlobals)
-  return { ...viewGlobals.exports.view, payment, props, auth, state, calls, timers, errors, redirects, emitted, exports,
+    + '\nexports.view = { beginPayment, paid, settled, pageUrl, receiptUrl, accessDenied, hint, illustrationTone, syncMethod, changeOpen, canChange, recordRedirect };', viewGlobals)
+  return { ...viewGlobals.exports.view, payment, props, auth, state, calls, timers, errors, redirects, emitted, exports, signals, guards,
     document, events, stored, mount: () => mounts.forEach(fn => fn()), unmount: () => unmounts.forEach(fn => fn()),
-    navigate: () => navigate(), actorChanged: () => watches[0]() }
+    navigate: () => guards.forEach(fn => fn()), actorChanged: () => watches[0]() }
 }
 
 test('old production response works: mount/poll only GET; explicit create redirects in same tab', async () => {
@@ -305,4 +312,123 @@ test('GET reconciles committed method change after POST timeout and updates pare
   await env.payment.refresh(); env.syncMethod()
   assert.equal(env.emitted.length, 1)
   env.unmount()
+})
+
+test('initial invalid provider URL is private, deduplicated per numeric attempt and never navigates', async () => {
+  const env = load()
+  env.state.response = { ...waiting(), attempt_id: 1, page_url: 'https://evil.test/private-capability?email=buyer@example.test' }
+  env.mount(); await flush()
+  const invalid = () => env.signals.filter(signal => signal.step === 'payment.invalid_provider_url')
+  assert.equal(invalid().length, 1, 'the first accepted GET is diagnosed without an immediate watcher')
+  await env.payment.refresh(); await env.payment.refresh()
+  assert.equal(invalid().length, 1)
+  env.state.response = { ...env.state.response, attempt_id: 2 }
+  await env.payment.refresh(); await env.payment.refresh()
+  assert.equal(invalid().length, 2)
+  assert.equal(invalid()[1].data.attempt_id, 2)
+  assert.equal(env.signals.filter(signal => signal.step === 'payment.status').length, 2)
+  env.recordRedirect()
+  assert.equal(env.signals.filter(signal => signal.step === 'payment.redirect').length, 0)
+  assert.deepEqual(env.redirects, [])
+  const serialized = JSON.stringify(env.signals)
+  for (const secret of ['evil.test', 'private-capability', 'buyer@example.test', 'guest-capability', 'page_url']) assert.ok(!serialized.includes(secret))
+  env.unmount()
+})
+
+test('valid, paid, review, forbidden-continuation and foreign-order snapshots are not invalid-URL incidents', async () => {
+  for (const patch of [{}, { paid: true, page_url: 'bad' }, { status: 'requires_review', page_url: 'bad' },
+    { actions: { continue_payment: false }, page_url: 'bad' }, { order_id: 99, page_url: 'bad' }]) {
+    const env = load(); env.state.response = { ...waiting(), ...patch }; env.mount(); await flush()
+    assert.equal(env.errors.length, 0)
+    env.unmount()
+  }
+})
+
+test('attempt-only transitions emit once and string attempt capabilities are never serialized', async () => {
+  const env = load(); env.state.response = { ...waiting(), attempt_id: 1 }; env.mount(); await flush()
+  await env.payment.refresh()
+  env.state.response = { ...waiting(), attempt_id: 2 }
+  await env.payment.refresh(); await env.payment.refresh()
+  assert.equal(env.signals.filter(signal => signal.step === 'payment.status').length, 2)
+  env.state.response = { ...waiting(), attempt_id: 'private-attempt-capability' }
+  await env.payment.refresh()
+  env.recordRedirect()
+  assert.ok(!JSON.stringify(env.signals).includes('private-attempt-capability'))
+  env.unmount()
+})
+
+test('redirect intent works with Vue-proxied snapshots and preserves redirect-failure reporting', async () => {
+  const env = load('guest-capability', true); env.mount(); await flush()
+  env.state.redirectFailure = new Error('private-navigation-detail')
+  await env.beginPayment()
+  assert.equal(env.signals.filter(signal => signal.step === 'payment.redirect').length, 1)
+  assert.equal(env.errors.at(-1)[0], 'payment.redirect_failed')
+  assert.ok(!JSON.stringify(env.signals).includes('private-navigation-detail'))
+  env.recordRedirect()
+  assert.equal(env.signals.filter(signal => signal.step === 'payment.redirect').length, 2, 'explicit continuation click records an intent')
+  env.unmount()
+  assert.equal(env.guards.size, 0)
+})
+
+test('late invalid/new-attempt responses and continuation clicks cannot report after lifecycle invalidation', async () => {
+  for (const invalidate of [env => { env.navigate(); env.navigate() }, env => env.unmount(),
+    env => { env.auth.sessionRevision++; env.actorChanged() },
+    env => { env.auth.isAuthenticated = true; env.actorChanged() },
+    env => { env.props.orderId++; env.actorChanged() },
+    env => { env.props.guestToken = 'replacement'; env.actorChanged() },
+    env => { env.props.guestToken = undefined; env.stored.set('shop-order-payment-token:42', 'replacement') }]) {
+    const env = load(); env.state.response = { ...waiting(), attempt_id: 1 }; env.mount(); await flush()
+    env.state.delay = true; env.state.delayReads = true
+    const pending = env.payment.refresh()
+    const resolveOld = env.state.resolve
+    invalidate(env)
+    const count = env.signals.length
+    env.recordRedirect()
+    env.state.response = { ...waiting(), attempt_id: 2, page_url: 'https://evil.test/private' }
+    resolveOld(); await pending
+    env.recordRedirect()
+    assert.equal(env.signals.length, count)
+    env.unmount()
+  }
+})
+
+test('late create cannot emit redirect intent after navigation or a same-customer session rotation', async () => {
+  for (const invalidate of [env => env.navigate(), env => env.unmount(), env => { env.auth.sessionRevision++; env.actorChanged() }]) {
+    const env = load(); env.mount(); await flush(); env.state.delay = true
+    const pending = env.beginPayment()
+    invalidate(env)
+    const count = env.signals.length
+    env.state.resolve(); await pending
+    assert.equal(env.signals.slice(count).some(signal => signal.step === 'payment.redirect' || signal.data.payment_status === 'waiting'), false,
+      'a fresh-session GET may report its own state, but the old POST must not report or redirect')
+    assert.deepEqual(env.redirects, [])
+    env.unmount()
+  }
+})
+
+test('409 and 422 method conflicts keep the modal and snapshot, block writes, then clear only after GET', async () => {
+  for (const status of [409, 422]) {
+    const env = load(); env.state.response = changeable(); env.mount(); await flush()
+    env.changeOpen.value = true
+    env.state.failure = { response: { status } }
+    await env.payment.changeMethod('cashOnDelivery')
+    assert.equal(env.payment.errorKind.value, 'conflict')
+    assert.equal(env.changeOpen.value, true)
+    assert.equal(env.payment.payment.value.revision, 3)
+    assert.equal(env.canChange.value, false)
+    const posts = () => env.calls.filter(call => call.options.method === 'POST').length
+    assert.equal(posts(), 1)
+    await env.payment.changeMethod('cashOnDelivery')
+    assert.equal(posts(), 1)
+    env.state.failure = null
+    await env.payment.refresh()
+    assert.equal(env.payment.errorKind.value, '')
+    assert.equal(env.canChange.value, true)
+    assert.equal(posts(), 1)
+    env.state.failure = { response: { status: 403 } }
+    await env.payment.refresh()
+    assert.equal(env.payment.payment.value, null)
+    assert.equal(env.canChange.value, false)
+    env.unmount()
+  }
 })

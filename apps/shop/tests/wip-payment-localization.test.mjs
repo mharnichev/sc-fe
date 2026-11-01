@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { locale, vue, useShopRuntimeDisplay, sourceModule } from './runtime-localization-harness.mjs'
 const require = createRequire(import.meta.url)
 const { renderToString } = createRequire(require.resolve('nuxt/package.json'))('vue/server-renderer')
+const { parse } = createRequire(require.resolve('nuxt/package.json'))('@vue/compiler-sfc')
 
 const { paymentCopy } = await sourceModule(await readFile(new URL('../utils/payment-localization.ts', import.meta.url), 'utf8'))
 Object.assign(globalThis, { paymentCopy })
@@ -17,18 +18,19 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   let actions = 0
   Object.assign(globalThis, vue, {
     onMounted() {}, onBeforeUnmount() {},
-    usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }),
-    useOrderPayment: () => ({ payment, error, errorKind, busy: vue.ref(false), refresh: () => { actions++ }, create: () => { actions++ } }),
+    usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }), defineEmits: () => () => {},
+    useOrderPayment: () => ({ payment, error, errorKind, busy: vue.ref(false), recordRedirect() {}, refresh: () => { actions++ }, create: () => { actions++ } }),
     safePaymentUrl: value => value,
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange };')
-  const render = vue.compile(file.split('<template>')[1].split('</template>')[0])
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect };')
+  const render = vue.compile(parse(file).descriptor.template.content)
   const html = () => {
-    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, create() {}, refresh() {} }), render })
+    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
+    app.component('BaseRadio', { props: ['label'], setup: props => () => vue.h('label', props.label) })
     app.component('CustomerAuthDialog', { props: ['label'], setup: props => () => vue.h('button', props.label) })
     app.component('BaseModal', { props: ['modelValue'], setup: (props, { slots }) => () => props.modelValue ? vue.h('dialog', slots.default?.()) : null })
     return renderToString(app)
@@ -70,6 +72,22 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
     assert.equal(actions, 0)
   }
   payment.value.status = 'waiting'
+  component.changeOpen.value = true
+  for (const language of ['uk', 'en', 'uk']) {
+    locale.value = language
+    errorKind.value = 'conflict'
+    const conflict = await html()
+    const dialog = conflict.slice(conflict.indexOf('<dialog'), conflict.indexOf('</dialog>'))
+    assert.ok(dialog.includes(`<p role="alert">${component.paymentText.value.conflictHint}</p>`), dialog)
+    assert.equal(actions, 0)
+    errorKind.value = 'connection'
+    const connection = await html()
+    assert.ok(connection.includes(`<p role="alert">${component.paymentError.value}</p>`))
+    assert.ok(!connection.includes(component.paymentText.value.conflictHint))
+  }
+  component.changeOpen.value = false
+  errorKind.value = ''
+  locale.value = 'uk'
   assert.equal(component.paymentError.value, error.value)
   locale.value = 'en'
   assert.equal(component.labels.value.waiting, 'Awaiting payment')
