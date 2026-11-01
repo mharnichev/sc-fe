@@ -132,6 +132,13 @@ const closeSearch = () => {
   if (!searchTerm.value) startSearchPlaceholderTyping()
 }
 
+const closeDesktopSearchOnResize = () => {
+  if (props.variant !== 'desktop' || window.innerWidth >= 768 || !isSearchFocus.value) return
+  const focused = document.activeElement
+  if (focused instanceof HTMLElement && searchPanel.value?.contains(focused)) focused.blur()
+  closeSearch()
+}
+
 const closeSearchSoon = () => {
   if (props.variant === 'modal') return
   if (closeTimer) clearTimeout(closeTimer)
@@ -188,6 +195,10 @@ watch(locale, () => {
 })
 
 onMounted(async () => {
+  if (props.variant === 'desktop') {
+    window.addEventListener('resize', closeDesktopSearchOnResize, { passive: true })
+    closeDesktopSearchOnResize()
+  }
   if (props.autofocus) {
     await nextTick()
     searchInput.value?.focus()
@@ -197,6 +208,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', closeDesktopSearchOnResize)
   if (closeTimer) clearTimeout(closeTimer)
   stopSearchPlaceholderTyping()
 })
