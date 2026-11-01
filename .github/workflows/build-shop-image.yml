@@ -56,6 +56,15 @@ jobs:
           node --test --test-concurrency=2 tests/*.test.mjs
           node --test tests/ui-residuals-mounted.browser.mjs
 
+      - name: Verify mocked payment flows against the exact built artifact
+        working-directory: apps/shop
+        run: |
+          set -euo pipefail
+          cid="$(docker create --network none "$IMAGE_TAG")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker cp "$cid:/app/.output" .output
+          pnpm exec playwright test --config playwright.online-payment-mock.config.ts --retries=0
+
       - name: Smoke final image without external network
         run: |
           set -euo pipefail

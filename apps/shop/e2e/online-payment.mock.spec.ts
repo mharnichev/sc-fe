@@ -36,7 +36,7 @@ for (const locale of ['uk', 'en'] as const) {
     expect(req.method()).toBe('GET')
     await route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('payment/987')
+  await page.goto('/shop/payment/987')
   await page.getByRole('button', { name: copy.change, exact: true }).click()
   const modal = page.getByRole('dialog')
   await modal.getByRole('button', { name: copy.confirm, exact: true }).click()
@@ -94,7 +94,7 @@ for (const mobile of [false, true]) {
     expect(req.method(), `Unexpected write ${path}`).toBe('GET')
     await route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('/payment/987')
+  await page.goto('/shop/payment/987')
   await page.getByRole('button', { name: 'Обрати інший спосіб оплати' }).click()
   await expect(page.getByRole('button', { name: 'Підтвердити спосіб оплати' })).toBeVisible()
   expect(changes).toBe(0)
@@ -153,7 +153,7 @@ for (const authenticated of [false, true]) {
     if (path.endsWith('/np/branches')) { await route.fulfill({ json: { items: [branch], cached: true } }); return }
     await route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('/checkout/purchase')
+  await page.goto('/shop/checkout/purchase')
   await page.getByLabel('ІМʼЯ').fill('Synthetic'); await page.getByLabel('ПРІЗВИЩЕ').fill('Customer'); await page.getByLabel('ТЕЛЕФОН').fill(customer.phone)
   await page.getByRole('button', { name: 'Київ', exact: true }).click()
   await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue(city.label)
@@ -168,7 +168,7 @@ for (const authenticated of [false, true]) {
   await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
   // The browser may block even an intercepted bank origin. Simulate its return
   // without relying on provider HTML or changing browser security settings.
-  await page.goto('/payment/987')
+  await page.goto('/shop/payment/987')
   await expect(page).toHaveURL(/\/payment\/987$/)
   const bank = page.getByRole('link', { name: 'Перейти до оплати' })
   await expect(bank).toHaveAttribute('href', 'https://pay.mbnk.biz/mock-invoice'); await expect(bank).not.toHaveAttribute('target', '_blank')
@@ -186,7 +186,7 @@ for (const authenticated of [false, true]) {
   await expect(page.getByRole('link', { name: 'Переглянути фіскальний чек' })).toHaveAttribute('href', 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture')
   if (authenticated) {
     phase = 'paid_receipt_pending'
-    await page.goto('/cabinet/orders/987')
+    await page.goto('/shop/cabinet/orders/987')
     await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
     await page.reload()
     await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
@@ -209,7 +209,7 @@ for (const unavailable of ['disabled', 'error']) {
  test(`online checkout fails closed when capability ${unavailable}`, async ({ page }) => {
   await page.route('https://**', route => route.abort())
   await page.route('**/api/v1/**', route => route.fulfill(new URL(route.request().url()).pathname.endsWith('/online-payment-capabilities') ? unavailable === 'error' ? { status: 503, json: {} } : { json: { enabled: false } } : { json: { items: [], total: 0 } }))
-  await page.goto('/checkout/purchase')
+  await page.goto('/shop/checkout/purchase')
   await expect(page.locator('label[for=payment-method-cashOnDelivery]')).toBeVisible()
   await expect(page.locator('label[for=payment-method-onlineCard]')).toHaveCount(0)
  })
