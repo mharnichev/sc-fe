@@ -1,0 +1,106 @@
+name: Build Shop image
+
+on:
+  push:
+    branches:
+      - codex/residual-ready-20261101
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: shop-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/codex/residual-ready-20261101'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE_REPOSITORY: ghcr.io/mharnichev/sc-fe/shop-residual-20261101
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Build Linux Shop
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "IMAGE_TAG=${IMAGE_REPOSITORY}:residual-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/mharnichev/sc-fe" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --file apps/shop/Dockerfile \
+            --tag "${IMAGE_REPOSITORY}:residual-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" .
+
+      - name: Set up pinned Node runtime for regression tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frozen test dependencies and matching browsers
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @apps/shop exec playwright install --with-deps chromium webkit
+
+      - name: Run Shop unit and mounted Chromium/WebKit regressions
+        working-directory: apps/shop
+        run: |
+          node --test --test-concurrency=2 tests/*.test.mjs
+          node --test tests/ui-residuals-mounted.browser.mjs
+
+      - name: Smoke final image without external network
+        run: |
+          set -euo pipefail
+          cid="$(docker run -d --network none "$IMAGE_TAG")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker exec "$cid" node --input-type=module -e '
+            for (let attempt = 0; attempt < 40; attempt++) {
+              try {
+                const response = await fetch("http://127.0.0.1:3000/shop/discount-sticker-uk.svg", { signal: AbortSignal.timeout(1000) });
+                if (response.status === 200 && (await response.text()).includes("<svg")) {
+                  const missing = await fetch("http://127.0.0.1:3000/shop/nonexistent-runtime-smoke", { signal: AbortSignal.timeout(5000) });
+                  const html = await missing.text();
+                  if (missing.status === 404 && /noindex/.test(html)
+                      && /<main[^>]*class="[^"]*shop-error-page/.test(html)
+                      && /<h1\b[^>]*>[^<]+<\/h1>/.test(html)
+                      && html.includes("/shop/illustrations/retro-cartoon-404.png")) process.exit(0);
+                }
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            process.exit(1);
+          '
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE_TAG")" = 'linux/amd64'
+
+      - name: Login to own registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish verified image and immutable digest
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE_TAG"
+          docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/shop-image.json"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          image = json.loads((Path(os.environ['RUNNER_TEMP']) / 'shop-image.json').read_text())[0]
+          repository = os.environ['IMAGE_REPOSITORY']
+          digests = [value for value in image['RepoDigests'] if re.fullmatch(re.escape(repository) + r'@sha256:[a-f0-9]{64}', value)]
+          assert len(digests) == 1
+          assert image['Architecture'] == 'amd64' and image['Os'] == 'linux'
+          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('Source: `' + os.environ['GITHUB_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nOffline static asset and SSR 404/noindex smoke: passed.\n')
+          print(digests[0])
+          PY
