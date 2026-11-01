@@ -243,4 +243,3 @@ const formatDate = (date: string) => new Intl.DateTimeFormat(locale.value === 'e
 }
 
 </style>
-
