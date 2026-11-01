@@ -16,6 +16,7 @@ export const safePaymentUrl = (value: string | null | undefined, receipt = false
 export const useOrderPayment = (orderId: () => number, guestToken: () => string | undefined) => {
   const api = useApi()
   const auth = useCustomerAuthStore()
+  const router = useRouter()
   const payment = ref<OnlinePayment | null>(null)
   const busy = ref(false)
   const error = ref('')
@@ -24,6 +25,9 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   let timer: ReturnType<typeof setTimeout> | undefined
   let mounted = false
   let readFailures = 0
+  let telemetryActive = false
+  let removeTelemetryGuard: (() => void) | undefined
+  let redirectCurrent = () => false
   const identity = () => `${orderId()}:${guestToken() || ''}:${auth.customer?.id}:${auth.sessionRevision}:${auth.accessToken}`
   const stop = () => { generation++; clearTimeout(timer); busy.value = false }
   const memoryIntents = new Map<string, string>()
@@ -50,8 +54,8 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     busy.value = true; error.value = ''
     if (errorKind.value !== 'access') errorKind.value = ''
     let missingCapability = false
-    const telemetryData = () => ({ flow: 'payment' as const, order_id: orderId(), payment_status: payment.value?.status })
-    if (create || change) commerceBreadcrumb(change ? 'payment.change_method' : 'payment.start', telemetryData())
+    const telemetryData = () => ({ flow: 'payment' as const, order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status })
+    if (telemetryActive && isCurrent() && (create || change)) commerceBreadcrumb(change ? 'payment.change_method' : 'payment.start', telemetryData())
     try {
       const headers: Record<string, string> = {}
       if (!auth.isAuthenticated && !token) { missingCapability = true; errorKind.value = 'access'; throw new Error('missing capability') }
@@ -69,9 +73,20 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
       if (isCurrent()) {
         readFailures = 0
         errorKind.value = ''
-        const changed = payment.value?.status !== result.status
+        const changed = payment.value?.status !== result.status || payment.value?.attempt_id !== result.attempt_id
         payment.value = result
-        if (changed || create || change) commerceBreadcrumb('payment.status', telemetryData())
+        const snapshot = payment.value
+        // Only an accepted response from this mounted route may produce new signals.
+        redirectCurrent = () => telemetryActive && isCurrent() && payment.value === snapshot && !error.value
+          && result.order_id === orderId() && !result.paid && result.status === 'waiting'
+          && result.actions?.continue_payment !== false && Boolean(safePaymentUrl(result.page_url))
+        if (telemetryActive && isCurrent()) {
+          if (changed || create || change) commerceBreadcrumb('payment.status', telemetryData())
+          if (result.order_id === orderId() && !result.paid && result.status === 'waiting'
+            && result.actions?.continue_payment !== false && !safePaymentUrl(result.page_url)) {
+            reportCommerceError('payment.invalid_provider_url', new Error('Invalid payment provider URL'), telemetryData())
+          }
+        }
         return result
       }
     } catch (cause) {
@@ -83,7 +98,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
         if (errorKind.value === 'access') payment.value = null
         error.value = 'Не вдалося оновити оплату. Спробуйте ще раз.'
         if (!create && !change) readFailures++
-        if (!missingCapability && (create || change || readFailures >= 3 || [403, 404].includes(status))) {
+        if (telemetryActive && isCurrent() && !missingCapability && (create || change || readFailures >= 3 || [403, 404].includes(status))) {
           reportCommerceError(change ? 'payment.change_method_failed' : create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: create || change ? undefined : readFailures })
         }
       }
@@ -112,11 +127,19 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   }
   const visibility = () => { if (document.hidden) stop(); else void request() }
   watch(identity, reset, { flush: 'sync' })
-  onMounted(() => { mounted = true; document.addEventListener('visibilitychange', visibility); reset() })
-  onBeforeUnmount(() => { mounted = false; stop(); document.removeEventListener('visibilitychange', visibility) })
+  onMounted(() => {
+    mounted = true
+    telemetryActive = true
+    // Retire this instance's signals on any navigation attempt, including an aborted one.
+    removeTelemetryGuard = router.beforeEach(() => { telemetryActive = false })
+    document.addEventListener('visibilitychange', visibility)
+    reset()
+  })
+  onBeforeUnmount(() => { mounted = false; telemetryActive = false; removeTelemetryGuard?.(); stop(); document.removeEventListener('visibilitychange', visibility) })
   return {
     payment, busy, error, errorKind, refresh: () => request(), create: () => request(true),
     changeMethod: (method: string) => request(false, method),
-    redirectFailed: (cause: unknown) => reportCommerceError('payment.redirect_failed', cause, { flow: 'payment', order_id: orderId() }),
+    recordRedirect: () => { if (redirectCurrent()) commerceBreadcrumb('payment.redirect', { flow: 'payment', order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status }) },
+    redirectFailed: (cause: unknown) => { if (redirectCurrent()) reportCommerceError('payment.redirect_failed', cause, { flow: 'payment', order_id: orderId() }) },
   }
 }

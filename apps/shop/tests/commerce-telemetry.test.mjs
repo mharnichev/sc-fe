@@ -46,16 +46,21 @@ test('disabled or throwing telemetry cannot break checkout', () => {
   assert.doesNotThrow(() => t.reportCommerceError('checkout.failed', null))
 })
 const loadPlugin = (publicConfig = { sentryDsn: 'https://public@example.test/1', sentryEnvironment: 'production', sentryRelease: 'shop@test' }) => {
-  const exports = {}, t = load(), hooks = {}, listeners = {}, captured = [], crumbs = []
-  let options
+  const exports = {}, t = load(), hooks = {}, listeners = {}, captured = [], crumbs = [], envelopes = []
+  let options, scopedEvent
   const sdk = {
     init: value => { options = value },
     addBreadcrumb: value => crumbs.push(value),
     withScope: fn => {
       const event = { tags: {}, contexts: {} }
+      scopedEvent = event
       fn({ setTags: tags => event.tags = tags, setContext: (key, value) => event.contexts[key] = value, setFingerprint: value => event.fingerprint = value })
     },
-    captureException: error => captured.push(error),
+    captureException: error => {
+      captured.push(error)
+      envelopes.push(options.beforeSend({ ...scopedEvent, breadcrumbs: crumbs,
+        exception: { values: [{ type: error.name, value: error.message, stacktrace: { frames: [] } }] } }))
+    },
     getCurrentScope: () => ({ clearBreadcrumbs() {} }),
     getIsolationScope: () => ({ clearBreadcrumbs: () => { crumbs.length = 0 } }),
   }
@@ -68,7 +73,7 @@ const loadPlugin = (publicConfig = { sentryDsn: 'https://public@example.test/1',
     window: { location: { origin: 'https://shop.test' }, addEventListener: (name, fn) => listeners[name] = fn }, URL, Error,
   })
   exports.default({ hook: (name, fn) => hooks[name] = fn })
-  return { options, hooks, listeners, captured, crumbs, t, router }
+  return { options, hooks, listeners, captured, crumbs, envelopes, t, router }
 }
 test('plugin is disabled without DSN or outside production and has no automatic integrations', () => {
   assert.equal(loadPlugin({ sentryDsn: '', sentryEnvironment: 'production' }).options, undefined)
@@ -131,4 +136,26 @@ test('beforeSend rejects unsafe labels and reconstructs fingerprints and asset p
   assert.ok(!JSON.stringify(event).includes('secret'))
   assert.equal(event.exception.values[0].stacktrace.frames[0].filename, '/shop/_nuxt/main.js')
   assert.equal(event.breadcrumbs.length, 0)
+})
+
+test('payment residual signals reach only a captured allowlisted envelope and stay session-isolated', () => {
+  const p = loadPlugin()
+  const privateData = { flow: 'payment', order_id: 42, attempt_id: 1, payment_status: 'waiting',
+    page_url: 'https://evil.test/private-capability', email: 'buyer@example.test', token: 'private-token' }
+  p.t.commerceBreadcrumb('payment.status', privateData)
+  p.t.commerceBreadcrumb('payment.redirect', privateData)
+  p.t.reportCommerceError('payment.invalid_provider_url', new Error('private-provider-diagnostic'), privateData)
+  p.t.reportCommerceError('payment.invalid_provider_url', new Error('repeat'), privateData)
+  assert.equal(p.envelopes.length, 1)
+  assert.equal(p.envelopes[0].tags.step, 'payment.invalid_provider_url')
+  assert.equal(p.envelopes[0].contexts.commerce.attempt_id, 1)
+  assert.deepEqual(p.envelopes[0].breadcrumbs.map(item => item.message), ['payment.status', 'payment.redirect'])
+  p.t.reportCommerceError('payment.invalid_provider_url', new Error('next attempt'), { ...privateData, attempt_id: 2 })
+  assert.equal(p.envelopes.length, 2)
+  const json = JSON.stringify(p.envelopes)
+  for (const secret of ['evil.test', 'private-capability', 'private-token', 'buyer@example.test', 'private-provider-diagnostic', 'page_url']) assert.ok(!json.includes(secret))
+  p.hooks.sessionChanged()
+  p.t.reportCommerceError('payment.invalid_provider_url', new Error('new session'), { flow: 'payment', order_id: 99, attempt_id: 3 })
+  assert.equal(p.envelopes.at(-1).breadcrumbs.length, 0)
+  assert.ok(!JSON.stringify(p.envelopes.at(-1)).includes('"order_id":42'))
 })
