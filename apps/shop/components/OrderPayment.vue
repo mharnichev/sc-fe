@@ -1,20 +1,23 @@
 <script setup lang="ts">
 const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
-const props = defineProps<{ orderId: number, guestToken?: string, orderPath?: string }>()
+const props = defineProps<{ orderId: number, guestToken?: string, orderPath?: string, autoStart?: boolean }>()
 const emit = defineEmits<{ 'method-changed': [method: string] }>()
 const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed } = useOrderPayment(() => props.orderId, () => props.guestToken)
 let active = false
 let navigationRevision = 0
+const auth = useCustomerAuthStore()
+const identity = () => JSON.stringify([props.orderId, props.guestToken, auth.customer?.id, auth.sessionRevision, auth.accessToken, auth.isAuthenticated])
+let autoStartContext: { revision: number, identity: string } | undefined
+watch(identity, () => { autoStartContext = undefined }, { flush: 'sync' })
 let removeNavigationGuard: (() => void) | undefined
 onMounted(() => {
   active = true
   removeNavigationGuard = useRouter().beforeEach(() => { navigationRevision++ })
+  if (props.autoStart) autoStartContext = { revision: navigationRevision, identity: identity() }
 })
 onBeforeUnmount(() => { active = false; navigationRevision++; removeNavigationGuard?.() })
 const beginPayment = async () => {
-  const auth = useCustomerAuthStore()
-  const identity = () => JSON.stringify([props.orderId, props.guestToken, auth.customer?.id, auth.sessionRevision, auth.accessToken, auth.isAuthenticated])
   const context = identity()
   const revision = navigationRevision
   const id = props.orderId
@@ -41,6 +44,26 @@ const methodChanged = computed(() => ['offline_payment_selected', 'payment_metho
 const settled = computed(() => Boolean(payment.value?.paid && ['accepted', 'paid_receipt_pending'].includes(payment.value.status) && (payment.value.reason !== 'order_closed' || payment.value.order?.status === 'completed')))
 const paid = computed(() => Boolean(payment.value?.paid || ['accepted', 'paid_receipt_pending'].includes(payment.value?.status || '')))
 const pageUrl = computed(() => !paid.value && payment.value?.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.page_url) : null)
+const autoStartConsumed = ref(false)
+watch(() => props.autoStart, value => {
+  if (value && active) autoStartContext = { revision: navigationRevision, identity: identity() }
+  else if (!value) autoStartContext = undefined
+}, { flush: 'sync' })
+watch(() => [props.autoStart, payment.value, busy.value, error.value] as const, () => {
+  if (!active || !autoStartContext || autoStartContext.revision !== navigationRevision || autoStartContext.identity !== identity()
+    || document.hidden || !props.autoStart || autoStartConsumed.value
+    || busy.value || error.value || !payment.value || payment.value.paid || paid.value
+    || payment.value.order_id !== props.orderId) return
+  if (pageUrl.value) {
+    autoStartConsumed.value = true
+    recordRedirect()
+    try { window.location.assign(pageUrl.value) }
+    catch (cause) { redirectFailed(cause) }
+  } else if (payment.value.enabled && payment.value.status === 'not_started' && payment.value.actions?.start !== false) {
+    autoStartConsumed.value = true
+    void beginPayment()
+  }
+}, { flush: 'post' })
 const receiptUrl = computed(() => safePaymentUrl(payment.value?.receipt_url, true))
 const labels = computed(() => paymentText.value.statuses)
 const paymentError = computed(() => error.value === 'Не вдалося оновити оплату. Спробуйте ще раз.'

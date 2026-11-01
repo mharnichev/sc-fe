@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { sourceModule } from './runtime-localization-harness.mjs'
 
 const { useShopAsset } = await sourceModule(await readFile(new URL('../composables/useShopAsset.ts', import.meta.url), 'utf8'))
-const assets = ['/payment-brands/visa-white.png', '/payment-brands/mastercard.svg', '/checkout-status/error.webp', '/checkout-status/success.webp']
+const paymentAssets = ['/payment-brands/visa-blue.png', '/payment-brands/mastercard.svg', '/payment-brands/monobank.svg']
+const assets = [...paymentAssets, '/lehko/icons/delivery/np-postomat.svg', '/lehko/icons/delivery/np-warehouse.svg', '/checkout-status/error.webp', '/checkout-status/success.webp']
 
 test('checkout marks and status art resolve below the deployed /shop/ app base', async () => {
   globalThis.useRuntimeConfig = () => ({ app: { baseURL: '/shop/' } })
@@ -12,7 +13,9 @@ test('checkout marks and status art resolve below the deployed /shop/ app base',
   for (const asset of assets) assert.equal(shopAsset(asset), `/shop${asset}`)
   const purchase = await readFile(new URL('../pages/checkout/purchase.vue', import.meta.url), 'utf8')
   const illustration = await readFile(new URL('../components/checkout/PaymentStatusIllustration.vue', import.meta.url), 'utf8')
-  for (const asset of assets.slice(0, 2)) assert.ok(purchase.includes(`shopAsset('${asset}')`), asset)
+  for (const asset of paymentAssets) assert.ok(purchase.includes(`shopAsset('${asset}')`), asset)
+  assert.match(purchase, /shopAsset\(`\/lehko\/icons\/delivery\/np-\$\{[^`]+\}\.svg`\)/)
+  for (const asset of assets) await readFile(new URL(`../public${asset}`, import.meta.url))
   assert.match(illustration, /shopAsset\(`\/checkout-status\/\$\{tone\}\.webp`\)/)
 })
 

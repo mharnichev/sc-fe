@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test'
+test.beforeEach(async ({ context }) => {
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort('blockedbyclient'))
+})
 const customer = { id: 42, name: 'Synthetic', surname: 'Customer', phone: '+380990001234' }
 const product = { id: 123, name: 'Mock pomade', slug: 'mock-pomade', price: '100.00', images: [], brand: { id: 1, name: 'Mock', slug: 'mock' }, stock: 10, is_available_for_purchase: true, is_effectively_visible: true, hidden_reason: null }
 const city = { ref: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', city_ref: null, name: 'Київ', label: 'Київ, тестова область', area: 'Тестова', region: '', delivery_available: true }
@@ -18,7 +21,7 @@ for (const locale of ['uk', 'en'] as const) {
   }
   let posts = 0, failure = 0
   await context.addCookies([{ name: 'shop-locale', value: locale, url: 'http://127.0.0.1' }])
-  await page.route('https://**', route => route.abort())
+  await page.route(/^https:\/\//, route => route.abort())
   await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
@@ -69,7 +72,7 @@ for (const mobile of [false, true]) {
  test(`predispatch method change is explicit and preserves one order (${mobile ? 'mobile' : 'desktop'}, ${lostResponse ? 'lost response' : 'success'})`, async ({ page }) => {
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   let changes = 0
-  await page.route('https://**', route => route.abort())
+  await page.route(/^https:\/\//, route => route.abort())
   await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
@@ -114,13 +117,16 @@ for (const mobile of [false, true]) {
 
 
 for (const authenticated of [false, true]) {
- test(`${authenticated ? 'customer' : 'guest'} online checkout keeps payment and receipt evidence separate`, async ({ page }) => {
-  let ordered = false, created = false, phase = 'not_started', posts = 0
+ for (const priceChanged of [false, true]) {
+ test(`${authenticated ? 'customer' : 'guest'} ${priceChanged ? 'price drift requires manual payment' : 'fresh checkout auto-pays once'} and keeps payment and receipt evidence separate`, async ({ page }) => {
+  let ordered = false, created = false, phase = 'not_started', posts = 0, orders = 0
+  const orderTotal = priceChanged ? '201.00' : '180.00'
   let paymentChannel: string | null = 'online_monobank'
   const external: string[] = []
-  await page.route('https://**', route => {
-    external.push(route.request().url())
-    if (route.request().url() === 'https://pay.mbnk.biz/mock-invoice') return route.fulfill({ contentType: 'text/html', body: '<h1>Mock payment provider</h1>' })
+  await page.route(/^https:\/\//, route => {
+    // Count navigation attempts, not image/font requests that are always blocked.
+    if (route.request().isNavigationRequest()) external.push(route.request().url())
+    if (route.request().isNavigationRequest() && route.request().url() === 'https://pay.mbnk.biz/mock-invoice') return route.fulfill({ contentType: 'text/html', body: '<h1>Mock payment provider</h1>' })
     return route.abort()
   })
   await page.addInitScript(({ product, customer, authenticated }) => {
@@ -130,9 +136,17 @@ for (const authenticated of [false, true]) {
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('/online-payment-capabilities')) { await route.fulfill({ json: { enabled: true } }); return }
+    if (path.endsWith('/shop-promotions/quote')) {
+      expect(req.method()).toBe('POST')
+      const body = req.postDataJSON()
+      expect({ ...body, customerPhone: body.customerPhone.replace(/[ ()-]/g, '') }).toEqual({ items: [{ productId: 123, quantity: 2 }], promoCode: 'SAVE10', customerPhone: customer.phone })
+      await route.fulfill({ json: { subtotal_amount: '200.00', discount_amount: '20.00', total_amount: '180.00', applied_code: 'SAVE10' } }); return
+    }
     if (path.endsWith('/public/orders') && req.method() === 'POST') {
-      expect(req.postDataJSON().paymentMethod).toBe('onlineCard'); ordered = true
-      await route.fulfill({ status: 201, json: { id: 987, payment_method: 'onlineCard', guest_payment_token: authenticated ? null : 'signed-fixture-capability', status: 'pending', payment_status: 'unpaid', fulfillment_status: 'reserved', fiscal_status: 'not_requested', total_amount: '200.00', items: [{ id: 1, product_id: 123, product_name: product.name, quantity: 2, price: '100.00' }] } }); return
+      expect(req.postDataJSON().paymentMethod).toBe('onlineCard')
+      expect(req.postDataJSON().promoCode).toBe(priceChanged ? undefined : 'SAVE10')
+      ordered = true; orders++
+      await route.fulfill({ status: 201, json: { id: 987, payment_method: 'onlineCard', guest_payment_token: authenticated ? null : 'signed-fixture-capability', status: 'pending', payment_status: 'unpaid', fulfillment_status: 'reserved', fiscal_status: 'not_requested', total_amount: orderTotal, items: [{ id: 1, product_id: 123, product_name: product.name, quantity: 2, price: priceChanged ? '100.50' : '90.00' }] } }); return
     }
     if (path.endsWith('/987/online-payment')) {
       expect(req.headers().authorization).toBe(authenticated ? 'Bearer mock-only' : undefined)
@@ -141,12 +155,12 @@ for (const authenticated of [false, true]) {
         expect(req.headers()['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/i)
         expect(req.postDataJSON()).toEqual({}); posts++; created = true; phase = 'waiting'
       } else expect(req.method()).toBe('GET')
-      await route.fulfill({ json: { order_id: 987, enabled: true, status: phase, paid: ['paid_receipt_pending', 'accepted'].includes(phase), receipt_accepted: phase === 'accepted', page_url: created ? 'https://pay.mbnk.biz/mock-invoice' : null, receipt_url: phase === 'accepted' ? 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture' : null, amount_minor: 20000, currency: 'UAH', retry_after_seconds: 30 } }); return
+      await route.fulfill({ json: { order_id: 987, enabled: true, status: phase, paid: ['paid_receipt_pending', 'accepted'].includes(phase), receipt_accepted: phase === 'accepted', page_url: created ? 'https://pay.mbnk.biz/mock-invoice' : null, receipt_url: phase === 'accepted' ? 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture' : null, amount_minor: priceChanged ? 20100 : 18000, currency: 'UAH', retry_after_seconds: 30 } }); return
     }
     expect(req.method(), `Unexpected mutation ${path}`).toBe('GET')
     if (path.endsWith('/customers/me')) { await route.fulfill({ json: customer }); return }
     if (path.endsWith('/public/orders/me/987')) {
-      await route.fulfill({ json: { id: 987, created_at: '2026-10-20T10:00:00Z', status: 'pending', payment_method: 'card', payment_channel: paymentChannel, payment_status: 'paid', fiscal_status: phase === 'accepted' ? 'accepted' : 'pending', total_amount: '200.00', items: [], shipments: [] } }); return
+      await route.fulfill({ json: { id: 987, created_at: '2026-10-20T10:00:00Z', status: 'pending', payment_method: 'card', payment_channel: paymentChannel, payment_status: 'paid', fiscal_status: phase === 'accepted' ? 'accepted' : 'pending', total_amount: orderTotal, items: [], shipments: [] } }); return
     }
     if (path.endsWith('/customers/cart')) { await route.fulfill({ json: { items: ordered ? [] : [{ id: 1, product_id: 123, product, quantity: 2 }], total: ordered ? 0 : 1 } }); return }
     if (path.endsWith('/np/settlements')) { await route.fulfill({ json: { items: [city], cached: true } }); return }
@@ -157,17 +171,42 @@ for (const authenticated of [false, true]) {
   await page.getByLabel('ІМʼЯ').fill('Synthetic'); await page.getByLabel('ПРІЗВИЩЕ').fill('Customer'); await page.getByLabel('ТЕЛЕФОН').fill(customer.phone)
   await page.getByRole('button', { name: 'Київ', exact: true }).click()
   await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue(city.label)
-  await page.getByRole('combobox', { name: /^Відділення$/i }).focus()
+  await page.getByRole('combobox', { name: /^Відділення або поштомат$/i }).focus()
   await page.getByRole('option', { name: branch.label }).click()
   await page.locator('label[for=payment-method-onlineCard]').click()
-  await page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last().click()
-  await expect(page.getByTestId('order-confirmation')).toBeVisible()
-  const create = page.getByRole('button', { name: 'Перейти до оплати' })
-  await expect(create).toBeVisible(); expect(posts).toBe(0)
-  await create.click()
+  if (!priceChanged) {
+    const promo = page.getByLabel('Промокод', { exact: true }).last()
+    await promo.fill('save10')
+    await promo.press('Enter')
+    await expect(page.getByRole('button', { name: 'Видалити', exact: true }).last()).toBeVisible()
+    expect(orders).toBe(0)
+    expect(posts).toBe(0)
+  }
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).last().click()
+  if (priceChanged) {
+    await expect(page.getByTestId('order-confirmation')).toBeVisible()
+    await expect(page.getByTestId('confirmed-order-total')).toContainText('201')
+    const create = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+    await expect(create).toBeEnabled()
+    expect(posts).toBe(0)
+    expect(external).toEqual([])
+    await create.click()
+  }
   await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
-  // The browser may block even an intercepted bank origin. Simulate its return
-  // without relying on provider HTML or changing browser security settings.
+  await expect.poll(() => external).toEqual(['https://pay.mbnk.biz/mock-invoice'])
+  expect(posts).toBe(1)
+  expect(orders).toBe(1)
+  await expect(page.getByRole('heading', { name: 'Mock payment provider', exact: true })).toBeVisible()
+  // Return from the entirely mocked provider; no external network is permitted.
+  await page.goto('/shop/checkout/purchase?confirmation=987')
+  await expect(page.getByTestId('order-confirmation')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Перейти до оплати', exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/shop\/checkout\/purchase\?confirmation=987$/)
+  await page.reload()
+  await expect(page.getByRole('link', { name: 'Перейти до оплати', exact: true })).toBeVisible()
+  expect(posts).toBe(1)
+  expect(orders).toBe(1)
+  expect(external).toEqual(['https://pay.mbnk.biz/mock-invoice'])
   await page.goto('/shop/payment/987')
   await expect(page).toHaveURL(/\/payment\/987$/)
   const bank = page.getByRole('link', { name: 'Перейти до оплати' })
@@ -202,15 +241,21 @@ for (const authenticated of [false, true]) {
     expect(posts).toBe(1)
   }
   expect(external.filter(url => url !== 'https://pay.mbnk.biz/mock-invoice')).toEqual([])
-  expect(external.length).toBeLessThanOrEqual(1)
+  expect(external.length).toBe(1)
+  expect(orders).toBe(1)
  })
+ }
 }
 for (const unavailable of ['disabled', 'error']) {
  test(`online checkout fails closed when capability ${unavailable}`, async ({ page }) => {
-  await page.route('https://**', route => route.abort())
-  await page.route('**/api/v1/**', route => route.fulfill(new URL(route.request().url()).pathname.endsWith('/online-payment-capabilities') ? unavailable === 'error' ? { status: 503, json: {} } : { json: { enabled: false } } : { json: { items: [], total: 0 } }))
+  await page.route(/^https:\/\//, route => route.abort())
+  await page.route('**/api/v1/**', route => {
+    expect(route.request().method()).toBe('GET')
+    return route.fulfill(new URL(route.request().url()).pathname.endsWith('/online-payment-capabilities') ? unavailable === 'error' ? { status: 503, json: {} } : { json: { enabled: false } } : { json: { items: [], total: 0 } })
+  })
   await page.goto('/shop/checkout/purchase')
   await expect(page.locator('label[for=payment-method-cashOnDelivery]')).toBeVisible()
-  await expect(page.locator('label[for=payment-method-onlineCard]')).toHaveCount(0)
+  await expect(page.locator('label[for=payment-method-onlineCard]')).toBeVisible()
+  await expect(page.locator('#payment-method-onlineCard')).toBeDisabled()
  })
 }

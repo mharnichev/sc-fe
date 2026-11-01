@@ -17,8 +17,9 @@ const mockRequests = route => route.request().url().startsWith('http://shop.test
 const root = new URL('../', import.meta.url)
 const sources = Object.fromEntries(await Promise.all([
   ['Button', 'components/ui/BaseButton.vue'], ['Tile', 'components/catalog/CatalogProductTile.vue'],
+  ['Counter', 'components/base/header/NavCartCounter.vue'],
 ].map(async ([name, path]) => [name, await readFile(new URL(path, root), 'utf8')])))
-const styles = [await readFile(new URL('assets/css/main.css', root), 'utf8')]
+const styles = ['*, ::before, ::after { box-sizing: border-box; }', await readFile(new URL('assets/css/main.css', root), 'utf8')]
 const modules = {}
 for (const [name, source] of Object.entries(sources)) {
   const { descriptor } = parse(source)
@@ -29,7 +30,7 @@ for (const [name, source] of Object.entries(sources)) {
 }
 const entry = `
 import * as Vue from 'vue';
-import Button from 'Button'; import Tile from 'Tile';
+import Button from 'Button'; import Tile from 'Tile'; import Counter from 'Counter';
 Object.assign(globalThis, Vue);
 const { h, reactive, createApp, defineComponent } = Vue;
 window.calls = []; window.navigations = [];
@@ -38,11 +39,11 @@ const Link = defineComponent({ inheritAttrs: false, props: ['to', 'href'], setup
 }});
 window.NuxtLink = Link;
 window.useProductDisplay = () => ({ productDisplayName: p => p.name, productDisplayType: () => 'Type' });
-window.useShopLocale = () => ({ locale: Vue.ref('en'), terms: { product: { saveFavorite: 'Save', removeFavorite: 'Unsave', addToCart: 'Add', removeFromCart: 'Remove' }, catalog: { currencyShort: 'UAH' } } });
+window.useShopLocale = () => ({ locale: Vue.ref('en'), terms: { product: { saveFavorite: 'Save', removeFavorite: 'Unsave', addToCart: 'Add', removeFromCart: 'Remove' }, catalog: { currencyShort: 'UAH', badges: { top: 'Top' } } } });
 window.useShopPriceFormatter = () => ({ formatPrice: value => String(value) });
 window.useCartStore = () => ({ items: [], toggle: () => window.calls.push('cart') });
 window.useFavoritesStore = () => ({ has: () => false, toggle: () => window.calls.push('favorite') });
-window.state = reactive({ loading: false, disabled: false, kind: 'button', override: false,
+window.state = reactive({ loading: false, disabled: false, kind: 'button', override: false, counter: 9,
   product: { id: 1, slug: 'sample', name: 'Sample', price: '100', package_size: 500, reviews_count: 3, average_rating: 0,
   images: [1,2,3].map(i => ({ image: '/image-' + i + '.png', alt: 'Photo ' + i })) } });
 const app = createApp({ setup() { return () => [
@@ -53,16 +54,17 @@ const app = createApp({ setup() { return () => [
     onClick: () => calls.push('click'), onAuxclick: () => calls.push('aux'), onKeyup: () => calls.push('keyup'),
   }, () => 'Continue')]),
   h('div', { id: 'tile-fixture', style: 'width:100%;max-width:280px;height:400px' }, [h(Tile, { product: state.product })]),
+  h('div', { id: 'counter-fixture' }, [h(Counter, { count: state.counter })]),
 ] }});
 app.component('NuxtLink', Link); app.component('BaseButton', Button);
-for (const name of ['BaseIcon', 'BaseBadge', 'BaseHoverUnderlineText', 'ProductStatusBadges']) app.component(name, { setup(_, { slots }) { return () => h('span', slots.default?.()) } });
+for (const name of ['BaseIcon', 'BaseBadge', 'BaseHoverUnderlineText', 'ProductStatusBadges']) app.component(name, { setup(_, { slots }) { return () => h('span', { class: name === 'BaseIcon' ? 'base-icon' : name === 'BaseBadge' ? 'base-badge' : '' }, slots.default?.()) } });
 app.mount('#app');
 `
 const bundle = await build({ stdin: { contents: entry, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', plugins: [{
   name: 'mounted-fixtures', setup(builder) {
-    builder.onResolve({ filter: /^(Button|Tile|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
+    builder.onResolve({ filter: /^(Button|Tile|Counter|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({
-      contents: modules[args.path] || (args.path === '#components' ? `import { h } from 'vue'; export const NuxtLink = (props, { slots }) => h(window.NuxtLink, props, slots)` : `export const localizedPackageSize = v => v; export const getProductDiscount = () => null; export const isProductHidden = p => p.hidden; export const isProductUnavailable = p => p.unavailable;`),
+      contents: modules[args.path] || (args.path === '#components' ? `import { h } from 'vue'; export const NuxtLink = (props, { slots }) => h(window.NuxtLink, props, slots)` : `export const localizedPackageSize = v => v; export const getProductDiscount = () => null; export const getProductStatusFlags = p => ({ isTop: !!p.is_top }); export const isProductHidden = p => p.hidden; export const isProductUnavailable = p => p.unavailable;`),
       loader: 'ts', resolveDir: dirname(runtime.resolve('vue/package.json')),
     }))
   },
@@ -81,6 +83,15 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.setContent(`<style>body{margin:0}#app{padding:16px}</style>${fixture}`)
     await page.addStyleTag({ content: styles.join('\n') })
     await page.addScriptTag({ content: bundle.outputFiles[0].text })
+    const cartMetrics = async locator => locator.evaluate(el => {
+      const style = getComputedStyle(el), box = el.getBoundingClientRect()
+      const arrow = el.querySelector('.catalog-product-tile__cart-arrow').getBoundingClientRect()
+      return { width: box.width, height: box.height, font: style.fontSize, padding: style.paddingLeft,
+        arrow: arrow.width, gap: getComputedStyle(el.querySelector('.sc-button__text')).gap,
+        label: getComputedStyle(el.querySelector('.catalog-product-tile__cart-label')).paddingLeft }
+    })
+    assert.deepEqual(await cartMetrics(page.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__cart--buy')),
+      { width: 92, height: 32, font: '12px', padding: '10px', arrow: 16, gap: '4px', label: '4px' })
     const button = page.locator('#button-fixture > .sc-button')
     for (const kind of ['button', 'href', 'to']) {
       await page.evaluate(kind => { state.kind = kind; state.loading = false; state.disabled = false; state.override = false }, kind)
@@ -118,6 +129,16 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.evaluate(() => { state.loading = true })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     assert.equal(await button.locator('.sc-button__spinner').evaluate(el => getComputedStyle(el).animationName), 'none')
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+
+    const counter = page.locator('#counter-fixture .nav-cart-counter')
+    await page.evaluate(() => { state.counter = 10 })
+    assert.equal(await counter.locator('.sr-only').textContent(), '10')
+    assert.equal(await counter.locator('.nav-cart-counter__digit').count(), 2)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.evaluate(() => { state.counter = 8 })
+    assert.equal(await counter.locator('.sr-only').textContent(), '8')
+    assert.equal(await counter.locator('.nav-cart-counter__value').filter({ hasText: /^8$/ }).evaluate(el => getComputedStyle(el).transitionDuration), '0s')
     await page.emulateMedia({ reducedMotion: 'no-preference' })
 
     const dots = page.locator('.catalog-product-tile__dot-target')
@@ -165,6 +186,9 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.evaluate(() => { state.product = { ...state.product, images: [{ image: '/single.png' }] } })
     assert.equal(await dots.count(), 0)
     assert.equal(await page.locator('.catalog-product-tile__rating').textContent().then(s => s.trim()), '3')
+    await page.evaluate(() => { state.product = { ...state.product, is_top: true } })
+    assert.equal(await page.locator('.catalog-product-tile__top').getAttribute('aria-label'), 'Top')
+    assert.equal(await page.locator('.catalog-product-tile__rating').textContent().then(s => s.trim()), '3')
     assert.deepEqual(errors, [])
 
     const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
@@ -173,6 +197,17 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await mobile.setContent(fixture)
     await mobile.addStyleTag({ content: styles.join('\n') })
     await mobile.addScriptTag({ content: bundle.outputFiles[0].text })
+    const mobileBuy = mobile.locator('.catalog-product-tile__mobile-layout .catalog-product-tile__cart--buy')
+    const expectedMobileBuy = { width: 72, height: 24, font: '10px', padding: '8px', arrow: 12, gap: '3px', label: '0px' }
+    assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
+    assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
+    const badgeMetrics = () => mobile.locator('.catalog-product-tile__mobile-meta .catalog-product-tile__volume').evaluate(el => {
+      const style = getComputedStyle(el)
+      return { height: el.getBoundingClientRect().height, minHeight: style.minHeight, padding: style.padding,
+        font: style.fontSize, lineHeight: style.lineHeight }
+    })
+    await mobile.evaluate(() => { state.product = { ...state.product, package_size: '100 ml' } })
+    assert.deepEqual(await badgeMetrics(), { height: 24, minHeight: '24px', padding: '0px 8px', font: '10px', lineHeight: '16px' })
     const mobileDots = mobile.locator('.catalog-product-tile__dot-target')
     assert.equal(await mobile.locator('.catalog-product-tile__dots').evaluate(el => getComputedStyle(el).opacity), '1')
     await mobileDots.nth(1).tap()
@@ -181,6 +216,9 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await mobileDots.nth(2).getAttribute('aria-pressed'), 'true')
     assert.equal(await mobile.evaluate(() => navigations.length), 0)
     await mobile.setViewportSize({ width: 320, height: 700 })
+    assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
+    assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
+    assert.deepEqual(await badgeMetrics(), { height: 24, minHeight: '24px', padding: '0px 8px', font: '10px', lineHeight: '16px' })
     await mobile.locator('#tile-fixture').evaluate(el => { el.style.width = '144px' })
     await mobile.evaluate(() => { state.product = { ...state.product, images: Array.from({ length: 12 }, (_, i) => ({ image: '/many-' + i + '.png' })) } })
     const tileBefore = await mobile.locator('.catalog-product-tile').boundingBox()

@@ -19,6 +19,7 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   Object.assign(globalThis, vue, {
     onMounted() {}, onBeforeUnmount() {},
     usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }), defineEmits: () => () => {},
+    useCustomerAuthStore: () => ({ isAuthenticated: false, customer: null, sessionRevision: 0, accessToken: null }),
     useOrderPayment: () => ({ payment, error, errorKind, busy: vue.ref(false), recordRedirect() {}, refresh: () => { actions++ }, create: () => { actions++ } }),
     safePaymentUrl: value => value,
   })
@@ -133,15 +134,17 @@ test('WIP payment page retains numeric order validation while headings change lo
 test('checkout payment capability and values stay stable across locale toggles', async () => {
   const file = await readFile(new URL('../pages/checkout/purchase.vue', import.meta.url), 'utf8')
   const onlinePaymentEnabled = vue.ref(true)
-  Object.assign(globalThis, { onlinePaymentEnabled, terms: vue.ref({ checkout: { paymentOptions: { cashOnDelivery: 'Cash', cardOnDelivery: 'Card' } } }), paymentText: usePaymentDisplay().paymentText })
+  Object.assign(globalThis, { locale, onlinePaymentEnabled, terms: vue.ref({ checkout: { paymentOptions: { cashOnDelivery: 'Cash', cardOnDelivery: 'Card' } } }), paymentText: usePaymentDisplay().paymentText })
   const source = file.slice(file.indexOf('const paymentOptions ='), file.indexOf('const isDeliveryValid ='))
   const { paymentOptions } = await sourceModule(source + '\nexport { paymentOptions };')
   for (const language of ['uk', 'en', 'uk']) {
     locale.value = language
-    assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'cardOnDelivery', 'onlineCard'])
-    assert.equal(paymentOptions.value[2].label, language === 'uk' ? 'Онлайн карткою' : 'Pay online by card')
+    assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'onlineCard'])
+    assert.equal(paymentOptions.value[1].label, language === 'uk' ? 'Карткою онлайн · monobank' : 'Pay online · monobank')
     assert.equal(globalThis.paymentText.value.statusPage, language === 'uk' ? 'Сторінка статусу оплати' : 'Payment status page')
   }
   onlinePaymentEnabled.value = false
-  assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'cardOnDelivery'])
+  assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'onlineCard'])
+  assert.match(file, /:disabled="option\.value === 'onlineCard' && !onlinePaymentEnabled"/)
+  assert.match(file, /form\.paymentMethod !== 'onlineCard' \|\| onlinePaymentEnabled\.value/)
 })

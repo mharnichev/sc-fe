@@ -2,9 +2,10 @@
 import type { ProductDto } from '@shared-types'
 import { formatProductDiscountPercent, getProductDiscount, getProductStatusFlags } from '~/utils/product-status'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   product: ProductDto
-}>()
+  showTop?: boolean
+}>(), { showTop: true })
 
 const { locale, terms } = useShopLocale()
 
@@ -27,7 +28,7 @@ const badges = computed(() => {
       percent: roundedPercent,
     })
   }
-  if (flags.isTop) {
+  if (flags.isTop && props.showTop) {
     items.push({ code: 'top', icon: 'star', label: terms.value.catalog.badges.top })
   }
   if (flags.isNew) {

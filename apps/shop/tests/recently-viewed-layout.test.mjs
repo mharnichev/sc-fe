@@ -130,13 +130,19 @@ test('tile pending state rejects duplicate clicks and resets after success or fa
   }
 })
 
-test('mobile purchase row wraps full-size controls instead of shrinking or clipping prices', async () => {
+test('mobile purchase row preserves wrapping and full-size non-buy controls with the approved compact Buy size', async () => {
   const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
   const mobile = tile.slice(tile.indexOf('@media (max-width: 519px)'))
   assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row\s*\{[^}]*flex-wrap: wrap/s)
   assert.match(mobile, /\.catalog-product-tile__mobile-layout \.catalog-product-tile__prices\s*\{[^}]*min-width: min-content;[^}]*flex: 0 0 auto/s)
   assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row \.catalog-product-tile__cart\s*\{[^}]*max-width: 100%;[^}]*min-height: 2.75rem;[^}]*font-size: 12px;[^}]*white-space: normal/s)
   assert.doesNotMatch(mobile, /font-size: [89]px/)
+  assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row \.catalog-product-tile__cart--buy\s*\{[^}]*width: 72px;[^}]*height: 24px;[^}]*padding: 0 8px;[^}]*font-size: 10px;[^}]*white-space: nowrap/s)
+  assert.match(mobile, /\.catalog-product-tile__volume\.base-badge\s*\{[^}]*min-height: 24px;[^}]*height: 24px;[^}]*padding: 0 8px;[^}]*font-size: 10px;[^}]*line-height: 16px/s)
+  assert.match(mobile, /padding: 8px 12px/)
+  const narrow = mobile.slice(mobile.indexOf('@media (max-width: 359px)'))
+  assert.match(narrow, /padding-inline: 12px/)
+  assert.doesNotMatch(narrow, /\.catalog-product-tile__cart--buy\s*\{/)
 })
 
 test('favorite uses article-relative placement below ratings, independent of metadata height', async () => {

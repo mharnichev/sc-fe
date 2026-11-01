@@ -4,6 +4,8 @@ const onSearchInput = (event: Event) => {
   if ((event as InputEvent).isComposing) return
   const input = event.target as HTMLInputElement
   input.value = sanitizeInput(input.value, 'search')
+  isSearchFocus.value = true
+  emit('active-change', true)
   searchTerm.value = input.value
 }
 import type { CategoryTreeNodeDto } from '@shared-types'
@@ -39,6 +41,8 @@ const {
 } = useProductSearch(6)
 
 const searchInput = ref<HTMLInputElement | null>(null)
+const searchPanel = ref<HTMLElement | null>(null)
+const panelId = `shop-search-results-${useId()}`
 const isSearchFocus = ref(props.variant === 'modal')
 const searchPlaceholderText = ref('')
 const isDeletingPlaceholder = ref(false)
@@ -128,10 +132,40 @@ const closeSearch = () => {
   if (!searchTerm.value) startSearchPlaceholderTyping()
 }
 
+const closeDesktopSearchOnResize = () => {
+  if (props.variant !== 'desktop' || window.innerWidth >= 768 || !isSearchFocus.value) return
+  const focused = document.activeElement
+  if (focused instanceof HTMLElement && searchPanel.value?.contains(focused)) focused.blur()
+  closeSearch()
+}
+
 const closeSearchSoon = () => {
   if (props.variant === 'modal') return
   if (closeTimer) clearTimeout(closeTimer)
   closeTimer = setTimeout(closeSearch, 160)
+}
+
+const dismissSearch = () => {
+  closeSearch()
+  emit('close')
+  if (props.variant === 'desktop') {
+    searchInput.value?.focus()
+    isSearchFocus.value = false
+    emit('active-change', false)
+  }
+}
+
+const cancelSearchClose = () => {
+  if (closeTimer) clearTimeout(closeTimer)
+}
+
+const focusSearchResults = (event: KeyboardEvent) => {
+  if (props.variant !== 'desktop' || !isSearchResultVisible.value) return
+  const firstResult = searchPanel.value?.querySelector<HTMLElement>('.header-search__result a[href], .header-search__result button:not(:disabled)')
+  if (!firstResult) return
+  event.preventDefault()
+  firstResult.focus()
+  cancelSearchClose()
 }
 
 const submitSearch = async (value = searchTerm.value) => {
@@ -161,6 +195,10 @@ watch(locale, () => {
 })
 
 onMounted(async () => {
+  if (props.variant === 'desktop') {
+    window.addEventListener('resize', closeDesktopSearchOnResize, { passive: true })
+    closeDesktopSearchOnResize()
+  }
   if (props.autofocus) {
     await nextTick()
     searchInput.value?.focus()
@@ -170,6 +208,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', closeDesktopSearchOnResize)
   if (closeTimer) clearTimeout(closeTimer)
   stopSearchPlaceholderTyping()
 })
@@ -182,6 +221,7 @@ defineExpose({ closeSearch })
     :class="['header-search', `header-search--${variant}`, { 'is-active': isSearchFocus || searchTerm }]"
     role="search"
     @submit.prevent="submitSearch()"
+    @keydown.esc.stop.prevent="dismissSearch"
   >
     <div class="header-search__control">
       <input
@@ -192,11 +232,14 @@ defineExpose({ closeSearch })
         @compositionend="onSearchInput"
         class="header-search__field"
         type="search"
+        :aria-label="terms.header.searchPlaceholder"
+        :aria-controls="isSearchResultVisible ? panelId : undefined"
         :placeholder="animatedSearchPlaceholder"
         autocomplete="off"
         @focus="focusSearch"
         @blur="closeSearchSoon"
-        @keydown.esc="closeSearch"
+        @keydown.esc.stop.prevent="dismissSearch"
+        @keydown.down="focusSearchResults"
       >
 
       <button
@@ -205,6 +248,8 @@ defineExpose({ closeSearch })
         class="header-search__clear"
         :aria-label="terms.common.clear"
         @pointerdown.prevent
+        @focus="cancelSearchClose"
+        @blur="closeSearchSoon"
         @click.stop="clearSearch"
       >
         <BaseIcon name="close" size="xxs" />
@@ -215,21 +260,46 @@ defineExpose({ closeSearch })
         class="header-search__submit"
         :class="{ 'is-active': normalizedSearchTerm.length > 2 }"
         :aria-label="terms.common.search"
+        @focus="cancelSearchClose"
+        @blur="closeSearchSoon"
+        @keydown.tab="!$event.shiftKey && focusSearchResults($event)"
+        @keydown.down="focusSearchResults"
       >
         <BaseIcon name="search" size="xxs" />
       </button>
     </div>
 
-    <HeaderSearchResults
-      v-if="isSearchResultVisible"
-      class="header-search__result"
-      :query="normalizedSearchTerm"
-      :loading="isSearchLoading"
-      :results="suggestions"
-      :category-tree="categoryTree"
-      @select="selectResult"
-      @suggestion="submitSearch"
-    />
+    <Teleport to="#shop-header-search-results" :disabled="variant === 'modal'" defer>
+      <Transition name="search-panel">
+        <div
+          v-if="isSearchResultVisible"
+          :id="panelId"
+          ref="searchPanel"
+          class="header-search__panel"
+          :class="{ 'header-search__panel--desktop': variant === 'desktop' }"
+          @focusin="cancelSearchClose"
+          @focusout="closeSearchSoon"
+          @keydown.esc.stop.prevent="dismissSearch"
+        >
+          <div :class="{ 'site-container header-search__panel-container': variant === 'desktop' }">
+            <div v-if="variant === 'desktop'" class="header-search__panel-heading">
+              <BaseButton variant="outline-dark" size="sm" shape="circle" :aria-label="terms.common.closeDialog" @click="dismissSearch">
+                <BaseIcon name="close" size="xxs" />
+              </BaseButton>
+            </div>
+            <HeaderSearchResults
+              class="header-search__result"
+              :query="normalizedSearchTerm"
+              :loading="isSearchLoading"
+              :results="suggestions"
+              :category-tree="categoryTree"
+              @select="selectResult"
+              @suggestion="submitSearch"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </form>
 </template>
 
@@ -348,12 +418,55 @@ defineExpose({ closeSearch })
 }
 
 .header-search__result {
+  position: relative;
+  width: 100%;
+}
+
+.header-search__panel--desktop {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: 100%;
   right: 0;
   left: 0;
   z-index: 84;
-  width: 100%;
+  max-height: calc(100dvh - var(--shop-header-offset, 8rem) - 1rem);
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.header-search__panel-container {
+  position: relative;
+  padding-block: 1rem;
+}
+
+.header-search__panel-heading {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.header-search__panel--desktop .header-search__result {
+  max-height: none;
+  padding: 0;
+}
+
+.header-search__panel--desktop :deep(.header-search-results__products.catalog-product-grid) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.search-panel-enter-active,
+.search-panel-leave-active {
+  transition: opacity 220ms ease, transform 260ms ease;
+}
+
+.search-panel-enter-from,
+.search-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-panel-enter-active,
+  .search-panel-leave-active { transition: none; }
 }
 
 .header-search--modal {

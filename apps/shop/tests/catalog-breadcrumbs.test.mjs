@@ -23,12 +23,12 @@ const className = node => node.props.find(prop => prop.name === 'class')?.value?
 
 test('ordinary catalog renders localized breadcrumbs and one screen-reader H1', () => {
   const crumb = nodes.find(node => node.tag === 'CatalogBreadcrumbs')
-  assert.equal(directive(crumb, 'if').exp.content, '!topOnly')
+  assert.equal(directive(crumb, 'if').exp.content, '!topOnly && !saleOnly')
   assert.equal(directive(crumb, 'bind').exp.content, "[{ id: 0, slug: 'catalog', name: terms.catalog.title }]")
   const headings = nodes.filter(node => node.tag === 'h1')
   assert.equal(headings.length, 2)
   const hidden = headings.find(node => directive(node, 'if'))
-  assert.equal(directive(hidden, 'if').exp.content, '!topOnly')
+  assert.equal(directive(hidden, 'if').exp.content, '!topOnly && !saleOnly')
   assert.equal(className(hidden), 'sr-only')
   assert.equal(hidden.children.find(node => node.type === 5).content.content, 'terms.catalog.title')
   assert.ok(!hidden.props.some(prop => ['hidden', 'aria-hidden'].includes(prop.name)))
@@ -36,12 +36,19 @@ test('ordinary catalog renders localized breadcrumbs and one screen-reader H1', 
 
 test('popular keeps its visible heading and description without catalog breadcrumbs', () => {
   const wrapper = nodes.find(node => className(node) === 'catalog-route__title-wrapper')
-  assert.equal(directive(wrapper, 'if').exp.content, 'topOnly')
+  assert.equal(directive(wrapper, 'if').exp.content, 'topOnly || saleOnly')
   const heading = wrapper.children.flatMap(node => node.children || []).find(node => node.tag === 'h1')
   assert.equal(className(heading), 'catalog-route__title section-title type-title-strong')
   assert.equal(heading.children.find(node => node.tag === 'BaseScribbleOutline').children[0].content.content,
-    'topOnly ? terms.home.popularTitle : terms.catalog.title')
+    'saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title')
   assert.ok(wrapper.children.flatMap(node => node.children || []).some(node => className(node) === 'catalog-route__description'))
   assert.match(read('pages/top.vue'), /<CatalogAllGoodsRoute top-only\s*\//)
   assert.match(read('pages/catalog.vue'), /<CatalogAllGoodsRoute\s*\//)
+})
+
+test('sale has its own localized visible title and keeps ordinary category cards off sale', () => {
+  assert.match(read('pages/sale.vue'), /<CatalogAllGoodsRoute sale-only\s*\//)
+  const cards = nodes.find(node => node.tag === 'CatalogCategoryCards')
+  assert.equal(directive(cards, 'if').exp.content, '!topOnly && !saleOnly && !category && !brand && !query')
+  assert.match(source, /props\.saleOnly \? saleTitle\.value/)
 })

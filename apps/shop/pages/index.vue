@@ -73,7 +73,7 @@ useSeo(
 </script>
 
 <template>
-  <div class="space-y-16 pb-16 md:pb-24">
+  <div class="space-y-16">
     <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
     <section

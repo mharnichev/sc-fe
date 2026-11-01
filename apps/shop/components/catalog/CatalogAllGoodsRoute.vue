@@ -21,12 +21,15 @@ const reservedQueryKeys = new Set([
   'price_min',
   'price_max',
   'is_top',
+  'has_discount',
 ])
 
 const props = withDefaults(defineProps<{
   topOnly?: boolean
+  saleOnly?: boolean
 }>(), {
   topOnly: false,
+  saleOnly: false,
 })
 
 const route = useRoute()
@@ -35,6 +38,9 @@ const domain = useCatalogDomain()
 const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
+const saleTitle = computed(() => locale.value === 'uk' ? 'Розпродаж' : 'Sale')
+const saleDescription = computed(() => locale.value === 'uk' ? 'Товари з актуальними знижками та спеціальними цінами.' : 'Products with current discounts and special prices.')
+const catalogKeyPrefix = props.saleOnly ? 'shop-sale' : props.topOnly ? 'shop-top' : 'shop-catalog'
 
 const readQueryValue = (value: unknown) =>
   Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
@@ -65,14 +71,20 @@ const selectedFilters = reactive<Record<string, string[]>>({})
 const isFilterDrawerOpen = ref(false)
 let applyTimer: ReturnType<typeof setTimeout> | undefined
 
-const syncSelectedFiltersFromRoute = () => {
-  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
+const readSelectedFiltersFromRoute = (categorySlug: string) => {
+  const filters: Record<string, string[]> = {}
   for (const [key, value] of Object.entries(route.query)) {
-    if (!reservedQueryKeys.has(key) || (key === 'brand' && category.value)) {
+    if (!reservedQueryKeys.has(key) || (key === 'brand' && categorySlug)) {
       const values = readQueryList(value)
-      if (values.length) selectedFilters[key] = values
+      if (values.length) filters[key] = values
     }
   }
+  return filters
+}
+
+const syncSelectedFiltersFromRoute = () => {
+  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
+  Object.assign(selectedFilters, readSelectedFiltersFromRoute(category.value))
 }
 
 syncSelectedFiltersFromRoute()
@@ -177,6 +189,7 @@ const buildApiQuery = () => ({
   priceMax: priceMax.value || undefined,
   is_top: props.topOnly || undefined,
   ...buildDynamicQuery(),
+  has_discount: props.saleOnly || undefined,
 })
 
 const buildRouteQuery = () => {
@@ -199,24 +212,20 @@ const buildRouteQuery = () => {
 }
 
 const { data: categoryFacets, pending: filtersPending, refresh: refreshCategoryFacets } = await useAsyncData(
-  props.topOnly ? 'shop-top-all-goods-facets' : 'shop-catalog-all-goods-facets',
+  `${catalogKeyPrefix}-all-goods-facets`,
   async () => category.value
-    ? await domain.getCategoryFilters(category.value, { is_top: props.topOnly || undefined })
+    ? await domain.getCategoryFilters(category.value, { is_top: props.topOnly || undefined, has_discount: props.saleOnly || undefined })
     : { price: { min: null, max: null }, filters: {} },
   { watch: [] },
 )
 
 const { data: productsPage, pending: productsPending, refresh: refreshProducts } = await useAsyncData(
-  props.topOnly ? 'shop-top-all-goods-products' : 'shop-catalog-all-goods-products',
+  `${catalogKeyPrefix}-all-goods-products`,
   () => category.value
     ? domain.getCategoryProducts(category.value, buildApiQuery())
     : domain.getProductsPage({
-        q: query.value || undefined,
-        limit: limit.value,
-        offset: offset.value,
-        ordering: ordering.value || undefined,
+        ...buildApiQuery(),
         brand_slug: brand.value || undefined,
-        is_top: props.topOnly || undefined,
       }),
   { watch: [] },
 )
@@ -349,7 +358,7 @@ const changePage = async (page: number) => {
   if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-watch([priceMin, priceMax], resetOffset)
+watch([priceMin, priceMax], resetOffset, { flush: 'sync' })
 
 watch(
   () => route.fullPath,
@@ -364,6 +373,7 @@ watch(
     const nextBrand = nextCategory ? '' : readQueryValue(route.query.brand)
     const nextPriceMin = readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min)
     const nextPriceMax = readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max)
+    const nextFilters = readSelectedFiltersFromRoute(nextCategory)
     const categoryChanged = nextCategory !== category.value
     const stateChanged = nextLimit !== limit.value
       || nextOffset !== offset.value
@@ -373,17 +383,19 @@ watch(
       || nextBrand !== brand.value
       || nextPriceMin !== priceMin.value
       || nextPriceMax !== priceMax.value
+      || JSON.stringify(nextFilters) !== JSON.stringify(selectedFilters)
 
     if (!stateChanged) return
 
     limit.value = nextLimit
-    offset.value = nextOffset
     ordering.value = nextOrdering
     query.value = nextQuery
     category.value = nextCategory
     brand.value = nextBrand
     priceMin.value = nextPriceMin
     priceMax.value = nextPriceMax
+    // Restore URL pagination after synchronous price-change resets.
+    offset.value = nextOffset
     syncSelectedFiltersFromRoute()
 
     if (categoryChanged) await refreshCategoryFacets()
@@ -396,8 +408,8 @@ onBeforeUnmount(() => {
 })
 
 useSeo(
-  () => props.topOnly ? terms.value.home.popularTitle : terms.value.seo.catalogTitle,
-  () => props.topOnly ? terms.value.home.popularDescription : terms.value.seo.catalogDescription,
+  () => props.saleOnly ? saleTitle.value : props.topOnly ? terms.value.home.popularTitle : terms.value.seo.catalogTitle,
+  () => props.saleOnly ? saleDescription.value : props.topOnly ? terms.value.home.popularDescription : terms.value.seo.catalogDescription,
 )
 </script>
 
@@ -405,23 +417,23 @@ useSeo(
   <section class="catalog-route">
     <div class="catalog-route__container">
       <CatalogBreadcrumbs
-        v-if="!topOnly"
+        v-if="!topOnly && !saleOnly"
         :items="[{ id: 0, slug: 'catalog', name: terms.catalog.title }]"
       />
-      <h1 v-if="!topOnly" class="sr-only">{{ terms.catalog.title }}</h1>
+      <h1 v-if="!topOnly && !saleOnly" class="sr-only">{{ terms.catalog.title }}</h1>
 
-      <div v-if="topOnly" class="catalog-route__title-wrapper">
+      <div v-if="topOnly || saleOnly" class="catalog-route__title-wrapper">
         <div>
           <p v-if="topOnly" class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
           <h1 class="catalog-route__title section-title type-title-strong">
-            <BaseScribbleOutline>{{ topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
+            <BaseScribbleOutline>{{ saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
           </h1>
-          <p v-if="topOnly" class="catalog-route__description">{{ terms.home.popularDescription }}</p>
+          <p class="catalog-route__description">{{ saleOnly ? saleDescription : terms.home.popularDescription }}</p>
         </div>
       </div>
 
       <CatalogCategoryCards
-        v-if="!topOnly && !category && !brand && !query"
+        v-if="!topOnly && !saleOnly && !category && !brand && !query"
         :categories="(categoryTree || []).filter(node => !isBrandCategoryBranch(node))"
         :tree="categoryTree || []"
       />

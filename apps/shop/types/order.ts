@@ -1,6 +1,7 @@
 import type { OrderDto, CustomerOrderDto } from '@shared-types'
 
 export interface CheckoutOrderRequest {
+  promoCode?: string
   firstName: string
   lastName: string
   email?: string

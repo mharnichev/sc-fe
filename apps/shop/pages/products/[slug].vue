@@ -1002,6 +1002,7 @@ useHead(() => ({
 }
 
 .product-gallery__image-button {
+  border-radius: 0;
   --sc-button-fill: transparent;
   --sc-button-hover-text: #0a0a0a;
 
@@ -1036,6 +1037,7 @@ useHead(() => ({
 }
 
 .product-gallery__image {
+  border-radius: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1640,6 +1642,7 @@ useHead(() => ({
 }
 
 .product-gallery-modal__thumbnail {
+  border-radius: 0;
   width: 4.5rem;
   height: 4.5rem;
   flex: 0 0 auto;

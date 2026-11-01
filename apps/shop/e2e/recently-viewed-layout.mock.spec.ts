@@ -108,7 +108,9 @@ for (const width of [320, 390, 768, 1440]) {
       expect(await badge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
       expect(await badge.evaluate(element => {
         const style = getComputedStyle(element)
-        return element.getBoundingClientRect().height <= Number.parseFloat(style.lineHeight) + Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom) + 3
+        return Math.abs(element.getBoundingClientRect().height - 24) <= 0.01
+          && style.fontSize === '10px' && style.lineHeight === '16px'
+          && style.paddingLeft === '8px' && style.paddingRight === '8px'
       })).toBe(true)
       const [badgeBox, buttonBox] = await Promise.all([badge.boundingBox(), purchase.locator('.catalog-product-tile__cart').boundingBox()])
       expect(badgeBox!.x + badgeBox!.width <= buttonBox!.x + 1 || badgeBox!.y + badgeBox!.height <= buttonBox!.y + 1).toBe(true)

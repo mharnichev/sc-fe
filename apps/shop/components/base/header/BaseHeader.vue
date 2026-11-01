@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
             <button class="shop-header__action" type="button" :aria-label="terms.common.cart" @click="openBasket">
               <span class="shop-header__action-icon">
                 <BaseIcon name="shopping-cart" size="xs" />
-                <span v-if="cart.count" class="shop-header__badge">{{ cart.count }}</span>
+                <span v-if="cart.count" class="shop-header__badge"><NavCartCounter :count="cart.count" /></span>
               </span>
               <span class="sr-only">{{ terms.common.cart }}</span>
             </button>
@@ -407,6 +407,9 @@ onBeforeUnmount(() => {
           >
             <BaseAnimatedMenuText :text="terms.home.brandsEyebrow" />
           </NuxtLink>
+          <NuxtLink to="/sale" class="shop-header__popular-btn shop-header__popular-btn--sale" @mouseenter="closeMenu()" @focus="closeMenu()" @click="closeOverlays">
+            <BaseAnimatedMenuText :text="locale === 'uk' ? 'Розпродаж' : 'Sale'" />
+          </NuxtLink>
         </nav>
       </div>
     </div>
@@ -422,11 +425,13 @@ onBeforeUnmount(() => {
         <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.cart" @click="openBasket">
           <span class="shop-header__action-icon">
             <BaseIcon name="shopping-cart" size="xs" />
-            <span v-if="cart.count" class="shop-header__badge">{{ cart.count }}</span>
+            <span v-if="cart.count" class="shop-header__badge"><NavCartCounter :count="cart.count" /></span>
           </span>
         </button>
       </div>
     </div>
+
+    <div id="shop-header-search-results" />
 
     <Transition name="fade">
       <section
@@ -461,6 +466,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.shop-header__popular-btn.shop-header__popular-btn--sale,
+.shop-header__popular-btn.shop-header__popular-btn--sale:hover,
+.shop-header__popular-btn.shop-header__popular-btn--sale:focus-visible { color: #c2410c; }
+
 .fade-enter-active {
   transition:
     opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),

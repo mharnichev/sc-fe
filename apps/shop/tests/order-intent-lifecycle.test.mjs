@@ -18,6 +18,10 @@ const load = (storage, send) => {
   const auth = { isAuthenticated: false, sessionRevision: 0, captureSession() { const revision = this.sessionRevision; return () => revision === this.sessionRevision } }
   const state = { loading: false, order: null, error: '' }
   const context = vm.createContext({ ...reminder, ...commerceTelemetry, safeRequestBody, ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), watch() {}, onNuxtReady: fn => fn(), onBeforeUnmount: fn => { dispose = fn }, auth, state,
+    customerScope: { value: 'guest' }, autoPayOrderId: { value: null }, checkoutTotal: { value: '100.00' },
+    promo: { quote: { value: null }, clearSaved() {} },
+    route: { query: {} }, router: { replace: () => Promise.resolve() },
+    readCheckoutConfirmation: () => null, saveCheckoutConfirmation() {},
     sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }, crypto: { randomUUID: () => 'new-intent' },
     cart: { items: [{ product: { id: 1 }, quantity: 1 }], clear() {} }, form: { firstName: 'Fixture', lastName: 'Buyer', phoneNumber: '+380501234567', email: '', shippingStreet: '' }, selectedCity: { value: null }, selectedBranch: { value: null }, selectedStreet: { value: null }, unavailableItems: { value: [] }, canSubmit: { value: true }, unavailableMessage: { value: '' }, terms: { value: { checkout: { failed: 'failed' } } }, domain: { createOrder: send } })
   vm.runInContext(code + '\nglobalThis.checkout = { sendIntent, submit, pendingIntent }', context)

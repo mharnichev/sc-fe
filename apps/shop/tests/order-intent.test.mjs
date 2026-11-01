@@ -25,6 +25,10 @@ const loadCheckout = (uncertain = false) => {
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },
     crypto: { randomUUID: () => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
     safeRequestBody,
+    route: { query: {} }, router: { replace: () => Promise.resolve() },
+    readCheckoutConfirmation: () => null, saveCheckoutConfirmation() {},
+    customerScope: { value: 'guest' }, autoPayOrderId: { value: null }, checkoutTotal: { value: '180.00' },
+    promo: { quote: { value: { applied_code: 'SAVE10' } }, clearSaved() {} },
     auth: { isAuthenticated: false, captureSession: () => () => true }, cart, state, form: { email: '', firstName: 'Fixture', lastName: 'Buyer', phoneNumber: '+380501234567', shippingStreet: '' },
     selectedCity: { value: null }, selectedBranch: { value: null }, selectedStreet: { value: null },
     unavailableItems: { value: [] }, canSubmit: { value: true }, unavailableMessage: { value: 'unavailable' }, terms: { value: { checkout: { failed: 'failed' } } },
@@ -37,7 +41,8 @@ const loadCheckout = (uncertain = false) => {
   })
   const script = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.None } }).outputText
   vm.runInContext(script + '\nglobalThis.checkout = { submit, retryIntent, pendingIntent, sendIntent }', context)
-  return { checkout: context.checkout, cart, state, stored, requests, original, form: context.form }
+  return { checkout: context.checkout, cart, state, stored, requests, original, form: context.form,
+    promo: context.promo, checkoutTotal: context.checkoutTotal }
 }
 
 test('conclusive stock rejection allows an edited checkout with a new intent key', async () => {
@@ -55,7 +60,7 @@ test('conclusive stock rejection allows an edited checkout with a new intent key
 })
 
 test('new checkout normalizes before persistence; retry retains exact durable body and key', async () => {
-  const { checkout, stored, requests, form, cart } = loadCheckout(true)
+  const { checkout, stored, requests, form, cart, promo, checkoutTotal } = loadCheckout(true)
   stored.clear(); checkout.pendingIntent.value = null
   Object.assign(form, { firstName: ' <b>Fixture</b> ', lastName: ' Buyer ', shippingStreet: '<b>Main</b>', buildingNumber: ' 12<> ', shippingApartment: ' 3 ', comment: ' <b>Leave at door</b> ' })
   await checkout.submit()
@@ -66,8 +71,11 @@ test('new checkout normalizes before persistence; retry retains exact durable bo
   assert.equal(durable.body.buildingNumber, '12')
   assert.equal(durable.body.shippingApartment, '3')
   assert.equal(durable.body.comment, 'Leave at door')
+  assert.equal(durable.body.promoCode, 'SAVE10')
+  assert.equal(durable.expectedTotal, 180)
   assert.deepEqual(requests[0], { body: durable.body, key: durable.key })
   form.firstName = 'Changed'; cart.items[0].quantity = 9
+  promo.quote.value = { applied_code: 'OTHER' }; checkoutTotal.value = '999.00'
   await checkout.retryIntent()
   assert.deepEqual(requests[1], requests[0])
   assert.deepEqual(JSON.parse(stored.get('shop-checkout-intent-v1')), durable)

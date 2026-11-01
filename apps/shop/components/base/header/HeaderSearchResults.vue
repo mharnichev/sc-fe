@@ -39,7 +39,7 @@ const categoryLink = (category: ProductSearchResponseDto['categories'][number]) 
 
 const selectProductResult = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  if (target.closest('a[href^="/products/"]')) emit('select')
+  if (target.closest('.catalog-product-tile a[href]')) emit('select')
 }
 
 </script>
@@ -55,6 +55,7 @@ const selectProductResult = (event: MouseEvent) => {
     aria-live="polite"
   >
     <div v-if="hasResults" class="header-search-results__content">
+      <div class="header-search-results__tags">
       <template v-if="results.categories.length">
         <h6 class="header-search-results__title">{{ terms.catalog.sidebarFallbackTitle }}</h6>
         <ul class="header-search-results__list header-search-results__list--categories">
@@ -71,28 +72,31 @@ const selectProductResult = (event: MouseEvent) => {
       </template>
 
       <template v-if="results.suggestions.length">
-        <h6 class="header-search-results__title">{{ terms.common.search }}</h6>
+        <h6 class="header-search-results__title">{{ locale === 'uk' ? 'Можливо, ви шукаєте' : 'You might be looking for' }}</h6>
         <ul class="header-search-results__list header-search-results__list--categories">
           <li v-for="suggestion in results.suggestions" :key="suggestion">
-            <button
+            <BaseButton
               type="button"
+              variant="borderless"
               class="header-search-results__item header-search-results__item--category"
               @click="emit('suggestion', suggestion)"
             >
               <BaseHoverUnderlineText>{{ suggestionLabel(suggestion) }}</BaseHoverUnderlineText>
-            </button>
+            </BaseButton>
           </li>
         </ul>
       </template>
 
-      <template v-if="results.products.length">
-        <h6 class="header-search-results__title">{{ terms.common.products }}</h6>
+      </div>
+
+      <div v-if="results.products.length" class="header-search-results__product-scroll">
+        <h6 class="header-search-results__title">{{ locale === 'uk' ? 'Знайдені товари' : 'Products found' }}</h6>
         <CatalogProductGrid
           class="header-search-results__products"
           :products="results.products"
           @click="selectProductResult"
         />
-      </template>
+      </div>
     </div>
 
     <FeedbackState
@@ -129,7 +133,20 @@ const selectProductResult = (event: MouseEvent) => {
 }
 
 .header-search-results__content {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header-search-results__tags {
+  flex: 0 0 auto;
+  padding-bottom: 1rem;
+}
+
+.header-search-results__product-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .header-search-results__title {
@@ -149,6 +166,7 @@ const selectProductResult = (event: MouseEvent) => {
 .header-search-results__item {
   display: flex;
   width: 100%;
+  min-height: 44px;
   align-items: center;
   gap: 0.75rem;
   border: 0;
@@ -157,6 +175,9 @@ const selectProductResult = (event: MouseEvent) => {
   color: #3f3f46;
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: inherit;
+  line-height: 1.3;
+  text-transform: none;
   text-align: left;
   transition: color 180ms ease;
 }
@@ -169,6 +190,25 @@ const selectProductResult = (event: MouseEvent) => {
 .header-search-results__item:focus-visible {
   color: #0a0a0a;
   outline: none;
+}
+
+.header-search-results__item:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+@media (max-width: 767px) {
+  .header-search-results__list--categories {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 0.35rem;
+  }
+
+  .header-search-results__list--categories > li {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
 }
 
 .header-search-results__products.catalog-product-grid {
@@ -210,5 +250,9 @@ const selectProductResult = (event: MouseEvent) => {
   to {
     transform: rotate(360deg);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-search-results__spinner { animation: none; }
 }
 </style>

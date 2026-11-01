@@ -2,7 +2,7 @@
 import type { ProductDto } from '@shared-types'
 import { NuxtLink } from '#components'
 import { localizedPackageSize } from '~/utils/catalog-metadata-localization'
-import { getProductDiscount } from '~/utils/product-status'
+import { getProductDiscount, getProductStatusFlags } from '~/utils/product-status'
 import { isProductHidden, isProductUnavailable } from '~/utils/product-visibility'
 
 const { productDisplayName, productDisplayType } = useProductDisplay()
@@ -88,6 +88,7 @@ const productType = computed(() => productDisplayType(props.product))
 const isFavorite = computed(() => favorites.has(props.product.id))
 const isInCart = computed(() => cart.items.some(item => item.product.id === props.product.id))
 const discount = computed(() => getProductDiscount(props.product))
+const isTop = computed(() => getProductStatusFlags(props.product).isTop)
 const isHidden = computed(() => isProductHidden(props.product))
 const isUnavailable = computed(() => isProductUnavailable(props.product))
 const toggleFavorite = async () => {
@@ -161,9 +162,13 @@ const toggleCart = async () => {
         </div>
       </div>
 
-      <ProductStatusBadges class="catalog-product-tile__badges" :product="product" />
+      <ProductStatusBadges class="catalog-product-tile__badges" :product="product" :show-top="false" />
 
     </component>
+
+    <span v-if="isTop" class="catalog-product-tile__top" role="img" :aria-label="terms.catalog.badges.top" :title="terms.catalog.badges.top">
+      <BaseIcon name="star" size="xxs" />
+    </span>
 
     <div
       v-if="Number(product.average_rating) > 0 || product.reviews_count > 0"
@@ -656,6 +661,29 @@ const toggleCart = async () => {
   min-height: 2rem;
 }
 
+.catalog-product-tile__top {
+  position: absolute;
+  top: 3rem;
+  left: 0.75rem;
+  z-index: 2;
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff8d6;
+  color: #a16207;
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .catalog-product-tile__top {
+    background: Canvas;
+    color: CanvasText;
+  }
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .catalog-product-tile__favorite {
     --sc-button-bg: rgb(249 248 243 / 0.94);
@@ -826,6 +854,17 @@ const toggleCart = async () => {
   padding-left: 4px;
 }
 
+.catalog-product-tile__cart--buy .catalog-product-tile__cart-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.catalog-product-tile__cart--buy .catalog-product-tile__cart-arrow.base-icon {
+  min-width: 16px;
+}
+
 .catalog-product-tile__cart-arrow.base-icon {
   width: 16px;
   height: 16px;
@@ -885,7 +924,7 @@ const toggleCart = async () => {
     bottom: 0.375rem;
     left: 0.25rem;
     margin: 0;
-    padding: 8px 6px;
+    padding: 8px 12px;
     border-radius: 0.875rem;
   }
 
@@ -970,14 +1009,42 @@ const toggleCart = async () => {
     overflow-wrap: anywhere;
   }
 
+  .catalog-product-tile__mobile-purchase-row .catalog-product-tile__cart--buy {
+    width: 72px;
+    min-width: 72px;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 10px;
+    line-height: 16px;
+    white-space: nowrap;
+  }
+
+  .catalog-product-tile__cart--buy .catalog-product-tile__cart-arrow.base-icon {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+  }
+
+  .catalog-product-tile__cart--buy .catalog-product-tile__cart-label {
+    padding-left: 0;
+  }
+
+  .catalog-product-tile__cart--buy :deep(.sc-button__text) {
+    gap: 3px;
+  }
+
   .catalog-product-tile__volume.base-badge {
     flex-shrink: 0;
     white-space: normal;
     min-width: 0;
     max-width: 50%;
-    padding: 0.375rem;
+    min-height: 24px;
+    height: 24px;
+    padding: 0 8px;
     overflow: hidden;
-    font-size: 0.625rem;
+    font-size: 10px;
+    line-height: 16px;
   }
 
   .catalog-product-tile__mobile-layout .catalog-product-tile__price span {
@@ -1031,7 +1098,7 @@ const toggleCart = async () => {
 @media (max-width: 359px) {
   .catalog-product-tile__body {
     margin-inline: 0;
-    padding-inline: 6px;
+    padding-inline: 12px;
   }
 
   .catalog-product-tile__cart-label {
