@@ -9,6 +9,7 @@ Object.assign(globalThis, vue, {
   onMounted() {}, onBeforeUnmount() {},
   usePaymentDisplay: () => ({ paymentText: vue.computed(() => paymentCopy[locale.value]) }),
   useShopRuntimeDisplay,
+  useCustomerAuthStore: () => ({ customer: null, sessionRevision: 0, accessToken: null, isAuthenticated: false }),
   defineProps: () => ({ orderId: 42 }),
   defineEmits: () => () => {},
   useOrderPayment: () => ({ payment, error, busy, refresh() {}, create() {} }),

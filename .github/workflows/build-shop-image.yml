@@ -3,7 +3,7 @@ name: Build Shop image
 on:
   push:
     branches:
-      - codex/residual-ready-20261101
+      - codex/shop-sale-release-20261101
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/residual-ready-20261101'
+    if: github.ref == 'refs/heads/codex/shop-sale-release-20261101'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -55,8 +55,9 @@ jobs:
         run: |
           node --test --test-concurrency=2 tests/*.test.mjs
           node --test tests/ui-residuals-mounted.browser.mjs
+          node --test tests/home-journal-mounted.browser.mjs
 
-      - name: Verify mocked payment flows against the exact built artifact
+      - name: Verify mocked payment and Sale flows against the exact built artifact
         working-directory: apps/shop
         run: |
           set -euo pipefail

@@ -4,8 +4,50 @@ import { sanitizeInput } from '~/utils/inputSafety'
 const props = withDefaults(defineProps<{
   label: string; options: Array<{ value: string; label: string }>; loading?: boolean; error?: string;
   placeholder?: string; disabled?: boolean; required?: boolean; emptyText?: string; loadingText?: string; retryText?: string
-}>(), { loading: false, error: '', placeholder: '', disabled: false, required: false, emptyText: '', loadingText: '', retryText: '' })
+  animatedPlaceholders?: string[]
+}>(), { loading: false, error: '', placeholder: '', disabled: false, required: false, emptyText: '', loadingText: '', retryText: '', animatedPlaceholders: () => [] })
 const model = defineModel<string>({ default: '' })
+const focused = ref(false)
+const typedPlaceholder = ref('')
+const mounted = ref(false)
+const reducedMotion = ref(true)
+let placeholderTimer: ReturnType<typeof setTimeout> | undefined
+let motionPreference: MediaQueryList | undefined
+const syncMotionPreference = () => { reducedMotion.value = motionPreference?.matches ?? true }
+const animatePlaceholder = computed(() => mounted.value && !reducedMotion.value && !focused.value && !model.value && !props.disabled && props.animatedPlaceholders.length > 0)
+const displayedPlaceholder = computed(() => animatePlaceholder.value ? typedPlaceholder.value : props.placeholder)
+watch([animatePlaceholder, () => props.animatedPlaceholders], () => {
+  clearTimeout(placeholderTimer)
+  typedPlaceholder.value = ''
+  if (!animatePlaceholder.value) return
+  let sampleIndex = 0
+  let characterIndex = 0
+  let deleting = false
+  const tick = () => {
+    const sample = props.animatedPlaceholders[sampleIndex] || props.placeholder
+    characterIndex += deleting ? -1 : 1
+    typedPlaceholder.value = sample.slice(0, characterIndex)
+    let delay = deleting ? 45 : 95
+    if (!deleting && characterIndex >= sample.length) { deleting = true; delay = 1200 }
+    else if (deleting && characterIndex <= 0) {
+      deleting = false
+      sampleIndex = (sampleIndex + 1) % props.animatedPlaceholders.length
+      delay = 95
+    }
+    placeholderTimer = setTimeout(tick, delay)
+  }
+  placeholderTimer = setTimeout(tick, 95)
+})
+onMounted(() => {
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  syncMotionPreference()
+  motionPreference.addEventListener('change', syncMotionPreference)
+  mounted.value = true
+})
+onBeforeUnmount(() => {
+  clearTimeout(placeholderTimer)
+  motionPreference?.removeEventListener('change', syncMotionPreference)
+})
 const emit = defineEmits<{ select: [value: string]; retry: [] }>()
 const id = `autocomplete-${useId()}`
 const open = ref(false)
@@ -55,13 +97,13 @@ const keydown = (event: KeyboardEvent) => {
         role="combobox" aria-autocomplete="list" :aria-expanded="open && !disabled" :aria-controls="`${id}-list`"
         :aria-activedescendant="open && active >= 0 ? `${id}-option-${active}` : undefined"
         :aria-describedby="[descriptionId, errorId].filter(Boolean).join(' ') || undefined" :aria-invalid="invalid || undefined"
-        :aria-busy="loading" :placeholder="placeholder" :disabled="disabled" :required="required" autocomplete="off"
-        @focus="open = true" @input="onInput" @compositionend="onInput" @keydown="keydown">
+        :aria-busy="loading" :placeholder="displayedPlaceholder" :disabled="disabled" :required="required" autocomplete="off"
+        @focus="open = true; focused = true" @blur="focused = false" @input="onInput" @compositionend="onInput" @keydown="keydown">
       <div v-if="open && !disabled" class="base-autocomplete__popup">
         <ul :id="`${id}-list`" role="listbox" :aria-label="label" class="base-autocomplete__list">
           <li v-for="(option, index) in options" :id="`${id}-option-${index}`" :key="option.value" role="option"
             :aria-selected="index === active" class="base-autocomplete__option" :class="{ 'is-active': index === active }"
-            @mousedown.prevent @click="choose(index)">{{ option.label }}</li>
+            @mousedown.prevent @click="choose(index)"><slot name="option" :option="option">{{ option.label }}</slot></li>
         </ul>
         <p v-if="loading || (!options.length && !error)" role="status" class="base-autocomplete__status">{{ loading ? loadingText : emptyText }}</p>
         <BaseButton v-if="error" variant="text" size="sm" @mousedown.prevent @click="emit('retry')">{{ retryText }}</BaseButton>
@@ -74,8 +116,9 @@ const keydown = (event: KeyboardEvent) => {
 .base-autocomplete { position: relative; min-width: 0; }
 .base-autocomplete__popup { position: absolute; z-index: 25; top: 100%; width: 100%; background: white; border: 1px solid #ddd; box-shadow: 0 6px 16px #0001; }
 .base-autocomplete__list { max-height: 17rem; overflow-y: auto; overscroll-behavior: contain; padding: 0; margin: 0; list-style: none; }
-.base-autocomplete__option { padding: .8rem; cursor: pointer; line-height: 1.4; overflow-wrap: anywhere; }
+.base-autocomplete__option { padding: .8rem; cursor: pointer; line-height: 1.4; overflow-wrap: anywhere; transition: background-color 180ms ease, color 180ms ease; }
 .base-autocomplete__option:hover, .base-autocomplete__option.is-active { background: #eee; }
 .base-autocomplete__status { margin: 0; padding: .8rem; color: #666; font-size: .85rem; }
 .base-control:focus-visible { outline: 2px solid #555 !important; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .base-autocomplete__option { transition: none; } }
 </style>

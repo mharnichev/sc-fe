@@ -61,6 +61,7 @@ const categoryLinks: CatalogNavLink[] = [
   { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY', to: '/kosmetika/kosmetika-dlia-tila' },
   { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES', to: '/profesiini-grebeni-ta-shchitki/goods/' },
   { uk: 'БРЕНДИ', en: 'BRANDS', to: '', kind: 'brands' },
+  { uk: 'Розпродаж', en: 'Sale', to: '/sale' },
 ]
 
 const findCategory = (nodes: CategoryTreeNodeDto[], slug?: string): CategoryTreeNodeDto | null => {
@@ -459,6 +460,7 @@ const goBack = () => {
                     <NuxtLink
                       v-else
                       class="catalog-sidebar__item"
+                      :class="{ 'catalog-sidebar__item--sale': link.to === '/sale' }"
                       :to="link.to"
                       @click="hideCatalogModal"
                     >
@@ -499,6 +501,8 @@ const goBack = () => {
 </template>
 
 <style scoped>
+.catalog-sidebar__item.catalog-sidebar__item--sale { color: #c2410c; }
+
 .catalog-sidebar {
   display: flex;
   height: 100%;

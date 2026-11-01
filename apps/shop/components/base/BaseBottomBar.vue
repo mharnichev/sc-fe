@@ -7,7 +7,7 @@ const route = useRoute()
 const { terms } = useShopLocale()
 const isHydrated = ref(false)
 const isCabinet = computed(() => route.path === '/cabinet' || route.path.startsWith('/cabinet/'))
-const isCatalogRoute = computed(() => route.name === 'slug' || ['/catalog', '/products', '/brands', '/top'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
+const isCatalogRoute = computed(() => route.name === 'slug' || ['/catalog', '/products', '/brands', '/top', '/sale'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
 const isCheckoutRoute = computed(() => ['/checkout', '/payment'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
 const isFavoritesRoute = computed(() => route.path === '/favorites' || route.path.startsWith('/favorites/'))
 const cabinetLinks = computed(() => [
@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
     <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isCheckoutRoute }" :aria-current="isCheckoutRoute ? 'page' : undefined" :aria-label="terms.common.cart" @click="openBasket">
       <span class="base-bottom-bar__icon-wrap">
         <BaseIcon name="shopping-cart" size="xxs" effect="button" />
-        <span v-if="cart.count" class="base-bottom-bar__count">{{ cart.count }}</span>
+        <span v-if="cart.count" class="base-bottom-bar__count"><NavCartCounter :count="cart.count" /></span>
       </span>
     </button>
 
