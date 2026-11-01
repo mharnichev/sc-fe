@@ -75,7 +75,7 @@ jobs:
               try {
                 const response = await fetch("http://127.0.0.1:3000/shop/discount-sticker-uk.svg", { signal: AbortSignal.timeout(1000) });
                 if (response.status === 200 && (await response.text()).includes("<svg")) {
-                  const missing = await fetch("http://127.0.0.1:3000/shop/nonexistent-runtime-smoke", { signal: AbortSignal.timeout(5000) });
+                  const missing = await fetch("http://127.0.0.1:3000/shop/nonexistent-runtime-smoke", { headers: { accept: "text/html" }, signal: AbortSignal.timeout(5000) });
                   const html = await missing.text();
                   if (missing.status === 404 && /noindex/.test(html)
                       && /<main[^>]*class="[^"]*shop-error-page/.test(html)
