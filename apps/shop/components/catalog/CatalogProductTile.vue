@@ -15,6 +15,67 @@ const cart = useCartStore()
 const favorites = useFavoritesStore()
 const { terms, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
+const sku = computed(() => typeof props.product.sku === 'string' ? props.product.sku.trim() : '')
+const nameViewport = ref<HTMLElement | null>(null)
+const nameMeasure = ref<HTMLElement | null>(null)
+const isNameTruncated = ref(false)
+const nameScrollDistance = ref(0)
+let nameObserver: ResizeObserver | undefined
+let nameMedia: MediaQueryList | undefined
+let nameFonts: FontFaceSet | undefined
+let nameFrame: number | undefined
+let nameDisposed = false
+
+const measureNameOverflow = () => {
+  const viewport = nameViewport.value
+  const measure = nameMeasure.value
+  const style = viewport ? getComputedStyle(viewport) : undefined
+  const lineHeight = Number.parseFloat(style?.lineHeight || '')
+  if (viewport && measure && style) {
+    measure.style.width = `${viewport.getBoundingClientRect().width}px`
+    measure.style.font = style.font
+    measure.style.letterSpacing = style.letterSpacing
+  }
+  const height = measure?.getBoundingClientRect().height || 0
+  const visible = nameMedia?.matches && viewport && viewport.getBoundingClientRect().width > 0
+  isNameTruncated.value = Boolean(visible && Number.isFinite(lineHeight) && lineHeight > 0 && height > lineHeight * 2 + 1)
+  nameScrollDistance.value = isNameTruncated.value ? Math.max(0, height - lineHeight * 3) : 0
+}
+
+const scheduleNameMeasurement = () => {
+  if (nameDisposed || !import.meta.client) return
+  if (nameFrame !== undefined) window.cancelAnimationFrame(nameFrame)
+  nameFrame = window.requestAnimationFrame(() => {
+    nameFrame = undefined
+    measureNameOverflow()
+  })
+}
+
+watch([() => productDisplayName(props.product), () => props.product.id, locale], () => nextTick(scheduleNameMeasurement))
+
+onMounted(() => {
+  nameMedia = window.matchMedia('(min-width: 520px) and (hover: hover) and (pointer: fine)')
+  nameMedia.addEventListener('change', scheduleNameMeasurement)
+  if (typeof ResizeObserver !== 'undefined') {
+    nameObserver = new ResizeObserver(scheduleNameMeasurement)
+    if (nameViewport.value) nameObserver.observe(nameViewport.value)
+    if (nameMeasure.value) nameObserver.observe(nameMeasure.value)
+  }
+  window.addEventListener('resize', scheduleNameMeasurement, { passive: true })
+  nameFonts = document.fonts
+  void nameFonts?.ready.then(scheduleNameMeasurement)
+  nameFonts?.addEventListener('loadingdone', scheduleNameMeasurement)
+  scheduleNameMeasurement()
+})
+
+onBeforeUnmount(() => {
+  nameDisposed = true
+  if (nameFrame !== undefined) window.cancelAnimationFrame(nameFrame)
+  nameObserver?.disconnect()
+  nameMedia?.removeEventListener('change', scheduleNameMeasurement)
+  nameFonts?.removeEventListener('loadingdone', scheduleNameMeasurement)
+  window.removeEventListener('resize', scheduleNameMeasurement)
+})
 
 const images = computed(() => {
   const available = props.product.images.flatMap(image => {
@@ -111,7 +172,12 @@ const toggleCart = async () => {
 <template>
   <article
     class="catalog-product-tile"
-    :class="{ 'catalog-product-tile--unavailable': isUnavailable }"
+    :class="{
+      'catalog-product-tile--unavailable': isUnavailable,
+      'catalog-product-tile--long-name': isNameTruncated,
+      'catalog-product-tile--scroll-name': nameScrollDistance > 1,
+    }"
+    :style="{ '--name-scroll-distance': `${nameScrollDistance}px`, '--name-scroll-duration': `${Math.max(4, nameScrollDistance / 12)}s` }"
     itemscope
     itemtype="https://schema.org/Product"
     @pointerleave="($event.pointerType === 'mouse') && resetPreview()"
@@ -231,6 +297,7 @@ const toggleCart = async () => {
             :to="isHidden ? undefined : `/products/${product.slug}`"
           >
             <h3
+              ref="nameViewport"
               class="catalog-product-tile__name type-title-title"
               itemprop="name"
             >
@@ -238,6 +305,7 @@ const toggleCart = async () => {
                 {{ productDisplayName(product) }}
               </BaseHoverUnderlineText>
             </h3>
+            <span ref="nameMeasure" class="catalog-product-tile__name-measure" aria-hidden="true">{{ productDisplayName(product) }}</span>
           </component>
           <div class="catalog-product-tile__prices">
             <meta itemprop="priceCurrency" content="UAH">
@@ -254,8 +322,11 @@ const toggleCart = async () => {
             </p>
           </div>
         </div>
-        <div class="catalog-product-tile__details">
-          <p class="catalog-product-tile__type">{{ productType }}</p>
+        <div class="catalog-product-tile__details" :class="{ 'catalog-product-tile__details--sku': sku }">
+          <div class="catalog-product-tile__type-row">
+            <p class="catalog-product-tile__type">{{ productType }}</p>
+            <p v-if="sku" class="catalog-product-tile__sku">{{ locale === 'uk' ? 'Код товару' : 'Product code' }}: {{ sku }}</p>
+          </div>
           <div class="catalog-product-tile__details-row">
             <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
             <div class="catalog-product-tile__bottom" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
@@ -532,6 +603,7 @@ const toggleCart = async () => {
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   pointer-events: none;
+  transition: padding 280ms ease;
 }
 
 .catalog-product-tile__primary {
@@ -564,9 +636,21 @@ const toggleCart = async () => {
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  transition: max-height 280ms ease;
+}
+
+.catalog-product-tile__name-measure {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .catalog-product-tile__name-link {
+  position: relative;
   min-width: 0;
   flex: 1 1 auto;
   color: inherit;
@@ -601,6 +685,68 @@ const toggleCart = async () => {
   min-height: 0;
   flex: 1;
   flex-direction: column;
+}
+
+.catalog-product-tile__type-row {
+  position: relative;
+  display: grid;
+}
+
+.catalog-product-tile__sku {
+  display: none;
+}
+
+@media (min-width: 520px) and (hover: hover) and (pointer: fine) {
+  .catalog-product-tile--long-name:hover .catalog-product-tile__body,
+  .catalog-product-tile--long-name:focus-within .catalog-product-tile__body {
+    padding-block: 0.95rem;
+  }
+
+  .catalog-product-tile--long-name:hover .catalog-product-tile__name,
+  .catalog-product-tile--long-name:focus-within .catalog-product-tile__name {
+    max-height: 3.9em;
+    -webkit-line-clamp: unset;
+  }
+
+  .catalog-product-tile--scroll-name:hover .catalog-product-tile__name-text,
+  .catalog-product-tile--scroll-name:focus-within .catalog-product-tile__name-text {
+    animation: catalog-product-name-scroll var(--name-scroll-duration) ease-in-out 900ms infinite alternate;
+  }
+
+  .catalog-product-tile__details--sku .catalog-product-tile__details-row {
+    padding-top: calc(1rem + 4px);
+  }
+
+  .catalog-product-tile__sku {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    display: block;
+    max-width: 100%;
+    padding-block: 2px;
+    overflow: hidden;
+    color: #737373;
+    font-size: 10px;
+    line-height: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 240ms ease, transform 240ms ease, visibility 0s linear 240ms;
+  }
+
+  .catalog-product-tile:hover .catalog-product-tile__sku {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 80ms, 80ms, 0s;
+  }
+}
+
+@keyframes catalog-product-name-scroll {
+  0%, 15% { transform: translateY(0); }
+  85%, 100% { transform: translateY(calc(-1 * var(--name-scroll-distance))); }
 }
 
 .catalog-product-tile__details-row {
@@ -1160,7 +1306,13 @@ const toggleCart = async () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .catalog-product-tile__sku {
+    transform: none;
+    transition: none;
+  }
+
   .catalog-product-tile,
+  .catalog-product-tile__body,
   .catalog-product-tile__details,
   .catalog-product-tile__bottom,
   .catalog-product-tile__name,

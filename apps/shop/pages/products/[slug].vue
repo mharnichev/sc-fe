@@ -1211,6 +1211,41 @@ useHead(() => ({
   gap: 0.5rem;
 }
 
+.product-buy__header-badges :deep(.product-status-badges__item--top) {
+  min-height: 2rem;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  background: linear-gradient(145deg, rgb(255 246 196 / 0.4), rgb(255 239 153 / 0.16));
+  color: #9a7016;
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -1px 0 rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.1);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .product-buy__header-badges :deep(.product-status-badges__item--top) {
+    background: #fff8d6;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .product-buy__header-badges :deep(.product-status-badges__item--top) {
+    background: #fff8d6;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .product-buy__header-badges :deep(.product-status-badges__item--top) {
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+}
+
 .product-buy__header-badges :deep(.product-discount-sticker) {
   display: none;
 }

@@ -230,7 +230,7 @@ onBeforeUnmount(() => {
 
     </template>
 
-    <button class="base-bottom-bar__btn" type="button" :class="{ 'base-bottom-bar__btn--active': isCabinet }" :aria-current="isCabinet ? 'page' : undefined" :aria-label="terms.common.account" @click="openAccount">
+    <button class="base-bottom-bar__btn base-bottom-bar__btn--account" type="button" :aria-current="isCabinet ? 'page' : undefined" :aria-label="terms.common.account" @click="openAccount">
       <span v-if="accountInitials" class="base-bottom-bar__avatar">{{ accountInitials }}</span>
       <FeedbackFace v-else class="base-bottom-bar__account-face" name="content-smile" />
     </button>
@@ -403,10 +403,15 @@ onBeforeUnmount(() => {
 
 .base-bottom-bar__avatar {
   display: inline-flex;
+  box-sizing: content-box;
   height: 1.35rem;
-  width: 1.35rem;
+  min-width: 1.35rem;
+  padding: 0 4px;
+  border-radius: 4px;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  text-align: center;
   background: #0a0a0a;
   color: #ffffff;
   font-size: 0.62rem;
@@ -417,9 +422,18 @@ onBeforeUnmount(() => {
   width: 1.5rem;
 }
 
-.base-bottom-bar--on-dark .base-bottom-bar__avatar {
-  background: #ffffff;
-  color: #0a0a0a;
+.base-bottom-bar .base-bottom-bar__btn--account,
+.base-bottom-bar .base-bottom-bar__btn--account:hover,
+.base-bottom-bar .base-bottom-bar__btn--account:focus-visible,
+.base-bottom-bar .base-bottom-bar__btn--account:active {
+  background: transparent;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.base-bottom-bar .base-bottom-bar__btn--account:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: -3px;
 }
 
 @media (prefers-reduced-motion: reduce) {

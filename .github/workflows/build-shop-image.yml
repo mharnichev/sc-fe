@@ -3,7 +3,7 @@ name: Build Shop image
 on:
   push:
     branches:
-      - codex/shop-photo-dots-20261102
+      - codex/shop-hover-release-20261102
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/shop-photo-dots-20261102'
+    if: github.ref == 'refs/heads/codex/shop-hover-release-20261102'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -56,6 +56,8 @@ jobs:
           node --test --test-concurrency=2 tests/*.test.mjs
           node --test tests/ui-residuals-mounted.browser.mjs
           node --test tests/home-journal-mounted.browser.mjs
+          node --test tests/shop-hover-mounted.browser.mjs
+          node --test tests/shop-badges-navbar.browser.mjs
 
       - name: Verify mocked payment and Sale flows against the exact built artifact
         working-directory: apps/shop
