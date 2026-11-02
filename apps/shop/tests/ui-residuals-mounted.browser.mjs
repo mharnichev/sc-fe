@@ -311,6 +311,10 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     const tileBefore = await mobile.locator('.catalog-product-tile').boundingBox()
     await mobileDots.nth(11).tap()
     assert.equal(await mobileDots.nth(11).getAttribute('aria-pressed'), 'true')
+    assert.deepEqual(await mobile.locator('.catalog-product-tile__dots').evaluate(el => {
+      const height = el.getBoundingClientRect().height, pill = getComputedStyle(el, '::before')
+      return { height, pillHeight: height - parseFloat(pill.top) - parseFloat(pill.bottom) }
+    }), { height: 44, pillHeight: 22 })
     const lastTarget = await mobileDots.nth(11).boundingBox()
     // Translated DOMRects may round just below their exact CSS pixel dimensions.
     assert.ok(Math.round(lastTarget.width * 1000) >= 24000 && Math.round(lastTarget.height * 1000) >= 44000, JSON.stringify(lastTarget))

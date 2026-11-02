@@ -418,8 +418,14 @@ const toggleCart = async () => {
 
 .catalog-product-tile__dot-options {
   display: flex;
+  height: 44px;
   min-width: 0;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.catalog-product-tile__dot-options::-webkit-scrollbar {
+  display: none;
 }
 
 .catalog-product-tile:focus-within .catalog-product-tile__dots {
