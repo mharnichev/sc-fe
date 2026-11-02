@@ -22,6 +22,17 @@ const modal = useModalStore()
 const recentlyViewed = useRecentlyViewedStore()
 const { terms } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
+const totalDirection = ref<'up' | 'down'>('up')
+const formattedTotal = computed(() => formatPrice(cart.total))
+const totalCharacters = computed(() => Array.from(formattedTotal.value).map((character, index, characters) => ({
+  character,
+  place: characters.length - index,
+  isDigit: /\d/.test(character),
+})))
+
+watch(() => cart.total, (value, previous) => {
+  totalDirection.value = Number(value) >= Number(previous) ? 'up' : 'down'
+}, { flush: 'sync' })
 const isShow = ref(false)
 const activeTab = ref<BasketSidebarTab>('basket')
 
@@ -207,7 +218,19 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
       <div class="basket-sidebar__summary">
         <div class="basket-sidebar__total">
           <span>{{ terms.basket.orderTotal }}</span>
-          <strong>{{ formatPrice(cart.total) }}</strong>
+          <strong :aria-label="formattedTotal" role="status">
+            <span class="basket-total-counter" aria-hidden="true">
+              <span
+                v-for="part in totalCharacters"
+                :key="part.place"
+                :class="['basket-total-counter__character', { 'basket-total-counter__character--digit': part.isDigit }]"
+              >
+                <Transition :name="`basket-digit-${totalDirection}`">
+                  <span :key="part.character" class="basket-total-counter__value">{{ part.character }}</span>
+                </Transition>
+              </span>
+            </span>
+          </strong>
         </div>
         <p class="basket-sidebar__discount-note">{{ terms.basket.discountNote }}</p>
         <p v-if="cart.error" class="basket-sidebar__unavailable-summary" role="alert">{{ runtimeMessage(cart.error) }}</p>
@@ -223,6 +246,54 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 </template>
 
 <style scoped>
+.basket-total-counter {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+
+.basket-total-counter__character {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.basket-total-counter__character--digit {
+  width: 1ch;
+  text-align: center;
+}
+
+.basket-total-counter__value {
+  grid-area: 1 / 1;
+  display: block;
+}
+
+.basket-digit-up-enter-active,
+.basket-digit-up-leave-active,
+.basket-digit-down-enter-active,
+.basket-digit-down-leave-active {
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease;
+}
+
+.basket-digit-up-enter-from,
+.basket-digit-down-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+.basket-digit-up-leave-to,
+.basket-digit-down-enter-from {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .basket-total-counter__value {
+    transition: none;
+  }
+}
+
 .basket-sidebar__tabs {
   position: relative;
   display: grid;

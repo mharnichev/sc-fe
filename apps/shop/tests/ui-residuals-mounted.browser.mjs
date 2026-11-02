@@ -19,7 +19,9 @@ const sources = Object.fromEntries(await Promise.all([
   ['Button', 'components/ui/BaseButton.vue'], ['Tile', 'components/catalog/CatalogProductTile.vue'],
   ['Counter', 'components/base/header/NavCartCounter.vue'],
 ].map(async ([name, path]) => [name, await readFile(new URL(path, root), 'utf8')])))
-const styles = ['*, ::before, ::after { box-sizing: border-box; }', await readFile(new URL('assets/css/main.css', root), 'utf8')]
+const sharedCss = await runtime('postcss')([runtime('tailwindcss')({ content: [{ raw: Object.values(sources).join('\n'), extension: 'vue' }] })])
+  .process(await readFile(new URL('assets/css/main.css', root), 'utf8'), { from: new URL('assets/css/main.css', root).pathname })
+const styles = [sharedCss.css, await readFile(new URL('assets/css/typography.css', root), 'utf8')]
 const modules = {}
 for (const [name, source] of Object.entries(sources)) {
   const { descriptor } = parse(source)
@@ -41,9 +43,9 @@ window.NuxtLink = Link;
 window.useProductDisplay = () => ({ productDisplayName: p => p.name, productDisplayType: () => 'Type' });
 window.useShopLocale = () => ({ locale: Vue.ref('en'), terms: { product: { saveFavorite: 'Save', removeFavorite: 'Unsave', addToCart: 'Add', removeFromCart: 'Remove' }, catalog: { currencyShort: 'UAH', badges: { top: 'Top' } } } });
 window.useShopPriceFormatter = () => ({ formatPrice: value => String(value) });
-window.useCartStore = () => ({ items: [], toggle: () => window.calls.push('cart') });
+window.useCartStore = () => ({ get items() { return state.cartItems }, toggle: () => window.calls.push('cart') });
 window.useFavoritesStore = () => ({ has: () => false, toggle: () => window.calls.push('favorite') });
-window.state = reactive({ loading: false, disabled: false, kind: 'button', override: false, counter: 9,
+window.state = reactive({ loading: false, disabled: false, kind: 'button', override: false, counter: 9, cartItems: [],
   product: { id: 1, slug: 'sample', name: 'Sample', price: '100', package_size: 500, reviews_count: 3, average_rating: 0,
   images: [1,2,3].map(i => ({ image: '/image-' + i + '.png', alt: 'Photo ' + i })) } });
 const app = createApp({ setup() { return () => [
@@ -90,8 +92,82 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
         arrow: arrow.width, gap: getComputedStyle(el.querySelector('.sc-button__text')).gap,
         label: getComputedStyle(el.querySelector('.catalog-product-tile__cart-label')).paddingLeft }
     })
+    const verifyTileControls = async (surface, mobileMode) => {
+      await surface.emulateMedia({ reducedMotion: 'reduce' })
+      await surface.evaluate(() => {
+        calls.length = 0; navigations.length = 0; state.cartItems = []
+        state.product = { ...state.product, is_top: true, unavailable: false, hidden: false, price: '12345', package_size: '100 ml',
+          name: 'Long product title for daily grooming and professional hair care',
+          images: [1, 2, 3].map(i => ({ image: '/coverage-' + i + '.png' })) }
+      })
+      const tile = surface.locator('.catalog-product-tile'), body = tile.locator('.catalog-product-tile__body')
+      const favorite = body.locator('.catalog-product-tile__favorite'), top = body.locator('.catalog-product-tile__top')
+      const strip = body.locator('.catalog-product-tile__dots'), dots = strip.locator('button')
+      const cart = tile.locator(`.catalog-product-tile__${mobileMode ? 'mobile' : 'desktop'}-layout .catalog-product-tile__cart`)
+      if (!mobileMode) {
+        await surface.mouse.move(1000, 800)
+        assert.equal(await favorite.evaluate(el => getComputedStyle(el).pointerEvents), 'none')
+        assert.equal(await top.evaluate(el => getComputedStyle(el).opacity), '1')
+        await tile.hover({ position: { x: 5, y: 5 } })
+      }
+      const hitTarget = locator => locator.evaluate(el => {
+        const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+        return el === hit || el.contains(hit)
+      })
+      assert.equal(await hitTarget(favorite), true)
+      if (mobileMode) await favorite.tap()
+      else await favorite.click()
+      assert.deepEqual(await surface.evaluate(() => calls), ['favorite'])
+      const [bodyBox, topBox, favoriteBox, stripBox] = await Promise.all([body.boundingBox(), top.boundingBox(), favorite.boundingBox(), strip.boundingBox()])
+      assert.ok(Math.abs(topBox.y - (bodyBox.y - 44)) <= 1.1)
+      assert.ok(Math.abs(favoriteBox.y - (bodyBox.y - 44)) <= 1.1)
+      assert.ok(Math.abs(topBox.x - bodyBox.x) <= 1.1)
+      assert.ok(Math.abs(favoriteBox.x + favoriteBox.width - bodyBox.x - bodyBox.width) <= 1.1)
+      assert.ok(topBox.x + topBox.width <= stripBox.x, JSON.stringify({ topBox, stripBox }))
+      assert.ok(stripBox.x + stripBox.width <= favoriteBox.x, JSON.stringify({ stripBox, favoriteBox }))
+      assert.equal(await tile.evaluate(el => getComputedStyle(el).boxShadow), 'none')
+      assert.equal(await body.evaluate(el => getComputedStyle(el).boxShadow), 'none')
+      assert.equal(await top.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('a.catalog-product-tile__link')
+      }), true)
+      if (mobileMode) await dots.nth(2).tap()
+      else await dots.nth(2).click()
+      assert.equal(await dots.nth(2).getAttribute('aria-pressed'), 'true')
+      const dotBox = await dots.nth(2).boundingBox()
+      assert.ok(Math.round(dotBox.width * 1000) >= 44000 && Math.round(dotBox.height * 1000) >= 44000)
+      assert.equal(await hitTarget(dots.nth(2)), true)
+      assert.equal(await hitTarget(favorite), true)
+      if (!mobileMode) {
+        const title = tile.locator('.catalog-product-tile__name'), price = tile.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__prices')
+        const [nameBox, priceBox] = await Promise.all([title.boundingBox(), price.boundingBox()])
+        assert.ok(Math.abs(nameBox.y - priceBox.y) <= 1)
+        assert.ok(nameBox.x + nameBox.width <= priceBox.x)
+        assert.equal(await title.evaluate(el => getComputedStyle(el).webkitLineClamp), '2')
+      }
+      if (mobileMode) await cart.tap()
+      else await cart.click()
+      await surface.evaluate(() => { state.product = { ...state.product, unavailable: true }; state.cartItems = [{ product: state.product }] })
+      assert.equal(await cart.isDisabled(), false)
+      assert.equal(await cart.getAttribute('aria-label'), 'Remove')
+      if (mobileMode) await cart.tap()
+      else await cart.click()
+      assert.deepEqual(await surface.evaluate(() => calls), ['favorite', 'cart', 'cart'])
+      await surface.evaluate(() => { state.cartItems = [] })
+      assert.equal(await cart.isDisabled(), true)
+      await cart.evaluate(el => el.click())
+      assert.deepEqual(await surface.evaluate(() => calls), ['favorite', 'cart', 'cart'])
+      assert.deepEqual(await surface.evaluate(() => navigations), [])
+      await surface.emulateMedia({ contrast: 'more', reducedMotion: 'reduce' })
+      assert.equal(await top.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 248, 214)')
+      assert.equal(await top.evaluate(el => getComputedStyle(el).backdropFilter), 'none')
+      await surface.emulateMedia({ contrast: 'no-preference', reducedMotion: 'reduce' })
+      await surface.evaluate(() => { state.product = { ...state.product, unavailable: false }; state.cartItems = [] })
+      console.info(`tile controls ${mobileMode ? 'mobile' : 'desktop'}:`, JSON.stringify({ bodyBox, topBox, favoriteBox, stripBox, dotBox }))
+    }
     assert.deepEqual(await cartMetrics(page.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__cart--buy')),
       { width: 92, height: 32, font: '12px', padding: '10px', arrow: 16, gap: '4px', label: '4px' })
+    assert.equal(await page.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__primary').evaluate(el => getComputedStyle(el).gap), '4px')
     const button = page.locator('#button-fixture > .sc-button')
     for (const kind of ['button', 'href', 'to']) {
       await page.evaluate(kind => { state.kind = kind; state.loading = false; state.disabled = false; state.override = false }, kind)
@@ -189,6 +265,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.evaluate(() => { state.product = { ...state.product, is_top: true } })
     assert.equal(await page.locator('.catalog-product-tile__top').getAttribute('aria-label'), 'Top')
     assert.equal(await page.locator('.catalog-product-tile__rating').textContent().then(s => s.trim()), '3')
+    await verifyTileControls(page, false)
     assert.deepEqual(errors, [])
 
     const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
@@ -215,11 +292,13 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await mobileDots.nth(2).tap()
     assert.equal(await mobileDots.nth(2).getAttribute('aria-pressed'), 'true')
     assert.equal(await mobile.evaluate(() => navigations.length), 0)
+    await verifyTileControls(mobile, true)
     await mobile.setViewportSize({ width: 320, height: 700 })
     assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
     assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
     assert.deepEqual(await badgeMetrics(), { height: 24, minHeight: '24px', padding: '0px 8px', font: '10px', lineHeight: '16px' })
     await mobile.locator('#tile-fixture').evaluate(el => { el.style.width = '144px' })
+    await verifyTileControls(mobile, true)
     await mobile.evaluate(() => { state.product = { ...state.product, images: Array.from({ length: 12 }, (_, i) => ({ image: '/many-' + i + '.png' })) } })
     const tileBefore = await mobile.locator('.catalog-product-tile').boundingBox()
     await mobileDots.nth(11).tap()

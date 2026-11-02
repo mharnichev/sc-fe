@@ -77,6 +77,17 @@ for (const locale of ['uk', 'en'] as const) {
     const saleLink = page.locator('.shop-header__popular-btn').last()
     await expect(saleLink).toHaveAttribute('href', '/shop/sale')
     await expect(saleLink).toHaveCSS('color', 'rgb(194, 65, 12)')
+    await saleLink.hover()
+    const saleHover = saleLink.locator('.base-animated-menu-text__hover')
+    await expect(saleHover).toHaveCSS('color', 'rgb(255, 255, 255)')
+    const plaque = await saleHover.evaluate(element => {
+      const style = getComputedStyle(element, '::before')
+      return { background: style.backgroundColor, top: parseFloat(style.top), bottom: parseFloat(style.bottom), transform: style.transform }
+    })
+    expect(plaque.background).toBe('rgb(194, 65, 12)')
+    expect(plaque.top).toBeLessThan(0)
+    expect(plaque.bottom).toBeLessThan(0)
+    expect(plaque.transform).not.toBe('none')
     await page.locator('.catalog-pagination .base-pagination__page').filter({ hasText: /^2$/ }).click()
     await expect.poll(() => calls.at(-1)?.query.offset).toBe('2')
     await expect(tiles.first()).toContainText('Sale fixture 3')

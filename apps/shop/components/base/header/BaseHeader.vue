@@ -466,9 +466,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.shop-header__popular-btn.shop-header__popular-btn--sale,
-.shop-header__popular-btn.shop-header__popular-btn--sale:hover,
-.shop-header__popular-btn.shop-header__popular-btn--sale:focus-visible { color: #c2410c; }
+.shop-header__popular-btn.shop-header__popular-btn--sale { color: #c2410c; }
+
+.shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover) {
+  isolation: isolate;
+  color: #fff;
+}
+
+.shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover)::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.345em -0.3em;
+  background: #c2410c;
+  content: '';
+  transform: translate(0.08em, -0.04em) rotate(-1.5deg) skewX(-4deg);
+  pointer-events: none;
+}
 
 .fade-enter-active {
   transition:
