@@ -19,7 +19,6 @@ useSeo(
 </script>
 
 <template>
-  <CabinetShell>
     <section class="cabinet-favorites" :class="{ 'cabinet-favorites--empty': !favoriteProducts.length }">
       <template v-if="favoriteProducts.length">
         <div class="cabinet-favorites__head">
@@ -40,7 +39,6 @@ useSeo(
         </BaseButton>
       </FeedbackState>
     </section>
-  </CabinetShell>
 </template>
 
 <style scoped>

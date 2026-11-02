@@ -713,7 +713,7 @@ const toggleCart = async () => {
     animation: catalog-product-name-scroll var(--name-scroll-duration) ease-in-out 900ms infinite alternate;
   }
 
-  .catalog-product-tile__details--sku .catalog-product-tile__details-row {
+  .catalog-product-tile:hover .catalog-product-tile__details--sku .catalog-product-tile__details-row {
     padding-top: calc(1rem + 4px);
   }
 
@@ -754,6 +754,7 @@ const toggleCart = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  transition: padding-top 240ms ease;
   margin-top: auto;
   padding-top: 0.5rem;
 }
@@ -1314,6 +1315,7 @@ const toggleCart = async () => {
   .catalog-product-tile,
   .catalog-product-tile__body,
   .catalog-product-tile__details,
+  .catalog-product-tile__details-row,
   .catalog-product-tile__bottom,
   .catalog-product-tile__name,
   .catalog-product-tile__name-text {

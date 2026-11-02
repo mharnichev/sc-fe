@@ -66,7 +66,6 @@ useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHis
 </script>
 
 <template>
-  <CabinetShell>
     <section ref="historyBlock" class="purchase-history" :aria-busy="state.loading">
       <div class="purchase-history__head">
         <h1>{{ terms.cabinet.myOrders }}</h1>
@@ -114,7 +113,6 @@ useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHis
         <BasePagination :total="pagination.total" :limit="pagination.pageSize" :offset="(pagination.page - 1) * pagination.pageSize" :disabled="state.loading" :aria-label="terms.cabinet.purchaseHistory" @update:page="changePage" />
       </template>
     </section>
-  </CabinetShell>
 </template>
 
 <style scoped>

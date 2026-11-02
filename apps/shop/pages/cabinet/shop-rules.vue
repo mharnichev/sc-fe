@@ -11,7 +11,6 @@ useSeo(() => terms.value.cabinet.shopRules, () => terms.value.support.descriptio
 </script>
 
 <template>
-  <CabinetShell>
     <main class="account-rules">
       <header class="account-rules__heading">
         <p class="account-rules__eyebrow">{{ terms.common.shop }}</p>
@@ -45,7 +44,6 @@ useSeo(() => terms.value.cabinet.shopRules, () => terms.value.support.descriptio
         <BaseButton to="/cabinet/contact" size="sm">{{ terms.contacts.send }} <BaseIcon name="arrow-right" size="xxs" /></BaseButton>
       </aside>
     </main>
-  </CabinetShell>
 </template>
 
 <style scoped>

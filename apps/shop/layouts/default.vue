@@ -41,12 +41,8 @@ useHead({
     </main>
     <BaseFooter />
     <BaseBottomBar />
-    <div
-      data-testid="page-transition-overlay"
-      class="fixed inset-0 z-[9999] bg-black transition-opacity duration-300 ease-out"
-      :class="isHydrated && isPageTransitionVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
-      aria-hidden="true"
-    />
+    <ClientOnly><ShopSupportLauncher /></ClientOnly>
+    <BasePageTransitionOverlay :visible="isHydrated && isPageTransitionVisible" />
   </div>
 </template>
 
