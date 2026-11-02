@@ -166,10 +166,6 @@ const toggleCart = async () => {
 
     </component>
 
-    <span v-if="isTop" class="catalog-product-tile__top" role="img" :aria-label="terms.catalog.badges.top" :title="terms.catalog.badges.top">
-      <BaseIcon name="star" size="xxs" />
-    </span>
-
     <div
       v-if="Number(product.average_rating) > 0 || product.reviews_count > 0"
       class="catalog-product-tile__rating"
@@ -184,20 +180,23 @@ const toggleCart = async () => {
       </span>
     </div>
 
-    <BaseButton
-      class="catalog-product-tile__favorite"
-      :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
-      type="button"
-      variant="light"
-      size="xs"
-      shape="circle"
-      :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
-      @click="toggleFavorite"
-    >
-      <BaseIcon name="heart" size="xxs" effect="heart" />
-    </BaseButton>
-
     <div class="catalog-product-tile__body">
+      <span v-if="isTop" class="catalog-product-tile__top" role="img" :aria-label="terms.catalog.badges.top" :title="terms.catalog.badges.top">
+        <BaseIcon name="star" size="xxs" />
+      </span>
+      <BaseButton
+        class="catalog-product-tile__favorite"
+        :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
+        type="button"
+        variant="light"
+        size="xs"
+        shape="circle"
+        :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
+        @click="toggleFavorite"
+      >
+        <BaseIcon name="heart" size="xxs" effect="heart" />
+      </BaseButton>
+
       <div
         v-if="hasPreview"
         class="catalog-product-tile__dots"
@@ -344,13 +343,6 @@ const toggleCart = async () => {
   overflow: hidden;
   aspect-ratio: 0.78;
   background: #eee9df;
-  box-shadow: 0 0.5rem 1.5rem rgb(46 35 23 / 0.08);
-  transition: box-shadow 390ms var(--catalog-product-tile-motion-easing);
-}
-
-.catalog-product-tile:hover,
-.catalog-product-tile:focus-within {
-  box-shadow: 0 0.375rem 1rem rgb(46 35 23 / 0.05);
 }
 
 .catalog-product-tile--unavailable {
@@ -400,7 +392,8 @@ const toggleCart = async () => {
   left: 50%;
   z-index: 4;
   display: flex;
-  max-width: 100%;
+  /* Reserve the two 2rem controls and a 0.5rem gap on either side. */
+  max-width: calc(100% - 5rem);
   flex-wrap: nowrap;
   overflow-x: auto;
   gap: 0;
@@ -513,7 +506,6 @@ const toggleCart = async () => {
   background: rgb(249 248 243 / 0.96);
   padding: 0.7rem 0.75rem 0.7rem 0.75rem;
   color: #26231f;
-  box-shadow: 0 0.25rem 1.25rem rgb(36 28 19 / 0.08);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   pointer-events: none;
@@ -652,8 +644,8 @@ const toggleCart = async () => {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -1px 0 rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.1);
 
   position: absolute;
-  top: 3rem;
-  right: 0.75rem;
+  top: -2.75rem;
+  right: 0;
   z-index: 3;
   width: 2rem;
   min-width: 2rem;
@@ -663,8 +655,8 @@ const toggleCart = async () => {
 
 .catalog-product-tile__top {
   position: absolute;
-  top: 3rem;
-  left: 0.75rem;
+  top: -2.75rem;
+  left: 0;
   z-index: 2;
   display: inline-flex;
   width: 2rem;
@@ -672,15 +664,33 @@ const toggleCart = async () => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #fff8d6;
-  color: #a16207;
+  background: linear-gradient(145deg, rgb(255 246 196 / 0.4), rgb(255 239 153 / 0.16));
+  color: #9a7016;
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -1px 0 rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.1);
   pointer-events: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .catalog-product-tile__top {
+    background: #fff8d6;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .catalog-product-tile__top {
+    background: #fff8d6;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 @media (forced-colors: active) {
   .catalog-product-tile__top {
     background: Canvas;
     color: CanvasText;
+    box-shadow: none;
   }
 }
 
@@ -749,7 +759,7 @@ const toggleCart = async () => {
 
 @media (min-width: 1024px) {
   .catalog-product-tile__primary {
-    gap: 1rem;
+    gap: 0.25rem;
   }
 }
 

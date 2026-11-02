@@ -145,10 +145,20 @@ test('mobile purchase row preserves wrapping and full-size non-buy controls with
   assert.doesNotMatch(narrow, /\.catalog-product-tile__cart--buy\s*\{/)
 })
 
-test('favorite uses article-relative placement below ratings, independent of metadata height', async () => {
+test('top and favorite are body-anchored above description with reserved preview space', async () => {
   const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
-  assert.match(tile, /<BaseButton\s+class="catalog-product-tile__favorite"[^]*?<\/BaseButton>\s*<div class="catalog-product-tile__body">/)
-  assert.match(tile, /\.catalog-product-tile__favorite\s*\{[^}]*position: absolute;\s*top: 3rem;\s*right: 0.75rem;\s*z-index: 3/s)
+  const body = tile.slice(tile.indexOf('<div class="catalog-product-tile__body">'), tile.indexOf('<div class="catalog-product-tile__desktop-layout">'))
+  assert.match(body, /class="catalog-product-tile__top"/)
+  assert.match(body, /<BaseButton\s+class="catalog-product-tile__favorite"/)
+  assert.match(body, /class="catalog-product-tile__dots"/)
+  assert.match(tile, /\.catalog-product-tile__favorite\s*\{[^}]*position: absolute;\s*top: -2.75rem;\s*right: 0;\s*z-index: 3/s)
+  assert.match(tile, /\.catalog-product-tile__top\s*\{[^}]*top: -2.75rem;\s*left: 0;/s)
+  assert.match(tile, /\.catalog-product-tile__dots\s*\{[^}]*max-width: calc\(100% - 5rem\)/s)
+  assert.match(tile, /@media \(min-width: 1024px\)\s*\{\s*\.catalog-product-tile__primary\s*\{\s*gap: 0.25rem/s)
+  for (const selector of ['catalog-product-tile', 'catalog-product-tile__body']) {
+    const rule = tile.match(new RegExp(`\\.${selector} \\{([^}]+)\\}`))[1]
+    assert.doesNotMatch(rule, /box-shadow/)
+  }
   assert.match(tile, /\.catalog-product-tile__rating\s*\{[^}]*top: 1rem/s)
   const mobile = tile.slice(tile.indexOf('@media (max-width: 519px)'))
   assert.match(mobile, /\.catalog-product-tile__favorite,\s*\.catalog-product-tile__bottom\s*\{\s*opacity: 1;\s*pointer-events: auto;/)

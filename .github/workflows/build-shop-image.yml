@@ -3,7 +3,7 @@ name: Build Shop image
 on:
   push:
     branches:
-      - codex/shop-sale-release-20261101
+      - codex/shop-updates-20261102
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/shop-sale-release-20261101'
+    if: github.ref == 'refs/heads/codex/shop-updates-20261102'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
