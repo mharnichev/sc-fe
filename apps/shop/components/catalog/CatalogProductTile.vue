@@ -731,6 +731,7 @@ const toggleCart = async () => {
 
   .catalog-product-tile__sku-text {
     display: block;
+    padding-bottom: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     transform: translateY(3px);
@@ -738,7 +739,7 @@ const toggleCart = async () => {
   }
 
   .catalog-product-tile:hover .catalog-product-tile__sku {
-    max-height: 12px;
+    max-height: 20px;
     visibility: visible;
     opacity: 1;
     transition-delay: 80ms, 0s, 0s;
