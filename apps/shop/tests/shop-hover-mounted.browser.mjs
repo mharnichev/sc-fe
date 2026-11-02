@@ -12,7 +12,7 @@ const { chromium, webkit, expect } = require('@playwright/test')
 const root = new URL('../', import.meta.url)
 const modules = {}, styles = []
 const sources = {}
-for (const [name, path] of Object.entries({ Tile: 'components/catalog/CatalogProductTile.vue', Button: 'components/ui/BaseButton.vue', Underline: 'components/ui/BaseHoverUnderlineText.vue' })) {
+for (const [name, path] of Object.entries({ Tile: 'components/catalog/CatalogProductTile.vue', Button: 'components/ui/BaseButton.vue', Badge: 'components/ui/BaseBadge.vue', Underline: 'components/ui/BaseHoverUnderlineText.vue' })) {
   const source = sources[name] = await readFile(new URL(path, root), 'utf8')
   const { descriptor } = parse(source)
   const id = `data-v-hover-${name.toLowerCase()}`
@@ -24,7 +24,7 @@ const shared = await runtime('postcss')([runtime('tailwindcss')({ content: [{ ra
   .process(await readFile(new URL('assets/css/main.css', root), 'utf8'), { from: new URL('assets/css/main.css', root).pathname })
 styles.unshift(shared.css, await readFile(new URL('assets/css/typography.css', root), 'utf8'))
 const entry = `
-import * as Vue from 'vue'; import Tile from 'Tile'; import Button from 'Button'; import Underline from 'Underline';
+import * as Vue from 'vue'; import Tile from 'Tile'; import Button from 'Button'; import Badge from 'Badge'; import Underline from 'Underline';
 Object.assign(globalThis, Vue);
 const { h, reactive, ref, createApp, defineComponent } = Vue;
 window.locale = ref('en'); window.calls = [];
@@ -38,12 +38,12 @@ window.useFavoritesStore = () => ({ has: () => false, toggle: () => calls.push('
 const Link = defineComponent({ inheritAttrs: false, props: ['to'], setup: (props, { attrs, slots }) => () => h('a', { ...attrs, href: props.to, onClick: e => e.preventDefault() }, slots.default?.()) });
 window.NuxtLink = Link;
 const app = createApp({ render: () => h('div', { id: 'tile-frame', style: { width: state.width + 'px', height: '440px', margin: '40px' } }, [h(Tile, { product: state.product, style: 'width:100%' })]) });
-app.component('NuxtLink', Link); app.component('BaseButton', Button); app.component('BaseHoverUnderlineText', Underline);
-for (const name of ['BaseIcon', 'BaseBadge', 'ProductStatusBadges']) app.component(name, { setup: (_, { slots }) => () => h('span', { class: name === 'BaseIcon' ? 'base-icon' : '' }, slots.default?.()) });
+app.component('NuxtLink', Link); app.component('BaseButton', Button); app.component('BaseBadge', Badge); app.component('BaseHoverUnderlineText', Underline);
+for (const name of ['BaseIcon', 'ProductStatusBadges']) app.component(name, { setup: (_, { slots }) => () => h('span', { class: name === 'BaseIcon' ? 'base-icon' : '' }, slots.default?.()) });
 app.mount('#app'); window.unmountFixture = () => app.unmount();
 `
 const bundle = await build({ stdin: { contents: entry, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', define: { 'import.meta.client': 'true' }, plugins: [{ name: 'hover-fixture', setup(builder) {
-  builder.onResolve({ filter: /^(Tile|Button|Underline|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
+  builder.onResolve({ filter: /^(Tile|Button|Badge|Underline|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
   builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: modules[args.path] || (args.path === '#components' ? `import { h } from 'vue'; export const NuxtLink = (props, { slots }) => h(window.NuxtLink, props, slots)` : 'export const localizedPackageSize = v => v; export const getProductDiscount = () => null; export const getProductStatusFlags = () => ({ isTop: false }); export const isProductHidden = () => false; export const isProductUnavailable = () => false;'), loader: 'ts', resolveDir: dirname(runtime.resolve('vue/package.json')) }))
 } }] })
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1kAAAAASUVORK5CYII=', 'base64')
@@ -81,18 +81,31 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     const short = await metrics()
     assert.equal(await sku.evaluate(el => getComputedStyle(el).visibility), 'hidden')
     const detailsRow = tile.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__details-row')
-    assert.equal(await detailsRow.evaluate(el => getComputedStyle(el).paddingTop), '8px')
+    const assertZeroRowPadding = async () => {
+      assert.deepEqual(await detailsRow.evaluate(el => {
+        const style = getComputedStyle(el)
+        return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]
+      }), ['0px', '0px', '0px', '0px'])
+      assert.ok(!await detailsRow.evaluate(el => getComputedStyle(el).transitionProperty.includes('padding')), 'details row never transitions padding')
+    }
+    await assertZeroRowPadding()
+    assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 0, 'idle SKU reserves no height')
     await tile.hover()
-    assert.equal(await sku.evaluate(el => getComputedStyle(el).transitionDuration), '0.24s, 0.24s, 0s')
-    assert.equal(await sku.evaluate(el => getComputedStyle(el).transitionDelay), '0.08s, 0.08s, 0s')
+    assert.equal(await sku.evaluate(el => getComputedStyle(el).transitionDuration), '0.24s, 0s, 0.24s')
+    assert.equal(await sku.evaluate(el => getComputedStyle(el).transitionDelay), '0.08s, 0s, 0s')
+    assert.equal(await sku.locator('.catalog-product-tile__sku-text').evaluate(el => getComputedStyle(el).transitionDelay), '0.08s')
     await expect(sku).toHaveCSS('opacity', '1')
     await page.waitForTimeout(350)
-    assert.equal(await detailsRow.evaluate(el => getComputedStyle(el).paddingTop), '20px')
-    assert.ok(Math.abs((await metrics()).body.height - short.body.height - 12) < 1, 'only the hovered SKU reserves its extra 12px')
+    await assertZeroRowPadding()
+    const skuHeight = await sku.evaluate(el => el.getBoundingClientRect().height)
+    assert.equal(skuHeight, 12, 'visible SKU owns exactly one line in normal flow')
+    assert.equal(await sku.evaluate(el => getComputedStyle(el).position), 'static')
+    assert.ok(Math.abs((await metrics()).body.height - short.body.height - skuHeight) < 1, 'only the normal-flow SKU line expands the body')
     assert.equal(await sku.textContent(), 'Product code: SKU-42')
     assert.equal(await tile.locator('h3[itemprop="name"]').evaluate(el => el.textContent.trim()), 'Short name')
     assert.equal(await tile.locator('h3[itemprop="name"] .catalog-product-tile__name-measure').count(), 0, 'measurement mirror stays outside semantic name')
-    const overlap = await tile.evaluate(el => {
+    const assertNoSkuOverlap = async () => {
+      const overlap = await tile.evaluate(el => {
       const sku = el.querySelector('.catalog-product-tile__sku').getBoundingClientRect()
       return ['.catalog-product-tile__type', '.catalog-product-tile__desktop-layout .catalog-product-tile__volume', '.catalog-product-tile__desktop-layout .catalog-product-tile__cart'].map(selector => {
         const other = el.querySelector(selector)
@@ -100,17 +113,47 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
         const rect = other.getBoundingClientRect()
         return { selector, area: Math.max(0, Math.min(sku.right, rect.right) - Math.max(sku.left, rect.left)) * Math.max(0, Math.min(sku.bottom, rect.bottom) - Math.max(sku.top, rect.top)) }
       })
-    })
-    for (const result of overlap) assert.equal(result.area, 0, `visible SKU must not overlap ${result.selector}`)
+      })
+      for (const result of overlap) assert.equal(result.area, 0, `visible SKU must not overlap ${result.selector}`)
+      assert.ok(await sku.evaluate(el => {
+        const sku = el.getBoundingClientRect()
+        const body = el.closest('.catalog-product-tile__body').getBoundingClientRect()
+        return sku.left >= body.left && sku.right <= body.right && sku.top >= body.top && sku.bottom <= body.bottom
+      }), 'SKU remains inside the body')
+    }
+    await assertNoSkuOverlap()
+    await page.mouse.move(1000, 10)
+    await page.waitForTimeout(350)
+    await tile.hover()
+    await page.waitForTimeout(120)
+    await assertNoSkuOverlap()
+    assert.equal(await sku.evaluate(el => getComputedStyle(el).overflow), 'hidden', 'slide animation is clipped inside the normal-flow SKU row')
+    for (const width of [220, 450]) {
+      await page.evaluate(width => { state.width = width; state.product.sku = 'SKU-42-' + 'EXTENDED'.repeat(15) }, width)
+      await tile.hover()
+      await page.waitForTimeout(350)
+      await assertZeroRowPadding()
+      await assertNoSkuOverlap()
+    }
+    await page.evaluate(() => { state.width = 300; state.product.sku = 'SKU-42' })
     await page.mouse.move(1000, 10)
     await page.waitForTimeout(350)
     assert.ok(Math.abs((await metrics()).body.height - short.body.height) < 1, 'idle restores the compact height')
+    await assertZeroRowPadding()
+    assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 0)
     await page.evaluate(() => { state.product.sku = '  ' })
     await expect(sku).toHaveCount(0)
     const noSku = await metrics()
+    assert.ok(Math.abs(noSku.body.height - short.body.height) < 1, 'empty SKU has the same compact idle geometry')
     await tile.hover()
     await page.waitForTimeout(350)
     assert.ok(Math.abs((await metrics()).body.height - noSku.body.height) < 1, 'short titles without SKU do not expand')
+    await assertZeroRowPadding()
+    for (const missing of [null, 42]) {
+      await page.evaluate(value => { state.product.sku = value }, missing)
+      await expect(sku).toHaveCount(0)
+      assert.ok(Math.abs((await metrics()).body.height - noSku.body.height) < 1, 'non-string SKU reserves no space')
+    }
     await page.evaluate(() => { state.product.sku = 'SKU-42'; state.product.name = 'Professional nourishing shampoo for daily salon care' })
     // Select a real measured three-line name rather than depending on platform font widths.
     await page.evaluate(async () => {
@@ -165,6 +208,14 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     await page.emulateMedia({ reducedMotion: 'reduce' })
     assert.equal(await text.evaluate(el => getComputedStyle(el).animationName), 'none')
     assert.equal(await text.evaluate(el => getComputedStyle(el).transform), 'none')
+    assert.equal(await sku.evaluate(el => getComputedStyle(el).transitionDuration), '0s')
+    await assertZeroRowPadding()
+    await assertNoSkuOverlap()
+    await page.mouse.move(1000, 10)
+    assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 0, 'reduced motion restores compact idle immediately')
+    await tile.hover()
+    assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 12)
+    await assertNoSkuOverlap()
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await page.evaluate(() => { state.product.name = 'Short'; state.product.name_uk = 'Коротка назва'; locale.value = 'uk'; document.fonts.dispatchEvent(new Event('loadingdone')) })
     await expect(tile).not.toHaveClass(/--long-name/)
@@ -175,6 +226,18 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     await expect(tile).not.toHaveClass(/--long-name/)
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(tile).toHaveClass(/--long-name/)
+    await page.evaluate(() => { state.product.name_uk = 'Short'; state.product.images = [{ image: '/mock.png' }, { image: '/mock.png' }] })
+    await expect(tile).not.toHaveClass(/--long-name/)
+    await tile.hover()
+    await tile.locator('.catalog-product-tile__favorite').click()
+    await tile.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__cart').click()
+    assert.deepEqual(await page.evaluate(() => calls), ['favorite', 'cart'], 'layout changes preserve independent favorite/cart actions')
+    const dots = tile.locator('.catalog-product-tile__dot-target')
+    await dots.nth(1).click()
+    await expect(dots.nth(1)).toHaveAttribute('aria-pressed', 'true')
+    await tile.locator('.catalog-product-tile__link').focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(dots.nth(0)).toHaveAttribute('aria-pressed', 'true')
     await page.evaluate(() => { state.product.name_uk = 'Short'; unmountFixture(); window.dispatchEvent(new Event('resize')); document.fonts.dispatchEvent(new Event('loadingdone')) })
     await page.waitForTimeout(100)
     assert.deepEqual(errors, [])
@@ -191,6 +254,7 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     assert.deepEqual(await mobileBody.boundingBox(), mobileBodyBefore, 'touch must not expand the body')
     await expect(mobileTile).not.toHaveClass(/--long-name|--scroll-name/)
     assert.equal(await mobile.page.locator('.catalog-product-tile__sku').evaluate(el => getComputedStyle(el).display), 'none')
+    assert.equal(await mobile.page.locator('.catalog-product-tile__details-row').evaluate(el => getComputedStyle(el).paddingTop), '0px')
     await mobile.page.evaluate(() => { unmountFixture(); window.dispatchEvent(new Event('resize')) })
     assert.deepEqual(mobile.errors, [])
     await mobile.context.close()
