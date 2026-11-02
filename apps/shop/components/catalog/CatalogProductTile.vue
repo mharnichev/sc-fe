@@ -322,10 +322,10 @@ const toggleCart = async () => {
             </p>
           </div>
         </div>
-        <div class="catalog-product-tile__details" :class="{ 'catalog-product-tile__details--sku': sku }">
+        <div class="catalog-product-tile__details">
           <div class="catalog-product-tile__type-row">
             <p class="catalog-product-tile__type">{{ productType }}</p>
-            <p v-if="sku" class="catalog-product-tile__sku">{{ locale === 'uk' ? 'Код товару' : 'Product code' }}: {{ sku }}</p>
+            <p v-if="sku" class="catalog-product-tile__sku"><span class="catalog-product-tile__sku-text">{{ locale === 'uk' ? 'Код товару' : 'Product code' }}: {{ sku }}</span></p>
           </div>
           <div class="catalog-product-tile__details-row">
             <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
@@ -713,17 +713,11 @@ const toggleCart = async () => {
     animation: catalog-product-name-scroll var(--name-scroll-duration) ease-in-out 900ms infinite alternate;
   }
 
-  .catalog-product-tile:hover .catalog-product-tile__details--sku .catalog-product-tile__details-row {
-    padding-top: calc(1rem + 4px);
-  }
-
   .catalog-product-tile__sku {
-    position: absolute;
-    top: 100%;
-    left: 0;
     display: block;
+    min-height: 0;
+    max-height: 0;
     max-width: 100%;
-    padding-block: 2px;
     overflow: hidden;
     color: #737373;
     font-size: 10px;
@@ -732,15 +726,27 @@ const toggleCart = async () => {
     white-space: nowrap;
     visibility: hidden;
     opacity: 0;
+    transition: opacity 240ms ease, visibility 0s linear 240ms, max-height 240ms ease;
+  }
+
+  .catalog-product-tile__sku-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transform: translateY(3px);
-    transition: opacity 240ms ease, transform 240ms ease, visibility 0s linear 240ms;
+    transition: transform 240ms ease;
   }
 
   .catalog-product-tile:hover .catalog-product-tile__sku {
+    max-height: 12px;
     visibility: visible;
     opacity: 1;
+    transition-delay: 80ms, 0s, 0s;
+  }
+
+  .catalog-product-tile:hover .catalog-product-tile__sku-text {
     transform: translateY(0);
-    transition-delay: 80ms, 80ms, 0s;
+    transition-delay: 80ms;
   }
 }
 
@@ -754,9 +760,7 @@ const toggleCart = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  transition: padding-top 240ms ease;
   margin-top: auto;
-  padding-top: 0.5rem;
 }
 
 .catalog-product-tile__volume.base-badge {
@@ -1307,7 +1311,8 @@ const toggleCart = async () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .catalog-product-tile__sku {
+  .catalog-product-tile__sku,
+  .catalog-product-tile__sku-text {
     transform: none;
     transition: none;
   }
