@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { terms, locale } = useShopLocale()
+const suggestionTitle = computed(() => locale.value === 'uk' ? 'Можливо, ви шукаєте' : 'You might be looking for')
 const suggestionLabel = (suggestion: string) => {
   const category = props.results.categories.find(category => category.name === suggestion)
   return category
@@ -54,6 +55,10 @@ const selectProductResult = (event: MouseEvent) => {
     :aria-busy="loading"
     aria-live="polite"
   >
+    <div v-if="$slots['heading-actions']" class="header-search-results__heading">
+      <h6 class="header-search-results__title">{{ suggestionTitle }}</h6>
+      <slot name="heading-actions" />
+    </div>
     <div v-if="hasResults" class="header-search-results__content">
       <div class="header-search-results__tags">
       <template v-if="results.categories.length">
@@ -72,7 +77,7 @@ const selectProductResult = (event: MouseEvent) => {
       </template>
 
       <template v-if="results.suggestions.length">
-        <h6 class="header-search-results__title">{{ locale === 'uk' ? 'Можливо, ви шукаєте' : 'You might be looking for' }}</h6>
+        <h6 v-if="!$slots['heading-actions']" class="header-search-results__title">{{ suggestionTitle }}</h6>
         <ul class="header-search-results__list header-search-results__list--categories">
           <li v-for="suggestion in results.suggestions" :key="suggestion">
             <BaseButton
@@ -126,6 +131,25 @@ const selectProductResult = (event: MouseEvent) => {
   overflow: auto;
   background: #ffffff;
   padding: 0.5rem;
+}
+
+.header-search-results__heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #fff;
+  padding: 0.25rem 0.4rem 0.75rem;
+}
+
+.header-search-results__heading .header-search-results__title {
+  min-width: 0;
+  padding: 0;
+  line-height: 1.4;
 }
 
 .header-search-results--empty {

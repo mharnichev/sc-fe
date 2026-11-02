@@ -1,0 +1,30 @@
+{
+  "production_shop_source_before_patch": "ae8de2f044dc518efec32d6abc65a2c10a4220f9",
+  "included": [
+    "8px below hover-only SKU text, 20px visible normal-flow row, zero idle height and zero purchase-row padding",
+    "Desktop search close control shares one heading row with the suggestion title via HeaderSearchResults slot",
+    "Heading is unique and close remains available for loading, empty and populated results",
+    "Arrow Down and submit Tab still enter actual search results rather than the close action",
+    "Sticky header row and mobile focus containment/restoration retain the existing protected search behavior"
+  ],
+  "retained_from_previous_release": [
+    "All four prepared favicon assets with runtime base-aware head links",
+    "Session, cart, checkout, quote, payment, repeated-invoice guards, noindex and closed pilot",
+    "Category mascots, product-card behaviors, BaseAccordion description and mobile navbar"
+  ],
+  "other_apps_inventory": [
+    { "app": "backoffice", "production_source": "98cbab27fb8ca9a58b2d5b8045e3219958d1b70b", "main_tree_matches": true, "new_ready_commits_found": [], "dirty_root_entries": 148 },
+    { "app": "barbershop/public", "production_source": "56c69a90c96241475b8e72d902e827837e4ba7ce", "main_tree_matches": true, "new_ready_commits_found": [], "dirty_root_entries": 61 },
+    { "app": "blog", "production_source": "45a120d5adbadace898a400d394c5a2306f00a00", "main_tree_matches": true, "new_ready_commits_found": [], "dirty_root_entries": 38 }
+  ],
+  "inventory_main": "a454164818e231468f8d318f873a9e01a75a512b",
+  "inventory_scope": "All local and origin-tracking refs in the original root were checked. Other-app tips are ancestors of main; the sole nonancestor category-artwork tip has no changes in these three apps.",
+  "excluded_wip": [
+    { "area": "Mixed dirty original-root changes in other apps", "owner": "Not established by this read-only inventory", "reason": "Unreviewed/stale mixture, including business hours and mock fiscal/payment/session work; no readiness claim or wholesale copy." },
+    { "area": "Dobrodesk live iframe", "owner": "Unresolved application/provider integration", "reason": "Live visibility/roundtrip remains unverified; no real message sent." },
+    { "area": "Backend product-volume fix", "owner": "Backend owner coordinated by release chat", "reason": "Separate backend candidate; no backend code or contracts modified in this frontend patch." },
+    { "area": "Disputed ingredients and unapproved commercial promises", "owner": "Existing work outside this release", "reason": "Preserved unchanged." }
+  ],
+  "source_ownership": "Frontend implementation and independent review in sc-fe; release chat verifies exact SHA/digest and deploys without changing application code.",
+  "safety": "Only local mock APIs in tests; no real orders, payments, invoices, support messages, backend/env or production pilot changes."
+}
