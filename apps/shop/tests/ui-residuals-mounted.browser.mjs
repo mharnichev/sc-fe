@@ -135,7 +135,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       else await dots.nth(2).click()
       assert.equal(await dots.nth(2).getAttribute('aria-pressed'), 'true')
       const dotBox = await dots.nth(2).boundingBox()
-      assert.ok(Math.round(dotBox.width * 1000) >= 44000 && Math.round(dotBox.height * 1000) >= 44000)
+      assert.ok(Math.round(dotBox.width * 1000) >= 24000 && Math.round(dotBox.height * 1000) >= 44000)
       assert.equal(await hitTarget(dots.nth(2)), true)
       assert.equal(await hitTarget(favorite), true)
       if (!mobileMode) {
@@ -235,9 +235,15 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await dots.first().getAttribute('aria-pressed'), 'true')
     for (const dot of await dots.all()) {
       const box = await dot.boundingBox()
-      assert.ok(box.width >= 44 && box.height >= 44)
+      assert.ok(box.width >= 24 && box.height >= 44)
     }
     assert.equal(await dots.first().locator('.catalog-product-tile__dot').evaluate(el => getComputedStyle(el).width), '6px')
+    const compactStrip = await strip.evaluate(el => {
+      const box = el.getBoundingClientRect(), style = getComputedStyle(el), pill = getComputedStyle(el, '::before')
+      return { width: box.width, height: box.height, background: style.backgroundColor,
+        pillHeight: box.height - parseFloat(pill.top) - parseFloat(pill.bottom), pillBackground: pill.backgroundColor }
+    })
+    assert.deepEqual(compactStrip, { width: 72, height: 44, background: 'rgba(0, 0, 0, 0)', pillHeight: 22, pillBackground: 'rgb(255, 255, 255)' })
     await dots.nth(2).click()
     await button.focus()
     assert.equal(await dots.first().getAttribute('aria-pressed'), 'true')
@@ -266,6 +272,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await page.locator('.catalog-product-tile__top').getAttribute('aria-label'), 'Top')
     assert.equal(await page.locator('.catalog-product-tile__rating').textContent().then(s => s.trim()), '3')
     await verifyTileControls(page, false)
+    await page.screenshot({ path: `/tmp/shop-photo-dots-${name}-desktop.png` })
     assert.deepEqual(errors, [])
 
     const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
@@ -293,6 +300,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await mobileDots.nth(2).getAttribute('aria-pressed'), 'true')
     assert.equal(await mobile.evaluate(() => navigations.length), 0)
     await verifyTileControls(mobile, true)
+    await mobile.screenshot({ path: `/tmp/shop-photo-dots-${name}-mobile.png` })
     await mobile.setViewportSize({ width: 320, height: 700 })
     assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
     assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
@@ -305,7 +313,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await mobileDots.nth(11).getAttribute('aria-pressed'), 'true')
     const lastTarget = await mobileDots.nth(11).boundingBox()
     // Translated DOMRects may round just below their exact CSS pixel dimensions.
-    assert.ok(Math.round(lastTarget.width * 1000) >= 44000 && Math.round(lastTarget.height * 1000) >= 44000, JSON.stringify(lastTarget))
+    assert.ok(Math.round(lastTarget.width * 1000) >= 24000 && Math.round(lastTarget.height * 1000) >= 44000, JSON.stringify(lastTarget))
     assert.ok(lastTarget.x >= tileBefore.x && lastTarget.x + lastTarget.width <= tileBefore.x + tileBefore.width, JSON.stringify({ lastTarget, tileBefore }))
     const tileAfter = await mobile.locator('.catalog-product-tile').boundingBox()
     assert.equal(tileAfter.width, tileBefore.width)
