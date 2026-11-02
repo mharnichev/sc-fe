@@ -1,0 +1,54 @@
+{
+  "baseline": "5a58267",
+  "source_snapshot": "/tmp/sc-fe-shop-reconcile-snapshot-20261102",
+  "scope": "apps/shop ready changes reconciled onto protected main",
+  "included": [
+    "Navigation overlay waits for the current rendered page, retaining ownership across duplicate, cancelled and reused-route navigations",
+    "Inline mobile header search with focus containment, restoration, resize and modal handoff cleanup",
+    "Persistent cabinet shell with real menu links, nested-order active navigation and query-backed order pagination",
+    "Special offer label in desktop/mobile navigation, page heading and SEO",
+    "Compact homepage popular-section spacing and prepared localized copy",
+    "Prepared ICO, SVG, PNG and Apple touch favicons with runtime base-aware head links",
+    "Payment mark source attribution and callback preference regression coverage",
+    "SKU geometry regression matrix with and without volume, long codes, discounted prices and intermediate animation frames"
+  ],
+  "already_on_baseline_preserved": [
+    "44 category mascots and category card layout",
+    "Product card TOP/favorite glass materials and positions, conditional long-name hover, normal-flow hover-only SKU with zero idle height",
+    "Product detail TOP text and BaseAccordion description behavior",
+    "Mobile navbar account appearance",
+    "Session, cart, checkout, promotion, payment and repeated-invoice guards",
+    "Closed Shop pilot, noindex, API boundary, source attribution and mounted asset paths"
+  ],
+  "not_ready_or_not_carried": [
+    {
+      "area": "Dobrodesk live iframe",
+      "reason": "SDK/button are enabled but prior production observations showed a hidden zero-size iframe. Mock dispatch is not a live roundtrip; cause remains unproven. No provider override or real message is included."
+    },
+    {
+      "area": "Commercial delivery/return promises in the stale locale snapshot",
+      "reason": "Not approved; existing closed-pilot copy is retained."
+    },
+    {
+      "area": "Snapshot checkout-reminder E2E/config",
+      "reason": "Targets older contracts that omit current session/cart/owner safeguards; not copied over protected main. Existing reminder implementation and regressions are retained."
+    },
+    {
+      "area": "Unused monobank-white.svg",
+      "reason": "Not consumed by the current light-surface checkout; existing black wordmark and attribution are retained."
+    },
+    {
+      "area": "Other snapshot differences",
+      "reason": "Older asset paths, auth/payment/cart code and weakened tests are not newer features. No wholesale file replacement is used. Disputed product ingredients remain untouched."
+    }
+  ],
+  "environment": "No production env, token, backend, infrastructure or pilot flag changes",
+  "verification_commands": [
+    "NUXT_APP_BASE_URL=/shop/ pnpm --filter @apps/shop build",
+    "node --test --test-concurrency=2 apps/shop/tests/*.test.mjs",
+    "playwright test --config playwright.online-payment-mock.config.ts --retries=0",
+    "node --test tests/ui-residuals-mounted.browser.mjs tests/home-journal-mounted.browser.mjs tests/shop-hover-mounted.browser.mjs tests/shop-badges-navbar.browser.mjs tests/description-accordion.browser.mjs tests/support-launcher.browser.mjs"
+  ],
+  "local_webkit_limitation": "WebKit newPage times out even in an independent empty HTML control; Linux CI is the required WebKit gate.",
+  "safety": "Browser scenarios use mock APIs and block external requests; no real order, payment, invoice, fiscal receipt or support message is created."
+}

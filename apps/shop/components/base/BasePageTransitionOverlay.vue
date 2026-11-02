@@ -36,6 +36,8 @@ const shopAsset = useShopAsset()
   display: block;
   width: 100%;
   height: auto;
+}
+.is-visible .page-transition-overlay__logo img {
   animation: soulcuts-loading-pulse 1800ms ease-in-out 700ms infinite;
 }
 @keyframes soulcuts-loading-pulse {
@@ -44,6 +46,6 @@ const shopAsset = useShopAsset()
 }
 @media (prefers-reduced-motion: reduce) {
   .page-transition-overlay, .page-transition-overlay__logo { transition: none; }
-  .page-transition-overlay__logo img { animation: none; }
+  .is-visible .page-transition-overlay__logo img { animation: none; }
 }
 </style>

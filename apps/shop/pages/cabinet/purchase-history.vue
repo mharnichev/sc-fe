@@ -6,6 +6,8 @@ const { orderItemName } = useShopRuntimeDisplay()
 
 const PAGE_SIZE = 10
 const auth = useCustomerAuthStore()
+const route = useRoute()
+const router = useRouter()
 const api = useApi()
 const { dateLocale, terms, locale } = useShopLocale()
 const { formatPrice } = useShopPriceFormatter()
@@ -13,6 +15,10 @@ const orders = ref<CustomerOrder[]>([])
 const historyBlock = ref<HTMLElement | null>(null)
 const pagination = reactive({ page: 1, total: 0, pageSize: PAGE_SIZE })
 const state = reactive({ loading: false, error: '' })
+const requestedPage = () => {
+  const value = Number(route.query.page)
+  return Number.isSafeInteger(value) && value > 0 ? value : 1
+}
 
 const pageCount = computed(() => Math.max(1, Math.ceil(pagination.total / pagination.pageSize)))
 const formatDate = (value: string) => {
@@ -44,9 +50,10 @@ const loadOrders = async (nextPage = pagination.page) => {
 }
 const changePage = async (nextPage: number) => {
   if (state.loading || nextPage === pagination.page || nextPage < 1 || nextPage > pageCount.value) return
-  await loadOrders(nextPage)
-  if (state.error || pagination.page !== nextPage) return
+  const session = sessionIdentity()
+  await router.push({ query: { ...route.query, page: nextPage === 1 ? undefined : String(nextPage) } })
   await nextTick()
+  if (!auth.isAuthenticated || session !== sessionIdentity()) return
   if (!historyBlock.value) return
   const headerHeight = document.querySelector('.shop-header')?.getBoundingClientRect().height || 0
   window.scrollTo({
@@ -58,8 +65,14 @@ const changePage = async (nextPage: number) => {
 watch(sessionIdentity, () => {
   generation++; orders.value = []; state.loading = false
   pagination.page = 1; pagination.total = 0; state.error = ''
-  if (auth.isAuthenticated) void loadOrders(1)
+  if (auth.isAuthenticated) void loadOrders(requestedPage())
 }, { immediate: true })
+watch(() => route.query.page, () => {
+  const page = requestedPage()
+  if (page === pagination.page && !state.loading && !state.error) return
+  generation++; state.loading = false
+  if (auth.isAuthenticated) void loadOrders(page)
+})
 onBeforeUnmount(() => { generation++ })
 
 useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHistoryDescription)
@@ -72,7 +85,7 @@ useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHis
       </div>
       <OrderLoadingSkeleton v-if="state.loading && !orders.length" :label="terms.cabinet.ordersLoading" />
       <FeedbackState v-else-if="state.error" class="purchase-history__feedback" kind="error" :title="terms.cabinet.ordersErrorTitle" :description="terms.cabinet.ordersErrorDescription">
-        <BaseButton type="button" :disabled="state.loading" @click="loadOrders()">{{ terms.cabinet.retry }}</BaseButton>
+        <BaseButton type="button" :disabled="state.loading" @click="loadOrders(requestedPage())">{{ terms.cabinet.retry }}</BaseButton>
       </FeedbackState>
       <FeedbackState v-else-if="!orders.length" class="purchase-history__feedback" face="sad-droopy-face" :title="terms.cabinet.stillEmpty" :description="terms.cabinet.purchaseHistoryEmpty">
         <BaseButton to="/catalog">{{ terms.cabinet.toGoods }}</BaseButton>

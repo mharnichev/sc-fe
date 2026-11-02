@@ -38,7 +38,7 @@ const domain = useCatalogDomain()
 const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
-const saleTitle = computed(() => locale.value === 'uk' ? 'Розпродаж' : 'Sale')
+const saleTitle = computed(() => locale.value === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
 const saleDescription = computed(() => locale.value === 'uk' ? 'Товари з актуальними знижками та спеціальними цінами.' : 'Products with current discounts and special prices.')
 const catalogKeyPrefix = props.saleOnly ? 'shop-sale' : props.topOnly ? 'shop-top' : 'shop-catalog'
 
@@ -425,7 +425,7 @@ useSeo(
       <div v-if="topOnly || saleOnly" class="catalog-route__title-wrapper">
         <div>
           <p v-if="topOnly" class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
-          <h1 class="catalog-route__title section-title type-title-strong">
+          <h1 class="catalog-route__title section-title type-title-strong" :class="{ 'catalog-route__title--sale': saleOnly }">
             <BaseScribbleOutline>{{ saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
           </h1>
           <p class="catalog-route__description">{{ saleOnly ? saleDescription : terms.home.popularDescription }}</p>
@@ -593,6 +593,16 @@ useSeo(
   display: flex;
   min-height: 4.5rem;
   align-items: center;
+}
+
+.catalog-route__title-wrapper > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.catalog-route__title--sale {
+  padding-inline: 0.4em;
+  overflow-wrap: anywhere;
 }
 
 .type-eyebrow + .catalog-route__title {
