@@ -26,7 +26,7 @@ export const shopSupportAppearance: DobroDeskWidgetOptions['appearance'] = {
       link: '#fafafa',
       focus: '#fafafa',
     },
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: '"Cy Grotesk", Inter, Arial, sans-serif',
     fontSize: '14px',
     lineHeight: 1.5,
     controlRadius: '4px',
@@ -41,13 +41,14 @@ export const isDobrodeskEnabled = (value: unknown) => String(value) === 'true'
 type Route = { name?: string | symbol | null, path: string, query: Record<string, unknown>, hash: string }
 type WidgetState = { allowed: boolean, visible: boolean, locale: string }
 
-// Only public, query-free pages may load the third-party support runtime.
+// Only public pages and the approved contact page may load support without query/hash.
 export const isDobrodeskPublicRoute = (route: Route, baseURL = '/') => {
   if (route.hash || Object.keys(route.query).length) return false
   let path = route.path
   const base = baseURL.replace(/\/$/, '')
   if (base && (path === base || path.startsWith(`${base}/`))) path = path.slice(base.length) || '/'
   path = path.replace(/\/$/, '') || '/'
+  if (path === '/cabinet/contact') return true
   if (/\/(booking|cabinet|account|checkout|auth|login|logout|register|password|reset-password|payment|orders|review|api|admin|blog)(?:\/|$)/i.test(path)) return false
   // Nuxt's [...slug].vue is the public category landing/goods route.
   if (route.name === 'slug' && /^\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/.test(path)) return true
@@ -58,6 +59,8 @@ export const isDobrodeskPublicRoute = (route: Route, baseURL = '/') => {
 export const createDobrodeskLifecycle = (options: {
   integrationId: string
   enabled: boolean
+  customLauncher?: boolean
+  onStatus?: (status: 'idle' | 'loading' | 'ready' | 'error') => void
   appearance: DobroDeskWidgetOptions['appearance']
   load: () => Promise<{ createDobroDeskWidget: (options: DobroDeskWidgetOptions) => DobroDeskWidgetClient }>
 }) => {
@@ -68,18 +71,36 @@ export const createDobrodeskLifecycle = (options: {
   let activated = false
   let disposed = false
   let failed = false
+  let openRequested = false
+
+  const fail = () => {
+    failed = true
+    ready = false
+    openRequested = false
+    options.onStatus?.('error')
+    try { client?.destroy() } catch { /* SDK cleanup must not interrupt shopping. */ }
+    client = undefined
+  }
 
   const present = () => {
     if (!client) return
-    if (!ready) { client.close(); client.hide(); return }
-    client.setLocale(state.locale)
-    if (state.allowed && state.visible) { client.setLauncherVisibility(true); client.show() }
-    else { client.close(); client.hide() }
+    try {
+      if (!ready) { client.close(); client.hide(); return }
+      client.setLocale(state.locale)
+      if (state.allowed && state.visible) {
+        client.setLauncherVisibility(!options.customLauncher)
+        client.show()
+        if (openRequested) { openRequested = false; client.open() }
+      }
+      else { openRequested = false; client.close(); client.hide() }
+    }
+    catch { fail() }
   }
 
   const start = async () => {
     if (disposed || failed || pending || client || !activated || !state.allowed || !options.enabled || !options.integrationId) return
     pending = true
+    options.onStatus?.('loading')
     try {
       const sdk = await options.load()
       if (disposed || !state.allowed) return
@@ -90,23 +111,23 @@ export const createDobrodeskLifecycle = (options: {
         appearance: options.appearance,
       })
       await client.ready
-      if (disposed) return
+      if (disposed || failed || !client) return
       ready = true
+      options.onStatus?.('ready')
       present()
     }
     catch (error) {
       if (import.meta.dev) console.warn('[Dobrodesk] Widget initialization failed', error)
-      failed = true
-      client?.destroy()
-      client = undefined
+      fail()
       // Support must never interrupt the site's booking or shopping flows.
     }
-    finally { pending = false }
+    finally { pending = false; if (!client && !failed) options.onStatus?.('idle') }
   }
 
   return {
-    update(next: WidgetState) { state = next; present(); void start() },
+    update(next: WidgetState) { state = next; if (!next.allowed || !next.visible) openRequested = false; present(); void start() },
     activate() { activated = true; void start() },
+    open() { if (!state.allowed || !state.visible || disposed || failed) return; openRequested = true; activated = true; present(); void start() },
     dispose() { disposed = true; client?.destroy(); client = undefined },
   }
 }

@@ -1,5 +1,6 @@
 const TRANSITION_OUT_MS = 300
 const TRANSITION_IN_DELAY_MS = 80
+const isCabinetPath = (path: string) => path === '/cabinet' || path.startsWith('/cabinet/')
 
 const wait = (duration: number) => new Promise(resolve => window.setTimeout(resolve, duration))
 
@@ -33,6 +34,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!from.matched.length || to.fullPath === from.fullPath) return
 
     clearRevealTimer()
+    if (isCabinetPath(from.path) && isCabinetPath(to.path)) {
+      pendingPath = null
+      isVisible.value = false
+      return
+    }
+
     pendingPath = to.fullPath
     isVisible.value = true
     await wait(TRANSITION_OUT_MS)

@@ -82,7 +82,6 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
 </script>
 
 <template>
-  <CabinetShell>
     <section class="order-detail" :aria-busy="state.loading">
       <BaseButton class="order-detail__back" to="/cabinet/purchase-history" variant="text" size="sm">
         <BaseIcon class="order-detail__back-arrow" name="arrow-left" size="xxs" /> {{ terms.cabinet.backToOrders }}
@@ -132,7 +131,6 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
         </section>
       </template>
     </section>
-  </CabinetShell>
 </template>
 
 <style scoped>

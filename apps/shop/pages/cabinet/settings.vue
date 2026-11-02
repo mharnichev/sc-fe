@@ -115,7 +115,6 @@ useSeo(
 </script>
 
 <template>
-  <CabinetShell>
     <form class="cabinet-settings" @submit.prevent="submit">
       <section class="cabinet-settings__row">
         <div class="cabinet-settings__copy">
@@ -176,7 +175,6 @@ useSeo(
         <p v-if="state.error" class="cabinet-settings__error">{{ runtimeMessage(state.error) }}</p>
       </div>
     </form>
-  </CabinetShell>
 </template>
 
 <style scoped>

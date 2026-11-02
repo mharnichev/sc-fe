@@ -39,7 +39,6 @@ useSeo(() => terms.value.cabinet.myAccount, () => terms.value.cabinet.accountInt
 </script>
 
 <template>
-  <CabinetShell>
     <main class="cabinet-overview">
       <header class="cabinet-overview__heading">
         <p class="cabinet-overview__eyebrow">{{ terms.common.account }}</p>
@@ -79,7 +78,6 @@ useSeo(() => terms.value.cabinet.myAccount, () => terms.value.cabinet.accountInt
       </section>
 
     </main>
-  </CabinetShell>
 </template>
 
 <style scoped>

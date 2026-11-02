@@ -148,6 +148,72 @@ const productDescriptionHtml = computed(() => {
   const description = (product.value ? productDisplayContent(product.value, 'description') : '').trim()
   return productComposition.value ? removeCompositionFromDescription(description) : description
 })
+const descriptionElement = ref<HTMLElement | null>(null)
+const descriptionExpanded = ref(false)
+const descriptionCanCollapse = ref(false)
+const descriptionPreviewHeight = ref(0)
+const descriptionAccordionOpen = computed({
+  get: () => !descriptionCanCollapse.value || descriptionExpanded.value,
+  set: (value: boolean) => { descriptionExpanded.value = value },
+})
+let descriptionObserver: ResizeObserver | undefined
+let descriptionFrame = 0
+let descriptionMounted = false
+
+const measureDescription = () => {
+  descriptionFrame = 0
+  const element = descriptionElement.value
+  if (!descriptionMounted || !element) return
+  const lines: Array<{ top: number; bottom: number }> = []
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+  while (walker.nextNode()) {
+    if (!walker.currentNode.textContent?.trim()) continue
+    const range = document.createRange()
+    range.selectNodeContents(walker.currentNode)
+    for (const rect of Array.from(range.getClientRects())) {
+      if (!rect.width || !rect.height) continue
+      // Inline emphasis can have different font metrics on the same rendered line.
+      const line = lines.find(item => Math.min(item.bottom, rect.bottom) - Math.max(item.top, rect.top) > Math.min(item.bottom - item.top, rect.height) / 2)
+      if (line) { line.top = Math.min(line.top, rect.top); line.bottom = Math.max(line.bottom, rect.bottom) }
+      else lines.push({ top: rect.top, bottom: rect.bottom })
+    }
+  }
+  lines.sort((a, b) => a.top - b.top)
+  descriptionPreviewHeight.value = lines[9]
+    ? Math.ceil(lines[9].bottom - element.getBoundingClientRect().top)
+    : element.scrollHeight
+  descriptionCanCollapse.value = window.innerWidth < 1280 && lines.length > 10
+}
+const scheduleDescriptionMeasurement = () => {
+  if (descriptionMounted && !descriptionFrame) descriptionFrame = requestAnimationFrame(measureDescription)
+}
+watch(descriptionElement, (element) => {
+  descriptionObserver?.disconnect()
+  if (!descriptionMounted || !element) return
+  descriptionObserver?.observe(element)
+  scheduleDescriptionMeasurement()
+}, { flush: 'post' })
+watch(productDescriptionHtml, () => {
+  descriptionExpanded.value = false
+  nextTick(scheduleDescriptionMeasurement)
+})
+onMounted(() => {
+  descriptionMounted = true
+  descriptionObserver = new ResizeObserver(scheduleDescriptionMeasurement)
+  if (descriptionElement.value) descriptionObserver.observe(descriptionElement.value)
+  window.addEventListener('resize', scheduleDescriptionMeasurement)
+  document.fonts.addEventListener('loadingdone', scheduleDescriptionMeasurement)
+  document.fonts.ready.then(scheduleDescriptionMeasurement)
+  scheduleDescriptionMeasurement()
+})
+onBeforeUnmount(() => {
+  descriptionMounted = false
+  descriptionObserver?.disconnect()
+  if (descriptionFrame) cancelAnimationFrame(descriptionFrame)
+  window.removeEventListener('resize', scheduleDescriptionMeasurement)
+  document.fonts.removeEventListener('loadingdone', scheduleDescriptionMeasurement)
+})
+
 const plainProductDescription = computed(() =>
   htmlToText(productDescriptionHtml.value || (product.value ? productDisplayContent(product.value, 'short_description') : '')),
 )
@@ -619,10 +685,20 @@ useHead(() => ({
           </section>
           -->
 
-          <section v-if="productDescriptionHtml" class="product-description" itemprop="description">
-            <h2 class="product-section-title">{{ productText.description }}</h2>
-            <div class="product-description__html" v-html="productDescriptionHtml" />
-          </section>
+          <BaseAccordion
+            v-if="productDescriptionHtml"
+            v-model="descriptionAccordionOpen"
+            class="product-description"
+            summary-class="product-description__summary"
+            :disabled="!descriptionCanCollapse"
+            :preview-height="descriptionCanCollapse ? descriptionPreviewHeight : 0"
+            itemprop="description"
+          >
+            <template #summary>
+              <h2 class="product-section-title">{{ productText.description }}</h2>
+            </template>
+            <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
+          </BaseAccordion>
         </div>
       </div>
 
@@ -1402,6 +1478,14 @@ useHead(() => ({
 
 .product-characteristics .product-section-title {
   text-transform: uppercase;
+}
+
+:deep(.product-description__summary) {
+  margin-bottom: 0.75rem;
+}
+
+:deep(.product-description__summary) .product-section-title {
+  margin-bottom: 0;
 }
 
 .product-description__html {

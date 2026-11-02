@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isDobrodeskEnabled, isDobrodeskPublicRoute } from '~/utils/dobrodesk'
 import type { CustomerOrderDto, PaginatedResponse, ShopFeedbackRequestDto, ShopFeedbackResponseDto } from '@shared-types'
 const { runtimeMessage } = useShopRuntimeDisplay()
 
@@ -6,6 +7,16 @@ const auth = useCustomerAuthStore()
 const api = useApi()
 const { terms, dateLocale } = useShopLocale()
 const customer = computed(() => auth.customer)
+const config = useRuntimeConfig()
+const route = useRoute()
+const { $shopSupport } = useNuxtApp()
+const supportEnabled = computed(() => auth.isAuthenticated
+  && isDobrodeskEnabled(config.public.dobrodeskEnabled)
+  && Boolean(config.public.dobrodeskIntegrationId)
+  && isDobrodeskPublicRoute(route, config.app.baseURL))
+const supportLoading = computed(() => $shopSupport?.status.value === 'loading')
+const supportFailed = computed(() => $shopSupport?.status.value === 'error')
+
 const form = reactive({
   name: [customer.value?.name, customer.value?.surname].filter(Boolean).join(' '),
   email: customer.value?.email || '',
@@ -85,13 +96,29 @@ useSeo(() => terms.value.cabinet.contactUs, () => terms.value.cabinet.contactInt
 </script>
 
 <template>
-  <CabinetShell>
     <main class="account-contact">
     <header class="account-contact__heading">
       <p class="account-contact__eyebrow">{{ terms.common.account }}</p>
       <h1>{{ terms.cabinet.contactUs }}</h1>
       <p>{{ terms.cabinet.contactIntro }}</p>
     </header>
+
+    <section v-if="supportEnabled" class="account-contact__support soft-surface" aria-labelledby="contact-support-title">
+      <span class="account-contact__support-icon" aria-hidden="true"><BaseIcon name="message-outline" size="sm" /></span>
+      <div class="account-contact__support-copy">
+        <p class="account-contact__eyebrow">{{ terms.cabinet.supportEyebrow }}</p>
+        <h2 id="contact-support-title">{{ terms.cabinet.supportTitle }}</h2>
+        <p>{{ terms.cabinet.supportDescription }}</p>
+        <p v-if="supportFailed" class="account-contact__error" role="status">{{ terms.cabinet.supportUnavailable }}</p>
+      </div>
+      <BaseButton
+        class="account-contact__support-action"
+        :loading="supportLoading"
+        :disabled="supportFailed"
+        :aria-label="supportLoading ? terms.common.loading : terms.cabinet.supportAction"
+        @click="$shopSupport?.open()"
+      >{{ terms.cabinet.supportAction }}</BaseButton>
+    </section>
 
     <div class="account-contact__grid">
       <section class="account-contact__details soft-surface">
@@ -129,7 +156,6 @@ useSeo(() => terms.value.cabinet.contactUs, () => terms.value.cabinet.contactInt
       </form>
     </div>
     </main>
-  </CabinetShell>
 </template>
 
 <style scoped>
@@ -138,6 +164,13 @@ useSeo(() => terms.value.cabinet.contactUs, () => terms.value.cabinet.contactInt
 .account-contact__heading h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 800; line-height: 1.15; }
 .account-contact__heading > p:last-child, .account-contact__details > p { color: #737373; line-height: 1.6; }
 .account-contact__eyebrow { color: #737373; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.account-contact__support { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; padding: 1.5rem; }
+.account-contact__support-icon { display: grid; width: 3rem; height: 3rem; flex-shrink: 0; place-items: center; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; }
+.account-contact__support-copy { display: grid; flex: 1 1 240px; gap: .5rem; min-width: 0; }
+.account-contact__support-copy h2 { font-size: 1.25rem; font-weight: 800; line-height: 1.3; }
+.account-contact__support-copy > p:not(.account-contact__eyebrow, .account-contact__error) { color: #737373; font-size: .875rem; line-height: 1.6; }
+.account-contact__support-action { flex-shrink: 0; }
+@media (max-width: 599px) { .account-contact__support { padding: 1rem; gap: 1rem; } .account-contact__support-copy { flex-basis: calc(100% - 4rem); } .account-contact__support-action { width: 100%; } }
 .account-contact__grid { display: grid; gap: 1rem; min-width: 0; }
 .account-contact__details, .account-contact__form { display: grid; align-content: start; gap: 1rem; min-width: 0; padding: 1rem; }
 .account-contact__details { align-self: start; gap: .75rem; }

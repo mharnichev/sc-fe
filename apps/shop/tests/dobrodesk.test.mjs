@@ -14,7 +14,7 @@ const harness = (extra = {}) => {
   const events = []
   const ready = deferred()
   const client = { ready: ready.promise }
-  for (const method of ['show', 'hide', 'close', 'destroy', 'setLocale', 'setLauncherVisibility']) client[method] = value => events.push([method, value])
+  for (const method of ['open', 'show', 'hide', 'close', 'destroy', 'setLocale', 'setLauncherVisibility']) client[method] = value => events.push([method, value])
   const calls = []
   const sdk = { createDobroDeskWidget: options => { calls.push(options); return client } }
   let loads = 0
@@ -153,44 +153,145 @@ test('actual Nuxt configuration defaults Dobrodesk off and requires explicit tru
 const pluginSource = await readFile(new URL('../plugins/dobrodesk.client.ts', import.meta.url), 'utf8')
 const helperURL = `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`
 let pluginSequence = 0
-const actualPlugin = async (config, event) => {
-  const saved = Object.fromEntries(['defineNuxtPlugin', 'useRuntimeConfig', 'useRouter', 'useShopLocale', 'watch', 'window', '__dobrodeskPluginSpy'].map(key => [key, { present: Object.hasOwn(globalThis,key), value: globalThis[key] }]))
+const actualPlugin = async (config, event, options = {}) => {
+  const saved = Object.fromEntries(['defineNuxtPlugin', 'useRuntimeConfig', 'useRouter', 'useShopLocale', 'useModalStore', 'useCustomerAuthStore', 'ref', 'watch', 'window', '__dobrodeskPluginSpy'].map(key => [key, { present: Object.hasOwn(globalThis,key), value: globalThis[key] }]))
   const listeners = new Map(), hooks = new Map(), spy = { loads: 0, creates: [], events: [] }
-  const sdk = `globalThis.__dobrodeskPluginSpy.loads++;export function createDobroDeskWidget(options){const spy=globalThis.__dobrodeskPluginSpy;spy.creates.push(options);const client={ready:Promise.resolve()};for(const method of ['show','hide','close','destroy','setLocale','setLauncherVisibility'])client[method]=value=>spy.events.push([method,value]);return client}`
+  const sdk = `globalThis.__dobrodeskPluginSpy.loads++;export function createDobroDeskWidget(options){const spy=globalThis.__dobrodeskPluginSpy;spy.creates.push(options);const client={ready:Promise.resolve()};for(const method of ['open','show','hide','close','destroy','setLocale','setLauncherVisibility'])client[method]=value=>spy.events.push([method,value]);return client}`
   const sdkURL = `data:text/javascript;base64,${Buffer.from(sdk).toString('base64')}#${pluginSequence++}`
-  const route = { name: 'index', path: '/', query: {}, hash: '', fullPath: '/' }
+  const route = { name: 'index', path: '/', query: {}, hash: '', fullPath: '/', ...options.route }
+  const auth = { isAuthenticated: options.authenticated ?? true }
+  const modal = { activeModal: null }
+  const watchers = []
   Object.assign(globalThis, {
     __dobrodeskPluginSpy: spy,
     defineNuxtPlugin: plugin => plugin,
     useRuntimeConfig: () => ({ public: config.runtimeConfig.public, app: { baseURL: '/' } }),
     useRouter: () => ({ currentRoute: { value: route }, beforeEach: () => () => {}, afterEach: () => () => {} }),
+    ref: value => ({ value }),
+    useModalStore: () => modal,
+    useCustomerAuthStore: () => auth,
     useShopLocale: () => ({ locale: { value: 'uk' } }),
-    watch: (_source, callback, options) => { if(options.immediate)callback();return () => {} },
+    watch: (_source, callback, options) => { watchers.push(callback); if(options.immediate)callback();return () => {} },
     window: { addEventListener: (name, callback) => listeners.set(name,callback), removeEventListener: (name, callback) => { if(listeners.get(name)===callback)listeners.delete(name) } },
   })
   try {
     const code = ts.transpileModule(pluginSource.replace("'~/utils/dobrodesk'", JSON.stringify(helperURL)).replace("'@dobrodesk/widget'", JSON.stringify(sdkURL)), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
     const plugin = (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}#${pluginSequence++}`)).default
-    plugin({ hook: (name, callback) => hooks.set(name,callback) })
-    hooks.get('app:mounted')()
+    const result = plugin({ hook: (name, callback) => hooks.set(name,callback) })
     assert.equal(spy.loads,0)
-    assert.equal(typeof listeners.get(event),'function')
-    listeners.get(event)()
+    assert.equal(listeners.size, 0, 'generic interaction must not load third-party support')
+    result.provide.shopSupport.open()
     await tick();await tick()
+    if (spy.loads) {
+      assert.equal(result.provide.shopSupport.status.value, 'ready')
+      assert.equal(spy.events.filter(([name]) => name === 'open').length, 1)
+    }
+    else assert.equal(result.provide.shopSupport.status.value, 'idle')
+    await options.exercise?.({ result, spy, route, auth, modal, update: () => watchers.forEach(callback => callback()) })
     return spy
   } finally {
     for(const [key,entry] of Object.entries(saved))if(entry.present)globalThis[key]=entry.value;else delete globalThis[key]
   }
 }
 
-test('actual disabled plugin never imports or creates SDK under pointer or keyboard interaction', async () => {
+test('actual disabled plugin never imports or creates SDK when support is requested', async () => {
   for(const value of [undefined,'false'])for(const event of ['pointerdown','keydown']) {
     const spy=await actualPlugin(configured(value),event)
     assert.equal(spy.loads,0);assert.deepEqual(spy.creates,[]);assert.deepEqual(spy.events,[])
   }
 })
 
-test('actual plugin explicit true retains deferred SDK initialization after either interaction', async () => {
+test('custom launcher queues one open until ready and keeps native launcher hidden', async () => {
+  const statuses = []
+  const h = harness({ customLauncher: true, onStatus: value => statuses.push(value) })
+  h.lifecycle.update(safe)
+  h.lifecycle.open(); h.lifecycle.open(); await tick()
+  assert.equal(h.loads, 1)
+  assert.equal(h.events.some(([name]) => name === 'open'), false)
+  h.ready.resolve(); await tick()
+  assert.deepEqual(statuses, ['loading', 'ready'])
+  assert.equal(h.events.filter(([name]) => name === 'open').length, 1)
+  assert.ok(h.events.some(([name, visible]) => name === 'setLauncherVisibility' && visible === false))
+})
+
+test('private navigation and modal opening cancel queued opens', async () => {
+  for (const next of [{ ...safe, allowed: false }, { ...safe, visible: false }]) {
+    const h = harness({ customLauncher: true })
+    h.lifecycle.update(safe); h.lifecycle.open(); await tick()
+    h.lifecycle.update(next); h.ready.resolve(); await tick(); h.lifecycle.update(safe)
+    assert.equal(h.events.some(([name]) => name === 'open'), false)
+  }
+})
+
+test('custom launcher receives failure without interrupting shopping', async () => {
+  const statuses = []
+  let attempts = 0
+  const h = harness({ onStatus: value => statuses.push(value), load: async () => { attempts++; throw Error('offline') } })
+  h.lifecycle.update(safe); h.lifecycle.open(); await tick()
+  assert.deepEqual(statuses, ['loading', 'error'])
+  assert.doesNotThrow(() => h.lifecycle.open())
+  assert.equal(attempts, 1)
+})
+
+test('SDK open and cleanup errors are contained and reported', async () => {
+  const statuses = []
+  const client = { ready: Promise.resolve(), setLocale() {}, setLauncherVisibility() {}, show() {}, hide() {}, close() {},
+    open() { throw Error('provider unavailable') }, destroy() { throw Error('cleanup failed') } }
+  const h = harness({ onStatus: value => statuses.push(value), load: async () => ({ createDobroDeskWidget: () => client }) })
+  h.lifecycle.update(safe); h.lifecycle.open(); await tick()
+  assert.deepEqual(statuses, ['loading', 'ready', 'error'])
+  assert.doesNotThrow(() => h.lifecycle.open())
+})
+
+test('late SDK readiness cannot overwrite an earlier client failure', async () => {
+  const statuses = [], ready = deferred()
+  const client = { ready: ready.promise, setLocale() {}, setLauncherVisibility() {}, show() {}, open() {}, close() {}, destroy() {},
+    hide() { throw Error('provider failed during navigation') } }
+  const h = harness({ onStatus: value => statuses.push(value), load: async () => ({ createDobroDeskWidget: () => client }) })
+  h.lifecycle.update(safe); h.lifecycle.open(); await tick()
+  h.lifecycle.update({ ...safe, allowed: false })
+  assert.deepEqual(statuses, ['loading', 'error'])
+  ready.resolve(); await tick()
+  h.lifecycle.update(safe); h.lifecycle.open(); await tick()
+  assert.deepEqual(statuses, ['loading', 'error'])
+})
+
+test('only the approved query-free contact route extends the private allowlist', async () => {
+  for (const path of ['/cabinet/contact', '/cabinet/contact/', '/shop/cabinet/contact']) {
+    assert.equal(isDobrodeskPublicRoute({ path, query: {}, hash: '' }, '/shop/'), true)
+  }
+  const contact = { name: 'cabinet-contact', path: '/cabinet/contact', query: {}, hash: '', fullPath: '/cabinet/contact' }
+  for (const [route, authenticated, expected] of [
+    [contact, true, 1], [contact, false, 0],
+    [{ ...contact, name: undefined }, false, 0],
+    [{ ...contact, query: { order: '123' } }, true, 0],
+    [{ ...contact, hash: '#private' }, true, 0],
+    [{ ...contact, path: '/cabinet/orders/123' }, true, 0],
+    [{ ...contact, path: '/checkout' }, true, 0],
+  ]) {
+    const spy = await actualPlugin(configured('true'), 'support', { route, authenticated })
+    assert.equal(spy.loads, expected, JSON.stringify({ route, authenticated }))
+  }
+})
+
+test('actual plugin hides for modals and stops contact opening after logout', async () => {
+  await actualPlugin(configured('true'), 'support', {
+    exercise: async ({ result, spy, route, auth, modal, update }) => {
+      modal.activeModal = 'UserBasketModal'; update()
+      assert.equal(spy.events.at(-1)[0], 'hide')
+      result.provide.shopSupport.open()
+      assert.equal(spy.events.filter(([name]) => name === 'open').length, 1)
+      modal.activeModal = null
+      Object.assign(route, { name: 'cabinet-contact', path: '/cabinet/contact', fullPath: '/cabinet/contact' })
+      auth.isAuthenticated = false; update(); result.provide.shopSupport.open()
+      assert.equal(spy.events.at(-1)[0], 'hide')
+      assert.equal(spy.events.filter(([name]) => name === 'open').length, 1)
+      assert.equal(spy.creates.length, 1)
+    },
+  })
+})
+
+test('actual enabled plugin loads only after the explicit support action', async () => {
   for(const event of ['pointerdown','keydown']) {
     const spy=await actualPlugin(configured('true'),event)
     assert.equal(spy.loads,1);assert.equal(spy.creates.length,1)
