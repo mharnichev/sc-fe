@@ -35,14 +35,14 @@ for (const [name, source] of Object.entries(sources)) {
   serverModules[name] = module.exports.default
 }
 const { createSSRApp, h } = runtime('vue')
-const serverApp = createSSRApp({ render: () => h('main', [h(serverModules.Description), h('button', { id: 'after-preview' }, 'After preview'), h(serverModules.Accordion, { id: 'default', modelValue: false }, { summary: () => 'Default', default: () => 'Default body' })]) })
+const serverApp = createSSRApp({ render: () => h('main', [h('button', { id: 'before-preview' }, 'Before preview'), h(serverModules.Description), h('button', { id: 'after-preview' }, 'After preview'), h(serverModules.Accordion, { id: 'default', modelValue: false }, { summary: () => 'Default', default: () => 'Default body' })]) })
 serverApp.component('BaseAccordion', serverModules.Accordion)
 const serverHtml = await runtime('@vue/server-renderer').renderToString(serverApp)
 const bundle = await build({ stdin: { contents: `
 import * as Vue from 'vue'; import Accordion from 'Accordion'; import Description from 'Description';
 Object.assign(globalThis, Vue);
 window.descriptionHtml = Vue.ref('<p>Short</p>'); window.baseOpen = Vue.ref(false);
-const app = Vue.createSSRApp({ render: () => Vue.h('main', [Vue.h(Description), Vue.h('button', { id: 'after-preview' }, 'After preview'), Vue.h(Accordion, { id: 'default', modelValue: baseOpen.value, 'onUpdate:modelValue': v => baseOpen.value = v }, { summary: () => 'Default', default: () => 'Default body' })]) });
+const app = Vue.createSSRApp({ render: () => Vue.h('main', [Vue.h('button', { id: 'before-preview' }, 'Before preview'), Vue.h(Description), Vue.h('button', { id: 'after-preview' }, 'After preview'), Vue.h(Accordion, { id: 'default', modelValue: baseOpen.value, 'onUpdate:modelValue': v => baseOpen.value = v }, { summary: () => 'Default', default: () => 'Default body' })]) });
 app.component('BaseAccordion', Accordion); app.mount('#app'); window.unmountFixture = () => app.unmount();
 `, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', define: { __VUE_OPTIONS_API__: 'true', __VUE_PROD_DEVTOOLS__: 'false', __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true' }, plugins: [{ name: 'fixture', setup(builder) {
   builder.onResolve({ filter: /^(Accordion|Description)$/ }, args => ({ path: args.path, namespace: 'fixture' }))
@@ -93,7 +93,10 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await expect.poll(() => accordion.locator('.product-description__html').evaluate(el => el.parentElement.inert)).toBe(true)
     await page.locator('#preview-link').evaluate(el => el.focus())
     assert.notEqual(await page.evaluate(() => document.activeElement?.id), 'preview-link', 'collapsed preview rejects even explicit hidden-link focus')
-    await summary.focus(); await page.keyboard.press('Tab')
+    await page.locator('#before-preview').focus()
+    await page.keyboard.press('Tab')
+    await expect(summary).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(page.locator('#after-preview')).toBeFocused()
     assert.equal(await accordion.evaluate(el => el.scrollTop), 0, 'clipped content must not scroll to hidden focus targets')
     await summary.click(); await page.waitForTimeout(650)
