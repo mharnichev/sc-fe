@@ -204,22 +204,24 @@ const toggleCart = async () => {
         :aria-label="locale === 'uk' ? 'Фото товару' : 'Product images'"
         @keydown.esc="resetPreview"
       >
-        <BaseButton
-          v-for="(_, index) in images"
-          :key="index"
-          class="catalog-product-tile__dot-target"
-          variant="borderless"
-          size="xs"
-          :aria-label="`${locale === 'uk' ? 'Фото' : 'Image'} ${index + 1} / ${images.length}`"
-          :aria-pressed="index === activeImage"
-          @click="selectPreview(index)"
-        >
-          <span
-            class="catalog-product-tile__dot"
-            :class="{ 'catalog-product-tile__dot--active': index === activeImage }"
-            aria-hidden="true"
-          />
-        </BaseButton>
+        <div class="catalog-product-tile__dot-options">
+          <BaseButton
+            v-for="(_, index) in images"
+            :key="index"
+            class="catalog-product-tile__dot-target"
+            variant="borderless"
+            size="xs"
+            :aria-label="`${locale === 'uk' ? 'Фото' : 'Image'} ${index + 1} / ${images.length}`"
+            :aria-pressed="index === activeImage"
+            @click="selectPreview(index)"
+          >
+            <span
+              class="catalog-product-tile__dot"
+              :class="{ 'catalog-product-tile__dot--active': index === activeImage }"
+              aria-hidden="true"
+            />
+          </BaseButton>
+        </div>
       </div>
       <div class="catalog-product-tile__desktop-layout">
         <div class="catalog-product-tile__primary">
@@ -395,15 +397,35 @@ const toggleCart = async () => {
   /* Reserve the two 2rem controls and a 0.5rem gap on either side. */
   max-width: calc(100% - 5rem);
   flex-wrap: nowrap;
-  overflow-x: auto;
   gap: 0;
   border-radius: 1rem;
-  background: #ffffff;
+  background: transparent;
   padding: 0;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 0.375rem);
   transition: opacity 500ms var(--catalog-product-tile-motion-easing), transform 500ms var(--catalog-product-tile-motion-easing);
+}
+
+.catalog-product-tile__dots::before {
+  position: absolute;
+  inset: 11px 0;
+  border-radius: 1rem;
+  background: #ffffff;
+  content: '';
+  pointer-events: none;
+}
+
+.catalog-product-tile__dot-options {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.catalog-product-tile__dot-options::-webkit-scrollbar {
+  display: none;
 }
 
 .catalog-product-tile:focus-within .catalog-product-tile__dots {
@@ -428,11 +450,12 @@ const toggleCart = async () => {
   --sc-button-bg: transparent;
   --sc-button-border: transparent;
   --sc-button-fill: transparent;
-  width: 44px;
-  min-width: 44px;
+  position: relative;
+  width: 24px;
+  min-width: 24px;
   height: 44px;
   min-height: 44px;
-  flex: 0 0 44px;
+  flex: 0 0 24px;
   padding: 0;
   border-radius: 0;
   pointer-events: inherit;
