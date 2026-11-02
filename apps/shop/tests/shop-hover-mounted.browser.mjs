@@ -44,7 +44,7 @@ app.mount('#app'); window.unmountFixture = () => app.unmount();
 `
 const bundle = await build({ stdin: { contents: entry, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', define: { 'import.meta.client': 'true' }, plugins: [{ name: 'hover-fixture', setup(builder) {
   builder.onResolve({ filter: /^(Tile|Button|Badge|Underline|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
-  builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: modules[args.path] || (args.path === '#components' ? `import { h } from 'vue'; export const NuxtLink = (props, { slots }) => h(window.NuxtLink, props, slots)` : 'export const localizedPackageSize = v => v; export const getProductDiscount = () => null; export const getProductStatusFlags = () => ({ isTop: false }); export const isProductHidden = () => false; export const isProductUnavailable = () => false;'), loader: 'ts', resolveDir: dirname(runtime.resolve('vue/package.json')) }))
+  builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: modules[args.path] || (args.path === '#components' ? `import { h } from 'vue'; export const NuxtLink = (props, { slots }) => h(window.NuxtLink, props, slots)` : 'export const localizedPackageSize = v => v; export const getProductDiscount = p => p.fixtureDiscount ? { compareAtPrice: 200 } : null; export const getProductStatusFlags = () => ({ isTop: false }); export const isProductHidden = () => false; export const isProductUnavailable = () => false;'), loader: 'ts', resolveDir: dirname(runtime.resolve('vue/package.json')) }))
 } }] })
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1kAAAAASUVORK5CYII=', 'base64')
 const longName = 'Professional nourishing shampoo for daily salon care and exceptionally soft healthy shiny hair with botanical extracts and a lasting fresh fragrance '.repeat(3)
@@ -104,16 +104,19 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     assert.equal(await sku.textContent(), 'Product code: SKU-42')
     assert.equal(await tile.locator('h3[itemprop="name"]').evaluate(el => el.textContent.trim()), 'Short name')
     assert.equal(await tile.locator('h3[itemprop="name"] .catalog-product-tile__name-measure').count(), 0, 'measurement mirror stays outside semantic name')
-    const assertNoSkuOverlap = async () => {
-      const overlap = await tile.evaluate(el => {
+    const assertNoSkuOverlap = async (hasVolume = true) => {
+      const overlap = await tile.evaluate((el, hasVolume) => {
       const sku = el.querySelector('.catalog-product-tile__sku').getBoundingClientRect()
-      return ['.catalog-product-tile__type', '.catalog-product-tile__desktop-layout .catalog-product-tile__volume', '.catalog-product-tile__desktop-layout .catalog-product-tile__cart'].map(selector => {
+      const selectors = ['.catalog-product-tile__type', '.catalog-product-tile__desktop-layout .catalog-product-tile__cart']
+      if (hasVolume) selectors.push('.catalog-product-tile__desktop-layout .catalog-product-tile__volume')
+      else if (el.querySelector('.catalog-product-tile__desktop-layout .catalog-product-tile__volume')) throw new Error('unexpected volume badge')
+      return selectors.map(selector => {
         const other = el.querySelector(selector)
         if (!other) throw new Error(`missing overlap fixture: ${selector}`)
         const rect = other.getBoundingClientRect()
         return { selector, area: Math.max(0, Math.min(sku.right, rect.right) - Math.max(sku.left, rect.left)) * Math.max(0, Math.min(sku.bottom, rect.bottom) - Math.max(sku.top, rect.top)) }
       })
-      })
+      }, hasVolume)
       for (const result of overlap) assert.equal(result.area, 0, `visible SKU must not overlap ${result.selector}`)
       assert.ok(await sku.evaluate(el => {
         const sku = el.getBoundingClientRect()
@@ -128,13 +131,37 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
     await page.waitForTimeout(120)
     await assertNoSkuOverlap()
     assert.equal(await sku.evaluate(el => getComputedStyle(el).overflow), 'hidden', 'slide animation is clipped inside the normal-flow SKU row')
-    for (const width of [220, 450]) {
-      await page.evaluate(width => { state.width = width; state.product.sku = 'SKU-42-' + 'EXTENDED'.repeat(15) }, width)
-      await tile.hover()
-      await page.waitForTimeout(350)
-      await assertZeroRowPadding()
-      await assertNoSkuOverlap()
+    for (const width of [220, 300, 450]) {
+      for (const hasVolume of [true, false]) {
+        await page.mouse.move(1000, 10)
+        await page.waitForTimeout(350)
+        await page.evaluate(({ width, hasVolume }) => {
+          state.width = width
+          state.product.sku = 'SKU-42-' + 'EXTENDED'.repeat(15)
+          state.product.package_size = hasVolume ? '300 мл' : null
+          state.product.fixtureDiscount = true
+        }, { width, hasVolume })
+        await expect(tile.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__old-price')).toHaveText('200')
+        assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 0, `idle SKU height at ${width}px, volume ${hasVolume}`)
+        await assertZeroRowPadding()
+        await tile.hover()
+        await page.waitForTimeout(110)
+        const openingHeight = await sku.evaluate(el => el.getBoundingClientRect().height)
+        assert.ok(openingHeight > 0 && openingHeight < 12, `opening animation is in progress at ${width}px, volume ${hasVolume}`)
+        await assertNoSkuOverlap(hasVolume)
+        await page.waitForTimeout(300)
+        await assertNoSkuOverlap(hasVolume)
+        await page.mouse.move(1000, 10)
+        await page.waitForTimeout(110)
+        const closingHeight = await sku.evaluate(el => el.getBoundingClientRect().height)
+        assert.ok(closingHeight > 0 && closingHeight < 12, `closing animation is in progress at ${width}px, volume ${hasVolume}`)
+        await assertNoSkuOverlap(hasVolume)
+        await page.waitForTimeout(300)
+        await assertZeroRowPadding()
+        assert.equal(await sku.evaluate(el => el.getBoundingClientRect().height), 0, `closed SKU height at ${width}px, volume ${hasVolume}`)
+      }
     }
+    await page.evaluate(() => { state.product.package_size = '500 ml'; state.product.fixtureDiscount = false })
     await page.evaluate(() => { state.width = 300; state.product.sku = 'SKU-42' })
     await page.mouse.move(1000, 10)
     await page.waitForTimeout(350)

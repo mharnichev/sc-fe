@@ -46,7 +46,7 @@ test('journal copy changes UK/EN without changing stories, URLs or UTC dates', (
   assert.doesNotMatch(source, /https:\/\/soulcuts\.com\.ua|\/shop\/blog|\bfetch\(|useApi\(/)
 })
 
-test('journal is a full-width home-only layout band without changing page safety or popular spacing', () => {
+test('journal is a full-width home-only layout band while preserving page safety and compact popular spacing', () => {
   const layout = read('layouts/default.vue')
   const home = read('pages/index.vue')
   assert.match(layout, /<HomeJournalSection v-if="route\.path === '\/'" class="home-journal-section"/)
@@ -55,7 +55,7 @@ test('journal is a full-width home-only layout band without changing page safety
   assert.match(layout, /\.site-container--home\s*\{\s*padding-bottom: 0/)
   assert.match(layout, /isHydrated && isPageTransitionVisible/)
   assert.match(home, /<div class="space-y-16">/)
-  assert.match(home, /\.main-page__popular\s*\{[^}]*padding-bottom: 4rem/s)
+  assert.doesNotMatch(home, /\.main-page__popular\s*\{[^}]*padding-bottom: 4rem/s)
   assert.match(read('nuxt.config.ts'), /noindex, nofollow, noarchive/)
   assert.match(read('components/catalog/CatalogCategoryLandingRoute.vue'), /fatal: true/)
   assert.doesNotMatch(source, /font-size:\s*clamp\([^)]*vw/)

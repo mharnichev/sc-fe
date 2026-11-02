@@ -21,6 +21,7 @@ const initials = computed(() => {
 
 const navItems = computed(() => [
   { icon: 'user', label: terms.value.cabinet.myAccount, to: '/cabinet' },
+  { icon: 'settings', label: terms.value.cabinet.settings, to: '/cabinet/settings' },
   { icon: 'clock', label: terms.value.cabinet.myOrders, to: '/cabinet/purchase-history' },
   { icon: 'heart', label: terms.value.common.favorites, to: '/cabinet/favorites' },
   { icon: 'message-outline', label: terms.value.cabinet.contactUs, to: '/cabinet/contact' },
@@ -28,7 +29,8 @@ const navItems = computed(() => [
 ])
 
 const activeNavPath = computed(() => navItems.value
-  .filter(item => route.path === item.to || route.path.startsWith(`${item.to}/`))
+  .filter(item => route.path === item.to || route.path.startsWith(`${item.to}/`)
+    || (item.to === '/cabinet/purchase-history' && route.path.startsWith('/cabinet/orders/')))
   .sort((a, b) => b.to.length - a.to.length)[0]?.to)
 
 const logout = async () => {

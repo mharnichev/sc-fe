@@ -35,12 +35,15 @@ const { data: initialHeaderCategories } = await useAsyncData(
 
 const shopHeader = ref<HTMLElement | null>(null)
 const desktopSearch = ref<{ closeSearch: () => void } | null>(null)
+const mobileSearchButton = ref<HTMLButtonElement | null>(null)
+const mobileSearchPanel = ref<HTMLElement | null>(null)
 const categoryTree = ref<CategoryTreeNodeDto[]>(initialHeaderCategories.value || [])
 const activeCategory = ref<CategoryTreeNodeDto | null>(null)
 const activeMenuKey = ref<string | null>(null)
 const activeMenuAnchor = shallowRef<HTMLElement | null>(null)
 const categoryMenuLeft = ref(24)
 const isSearchFocus = ref(false)
+const isMobileSearchOpen = ref(false)
 const isHeaderHidden = ref(false)
 const lastYPosition = ref(0)
 let menuOpenTimer: ReturnType<typeof setTimeout> | undefined
@@ -51,8 +54,8 @@ let lastHeaderVisible: boolean | undefined
 let lastHeaderHeight = -1
 
 const isMenuOpen = computed(() => Boolean(activeMenuKey.value))
-const isHeaderActive = computed(() => isMenuOpen.value || isSearchFocus.value)
-const isPageDimmed = computed(() => isMenuOpen.value || isSearchFocus.value)
+const isHeaderActive = computed(() => isMenuOpen.value || isSearchFocus.value || isMobileSearchOpen.value)
+const isPageDimmed = computed(() => isHeaderActive.value)
 const categoryMenuStyle = computed(() => {
   const compactRows = (activeCategory.value?.children.length || 0) + 1
 
@@ -88,7 +91,7 @@ const syncBodyOverflow = () => {
   document.body.style.overflow = isPageDimmed.value ? 'hidden' : ''
 }
 
-watch(isPageDimmed, syncBodyOverflow)
+watch(isPageDimmed, syncBodyOverflow, { flush: 'sync' })
 
 const setMenuAnchor = (target?: EventTarget | null) => {
   if (!import.meta.client || !(target instanceof HTMLElement)) return
@@ -200,9 +203,52 @@ const scheduleMenuClose = () => {
   }, MENU_CLOSE_DELAY)
 }
 
+const closeMobileSearch = (restoreFocus = false) => {
+  if (!isMobileSearchOpen.value) return
+  isMobileSearchOpen.value = false
+  if (restoreFocus) {
+    const path = route.fullPath
+    nextTick(() => {
+      if (!isMobileSearchOpen.value && !modal.isVisible && route.fullPath === path && window.innerWidth < 768) {
+        mobileSearchButton.value?.focus()
+      }
+    })
+  }
+}
+
 const closeOverlays = () => {
   closeMenu()
   desktopSearch.value?.closeSearch()
+  closeMobileSearch()
+}
+
+const trapMobileSearchFocus = (event: KeyboardEvent) => {
+  if (!isMobileSearchOpen.value || event.key !== 'Tab' || !mobileSearchPanel.value) return
+  const focusable = Array.from(mobileSearchPanel.value.querySelectorAll<HTMLElement>(
+    'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+  )).filter(element => element.getClientRects().length > 0)
+  if (!focusable.length) return
+  const first = focusable[0]!
+  const last = focusable[focusable.length - 1]!
+  if (event.shiftKey && (document.activeElement === first || !mobileSearchPanel.value.contains(document.activeElement))) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+const containMobileSearchFocus = (event: FocusEvent) => {
+  if (!isMobileSearchOpen.value || !mobileSearchPanel.value || mobileSearchPanel.value.contains(event.target as Node)) return
+  (mobileSearchPanel.value.querySelector<HTMLElement>('input') || mobileSearchPanel.value.querySelector<HTMLElement>('button:not(:disabled)'))?.focus()
+}
+
+const closeFromBackdrop = () => {
+  const restoreFocus = isMobileSearchOpen.value
+  closeMenu()
+  desktopSearch.value?.closeSearch()
+  closeMobileSearch(restoreFocus)
 }
 
 const handleSearchActive = (value: boolean) => {
@@ -212,12 +258,19 @@ const handleSearchActive = (value: boolean) => {
 
 const openMobileSearch = () => {
   closeMenu()
-  modal.openModal('SearchModal')
+  if (isMobileSearchOpen.value) closeMobileSearch(true)
+  else {
+    isHeaderHidden.value = false
+    isMobileSearchOpen.value = true
+  }
 }
 
 const categoryLink = (category: CategoryTreeNodeDto) => categoryDestination(categoryTree.value, category)
 
-const openBasket = () => modal.openModal('UserBasketModal')
+const openBasket = () => {
+  closeOverlays()
+  modal.openModal('UserBasketModal')
+}
 const isHydrated = ref(false)
 
 onMounted(() => {
@@ -270,7 +323,19 @@ const syncHeaderState = () => {
   emit('visibilityChange', { visible, height })
 }
 
+watch(() => route.fullPath, () => closeOverlays())
+watch(() => modal.isVisible, (visible) => { if (visible) closeOverlays() }, { flush: 'sync' })
+
 const handleWindowResize = () => {
+  if (window.innerWidth >= 768 && isMobileSearchOpen.value) {
+    const path = route.fullPath
+    closeMobileSearch()
+    nextTick(() => {
+      if (!isMobileSearchOpen.value && !modal.isVisible && route.fullPath === path && window.innerWidth >= 768) {
+        shopHeader.value?.querySelector<HTMLElement>('.shop-header__soulcuts')?.focus()
+      }
+    })
+  }
   updateCategoryMenuPosition()
   syncHeaderState()
 }
@@ -288,11 +353,15 @@ onMounted(() => {
     headerResizeObserver.observe(shopHeader.value)
   }
 
+  document.addEventListener('focusin', containMobileSearchFocus)
+  document.addEventListener('keydown', trapMobileSearchFocus)
   window.addEventListener('scroll', updateHeaderVisibility, { passive: true })
   window.addEventListener('resize', handleWindowResize, { passive: true })
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('focusin', containMobileSearchFocus)
+  document.removeEventListener('keydown', trapMobileSearchFocus)
   window.removeEventListener('scroll', updateHeaderVisibility)
   window.removeEventListener('resize', handleWindowResize)
   headerResizeObserver?.disconnect()
@@ -408,7 +477,7 @@ onBeforeUnmount(() => {
             <BaseAnimatedMenuText :text="terms.home.brandsEyebrow" />
           </NuxtLink>
           <NuxtLink to="/sale" class="shop-header__popular-btn shop-header__popular-btn--sale" @mouseenter="closeMenu()" @focus="closeMenu()" @click="closeOverlays">
-            <BaseAnimatedMenuText :text="locale === 'uk' ? 'Розпродаж' : 'Sale'" />
+            <BaseAnimatedMenuText :text="locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer'" />
           </NuxtLink>
         </nav>
       </div>
@@ -419,7 +488,7 @@ onBeforeUnmount(() => {
         <img :src="shopAsset('/soulcuts/sc-logo-name-dark.webp')" alt="Soul Cuts" width="140" height="40">
       </NuxtLink>
       <div class="shop-header__mobile-actions">
-        <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.search" @click="openMobileSearch">
+        <button ref="mobileSearchButton" class="shop-header__mobile-btn" type="button" :aria-label="terms.common.search" :aria-expanded="isMobileSearchOpen" aria-controls="shop-mobile-search" @click="openMobileSearch">
           <BaseIcon name="search" size="xs" />
         </button>
         <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.cart" @click="openBasket">
@@ -432,6 +501,29 @@ onBeforeUnmount(() => {
     </div>
 
     <div id="shop-header-search-results" />
+
+    <Transition name="mobile-search-panel">
+      <section
+        v-if="isMobileSearchOpen"
+        id="shop-mobile-search"
+        ref="mobileSearchPanel"
+        class="shop-header__search-panel"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="terms.common.search"
+        @keydown.esc.stop.prevent="closeMobileSearch(true)"
+      >
+        <div class="site-container">
+          <div class="shop-header__search-panel-heading">
+            <span>{{ terms.header.searchProductsTitle }}</span>
+            <BaseButton variant="outline-dark" size="sm" shape="circle" :aria-label="terms.common.closeDialog" @click="closeMobileSearch(true)">
+              <BaseIcon name="close" size="xxs" />
+            </BaseButton>
+          </div>
+          <HeaderSearch variant="modal" :category-tree="categoryTree" autofocus @close="closeMobileSearch($event)" />
+        </div>
+      </section>
+    </Transition>
 
     <Transition name="fade">
       <section
@@ -459,7 +551,7 @@ onBeforeUnmount(() => {
       <span
         :class="['full-page-dim-background', { 'is-active': isPageDimmed }]"
         aria-hidden="true"
-        @click="closeOverlays"
+        @click="closeFromBackdrop"
       />
     </Teleport>
   </header>
@@ -519,6 +611,35 @@ onBeforeUnmount(() => {
 
 .shop-header--hidden {
   transform: translateY(-100%);
+}
+
+.shop-header__search-panel {
+  position: absolute;
+  inset: 100% 0 auto;
+  z-index: 84;
+  height: calc(100dvh - var(--shop-header-offset, 4rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  padding-block: 1rem calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+.shop-header__search-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+.mobile-search-panel-enter-active,
+.mobile-search-panel-leave-active { transition: opacity 220ms ease, transform 260ms ease; }
+.mobile-search-panel-enter-from,
+.mobile-search-panel-leave-to { opacity: 0; transform: translateY(-1rem); }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-search-panel-enter-active,
+  .mobile-search-panel-leave-active { transition: none; }
 }
 
 .shop-header__desktop {

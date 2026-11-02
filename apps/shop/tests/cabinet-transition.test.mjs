@@ -7,7 +7,7 @@ import ts from 'typescript'
 const source = await readFile(new URL('../plugins/page-transition.client.ts', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source.replace('export default ', 'globalThis.plugin = '), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText
+}).outputText.replace(/export \{\};?/, '')
 
 function setup() {
   const visible = { value: false }
@@ -39,16 +39,19 @@ function setup() {
       await Promise.resolve()
     }
   }
-  const route = fullPath => ({ fullPath, path: fullPath.split(/[?#]/)[0], matched: [{}] })
+  const component = {}
+  const route = fullPath => ({ fullPath, path: fullPath.split(/[?#]/)[0], matched: [{ components: { default: component } }] })
+  let target
   const begin = (from, to) => {
     router.currentRoute.value = route(from)
-    return router.before(route(to), route(from))
+    target = route(to)
+    return router.before(target, route(from))
   }
   const commit = (to, failure) => {
-    router.currentRoute.value = route(to)
-    router.after(route(to), {}, failure)
+    if (!failure) router.currentRoute.value = target
+    router.after(target, {}, failure)
   }
-  return { visible, timers, router, hooks, flush, begin, commit }
+  return { visible, timers, router, hooks, flush, begin, commit, page: () => ({ type: component }), target: () => target }
 }
 
 test('all seven cabinet child routes skip the global overlay and delay', async () => {
@@ -77,12 +80,13 @@ test('entering/leaving cabinet and similarly named public paths keep the delay',
     await app.flush(300)
     await pending
     app.commit(to)
+    app.hooks['page:finish'](app.page())
     await app.flush(80)
     assert.equal(app.visible.value, false)
   }
 })
 
-test('query-only public navigation recovers via afterEach without a Nuxt hook', async () => {
+test('query-only public navigation skips the overlay', async () => {
   const app = setup()
   const pending = app.begin('/catalog?page=1', '/catalog?page=2')
   await app.flush(300)
@@ -101,7 +105,7 @@ test('internal navigation cancels a pending cabinet-entry reveal', async () => {
   await app.begin('/cabinet', '/cabinet/favorites')
   assert.equal(app.visible.value, false)
   assert.equal(app.timers.size, 0)
-  app.hooks['page:finish']()
+  app.hooks['page:finish'](app.page())
   assert.equal(app.timers.size, 0)
 })
 
@@ -112,7 +116,7 @@ for (const failure of ['abort', 'router']) {
     await app.flush(300)
     await pending
     if (failure === 'abort') app.commit('/cabinet', new Error('aborted'))
-    else app.router.error(new Error('failed'))
+    else app.router.error(new Error('failed'), app.target())
     await app.flush(0)
     assert.equal(app.visible.value, false)
   })

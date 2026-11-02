@@ -25,7 +25,7 @@ for (const width of [390, 1440]) {
       }
       if (url.pathname.endsWith('/public/customers/me')) { await route.fulfill({ json: customer }); return }
       if (url.pathname.endsWith('/public/orders/me/321')) { await route.fulfill({ json: order }); return }
-      if (url.pathname.endsWith('/public/orders/me')) { await route.fulfill({ json: { items: [order], total: 1, page: 1, page_size: 10 } }); return }
+      if (url.pathname.endsWith('/public/orders/me')) { await route.fulfill({ json: { items: [order], total: 11, page: Number(url.searchParams.get('page')) || 1, page_size: 10 } }); return }
       await route.fulfill({ json: { items: [], total: 0, enabled: false } })
     })
     await page.goto('cabinet')
@@ -57,12 +57,15 @@ for (const width of [390, 1440]) {
       ['/cabinet', '.cabinet-overview'],
     ]
     for (const [path, selector] of steps) {
-      // Exercise router/shell persistence independently of the desktop sidebar.
-      await page.evaluate(async path => {
-        const app = (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: { config: { globalProperties: { $router: { push: (path: string) => Promise<unknown> } } } } }).__vue_app__
-        if (!app) throw new Error('Nuxt app is not mounted')
-        await app.config.globalProperties.$router.push(path)
-      }, path)
+      if (path === '/cabinet/orders/321') {
+        await page.locator(`.purchase-history a[href$="${path}"]`).first().click()
+      } else if (width >= 768) {
+        await page.locator(`.cabinet-shell__nav a[href$="${path}"]`).click()
+      } else {
+        await page.locator('.base-bottom-bar__btn--account').click()
+        await page.locator(`.cabinet-sidebar a[href$="${path}"]`).click()
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+      }
       await expect(page.locator(selector)).toBeVisible()
       await expect(page.locator('.cabinet-shell')).toHaveCount(1)
       expect(await shell!.evaluate(node => node.isConnected)).toBe(true)
@@ -71,7 +74,46 @@ for (const width of [390, 1440]) {
       expect(await page.evaluate(() => (window as typeof window & { cabinetOverlayShown?: boolean }).cabinetOverlayShown)).toBe(false)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     }
+    await page.goBack()
+    await expect(page.locator('.account-rules')).toBeVisible()
+    await page.goForward()
+    await expect(page.locator('.cabinet-overview')).toBeVisible()
+    if (width >= 768) await page.locator('.cabinet-shell__nav a[href$="/cabinet/purchase-history"]').click()
+    else {
+      await page.locator('.base-bottom-bar__btn--account').click()
+      await page.locator('.cabinet-sidebar a[href$="/cabinet/purchase-history"]').click()
+    }
+    await expect(page.locator('.purchase-history')).toBeVisible()
+    await page.locator('.purchase-history').getByRole('button', { name: 'Далі', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Сторінка 2', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/cabinet\/purchase-history\?page=2$/)
+    await page.goBack()
+    await expect(page.getByRole('button', { name: 'Сторінка 1', exact: true })).toHaveAttribute('aria-current', 'page')
+    await page.goForward()
+    await expect(page.getByRole('button', { name: 'Сторінка 2', exact: true })).toHaveAttribute('aria-current', 'page')
+    expect(await shell!.evaluate(node => node.isConnected)).toBe(true)
+    expect(await sidebar!.evaluate(node => node.isConnected)).toBe(true)
+    expect(await page.evaluate(() => (window as typeof window & { cabinetOverlayShown?: boolean }).cabinetOverlayShown)).toBe(false)
     expect(mutations).toEqual([])
     expect(external).toEqual([])
   })
 }
+
+test('unauthenticated cabinet entry redirects safely without private requests', async ({ page, baseURL }) => {
+  const origin = new URL(baseURL!).origin
+  const privateRequests: string[] = []
+  await page.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url())
+    if (url.pathname.includes('/api/v1/')) {
+      if (request.method() !== 'GET' || /\/orders\/me|\/customers\/(me|cart|favorites)/.test(url.pathname)) privateRequests.push(url.pathname)
+      await route.fulfill({ json: { items: [], total: 0, enabled: false } }); return
+    }
+    if (url.origin !== origin) { await route.abort(); return }
+    await route.continue()
+  })
+  await page.goto('cabinet/purchase-history')
+  await expect(page).toHaveURL(new URL('./', baseURL!).href)
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.locator('.cabinet-shell')).toHaveCount(0)
+  expect(privateRequests).toEqual([])
+})

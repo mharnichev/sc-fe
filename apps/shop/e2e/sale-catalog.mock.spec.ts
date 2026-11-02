@@ -68,7 +68,7 @@ for (const locale of ['uk', 'en'] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 })
     const { calls, writes } = await fixture(page, locale)
     await navigate(page, '/sale?has_discount=false&limit=2')
-    const title = locale === 'uk' ? 'Розпродаж' : 'Sale'
+    const title = locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer'
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
     await expect(page).toHaveTitle(new RegExp(title))
     const tiles = page.locator('.catalog-route__content .catalog-product-tile')
@@ -114,13 +114,13 @@ for (const locale of ['uk', 'en'] as const) {
     const { calls, writes } = await fixture(page, locale)
     await page.locator('.base-bottom-bar').getByRole('button', { name: locale === 'uk' ? 'Каталог' : 'Catalog', exact: true }).click()
     const lastEntry = page.locator('.catalog-sidebar__navigation .catalog-sidebar__list > li').last().getByRole('link')
-    await expect(lastEntry).toHaveText(locale === 'uk' ? 'Розпродаж' : 'Sale')
+    await expect(lastEntry).toHaveText(locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
     await expect(lastEntry).toHaveAttribute('href', '/shop/sale')
     await expect(lastEntry).toHaveCSS('color', 'rgb(194, 65, 12)')
     await page.screenshot({ path: `/tmp/sc-fe-sale-ui-${locale}-390-menu-20261101.png`, animations: 'disabled' })
     await lastEntry.click()
     await expect(page).toHaveURL(/\/shop\/sale$/)
-    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Розпродаж' : 'Sale', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer', exact: true })).toBeVisible()
     await expect(page.locator('.base-bottom-bar').getByRole('button', { name: locale === 'uk' ? 'Каталог' : 'Catalog', exact: true })).toHaveAttribute('aria-current', 'page')
     for (const call of calls) expect(call.query.has_discount).toBe('true')
     expect(writes).toEqual([])
@@ -158,12 +158,13 @@ test('desktop search panel supports keyboard entry, escape, reopening and base-p
   expect(writes).toEqual([])
 })
 
-test('mobile search retains the existing focus-trapped modal and escape close', async ({ page }) => {
+test('mobile inline search retains focus containment and Escape close', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const { writes } = await fixture(page, 'en')
   await page.locator('.shop-header__mobile').getByRole('button', { name: 'Search', exact: true }).click()
-  const dialog = page.getByRole('dialog')
+  const dialog = page.locator('#shop-mobile-search[role=dialog]')
+  await expect(page.locator('.base-modal[role=dialog]')).toHaveCount(0)
   const input = dialog.locator('.header-search__field')
   await expect(input).toBeFocused()
   await input.fill('fixture pomade')

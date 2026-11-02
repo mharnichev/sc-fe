@@ -61,7 +61,7 @@ const categoryLinks: CatalogNavLink[] = [
   { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY', to: '/kosmetika/kosmetika-dlia-tila' },
   { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES', to: '/profesiini-grebeni-ta-shchitki/goods/' },
   { uk: 'БРЕНДИ', en: 'BRANDS', to: '', kind: 'brands' },
-  { uk: 'Розпродаж', en: 'Sale', to: '/sale' },
+  { uk: 'Спеціальна пропозиція', en: 'Special offer', to: '/sale' },
 ]
 
 const findCategory = (nodes: CategoryTreeNodeDto[], slug?: string): CategoryTreeNodeDto | null => {

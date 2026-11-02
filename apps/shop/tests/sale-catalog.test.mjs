@@ -59,9 +59,9 @@ test('sale ignores a false query fence and uses separate products/facets keys wi
   assert.equal(h.buildRouteQuery().has_discount, undefined)
   h.selectedFilters.has_discount = ['false']
   assert.equal(h.buildApiQuery().has_discount, true)
-  assert.equal(h.seo[0](), 'Sale')
+  assert.equal(h.seo[0](), 'Special offer')
   h.locale.value = 'uk'
-  assert.equal(h.seo[0](), 'Розпродаж')
+  assert.equal(h.seo[0](), 'Спеціальна пропозиція')
   assert.match(h.seo[1](), /знижками/)
 })
 

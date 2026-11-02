@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'active-change': [value: boolean]
-  close: []
+  close: [restoreFocus?: boolean]
 }>()
 
 const { locale, terms } = useShopLocale()
@@ -147,7 +147,7 @@ const closeSearchSoon = () => {
 
 const dismissSearch = () => {
   closeSearch()
-  emit('close')
+  emit('close', true)
   if (props.variant === 'desktop') {
     searchInput.value?.focus()
     isSearchFocus.value = false
