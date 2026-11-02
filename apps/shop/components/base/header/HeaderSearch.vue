@@ -161,7 +161,7 @@ const cancelSearchClose = () => {
 
 const focusSearchResults = (event: KeyboardEvent) => {
   if (props.variant !== 'desktop' || !isSearchResultVisible.value) return
-  const firstResult = searchPanel.value?.querySelector<HTMLElement>('.header-search__result a[href], .header-search__result button:not(:disabled)')
+  const firstResult = searchPanel.value?.querySelector<HTMLElement>('.header-search__result a[href], .header-search__result button:not(:disabled):not(.header-search__close)')
   if (!firstResult) return
   event.preventDefault()
   firstResult.focus()
@@ -282,11 +282,6 @@ defineExpose({ closeSearch })
           @keydown.esc.stop.prevent="dismissSearch"
         >
           <div :class="{ 'site-container header-search__panel-container': variant === 'desktop' }">
-            <div v-if="variant === 'desktop'" class="header-search__panel-heading">
-              <BaseButton variant="outline-dark" size="sm" shape="circle" :aria-label="terms.common.closeDialog" @click="dismissSearch">
-                <BaseIcon name="close" size="xxs" />
-              </BaseButton>
-            </div>
             <HeaderSearchResults
               class="header-search__result"
               :query="normalizedSearchTerm"
@@ -295,7 +290,13 @@ defineExpose({ closeSearch })
               :category-tree="categoryTree"
               @select="selectResult"
               @suggestion="submitSearch"
-            />
+            >
+              <template v-if="variant === 'desktop'" #heading-actions>
+                <BaseButton class="header-search__close" variant="outline-dark" size="sm" shape="circle" :aria-label="terms.common.closeDialog" @click="dismissSearch">
+                  <BaseIcon name="close" size="xxs" />
+                </BaseButton>
+              </template>
+            </HeaderSearchResults>
           </div>
         </div>
       </Transition>
@@ -438,13 +439,8 @@ defineExpose({ closeSearch })
   padding-block: 1rem;
 }
 
-.header-search__panel-heading {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.5rem;
-}
-
 .header-search__panel--desktop .header-search__result {
+  overflow: visible;
   max-height: none;
   padding: 0;
 }
