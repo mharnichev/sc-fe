@@ -687,7 +687,7 @@ const confirmDeleteAvailability = async () => {
 
     </BaseFilterPanel>
 
-    <div v-if="pending" class="rounded-2xl bg-ui-subtle px-4 py-3" role="status" aria-live="polite">
+    <div v-if="pending" class="rounded-2xl bg-ui-subtle px-4 py-3">
       <BaseLoader label="Оновлюємо розрахунок…" size="sm" />
     </div>
     <div v-else-if="!currentData" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
