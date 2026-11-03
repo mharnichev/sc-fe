@@ -285,6 +285,7 @@ export interface DashboardBookingFunnelWeeklyDigest {
 export interface DashboardBookingObservationDiagnostics {
   scope: 'event_period'
   event_counts: Record<'time_step_viewed' | 'availability_requested' | 'availability_result' | 'availability_failed' | 'availability_cancelled', number>
+  failure_counts?: Record<'timeout' | 'network' | 'http_4xx' | 'http_5xx' | 'invalid_response', number> | null
   initial_empty_results: number
   terminals_without_request: number
   interpretation: string
@@ -724,6 +725,12 @@ const funnelAt = (value: unknown, path: string) => {
     const counts = recordAt(diag.event_counts, `${diagPath}.event_counts`)
     for (const key of ['time_step_viewed', 'availability_requested', 'availability_result', 'availability_failed', 'availability_cancelled']) {
       nonNegativeIntegerAt(counts[key], `${diagPath}.event_counts.${key}`)
+    }
+    if (diag.failure_counts != null) {
+      const failures = recordAt(diag.failure_counts, `${diagPath}.failure_counts`)
+      let total = 0
+      for (const code of ['timeout', 'network', 'http_4xx', 'http_5xx', 'invalid_response']) total += nonNegativeIntegerAt(failures[code], `${diagPath}.failure_counts.${code}`)
+      if (total !== counts.availability_failed) fail(`${diagPath}.failure_counts`)
     }
     nonNegativeIntegerAt(diag.initial_empty_results, `${diagPath}.initial_empty_results`)
     nonNegativeIntegerAt(diag.terminals_without_request, `${diagPath}.terminals_without_request`)

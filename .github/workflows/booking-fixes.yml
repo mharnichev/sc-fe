@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
   packages: write
+concurrency:
+  group: booking-fixes-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -13,7 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [barbershop, backoffice]
+        include:
+          - app: barbershop
+            repository: ghcr.io/mharnichev/sc-fe/public-site
+          - app: backoffice
+            repository: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
+    env:
+      IMAGE_REPOSITORY: ${{ matrix.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -32,7 +41,23 @@ jobs:
         run: pnpm --filter @apps/${{ matrix.app }} build
       - name: Install browser
         run: pnpm --filter @apps/backoffice exec playwright install --with-deps chromium
-      - name: Real browser with isolated API fixtures
+      - name: Set immutable candidate tag
+        run: echo "IMAGE_TAG=${IMAGE_REPOSITORY}:booking-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+      - name: Build immutable release image
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          docker build --platform linux/amd64 \
+            --label org.opencontainers.image.source=https://github.com/mharnichev/sc-fe \
+            --label org.opencontainers.image.revision=${GITHUB_SHA} \
+            --file apps/${{ matrix.app }}/Dockerfile --tag "$IMAGE_TAG" .
+      - name: Extract exact image artifact for browser verification
+        run: |
+          set -euo pipefail
+          cid="$(docker create --network none "$IMAGE_TAG")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          mv apps/${{ matrix.app }}/.output apps/${{ matrix.app }}/.output-source-check
+          docker cp "$cid:/app/.output" apps/${{ matrix.app }}/.output
+      - name: Real browser against exact image artifact with isolated API fixtures
         env:
           BOOKING_TEST_APP: ${{ matrix.app }}
         run: pnpm --filter @apps/backoffice exec playwright test --config playwright.booking-fixes.config.ts
@@ -48,17 +73,27 @@ jobs:
           '
         env:
           APP: ${{ matrix.app }}
-      - name: Build immutable release image
-        run: docker build --platform linux/amd64 --label org.opencontainers.image.revision=${GITHUB_SHA} --file apps/${{ matrix.app }}/Dockerfile --tag ghcr.io/mharnichev/sc-fe/${{ matrix.app }}-booking-20261103:${GITHUB_SHA}-${GITHUB_RUN_ID} .
-      - name: Publish tested-source image
+      - name: Publish verified image and immutable digest
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          image="ghcr.io/mharnichev/sc-fe/${{ matrix.app }}-booking-20261103:${GITHUB_SHA}-${GITHUB_RUN_ID}"
-          docker push "$image"
-          docker image inspect "$image" --format '{{json .RepoDigests}}' >> "$GITHUB_STEP_SUMMARY"
+          docker push "$IMAGE_TAG"
+          docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/booking-image.json"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          image = json.loads((Path(os.environ['RUNNER_TEMP']) / 'booking-image.json').read_text())[0]
+          expected = os.environ['IMAGE_REPOSITORY']
+          digests = [value for value in image['RepoDigests'] if re.fullmatch(re.escape(expected) + r'@sha256:[a-f0-9]{64}', value)]
+          assert len(digests) == 1, 'Expected one immutable image digest'
+          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA']
+          assert image['Config']['Labels']['org.opencontainers.image.source'] == 'https://github.com/mharnichev/sc-fe'
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('Source: `' + os.environ['GITHUB_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nExact image browser and cleanup checks passed.\n')
+          print(digests[0])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

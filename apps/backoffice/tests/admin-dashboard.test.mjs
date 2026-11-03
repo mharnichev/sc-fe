@@ -779,6 +779,11 @@ test('additive time observations keep old backend compatibility and distinguish 
   const parsed = contract.parseAdminDashboardResponse(fixture)
   assert.deepEqual(bookingFunnel.bookingLossDisplay(parsed.booking_funnel, 'largest_absolute_loss'), { label: 'Обрали майстра → Обрали час', count: 30, denominator: 60, percentage: '50%', smallSample: false })
   assert.deepEqual(bookingFunnel.bookingLossDisplay(parsed.booking_funnel, 'largest_percentage_loss'), { label: 'Ввели контакти → Завершили запис', count: 15, denominator: 15, percentage: '100%', smallSample: true })
+  funnel.observation_diagnostics.failure_counts = { timeout: 1, network: 0, http_4xx: 0, http_5xx: 1, invalid_response: 0 }
+  assert.equal(contract.parseAdminDashboardResponse(fixture).booking_funnel.observation_diagnostics.failure_counts.timeout, 1)
+  funnel.observation_diagnostics.failure_counts.timeout = 2
+  assert.throws(() => contract.parseAdminDashboardResponse(fixture))
+  funnel.observation_diagnostics.failure_counts.timeout = 1
   funnel.observation_diagnostics.event_counts.availability_failed = -1
   assert.throws(() => contract.parseAdminDashboardResponse(fixture))
   funnel.observation_diagnostics.event_counts.availability_failed = 2

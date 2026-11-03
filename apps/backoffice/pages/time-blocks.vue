@@ -856,9 +856,9 @@ const confirmDeleteAvailability = async () => {
           </td>
 
           <td :class="trailingCellClass">
-            <span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ stat.loadPercent === null ? 'Немає графіка' : `${stat.loadPercent}%` }}</span>
+            <span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
             <div class="hidden items-center justify-between gap-2 text-xs md:flex">
-              <span class="font-semibold text-ui-primary">{{ stat.loadPercent === null ? 'Немає графіка' : `${stat.loadPercent}%` }}</span>
+              <span class="font-semibold text-ui-primary">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
               <span class="text-ui-muted">{{ formatHours(stat.bookedMinutes) }}</span>
             </div>
             <div class="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-ui-subtle md:block">
@@ -878,7 +878,7 @@ const confirmDeleteAvailability = async () => {
     <BaseCard v-if="currentData" as="section" padding="none">
       <div class="border-b border-ui px-4 py-3 md:px-5 md:py-4">
         <h2 class="text-lg font-semibold text-ui-primary md:text-xl">Завантаження майстрів за місяць</h2>
-        <p class="mt-1 text-xs text-ui-muted md:text-sm">Повний вибраний місяць, включно з минулим часом. Один рядок на фізичний календар; спільні профілі об’єднані. Статус записів: {{ statusLabels[bookingStatus] }}. Очікують, підтверджені, завершені та неявки враховуються; скасовані — ні. Залишок після блокувань і записів не є живою доступністю для клієнта: утримання слотів та інші правила запису тут не враховані.</p>
+        <p class="mt-1 text-xs text-ui-muted md:text-sm">Повний вибраний місяць, включно з минулим часом. Один рядок на фізичний календар; спільні профілі об’єднані. Статус записів: {{ statusLabels[bookingStatus] }}. «Усі нескасовані» охоплює очікування, підтверджені, завершені та неявки; інший фільтр рахує лише обраний статус. Скасовані не враховуються. Залишок після блокувань і записів не є живою доступністю для клієнта: утримання слотів та інші правила запису тут не враховані.</p>
       </div>
 
       <BaseEmptyState v-if="!masterStats.length" compact title="Немає майстрів для статистики" />
@@ -916,7 +916,7 @@ const confirmDeleteAvailability = async () => {
           <div class="min-w-0">
             <div class="flex items-center justify-between gap-2 text-xs">
               <span class="font-medium text-ui-secondary">Завантаження</span>
-              <span class="font-semibold" :class="(stat.loadPercent ?? 0) >= 80 ? 'text-emerald-600' : (stat.loadPercent ?? 0) >= 50 ? 'text-amber-600' : 'text-ui-primary'">{{ stat.loadPercent === null ? 'Немає графіка' : `${stat.loadPercent}%` }}</span>
+              <span class="font-semibold" :class="(stat.loadPercent ?? 0) >= 80 ? 'text-emerald-600' : (stat.loadPercent ?? 0) >= 50 ? 'text-amber-600' : 'text-ui-primary'">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
             </div>
             <div class="mt-2 h-2 overflow-hidden rounded-full bg-ui-subtle">
               <div class="h-full rounded-full transition-all" :class="(stat.loadPercent ?? 0) >= 80 ? 'bg-emerald-500' : (stat.loadPercent ?? 0) >= 50 ? 'bg-amber-500' : 'bg-cyan-500'" :style="{ width: `${Math.min(100, stat.loadPercent ?? 0)}%` }" />

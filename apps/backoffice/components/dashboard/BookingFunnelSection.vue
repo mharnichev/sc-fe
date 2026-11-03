@@ -28,6 +28,7 @@ const props = defineProps<{
 
 const absoluteLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_absolute_loss'))
 const percentageLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_percentage_loss'))
+const failureLabels = { timeout: 'Таймаути', network: 'Мережеві помилки', http_4xx: 'Помилки API 4xx', http_5xx: 'Помилки API 5xx', invalid_response: 'Некоректні відповіді' }
 const observationLabels = { time_step_viewed: 'Перегляди кроку часу', availability_requested: 'Запити часу', availability_result: 'Отримані відповіді', availability_failed: 'Помилки / таймаути', availability_cancelled: 'Скасовані запити' }
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
@@ -218,6 +219,9 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
         <h3 class="font-semibold">Діагностика вибору часу</h3>
         <dl class="mt-2 grid gap-2 sm:grid-cols-3">
           <div v-for="(label, key) in observationLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.event_counts[key] }}</dd></div>
+        </dl>
+        <dl v-if="funnel.observation_diagnostics.failure_counts" class="mt-3 grid gap-2 sm:grid-cols-3" aria-label="Типи помилок пошуку часу">
+          <div v-for="(label, key) in failureLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.failure_counts[key] }}</dd></div>
         </dl>
         <p class="mt-2 text-xs">Початкові порожні відповіді: {{ funnel.observation_diagnostics.initial_empty_results }}. Результати без зафіксованого запиту: {{ funnel.observation_diagnostics.terminals_without_request }}.</p>
         <p class="mt-2 text-xs">Події за вибраний період, не когорта початку запису і не кількість унікальних клієнтів. Пропущена доставка можлива; ці числа не доводять недоступність розкладу чи причину відсіву.</p>

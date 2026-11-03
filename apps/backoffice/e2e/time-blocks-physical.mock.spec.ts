@@ -121,3 +121,66 @@ for (const width of [390, 1440]) {
     await expect(page.locator('article')).toHaveCount(0)
   })
 }
+
+for (const endpoint of ['masters', 'services']) for (const width of [390, 1440]) {
+  test(`${endpoint} metadata failure and retry remain honest at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
+    const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+    await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
+    let fail = true
+    const writes: string[] = []
+    await page.route('**/api/v1/**', async route => {
+      const req = route.request(), path = new URL(req.url()).pathname
+      if (req.method() !== 'GET') { writes.push(path); return route.fulfill({ status: 403, json: {} }) }
+      if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+      if (path.endsWith(`/${endpoint}`) && fail) return route.fulfill({ status: 503, json: { detail: 'Fixture metadata failure' } })
+      if (path.endsWith('/masters')) return route.fulfill({ json: [{ id: 91001, first_name_uk: 'Фікстура', is_active: true }] })
+      if (path.endsWith('/availability')) return route.fulfill({ json: [{ id: 91001, master_id: 91001, start_at: '2026-11-03T09:00:00+02:00', end_at: '2026-11-03T17:00:00+02:00' }] })
+      return route.fulfill({ json: [] })
+    })
+    await page.goto('/time-blocks')
+    await expect(page.getByRole('alert').filter({ hasText: 'Розрахунок недоступний.' })).toBeVisible()
+    await expect(page.locator('article')).toHaveCount(0)
+    await expect(page.getByText('Немає графіка', { exact: true })).toHaveCount(0)
+    fail = false
+    await page.getByRole('button', { name: 'Спробувати ще раз', exact: true }).click()
+    await expect(page.locator('article')).toContainText('Залишок 8 год з 8 год')
+    await expect(page.getByRole('alert').filter({ hasText: 'Розрахунок недоступний.' })).toHaveCount(0)
+    expect(writes).toEqual([])
+  })
+}
+
+test('month navigation prevents pending races and restores A after B with consistent capacity', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
+  const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
+  let finish!: () => void
+  const hold = new Promise<void>(resolve => { finish = resolve })
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), url = new URL(req.url()), path = url.pathname
+    if (req.method() !== 'GET') return route.fulfill({ status: 403, json: {} })
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (path.endsWith('/masters')) return route.fulfill({ json: [{ id: 91001, first_name_uk: 'Фікстура', is_active: true }] })
+    const december = url.searchParams.get('date_from')?.startsWith('2026-11-30')
+    if (december) await hold
+    if (path.endsWith('/availability')) {
+      const day = december ? '2026-12-03' : '2026-11-03'
+      return route.fulfill({ json: [{ id: 91001, master_id: 91001, start_at: `${day}T09:00:00+02:00`, end_at: `${day}T${december ? '13' : '17'}:00:00+02:00` }] })
+    }
+    return route.fulfill({ json: [] })
+  })
+  await page.goto('/time-blocks')
+  await expect(page.locator('article')).toContainText('Залишок 8 год з 8 год')
+  await page.getByRole('button', { name: 'Наступний місяць', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Оновлюємо розрахунок…' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Попередній місяць', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Наступний місяць', exact: true })).toBeDisabled()
+  await expect(page.locator('article')).toHaveCount(0)
+  finish()
+  await expect(page.locator('article')).toContainText('Залишок 4 год з 4 год')
+  await page.getByRole('button', { name: 'Попередній місяць', exact: true }).click()
+  await expect(page.locator('article')).toContainText('Залишок 8 год з 8 год')
+  await expect(page.locator('article')).not.toContainText('Залишок 4 год з 4 год')
+})
