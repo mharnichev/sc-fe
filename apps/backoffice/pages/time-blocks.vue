@@ -180,7 +180,7 @@ const goToCurrentMonth = () => {
   anchorDate.value = `${todayInput().slice(0, 7)}-01`
 }
 
-const [{ data, pending, error, refresh }, { data: masters }, { data: services }] = await Promise.all([
+const [{ data, pending, error, refresh }, { data: masters, pending: mastersPending, error: mastersError, refresh: refreshMasters }, { data: services, pending: servicesPending, error: servicesError, refresh: refreshServices }] = await Promise.all([
   useAsyncData(
     'admin-time-blocks-month',
     async () => {
@@ -202,13 +202,16 @@ const [{ data, pending, error, refresh }, { data: masters }, { data: services }]
       ])
       return { timeBlocks, availability, bookings, month: requestedMonth }
     },
-    { watch: [monthStart] },
+    { watch: [monthStart], lazy: true },
   ),
-  useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200)),
-  useAsyncData('time-block-service-options', () => api.getServices()),
+  useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200), { lazy: true }),
+  useAsyncData('time-block-service-options', () => api.getServices(), { lazy: true }),
 ])
 
-const currentData = computed(() => !pending.value && !error.value && data.value?.month === monthStart.value ? data.value : null)
+const loadingSchedule = computed(() => pending.value || mastersPending.value || servicesPending.value)
+const loadError = computed(() => error.value || mastersError.value || servicesError.value)
+const refreshSchedule = () => Promise.all([refresh(), refreshMasters(), refreshServices()])
+const currentData = computed(() => !loadingSchedule.value && !loadError.value && data.value?.month === monthStart.value ? data.value : null)
 const blocks = computed<TimeBlock[]>(() => normalizeItems(currentData.value?.timeBlocks))
 const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => normalizeItems(currentData.value?.availability))
 const bookings = computed<Booking[]>(() => normalizeItems(currentData.value?.bookings))
@@ -648,7 +651,7 @@ const confirmDeleteAvailability = async () => {
       :loading="pending"
       :show-clear="false"
       aria-label="Фільтри графіка майстрів"
-      @apply="refresh"
+      @apply="refreshSchedule"
     >
       <MasterSelect
         v-model="masterFilterId"
@@ -687,12 +690,12 @@ const confirmDeleteAvailability = async () => {
 
     </BaseFilterPanel>
 
-    <div v-if="pending" class="rounded-2xl bg-ui-subtle px-4 py-3">
+    <div v-if="loadingSchedule" class="rounded-2xl bg-ui-subtle px-4 py-3">
       <BaseLoader label="Оновлюємо розрахунок…" size="sm" />
     </div>
     <div v-else-if="!currentData" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
-      <p>Розрахунок недоступний. {{ error ? apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') : 'Спробуйте завантажити графік ще раз.' }}</p>
-      <BaseButton type="button" variant="neutral" size="sm" class="mt-2" @click="refresh">Спробувати ще раз</BaseButton>
+      <p>Розрахунок недоступний. {{ loadError ? apiErrorMessage(loadError, 'Не вдалося завантажити графік майстрів.') : 'Спробуйте завантажити графік ще раз.' }}</p>
+      <BaseButton type="button" variant="neutral" size="sm" class="mt-2" @click="refreshSchedule">Спробувати ще раз</BaseButton>
     </div>
 
     <BaseCard v-if="currentData" as="section" padding="none" class="overflow-hidden">
