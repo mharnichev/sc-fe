@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ProductDto } from '@shared-types'
 import { cartFingerprint, reminderOrderStorageKey, recoveryPrivacyScript } from '~/utils/checkoutReminder'
+import { reportCommerceError } from '~/utils/commerceTelemetry'
 
 const domain = useCatalogDomain()
 const config = useRuntimeConfig()
@@ -69,7 +70,11 @@ const review = async () => {
     setLocale(result.locale)
     items.value = result.items
     changes.value = result.changes || []
-  } catch { error.value = true; items.value = [] }
+  } catch (cause) {
+    error.value = true; items.value = []
+    // Expired or reused reminder links answer 410 and stay silent.
+    reportCommerceError('checkout.recovery_failed', cause, { flow: 'checkout' })
+  }
   finally { busy.value = false }
 }
 const apply = async () => {

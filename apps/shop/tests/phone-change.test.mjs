@@ -7,6 +7,7 @@ import ts from 'typescript'
 const source = readFileSync(new URL('../stores/customerAuth.ts', import.meta.url), 'utf8')
 const loadStore = (api) => {
   const context = vm.createContext({
+    reportCommerceError: () => {},
     useApi: () => api,
     useCartStore: () => ({ prepareSession() {} }),
     useFavoritesStore: () => ({ prepareSession() {} }),
@@ -16,7 +17,7 @@ const loadStore = (api) => {
       return () => store
     },
   })
-  vm.runInContext(ts.transpileModule(source.replace('export const', 'const'), {
+  vm.runInContext(ts.transpileModule(source.replace(/^import .*commerceTelemetry.*\n/m, '').replace('export const', 'const'), {
     compilerOptions: { module: ts.ModuleKind.None },
   }).outputText.replace(/Object\.defineProperty\(exports[^\n]+\n/g, '') + '\nglobalThis.result = useCustomerAuthStore()', context)
   return context.result

@@ -15,7 +15,7 @@ const setup = (saved, denied = false) => {
   const recovered = [{ product_id: 2, quantity: 2, product: { id: 2, price: '70', name: 'Recovered' } }]
   const cart = { items: original, syncing: false, setItems(items) { this.items = items } }
   const token = { value: 'A'.repeat(43) }, navigations = []
-  const context = vm.createContext({ ...utility.exports,
+  const context = vm.createContext({ ...utility.exports, reportCommerceError: () => {},
     ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }),
     watch: (_value, callback, options) => { if (options?.immediate) callback(true) }, onUnmounted() {}, useHead() {},
     useCartStore: () => cart, useCustomerAuthStore: () => ({ isAuthenticated: true, customer: { id: 10 }, captureSession: () => () => true }),

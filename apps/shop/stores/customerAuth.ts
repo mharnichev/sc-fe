@@ -3,6 +3,7 @@ import type {
   CustomerOtpRequestResponseDto,
   ShopCustomerDto,
 } from '@shared-types'
+import { reportCommerceError } from '~/utils/commerceTelemetry'
 
 interface CustomerAuthState {
   accessToken: string
@@ -86,7 +87,10 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
         })
       }
       catch (error) {
-        if (isCurrentSession()) this.error = 'Could not send OTP code.'
+        if (isCurrentSession()) {
+          this.error = 'Could not send OTP code.'
+          reportCommerceError('auth.otp_request_failed', error, { flow: 'auth' })
+        }
         throw error
       }
       finally {
@@ -121,7 +125,10 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
         return response
       }
       catch (error) {
-        if (isCurrentSession()) this.error = 'Could not verify OTP code.'
+        if (isCurrentSession()) {
+          this.error = 'Could not verify OTP code.'
+          reportCommerceError('auth.otp_verify_failed', error, { flow: 'auth' })
+        }
         throw error
       }
       finally {
@@ -159,18 +166,26 @@ export const useCustomerAuthStore = defineStore('customer-auth', {
     },
     async requestPhoneChange(phone: string) {
       const assertCurrentSession = captureCustomerSession(this)
+      const isCurrentSession = this.captureSession()
       const response = await useApi()<CustomerOtpRequestResponseDto>('/public/customers/me/phone-change/request-otp', {
         method: 'POST',
         body: { phone },
+      }).catch((error: unknown) => {
+        if (isCurrentSession()) reportCommerceError('auth.phone_change_request_failed', error, { flow: 'auth' })
+        throw error
       }).finally(assertCurrentSession)
       assertCurrentSession()
       return response
     },
     async confirmPhoneChange(phone: string, otpCode: string) {
       const assertCurrentSession = captureCustomerSession(this)
+      const isCurrentSession = this.captureSession()
       const customer = await useApi()<ShopCustomerDto>('/public/customers/me/phone-change/confirm', {
         method: 'POST',
         body: { phone, otp_code: otpCode },
+      }).catch((error: unknown) => {
+        if (isCurrentSession()) reportCommerceError('auth.phone_change_confirm_failed', error, { flow: 'auth' })
+        throw error
       }).finally(assertCurrentSession)
       assertCurrentSession()
       // The backend retains this JWT; confirmation returns a customer, not a session.

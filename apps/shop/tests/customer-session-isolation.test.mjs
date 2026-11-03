@@ -37,6 +37,7 @@ const setup = async (t, overrides = {}, storage = new Map()) => {
     ...overrides.domain,
   }
   Object.assign(globalThis, {
+    reportCommerceError: () => {},
     defineStore: pinia.defineStore,
     useState: (_key, init) => ({ value: init() }),
     useCustomerAuthStore: () => auth, useCartStore: () => cart, useFavoritesStore: () => favorites,
@@ -48,8 +49,8 @@ const setup = async (t, overrides = {}, storage = new Map()) => {
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
     defineNuxtPlugin: fn => fn, onNuxtReady: fn => { ready = fn },
   })
-  const authModule = await importSource(await readFile(new URL('../stores/customerAuth.ts', import.meta.url), 'utf8'))
-  const cartModule = await importSource((await readFile(new URL('../stores/cart.ts', import.meta.url), 'utf8')).replace(/^import .*product-visibility.*\n/m, ''))
+  const authModule = await importSource((await readFile(new URL('../stores/customerAuth.ts', import.meta.url), 'utf8')).replace(/^import .*commerceTelemetry.*\n/m, ''))
+  const cartModule = await importSource((await readFile(new URL('../stores/cart.ts', import.meta.url), 'utf8')).replace(/^import .*(product-visibility|commerceTelemetry).*\n/gm, ''))
   const favoritesModule = await importSource((await readFile(new URL('../stores/favorites.ts', import.meta.url), 'utf8')).replace(/^import .*product-visibility.*\n/m, ''))
   auth = authModule.useCustomerAuthStore(instance)
   cart = cartModule.useCartStore(instance)
