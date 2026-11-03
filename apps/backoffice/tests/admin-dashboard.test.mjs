@@ -769,3 +769,19 @@ test('no-slot master summaries preserve complete deduplicated totals independent
   fixture.booking_funnel.no_slot_masters.push(summary)
   assert.throws(() => contract.parseAdminDashboardResponse(fixture))
 })
+
+test('additive time observations keep old backend compatibility and distinguish absolute versus percentage loss', () => {
+  const old = backendDashboardFixture()
+  assert.equal(contract.parseAdminDashboardResponse(old).booking_funnel.selection_diagnostics, undefined)
+  const fixture = backendDashboardFixture(), funnel = fixture.booking_funnel
+  funnel.observation_diagnostics = { scope: 'event_period', event_counts: { time_step_viewed: 10, availability_requested: 12, availability_result: 8, availability_failed: 2, availability_cancelled: 2 }, initial_empty_results: 3, terminals_without_request: 1, interpretation: 'Client observations only' }
+  funnel.selection_diagnostics = { scope: 'booking_start_cohort', largest_absolute_loss: { ...funnel.drop_offs[2] }, largest_percentage_loss: { ...funnel.drop_offs[4] }, small_sample_transitions: ['contact_entered_to_booking_success'], observation_incomplete: true, interpretation: 'No causal claim' }
+  const parsed = contract.parseAdminDashboardResponse(fixture)
+  assert.deepEqual(bookingFunnel.bookingLossDisplay(parsed.booking_funnel, 'largest_absolute_loss'), { label: 'Обрали майстра → Обрали час', count: 30, denominator: 60, percentage: '50%', smallSample: false })
+  assert.deepEqual(bookingFunnel.bookingLossDisplay(parsed.booking_funnel, 'largest_percentage_loss'), { label: 'Ввели контакти → Завершили запис', count: 15, denominator: 15, percentage: '100%', smallSample: true })
+  funnel.observation_diagnostics.event_counts.availability_failed = -1
+  assert.throws(() => contract.parseAdminDashboardResponse(fixture))
+  funnel.observation_diagnostics.event_counts.availability_failed = 2
+  funnel.selection_diagnostics.largest_absolute_loss.count = 900
+  assert.throws(() => contract.parseAdminDashboardResponse(fixture))
+})

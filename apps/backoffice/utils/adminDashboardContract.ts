@@ -282,7 +282,25 @@ export interface DashboardBookingFunnelWeeklyDigest {
   operational_alerts: DashboardBookingFunnelOperationalAlert[]
 }
 
+export interface DashboardBookingObservationDiagnostics {
+  scope: 'event_period'
+  event_counts: Record<'time_step_viewed' | 'availability_requested' | 'availability_result' | 'availability_failed' | 'availability_cancelled', number>
+  initial_empty_results: number
+  terminals_without_request: number
+  interpretation: string
+}
+export interface DashboardBookingSelectionDiagnostics {
+  scope: 'booking_start_cohort'
+  largest_absolute_loss: DashboardBookingFunnelDropOff | null
+  largest_percentage_loss: DashboardBookingFunnelDropOff | null
+  small_sample_transitions: string[]
+  observation_incomplete: boolean
+  interpretation: string
+}
+
 export interface DashboardBookingFunnel {
+  observation_diagnostics?: DashboardBookingObservationDiagnostics | null
+  selection_diagnostics?: DashboardBookingSelectionDiagnostics | null
   calculation_version: 2 | 3
   timezone: 'Europe/Kyiv'
   cohort_definition: string
@@ -698,6 +716,38 @@ const funnelAt = (value: unknown, path: string) => {
       fail(dropOffPath)
     }
   })
+
+  if (funnel.observation_diagnostics != null) {
+    const diagPath = `${path}.observation_diagnostics`
+    const diag = recordAt(funnel.observation_diagnostics, diagPath)
+    literalAt(diag.scope, ['event_period'], `${diagPath}.scope`)
+    const counts = recordAt(diag.event_counts, `${diagPath}.event_counts`)
+    for (const key of ['time_step_viewed', 'availability_requested', 'availability_result', 'availability_failed', 'availability_cancelled']) {
+      nonNegativeIntegerAt(counts[key], `${diagPath}.event_counts.${key}`)
+    }
+    nonNegativeIntegerAt(diag.initial_empty_results, `${diagPath}.initial_empty_results`)
+    nonNegativeIntegerAt(diag.terminals_without_request, `${diagPath}.terminals_without_request`)
+    stringAt(diag.interpretation, `${diagPath}.interpretation`)
+  }
+  if (funnel.selection_diagnostics != null) {
+    const diagPath = `${path}.selection_diagnostics`
+    const diag = recordAt(funnel.selection_diagnostics, diagPath)
+    literalAt(diag.scope, ['booking_start_cohort'], `${diagPath}.scope`)
+    booleanAt(diag.observation_incomplete, `${diagPath}.observation_incomplete`)
+    stringAt(diag.interpretation, `${diagPath}.interpretation`)
+    const transitions = dashboardBookingFunnelSteps.slice(0, -1).map((step, index) => `${step}_to_${dashboardBookingFunnelSteps[index + 1]}`)
+    for (const value of arrayAt(diag.small_sample_transitions, `${diagPath}.small_sample_transitions`)) literalAt(value, transitions, `${diagPath}.small_sample_transitions`)
+    for (const key of ['largest_absolute_loss', 'largest_percentage_loss']) {
+      if (diag[key] === null) continue
+      const metric = recordAt(diag[key], `${diagPath}.${key}`)
+      const match = dropOffs.find(raw => {
+        const existing = recordAt(raw, `${path}.drop_offs`)
+        return existing.from_step === metric.from_step && existing.to_step === metric.to_step
+      })
+      const existing = match ? recordAt(match, `${path}.drop_offs`) : null
+      if (!existing || ['count', 'status', 'drop_off_percent'].some(field => String(existing[field]) !== String(metric[field]))) fail(`${diagPath}.${key}`)
+    }
+  }
 
   const derivedTrackingGapCount = transitionMetrics.reduce(
     (total, transition, index) =>

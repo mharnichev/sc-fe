@@ -5,6 +5,7 @@ import { bookingErrorCode, createBookingQuoteReview, isCampaignOfferError, isPro
 import { serviceSeoSlug, type PublicServicePromotionDto } from '~/utils/seoRoutes'
 import { isSeoBookingContext, parseSeoBookingQuery, resolveSeoBookingSelection, shouldApplySeoBookingSelection } from '~/utils/seoBooking'
 import { firstVisitOffers, offerAppliesToMaster, offerAppliesToService } from '~/utils/bookingPromotions'
+import { availabilityFailure, type AvailabilityTrigger } from '~/utils/bookingObservations'
 import { bookingContextKey, createBookingRequest } from '~/utils/bookingRequest'
 import { campaignOfferApplies, clearCampaignOffer, readCampaignOffer } from '~/utils/campaignOffer'
 import FeedbackFace from '~/components/ui/FeedbackFace.vue'
@@ -60,6 +61,7 @@ const assetUrl = useAssetUrl()
 const localizedService = useLocalizedService()
 const { trackEvent, canTrackEvent } = useAnalytics()
 const bookingFunnel = useBookingFunnel()
+const observations = useBookingObservations(bookingFunnel.sessionId)
 
 type SelectableService = ServiceDto | ServiceCatalogItemDto
 type BarberServiceOption = {
@@ -886,7 +888,7 @@ const selectionRequest = createBookingRequest()
 const selectingAlternative = ref(false)
 const showAllAlternatives = ref(false)
 
-const refreshSlots = async () => {
+const refreshSlots = async (trigger: AvailabilityTrigger = 'refresh') => {
   const ticket = slotRequest.begin()
   const key = requestContextKey.value
   const masterId = selectedMasterId.value
@@ -897,16 +899,23 @@ const refreshSlots = async () => {
   loadedSlotsKey.value = ''
   slotsError.value = null
   slotsPending.value = Boolean(key)
-  if (!key || !masterId) return
+  if (!key || !masterId) { observations.cancel('superseded'); return }
+  const observation = observations.begin({ master_id: masterId, service_ids: serviceIds, target_date: day, duration_minutes: duration, trigger })
   try {
     const result = await domain.getAvailableSlots(masterId, serviceIds, day, duration, ticket.signal)
     if (!ticket.current()) return
+    if (!Array.isArray(result) || result.length > 5000 || result.some(slot => !slot || !Number.isFinite(Date.parse(slot.start_at)))) {
+      observation.fail('invalid_response')
+      throw new Error('Invalid availability response')
+    }
+    observation.result(result.length)
     slots.value = result
     loadedSlotsKey.value = key
     if (selectedSlotStart.value && !includesBookingStart(result, selectedSlotStart.value)) selectedSlotStart.value = ''
   }
   catch (error) {
     if (ticket.current()) {
+      observation.fail(availabilityFailure(error))
       slotsError.value = error
       trackEvent('booking_slots_load_failed', { booking_location: props.analyticsSource })
     }
@@ -916,6 +925,7 @@ const refreshSlots = async () => {
   }
 }
 watch(requestContextKey, () => {
+  observations.cancel('superseded')
   slotRequest.cancel()
   recoveryRequest.cancel()
   selectionRequest.cancel()
@@ -934,8 +944,10 @@ watch(requestContextKey, () => {
   recovery.error = ''
   showAllAlternatives.value = false
 }, { flush: 'sync' })
-watch(requestContextKey, () => { void refreshSlots() }, { immediate: true })
-onBeforeUnmount(() => { slotRequest.cancel(); recoveryRequest.cancel(); selectionRequest.cancel() })
+watch(requestContextKey, (key, previous) => {
+  void refreshSlots(key && previous && key.split(':')[2] !== previous.split(':')[2] ? 'date_change' : 'initial')
+}, { immediate: true })
+onBeforeUnmount(() => { observations.cancel('navigation'); slotRequest.cancel(); recoveryRequest.cancel(); selectionRequest.cancel() })
 
 const visibleSlots = computed<AvailableSlotDto[]>(() =>
   !slotsPending.value && !slotsError.value && loadedSlotsKey.value === requestContextKey.value
@@ -988,6 +1000,65 @@ const alternativeServiceIds = (masterId: number) => {
     activeMasterServices(mastersById.value.get(masterId)?.services),
   )
 }
+
+// Only the visible master step preflights candidates: bounded concurrency and
+// a complete service/duration/horizon key avoid day-by-day request fan-out.
+type MasterAvailabilityState = 'unknown' | 'loading' | 'available' | 'empty' | 'error'
+const masterAvailability = ref<Record<number, MasterAvailabilityState>>({})
+const masterAvailabilityCache = new Map<string, { status: MasterAvailabilityState, expiresAt: number }>()
+const masterPreviewRequest = createBookingRequest()
+const masterPreviewKey = computed(() => JSON.stringify([
+  activeStepIndex.value === 1, selectedCatalogIds.value, selectedServiceIds.value,
+  availableMasters.value.map(master => master.id), selectedDurationMinutes.value, today, maxBookableDate,
+]))
+const masterAvailabilityCopy = (status: MasterAvailabilityState = 'unknown') => {
+  const en = locale.value === 'en'
+  if (status === 'loading') return en ? 'Checking suitable available times…' : 'Перевіряємо доступний час…'
+  if (status === 'empty') return en ? `No suitable available times for these services through ${maxBookableDate}` : `Немає відповідного вільного часу для цих послуг до ${maxBookableDate}`
+  if (status === 'available') return en ? 'Suitable times available' : 'Є відповідний вільний час для цих послуг'
+  if (status === 'error') return en ? 'Could not check times. Select to retry.' : 'Не вдалося перевірити час. Оберіть для повторної перевірки.'
+  return en ? 'Availability not yet known' : 'Доступність ще не перевірена'
+}
+const loadMasterPreviews = async () => {
+  const ticket = masterPreviewRequest.begin()
+  masterAvailability.value = {}
+  if (activeStepIndex.value !== 1 || !selectedServiceCount.value) return
+  const queue = availableMasters.value.map(master => {
+    const ids = alternativeServiceIds(master.id)
+    // Use the candidate catalog's duration, not a different master's duration.
+    const services = activeMasterServices(master.services)
+    const duration = ids?.reduce((total, id) => total + Number(services.find(item => item.id === id)?.duration_minutes || 0), 0) || 0
+    return { id: master.id, ids, duration }
+  })
+  const worker = async () => {
+    while (queue.length && ticket.current()) {
+      const candidate = queue.shift()!
+      if (!candidate.ids?.length || candidate.duration <= 0) continue
+      const key = bookingContextKey(candidate.id, candidate.ids, `${today}/${maxBookableDate}`, candidate.duration)
+      const cached = masterAvailabilityCache.get(key)
+      if (cached && cached.expiresAt > Date.now()) { masterAvailability.value[candidate.id] = cached.status; continue }
+      masterAvailability.value[candidate.id] = 'loading'
+      try {
+        const response = await domain.getAvailabilityRange(candidate.id, candidate.ids, today, maxBookableDate, candidate.duration, ticket.signal)
+        if (!ticket.current()) return
+        const days = response.days.filter(day => day.date >= today && day.date <= maxBookableDate)
+        // Missing dates are unknown, not evidence of an empty horizon.
+        const expectedDays = Math.round((Date.parse(maxBookableDate) - Date.parse(today)) / 86400000) + 1
+        const status = days.some(day => day.status === 'available') ? 'available'
+          : new Set(days.map(day => day.date)).size === expectedDays && days.every(day => day.status === 'unavailable') ? 'empty' : 'unknown'
+        masterAvailability.value[candidate.id] = status
+        if (status === 'available' || status === 'empty') {
+          if (masterAvailabilityCache.size >= 100) masterAvailabilityCache.clear()
+          masterAvailabilityCache.set(key, { status, expiresAt: Date.now() + 30000 })
+        }
+      }
+      catch { if (ticket.current()) masterAvailability.value[candidate.id] = 'error' }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, queue.length) }, worker))
+}
+watch(masterPreviewKey, () => { void loadMasterPreviews() }, { immediate: true, flush: 'post' })
+onBeforeUnmount(masterPreviewRequest.cancel)
 
 const canSelectAlternative = (slot: BookingAlternativeSlotDto) =>
   Boolean(
@@ -1419,7 +1490,7 @@ const isServiceComplete = computed(() => selectedServiceCount.value > 0)
 const isMasterComplete = computed(() => Boolean(selectedMaster.value))
 const isTimeComplete = computed(() => Boolean(selectedDate.value && selectedSlot.value))
 const isContactComplete = computed(() =>
-  Boolean(form.customer_name.trim() && isValidPhoneNumber(form.customer_phone)),
+  Boolean(form.customer_name.trim().length >= 2 && isValidPhoneNumber(form.customer_phone)),
 )
 const firstVisitBookingOffer = computed(() => firstVisitOffers(bookingOffers.value).find(offer =>
   !campaignOfferContext.value &&
@@ -1579,6 +1650,10 @@ const bookingActionDesktopLabel = computed(() => {
   return bookingActionMobileLabel.value
 })
 const activeStepComplete = computed(() => Boolean(stepCompletion.value[activeStepIndex.value]))
+const timeActionDisabled = computed(() => activeStepIndex.value === 2 && (!isTimeComplete.value || slotsPending.value || Boolean(slotsError.value) || loadedSlotsKey.value !== requestContextKey.value))
+const timeGuidance = computed(() => locale.value === 'en'
+  ? 'Choose an available time to continue to contact details. If no time suits you, choose another barber or join the waitlist.'
+  : 'Оберіть вільний час, щоб перейти до контактів. Якщо час не підходить, оберіть іншого майстра або лист очікування.')
 
 const shouldShowStepIssue = (index: number) =>
   !stepCompletion.value[index] && (submitAttempted.value || activeStepIndex.value > index || actionAttemptedStepIndex.value === index)
@@ -1599,6 +1674,18 @@ const goToStep = (index: number) => {
   manualBookingSelection.value = true
   activeStepIndex.value = index
 }
+
+watch(activeStepIndex, (step, previous) => {
+  if (step === 2 && previous !== 2 && selectedMasterId.value && selectedServiceIds.value.length) {
+    if (loadedSlotsKey.value !== requestContextKey.value && !slotsPending.value) void refreshSlots('refresh')
+    observations.view({ master_id: selectedMasterId.value, service_ids: [...selectedServiceIds.value], target_date: selectedDate.value, duration_minutes: selectedDurationMinutes.value, trigger: 'initial' })
+  }
+  else if (previous === 2 && step !== 2 && slotsPending.value) {
+    observations.cancel('navigation')
+    slotRequest.cancel()
+    slotsPending.value = false
+  }
+})
 
 const handlePhoneInput = (event: Event) => {
   form.customer_phone = formatPhoneInput((event.target as HTMLInputElement).value)
@@ -1827,6 +1914,7 @@ const submit = async () => {
 }
 
 const handleBookingAction = async () => {
+  if (timeActionDisabled.value) return
   if (canSubmit.value) {
     await submit()
     return
@@ -2174,6 +2262,7 @@ onBeforeUnmount(() => {
                       <div class="min-w-0 self-center">
                         <span class="block text-[0.6875rem] font-semibold leading-4">{{ masterName(master) }}</span>
                         <span class="mt-0.5 block text-[0.625rem] leading-4 opacity-70">{{ masterPosition(master) }}</span>
+                        <span class="mt-1 block text-xs" role="status">{{ masterAvailabilityCopy(masterAvailability[master.id]) }}</span>
                       </div>
                       </button>
                       <MasterRatingBlock
@@ -2230,7 +2319,7 @@ onBeforeUnmount(() => {
                     <p v-else-if="slotsPending" role="status" class="mt-4 text-sm text-white/55">{{ bookingTimeLabels.slotsPending }}</p>
                     <div v-else-if="slotsError" class="mt-4 text-sm text-rose-200" role="alert">
                       <p>{{ bookingTimeLabels.slotsError }}</p>
-                      <button type="button" class="mt-2 underline" @click="refreshSlots">{{ locale === 'en' ? 'Try again' : 'Спробувати ще раз' }}</button>
+                      <button type="button" class="mt-2 underline" @click="refreshSlots()">{{ locale === 'en' ? 'Try again' : 'Спробувати ще раз' }}</button>
                     </div>
                     <div
                       v-else-if="!visibleSlots.length"
@@ -2536,6 +2625,7 @@ onBeforeUnmount(() => {
                 </LocaleLink>
                 {{ terms.common.bookingConsentSuffix }}
               </p>
+              <p v-if="activeStepIndex === 2" :id="`${idPrefix}-time-guidance`" role="status" class="mb-3 text-sm text-white/70">{{ timeGuidance }}</p>
               <div class="booking-step-actions flex flex-row gap-3 sm:items-center">
                 <BaseButton
                   v-if="activeStepIndex > 0"
@@ -2553,7 +2643,9 @@ onBeforeUnmount(() => {
 
                 <BaseButton
                   type="button"
-                  :disabled="state.loading || quoteReview.pending || (activeStepIndex === lastStepIndex && !canConfirmBooking)"
+                  :disabled="state.loading || quoteReview.pending || timeActionDisabled || (activeStepIndex === lastStepIndex && !canConfirmBooking)"
+                  :aria-disabled="state.loading || quoteReview.pending || timeActionDisabled || (activeStepIndex === lastStepIndex && !canConfirmBooking)"
+                  :aria-describedby="activeStepIndex === 2 ? `${idPrefix}-time-guidance` : undefined"
                   variant="light"
                   size="sm"
                   class="h-11 flex-[1.35] sm:h-12 sm:flex-none"

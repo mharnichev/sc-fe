@@ -1,0 +1,68 @@
+name: Booking availability and statistics
+on:
+  push:
+    branches: [codex/booking-availability-statistics-20261103]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [barbershop, backoffice]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Types and unit regressions
+        run: |
+          pnpm --filter @apps/${{ matrix.app }} lint
+          pnpm --filter @apps/${{ matrix.app }} test
+      - name: Production build
+        run: pnpm --filter @apps/${{ matrix.app }} build
+      - name: Install browser
+        run: pnpm --filter @apps/backoffice exec playwright install --with-deps chromium
+      - name: Real browser with isolated API fixtures
+        env:
+          BOOKING_TEST_APP: ${{ matrix.app }}
+        run: pnpm --filter @apps/backoffice exec playwright test --config playwright.booking-fixes.config.ts
+      - name: Verify preview cleanup
+        if: always()
+        run: |
+          node --input-type=module -e '
+            import net from "node:net";
+            const port = process.env.APP === "barbershop" ? 3313 : 4413;
+            const socket = net.connect(port, "127.0.0.1");
+            socket.on("connect", () => { socket.destroy(); process.exit(1); });
+            socket.on("error", error => process.exit(error.code === "ECONNREFUSED" ? 0 : 1));
+          '
+        env:
+          APP: ${{ matrix.app }}
+      - name: Build immutable release image
+        run: docker build --platform linux/amd64 --label org.opencontainers.image.revision=${GITHUB_SHA} --file apps/${{ matrix.app }}/Dockerfile --tag ghcr.io/mharnichev/sc-fe/${{ matrix.app }}-booking-20261103:${GITHUB_SHA}-${GITHUB_RUN_ID} .
+      - name: Publish tested-source image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          image="ghcr.io/mharnichev/sc-fe/${{ matrix.app }}-booking-20261103:${GITHUB_SHA}-${GITHUB_RUN_ID}"
+          docker push "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: booking-${{ matrix.app }}-browser-evidence
+          path: |
+            apps/backoffice/test-results/booking-fixes-${{ matrix.app }}
+            apps/backoffice/output/booking-statistics

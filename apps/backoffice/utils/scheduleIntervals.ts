@@ -81,3 +81,39 @@ export const subtractRanges = (sourceRanges: TimeRange[], excludedRanges: TimeRa
 
 export const minutesInRanges = (ranges: TimeRange[]) =>
   Math.round(mergeRanges(ranges).reduce((total, range) => total + range.end - range.start, 0) / 60000)
+
+/** Clip half-open intervals to actual instants, never to a fixed 24-hour day. */
+export const clipScheduleItems = <T extends ScheduleIntervalItem>(items: T[], bounds: TimeRange): T[] =>
+  items.flatMap(item => {
+    const range = rangesFromItems([item])[0]
+    if (!range) return []
+    const start = Math.max(range.start, bounds.start)
+    const end = Math.min(range.end, bounds.end)
+    return end > start ? [{ ...item, start_at: new Date(start).toISOString(), end_at: new Date(end).toISOString() }] : []
+  })
+
+export const scheduleOccupancy = (availability: TimeRange[], blocks: TimeRange[], bookings: TimeRange[], bounds: TimeRange) => {
+  const scheduled = intersectRanges(availability, [bounds])
+  const blocked = intersectRanges(scheduled, blocks)
+  const capacity = subtractRanges(scheduled, blocked)
+  const booked = intersectRanges(capacity, bookings)
+  const capacityMinutes = minutesInRanges(capacity)
+  const bookedMinutes = minutesInRanges(booked)
+  return {
+    scheduledMinutes: minutesInRanges(scheduled), blockedMinutes: minutesInRanges(blocked),
+    capacityMinutes, bookedMinutes, freeMinutes: Math.max(0, capacityMinutes - bookedMinutes),
+    loadPercent: capacityMinutes ? Math.round(bookedMinutes / capacityMinutes * 100) : null,
+  }
+}
+
+/** Redirect aliases share one physical calendar, including multi-hop redirects. */
+export const physicalCalendarId = (id: number, redirects: Map<number, number>) => {
+  const visited = new Set<number>()
+  let current = id
+  while (redirects.has(current) && !visited.has(current)) {
+    visited.add(current)
+    current = redirects.get(current)!
+  }
+  // Invalid cycles must still collapse deterministically rather than multiply capacity.
+  return visited.has(current) ? Math.min(current, ...visited) : current
+}
