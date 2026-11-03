@@ -2545,7 +2545,7 @@ onBeforeUnmount(() => {
                 </AppTransition>
               </div>
 
-              <AppTransition name="booking-quote-panel" mode="default" appear>
+              <Transition name="booking-quote-panel" type="transition" appear>
               <section
                 v-if="activeStepIndex === lastStepIndex && isContactComplete"
                 class="booking-price-review mt-3 p-3 text-sm text-white sm:mt-4 sm:p-4"
@@ -2616,7 +2616,7 @@ onBeforeUnmount(() => {
                 </div>
                 </Transition>
               </section>
-              </AppTransition>
+              </Transition>
 
               <p v-if="activeStepIndex === lastStepIndex" class="mt-3 mb-1 text-[10px] leading-[14px] text-white/55">
                 {{ terms.common.bookingConsentPrefix }}
