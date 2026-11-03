@@ -18,11 +18,12 @@ jobs:
       matrix:
         include:
           - app: barbershop
-            repository: ghcr.io/mharnichev/sc-fe/public-site
+            repository: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
           - app: backoffice
             repository: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
     env:
       IMAGE_REPOSITORY: ${{ matrix.repository }}
+      APPLICATION: ${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -42,13 +43,14 @@ jobs:
       - name: Install browser
         run: pnpm --filter @apps/backoffice exec playwright install --with-deps chromium
       - name: Set immutable candidate tag
-        run: echo "IMAGE_TAG=${IMAGE_REPOSITORY}:booking-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+        run: echo "IMAGE_TAG=${IMAGE_REPOSITORY}:booking-${APPLICATION}-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
       - name: Build immutable release image
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           docker build --platform linux/amd64 \
             --label org.opencontainers.image.source=https://github.com/mharnichev/sc-fe \
             --label org.opencontainers.image.revision=${GITHUB_SHA} \
+            --label io.soulcuts.application=${APPLICATION} \
             --file apps/${{ matrix.app }}/Dockerfile --tag "$IMAGE_TAG" .
       - name: Extract exact image artifact for browser verification
         run: |
@@ -90,6 +92,7 @@ jobs:
           assert len(digests) == 1, 'Expected one immutable image digest'
           assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA']
           assert image['Config']['Labels']['org.opencontainers.image.source'] == 'https://github.com/mharnichev/sc-fe'
+          assert image['Config']['Labels']['io.soulcuts.application'] == os.environ['APPLICATION']
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('Source: `' + os.environ['GITHUB_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nExact image browser and cleanup checks passed.\n')
           print(digests[0])
