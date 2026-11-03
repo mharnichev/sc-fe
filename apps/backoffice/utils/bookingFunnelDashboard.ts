@@ -156,3 +156,16 @@ export const bookingFunnelBottleneckLabel = (
   }
   return labels[basedOn] || funnel.recommended_action?.title_uk || null
 }
+
+export const bookingLossDisplay = (funnel: DashboardBookingFunnel | null | undefined, kind: 'largest_absolute_loss' | 'largest_percentage_loss') => {
+  const loss = funnel?.selection_diagnostics?.[kind]
+  if (!loss || loss.status !== 'available') return null
+  const transition = funnel?.step_to_step_conversion.find(item => item.from_step === loss.from_step && item.to_step === loss.to_step)
+  if (!transition || transition.status !== 'available' || !transition.from_count) return null
+  return {
+    label: `${bookingFunnelStepLabels[loss.from_step]} → ${bookingFunnelStepLabels[loss.to_step]}`,
+    count: loss.count, denominator: transition.from_count,
+    percentage: formatBookingFunnelPercentage(loss.drop_off_percent),
+    smallSample: funnel?.selection_diagnostics?.small_sample_transitions.includes(`${loss.from_step}_to_${loss.to_step}`) || false,
+  }
+}

@@ -19,6 +19,9 @@ import type {
   TimeBlock,
 } from '~/composables/useBackofficeApi'
 import {
+  clipScheduleItems,
+  scheduleOccupancy,
+  physicalCalendarId,
   intersectRanges,
   mergeRanges,
   minutesInRanges,
@@ -95,7 +98,8 @@ interface MasterMonthStat extends MasterPresentation {
   blockedMinutes: number
   capacityMinutes: number
   freeMinutes: number
-  loadPercent: number
+  aliases: string
+  loadPercent: number | null
 }
 
 interface MasterMonthData {
@@ -118,11 +122,11 @@ const {
   todayInput,
   addDaysInput,
   formatTime,
+  formatDateTime,
   bookingStart,
   bookingEnd,
   bookingServiceIds,
   bookingRedirectMasterId,
-  redirectedFromMasterId,
   masterName,
   normalizeItems,
   apiErrorMessage,
@@ -134,6 +138,8 @@ const isAdmin = computed(() => Boolean(auth.user?.is_superuser || auth.user?.rol
 const today = todayInput()
 const anchorDate = ref(`${today.slice(0, 7)}-01`)
 const masterFilterId = ref('')
+const bookingStatus = ref('all')
+const statusLabels: Record<string, string> = { all: 'Усі нескасовані', pending: 'Очікують', confirmed: 'Підтверджені', completed: 'Завершені', no_show: 'Не з’явились' }
 const selectedMasterId = computed(() => masterFilterId.value ? Number(masterFilterId.value) : null)
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -156,6 +162,7 @@ const selectedDayFormatter = new Intl.DateTimeFormat('uk-UA', { day: 'numeric', 
 const monthRangeLabel = computed(() => `${monthStart.value} — ${monthEnd.value}`)
 const activeFilterCount = computed(() => [
   masterFilterId.value,
+  bookingStatus.value !== 'all' ? bookingStatus.value : '',
   monthStart.value !== `${todayInput().slice(0, 7)}-01` ? monthStart.value : '',
 ].filter(Boolean).length)
 
@@ -173,36 +180,41 @@ const goToCurrentMonth = () => {
   anchorDate.value = `${todayInput().slice(0, 7)}-01`
 }
 
-const [{ data, pending, error, refresh }, { data: masters }, { data: services }] = await Promise.all([
+const [{ data, pending, error, refresh }, { data: masters, pending: mastersPending, error: mastersError, refresh: refreshMasters }, { data: services, pending: servicesPending, error: servicesError, refresh: refreshServices }] = await Promise.all([
   useAsyncData(
     'admin-time-blocks-month',
     async () => {
+      const requestedMonth = monthStart.value
       const range = {
         date_from: toKyivIso(monthStart.value, '00:00'),
         date_to: toKyivIso(addDaysInput(monthEnd.value, 1), '00:00'),
-        master_id: selectedMasterId.value,
+
       }
       const availabilityRange = {
-        date_from: toKyivIso(monthStart.value, calendar.workdayStart),
-        date_to: toKyivIso(monthEnd.value, calendar.workdayEnd),
-        master_id: selectedMasterId.value,
+        date_from: toKyivIso(monthStart.value, '00:00'),
+        date_to: toKyivIso(addDaysInput(monthEnd.value, 1), '00:00'),
+
       }
       const [timeBlocks, availability, bookings] = await Promise.all([
         api.adminGetCalendarTimeBlocks(range),
         api.adminGetAvailability(availabilityRange),
         api.adminGetCalendarBookings(range),
       ])
-      return { timeBlocks, availability, bookings }
+      return { timeBlocks, availability, bookings, month: requestedMonth }
     },
-    { watch: [monthStart, selectedMasterId] },
+    { watch: [monthStart], lazy: true },
   ),
-  useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200)),
-  useAsyncData('time-block-service-options', () => api.getServices()),
+  useAsyncData('time-block-master-options', () => api.adminGetMasters(1, 200), { lazy: true }),
+  useAsyncData('time-block-service-options', () => api.getServices(), { lazy: true }),
 ])
 
-const blocks = computed<TimeBlock[]>(() => normalizeItems(data.value?.timeBlocks))
-const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => normalizeItems(data.value?.availability))
-const bookings = computed<Booking[]>(() => normalizeItems(data.value?.bookings))
+const loadingSchedule = computed(() => pending.value || mastersPending.value || servicesPending.value)
+const loadError = computed(() => error.value || mastersError.value || servicesError.value)
+const refreshSchedule = () => Promise.all([refresh(), refreshMasters(), refreshServices()])
+const currentData = computed(() => !loadingSchedule.value && !loadError.value && data.value?.month === monthStart.value ? data.value : null)
+const blocks = computed<TimeBlock[]>(() => normalizeItems(currentData.value?.timeBlocks))
+const availabilityWindows = computed<MasterAvailabilityWindow[]>(() => normalizeItems(currentData.value?.availability))
+const bookings = computed<Booking[]>(() => normalizeItems(currentData.value?.bookings))
 const masterOptions = computed<Master[]>(() => normalizeItems(masters.value))
 const serviceOptions = computed<Service[]>(() => normalizeItems(services.value))
 const servicesById = computed(() => new Map(serviceOptions.value.map(service => [Number(service.id), service])))
@@ -251,6 +263,8 @@ const monthDays = computed<CalendarDayColumn[]>(() => {
   })
 })
 
+const sourceIntervalLabel = (window: MasterAvailabilityWindow) => `#${window.id}: ${formatDateTime(window.start_at)} — ${formatDateTime(window.end_at)}`
+
 const intervalLabel = (startAt: string, endAt: string) => `${formatTime(startAt)}–${formatTime(endAt)}`
 
 const rangeLabel = (range: TimeRange) => intervalLabel(
@@ -258,8 +272,8 @@ const rangeLabel = (range: TimeRange) => intervalLabel(
   new Date(range.end).toISOString(),
 )
 
-const summarizeDayBlocks = (blocks: TimeBlock[]): BlockDaySummary | null => {
-  const items = [...new Map(blocks.map(block => [block.id, block])).values()]
+const summarizeDayBlocks = (dayBlocks: TimeBlock[]): BlockDaySummary | null => {
+  const items = [...new Map(dayBlocks.map(block => [block.id, block])).values()]
   const ranges = mergeRanges(rangesFromItems(items))
   if (!ranges.length) return null
 
@@ -267,7 +281,7 @@ const summarizeDayBlocks = (blocks: TimeBlock[]): BlockDaySummary | null => {
   const intervalsLabel = ranges.map(rangeLabel).join(', ')
   const reasons = [...new Set(items.map(block => block.reason?.trim()).filter((reason): reason is string => Boolean(reason)))]
   return {
-    items,
+    items: items.map(item => blocks.value.find(source => source.id === item.id) || item),
     ranges,
     intervalsLabel,
     reasonsLabel: reasons.join(', ') || 'Блокування',
@@ -286,7 +300,7 @@ const summarizeDayAvailability = (
   const blockedRanges = intersectRanges(scheduledRanges, rangesFromItems(blocks))
   const ranges = subtractRanges(scheduledRanges, blockedRanges)
   return {
-    items,
+    items: items.map(item => availabilityWindows.value.find(source => source.id === item.id) || item),
     scheduledRanges,
     ranges,
     scheduledIntervalsLabel: scheduledRanges.map(rangeLabel).join(', '),
@@ -312,26 +326,30 @@ const calendarDataIndex = computed<CalendarDataIndex>(() => {
     return masterData
   }
 
-  for (const window of availabilityWindows.value) {
+  for (const rawWindow of availabilityWindows.value) {
+    const window = { ...rawWindow, master_id: resolveCalendarId(rawWindow.master_id) }
     const masterData = dataForMaster(window.master_id)
     masterData.availability.push(window)
-    const date = calendar.dateInputFromDateTime(window.start_at)
-    if (date) {
-      masterData.workDates.add(date)
-      ensureSchedule(window.master_id, date).availability.push(window)
+    for (const day of monthDays.value) {
+      const clipped = clipScheduleItems([window], dayBounds(day.date))
+      if (!clipped.length) continue
+      masterData.workDates.add(day.date)
+      ensureSchedule(window.master_id, day.date).availability.push(...clipped)
     }
   }
-  for (const block of blocks.value) {
+  for (const rawBlock of blocks.value) {
+    const block = { ...rawBlock, master_id: resolveCalendarId(rawBlock.master_id) }
     dataForMaster(block.master_id).blocks.push(block)
-    const date = calendar.dateInputFromDateTime(block.start_at)
-    if (date) {
-      ensureSchedule(block.master_id, date).blocks.push(block)
+    for (const day of monthDays.value) {
+      const clipped = clipScheduleItems([block], dayBounds(day.date))
+      if (clipped.length) ensureSchedule(block.master_id, day.date).blocks.push(...clipped)
     }
   }
   for (const booking of bookings.value) {
-    const ownerMasterId = redirectedFromMasterId(booking) ?? booking.master_id
-    if (booking.status !== 'cancelled' && ownerMasterId != null) {
-      dataForMaster(ownerMasterId).bookings.push(booking)
+    const resourceId = booking.master_id != null ? resolveCalendarId(booking.master_id) : null
+    if (resourceId != null && ['pending', 'confirmed', 'completed', 'no_show'].includes(booking.status)
+      && (bookingStatus.value === 'all' || booking.status === bookingStatus.value)) {
+      dataForMaster(resourceId).bookings.push(booking)
     }
   }
 
@@ -409,45 +427,39 @@ const formatHours = (minutes: number) => {
     : `${hours.toLocaleString('uk-UA', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} год`
 }
 
-const visibleMasterPresentations = computed(() => selectedMasterId.value != null
-  ? masterPresentations.value.filter(presentation => presentation.master.id === selectedMasterId.value)
-  : masterPresentations.value.filter(presentation => presentation.master.is_active !== false))
-
-const calendarMasterId = (master: Master) => bookingRedirectMasterId(master) ?? master.id
-
-const masterStats = computed<MasterMonthStat[]>(() => {
-  return visibleMasterPresentations.value.map((presentation) => {
-    const { master } = presentation
-    const calendarMasterData = calendarDataIndex.value.byMaster.get(calendarMasterId(master))
-    const bookingMasterData = calendarDataIndex.value.byMaster.get(master.id)
-    const masterAvailability = calendarMasterData?.availability || []
-    const availabilityRanges = mergeRanges(rangesFromItems(masterAvailability))
-    const blockRanges = intersectRanges(availabilityRanges, rangesFromItems(calendarMasterData?.blocks || []))
-    const capacityRanges = subtractRanges(availabilityRanges, blockRanges)
-    const rawBookingRanges = (bookingMasterData?.bookings || []).map(bookingRange).filter((range): range is TimeRange => Boolean(range))
-    const bookingRanges = intersectRanges(capacityRanges, rawBookingRanges)
-    const scheduledMinutes = minutesInRanges(availabilityRanges)
-    const blockedMinutes = minutesInRanges(blockRanges)
-    const capacityMinutes = minutesInRanges(capacityRanges)
-    const bookedMinutes = minutesInRanges(bookingRanges)
-    const workDays = calendarMasterData?.workDates.size || 0
-    const loadPercent = capacityMinutes ? Math.round((bookedMinutes / capacityMinutes) * 100) : bookedMinutes ? 100 : 0
-
-    return {
-      ...presentation,
-      workDays,
-      scheduledMinutes,
-      bookedMinutes,
-      blockedMinutes,
-      capacityMinutes,
-      freeMinutes: Math.max(0, capacityMinutes - bookedMinutes),
-      loadPercent,
-    }
-  }).sort((first, second) => {
-    if (second.loadPercent !== first.loadPercent) return second.loadPercent - first.loadPercent
-    return first.displayName.localeCompare(second.displayName, 'uk')
-  })
+const redirects = computed(() => new Map(masterOptions.value.flatMap(master => {
+  const target = bookingRedirectMasterId(master)
+  return target ? [[master.id, target] as [number, number]] : []
+})))
+const resolveCalendarId = (id: number) => physicalCalendarId(id, redirects.value)
+const calendarMasterId = (master: Master) => resolveCalendarId(master.id)
+const dayBounds = (date: string): TimeRange => ({
+  start: new Date(toKyivIso(date, '00:00')).getTime(),
+  end: new Date(toKyivIso(addDaysInput(date, 1), '00:00')).getTime(),
 })
+const monthBounds = computed<TimeRange>(() => ({ start: dayBounds(monthStart.value).start, end: dayBounds(monthEnd.value).end }))
+const visibleMasterPresentations = computed(() => {
+  const candidates = selectedMasterId.value != null
+    ? masterPresentations.value.filter(item => calendarMasterId(item.master) === resolveCalendarId(selectedMasterId.value!))
+    : masterPresentations.value.filter(item => item.master.is_active !== false)
+  const resources = new Map<number, MasterPresentation>()
+  for (const item of candidates) {
+    const id = calendarMasterId(item.master)
+    if (!resources.has(id) || item.master.id === id) resources.set(id, item)
+  }
+  return [...resources.values()]
+})
+const masterStats = computed<MasterMonthStat[]>(() => visibleMasterPresentations.value.map(presentation => {
+  const resourceId = calendarMasterId(presentation.master)
+  const resource = calendarDataIndex.value.byMaster.get(resourceId)
+  const occupancy = scheduleOccupancy(
+    rangesFromItems(resource?.availability || []), rangesFromItems(resource?.blocks || []),
+    (resource?.bookings || []).map(bookingRange).filter((range): range is TimeRange => Boolean(range)), monthBounds.value,
+  )
+  const aliases = masterPresentations.value.filter(item => calendarMasterId(item.master) === resourceId)
+    .map(item => item.displayName).join(' / ')
+  return { ...presentation, ...occupancy, aliases, workDays: resource?.workDates.size || 0 }
+}).sort((a, b) => (b.loadPercent ?? -1) - (a.loadPercent ?? -1) || a.displayName.localeCompare(b.displayName, 'uk')))
 
 const scheduleRows = computed<MasterScheduleRow[]>(() => masterStats.value.map(stat => ({
   stat,
@@ -500,8 +512,8 @@ const availabilityDeleteContextItems = computed(() => {
   const master = window.master || masterOptions.value.find(option => option.id === window.master_id)
   return [
     { label: 'Майстер', value: masterDisplayName(master) },
-    { label: 'Дата', value: selectedDayFormatter.format(new Date(window.start_at)) },
-    { label: 'Робочий час', value: intervalLabel(window.start_at, window.end_at) },
+    { label: 'Повний інтервал', value: `${formatDateTime(window.start_at)} — ${formatDateTime(window.end_at)}` },
+    { label: 'Вплив', value: 'Буде видалено весь інтервал на всіх його датах, а не лише показаний день.' },
   ]
 })
 
@@ -521,16 +533,16 @@ const blockDeleteContextItems = computed(() => {
   const master = firstBlock.master || masterOptions.value.find(option => option.id === firstBlock.master_id)
   return [
     { label: 'Майстер', value: masterDisplayName(master) },
-    { label: 'Дата', value: selectedDayFormatter.format(new Date(firstBlock.start_at)) },
-    { label: 'Заблоковано', value: `${formatHours(summary.totalMinutes)} · ${summary.intervalsLabel}` },
+    { label: 'Повні інтервали', value: summary.items.map(block => `#${block.id}: ${formatDateTime(block.start_at)} — ${formatDateTime(block.end_at)}`).join('; ') },
+    { label: 'Вплив', value: 'Буде видалено всі вибрані інтервали повністю на всіх їхніх датах.' },
   ]
 })
 
 const blockDeleteMessage = computed(() => {
   const count = blockSummaryToDelete.value?.items.length || 0
   return count > 1
-    ? `Буде видалено всі записи блокування, об’єднані в цьому денному слоті (${count}).`
-    : 'Цей інтервал блокування буде видалено з графіка майстра.'
+    ? `Буде повністю видалено ${count} початкових інтервалів блокування, включно з частинами поза показаним днем або місяцем.`
+    : 'Початковий інтервал блокування буде видалено повністю, включно з частинами поза показаним днем або місяцем.'
 })
 
 const openDeleteBlockConfirm = (summary: BlockDaySummary) => {
@@ -639,7 +651,7 @@ const confirmDeleteAvailability = async () => {
       :loading="pending"
       :show-clear="false"
       aria-label="Фільтри графіка майстрів"
-      @apply="refresh"
+      @apply="refreshSchedule"
     >
       <MasterSelect
         v-model="masterFilterId"
@@ -651,6 +663,8 @@ const confirmDeleteAvailability = async () => {
         menu-class="z-[260]"
       />
 
+      <BaseSelect v-model="bookingStatus" label="Статус записів" aria-label="Статус записів"
+        :options="Object.entries(statusLabels).map(([value, label]) => ({ value, label }))" />
       <template #actions>
         <div class="w-full space-y-3 sm:w-auto">
           <div class="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-1.5 md:flex md:gap-2">
@@ -670,19 +684,21 @@ const confirmDeleteAvailability = async () => {
       <template #summary>
         <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
           <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
-          <p>У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
+          <p v-if="currentData">У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
         </div>
       </template>
 
-      <template #after>
-        <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
-          {{ apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') }}
-        </p>
-        <BaseLoader v-if="pending" label="Завантаження графіка…" size="sm" />
-      </template>
     </BaseFilterPanel>
 
-    <BaseCard as="section" padding="none" class="overflow-hidden">
+    <div v-if="loadingSchedule" class="rounded-2xl bg-ui-subtle px-4 py-3">
+      <BaseLoader label="Оновлюємо розрахунок…" size="sm" />
+    </div>
+    <div v-else-if="!currentData" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
+      <p>Розрахунок недоступний. {{ loadError ? apiErrorMessage(loadError, 'Не вдалося завантажити графік майстрів.') : 'Спробуйте завантажити графік ще раз.' }}</p>
+      <BaseButton type="button" variant="neutral" size="sm" class="mt-2" @click="refreshSchedule">Спробувати ще раз</BaseButton>
+    </div>
+
+    <BaseCard v-if="currentData" as="section" padding="none" class="overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4">
         <div class="flex flex-wrap items-center gap-2 text-xs text-ui-secondary">
           <BaseBadge tone="success" dot>Доступно після блокувань</BaseBadge>
@@ -787,13 +803,13 @@ const confirmDeleteAvailability = async () => {
                   <div class="absolute right-0 top-6 z-50 w-36 space-y-1 rounded-lg border border-ui bg-ui-surface p-1.5 shadow-lg">
                     <p class="px-1 text-[0.56rem] font-semibold uppercase tracking-[0.08em] text-ui-muted">Записи графіка</p>
                     <div v-for="window in schedule.availabilitySummary.items" :key="`availability-source-${window.id}`" class="flex items-center gap-1 rounded-md bg-ui-subtle px-1 py-0.5">
-                      <span class="min-w-0 flex-1 whitespace-nowrap text-ui-secondary">{{ intervalLabel(window.start_at, window.end_at) }}</span>
+                      <span class="min-w-0 flex-1 whitespace-normal text-ui-secondary">{{ sourceIntervalLabel(window) }}</span>
                       <BaseButton
                         type="button"
                         variant="unstyled"
                         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ui-muted transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-40 md:h-5 md:w-5"
                         :disabled="deletingAvailabilityId === window.id"
-                        :aria-label="`Закрити інтервал ${intervalLabel(window.start_at, window.end_at)}`"
+                        :aria-label="`Закрити весь інтервал ${sourceIntervalLabel(window)}`"
                         title="Закрити робочий інтервал"
                         @click="openDeleteAvailabilityConfirm(window)"
                       >
@@ -840,16 +856,16 @@ const confirmDeleteAvailability = async () => {
           </td>
 
           <td :class="trailingCellClass">
-            <span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ stat.loadPercent }}%</span>
+            <span class="flex min-h-10 items-center justify-center text-sm font-semibold text-ui-primary md:hidden">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
             <div class="hidden items-center justify-between gap-2 text-xs md:flex">
-              <span class="font-semibold text-ui-primary">{{ stat.loadPercent }}%</span>
+              <span class="font-semibold text-ui-primary">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
               <span class="text-ui-muted">{{ formatHours(stat.bookedMinutes) }}</span>
             </div>
             <div class="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-ui-subtle md:block">
               <div
                 class="h-full rounded-full transition-all"
-                :class="stat.loadPercent >= 80 ? 'bg-emerald-500' : stat.loadPercent >= 50 ? 'bg-amber-500' : 'bg-cyan-500'"
-                :style="{ width: `${Math.min(100, stat.loadPercent)}%` }"
+                :class="(stat.loadPercent ?? 0) >= 80 ? 'bg-emerald-500' : (stat.loadPercent ?? 0) >= 50 ? 'bg-amber-500' : 'bg-cyan-500'"
+                :style="{ width: `${Math.min(100, stat.loadPercent ?? 0)}%` }"
               />
             </div>
             <p class="mt-1 hidden text-[0.62rem] text-ui-muted md:block">{{ stat.workDays }} дн. · {{ formatHours(stat.scheduledMinutes) }}</p>
@@ -859,10 +875,10 @@ const confirmDeleteAvailability = async () => {
       </ScheduleMatrixTable>
     </BaseCard>
 
-    <BaseCard as="section" padding="none">
+    <BaseCard v-if="currentData" as="section" padding="none">
       <div class="border-b border-ui px-4 py-3 md:px-5 md:py-4">
         <h2 class="text-lg font-semibold text-ui-primary md:text-xl">Завантаження майстрів за місяць</h2>
-        <p class="mt-1 text-xs text-ui-muted md:text-sm">Завантаження = заброньований час / робочий час після блокувань. Скасовані записи не враховуються.</p>
+        <p class="mt-1 text-xs text-ui-muted md:text-sm">Повний вибраний місяць, включно з минулим часом. Один рядок на фізичний календар; спільні профілі об’єднані. Статус записів: {{ statusLabels[bookingStatus] }}. «Усі нескасовані» охоплює очікування, підтверджені, завершені та неявки; інший фільтр рахує лише обраний статус. Скасовані не враховуються. Залишок після блокувань і записів не є живою доступністю для клієнта: утримання слотів та інші правила запису тут не враховані.</p>
       </div>
 
       <BaseEmptyState v-if="!masterStats.length" compact title="Немає майстрів для статистики" />
@@ -876,6 +892,7 @@ const confirmDeleteAvailability = async () => {
             <div class="min-w-0">
               <p class="truncate font-semibold text-ui-primary">{{ stat.displayName }}</p>
               <p class="truncate text-xs text-ui-muted">{{ stat.position }}</p>
+              <p class="text-xs text-ui-muted">Спільний календар: {{ stat.aliases }}</p>
             </div>
           </div>
 
@@ -899,12 +916,12 @@ const confirmDeleteAvailability = async () => {
           <div class="min-w-0">
             <div class="flex items-center justify-between gap-2 text-xs">
               <span class="font-medium text-ui-secondary">Завантаження</span>
-              <span class="font-semibold" :class="stat.loadPercent >= 80 ? 'text-emerald-600' : stat.loadPercent >= 50 ? 'text-amber-600' : 'text-ui-primary'">{{ stat.loadPercent }}%</span>
+              <span class="font-semibold" :class="(stat.loadPercent ?? 0) >= 80 ? 'text-emerald-600' : (stat.loadPercent ?? 0) >= 50 ? 'text-amber-600' : 'text-ui-primary'">{{ stat.loadPercent === null ? (stat.scheduledMinutes ? 'Немає місткості' : 'Немає графіка') : `${stat.loadPercent}%` }}</span>
             </div>
             <div class="mt-2 h-2 overflow-hidden rounded-full bg-ui-subtle">
-              <div class="h-full rounded-full transition-all" :class="stat.loadPercent >= 80 ? 'bg-emerald-500' : stat.loadPercent >= 50 ? 'bg-amber-500' : 'bg-cyan-500'" :style="{ width: `${Math.min(100, stat.loadPercent)}%` }" />
+              <div class="h-full rounded-full transition-all" :class="(stat.loadPercent ?? 0) >= 80 ? 'bg-emerald-500' : (stat.loadPercent ?? 0) >= 50 ? 'bg-amber-500' : 'bg-cyan-500'" :style="{ width: `${Math.min(100, stat.loadPercent ?? 0)}%` }" />
             </div>
-            <p class="mt-1.5 text-[0.68rem] text-ui-muted">Вільно {{ formatHours(stat.freeMinutes) }} з {{ formatHours(stat.capacityMinutes) }}</p>
+            <p class="mt-1.5 text-[0.68rem] text-ui-muted">{{ stat.capacityMinutes ? `Залишок ${formatHours(stat.freeMinutes)} з ${formatHours(stat.capacityMinutes)}` : 'Немає місткості для розрахунку' }}</p>
           </div>
         </article>
       </div>
