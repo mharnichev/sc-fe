@@ -6,7 +6,7 @@ const masters = [
   { id: 91002, name: 'Гліб Тест', full_name_uk: 'Гліб Тест', is_active: true, services: [service(91201, 1, 45), service(91202, 2)] },
 ]
 const catalog = [1, 2].map(base => ({ ...service(base, base), catalog_id: `base-${base}`, source_type: 'base', barber_services: masters.map(master => ({ ...master.services[base - 1], barber_id: master.id })) }))
-type Options = { empty?: boolean, fail?: boolean, hold?: Promise<void>, rangeFail?: boolean, promotion?: boolean, quoteHold?: Promise<void> }
+type Options = { empty?: boolean, fail?: boolean, hold?: Promise<void>, rangeFail?: boolean, promotion?: boolean, quoteHold?: Promise<void>, homeHash?: boolean }
 async function setup(page: Page, options: Options = {}) {
   await page.clock.install({ time: new Date('2026-11-03T10:00:00+02:00') })
   const quoteCalls: any[] = []
@@ -46,7 +46,7 @@ async function setup(page: Page, options: Options = {}) {
     }
     return route.fulfill({ json: [] })
   })
-  await page.goto('/booking')
+  await page.goto(options.homeHash ? '/#booking' : '/booking')
   const form = page.locator('#regular-booking-service').locator('..').locator('..')
   await page.locator('.booking-service__item').filter({ hasText: 'Стрижка тестова' }).getByRole('button').first().click()
   await page.locator('.booking-service__item').filter({ hasText: 'Борода тестова' }).getByRole('button').first().click()
@@ -171,6 +171,40 @@ for (const width of [390, 1440]) for (const change of ['back', 'master', 'date']
     finally { release() }
     await expect(page.locator('.booking-price-review--promotion strong')).toHaveText(/960/)
     await expect(page.locator('.booking-step-actions').getByRole('button').last()).toBeEnabled()
+    expect(h.writes).toEqual([])
+  })
+}
+
+for (const width of [390, 1440]) {
+  test(`home booking calendar input cancels app anchor scrolling at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => {
+      const probe = { calls: [] as Array<{ target: string, at: number }> }
+      ;(window as any).__bookingAnchorProbe = probe
+      const original = Element.prototype.scrollIntoView
+      Element.prototype.scrollIntoView = function (options) {
+        if (this.matches('.booking-section:not(.booking-section--drawer), #booking-stepper, #team, #reviews')) {
+          probe.calls.push({ target: this.id || 'booking', at: performance.now() })
+        }
+        return original.call(this, options)
+      }
+    })
+    const h = await setup(page, { homeHash: true, promotion: true })
+    await page.getByRole('button', { name: /Гліб Тест/ }).click()
+    await expect(page.getByRole('button', { name: '15:07', exact: true })).toBeVisible()
+    if (width < 768) await page.getByRole('button', { name: /^Обрана дата/ }).click()
+    await page.evaluate(() => { (window as any).__bookingAnchorProbe.calls = [] })
+    await page.getByRole('button', { name: /^середа, 4 листопада 2026/ }).click()
+    await expect.poll(() => h.observations.some(event => event.event_type === 'availability_result' && event.target_date === '2026-11-04')).toBe(true)
+    // Advance two known 100ms retry turns plus a frame, rather than sleeping or
+    // suppressing scrolling. CSS motion stays enabled and the native method runs.
+    await page.clock.runFor(250)
+    const calls = await page.evaluate(() => (window as any).__bookingAnchorProbe.calls)
+    await info.attach('post-calendar-anchor-calls.json', { body: JSON.stringify(calls), contentType: 'application/json' })
+    expect(calls).toEqual([])
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false)
+    await expect(page.getByRole('button', { name: '15:07', exact: true })).toBeVisible()
     expect(h.writes).toEqual([])
   })
 }
