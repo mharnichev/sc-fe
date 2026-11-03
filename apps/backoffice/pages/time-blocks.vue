@@ -682,17 +682,18 @@ const confirmDeleteAvailability = async () => {
         <div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ui-subtle px-3 py-2 text-xs text-ui-secondary md:px-4 md:py-3 md:text-sm">
           <p class="font-medium text-ui-primary">{{ monthRangeLabel }}</p>
           <p v-if="currentData">У графіку {{ formatHours(totalScheduledMinutes) }} · Доступно після блокувань {{ formatHours(totalCapacityMinutes) }} · Заброньовано {{ formatHours(totalBookedMinutes) }}</p>
-          <p v-else role="status">{{ pending ? 'Оновлюємо розрахунок…' : 'Розрахунок недоступний' }}</p>
         </div>
       </template>
 
-      <template #after>
-        <p v-if="error" class="ui-status-danger rounded-2xl px-4 py-3 text-sm">
-          {{ apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') }}
-        </p>
-        <BaseLoader v-if="pending" label="Завантаження графіка…" size="sm" />
-      </template>
     </BaseFilterPanel>
+
+    <div v-if="pending" class="rounded-2xl bg-ui-subtle px-4 py-3" role="status" aria-live="polite">
+      <BaseLoader label="Оновлюємо розрахунок…" size="sm" />
+    </div>
+    <div v-else-if="!currentData" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
+      <p>Розрахунок недоступний. {{ error ? apiErrorMessage(error, 'Не вдалося завантажити графік майстрів.') : 'Спробуйте завантажити графік ще раз.' }}</p>
+      <BaseButton type="button" variant="neutral" size="sm" class="mt-2" @click="refresh">Спробувати ще раз</BaseButton>
+    </div>
 
     <BaseCard v-if="currentData" as="section" padding="none" class="overflow-hidden">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ui px-3 py-3 md:px-4">

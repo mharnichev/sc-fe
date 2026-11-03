@@ -90,33 +90,34 @@ test('before-month multi-day source is clipped for display but deletion disclose
   expect(writes).toEqual([])
 })
 
-test('pending or failed month never renders false empty schedule or zero statistics', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 })
-  await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-  const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
-  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
-  let finish!: () => void
-  const hold = new Promise<void>(resolve => { finish = resolve })
-  await page.route('**/api/v1/**', async route => {
-    const req = route.request(), url = new URL(req.url()), path = url.pathname
-    if (req.method() !== 'GET') return route.fulfill({ status: 403, json: {} })
-    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/masters')) return route.fulfill({ json: [{ id: 91001, first_name_uk: 'Фікстура', is_active: true }] })
-    if (url.searchParams.get('date_from')?.startsWith('2026-11-30')) {
-      await hold
-      return route.fulfill({ status: 503, json: { detail: 'Fixture load failed' } })
-    }
-    return route.fulfill({ json: [] })
+for (const width of [390, 1440]) {
+  test(`pending or failed month is explained outside closed filters at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
+    const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+    await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
+    let finish!: () => void
+    const hold = new Promise<void>(resolve => { finish = resolve })
+    await page.route('**/api/v1/**', async route => {
+      const req = route.request(), path = new URL(req.url()).pathname
+      if (req.method() !== 'GET') return route.fulfill({ status: 403, json: {} })
+      if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+      if (path.endsWith('/masters')) return route.fulfill({ json: [{ id: 91001, first_name_uk: 'Фікстура', is_active: true }] })
+      if (path.endsWith('/availability') || path.includes('/calendar/')) {
+        await hold
+        return route.fulfill({ status: 503, json: { detail: 'Fixture load failed' } })
+      }
+      return route.fulfill({ json: [] })
+    })
+    await page.goto('/time-blocks')
+    await expect(page.getByRole('status').filter({ hasText: 'Оновлюємо розрахунок…' })).toBeVisible()
+    await expect(page.locator('table')).toHaveCount(0)
+    await expect(page.locator('article')).toHaveCount(0)
+    await expect(page.getByText('Немає графіка', { exact: true })).toHaveCount(0)
+    finish()
+    await expect(page.getByRole('alert').filter({ hasText: 'Розрахунок недоступний.' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Спробувати ще раз', exact: true })).toBeVisible()
+    await expect(page.locator('table')).toHaveCount(0)
+    await expect(page.locator('article')).toHaveCount(0)
   })
-  await page.goto('/time-blocks')
-  await expect(page.getByRole('heading', { name: 'Завантаження майстрів за місяць' })).toBeVisible()
-  await page.getByRole('button', { name: 'Наступний місяць', exact: true }).click()
-  await expect(page.getByText('Оновлюємо розрахунок…', { exact: true })).toBeVisible()
-  await expect(page.locator('table')).toHaveCount(0)
-  await expect(page.locator('article')).toHaveCount(0)
-  await expect(page.getByText('Немає графіка', { exact: true })).toHaveCount(0)
-  finish()
-  await expect(page.getByText('Розрахунок недоступний', { exact: true })).toBeVisible()
-  await expect(page.locator('table')).toHaveCount(0)
-  await expect(page.locator('article')).toHaveCount(0)
-})
+}
