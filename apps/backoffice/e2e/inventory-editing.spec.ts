@@ -16,6 +16,7 @@ async function setup(page: Page, width: number, poster = true) {
     const request = route.request()
     if (!['fetch', 'xhr'].includes(request.resourceType())) return route.continue()
     const path = new URL(request.url()).pathname
+    if (path.endsWith('/public/masters')) return route.fulfill({ json: [] })
     if (!path.includes('/backoffice/')) return route.continue()
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
     if (path.endsWith('/products/42')) return route.fulfill({ json: product })
