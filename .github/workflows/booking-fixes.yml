@@ -1,7 +1,7 @@
 name: Booking availability and statistics
 on:
   push:
-    branches: [codex/booking-availability-statistics-20261103]
+    branches: [codex/booking-availability-statistics-20261103, codex/inventory-release-20261104]
   workflow_dispatch:
 permissions:
   contents: read
