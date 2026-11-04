@@ -40,7 +40,7 @@ test('receipt workflow has barcode lookup, additive item semantics, allocations,
   assert.match(receiving, /receiptIdFromRoute\.value !== activeReceipt\.id/)
   assert.match(receiving, /productLookupRequest/)
   assert.match(receiving, /productSearchRequest/)
-  assert.match(receiving, /if \(adding\.value \|\| posting\.value \|\| loadingReceipt\.value \|\| pendingStorageError\.value\) return/)
+  assert.match(receiving, /if \(adding\.value \|\| posting\.value \|\| loadingReceipt\.value \|\| pendingStorageError\.value \|\| editOpen\.value \|\| editLocked\.value\) return/)
   assert.match(receiving, /cost < 0 \|\| isPosted\.value/)
   assert.match(receiving, /posting\.value \|\| adding\.value/)
   assert.match(receiving, /postKey\.value = ''/)

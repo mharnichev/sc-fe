@@ -295,3 +295,27 @@ test('posting keeps draft until confirmed and uses same durable key after networ
   assert.equal(state.receipt.value.status, 'posted')
   assert.equal(new Set(keys).size, 1)
 })
+
+test('new product prefills only its purchase cost and clears the previous product cost if missing', () => {
+  const state = harness(async () => draft)
+  for (const [index, cost, expected] of [
+    [8, '12.50', 12.5], [9, 0, 0], [10, undefined, null],
+    [11, null, null], [12, '', null], [13, 'bad', null], [14, -1, null],
+  ]) {
+    state.unitCost.value = 99
+    state.selectProduct({ ...product, id: index, purchase_unit_cost: cost, price: '500', shop_price: '600' })
+    assert.equal(state.unitCost.value, expected)
+    assert.equal(state.quantity.value, 1)
+  }
+})
+
+test('reselecting or rescanning the same product preserves the edited purchase cost', () => {
+  const state = harness(async () => draft)
+  state.selectProduct({ ...product, id: 8, purchase_unit_cost: '12.50' })
+  state.unitCost.value = 17
+  state.selectProduct({ ...product, id: 8, purchase_unit_cost: '12.50' })
+  assert.equal(state.unitCost.value, 17)
+  state.selectProduct({ ...product, id: 8, purchase_unit_cost: '12.50' }, true)
+  assert.equal(state.unitCost.value, 17)
+  assert.equal(state.quantity.value, 2)
+})

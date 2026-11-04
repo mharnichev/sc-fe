@@ -81,6 +81,19 @@ export const inventoryApiErrorMessage = (error: unknown, fallback = 'Не вда
   const detail = formatDetail(data?.detail)
   if (detail) {
     const messages: Record<string, string> = {
+      'receipt_revision_conflict': 'Приймання вже змінив інший користувач. Перевірте оновлені дані перед повторним редагуванням.',
+      'receipt_no_change': 'Дані не змінилися. Вкажіть нову кількість або собівартість чи закрийте форму.',
+      'receipt_allocated_quantity_protected': 'Кількість не може бути меншою за вже розподілену на замовлення. Проведені розподіли не змінюються.',
+      'receipt_insufficient_free_stock': 'Недостатньо вільного залишку для зменшення кількості. Зарезервовані товари не можна списати цим коригуванням.',
+      'receipt_downstream_stock_activity': 'Після приймання вже були витрати або нові резерви. Зменшення кількості недоступне; собівартість можна виправити окремо.',
+      'receipt_original_movement_missing': 'Не знайдено початковий рух цього приймання. Коригування не виконано; потрібна звірка складської історії.',
+      'receipt_stock_quantity_out_of_range': 'Коригування створює некоректний залишок. Перевірте кількість.',
+      'receipt_idempotency_conflict': 'Збережений запит не відповідає попередньому запиту з цим ключем. Перевірте історію змін перед новою операцією.',
+      'Use corrections for posted receipts; direct edits require a draft': 'Статус приймання змінився. Для проведеного документа використовуйте коригування.',
+      'Allocation order is terminal': 'Замовлення вже завершене або скасоване. Оновіть розподіл цієї позиції.',
+      'Allocation requires ordered procurement': 'Позиція замовлення ще не позначена як замовлена у постачальника.',
+      'Allocation exceeds outstanding order requirement': 'Розподіл перевищує кількість, яку ще потрібно отримати для замовлення.',
+      'Edit would duplicate another receipt lot line': 'Така позиція з цією партією та собівартістю вже є у прийманні. Перевірте обидва рядки.',
       'Selected product already has a different barcode': 'Цей товар уже має інший штрихкод. Виберіть правильний товар; код не замінено.',
       'Barcode is already assigned to another product': 'Штрихкод уже належить іншому товару. Перевірте знайдену картку.',
       'Barcode or SKU is already assigned to another product': 'Штрихкод або SKU уже належить іншому товару. Знайдіть наявний товар або виправте SKU.',
