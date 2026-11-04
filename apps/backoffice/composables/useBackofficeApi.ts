@@ -36,6 +36,9 @@ import type {
   InventoryReceipt,
   InventoryReceiptCreate,
   InventoryReceiptItemCreate,
+  InventoryReceiptItemChange,
+  InventoryReceiptChange,
+  ReceiptAllocation,
   ManualInventoryOperationType,
   ProcurementQueueItem,
   ProcurementStatus,
@@ -1657,12 +1660,13 @@ export const useBackofficeApi = () => {
     })
 
   const getInventoryProduct = async (productId: number | string): Promise<InventoryProduct> => {
-    const product = await api<Product>(`/backoffice/products/${productId}`)
+    const product = await api<Product & { purchase_unit_cost?: string | number | null }>(`/backoffice/products/${productId}`)
     return {
       id: product.id,
       name: product.name,
       sku: product.sku,
       barcode: product.barcode,
+      purchase_unit_cost: product.purchase_unit_cost,
       on_hand: product.stock_quantity,
       reserved: product.reserved_quantity,
       available: product.available_quantity,
@@ -1721,6 +1725,15 @@ export const useBackofficeApi = () => {
       headers: idempotencyHeaders(idempotencyKey),
     })
   }
+
+  const changeInventoryReceiptItem = (receiptId: number, itemId: number, kind: 'update' | 'remove' | 'correct', payload: InventoryReceiptItemChange | Pick<InventoryReceiptItemChange, 'expected_revision' | 'reason'> | (InventoryReceiptItemChange & { allocations: ReceiptAllocation[] }), key: string) => {
+    if (!key?.trim() || key.length > 128) throw new Error('A receipt change Idempotency-Key is required')
+    return api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/items/${itemId}${kind === 'correct' ? '/corrections' : ''}`, {
+      method: kind === 'correct' ? 'POST' : kind === 'remove' ? 'DELETE' : 'PUT', body: payload, headers: idempotencyHeaders(key), retry: 0,
+    })
+  }
+  const getInventoryReceiptChanges = (receiptId: number, page = 1) =>
+    api<PaginatedResponse<InventoryReceiptChange>>(`/backoffice/inventory/receipts/${receiptId}/changes`, { query: { page, page_size: 20 } })
 
   const postInventoryReceipt = (receiptId: number | string, idempotencyKey = createInventoryIdempotencyKey()) =>
     api<InventoryReceipt>(`/backoffice/inventory/receipts/${receiptId}/post`, {
@@ -2858,6 +2871,8 @@ export const useBackofficeApi = () => {
     getInventoryReceipts,
     addInventoryReceiptItem,
     postInventoryReceipt,
+    changeInventoryReceiptItem,
+    getInventoryReceiptChanges,
     createInventoryOperation,
     getProductInventoryMovements,
     createInventoryCount,

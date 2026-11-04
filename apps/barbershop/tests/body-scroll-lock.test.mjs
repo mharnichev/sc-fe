@@ -42,7 +42,7 @@ test('booking price details use the base accordion', async () => {
   assert.match(booking, /<BaseAccordion/)
   assert.match(booking, /v-model="quoteDetailsOpen"/)
   assert.doesNotMatch(booking, /quoteAccepted|quoteCopy\.accept/)
-  assert.match(booking, /<AppTransition name="booking-quote-panel" mode="default" appear>[\s\S]*?<section[\s\S]*?v-if="activeStepIndex === lastStepIndex && isContactComplete"/)
+  assert.match(booking, /<Transition name="booking-quote-panel" type="transition" appear>[\s\S]*?<section[\s\S]*?v-if="activeStepIndex === lastStepIndex && isContactComplete"/)
   assert.match(booking, /<Transition name="booking-quote-state" mode="out-in">/)
   assert.match(booking, /v-else-if="!quoteReview\.quote" key="checking"/)
   assert.doesNotMatch(booking, /<p v-else>\{\{ isContactComplete \? quoteCopy\.review/)

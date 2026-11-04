@@ -10,6 +10,7 @@ const api = useBackofficeApi()
 const barcode = ref(props.initialBarcode || '')
 const unknownCode = ref('')
 const selected = ref<InventoryProduct | null>(null)
+const confirmedProductId = ref<number | null>(null)
 const binding = ref<InventoryProduct | null>(null)
 const search = ref('')
 const results = ref<InventoryProduct[]>([])
@@ -51,11 +52,13 @@ const persist = () => {
   catch { error.value = 'Не вдалося зберегти повтор запиту. Створення заблоковано; перевірте доступність сховища браузера.'; return false }
 }
 const choose = (product: InventoryProduct, repeat = false) => {
+  confirmedProductId.value = product.id
   selected.value = product; binding.value = null; unknownCode.value = ''; createOpen.value = false
   emit('select', product, repeat)
 }
 const clear = () => {
   if (locked.value) return
+  confirmedProductId.value = null
   generation++; barcode.value = ''; selected.value = null; binding.value = null; unknownCode.value = ''; results.value = []; searched.value = false; search.value = ''; error.value = ''; createOpen.value = false
   emit('clear')
 }
@@ -63,6 +66,7 @@ const scan = async (code: string) => {
   if (locked.value || !code.trim() || code.length > 64) return
   const request = ++generation
   const previousId = selected.value?.id
+  confirmedProductId.value = null
   busy.value = true; error.value = ''; selected.value = null; binding.value = null; unknownCode.value = ''; results.value = []; searched.value = false; createOpen.value = false
   emit('clear')
   try { const product = await api.lookupInventoryProductByBarcode(code); if (request === generation) choose(product, previousId === product.id) }
@@ -165,8 +169,9 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
       <BaseInput v-model="search" label="Назва або артикул" hint="Шукаємо лише у вашій базі товарів." placeholder="Наприклад, шампунь або SKU" aria-description="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
       <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
     </form>
-    <div v-for="product in results" :key="product.id" class="space-y-2">
-      <InventoryProductCard :product="product"><BaseButton variant="secondary" class="min-h-11" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode && catalogEditable ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode && catalogEditable ? 'Прив’язати цей товар' : 'Вибрати' }}</BaseButton></InventoryProductCard>
+    <div v-for="product in results" :key="product.id" class="space-y-2 rounded-xl p-2" :class="confirmedProductId === product.id ? 'inventory-picker-selected' : 'bg-ui-subtle'">
+      <p v-if="confirmedProductId === product.id" role="status" class="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-ui-primary"><CheckIcon class="h-5 w-5" aria-hidden="true" />Товар вибрано · заповніть кількість і закупівлю нижче</p>
+      <InventoryProductCard :product="product" :framed="false"><template #actions><BaseButton :variant="confirmedProductId === product.id ? 'primary' : 'secondary'" :aria-pressed="confirmedProductId === product.id" class="min-h-11 w-full" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode && catalogEditable ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode && catalogEditable ? 'Прив’язати цей товар' : confirmedProductId === product.id ? 'Вибрано ✓' : 'Вибрати цей товар' }}</BaseButton></template></InventoryProductCard>
     </div>
     <p v-if="searched && !results.length" class="text-sm text-ui-secondary">Товари не знайдено.</p>
     <div v-if="total > 10" class="flex items-center justify-between gap-2">
@@ -198,3 +203,7 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
     </form>
   </section>
 </template>
+
+<style scoped>
+.inventory-picker-selected { background: var(--bo-success-surface); box-shadow: inset 4px 0 0 var(--bo-success-text); }
+</style>

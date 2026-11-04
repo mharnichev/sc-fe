@@ -235,7 +235,7 @@ test('time-block month calendar sends the selected Kyiv month as a half-open dat
 
   assert.match(source, /date_from: toKyivIso\(monthStart\.value, '00:00'\)/)
   assert.match(source, /date_to: toKyivIso\(addDaysInput\(monthEnd\.value, 1\), '00:00'\)/)
-  assert.match(source, /const blocks = computed<TimeBlock\[\]>\(\(\) => normalizeItems\(data\.value\?\.timeBlocks\)\)/)
+  assert.match(source, /const blocks = computed<TimeBlock\[\]>\(\(\) => normalizeItems\(currentData\.value\?\.timeBlocks\)\)/)
   assert.match(source, /api\.adminGetCalendarTimeBlocks\(range\)/)
   assert.match(source, /api\.adminGetCalendarBookings\(range\)/)
   assert.match(source, /api\.adminGetAvailability\(availabilityRange\)/)
@@ -267,7 +267,7 @@ test('time-block month calendar scales as a master-by-day matrix', async () => {
 test('time-block month calendar renders one normalized block slot per master day', async () => {
   const source = await readFile(timeBlocksPage, 'utf8')
 
-  assert.match(source, /const summarizeDayBlocks = \(blocks: TimeBlock\[\]\): BlockDaySummary \| null/)
+  assert.match(source, /const summarizeDayBlocks = \(dayBlocks: TimeBlock\[\]\): BlockDaySummary \| null/)
   assert.match(source, /schedule\.blockSummary = summarizeDayBlocks/)
   assert.match(source, /v-if="schedule\.blockSummary"/)
   assert.match(source, /selectBlockSummary\(stat\.master, day\.date, schedule\.blockSummary\)/)
@@ -291,26 +291,16 @@ test('time-block month calendar renders effective availability instead of raw wi
   assert.doesNotMatch(source, /v-for="\{ item: window, label \} in schedule\.availability"/)
 })
 
-test('time-block month statistics only count bookings inside unblocked availability', async () => {
+test('time-block month statistics use clipped physical calendar occupancy rather than source totals', async () => {
   const source = await readFile(timeBlocksPage, 'utf8')
-
-  assert.match(source, /const blockRanges = intersectRanges\(availabilityRanges, rangesFromItems/)
-  assert.match(source, /const capacityRanges = subtractRanges\(availabilityRanges, blockRanges\)/)
-  assert.match(source, /const bookingRanges = intersectRanges\(capacityRanges, rawBookingRanges\)/)
-  assert.match(source, /const blockedMinutes = minutesInRanges\(blockRanges\)/)
-  assert.match(source, /const capacityMinutes = minutesInRanges\(capacityRanges\)/)
-})
-
-test('time-block month calendar maps redirected schedules to the source master without reassigning bookings', async () => {
-  const source = await readFile(timeBlocksPage, 'utf8')
-
-  assert.match(source, /const calendarMasterId = \(master: Master\) => bookingRedirectMasterId\(master\) \?\? master\.id/)
-  assert.match(source, /const ownerMasterId = redirectedFromMasterId\(booking\) \?\? booking\.master_id/)
-  assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(calendarMasterId\(master\)\)/)
-  assert.match(source, /calendarDataIndex\.value\.byMaster\.get\(master\.id\)/)
-  assert.match(source, /calendarDataIndex\.value\.schedules\[`\$\{calendarMasterId\(stat\.master\)\}:\$\{day\.date\}`\]/)
-  assert.match(source, /const countedCalendarIds = new Set<number>\(\)/)
-  assert.match(source, /if \(countedCalendarIds\.has\(calendarId\)\) return total/)
+  assert.match(source, /const occupancy = scheduleOccupancy\(/)
+  assert.match(source, /physicalCalendarId\(id, redirects.value\)/)
+  assert.match(source, /const resourceId = booking.master_id != null \? resolveCalendarId\(booking.master_id\)/)
+  assert.match(source, /dataForMaster\(resourceId\).bookings.push\(booking\)/)
+  assert.match(source, /calendarDataIndex.value.schedules\[`\$\{calendarMasterId\(stat.master\)\}:\$\{day.date\}`\]/)
+  assert.doesNotMatch(source, /const ownerMasterId = redirectedFromMasterId\(booking\)/)
+  assert.match(source, /clipScheduleItems\(\[window\], dayBounds\(day.date\)\)/)
+  assert.match(source, /clipScheduleItems\(\[block\], dayBounds\(day.date\)\)/)
 })
 
 test('time-block month calendar confirms working-time deletion in the app modal', async () => {

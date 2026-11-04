@@ -7,6 +7,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import type { DashboardBookingFunnel } from '~/utils/adminDashboardContract'
 import {
+  bookingLossDisplay,
   bookingFunnelAlertContent,
   bookingFunnelAlertTriggerExplanation,
   bookingFunnelBottleneckLabel,
@@ -25,6 +26,10 @@ const props = defineProps<{
   dateTo: string
 }>()
 
+const absoluteLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_absolute_loss'))
+const percentageLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_percentage_loss'))
+const failureLabels = { timeout: 'Таймаути', network: 'Мережеві помилки', http_4xx: 'Помилки API 4xx', http_5xx: 'Помилки API 5xx', invalid_response: 'Некоректні відповіді' }
+const observationLabels = { time_step_viewed: 'Перегляди кроку часу', availability_requested: 'Запити часу', availability_result: 'Отримані відповіді', availability_failed: 'Помилки / таймаути', availability_cancelled: 'Скасовані запити' }
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
 const noSlotOutcomes = computed(() => bookingNoSlotOutcomeDisplay(props.funnel))
@@ -196,6 +201,31 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
           </p>
         </li>
       </ol>
+
+      <section v-if="funnel.selection_diagnostics" class="mt-4 rounded-2xl border p-4" aria-label="Порівняння відсіву">
+        <h3 class="font-semibold">Відсів: кількість і частка</h3>
+        <div class="mt-2 grid gap-3 sm:grid-cols-2">
+          <div v-for="item in [{ title: 'Найбільший за кількістю', loss: absoluteLoss }, { title: 'Найбільший за часткою', loss: percentageLoss }]" :key="item.title">
+            <p class="text-sm font-semibold">{{ item.title }}</p>
+            <p v-if="item.loss" class="text-sm">{{ item.loss.label }}: {{ item.loss.count }} із {{ item.loss.denominator }} сесій ({{ item.loss.percentage }}). <span v-if="item.loss.smallSample">Мала вибірка.</span></p>
+            <p v-else class="text-sm">Недостатньо даних.</p>
+          </div>
+        </div>
+        <p class="mt-2 text-xs">Знаменник — сесії попереднього кроку тієї самої когорти booking_start. Відсів не доводить технічну причину або зламаний перехід.</p>
+        <p v-if="funnel.selection_diagnostics.observation_incomplete" class="mt-2 text-xs" role="status">Спостереження неповні; висновки попередні.</p>
+        <p v-if="funnel.selection_diagnostics.small_sample_transitions.length" class="mt-2 text-xs">Частина переходів має малу вибірку — нижче встановленого порога {{ funnel.alert_thresholds.meaningful_step_sessions }} сесій.</p>
+      </section>
+      <section v-if="funnel.observation_diagnostics" class="mt-4 rounded-2xl border p-4" aria-label="Діагностика вибору часу">
+        <h3 class="font-semibold">Діагностика вибору часу</h3>
+        <dl class="mt-2 grid gap-2 sm:grid-cols-3">
+          <div v-for="(label, key) in observationLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.event_counts[key] }}</dd></div>
+        </dl>
+        <dl v-if="funnel.observation_diagnostics.failure_counts" class="mt-3 grid gap-2 sm:grid-cols-3" aria-label="Типи помилок пошуку часу">
+          <div v-for="(label, key) in failureLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.failure_counts[key] }}</dd></div>
+        </dl>
+        <p class="mt-2 text-xs">Початкові порожні відповіді: {{ funnel.observation_diagnostics.initial_empty_results }}. Результати без зафіксованого запиту: {{ funnel.observation_diagnostics.terminals_without_request }}.</p>
+        <p class="mt-2 text-xs">Події за вибраний період, не когорта початку запису і не кількість унікальних клієнтів. Пропущена доставка можлива; ці числа не доводять недоступність розкладу чи причину відсіву.</p>
+      </section>
 
       <article class="booking-funnel__insight mt-4 rounded-2xl border p-4" aria-labelledby="booking-no-slot-outcomes-title">
         <h3 id="booking-no-slot-outcomes-title" class="flex items-center gap-1 text-sm font-semibold text-slate-900">

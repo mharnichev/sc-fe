@@ -13,6 +13,7 @@ export type ProcurementStatus = 'not_required' | 'to_order' | 'ordered' | 'recei
 export type ManualInventoryOperationType = 'opening-balance' | 'receipt' | 'customer-return' | 'write-off'
 
 export interface InventoryProduct {
+  purchase_unit_cost?: string | number | null
   id: number
   name: string
   sku: string | null
@@ -78,6 +79,10 @@ export type InventoryReceiptItemCreate = InventoryProductIdentifier & {
 }
 
 export interface InventoryReceiptItem {
+  effective_quantity?: number | null
+  effective_purchase_unit_cost?: string | null
+  effective_purchase_value?: string | null
+  last_correction_id?: number | null
   id: number
   product_id: number
   barcode: string | null
@@ -89,6 +94,9 @@ export interface InventoryReceiptItem {
 }
 
 export interface InventoryReceipt {
+  revision?: number
+  original_purchase_value?: string
+  effective_purchase_value?: string
   id: number
   reason: string
   comment: string | null
@@ -155,4 +163,24 @@ export interface InventoryProductCreate {
   sku?: string | null
   package_size?: string | null
   price?: string
+}
+
+export interface InventoryReceiptItemChange {
+  expected_revision: number
+  reason: string
+  quantity: number
+  purchase_unit_cost: string
+}
+export interface InventoryReceiptChange {
+  id: number
+  target_item_id: number
+  actor_id: number
+  operation: 'draft_update' | 'draft_delete' | 'posted_correction'
+  reason: string
+  applied_revision: number
+  on_hand_delta: number
+  purchase_value_delta: string
+  created_at: string
+  before: Record<string, unknown>
+  after: Record<string, unknown>
 }

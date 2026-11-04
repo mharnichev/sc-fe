@@ -63,3 +63,43 @@ test('effective availability merges adjacent windows before subtracting blocked 
     [range('08:00', '10:00')],
   )
 })
+
+test('shared physical resource unions aliases and overlapping occupancy; reported month example', () => {
+  const start = Date.parse('2026-11-01T00:00:00+02:00')
+  const minute = 60000
+  const availability = [{ start, end: start + 178.5 * 60 * minute }]
+  const bookings = [{ start, end: start + 5.5 * 60 * minute }, { start: start + 5.5 * 60 * minute, end: start + 12.5 * 60 * minute }]
+  const stats = intervals.scheduleOccupancy([...availability, ...availability], [], [...bookings, bookings[0]], availability[0])
+  assert.deepEqual(stats, { scheduledMinutes: 10710, blockedMinutes: 0, capacityMinutes: 10710, bookedMinutes: 750, freeMinutes: 9960, loadPercent: 7 })
+  const redirects = new Map([[91002, 91001], [91003, 91002]])
+  assert.equal(intervals.physicalCalendarId(91003, redirects), 91001)
+  assert.equal(intervals.physicalCalendarId(91001, redirects), 91001)
+  assert.equal(intervals.physicalCalendarId(2, new Map([[2, 3], [3, 2]])), 2)
+})
+
+test('monthly calculation clips before-month starts, after-month ends, overlap and blocks', () => {
+  const bounds = { start: Date.parse('2026-11-01T00:00:00+02:00'), end: Date.parse('2026-12-01T00:00:00+02:00') }
+  const hour = 3600000
+  const stats = intervals.scheduleOccupancy(
+    [{ start: bounds.start - hour, end: bounds.start + 4 * hour }],
+    [{ start: bounds.start + hour, end: bounds.start + 2 * hour }, { start: bounds.start + hour, end: bounds.start + 2 * hour }],
+    [{ start: bounds.start - hour, end: bounds.start + 3 * hour }, { start: bounds.start + 2 * hour, end: bounds.start + 3 * hour }], bounds)
+  assert.deepEqual(stats, { scheduledMinutes: 240, blockedMinutes: 60, capacityMinutes: 180, bookedMinutes: 120, freeMinutes: 60, loadPercent: 67 })
+  assert.equal(intervals.scheduleOccupancy([], [], [], bounds).loadPercent, null)
+  assert.equal(intervals.scheduleOccupancy([bounds], [bounds], [], bounds).loadPercent, null)
+})
+
+test('cross-midnight multi-day clipping keeps identity and Kyiv DST day lengths', () => {
+  for (const [start, end, hours] of [
+    ['2026-03-29T00:00:00+02:00', '2026-03-30T00:00:00+03:00', 23],
+    ['2026-10-25T00:00:00+03:00', '2026-10-26T00:00:00+02:00', 25],
+  ]) {
+    const bounds = { start: Date.parse(start), end: Date.parse(end) }
+    const item = { id: 91001, start_at: new Date(bounds.start - 3600000).toISOString(), end_at: new Date(bounds.end + 3600000).toISOString() }
+    const clipped = intervals.clipScheduleItems([item], bounds)
+    assert.equal(clipped[0].id, 91001)
+    assert.equal(intervals.minutesInRanges(intervals.rangesFromItems(clipped)), hours * 60)
+    assert.equal(item.start_at, new Date(bounds.start - 3600000).toISOString())
+    assert.deepEqual(intervals.clipScheduleItems([{ ...item, end_at: new Date(bounds.start).toISOString() }], bounds), [])
+  }
+})

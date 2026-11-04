@@ -10,14 +10,22 @@ const mobileBookingPhoto = ref<HTMLElement | null>(null)
 let bookingSectionObserver: IntersectionObserver | null = null
 let mobileBookingPhotoObserver: IntersectionObserver | null = null
 let bookingAnchorLockTimer: number | null = null
+let bookingAnchorLockFrame: number | null = null
+let bookingSectionObserveFrame: number | null = null
+let bookingAnchorGeneration = 0
+let homePageDisposed = false
+let bookingAnchorSession: { hash: string, startedAt: number, generation: number, active: boolean } | null = null
 let deferredSectionsMountTimer: number | null = null
 const bookingHashTargets = new Set(['#booking', '#booking-stepper'])
 const homeHashTargets = new Set(['#booking', '#booking-stepper', '#team', '#reviews'])
 const hasHomeHashTarget = () => homeHashTargets.has(window.location.hash)
 const stopBookingAnchorLock = () => {
-  if (bookingAnchorLockTimer === null) return
-
-  window.clearTimeout(bookingAnchorLockTimer)
+  // Invalidate callbacks even if input arrives before their first RAF executes.
+  bookingAnchorGeneration += 1
+  if (bookingAnchorSession) bookingAnchorSession.active = false
+  if (bookingAnchorLockFrame !== null) window.cancelAnimationFrame(bookingAnchorLockFrame)
+  if (bookingAnchorLockTimer !== null) window.clearTimeout(bookingAnchorLockTimer)
+  bookingAnchorLockFrame = null
   bookingAnchorLockTimer = null
 }
 
@@ -82,47 +90,51 @@ const observeBookingSection = () => {
   bookingSectionObserver.observe(target)
 }
 
+// Mount completion may resume this navigation, never create another session.
 const keepMountedBookingHashTargetAnchored = () => {
-  if (!hasHomeHashTarget()) return
+  const session = bookingAnchorSession
+  if (!session || !session.active || homePageDisposed || session.hash !== window.location.hash) return
+  if (bookingAnchorLockFrame !== null || bookingAnchorLockTimer !== null) return
+  const isCurrent = () => !homePageDisposed && bookingAnchorSession === session
+    && session.active && session.generation === bookingAnchorGeneration
+    && session.hash === window.location.hash
 
-  const targetId = window.location.hash.slice(1)
-  const startedAt = window.performance.now()
+  const scrollWhenReady = () => {
+    if (!isCurrent()) return
+    const targetId = session.hash.slice(1)
+    const target = targetId === 'booking'
+      ? document.querySelector<HTMLElement>('.booking-section:not(.booking-section--drawer)')
+      : document.getElementById(targetId)
+    if (target) target.scrollIntoView({ block: 'start', behavior: 'instant' })
+    if (!isCurrent()) return
 
+    if (window.performance.now() - session.startedAt < 8000) {
+      bookingAnchorLockTimer = window.setTimeout(() => {
+        if (!isCurrent()) return
+        bookingAnchorLockTimer = null
+        scrollWhenReady()
+      }, 100)
+    }
+    else stopBookingAnchorLockOnInput()
+  }
+
+  bookingAnchorLockFrame = window.requestAnimationFrame(() => {
+    if (!isCurrent()) return
+    bookingAnchorLockFrame = null
+    scrollWhenReady()
+  })
+}
+
+const handleBookingHashNavigation = () => {
   stopBookingAnchorLockOnInput()
+  bookingAnchorSession = null
+  if (homePageDisposed || !hasHomeHashTarget()) return
+
+  bookingAnchorSession = { hash: window.location.hash, startedAt: window.performance.now(), generation: bookingAnchorGeneration, active: true }
   window.addEventListener('wheel', stopBookingAnchorLockOnInput, { once: true, passive: true })
   window.addEventListener('touchstart', stopBookingAnchorLockOnInput, { once: true, passive: true })
   window.addEventListener('pointerdown', stopBookingAnchorLockOnInput, { once: true })
   window.addEventListener('keydown', stopBookingAnchorLockOnInput, { once: true })
-
-  const scrollWhenReady = () => {
-    if (!hasHomeHashTarget()) {
-      stopBookingAnchorLockOnInput()
-      return
-    }
-
-    const bookingSection = document.querySelector<HTMLElement>('.booking-section:not(.booking-section--drawer)')
-    const target = targetId === 'booking'
-      ? bookingSection
-      : document.getElementById(targetId)
-
-    if (target) {
-      target.scrollIntoView({ block: 'start', behavior: 'instant' })
-    }
-
-    if (window.performance.now() - startedAt < 8000) {
-      bookingAnchorLockTimer = window.setTimeout(scrollWhenReady, 100)
-      return
-    }
-
-    stopBookingAnchorLockOnInput()
-  }
-
-  window.requestAnimationFrame(scrollWhenReady)
-}
-
-const handleBookingHashNavigation = () => {
-  if (!hasHomeHashTarget()) return
-
   if (bookingHashTargets.has(window.location.hash)) mountBookingSection()
   keepMountedBookingHashTargetAnchored()
 }
@@ -180,7 +192,10 @@ onMounted(() => {
     scheduleDeferredSectionsMountAfterHashScroll()
     // Anchor positioning runs in the preceding animation frame callback. Observe
     // proximity afterwards so the initial top-of-page viewport cannot mount booking.
-    window.requestAnimationFrame(observeBookingSection)
+    bookingSectionObserveFrame = window.requestAnimationFrame(() => {
+      bookingSectionObserveFrame = null
+      if (!homePageDisposed) observeBookingSection()
+    })
     return
   }
 
@@ -190,7 +205,9 @@ onMounted(() => {
 watch(shouldMountBookingSection, async (shouldMount) => {
   if (!shouldMount) return
 
+  const session = bookingAnchorSession
   await nextTick()
+  if (homePageDisposed) return
   observeMobileBookingPhoto()
   if (hasHomeHashTarget()) {
     scheduleDeferredSectionsMountAfterHashScroll()
@@ -198,11 +215,15 @@ watch(shouldMountBookingSection, async (shouldMount) => {
   else {
     scheduleDeferredSectionsMount()
   }
-  keepMountedBookingHashTargetAnchored()
+  if (bookingAnchorSession === session) keepMountedBookingHashTargetAnchored()
 })
 
 onBeforeUnmount(() => {
+  homePageDisposed = true
   stopBookingAnchorLockOnInput()
+  bookingAnchorSession = null
+  if (bookingSectionObserveFrame !== null) window.cancelAnimationFrame(bookingSectionObserveFrame)
+  bookingSectionObserveFrame = null
   stopDeferredSectionsSchedule()
   window.removeEventListener('hashchange', handleBookingHashNavigation)
   bookingSectionObserver?.disconnect()
