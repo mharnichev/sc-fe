@@ -19,9 +19,18 @@ async function setup(page: Page, options: { denied?: boolean, delayed?: boolean 
     } } })
     Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', { configurable: true, writable: true, value: null })
     HTMLMediaElement.prototype.play = async () => {}
-    ;(window as unknown as { BarcodeDetector: unknown }).BarcodeDetector = class {
-      static async getSupportedFormats() { return ['ean_13', 'ean_8'] }
-      async detect() { return state.detect ? [{ rawValue: code }] : [] }
+    Object.defineProperties(HTMLVideoElement.prototype, {
+      videoWidth: { configurable: true, get: () => 1280 },
+      videoHeight: { configurable: true, get: () => 720 },
+      readyState: { configurable: true, get: () => 4 },
+    })
+    CanvasRenderingContext2D.prototype.drawImage = () => {}
+    // Lifecycle tests mock the worker boundary; actual WASM pixels are tested separately.
+    ;(window as unknown as { Worker: unknown }).Worker = class {
+      onmessage?: (event: { data: unknown }) => void
+      constructor() { setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }), 0) }
+      postMessage() { setTimeout(() => this.onmessage?.({ data: { type: 'result', barcode: state.detect ? code : null } }), 0) }
+      terminate() {}
     }
   }, { user, denied: options.denied || false, code: product.barcode })
   await page.route('**/*', async route => {
@@ -221,4 +230,82 @@ test('warehouse clear button immediately resets results, retains stock filter an
   await expect(page).toHaveURL(/\/inventory\?stock=available$/)
   await expect.poll(() => requests.some(request => request.path.endsWith('/stock') && !new URLSearchParams(request.query).has('search') && new URLSearchParams(request.query).get('page') === '1')).toBe(true)
   await expect(page.getByRole('link', { name: 'Прийняти товар', exact: true })).toBeVisible()
+})
+
+test('compact product finder opens the phone camera in one tap', async ({ page }) => {
+  const seller = { id: 17, email: 'pos-camera@example.test', role: 'barber', is_superuser: false, is_active: true, can_record_sales: true, can_accept_qr_payments: true }
+  const offer = { id: 42, name: 'POS Pomade', brand_name: 'Synthetic brand', sku: 'POS-100', barcode: '5901234123457', image_url: null, variant_label: '100 мл', amount_minor: 25000, currency: 'UAH', available_quantity: 8, can_sell: true, blocking_reasons: [] }
+  const requests: { method: string, path: string, query: URLSearchParams }[] = [], inventoryRequests: string[] = [], external: string[] = []
+  const creates: { intent_id: string, product_id: number, quantity: number, expected_amount_minor: number, currency: string }[] = []
+  await page.addInitScript(({ seller, barcode }) => {
+    localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'synthetic-pos-camera', user: seller }))
+    const state = { started: 0, stopped: 0, detect: false }
+    ;(window as unknown as { quickCamera: typeof state }).quickCamera = state
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => {
+      state.started++
+      return { getTracks: () => [{ stop: () => { state.stopped++ } }] }
+    } } })
+    Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', { configurable: true, writable: true, value: null })
+    HTMLMediaElement.prototype.play = async () => {}
+    Object.defineProperties(HTMLVideoElement.prototype, {
+      videoWidth: { configurable: true, get: () => 1280 },
+      videoHeight: { configurable: true, get: () => 720 },
+      readyState: { configurable: true, get: () => 4 },
+    })
+    CanvasRenderingContext2D.prototype.drawImage = () => {}
+    ;(window as unknown as { Worker: unknown }).Worker = class {
+      onmessage?: (event: { data: unknown }) => void
+      constructor() { setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }), 0) }
+      postMessage() { setTimeout(() => this.onmessage?.({ data: { type: 'result', barcode: state.detect ? barcode : null } }), 0) }
+      terminate() {}
+    }
+  }, { seller, barcode: offer.barcode })
+  await page.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url())
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) { external.push(url.origin); return route.abort() }
+    if (!url.pathname.includes('/api/v1/')) return route.continue()
+    if (url.pathname.includes('/inventory/')) { inventoryRequests.push(url.pathname); return route.fulfill({ status: 403, json: { detail: 'POS cannot use inventory DTOs' } }) }
+    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: seller })
+    if (!url.pathname.includes('/backoffice/pos/')) return route.fulfill({ json: [] })
+    const path = url.pathname.split('/backoffice/pos')[1]!
+    requests.push({ method: request.method(), path, query: url.searchParams })
+    if (path === '/capabilities') return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: true, can_start: true, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: [] } })
+    if (path === '/checkouts/active') return route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 20 } })
+    if (path === '/products') return route.fulfill({ json: { items: [offer], total: 1, page: 1, page_size: 20 } })
+    if (path === '/checkouts' && request.method() === 'POST') {
+      const body = request.postDataJSON(); creates.push(body)
+      return route.fulfill({ status: 201, json: {
+        checkout_id: '22222222-2222-4222-8222-222222222222', intent_id: body.intent_id, order_id: 9001, revision: 1, created_at: '2026-11-06T10:00:00Z', employee: { user_id: seller.id, master_id: null, display_name: 'Synthetic seller' },
+        items: [{ product_id: offer.id, name: offer.name, sku: offer.sku, barcode: offer.barcode, image_url: null, variant_label: offer.variant_label, quantity: 1, unit_minor: offer.amount_minor, total_minor: offer.amount_minor }], order_status: 'pending', amount_minor: offer.amount_minor, currency: 'UAH', status: 'awaiting_payment',
+        payment: { provider: 'monobank', status: 'pending', invoice_id: 'SYNTHETIC_POS_CAMERA', confirmed_at: null, qr_payload: 'https://pay.mbnk.biz/SYNTHETIC_POS_CAMERA' }, receipt: { issuer: 'checkbox', status: 'not_requested', recorded_at: null, pdf_url: null }, handover: { status: 'not_ready', actor_user_id: null, handed_over_at: null },
+        actions: { can_resume: false, can_refresh: true, can_handover: false, can_recover_invoice: false, can_start_new: false }, poll_after_ms: 30000, blocking_reasons: [],
+      } })
+    }
+    return route.fulfill({ status: 404, json: { detail: 'Unexpected POS request' } })
+  })
+  await page.goto('/orders/pos')
+  const cameraButton = page.getByRole('button', { name: 'Сканувати штрихкод', exact: true })
+  await expect(cameraButton).toBeVisible()
+  expect(creates).toHaveLength(0)
+  await cameraButton.click()
+  await expect(page.getByRole('dialog', { name: 'Сканування штрихкоду', exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { quickCamera: { started: number } }).quickCamera.started)).toBe(1)
+  await page.screenshot({ path: '/tmp/sc-pos-20261106/pos-fixes/direct-pos-camera-mobile.png', fullPage: true })
+  await page.evaluate(() => { (window as unknown as { quickCamera: { detect: boolean } }).quickCamera.detect = true })
+  await expect(page.getByRole('dialog', { name: 'Сканування штрихкоду', exact: true })).toBeHidden()
+  await expect(page.getByLabel('Знайти товар', { exact: true })).toHaveValue(offer.barcode)
+  const candidate = page.getByRole('button', { name: /Продати: POS Pomade/ })
+  await expect(candidate).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { quickCamera: { stopped: number } }).quickCamera.stopped)).toBe(1)
+  expect(requests.filter(request => request.path === '/products').map(request => request.query.get('q'))).toEqual([offer.barcode])
+  expect(requests.every(request => request.method === 'GET')).toBe(true)
+  expect(creates).toHaveLength(0)
+  expect(inventoryRequests).toEqual([])
+  await candidate.click()
+  await expect(page.getByRole('img', { name: 'QR для оплати mono' })).toBeVisible()
+  expect(creates).toHaveLength(1)
+  expect(Object.keys(creates[0]!).sort()).toEqual(['currency', 'expected_amount_minor', 'intent_id', 'product_id', 'quantity'])
+  expect(creates[0]).toMatchObject({ product_id: offer.id, quantity: 1, expected_amount_minor: offer.amount_minor, currency: 'UAH' })
+  expect(inventoryRequests).toEqual([])
+  expect(external).toEqual([])
 })

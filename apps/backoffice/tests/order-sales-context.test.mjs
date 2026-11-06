@@ -138,7 +138,7 @@ for (const change of ['actor', 'order', 'unmount']) {
   })
 }
 
-test('actual POS draft releases a known zero-total rejection for a corrected preparation', async () => {
+test('legacy POS command releases a known zero-total rejection before corrected explicit preparation', async () => {
   const auth = vue.reactive({ user: { id: 1 } }), storage = new Map(), sent = [], navigations = []
   const api = {
     getPosCapabilities: async () => ({ can_prepare: true, simulation_available: true }),
@@ -155,17 +155,14 @@ test('actual POS draft releases a known zero-total rejection for a corrected pre
   })
   const commandSource = (await readFile(new URL('../composables/useOrderSalesCommand.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
   Object.assign(globalThis, await importSource(commandSource))
-  const component = await readFile(new URL('../pages/orders/pos.vue', import.meta.url), 'utf8')
-  const script = component.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
   const scope = vue.effectScope()
-  const page = await scope.run(() => importSource(script + '\nexport { add, promoCode, prepare, command, locked };'))
-  page.add({ id: 8 }); page.promoCode.value = 'FREE'
-  await page.prepare()
-  assert.equal(page.command.intent.value, null)
-  assert.equal(page.locked.value, false)
+  const command = scope.run(() => useOrderSalesCommand('prepare', 'new', ['unsupported_zero_total_pos']))
+  const send = body => command.execute(body, api.createPosOrder, id => navigateTo(`/orders/${id}`))
+  await send({ items: [{ product_id: 8, quantity: 1 }], promo_code: 'FREE', fulfillment_method: 'pickup', simulation: false })
+  assert.equal(command.intent.value, null)
+  assert.equal(command.busy.value, false)
   assert.deepEqual(navigations, [])
-  page.promoCode.value = 'CORRECTED'
-  await page.prepare()
+  await send({ items: [{ product_id: 8, quantity: 1 }], promo_code: 'CORRECTED', fulfillment_method: 'pickup', simulation: false })
   assert.equal(sent[1].body.promo_code, 'CORRECTED')
   assert.notEqual(sent[1].key, sent[0].key)
   assert.deepEqual(navigations, ['/orders/55'])

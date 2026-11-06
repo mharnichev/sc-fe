@@ -3,7 +3,7 @@ const user = { id: 1, email: 'fixture@example.test', is_active: true, is_superus
 const product = { id: 8, name: 'Fixture shampoo', sku: 'SKU-8', barcode: '12345678', on_hand: 2, reserved: 0, available: 2, allow_backorder: false }
 const order = (simulation = false) => ({ id: 321, status: 'pending', channel: 'backoffice_pos', fulfillment_method: 'pickup', customer_name: '', customer_phone: null, total_amount: '123.45', subtotal_amount: '123.45', discount_amount: '0.00', revision: 1, items: [{ id: 11, product_id: 8, product_name: product.name, quantity: 1, price: '123.45', total_price: '123.45', quantity_from_stock: 1, quantity_to_order: 0, quantity_received_for_order: 0 }], payment_status: 'unpaid', fulfillment_status: 'reserved', fiscal_status: 'not_requested', simulation, sales_actions: { can_record_payment: simulation, can_handover: false, blocking_reasons: [] }, payments: [], handovers: [] })
 
-test('anonymous POS recovers exact preparation after timeout/reload then records separate simulated facts', async ({ page }) => {
+test('existing anonymous simulated order recovers payment exactly then records separate handover', async ({ page }) => {
   let current: any = order(true)
   const preparations: Array<{ key?: string, body: any }> = []
   const payments: Array<{ key?: string, body: any }> = []
@@ -37,20 +37,9 @@ test('anonymous POS recovers exact preparation after timeout/reload then records
     if (path.endsWith('/321/fulfillment')) return route.fulfill({ json: { items: current.items } })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
-  await page.goto('/orders/pos')
-  await page.getByLabel('Тестовий режим (без реальної оплати)').check()
-  await page.getByRole('button', { name: 'Знайти / сканувати товар' }).click()
-  await page.getByLabel('Назва або SKU').fill('SKU-8')
-  await page.getByRole('button', { name: 'Пошук', exact: true }).click()
-  await page.getByRole('button', { name: 'Вибрати товар' }).click()
-  await page.getByRole('button', { name: 'Перевірити суму', exact: true }).click()
-  await expect(page.getByRole('alert')).toBeVisible()
-  await page.reload()
-  await page.getByRole('button', { name: 'Відновити підготовку' }).click()
-  await expect(page).toHaveURL(/orders\/321$/)
-  expect(preparations).toHaveLength(2)
-  expect(preparations[0]).toEqual(preparations[1])
-  expect(preparations[0].body).toEqual({ items: [{ product_id: 8, quantity: 1 }], fulfillment_method: 'pickup', simulation: true })
+  // This is an existing historical simulated order, not the new live-only POS entry screen.
+  await page.goto('/orders/321')
+  expect(preparations).toHaveLength(0)
   await expect(page.getByText('123,45', { exact: false }).first()).toBeVisible()
   await expect(page.locator('select option[value="paid"]')).toHaveCount(0)
   await page.getByText('Інший тестовий спосіб оплати', { exact: true }).click()
@@ -77,12 +66,12 @@ test('default local mode and lack of permissions expose no real settlement contr
     const path = new URL(route.request().url()).pathname
     if (route.request().method() === 'GET' && (path.endsWith('/returns') || path.endsWith('/fiscal-documents'))) return route.fulfill({ json: [] })
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/pos-capabilities')) return route.fulfill({ json: { mode: 'local_only', can_prepare: false, simulation_available: false, blocking_reasons: ['record_sales_required'] } })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['record_sales_required'] } })
     if (path.endsWith('/orders/321')) return route.fulfill({ json: order() })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
   await page.goto('/orders/pos')
-  await expect(page.getByRole('button', { name: 'Перевірити суму', exact: true })).toBeDisabled()
+  await expect(page.getByText('Продаж через mono зараз недоступний. Зверніться до адміністратора.', { exact: true })).toBeVisible()
   await expect(page.getByRole('checkbox')).toHaveCount(0)
   await page.goto('/orders/321')
   await expect(page.getByText('Лише підготовка замовлення.', { exact: false })).toBeVisible()
@@ -97,7 +86,7 @@ test('delegated sales operator discovers the POS from navigation', async ({ page
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: operator })
-    if (path.endsWith('/pos-capabilities')) return route.fulfill({ json: { mode: 'local_only', can_prepare: true, simulation_available: false, blocking_reasons: [] } })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['accept_qr_required'] } })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
   await page.goto('/orders/pos')
@@ -128,79 +117,55 @@ test('ordinary nonmaster staff retains item, contact, address and preliminary or
   await expect(page.getByRole('heading', { name: 'Попередні документи SC', exact: true })).toBeVisible()
 })
 
-test('mobile POS guides selection, quantity edits and optional customer details without overflow', async ({ page }) => {
+test('mobile quick POS preserves photos, stock guards and anonymous quantity-one recovery', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 })
-  const picturedProduct = { ...product, image_url: '/pos-fixture.svg' }
+  const picturedProduct = { id: product.id, name: product.name, sku: product.sku, barcode: product.barcode, brand_name: 'Fixture', variant_label: '350 мл', amount_minor: 12345, currency: 'UAH', available_quantity: product.available, can_sell: true, blocking_reasons: [], image_url: '/pos-fixture.svg' }
   await page.route('**/pos-fixture.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="white"/><rect x="18" y="8" width="20" height="40" rx="4" fill="seagreen"/></svg>' }))
-  let submitted: any
+  const submitted: Array<{ body: Record<string, unknown>, key?: string }> = []
+  let checkout: Record<string, unknown> | null = null
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
   await page.route('**/api/v1/**', route => {
-    const path = new URL(route.request().url()).pathname
+    const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/pos-capabilities')) return route.fulfill({ json: { mode: 'local_only', can_prepare: true, simulation_available: true, blocking_reasons: [] } })
-    if (path.endsWith('/inventory/stock')) return route.fulfill({ json: { items: [picturedProduct], total: 1 } })
-    if (path.endsWith('/backoffice/orders') && route.request().method() === 'POST') {
-      submitted = route.request().postDataJSON()
-      return route.fulfill({ json: order() })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: true, can_start: true, can_view_admin_sales: true, automatic_reconciliation_enabled: true, poll_after_ms: 30000, blocking_reasons: [] } })
+    if (path.endsWith('/pos/products')) return route.fulfill({ json: { items: [picturedProduct, { ...picturedProduct, id: 9, name: 'Unavailable product', available_quantity: 0, can_sell: false }], total: 2, page: 1, page_size: 20 } })
+    if (path.endsWith('/pos/checkouts/active')) return route.fulfill({ json: { items: checkout ? [checkout] : [], total: checkout ? 1 : 0, page: 1, page_size: 20 } })
+    if (path.includes('/pos/checkouts/by-intent/')) return checkout ? route.fulfill({ json: checkout }) : route.fulfill({ status: 404, json: { detail: { code: 'missing' } } })
+    if (path.endsWith('/pos/checkouts') && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      submitted.push({ body, key: req.headers()['idempotency-key'] })
+      checkout = { checkout_id: '11111111-1111-4111-8111-111111111111', intent_id: body.intent_id, order_id: 321, revision: 1, created_at: '2026-11-06T12:00:00Z', employee: { user_id: user.id, master_id: null, display_name: 'Fixture seller' }, items: [{ product_id: product.id, name: product.name, sku: product.sku, barcode: product.barcode, image_url: picturedProduct.image_url, variant_label: picturedProduct.variant_label, quantity: 1, unit_minor: 12345, total_minor: 12345 }], amount_minor: 12345, currency: 'UAH', order_status: 'pending', status: 'awaiting_payment', payment: { provider: 'monobank', status: 'pending', invoice_id: 'synthetic-321', confirmed_at: null, qr_payload: 'https://pay.mbnk.biz/synthetic-321' }, receipt: { issuer: 'checkbox', status: 'not_requested', recorded_at: null, pdf_url: null }, handover: { status: 'not_ready', actor_user_id: null, handed_over_at: null }, actions: { can_resume: false, can_refresh: true, can_handover: false, can_recover_invoice: false, can_start_new: false }, poll_after_ms: 30000, blocking_reasons: [] }
+      return route.abort('failed')
     }
-    if (path.endsWith('/orders/321')) return route.fulfill({ json: order() })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
   await page.goto('/orders/pos')
-  const next = page.getByRole('button', { name: 'Перевірити суму', exact: true })
-  await expect(next).toBeDisabled()
-  await expect(page.getByLabel('Ім’я клієнта (необов’язково)')).not.toBeVisible()
-  await page.getByRole('button', { name: 'Знайти / сканувати товар' }).click()
-  await expect(page.getByLabel('Штрихкод', { exact: true })).not.toBeVisible()
-  await page.getByRole('button', { name: 'Сканувати', exact: true }).click()
-  await expect(page.getByLabel('Штрихкод', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Сховати сканер', exact: true }).click()
-  await expect(page.getByLabel('Штрихкод', { exact: true })).not.toBeVisible()
-  await page.getByLabel('Назва або SKU').fill('SKU-8')
-  await page.getByRole('button', { name: 'Пошук', exact: true }).click()
-  await expect(page.getByText(`Артикул: ${product.sku}`, { exact: true })).not.toBeVisible()
-  await expect(page.getByText(`Штрихкод: ${product.barcode}`, { exact: true })).not.toBeVisible()
-  const resultImage = page.getByRole('button', { name: `Додати: ${product.name}`, exact: true }).locator('img')
-  await expect(resultImage).toBeVisible()
-  await expect.poll(() => resultImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
-  await page.screenshot({ path: '/tmp/pos-mobile-compact-search.png', fullPage: true })
-  await page.getByRole('button', { name: `Додати: ${product.name}`, exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Знайти товар', exact: true })).not.toBeVisible()
-  const cartRow = page.locator('article').filter({ has: page.getByRole('heading', { name: product.name, exact: true }) })
-  await expect(cartRow.locator('img')).toBeVisible()
-  await expect.poll(() => cartRow.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
-  expect((await cartRow.boundingBox())!.height).toBeLessThan(150)
-  const quantity = page.getByRole('spinbutton', { name: `Кількість: ${product.name}` })
-  await page.getByRole('button', { name: `Збільшити кількість: ${product.name}` }).click()
-  await expect(quantity).toHaveValue('2')
-  await page.getByRole('button', { name: `Зменшити кількість: ${product.name}` }).click()
-  await expect(quantity).toHaveValue('1')
-  await quantity.fill('0')
-  await expect(next).toBeDisabled()
-  await expect(page.getByRole('alert')).toContainText('цілу кількість')
-  await quantity.fill('1')
-  await page.getByText('Клієнт і промокод · необов’язково', { exact: true }).click()
-  await expect(page.getByLabel('Телефон (необов’язково)')).toHaveAttribute('type', 'tel')
-  await page.getByLabel('Телефон (необов’язково)').fill('+380501234567')
+  await expect(page.getByLabel('Ім’я клієнта (необов’язково)')).toHaveCount(0)
+  await expect(page.getByRole('spinbutton')).toHaveCount(0)
+  expect(submitted).toHaveLength(0)
+  await page.getByLabel('Знайти товар', { exact: true }).fill('SKU-8')
+  await page.getByLabel('Знайти товар', { exact: true }).press('Enter')
+  const available = page.getByRole('button', { name: /Продати: Fixture shampoo/ })
+  await expect(page.getByRole('button', { name: /Продати: Unavailable product/ })).toBeDisabled()
+  await expect.poll(() => available.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(submitted).toHaveLength(0)
+  await available.click()
+  await expect(page.getByRole('button', { name: 'Відновити цей продаж', exact: true })).toBeVisible()
+  expect(submitted).toHaveLength(1)
+  const intent = submitted[0].body.intent_id
+  expect(submitted[0].body).toEqual({ intent_id: intent, product_id: 8, quantity: 1, expected_amount_minor: 12345, currency: 'UAH' })
+  expect(submitted[0].key).toMatch(/^[0-9a-f-]{36}$/)
+  await page.reload()
+  await expect(page.getByRole('img', { name: 'QR для оплати mono' })).toBeVisible()
+  await expect(page).toHaveURL(/orders\/pos$/)
+  await expect.poll(() => page.locator('[aria-label="Поточний продаж"]').locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(submitted).toHaveLength(1)
   for (const width of [320, 360, 390]) {
     await page.setViewportSize({ width, height: 780 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
-  await page.getByRole('button', { name: `Прибрати: ${product.name}` }).click()
-  await expect(next).toBeDisabled()
-  await expect(page.getByText('Додайте перший товар', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Знайти / сканувати товар' }).click()
-  await page.getByLabel('Назва або SKU').fill('SKU-8')
-  await page.getByRole('button', { name: 'Пошук', exact: true }).click()
-  await expect(page.getByText(`Артикул: ${product.sku}`, { exact: true })).not.toBeVisible()
-  await expect(page.getByText(`Штрихкод: ${product.barcode}`, { exact: true })).not.toBeVisible()
-  await page.getByRole('button', { name: `Додати: ${product.name}`, exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Знайти товар', exact: true })).not.toBeVisible()
-  await next.scrollIntoViewIfNeeded()
-  await page.screenshot({ path: '/tmp/pos-ui-mobile.png', fullPage: true })
-  await next.click()
-  await expect(page).toHaveURL(/orders\/321$/)
-  expect(submitted).toEqual({ items: [{ product_id: 8, quantity: 1 }], customer_phone: '+380501234567', fulfillment_method: 'pickup', simulation: false })
+  await expect(page.getByRole('button', { name: 'Товар видано', exact: true })).toHaveCount(0)
+  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-suite-quick-pos-mobile.png', fullPage: true })
 })
 
 
@@ -237,7 +202,7 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
   await expect.poll(() => picturedItem.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
   const itemWithoutPhoto = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Помада Reuzel Blue', exact: true }) })
   await expect(itemWithoutPhoto.locator('img')).toHaveCount(0)
-  await page.screenshot({ path: '/tmp/order-detail-desktop.png', fullPage: true })
+  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-desktop.png', fullPage: true })
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
   await expect(page.getByRole('table', { name: 'Позиції замовлення' })).toBeVisible()
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
@@ -253,7 +218,7 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
     expect(Math.abs(payment!.y - fulfillment!.y)).toBeLessThan(2)
     expect((await summary.boundingBox())!.height).toBeLessThan(290)
   }
-  await page.screenshot({ path: '/tmp/order-detail-mobile.png', fullPage: true })
+  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-mobile.png', fullPage: true })
 })
 
 

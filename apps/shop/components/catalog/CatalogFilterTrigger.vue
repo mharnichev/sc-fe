@@ -19,57 +19,20 @@ const { terms } = useShopLocale()
     :disabled="disabled"
     :aria-label="terms.catalog.filters"
   >
-    <BaseIcon name="filter" size="xs" />
+    <BaseIcon name="filter" size="xxs" />
+    <span>{{ terms.catalog.filters }}</span>
     <span v-if="count" class="catalog-filter-trigger__count">{{ count }}</span>
   </BaseButton>
 </template>
 
 <style scoped>
 .catalog-filter-trigger {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0;
-  border-color: #0a0a0a;
-  border-radius: 4px;
-  box-shadow: none;
-}
-
-.catalog-filter-trigger :deep(svg) {
-  color: #ffffff;
-}
-
-.catalog-filter-trigger:hover :deep(svg),
-.catalog-filter-trigger:focus-visible :deep(svg) {
-  color: #0a0a0a;
-}
-
-.catalog-filter-trigger :deep(.sc-button__text) {
-  width: 100%;
-  height: 100%;
+  min-height: 2.5rem;
+  padding-inline: 0.65rem;
 }
 
 .catalog-filter-trigger__count {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  display: inline-flex;
-  min-width: 1rem;
-  height: 1rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: #0a0a0a;
-  color: #ffffff;
-  font-size: 0.625rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-@media (min-width: 1024px) {
-  .catalog-filter-trigger {
-    display: none;
-  }
+  font-size: 0.7em;
+  opacity: 0.8;
 }
 </style>

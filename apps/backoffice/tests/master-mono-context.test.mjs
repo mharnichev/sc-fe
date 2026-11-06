@@ -192,27 +192,38 @@ test('changing from barber to administrator releases stale master ownership and 
 })
 
 const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
-  const auth = vue.reactive({ user: { id: 1, role: actor, is_active: true, can_record_sales: true, can_accept_qr_payments: true }, accessToken: 'token-A' })
-  const calls = [], values = new Map(), unmount = []
+  const auth = vue.reactive({ user: { id: 1, role: actor, is_superuser: actor === 'admin', is_active: true, can_record_sales: true, can_accept_qr_payments: true }, accessToken: 'token-A' })
+  const calls = [], values = new Map()
   Object.assign(globalThis, vue, {
-    useAuthStore: () => auth, useAssetUrl: () => String,
-    useBackofficeAccess: () => ({ isBarber: vue.computed(() => auth.user.role === 'barber'), isAdmin: vue.computed(() => auth.user.role === 'admin') }),
-    useBackofficeApi: () => ({ getPosCapabilities: async () => ({ mode: 'mono_checkbox', can_prepare: true, simulation_available: true, live_qr_available: live }), createPosOrder: async (body, key) => { calls.push({ body, key }); return { id: 321 } } }),
-    useAsyncData: async (_key, handler) => ({ data: vue.ref(await handler()), error: vue.ref(null), refresh: async () => {} }),
-    navigateTo: async () => {}, onBeforeUnmount: fn => unmount.push(fn),
+    useAuthStore: () => auth,
+    window: { addEventListener() {}, removeEventListener() {} }, setTimeout: () => 1, clearTimeout() {},
     localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
+    useApi: () => async (path, options = {}) => {
+      if (path.endsWith('/capabilities')) return { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: live, can_start: live, can_view_admin_sales: actor === 'admin', automatic_reconciliation_enabled: true, poll_after_ms: 3000, blocking_reasons: [] }
+      if (options.method !== 'POST') return { items: [], total: 0, page: 1, page_size: 20 }
+      calls.push({ body: options.body, key: options.headers['Idempotency-Key'] })
+      return { checkout_id: '22222222-2222-4222-8222-222222222222', intent_id: options.body.intent_id, order_id: 321, revision: 1, employee: { user_id: 1, master_id: actor === 'barber' ? 11 : null, display_name: actor }, currency: 'UAH', amount_minor: 12345, items: [{ product_id: 8, quantity: 1, total_minor: 12345 }], status: 'awaiting_payment', payment: { provider: 'monobank', status: 'pending', invoice_id: 'synthetic', qr_payload: 'https://pay.mbnk.biz/synthetic' }, receipt: { issuer: 'checkbox', status: 'not_requested' }, handover: { status: 'not_ready' }, actions: { can_resume: false, can_refresh: true, can_handover: false, can_recover_invoice: false, can_start_new: false }, poll_after_ms: 3000 }
+    },
   })
-  const source = await readFile(new URL('../pages/orders/pos.vue', import.meta.url), 'utf8')
-  const script = source.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
-  const scope = vue.effectScope(), page = await scope.run(() => importSource(script + '\nexport { rows, simulation, saleSimulation, canPrepare, prepare };'))
-  page.rows.value.push({ product: { id: 8 }, quantity: 1 })
-  return { page, calls, stop: () => { unmount.forEach(fn => fn()); scope.stop() } }
+  const module = await importSource((await readFile(new URL('../composables/usePosSale.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true'))
+  const scope = vue.effectScope(), page = scope.run(() => module.usePosSale())
+  await page.init()
+  const offer = { id: 8, name: 'Synthetic', currency: 'UAH', amount_minor: 12345, available_quantity: 1, can_sell: true }
+  return { page, calls, offer, stop: () => scope.stop() }
 }
-test('master POS prepares a real order and requires explicit live capability', async () => {
-  const disabled = await setupPos({ live: false }); await disabled.page.prepare(); assert.deepEqual(disabled.calls, []); disabled.stop()
-  const state = await setupPos(); state.page.simulation.value = true
-  assert.equal(state.page.saleSimulation.value, false); await state.page.prepare()
-  assert.equal(state.calls.length, 1); assert.equal(state.calls[0].body.simulation, false); assert.ok(state.calls[0].key); state.stop()
+test('master and admin use the same capability-gated live quantity-one checkout without impersonation', async () => {
+  const disabled = await setupPos({ live: false }); await disabled.page.selectOffer(disabled.offer); assert.deepEqual(disabled.calls, []); disabled.stop()
+  for (const actor of ['barber', 'admin']) {
+    const state = await setupPos({ actor })
+    assert.equal(state.calls.length, 0)
+    await state.page.selectOffer(state.offer)
+    assert.equal(state.calls.length, 1)
+    assert.deepEqual(Object.keys(state.calls[0].body).sort(), ['currency', 'expected_amount_minor', 'intent_id', 'product_id', 'quantity'])
+    assert.equal(state.calls[0].body.quantity, 1); assert.ok(state.calls[0].key)
+    assert.equal(state.page.checkout.value.employee.user_id, 1)
+    assert.equal(state.page.checkout.value.employee.master_id, actor === 'barber' ? 11 : null)
+    state.stop()
+  }
 })
 
 const setupHandoverPage = async ({ lostReply = false } = {}) => {

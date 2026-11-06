@@ -21,17 +21,18 @@ visit(parseTemplate(descriptor.template.content))
 const directive = (node, name) => node.props.find(prop => prop.type === 7 && prop.name === name)
 const className = node => node.props.find(prop => prop.name === 'class')?.value?.content
 
-test('ordinary catalog renders localized breadcrumbs and one screen-reader H1', () => {
+test('ordinary catalog renders localized breadcrumbs and one visible category H1', () => {
   const crumb = nodes.find(node => node.tag === 'CatalogBreadcrumbs')
   assert.equal(directive(crumb, 'if').exp.content, '!topOnly && !saleOnly')
-  assert.equal(directive(crumb, 'bind').exp.content, "[{ id: 0, slug: 'catalog', name: terms.catalog.title }]")
+  assert.equal(directive(crumb, 'bind').exp.content, "[{ id: 0, slug: 'catalog', name: categoryName }]")
   const headings = nodes.filter(node => node.tag === 'h1')
   assert.equal(headings.length, 2)
-  const hidden = headings.find(node => directive(node, 'if'))
-  assert.equal(directive(hidden, 'if').exp.content, '!topOnly && !saleOnly')
-  assert.equal(className(hidden), 'sr-only')
-  assert.equal(hidden.children.find(node => node.type === 5).content.content, 'terms.catalog.title')
-  assert.ok(!hidden.props.some(prop => ['hidden', 'aria-hidden'].includes(prop.name)))
+  const header = nodes.find(node => className(node) === 'catalog-route__category-header')
+  assert.equal(directive(header, 'if').exp.content, '!topOnly && !saleOnly')
+  const heading = header.children.find(node => node.tag === 'h1')
+  assert.equal(className(heading), 'section-title type-title-strong')
+  assert.equal(heading.children.find(node => node.type === 5).content.content, 'categoryName')
+  assert.ok(!heading.props.some(prop => ['hidden', 'aria-hidden'].includes(prop.name)))
 })
 
 test('popular keeps its visible heading and description without catalog breadcrumbs', () => {
@@ -48,7 +49,6 @@ test('popular keeps its visible heading and description without catalog breadcru
 
 test('sale has its own localized visible title and keeps ordinary category cards off sale', () => {
   assert.match(read('pages/sale.vue'), /<CatalogAllGoodsRoute sale-only\s*\//)
-  const cards = nodes.find(node => node.tag === 'CatalogCategoryCards')
-  assert.equal(directive(cards, 'if').exp.content, '!topOnly && !saleOnly && !category && !brand && !query')
+  assert.equal(nodes.filter(node => node.tag === 'CatalogCategoryCards').length, 0)
   assert.match(source, /props\.saleOnly \? saleTitle\.value/)
 })

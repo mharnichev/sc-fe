@@ -37,7 +37,7 @@ export const categoryPathBySegments = (
   if (!path.length) return []
 
   const pathSegments = path.map(category => category.slug)
-  return cleanSegments.every((segment, index) => pathSegments[index] === segment) ? path : []
+  return cleanSegments.length === pathSegments.length && cleanSegments.every((segment, index) => pathSegments[index] === segment) ? path : []
 }
 
 export const categoryLandingPath = (path: CategoryTreeNodeDto[] | string[]) => {
@@ -55,7 +55,7 @@ export const categoryPathForNode = (
   category: Pick<CategoryTreeNodeDto, 'slug'>,
 ) => categoryPathBySlug(nodes, category.slug)
 
-export const categoryDestination = (
+const legacyCategoryDestination = (
   nodes: CategoryTreeNodeDto[],
   category: CategoryTreeNodeDto,
 ) => {
@@ -79,4 +79,15 @@ export const categoryGoodsDestination = (
   }
 
   return { path: categoryGoodsPath(path) }
+}
+
+export function categoryDestination(slug: string, type?: string): string
+export function categoryDestination(nodes: CategoryTreeNodeDto[], category: CategoryTreeNodeDto): ReturnType<typeof legacyCategoryDestination>
+export function categoryDestination(target: string | CategoryTreeNodeDto[], categoryOrType?: string | CategoryTreeNodeDto) {
+  if (typeof target === 'string') {
+    const type = typeof categoryOrType === 'string' ? categoryOrType : undefined
+    return `/catalog?category=${encodeURIComponent(target)}${type ? `&type=${encodeURIComponent(type)}` : ''}`
+  }
+  if (typeof categoryOrType === 'object') return legacyCategoryDestination(target, categoryOrType)
+  throw new Error('Category is required')
 }

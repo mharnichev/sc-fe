@@ -38,9 +38,9 @@ export const useApi = () => {
       if (options.body && !(path === '/public/orders' && method === 'POST')) {
         options.body = safeRequestBody(path, method, options.body) as typeof options.body
       }
-      if (options.query && (/^\/public\/delivery\/np\//.test(path) || path === '/public/products/search' || path.endsWith('/products'))) {
+      if (options.query && (/^\/public\/delivery\/np\//.test(path) || path === '/public/products/search' || path === '/public/products/catalog' || path.endsWith('/products'))) {
         options.query = { ...options.query }
-        if ('q' in options.query) options.query.q = sanitizeInput(options.query.q, 'search').trim()
+        if (options.query.q != null) options.query.q = sanitizeInput(options.query.q, 'search').trim()
         if ('search' in options.query) options.query.search = sanitizeInput(options.query.search, 'search').trim()
       }
       const cooldown = requestCooldown(path, method)

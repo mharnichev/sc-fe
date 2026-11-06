@@ -29,9 +29,18 @@ async function setup(page: Page, options: { permissionDenied?: boolean, unknown?
     // detection are mocked, while the component lifecycle is exercised intact.
     Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', { configurable: true, writable: true, value: null })
     HTMLMediaElement.prototype.play = async () => {}
-    ;(window as unknown as { BarcodeDetector: unknown }).BarcodeDetector = class {
-      static async getSupportedFormats() { return ['ean_13', 'ean_8'] }
-      async detect() { return state.recognize ? [{ rawValue: code }] : [] }
+    Object.defineProperties(HTMLVideoElement.prototype, {
+      videoWidth: { configurable: true, get: () => 1280 },
+      videoHeight: { configurable: true, get: () => 720 },
+      readyState: { configurable: true, get: () => 4 },
+    })
+    CanvasRenderingContext2D.prototype.drawImage = () => {}
+    // Lifecycle tests mock the worker boundary; actual WASM pixels are tested separately.
+    ;(window as unknown as { Worker: unknown }).Worker = class {
+      onmessage?: (event: { data: unknown }) => void
+      constructor() { setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }), 0) }
+      postMessage() { setTimeout(() => this.onmessage?.({ data: { type: 'result', barcode: state.recognize ? code : null } }), 0) }
+      terminate() {}
     }
   }, { user, permissionDenied: options.permissionDenied || false, code })
   await page.route('**/*', async route => {
@@ -93,11 +102,13 @@ for (const browserName of ['chromium', 'webkit'] as const) {
       await expect.poll(async () => (await state()).acquired).toBe(1)
       await page.evaluate(() => { (window as unknown as { cameraTest: { recognize: boolean } }).cameraTest.recognize = true })
       await expect(page.getByRole('dialog')).toBeHidden()
-      await expect.poll(() => lookups.length).toBe(1)
-      expect(lookups).toEqual([code])
+      // Leading-zero EAN is checked for the stored UPC representation before submission.
+      await expect.poll(() => lookups.length).toBe(2)
+      expect(lookups).toEqual([code, code])
       expect((await state()).stopped).toBe(1)
       await page.getByRole('button', { name: 'Сканувати', exact: true }).click()
-      await expect.poll(() => lookups.length).toBe(2)
+      await expect.poll(() => lookups.length).toBe(4)
+      expect(lookups).toEqual([code, code, code, code])
       expect((await state()).stopped).toBe(2)
       await expect(page.getByRole('spinbutton', { name: 'Кількість', exact: true })).toHaveValue('2')
       await expect(page.getByRole('button', { name: 'Прийняти товари', exact: true })).toHaveCount(0)

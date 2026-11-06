@@ -1,29 +1,13 @@
 <script setup lang="ts">
-import type { CategoryFilterGroupDto, CategoryTreeNodeDto } from '@shared-types'
+import type { LocationQueryRaw } from 'vue-router'
+import type { CategoryFilterGroupDto } from '@shared-types'
 import { isMonochromeBrandLogo, localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
+import { categoryPathBySlug } from '~/utils/category-routing'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 
-const { categoryDisplayName } = useCategoryDisplay()
+const { categoryDisplayName, categoryDisplayDescription } = useCategoryDisplay()
 
 const DEFAULT_LIMIT = 20
-const reservedQueryKeys = new Set([
-  'page',
-  'page_size',
-  'limit',
-  'offset',
-  'category',
-  'brand',
-  'q',
-  'sort',
-  'ordering',
-  'priceMin',
-  'priceMax',
-  'price_min',
-  'price_max',
-  'is_top',
-  'has_discount',
-])
-
 const props = withDefaults(defineProps<{
   topOnly?: boolean
   saleOnly?: boolean
@@ -38,6 +22,7 @@ const domain = useCatalogDomain()
 const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
+const shopAsset = useShopAsset()
 const saleTitle = computed(() => locale.value === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
 const saleDescription = computed(() => locale.value === 'uk' ? 'Товари з актуальними знижками та спеціальними цінами.' : 'Products with current discounts and special prices.')
 const catalogKeyPrefix = props.saleOnly ? 'shop-sale' : props.topOnly ? 'shop-top' : 'shop-catalog'
@@ -55,49 +40,46 @@ const readIntegerQuery = (value: unknown, fallback: number) => {
   return Number.isFinite(numeric) && numeric >= 0 ? Math.floor(numeric) : fallback
 }
 
-const limit = ref(readIntegerQuery(route.query.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT)
-const offset = ref(readIntegerQuery(route.query.offset, 0))
-const ordering = ref(
-  readQueryValue(route.query.ordering)
-  || readQueryValue(route.query.sort)
-  || (props.topOnly ? '-is_top' : ''),
-)
-const query = ref(readQueryValue(route.query.q))
-const category = ref(readQueryValue(route.query.category))
-const brand = ref(category.value ? '' : readQueryValue(route.query.brand))
-const priceMin = ref(readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min))
-const priceMax = ref(readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max))
-const selectedFilters = reactive<Record<string, string[]>>({})
+const filterDraft = ref<LocationQueryRaw | null>(null)
+const filterQuery = computed(() => filterDraft.value ?? route.query)
+
+const limit = computed(() => Math.min(100, readIntegerQuery(filterQuery.value.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT))
+const offset = computed(() => readIntegerQuery(filterQuery.value.offset, 0))
+const ordering = computed(() => readQueryValue(filterQuery.value.ordering) || readQueryValue(filterQuery.value.sort) || (props.topOnly ? '-is_top' : ''))
+const query = computed(() => readQueryValue(filterQuery.value.q))
+const category = computed(() => readQueryValue(filterQuery.value.category))
+const types = computed(() => readQueryList(filterQuery.value.type))
+const selectedBrands = computed(() => readQueryList(filterQuery.value.brand))
+const priceMin = ref('')
+const priceMax = ref('')
 const isFilterDrawerOpen = ref(false)
+const isSortOpen = ref(false)
 let applyTimer: ReturnType<typeof setTimeout> | undefined
 
-const readSelectedFiltersFromRoute = (categorySlug: string) => {
-  const filters: Record<string, string[]> = {}
-  for (const [key, value] of Object.entries(route.query)) {
-    if (!reservedQueryKeys.has(key) || (key === 'brand' && categorySlug)) {
-      const values = readQueryList(value)
-      if (values.length) filters[key] = values
-    }
-  }
-  return filters
+const resetFilterDraft = () => {
+  filterDraft.value = null
+  if (applyTimer) clearTimeout(applyTimer)
+  applyTimer = undefined
+  priceMin.value = readQueryValue(filterQuery.value.priceMin ?? filterQuery.value.price_min)
+  priceMax.value = readQueryValue(filterQuery.value.priceMax ?? filterQuery.value.price_max)
 }
 
-const syncSelectedFiltersFromRoute = () => {
-  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
-  Object.assign(selectedFilters, readSelectedFiltersFromRoute(category.value))
-}
-
-syncSelectedFiltersFromRoute()
+watch(isFilterDrawerOpen, (open) => {
+  if (!open) resetFilterDraft()
+})
+watch(() => route.fullPath, () => {
+  isFilterDrawerOpen.value = false
+  resetFilterDraft()
+}, { immediate: true })
 
 const [{ data: categoryTree }, { data: brands }] = await Promise.all([
   useAsyncData('shop-category-tree-all-goods', domain.getCategoryTree),
   useAsyncData('shop-brands-all-goods', () => domain.getBrands({ hasActiveProducts: true })),
 ])
 
-const brandSlugs = computed(() => new Set((brands.value || []).map(item => item.slug)))
 const selectedBrand = computed(() =>
-  !category.value && brand.value
-    ? (brands.value || []).find(item => item.slug === brand.value) || null
+  !category.value && selectedBrands.value.length === 1
+    ? (brands.value || []).find(item => item.slug === selectedBrands.value[0]) || null
     : null,
 )
 const selectedBrandLogoUrl = computed(() => {
@@ -105,7 +87,7 @@ const selectedBrandLogoUrl = computed(() => {
   if (!selected) return ''
 
   return resolveApiAssetUrl(selected.logo_url, String(config.public.apiBase), requestUrl.origin)
-    || localBrandLogoUrl(selected.slug)
+    || shopAsset(localBrandLogoUrl(selected.slug))
 })
 const selectedBrandLogoMaskStyle = computed(() => ({
   '--brand-logo-url': `url(${JSON.stringify(selectedBrandLogoUrl.value)})`,
@@ -132,277 +114,177 @@ const selectedBrandWebsite = computed(() => {
 
   return selected.website || ''
 })
-const isBrandCategoryBranch = (node: CategoryTreeNodeDto) =>
-  node.slug === 'brendi'
-  || node.name.trim().toLocaleUpperCase('uk-UA') === 'БРЕНДИ'
-  || (node.children.length > 0 && node.children.every(child => brandSlugs.value.has(child.slug)))
-
-const buildCategoryFilterGroups = (
-  nodes: CategoryTreeNodeDto[] = [],
-  isRoot = true,
-): CategoryFilterGroupDto[] => nodes.flatMap((node) => {
-  if (isBrandCategoryBranch(node)) return []
-
-  const directLeafValues = node.children
-    .filter(child => !child.children.length)
-    .map(child => ({ slug: child.slug, name: categoryDisplayName(child), count: 0 }))
-  const standaloneRootValues = isRoot && !node.children.length
-    ? [{ slug: node.slug, name: categoryDisplayName(node), count: 0 }]
-    : []
-  const values = directLeafValues.length ? directLeafValues : standaloneRootValues
-  const currentGroup: CategoryFilterGroupDto[] = values.length
-    ? [{ slug: `category:${node.slug}`, name: categoryDisplayName(node), values }]
-    : []
-
-  return [
-    ...currentGroup,
-    ...buildCategoryFilterGroups(node.children, false),
-  ]
-})
-
-const categoryFilterGroups = computed<CategoryFilterGroupDto[]>(() =>
-  buildCategoryFilterGroups(categoryTree.value || []),
+const categoryNodes = computed(() => categoryTree.value || [])
+const categoryNode = computed(() => categoryPathBySlug(categoryNodes.value, category.value).at(-1))
+const categoryName = computed(() => categoryNode.value ? categoryDisplayName(categoryNode.value) : terms.value.catalog.title)
+const categoryDescription = computed(() => categoryNode.value ? categoryDisplayDescription(categoryNode.value) : '')
+const introElement = ref<HTMLElement | null>(null)
+const introMeasure = ref<HTMLElement | null>(null)
+const introOverflows = ref(false)
+const introExpanded = ref(false)
+const introId = useId()
+watch(categoryDescription, () => { introExpanded.value = false })
+watch([introElement, introMeasure], ([container, measure], _previous, onCleanup) => {
+  if (!container || !measure) {
+    introOverflows.value = false
+    return
+  }
+  const updateOverflow = () => {
+    introOverflows.value = measure.offsetWidth > container.clientWidth
+    if (!introOverflows.value) introExpanded.value = false
+  }
+  updateOverflow()
+  const observer = new ResizeObserver(updateOverflow)
+  observer.observe(container)
+  observer.observe(measure)
+  onCleanup(() => observer.disconnect())
+}, { flush: 'post' })
+const sortOptions = computed(() => [
+  { label: locale.value === 'uk' ? 'За замовчуванням' : 'Default', value: '' },
+  { label: terms.value.catalog.sortOptions.newest, value: 'newest' },
+  { label: locale.value === 'uk' ? 'Спочатку давніші' : 'Oldest first', value: 'created_at' },
+  { label: terms.value.catalog.cheaper, value: 'price' },
+  { label: terms.value.catalog.moreExpensive, value: '-price' },
+  { label: terms.value.catalog.popular, value: '-is_top' },
+  { label: terms.value.catalog.sortOptions.name, value: 'name' },
+  { label: terms.value.catalog.sortOptions.nameDesc, value: '-name' },
+])
+const sortAliases: Record<string, string> = {
+  '-created_at': 'newest',
+  price_asc: 'price', cheap: 'price', cheaper: 'price',
+  price_desc: '-price', expensive: '-price',
+  name_asc: 'name', name_desc: '-name',
+  top: '-is_top', popular: '-is_top', '-popularity': '-is_top',
+}
+const displayedOrdering = computed(() => sortAliases[ordering.value] || ordering.value)
+const urlFlagCount = computed(() =>
+  ['in_stock', 'is_top', 'has_discount'].filter(key => readQueryValue(filterQuery.value[key])).length,
 )
-const brandFilterGroup = computed<CategoryFilterGroupDto>(() => ({
-  slug: 'brand',
-  name: terms.value.catalog.brand,
-  values: (brands.value || []).map(item => ({
-    slug: item.slug,
-    name: item.name,
-    count: 0,
-  })),
-}))
-
-const buildDynamicQuery = () =>
-  Object.fromEntries(
-    Object.entries(selectedFilters)
-      .filter(([, values]) => values.length > 0)
-      .map(([key, values]) => [key, values]),
-  )
-
-const buildApiQuery = () => ({
+const apiQuery = computed(() => ({
+  category: category.value || undefined,
+  type: types.value.length ? types.value : undefined,
+  brand: selectedBrands.value.length ? selectedBrands.value : undefined,
   q: query.value || undefined,
   limit: limit.value,
   offset: offset.value,
   ordering: ordering.value || undefined,
-  priceMin: priceMin.value || undefined,
-  priceMax: priceMax.value || undefined,
-  is_top: props.topOnly || undefined,
-  ...buildDynamicQuery(),
-  has_discount: props.saleOnly || undefined,
-})
+  priceMin: readQueryValue(filterQuery.value.priceMin ?? filterQuery.value.price_min) || undefined,
+  priceMax: readQueryValue(filterQuery.value.priceMax ?? filterQuery.value.price_max) || undefined,
+  in_stock: readQueryValue(filterQuery.value.in_stock) || undefined,
+  is_top: props.topOnly || readQueryValue(filterQuery.value.is_top) || undefined,
+  has_discount: props.saleOnly || readQueryValue(filterQuery.value.has_discount) || undefined,
+}))
 
-const buildRouteQuery = () => {
-  const nextQuery: Record<string, string> = {
-    limit: String(limit.value),
-    offset: String(offset.value),
-  }
-
-  if (ordering.value) nextQuery.ordering = ordering.value
-  if (query.value) nextQuery.q = query.value
-  if (category.value) nextQuery.category = category.value
-  if (brand.value && !category.value) nextQuery.brand = brand.value
-  if (priceMin.value) nextQuery.priceMin = priceMin.value
-  if (priceMax.value) nextQuery.priceMax = priceMax.value
-  for (const [key, values] of Object.entries(selectedFilters)) {
-    if (values.length) nextQuery[key] = values.join(',')
-  }
-
-  return nextQuery
-}
-
-const { data: categoryFacets, pending: filtersPending, refresh: refreshCategoryFacets } = await useAsyncData(
-  `${catalogKeyPrefix}-all-goods-facets`,
-  async () => category.value
-    ? await domain.getCategoryFilters(category.value, { is_top: props.topOnly || undefined, has_discount: props.saleOnly || undefined })
-    : { price: { min: null, max: null }, filters: {} },
-  { watch: [] },
-)
-
-const { data: productsPage, pending: productsPending, refresh: refreshProducts } = await useAsyncData(
+const { data: productsPage, pending: productsPending, error: productsError } = await useAsyncData(
   `${catalogKeyPrefix}-all-goods-products`,
-  () => category.value
-    ? domain.getCategoryProducts(category.value, buildApiQuery())
-    : domain.getProductsPage({
-        ...buildApiQuery(),
-        brand_slug: brand.value || undefined,
-      }),
-  { watch: [] },
+  () => domain.getCatalogPage(apiQuery.value),
+  { watch: [apiQuery], dedupe: 'cancel' },
 )
-
 const products = computed(() => productsPage.value?.items || [])
 const total = computed(() => productsPage.value?.total || 0)
-const facetGroups = computed<CategoryFilterGroupDto[]>(() => Object.values(categoryFacets.value?.filters || {}))
-const filterGroups = computed<CategoryFilterGroupDto[]>(() =>
-  category.value
-    ? [...categoryFilterGroups.value, ...facetGroups.value]
-    : [...categoryFilterGroups.value, brandFilterGroup.value],
-)
-const selectedCategoryGroup = computed(() =>
-  categoryFilterGroups.value.find(group => group.values.some(value => value.slug === category.value)),
-)
-const panelSelectedFilters = computed<Record<string, string[]>>(() => ({
-  ...selectedFilters,
-  ...(category.value && selectedCategoryGroup.value
-    ? { [selectedCategoryGroup.value.slug]: [category.value] }
-    : {}),
-  ...(!category.value && brand.value ? { brand: [brand.value] } : {}),
-}))
-const groupsWithoutCounts = computed(() =>
-  category.value
-    ? categoryFilterGroups.value.map(group => group.slug)
-    : [...categoryFilterGroups.value.map(group => group.slug), 'brand'],
-)
-const priceBounds = computed(() => categoryFacets.value?.price || null)
-const selectedFilterCount = computed(() =>
-  Object.values(selectedFilters).reduce((sum, values) => sum + values.length, 0)
-  + Number(Boolean(query.value))
-  + Number(Boolean(category.value))
-  + Number(Boolean(brand.value && !category.value))
-  + Number(Boolean(priceMin.value || priceMax.value)),
-)
-const isPending = computed(() => productsPending.value || filtersPending.value)
-
-const applyState = async () => {
-  if (applyTimer) {
-    clearTimeout(applyTimer)
-    applyTimer = undefined
+const priceBounds = computed(() => productsPage.value?.price || null)
+const filterGroups = computed<CategoryFilterGroupDto[]>(() => {
+  const facets = productsPage.value?.filters
+  const typeName = (slug: string, fallback: string) => {
+    const node = categoryPathBySlug(categoryNodes.value, slug).at(-1)
+    return node ? categoryDisplayName(node) : fallback
   }
+  const groups = [
+    {
+      slug: 'type',
+      name: terms.value.catalog.productType,
+      values: (facets?.type?.values || []).map(value => ({ ...value, name: typeName(value.slug, value.name) })),
+    },
+    { slug: 'brand', name: terms.value.catalog.brand, values: [...(facets?.brand?.values || [])] },
+  ]
+  for (const group of groups) {
+    for (const slug of group.slug === 'type' ? types.value : selectedBrands.value) {
+      if (!group.values.some(value => value.slug === slug)) {
+        group.values.push({
+          slug,
+          name: group.slug === 'type' ? typeName(slug, slug) : brands.value?.find(brand => brand.slug === slug)?.name || slug,
+          count: 0,
+        })
+      }
+    }
+  }
+  return [
+    ...(!category.value || categoryNode.value ? [{
+      slug: 'category',
+      name: terms.value.catalog.category,
+      values: (category.value && categoryNode.value ? [categoryNode.value] : categoryNodes.value.filter(node => node.slug !== 'brendi'))
+        .map(node => ({ slug: node.slug, name: categoryDisplayName(node), count: 0 })),
+    }] : []),
+    ...groups.filter(group => group.values.length),
+  ]
+})
+const quickTypes = computed(() => category.value || types.value.length
+  ? filterGroups.value.find(group => group.slug === 'type')?.values || []
+  : [])
+const panelSelectedFilters = computed(() => ({
+  ...(category.value ? { category: [category.value] } : {}),
+  ...(types.value.length ? { type: types.value } : {}),
+  ...(selectedBrands.value.length ? { brand: selectedBrands.value } : {}),
+}))
+const selectedFilterCount = computed(() => types.value.length + selectedBrands.value.length + urlFlagCount.value
+  + Number(Boolean(query.value)) + Number(Boolean(category.value)) + Number(Boolean(priceMin.value || priceMax.value)))
 
-  await router.replace({ path: route.path, query: buildRouteQuery() })
-  await refreshProducts()
-}
-
-const scheduleApplyState = () => {
+const updateQuery = (patch: Record<string, string | string[] | undefined>) => {
   if (applyTimer) clearTimeout(applyTimer)
-  applyTimer = setTimeout(() => void applyState(), 250)
+  applyTimer = undefined
+  const nextQuery = {
+    ...filterQuery.value,
+    offset: undefined,
+    priceMin: priceMin.value || undefined,
+    priceMax: priceMax.value || undefined,
+    price_min: undefined,
+    price_max: undefined,
+    ...patch,
+  }
+  if (isFilterDrawerOpen.value) {
+    filterDraft.value = nextQuery
+    priceMin.value = readQueryValue(nextQuery.priceMin)
+    priceMax.value = readQueryValue(nextQuery.priceMax)
+    return
+  }
+  return router.push({ path: route.path, query: nextQuery })
 }
 
-const resetOffset = () => {
-  offset.value = 0
-}
+const isFilterPreviewPending = computed(() => productsPending.value
+  || priceMin.value !== readQueryValue(filterQuery.value.priceMin ?? filterQuery.value.price_min)
+  || priceMax.value !== readQueryValue(filterQuery.value.priceMax ?? filterQuery.value.price_max))
 
-const updateBrand = (value: string) => {
-  brand.value = value
-  resetOffset()
-  scheduleApplyState()
-}
-
-const updateCategory = async (value: string) => {
-  category.value = value
-  brand.value = ''
-  priceMin.value = ''
-  priceMax.value = ''
-  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
-  resetOffset()
-  await refreshCategoryFacets()
-  await applyState()
-}
-
-const setOrdering = async (value: string) => {
-  ordering.value = value
-  resetOffset()
-  await applyState()
+const confirmFilters = async () => {
+  if (isFilterPreviewPending.value || productsError.value) return
+  if (filterDraft.value) {
+    const destination = { path: route.path, query: filterDraft.value }
+    if (router.resolve(destination).fullPath !== route.fullPath && await router.push(destination)) return
+  }
+  isFilterDrawerOpen.value = false
 }
 
 const setFilter = (group: string, value: string, checked: boolean) => {
-  if (group.startsWith('category:')) {
-    void updateCategory(checked ? value : '')
-    return
-  }
-
-  if (group === 'brand' && !category.value) {
-    updateBrand(checked ? value : '')
-    return
-  }
-
-  if (checked) selectedFilters[group] = [value]
-  else delete selectedFilters[group]
-  resetOffset()
-  void applyState()
+  if (group === 'category') return updateQuery({ category: checked ? value : undefined, type: undefined })
+  if (group !== 'type' && group !== 'brand') return
+  const current = group === 'type' ? types.value : selectedBrands.value
+  const values = checked ? [...new Set([...current, value])] : current.filter(item => item !== value)
+  return updateQuery({ [group]: values.length ? values : undefined })
 }
-
-const removeFilter = (group: string, value: string) => {
-  if (group.startsWith('category:')) {
-    void updateCategory('')
-    return
-  }
-
-  if (group === 'brand' && !category.value) {
-    updateBrand('')
-    return
-  }
-
-  const next = (selectedFilters[group] || []).filter(item => item !== value)
-  if (next.length) selectedFilters[group] = next
-  else delete selectedFilters[group]
-  resetOffset()
-  void applyState()
+const removeFilter = (group: string, value: string) => setFilter(group, value, false)
+const setOrdering = (value: string) => updateQuery({ ordering: value || undefined, sort: undefined })
+const clearFilters = () => updateQuery({
+  q: undefined, category: undefined, type: undefined, brand: undefined,
+  priceMin: undefined, priceMax: undefined, price_min: undefined, price_max: undefined,
+  in_stock: undefined, is_top: undefined, has_discount: undefined,
+})
+const scheduleApplyState = () => {
+  if (applyTimer) clearTimeout(applyTimer)
+  applyTimer = setTimeout(() => void updateQuery({}), 250)
 }
-
-const clearFilters = async () => {
-  query.value = ''
-  category.value = ''
-  brand.value = ''
-  priceMin.value = ''
-  priceMax.value = ''
-  for (const key of Object.keys(selectedFilters)) delete selectedFilters[key]
-  resetOffset()
-  await refreshCategoryFacets()
-  await applyState()
-}
-
 const changePage = async (page: number) => {
-  offset.value = (page - 1) * limit.value
-  await applyState()
+  await updateQuery({ offset: page > 1 ? String((page - 1) * limit.value) : undefined })
   if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
 }
-
-watch([priceMin, priceMax], resetOffset, { flush: 'sync' })
-
-watch(
-  () => route.fullPath,
-  async () => {
-    const nextQuery = readQueryValue(route.query.q)
-    const nextLimit = readIntegerQuery(route.query.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT
-    const nextOffset = readIntegerQuery(route.query.offset, 0)
-    const nextOrdering = readQueryValue(route.query.ordering)
-      || readQueryValue(route.query.sort)
-      || (props.topOnly ? '-is_top' : '')
-    const nextCategory = readQueryValue(route.query.category)
-    const nextBrand = nextCategory ? '' : readQueryValue(route.query.brand)
-    const nextPriceMin = readQueryValue(route.query.priceMin) || readQueryValue(route.query.price_min)
-    const nextPriceMax = readQueryValue(route.query.priceMax) || readQueryValue(route.query.price_max)
-    const nextFilters = readSelectedFiltersFromRoute(nextCategory)
-    const categoryChanged = nextCategory !== category.value
-    const stateChanged = nextLimit !== limit.value
-      || nextOffset !== offset.value
-      || nextOrdering !== ordering.value
-      || nextQuery !== query.value
-      || nextCategory !== category.value
-      || nextBrand !== brand.value
-      || nextPriceMin !== priceMin.value
-      || nextPriceMax !== priceMax.value
-      || JSON.stringify(nextFilters) !== JSON.stringify(selectedFilters)
-
-    if (!stateChanged) return
-
-    limit.value = nextLimit
-    ordering.value = nextOrdering
-    query.value = nextQuery
-    category.value = nextCategory
-    brand.value = nextBrand
-    priceMin.value = nextPriceMin
-    priceMax.value = nextPriceMax
-    // Restore URL pagination after synchronous price-change resets.
-    offset.value = nextOffset
-    syncSelectedFiltersFromRoute()
-
-    if (categoryChanged) await refreshCategoryFacets()
-    await refreshProducts()
-  },
-)
-
 onBeforeUnmount(() => {
   if (applyTimer) clearTimeout(applyTimer)
 })
@@ -418,25 +300,34 @@ useSeo(
     <div class="catalog-route__container">
       <CatalogBreadcrumbs
         v-if="!topOnly && !saleOnly"
-        :items="[{ id: 0, slug: 'catalog', name: terms.catalog.title }]"
+        :items="[{ id: 0, slug: 'catalog', name: categoryName }]"
       />
-      <h1 v-if="!topOnly && !saleOnly" class="sr-only">{{ terms.catalog.title }}</h1>
+      <header v-if="!topOnly && !saleOnly" class="catalog-route__category-header">
+        <h1 class="section-title type-title-strong">{{ categoryName }}</h1>
+        <div v-if="categoryDescription" ref="introElement" class="catalog-route__intro">
+          <span ref="introMeasure" class="catalog-route__intro-measure" aria-hidden="true">{{ categoryDescription }}</span>
+          <p :id="introId" :class="{ 'catalog-route__intro-collapsed': !introExpanded }">{{ categoryDescription }}</p>
+          <BaseButton
+            v-if="introOverflows"
+            type="button"
+            variant="text"
+            size="sm"
+            :aria-expanded="introExpanded"
+            :aria-controls="introId"
+            @click="introExpanded = !introExpanded"
+          >{{ introExpanded ? terms.catalog.collapse : terms.home.showMore }}</BaseButton>
+        </div>
+      </header>
 
       <div v-if="topOnly || saleOnly" class="catalog-route__title-wrapper">
         <div>
           <p v-if="topOnly" class="type-eyebrow type-eyebrow--wide text-xs">{{ terms.home.popularEyebrow }}</p>
-          <h1 class="catalog-route__title section-title type-title-strong" :class="{ 'catalog-route__title--sale': saleOnly }">
+          <h1 class="catalog-route__title section-title type-title-strong">
             <BaseScribbleOutline>{{ saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
           </h1>
           <p class="catalog-route__description">{{ saleOnly ? saleDescription : terms.home.popularDescription }}</p>
         </div>
       </div>
-
-      <CatalogCategoryCards
-        v-if="!topOnly && !saleOnly && !category && !brand && !query"
-        :categories="(categoryTree || []).filter(node => !isBrandCategoryBranch(node))"
-        :tree="categoryTree || []"
-      />
 
       <section v-if="selectedBrand" class="catalog-route__brand-info">
         <span v-if="selectedBrandLogoUrl" class="catalog-route__brand-logo">
@@ -476,96 +367,113 @@ useSeo(
         </div>
       </section>
 
+      <div
+        v-if="quickTypes.length"
+        class="catalog-route__quick-filters"
+        role="group"
+        :aria-label="terms.catalog.productTypes"
+        tabindex="0"
+      >
+        <BaseButton
+          v-for="type in quickTypes"
+          :key="type.slug"
+          class="catalog-route__type-chip"
+          type="button"
+          variant="outline-dark"
+          shape="pill"
+          size="sm"
+          :aria-pressed="types.includes(type.slug)"
+          @click="setFilter('type', type.slug, !types.includes(type.slug))"
+        >{{ type.name }}</BaseButton>
+      </div>
+
       <div class="catalog-route__head-side-bar">
-        <CatalogSortTabs
-          class="catalog-route__tab-list"
-          :model-value="ordering"
-          :disabled="productsPending"
-          @update:model-value="setOrdering"
-        />
-
         <div class="catalog-route__head-actions">
-          <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
-
+          <BaseButton
+            type="button"
+            variant="outline-dark"
+            size="sm"
+            :disabled="productsPending"
+            aria-haspopup="dialog"
+            :aria-expanded="isSortOpen"
+            @click="isSortOpen = true"
+          >
+            {{ terms.catalog.sort }}
+            <BaseIcon name="chevron-down" size="xxs" />
+          </BaseButton>
           <CatalogFilterTrigger
             :count="selectedFilterCount"
+            aria-haspopup="dialog"
+            :aria-expanded="isFilterDrawerOpen"
             @click="isFilterDrawerOpen = true"
           />
         </div>
+        <p class="catalog-route__count" aria-live="polite">{{ terms.catalog.productCount(total) }}</p>
       </div>
 
-      <div class="catalog-route__body">
-        <div class="catalog-route__left-side-bar-wrapper">
-          <CatalogFilterPanel
-            class="catalog-route__left-side-bar is-filtered"
-            :groups="filterGroups"
-            :price="priceBounds"
-            :selected-filters="panelSelectedFilters"
-            :price-min="priceMin"
-            :price-max="priceMax"
-            :pending="filtersPending"
-            :disabled="productsPending"
-            :show-price="Boolean(category)"
-            :hide-group-counts="groupsWithoutCounts"
-            :query="query"
-            @update:price-min="priceMin = $event"
-            @update:price-max="priceMax = $event"
-            @price-change="scheduleApplyState"
-            @toggle-filter="setFilter"
-            @remove-filter="removeFilter"
-            @clear="clearFilters"
-          />
-        </div>
+      <div class="catalog-route__content">
+        <CatalogProductGrid
+          :products="products"
+          :pending="productsPending"
+          :skeleton-count="limit"
+        />
 
-        <div class="catalog-route__content">
-          <CatalogProductGrid
-            :products="products"
-            :pending="productsPending"
-            :skeleton-count="limit"
-          />
+        <FeedbackState
+          v-if="!productsPending && (productsError || !products.length)"
+          class="catalog-route__empty"
+          kind="search"
+          :seed="String(route.fullPath)"
+          :title="productsError ? (locale === 'uk' ? 'Не вдалося завантажити товари' : 'Could not load products') : terms.catalog.empty"
+        />
 
-          <FeedbackState
-            v-if="!productsPending && !products.length"
-            class="catalog-route__empty"
-            kind="search"
-            :seed="String(route.fullPath)"
-            :title="terms.catalog.empty"
-          />
-
-          <CatalogPagination
-            :total="total"
-            :limit="limit"
-            :offset="offset"
-            :disabled="isPending"
-            @update:page="changePage"
-          />
-        </div>
+        <CatalogPagination
+          :total="total"
+          :limit="limit"
+          :offset="offset"
+          :disabled="productsPending"
+          @update:page="changePage"
+        />
       </div>
 
       <RecentlyViewedProducts class="catalog-route__recently-viewed" />
     </div>
 
+    <BaseModal v-model="isSortOpen" type="right" manage-focus>
+      <template #header-title>{{ terms.catalog.sort }}</template>
+      <div class="catalog-route__sort-options">
+        <BaseRadio
+          v-for="option in sortOptions"
+          :key="option.value"
+          name="catalog-ordering"
+          :label="option.label"
+          :value="option.value"
+          :model-value="displayedOrdering"
+          @update:model-value="isSortOpen = false; setOrdering(String($event))"
+        />
+      </div>
+    </BaseModal>
+
     <BaseModal
       v-model="isFilterDrawerOpen"
       full-height
-      type="bottom"
+      manage-focus
+      type="right"
       root-class="catalog-filter-drawer"
       content-type="secondary"
     >
       <template #header-title>{{ terms.catalog.filters }}</template>
-      <div class="catalog-route__mobile-filters">
-        <p class="catalog-route__count">{{ terms.catalog.productCount(total) }}</p>
+      <div class="catalog-route__drawer-filters">
         <CatalogFilterPanel
           :groups="filterGroups"
           :price="priceBounds"
           :selected-filters="panelSelectedFilters"
           :price-min="priceMin"
           :price-max="priceMax"
-          :pending="filtersPending"
-          :disabled="productsPending"
-          :show-price="Boolean(category)"
-          :hide-group-counts="groupsWithoutCounts"
+          :pending="productsPending && !productsPage"
+          :show-price="Boolean(priceBounds?.min != null && priceBounds?.max != null)"
+          :hide-group-counts="['category']"
           :query="query"
+          :has-extra-filters="urlFlagCount > 0"
           @update:price-min="priceMin = $event"
           @update:price-max="priceMax = $event"
           @price-change="scheduleApplyState"
@@ -574,6 +482,20 @@ useSeo(
           @clear="clearFilters"
         />
       </div>
+      <template #bottom-buttons>
+        <div class="catalog-route__filter-actions">
+          <BaseButton type="button" variant="outline-dark" @click="clearFilters">
+            {{ terms.catalog.clearAllFilters }}
+          </BaseButton>
+          <BaseButton
+            type="button"
+            :disabled="isFilterPreviewPending || Boolean(productsError)"
+            @click="confirmFilters"
+          >
+            {{ terms.catalog.viewAllResults }}: {{ isFilterPreviewPending || productsError ? '…' : total }}
+          </BaseButton>
+        </div>
+      </template>
     </BaseModal>
   </section>
 </template>
@@ -595,16 +517,6 @@ useSeo(
   align-items: center;
 }
 
-.catalog-route__title-wrapper > div {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.catalog-route__title--sale {
-  padding-inline: 0.4em;
-  overflow-wrap: anywhere;
-}
-
 .type-eyebrow + .catalog-route__title {
   margin-top: 0.4rem;
 }
@@ -617,53 +529,101 @@ useSeo(
   line-height: 1.6;
 }
 
+.catalog-route__category-header {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding-block: 0.75rem 0.5rem;
+}
+
+.catalog-route__intro {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+  overflow: hidden;
+  color: #525252;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.catalog-route__intro p {
+  min-width: 0;
+  flex: 1;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.catalog-route__intro p.catalog-route__intro-collapsed {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.catalog-route__intro-measure {
+  position: absolute;
+  width: max-content;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.catalog-route__intro .sc-button {
+  flex: 0 0 auto;
+  min-height: 1.5rem;
+  padding: 0;
+  text-transform: none;
+}
+
+.catalog-route__quick-filters {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.375rem 0.125rem 0.5rem;
+  scrollbar-width: thin;
+}
+
+.catalog-route__type-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.catalog-route__type-chip[aria-pressed="true"] {
+  background: #eeece7;
+}
+
 .catalog-route__head-side-bar {
   position: sticky;
   top: var(--shop-header-offset, 4.75rem);
   z-index: 5;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.375rem 0;
+  gap: 0.5rem;
+  padding: 0.375rem 0 0.625rem;
   background: #ffffff;
-  transition: top 300ms ease;
-}
-
-.catalog-route__tab-list {
-  flex: 0 1 auto;
+  transition: top 900ms cubic-bezier(0.55, 0.05, 0.75, 1);
 }
 
 .catalog-route__head-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.catalog-route__sort-options {
+  display: grid;
   gap: 0.75rem;
-  margin-left: auto;
+  padding: 0.75rem;
 }
 
-.catalog-route__body {
-  display: flex;
-  gap: 0.75rem;
-  padding-top: 0.75rem;
-}
-
-.catalog-route__left-side-bar-wrapper {
-  display: none;
-  width: 100%;
-  max-width: 280px;
-  flex: 0 0 280px;
-}
-
-.catalog-route__left-side-bar {
-  width: 280px;
-}
-
-.catalog-route__left-side-bar.is-filtered {
-  position: sticky;
-  top: 130px;
-  height: calc(100vh - 110px);
-  overflow-y: auto;
-  padding-bottom: 42px;
+.catalog-route__sort-options :deep(.base-choice) {
+  border-color: transparent;
 }
 
 .catalog-route__content {
@@ -751,38 +711,31 @@ useSeo(
   white-space: nowrap;
 }
 
-@media (max-width: 519px) {
-  .catalog-route__head-actions > .catalog-route__count {
-    display: none;
-  }
-}
-
 .catalog-route__empty {
   background: #ffffff;
   --feedback-state-surface: #ffffff;
   color: #0a0a0a;
 }
 
-.catalog-route__mobile-filters {
+.catalog-route__filter-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.catalog-route__filter-actions .sc-button {
+  min-width: 0;
+  padding-inline: 0.5rem;
+  white-space: normal;
+}
+
+.catalog-route__drawer-filters {
   padding: 0.5rem;
 }
 
 .catalog-route__recently-viewed {
   padding-top: 2rem;
-}
-
-@media (min-width: 1024px) {
-  .catalog-route__left-side-bar.is-filtered {
-    top: calc(var(--shop-header-offset, 4.75rem) + 3.75rem);
-    height: calc(100vh - var(--shop-header-offset, 4.75rem) - 3.75rem);
-    transition:
-      top 300ms ease,
-      height 300ms ease;
-  }
-
-  .catalog-route__left-side-bar-wrapper {
-    display: block;
-  }
 }
 
 @media (max-width: 575px) {

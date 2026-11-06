@@ -1,5 +1,9 @@
 export const paymentCopy = {
   uk: {
+    widgetTitle: 'Захищена оплата карткою', widgetFrame: 'Оплата через monobank',
+    widgetFallback: 'Відкрити сторінку оплати', widgetClose: 'Повернутись до замовлення',
+    widgetHint: 'Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.',
+
     option: 'Онлайн карткою', statusPage: 'Сторінка статусу оплати',
     title: 'Оплата замовлення', description: 'Захищений статус оплати замовлення', unavailable: 'Замовлення недоступне.',
     label: 'Онлайн-оплата', heading: 'Онлайн-оплата карткою', create: 'Перейти до оплати',
@@ -33,6 +37,10 @@ export const paymentCopy = {
     statuses: { not_started: 'Оплату ще не розпочато', creation_unknown: 'Уточнюємо стан оплати', waiting: 'Очікуємо оплату', paid_receipt_pending: 'Оплату отримано. Готуємо чек.', accepted: 'Оплату прийнято, чек готовий', requires_review: 'Стан оплати потребує уточнення' },
   },
   en: {
+    widgetTitle: 'Secure card payment', widgetFrame: 'Payment via monobank',
+    widgetFallback: 'Open payment page', widgetClose: 'Return to order',
+    widgetHint: 'If payment does not load, continue on the secure page for this same payment.',
+
     option: 'Pay online by card', statusPage: 'Payment status page',
     title: 'Order payment', description: 'Secure order payment status', unavailable: 'This order is unavailable.',
     label: 'Online payment', heading: 'Pay online by card', create: 'Proceed to payment',

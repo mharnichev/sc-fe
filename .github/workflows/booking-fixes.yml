@@ -1,7 +1,7 @@
 name: Booking availability and statistics
 on:
   push:
-    branches: [codex/booking-availability-statistics-20261103, codex/inventory-release-20261104]
+    branches: [codex/booking-availability-statistics-20261103, codex/inventory-release-20261104, codex/pos-combined-release-20261106]
   workflow_dispatch:
 permissions:
   contents: read
@@ -63,6 +63,9 @@ jobs:
         env:
           BOOKING_TEST_APP: ${{ matrix.app }}
         run: pnpm --filter @apps/backoffice exec playwright test --config playwright.booking-fixes.config.ts
+      - name: Verify POS and sales against the exact backoffice image
+        if: matrix.app == 'backoffice'
+        run: pnpm --filter @apps/backoffice exec playwright test --config playwright.sales-mock.config.ts --retries=0
       - name: Verify preview cleanup
         if: always()
         run: |

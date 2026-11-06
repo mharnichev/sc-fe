@@ -307,20 +307,7 @@ const toggleCart = async () => {
             </h3>
             <span ref="nameMeasure" class="catalog-product-tile__name-measure" aria-hidden="true">{{ productDisplayName(product) }}</span>
           </component>
-          <div class="catalog-product-tile__prices">
-            <meta itemprop="priceCurrency" content="UAH">
-            <p v-if="discount" class="catalog-product-tile__old-price">
-              {{ formatPrice(discount.compareAtPrice, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
-            </p>
-            <p
-              class="catalog-product-tile__price"
-              :class="{ 'catalog-product-tile__price--discount': discount }"
-              itemprop="price"
-            >
-              <span>{{ formatPrice(product.price, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}</span>
-              <small>{{ terms.catalog.currencyShort }}</small>
-            </p>
-          </div>
+
         </div>
         <div class="catalog-product-tile__details">
           <div class="catalog-product-tile__type-row">
@@ -328,7 +315,20 @@ const toggleCart = async () => {
             <p v-if="sku" class="catalog-product-tile__sku"><span class="catalog-product-tile__sku-text">{{ locale === 'uk' ? 'Код товару' : 'Product code' }}: {{ sku }}</span></p>
           </div>
           <div class="catalog-product-tile__details-row">
-            <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
+            <div class="catalog-product-tile__prices">
+              <meta itemprop="priceCurrency" content="UAH">
+              <p v-if="discount" class="catalog-product-tile__old-price">
+                {{ formatPrice(discount.compareAtPrice, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
+              </p>
+              <p
+                class="catalog-product-tile__price"
+                :class="{ 'catalog-product-tile__price--discount': discount }"
+                itemprop="price"
+              >
+                <span>{{ formatPrice(product.price, { currency: false, minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}</span>
+                <small>{{ terms.catalog.currencyShort }}</small>
+              </p>
+            </div>
             <div class="catalog-product-tile__bottom" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
               <meta itemprop="priceCurrency" content="UAH">
               <meta itemprop="price" :content="product.price">
@@ -368,7 +368,7 @@ const toggleCart = async () => {
         </div>
         <div class="catalog-product-tile__mobile-meta">
           <p class="catalog-product-tile__mobile-type">{{ productType }}</p>
-          <BaseBadge v-if="packageSize" class="catalog-product-tile__volume">{{ packageSize }}</BaseBadge>
+
         </div>
         <div class="catalog-product-tile__mobile-purchase-row">
           <div class="catalog-product-tile__prices">
@@ -676,7 +676,7 @@ const toggleCart = async () => {
 
 .catalog-product-tile__prices {
   flex: 0 0 auto;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -985,12 +985,12 @@ const toggleCart = async () => {
 
 .catalog-product-tile__price {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   align-items: baseline;
   gap: 0.25rem;
   color: #0a0a0a;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
@@ -1068,7 +1068,7 @@ const toggleCart = async () => {
   }
 
   .catalog-product-tile__name {
-    font-size: 1rem;
+    font-size: 14px;
   }
 
 }
@@ -1143,7 +1143,7 @@ const toggleCart = async () => {
     max-height: 2.6em;
     overflow: hidden;
     color: #262626;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     line-height: 1.3;
     overflow-wrap: anywhere;
@@ -1152,7 +1152,7 @@ const toggleCart = async () => {
   }
 
   .catalog-product-tile__mobile-name-text :deep(.base-hover-underline-text__content) {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .catalog-product-tile__mobile-meta {

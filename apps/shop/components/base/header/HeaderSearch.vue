@@ -269,6 +269,7 @@ defineExpose({ closeSearch })
       </button>
     </div>
 
+    <ClientOnly>
     <Teleport to="#shop-header-search-results" :disabled="variant === 'modal'" defer>
       <Transition name="search-panel">
         <div
@@ -301,6 +302,7 @@ defineExpose({ closeSearch })
         </div>
       </Transition>
     </Teleport>
+    </ClientOnly>
   </form>
 </template>
 

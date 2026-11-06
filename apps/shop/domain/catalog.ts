@@ -502,6 +502,15 @@ export const useCatalogDomain = () => {
     return mapProductPage(response, resolveAssetUrl)
   }
 
+  const getCatalogPage = async (query: CatalogQuery) => {
+    const response = await api<PaginatedResponse<PublicProductDto> & PublicCategoryFilters>(
+      '/public/products/catalog',
+      { query },
+    )
+
+    return { ...mapProductPage(response, resolveAssetUrl), ...mapCategoryFilters(response) }
+  }
+
   const getProducts = async (query: CatalogQuery = {}) => {
     const response = await getProductsPage(query)
 
@@ -510,6 +519,15 @@ export const useCatalogDomain = () => {
 
   const getProduct = async (slug: string) =>
     mapProduct(await api<PublicProductDto>(`/public/products/by-slug/${encodeURIComponent(slug)}`), resolveAssetUrl)
+
+  const getProductRecommendations = async (slug: string, signal: AbortSignal) => {
+    const { items } = await api<{ items: PublicProductDto[] }>(
+      `/public/products/by-slug/${encodeURIComponent(slug)}/recommendations`,
+      { signal, retry: 0 },
+    )
+
+    return items.map(product => mapProduct(product, resolveAssetUrl))
+  }
 
   const recordProductView = (productId: number) =>
     api<PublicProductViewResponse>(`/public/products/${productId}/view`, { method: 'POST' })
@@ -678,7 +696,9 @@ export const useCatalogDomain = () => {
   return {
     getProducts,
     getProductsPage,
+    getCatalogPage,
     getProduct,
+    getProductRecommendations,
     recordProductView,
     getCategories,
     getCategoryTree,

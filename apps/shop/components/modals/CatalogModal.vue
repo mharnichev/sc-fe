@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryTreeNodeDto } from '@shared-types'
+import type { BrandDto } from '@shared-types'
 import { isMonochromeBrandLogo, localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import { categoryDestination } from '~/utils/category-routing'
 
@@ -9,14 +9,10 @@ type CatalogNavLink = {
   en: string
   to: string
   kind?: 'brands'
-  category?: CategoryTreeNodeDto | null
 }
-
-const { categoryDisplayName } = useCategoryDisplay()
 
 const props = defineProps<{
   modelValue: boolean
-  initialCategories?: CategoryTreeNodeDto[]
 }>()
 
 const emit = defineEmits<{
@@ -28,11 +24,8 @@ const domain = useCatalogDomain()
 const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
-const { data: cachedCategories } = useNuxtData<CategoryTreeNodeDto[]>('shop-header-category-tree')
 const isShow = ref(false)
-const categories = ref<CategoryTreeNodeDto[]>(props.initialCategories || cachedCategories.value || [])
 const brands = ref<BrandDto[]>([])
-const activePath = ref<CategoryTreeNodeDto[]>([])
 const direction = ref<'forward' | 'back'>('forward')
 const showBrands = ref(false)
 const brandsLoading = ref(false)
@@ -55,35 +48,17 @@ const ERASE_MS = 45
 const PAUSE_MS = 1200
 const BRAND_SEARCH_DEBOUNCE_MS = 250
 const categoryLinks: CatalogNavLink[] = [
-  { slug: 'kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD', to: '/kosmetika/kosmetika-dlia-borodi' },
-  { slug: 'kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR', to: '/kosmetika/kosmetika-dlia-volossia' },
-  { slug: 'kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING', to: '/kosmetika/kosmetika-dlia-golinnia' },
-  { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY', to: '/kosmetika/kosmetika-dlia-tila' },
-  { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES', to: '/profesiini-grebeni-ta-shchitki/goods/' },
+  { slug: 'kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD', to: '' },
+  { slug: 'kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR', to: '' },
+  { slug: 'kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING', to: '' },
+  { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY', to: '' },
+  { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES', to: '' },
   { uk: 'БРЕНДИ', en: 'BRANDS', to: '', kind: 'brands' },
   { uk: 'Спеціальна пропозиція', en: 'Special offer', to: '/sale' },
 ]
 
-const findCategory = (nodes: CategoryTreeNodeDto[], slug?: string): CategoryTreeNodeDto | null => {
-  if (!slug) return null
-  for (const category of nodes) {
-    if (category.slug === slug) return category
-    const child = findCategory(category.children, slug)
-    if (child) return child
-  }
-  return null
-}
-
-const activeCategory = computed(() => showBrands.value ? null : activePath.value.at(-1) || null)
-const visibleCategories = computed(() => activeCategory.value?.children || [])
-const panelKey = computed(() => showBrands.value ? 'brands' : activePath.value.map(category => category.id).join('-') || 'root')
+const panelKey = computed(() => showBrands.value ? 'brands' : 'root')
 const transitionName = computed(() => `catalog-sidebar-${direction.value}`)
-const levelTitle = computed(() => showBrands.value ? terms.value.catalog.allBrands : (activeCategory.value ? categoryDisplayName(activeCategory.value) : '') || terms.value.header.popularNavigation)
-const navigationLinks = computed(() => categoryLinks.map(link => ({
-  ...link,
-  category: findCategory(categories.value, 'slug' in link ? link.slug : undefined),
-})))
-const loading = ref(false)
 const brandSamples = computed(() => brands.value.slice(0, 5).map(brand => brand.name))
 const animatedBrandPlaceholder = computed(() =>
   brandSearchInput.value
@@ -107,28 +82,6 @@ watch(brandSearchInput, (value) => {
     brandSearchDebounceTimer = undefined
   }, BRAND_SEARCH_DEBOUNCE_MS)
 })
-
-watch(() => props.initialCategories, (value) => {
-  if (value?.length) categories.value = value
-}, { immediate: true })
-
-watch(cachedCategories, (value) => {
-  if (value?.length) categories.value = value
-}, { immediate: true })
-
-const loadCategories = async () => {
-  if (categories.value.length || loading.value) return
-  loading.value = true
-  try {
-    categories.value = await domain.getCategoryTree()
-  }
-  catch {
-    // Keep the header categories available as direct links when the tree cannot load.
-  }
-  finally {
-    loading.value = false
-  }
-}
 
 const shopAsset = useShopAsset()
 const brandLogoUrl = (brand: BrandDto) =>
@@ -257,10 +210,8 @@ onBeforeUnmount(() => {
 watch(() => props.modelValue, (value) => {
   isShow.value = value
   if (value) {
-    activePath.value = []
     showBrands.value = false
     direction.value = 'forward'
-    void loadCategories()
   }
   else {
     showBrands.value = false
@@ -280,40 +231,7 @@ const hideCatalogModal = () => {
   modal.hideModal()
 }
 
-const goTo = async (to: string | ReturnType<typeof categoryDestination>) => {
-  hideCatalogModal()
-  await navigateTo(to)
-}
 
-const openCategory = async (category: CategoryTreeNodeDto, fallbackPath?: string) => {
-  if (category.children.length) {
-    direction.value = 'forward'
-    activePath.value = [...activePath.value, category]
-    return
-  }
-  await goTo(fallbackPath || categoryDestination(categories.value, category))
-}
-
-const openRootCategory = async (link: (typeof categoryLinks)[number] & { category: CategoryTreeNodeDto | null }) => {
-  if (link.kind === 'brands') {
-    await openBrands()
-    return
-  }
-  if (!link.category) {
-    await goTo(link.to)
-    return
-  }
-  await openCategory(link.category, link.to)
-}
-
-const goBack = () => {
-  if (showBrands.value) {
-    void leaveBrands()
-    return
-  }
-  direction.value = 'back'
-  activePath.value = activePath.value.slice(0, -1)
-}
 
 </script>
 
@@ -342,20 +260,17 @@ const goBack = () => {
         </BaseButton>
       </header>
 
-      <div v-if="loading && !categories.length" class="catalog-sidebar__state">
-        {{ terms.catalog.loadingCategories }}
-      </div>
-      <div v-else class="catalog-sidebar__viewport">
+      <div class="catalog-sidebar__viewport">
         <Transition :name="transitionName" mode="out-in" @after-enter="focusEnteredPanel">
           <section ref="panelElement" :key="panelKey" class="catalog-sidebar__panel">
             <button
-              v-if="activeCategory || showBrands"
+              v-if="showBrands"
               class="catalog-sidebar__back"
               type="button"
-              @click="goBack"
+              @click="leaveBrands"
             >
               <BaseIcon name="chevron-left" size="xxs" />
-              <span>{{ showBrands ? terms.home.brandsEyebrow : (activeCategory ? categoryDisplayName(activeCategory) : '') }}</span>
+              <span>{{ terms.home.brandsEyebrow }}</span>
             </button>
 
             <div
@@ -388,7 +303,7 @@ const goBack = () => {
                 {{ terms.common.retry }}
               </BaseButton>
             </div>
-            <div v-else-if="showBrands" class="catalog-sidebar__brand-results" :aria-label="levelTitle">
+            <div v-else-if="showBrands" class="catalog-sidebar__brand-results" :aria-label="terms.header.popularNavigation">
               <Transition name="catalog-sidebar__brand-results" mode="out-in">
                 <TransitionGroup
                   v-if="visibleBrands.length"
@@ -434,63 +349,29 @@ const goBack = () => {
               </Transition>
             </div>
 
-            <nav v-else class="catalog-sidebar__navigation" :aria-label="levelTitle">
+            <nav v-else class="catalog-sidebar__navigation" :aria-label="terms.header.popularNavigation">
               <ul :class="['catalog-sidebar__list', { 'catalog-sidebar__list--brands': showBrands }]">
-                <template v-if="!activeCategory && !showBrands">
-                  <li v-for="link in navigationLinks" :key="link.to">
-                    <button
-                      v-if="link.kind === 'brands'"
-                      ref="brandsTrigger"
-                      class="catalog-sidebar__item"
-                      type="button"
-                      @click="openRootCategory(link)"
-                    >
-                      <span>{{ link[locale] }}</span>
-                      <BaseIcon class="catalog-sidebar__chevron" name="chevron-right" size="xxs" />
-                    </button>
-                    <button
-                      v-else-if="link.category?.children.length"
-                      class="catalog-sidebar__item"
-                      type="button"
-                      @click="openRootCategory(link)"
-                    >
-                      <span>{{ link[locale] }}</span>
-                      <BaseIcon class="catalog-sidebar__chevron" name="chevron-right" size="xxs" />
-                    </button>
-                    <NuxtLink
-                      v-else
-                      class="catalog-sidebar__item"
-                      :class="{ 'catalog-sidebar__item--sale': link.to === '/sale' }"
-                      :to="link.to"
-                      @click="hideCatalogModal"
-                    >
-                      <span>{{ link[locale] }}</span>
-                    </NuxtLink>
-                  </li>
-                </template>
-
-                <template v-else-if="activeCategory">
-                  <li v-for="category in visibleCategories" :key="category.id">
+                <li v-for="link in categoryLinks" :key="link.slug || link.to">
                   <button
-                    v-if="category.children.length"
+                    v-if="link.kind === 'brands'"
+                    ref="brandsTrigger"
                     class="catalog-sidebar__item"
                     type="button"
-                    @click="openCategory(category)"
+                    @click="openBrands"
                   >
-                    <span>{{ categoryDisplayName(category) }}</span>
+                    <span>{{ link[locale] }}</span>
                     <BaseIcon class="catalog-sidebar__chevron" name="chevron-right" size="xxs" />
                   </button>
                   <NuxtLink
                     v-else
                     class="catalog-sidebar__item"
-                    :to="categoryDestination(categories, category)"
+                    :class="{ 'catalog-sidebar__item--sale': link.to === '/sale' }"
+                    :to="link.slug ? categoryDestination(link.slug) : link.to"
                     @click="hideCatalogModal"
                   >
-                    <span>{{ categoryDisplayName(category) }}</span>
+                    <span>{{ link[locale] }}</span>
                   </NuxtLink>
-                  </li>
-                </template>
-
+                </li>
               </ul>
             </nav>
           </section>

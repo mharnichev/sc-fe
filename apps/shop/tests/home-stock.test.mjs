@@ -9,7 +9,9 @@ test('home requests in-stock goods on initial load and load more', async () => {
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const calls = []
   const page = { items: [{ id: 1 }], total: 3 }
+  let pageMeta
   const context = {
+    definePageMeta: value => { pageMeta = value },
     useCatalogDomain: () => ({
       getProductsPage: async query => { calls.push(query); return page },
       getBrands: async () => [],
@@ -26,6 +28,7 @@ test('home requests in-stock goods on initial load and load more', async () => {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   }).outputText.replace(/export \{\};?/, '')
   await vm.runInNewContext(`(async () => { ${compiled}; await fetchGoods() })()`, context)
+  assert.equal(typeof pageMeta.middleware, 'function')
   const goodsCalls = calls.filter(query => !query.is_top)
   assert.equal(goodsCalls.length, 2)
   assert.equal(goodsCalls[0].in_stock, true)

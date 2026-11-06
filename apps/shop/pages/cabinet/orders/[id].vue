@@ -148,7 +148,7 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
 .order-detail__product { display: flex; gap: .75rem; align-items: center; min-width: 0; }
 .order-detail__item-copy { min-width: 0; }
 .order-detail__item-copy h3, .order-detail__item-copy p, .order-detail__item-meta dd, .order-detail__summary dd, .order-detail__fulfilment dd { overflow-wrap: anywhere; }
-.order-detail__item-copy h3 { font-size: 0.95rem; font-weight: 800; }
+.order-detail__item-copy h3 { font-size: 0.95rem; font-weight: 600; }
 .order-detail__item-copy p { margin-top: 0.25rem; color: #737373; font-size: 0.8rem; }
 .order-detail__item-meta, .order-detail__summary dl, .order-detail__fulfilment dl { display: grid; gap: 0.65rem; }
 .order-detail__item-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -159,7 +159,7 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
 .order-detail__summary .order-detail__total dt, .order-detail__summary .order-detail__total dd { color: #0a0a0a; font-size: 1rem; }
 .order-detail__tracking { font-family: monospace; }
 
-.order-detail__amount { margin-left: auto; background: #0a0a0a; color: white; border: 0; border-radius: .5rem; padding: .55rem .75rem; font-size: 1rem; font-weight: 800; text-transform: none; letter-spacing: normal; }
+.order-detail__amount { margin-left: auto; background: #0a0a0a; color: white; border: 0; border-radius: .5rem; padding: .55rem .75rem; font-size: 1rem; font-weight: 600; text-transform: none; letter-spacing: normal; }
 .order-detail__dates { flex-basis: 100%; }
 .order-detail__product :deep(.base-quantity-stepper) { flex-shrink: 0; }
 .order-detail__item-meta { display: flex; flex-wrap: wrap; gap: 1rem; padding-left: 0; }
@@ -171,4 +171,6 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
 .order-detail__product-link { display: flex; align-items: center; gap: .75rem; min-width: 0; color: inherit; text-decoration: none; }
 .order-detail__product-link:hover h3 { text-decoration: underline; text-underline-offset: .2em; }
 .order-detail__product-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.order-detail__item-meta dd, .order-detail__summary dd { font-weight: 600; }
 </style>

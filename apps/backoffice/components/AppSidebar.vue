@@ -103,6 +103,7 @@ const barberShopLinks = computed(() => [
     ? [
         { label: 'Дашборд барбершопу', to: '/admin/dashboards/barbershop', icon: HomeIcon },
         { label: 'Статистика', to: '/admin/statistics', icon: ChartBarSquareIcon },
+        ...(auth.user?.is_active && auth.user?.is_superuser ? [{ label: 'Продажі товарів', to: '/admin/product-sales', icon: ShoppingBagIcon }] : []),
         ...(auth.user?.is_active && auth.user?.is_superuser ? [{ label: 'Винагороди майстрів', to: '/admin/sales-rewards', icon: ChartBarSquareIcon }] : []),
         { label: 'Бронювання', to: '/bookings', icon: CalendarDaysIcon },
         { label: 'Майстри', to: '/masters', icon: UserGroupIcon },

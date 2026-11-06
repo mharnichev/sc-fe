@@ -12,7 +12,7 @@ Object.assign(globalThis, { paymentCopy })
 const { usePaymentDisplay } = await sourceModule((await readFile(new URL('../composables/usePaymentDisplay.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, ''))
 
 test('WIP payment status and errors react UK → EN → UK without mutating provider data or requesting payments', async () => {
-  const payment = vue.ref({ status: 'waiting', enabled: true, paid: false, receipt_accepted: false, page_url: 'https://pay.mbnk.biz/test', receipt_url: null })
+  const payment = vue.ref({ order_id: 12, status: 'waiting', enabled: true, paid: false, receipt_accepted: false, page_url: 'https://pay.mbnk.biz/test', receipt_url: null })
   const error = vue.ref('')
   const errorKind = vue.ref('')
   let actions = 0
@@ -21,11 +21,11 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
     usePaymentDisplay, useShopRuntimeDisplay, defineProps: () => ({ orderId: 12 }), defineEmits: () => () => {},
     useCustomerAuthStore: () => ({ isAuthenticated: false, customer: null, sessionRevision: 0, accessToken: null }),
     useOrderPayment: () => ({ payment, error, errorKind, busy: vue.ref(false), recordRedirect() {}, refresh: () => { actions++ }, create: () => { actions++ } }),
-    safePaymentUrl: value => value,
+    safePaymentUrl: value => value, safePaymentEmbedUrl: value => value,
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect, widgetUrl, widgetOpen, widgetFits, widgetFrameKey, preparing, updateWidgetOpen, widgetFallback, widgetClosed, paymentRoot };')
   const render = vue.compile(parse(file).descriptor.template.content)
   const html = () => {
     const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
@@ -33,6 +33,7 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
     app.component('BaseRadio', { props: ['label'], setup: props => () => vue.h('label', props.label) })
     app.component('CustomerAuthDialog', { props: ['label'], setup: props => () => vue.h('button', props.label) })
+    app.component('MonoPaymentModal', { setup: () => () => null })
     app.component('BaseModal', { props: ['modelValue'], setup: (props, { slots }) => () => props.modelValue ? vue.h('dialog', slots.default?.()) : null })
     return renderToString(app)
   }
