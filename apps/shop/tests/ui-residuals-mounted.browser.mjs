@@ -62,7 +62,7 @@ app.component('NuxtLink', Link); app.component('BaseButton', Button);
 for (const name of ['BaseIcon', 'BaseBadge', 'BaseHoverUnderlineText', 'ProductStatusBadges']) app.component(name, { setup(_, { slots }) { return () => h('span', { class: name === 'BaseIcon' ? 'base-icon' : name === 'BaseBadge' ? 'base-badge' : '' }, slots.default?.()) } });
 app.mount('#app');
 `
-const bundle = await build({ stdin: { contents: entry, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', plugins: [{
+const bundle = await build({ stdin: { contents: entry, resolveDir: dirname(runtime.resolve('vue/package.json')) }, bundle: true, write: false, format: 'iife', define: { 'import.meta.client': 'true' }, plugins: [{
   name: 'mounted-fixtures', setup(builder) {
     builder.onResolve({ filter: /^(Button|Tile|Counter|#components|~\/utils\/)/ }, args => ({ path: args.path, namespace: 'fixture' }))
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({
@@ -138,13 +138,48 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       assert.ok(Math.round(dotBox.width * 1000) >= 24000 && Math.round(dotBox.height * 1000) >= 44000)
       assert.equal(await hitTarget(dots.nth(2)), true)
       assert.equal(await hitTarget(favorite), true)
+      // Accepted card layout: full-width name, then type, then price in the former volume slot.
+      await surface.evaluate(() => document.fonts.ready)
+      await tile.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const layout = await tile.evaluate((el, mobile) => {
+        const root = el.querySelector(`.catalog-product-tile__${mobile ? 'mobile' : 'desktop'}-layout`)
+        const title = root.querySelector(mobile ? '.catalog-product-tile__mobile-name' : '.catalog-product-tile__name')
+        const primary = root.querySelector('.catalog-product-tile__primary')
+        const type = root.querySelector(mobile ? '.catalog-product-tile__mobile-type' : '.catalog-product-tile__type')
+        const row = root.querySelector(mobile ? '.catalog-product-tile__mobile-purchase-row' : '.catalog-product-tile__details-row')
+        const prices = root.querySelector('.catalog-product-tile__prices'), price = prices.querySelector('.catalog-product-tile__price')
+        const cart = row.querySelector('.catalog-product-tile__cart')
+        const rect = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom } }
+        return { title: rect(title), primary: rect(primary), type: rect(type), prices: rect(prices), row: rect(row), cart: rect(cart),
+          titleSize: getComputedStyle(title).fontSize, titleWeight: getComputedStyle(title).fontWeight,
+          priceWeight: getComputedStyle(price).fontWeight, valueWeight: getComputedStyle(price.querySelector('span')).fontWeight,
+          priceInRow: prices.parentElement === row && row.firstElementChild === prices,
+          priceInPrimary: primary.contains(prices), volumeCount: el.querySelectorAll('.catalog-product-tile__volume').length,
+          measurement: mobile ? null : { font: el.querySelector('.catalog-product-tile__name-measure').style.font, width: el.querySelector('.catalog-product-tile__name-measure').getBoundingClientRect().width },
+          lineClamp: getComputedStyle(title).webkitLineClamp }
+      }, mobileMode)
+      assert.equal(layout.titleSize, '14px')
+      assert.equal(layout.titleWeight, '600')
+      assert.equal(layout.priceWeight, '600')
+      assert.equal(layout.valueWeight, '600')
+      assert.ok(Math.abs(layout.title.x - layout.primary.x) <= 1)
+      assert.ok(Math.abs(layout.title.width - layout.primary.width) <= 1, 'name occupies the full primary width')
+      assert.equal(layout.priceInRow, true, 'price occupies the former volume slot before the purchase action')
+      assert.equal(layout.priceInPrimary, false)
+      assert.equal(layout.volumeCount, 0, 'package size input must not render a volume badge')
+      assert.ok(layout.title.bottom <= layout.type.y + 1, 'name and product type do not overlap')
+      assert.ok(layout.type.bottom <= layout.prices.y + 1, 'price follows the product type')
+      assert.ok(layout.prices.x >= layout.row.x - 1 && layout.prices.right <= layout.row.right + 1, 'price stays inside its row')
+      const overlap = Math.max(0, Math.min(layout.prices.right, layout.cart.right) - Math.max(layout.prices.x, layout.cart.x))
+        * Math.max(0, Math.min(layout.prices.bottom, layout.cart.bottom) - Math.max(layout.prices.y, layout.cart.y))
+      assert.equal(overlap, 0, 'price and purchase action never overlap, including wrapped mobile rows')
+      assert.equal(layout.lineClamp, '2')
       if (!mobileMode) {
-        const title = tile.locator('.catalog-product-tile__name'), price = tile.locator('.catalog-product-tile__desktop-layout .catalog-product-tile__prices')
-        const [nameBox, priceBox] = await Promise.all([title.boundingBox(), price.boundingBox()])
-        assert.ok(Math.abs(nameBox.y - priceBox.y) <= 1)
-        assert.ok(nameBox.x + nameBox.width <= priceBox.x)
-        assert.equal(await title.evaluate(el => getComputedStyle(el).webkitLineClamp), '2')
+        assert.ok(layout.measurement.font, 'Nuxt client name measurement branch actually ran')
+        assert.ok(Math.abs(layout.measurement.width - layout.title.width) <= 1)
       }
+      console.info('accepted card layout', mobileMode ? 'mobile' : 'desktop', JSON.stringify(layout))
+
       if (mobileMode) await cart.tap()
       else await cart.click()
       await surface.evaluate(() => { state.product = { ...state.product, unavailable: true }; state.cartItems = [{ product: state.product }] })
@@ -285,13 +320,13 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     const expectedMobileBuy = { width: 72, height: 24, font: '10px', padding: '8px', arrow: 12, gap: '3px', label: '0px' }
     assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
     assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
-    const badgeMetrics = () => mobile.locator('.catalog-product-tile__mobile-meta .catalog-product-tile__volume').evaluate(el => {
-      const style = getComputedStyle(el)
-      return { height: el.getBoundingClientRect().height, minHeight: style.minHeight, padding: style.padding,
-        font: style.fontSize, lineHeight: style.lineHeight }
-    })
+    const assertMobilePriceSlot = async () => {
+      assert.equal(await mobile.locator('.catalog-product-tile__volume').count(), 0)
+      assert.equal(await mobile.locator('.catalog-product-tile__mobile-purchase-row > .catalog-product-tile__prices').count(), 1)
+      assert.equal(await mobile.locator('.catalog-product-tile__mobile-layout .catalog-product-tile__price').evaluate(el => getComputedStyle(el).fontWeight), '600')
+    }
     await mobile.evaluate(() => { state.product = { ...state.product, package_size: '100 ml' } })
-    assert.deepEqual(await badgeMetrics(), { height: 24, minHeight: '24px', padding: '0px 8px', font: '10px', lineHeight: '16px' })
+    await assertMobilePriceSlot()
     const mobileDots = mobile.locator('.catalog-product-tile__dot-target')
     assert.equal(await mobile.locator('.catalog-product-tile__dots').evaluate(el => getComputedStyle(el).opacity), '1')
     await mobileDots.nth(1).tap()
@@ -304,7 +339,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await mobile.setViewportSize({ width: 320, height: 700 })
     assert.deepEqual(await cartMetrics(mobileBuy), expectedMobileBuy)
     assert.equal(await mobile.locator('.catalog-product-tile__body').evaluate(el => getComputedStyle(el).paddingInline), '12px')
-    assert.deepEqual(await badgeMetrics(), { height: 24, minHeight: '24px', padding: '0px 8px', font: '10px', lineHeight: '16px' })
+    await assertMobilePriceSlot()
     await mobile.locator('#tile-fixture').evaluate(el => { el.style.width = '144px' })
     await verifyTileControls(mobile, true)
     await mobile.evaluate(() => { state.product = { ...state.product, images: Array.from({ length: 12 }, (_, i) => ({ image: '/many-' + i + '.png' })) } })
