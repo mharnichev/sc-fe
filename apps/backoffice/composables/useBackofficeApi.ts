@@ -46,6 +46,7 @@ import type {
 } from '~/types/inventory'
 import { parseAdminDashboardResponse } from '~/utils/adminDashboardContract'
 import { parseBookingRecoverySummary, type BookingRecoverySummary } from '~/utils/bookingRecoveryContract'
+import { parseMonthlyDiscountsResponse } from '~/utils/monthlyDiscounts'
 import { parseReviewMetricsResponse } from '~/utils/reviews'
 import { createInventoryIdempotencyKey } from '~/utils/inventory'
 import type { NewMasterCampaignInput, CampaignReadiness, CampaignOfferAnalytics, CampaignQueueProgress } from '~/types/newMaster'
@@ -1979,6 +1980,18 @@ export const useBackofficeApi = () => {
       },
     })
 
+  const adminGetMonthlyDiscounts = async (filters: { year: number, month: number, offset?: number, limit?: number }) => {
+    if (useAuthStore().user?.is_superuser !== true) {
+      throw createError({ statusCode: 403, statusMessage: 'Monthly discounts require superuser access' })
+    }
+    const query = { year: filters.year, month: filters.month, offset: filters.offset ?? 0, limit: filters.limit ?? 50 }
+    const response = parseMonthlyDiscountsResponse(await api<unknown>('/backoffice/statistics/admin/discounts/monthly', { query }))
+    if (response.period.year !== query.year || response.period.month !== query.month || response.offset !== query.offset || response.limit !== query.limit) {
+      throw new TypeError('Monthly discounts response does not match the requested period or page')
+    }
+    return response
+  }
+
   const adminGetBarbersComparison = (year: number, month: number) =>
     api<BarbersComparisonResponse>('/backoffice/statistics/admin/barbers-comparison', {
       query: { year, month },
@@ -2911,6 +2924,7 @@ export const useBackofficeApi = () => {
     getMyMonthlyStatistics,
     getBarberMonthlyStatistics,
     adminGetMonthlyStatistics,
+    adminGetMonthlyDiscounts,
     adminGetBarbersComparison,
     adminGetDashboard,
     adminGetBookingRecoverySummary,

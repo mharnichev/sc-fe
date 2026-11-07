@@ -33,14 +33,14 @@ function fixture({ authenticated = false, autoStart = true, hidden = false } = {
   const document = { hidden, addEventListener() {}, removeEventListener() {} }
   const exports = {}, scope = vue.effectScope()
   const globals = {
-    ...vue, exports, URL, Error, document,
+    ...vue, exports, URL, Error, document, useState: () => vue.ref(true),
     crypto: { randomUUID: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
     sessionStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
     onMounted: fn => mounts.push(fn), onBeforeUnmount: fn => unmounts.push(fn),
     setTimeout: (fn, ms) => { timers.set(++timerId, { fn, ms }); return timerId }, clearTimeout: id => timers.delete(id),
     useCustomerAuthStore: () => auth,
     useRouter: () => ({ beforeEach: fn => { guards.add(fn); return () => guards.delete(fn) } }),
-    useApi: () => (path, options) => new Promise((resolve, reject) => calls.push({ path, options, resolve, reject })),
+    useApi: () => (path, options) => path.endsWith('/online-payment-capabilities') ? Promise.resolve({ enabled: true }) : new Promise((resolve, reject) => calls.push({ path, options, resolve, reject })),
     require: () => ({ commerceBreadcrumb: (step, data) => signals.push({ step, data }), reportCommerceError: (step, _cause, data) => signals.push({ step, data }) }),
   }
   vm.runInNewContext(compile(read('composables/useOrderPayment.ts')), globals)
@@ -48,8 +48,8 @@ function fixture({ authenticated = false, autoStart = true, hidden = false } = {
   const context = vm.createContext({ ...globals,
     defineProps: () => props, defineEmits: () => () => {}, useOrderPayment: () => payment,
     usePaymentDisplay: () => ({ paymentText: vue.ref({ statuses: {} }) }),
-    useShopRuntimeDisplay: () => ({ runtimeMessage: String }), safePaymentUrl: exports.safePaymentUrl,
-    window: { location: { assign: url => redirects.push(url) } },
+    useShopRuntimeDisplay: () => ({ runtimeMessage: String }), safePaymentUrl: exports.safePaymentUrl, safePaymentEmbedUrl: exports.safePaymentEmbedUrl,
+    window: { innerWidth: 390, innerHeight: 844, addEventListener() {}, removeEventListener() {}, location: { assign: url => redirects.push(url) } },
   })
   const source = read('components/OrderPayment.vue').split('<script setup lang="ts">')[1].split('</script>')[0]
   scope.run(() => vm.runInContext(compile(source) + '\nglobalThis.view = { beginPayment, autoStartConsumed, paid, settled };', context))
@@ -129,6 +129,7 @@ test('expected 10.00 and returned 10.01 keep confirmation but require an explici
   assert.equal(f.calls.length, 1)
   assert.deepEqual(f.redirects, [])
   const manual = f.beginPayment()
+  await flush()
   assert.equal(f.calls.at(-1).options.method, 'POST')
   f.calls.at(-1).resolve(waiting({ amount_minor: 1001 })); await manual; await flush()
   assert.deepEqual(f.redirects, ['https://pay.mbnk.biz/mock-invoice'])
@@ -264,6 +265,7 @@ test('unknown invoice creation is not automatically retried after reconciliation
   assert.equal(f.calls.filter(call => call.options.method === 'POST').length, 1)
   assert.deepEqual(f.redirects, [])
   const explicitRetry = f.beginPayment()
+  await flush()
   const retry = f.calls.at(-1)
   assert.equal(retry.options.method, 'POST')
   assert.equal(retry.options.headers['Idempotency-Key'], post.options.headers['Idempotency-Key'])

@@ -2,6 +2,15 @@
 import type { ProductDto } from '@shared-types'
 import AppSection from '~/components/ui/AppSection.vue'
 
+definePageMeta({
+  middleware: (to) => {
+    const catalogKeys = ['category', 'type', 'brand', 'q', 'ordering', 'sort', 'priceMin', 'priceMax', 'price_min', 'price_max', 'in_stock', 'is_top', 'has_discount', 'limit', 'offset']
+    if (catalogKeys.some(key => to.query[key] != null)) {
+      return navigateTo({ path: '/catalog', query: to.query, hash: to.hash }, { redirectCode: 302, replace: true })
+    }
+  },
+})
+
 const domain = useCatalogDomain()
 const { terms } = useShopLocale()
 const HOME_PAGE_LIMIT = 12

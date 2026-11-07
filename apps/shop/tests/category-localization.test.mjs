@@ -30,7 +30,8 @@ test('nested and flat category mappings retain English labels and original path 
   assert.equal(tree.children[0].children[0].name_en, null)
   const flat = mapping.mapFlatCategoriesToTree([{ ...root, children: undefined }, { ...root.children[0], parent_id: 1, children: undefined }])
   assert.equal(flat[0].children[0].name_en, 'Body care')
-  assert.equal(routing.categoryLandingPath(routing.categoryPathBySlug([tree], 'hygiene')), '/cosmetics/body/hygiene')
+  assert.deepEqual(routing.categoryPathBySegments([tree], ['cosmetics', 'body', 'hygiene']).map(category => category.slug), ['cosmetics', 'body', 'hygiene'])
+  assert.equal(routing.categoryDestination('body', 'hygiene'), '/catalog?category=body&type=hygiene')
 })
 
 test('breadcrumb chains, headings and nested child labels react UK → EN → UK without refetch', () => {

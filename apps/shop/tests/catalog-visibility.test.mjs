@@ -12,7 +12,6 @@ const [
   favoriteModalSource,
   recentlyViewedSource,
   productPageSource,
-  allGoodsRouteSource,
 ] = await Promise.all([
   read('../domain/catalog.ts'),
   read('../utils/product-visibility.ts'),
@@ -21,7 +20,6 @@ const [
   read('../components/modals/UserFavoriteModal.vue'),
   read('../stores/recentlyViewed.ts'),
   read('../pages/products/[slug].vue'),
-  read('../components/catalog/CatalogAllGoodsRoute.vue'),
 ])
 
 test('shop domain preserves backend visibility and purchase fields', () => {
@@ -59,9 +57,11 @@ test('recently viewed stays local and removes a hidden product after a 404', () 
   assert.match(productPageSource, /isProductUnavailable\(product\) && !isInCart/)
 })
 
-test('all-goods catalog refreshes when the brand changes in the route', () => {
-  assert.match(allGoodsRouteSource, /\(\) => route\.fullPath/)
-  assert.match(allGoodsRouteSource, /const nextBrand = nextCategory \? '' : readQueryValue\(route\.query\.brand\)/)
-  assert.match(allGoodsRouteSource, /nextBrand !== brand\.value/)
-  assert.match(allGoodsRouteSource, /await refreshProducts\(\)/)
+test('all-goods catalog refreshes when the brand changes in the route', async () => {
+  const source = await read('../components/catalog/CatalogAllGoodsRoute.vue')
+  assert.match(source, /\(\) => route\.fullPath/)
+  assert.match(source, /const selectedBrands = computed\(\(\) => readQueryList\(filterQuery\.value\.brand\)\)/)
+  assert.match(source, /brand: selectedBrands\.value\.length \? selectedBrands\.value/)
+  assert.match(source, /domain\.getCatalogPage\(apiQuery\.value\)/)
+  assert.match(source, /watch: \[apiQuery\], dedupe: 'cancel'/)
 })

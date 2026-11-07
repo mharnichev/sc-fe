@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CategoryTreeNodeDto, ProductSearchResponseDto } from '@shared-types'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
-import { categoryGoodsDestination } from '~/utils/category-routing'
+import { categoryDestination } from '~/utils/category-routing'
 import { localizedProductSuggestion } from '~/utils/product-localization'
 
 const { categoryDisplayName } = useCategoryDisplay()
@@ -34,9 +34,7 @@ const hasResults = computed(() =>
 )
 
 const categoryLink = (category: ProductSearchResponseDto['categories'][number]) =>
-  props.categoryTree?.length
-    ? categoryGoodsDestination(props.categoryTree, category)
-    : { path: '/catalog', query: { category: category.slug } }
+  categoryDestination(category.slug)
 
 const selectProductResult = (event: MouseEvent) => {
   const target = event.target as HTMLElement

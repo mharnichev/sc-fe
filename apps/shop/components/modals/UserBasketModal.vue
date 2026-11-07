@@ -471,7 +471,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
   min-width: 0;
   color: #0a0a0a;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -503,7 +503,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
   flex: 0 0 auto;
   white-space: nowrap;
   font-size: 0.85rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .basket-sidebar__actions {
@@ -543,7 +543,9 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
   .basket-sidebar__meta {
     font-size: 0.75rem;
-  }
+
+  font-weight: 600;
+}
 }
 
 .basket-sidebar__empty {
@@ -567,6 +569,8 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
 
 .basket-sidebar__total strong {
   white-space: nowrap;
+
+  font-weight: 600;
 }
 
 .basket-sidebar__discount-note {

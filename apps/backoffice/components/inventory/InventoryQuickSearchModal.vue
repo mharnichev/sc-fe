@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { productDisplayImage } from '~/utils/productImages'
-import { MagnifyingGlassIcon, XMarkIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, CameraIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, XMarkIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, CameraIcon, QrCodeIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import type { InventoryProduct } from '~/types/inventory'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 
@@ -10,6 +10,7 @@ const api = useBackofficeApi()
 const route = useRoute()
 const assetUrl = useAssetUrl()
 const scannerOpen = ref(false)
+const cameraOpen = ref(false)
 const scannerId = useId()
 const failedImages = ref<number[]>([])
 const barcode = ref('')
@@ -26,7 +27,7 @@ let generation = 0
 
 const reset = () => {
   generation++
-  scannerOpen.value = false; failedImages.value = []
+  scannerOpen.value = false; cameraOpen.value = false; failedImages.value = []
   barcode.value = ''; search.value = ''; results.value = []; matched.value = null
   busy.value = false; error.value = ''; unknown.value = false; searched.value = false
   page.value = 1; total.value = 0
@@ -85,13 +86,16 @@ const choose = (product: InventoryProduct) => {
     </template>
     <template #body>
       <div class="space-y-4">
+        <BaseButton v-if="compactMobile" variant="primary" size="lg" block :disabled="busy" @click="cameraOpen = true">
+          <CameraIcon class="h-6 w-6 shrink-0" aria-hidden="true" />Сканувати камерою
+        </BaseButton>
         <InventoryBarcodeInput v-if="!compactMobile" v-model="barcode" :loading="busy" :match="matched" :not-found="unknown" :show-not-found="false" :auto-focus="true" @submit="lookup" @clear="reset" />
         <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2" @submit.prevent="find()">
           <BaseInput v-model="search" label="Назва або SKU" placeholder="Наприклад, шампунь" :disabled="busy" maxlength="255"><template #icon><MagnifyingGlassIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
           <BaseButton type="submit" variant="primary" class="min-h-11" :loading="busy"><MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" /><span class="sr-only sm:not-sr-only">Пошук</span></BaseButton>
         </form>
         <div v-if="compactMobile" class="space-y-3">
-          <BaseButton variant="neutral" size="lg" block :aria-expanded="scannerOpen" :aria-controls="scannerId" @click="scannerOpen = !scannerOpen"><CameraIcon class="h-5 w-5" aria-hidden="true" />{{ scannerOpen ? 'Сховати сканер' : 'Сканувати' }}</BaseButton>
+          <BaseButton variant="neutral" size="lg" block :aria-expanded="scannerOpen" :aria-controls="scannerId" @click="scannerOpen = !scannerOpen"><QrCodeIcon class="h-5 w-5" aria-hidden="true" />{{ scannerOpen ? 'Сховати поле штрихкоду' : 'Ввести штрихкод вручну' }}</BaseButton>
           <div v-if="scannerOpen" :id="scannerId">
             <InventoryBarcodeInput v-model="barcode" :loading="busy" :match="matched" :not-found="unknown" :show-not-found="false" :auto-focus="true" @submit="lookup" @clear="reset" />
           </div>
@@ -123,4 +127,5 @@ const choose = (product: InventoryProduct) => {
       </div>
     </template>
   </BaseModal>
+  <InventoryBarcodeCamera v-if="cameraOpen" @close="cameraOpen = false" @recognized="cameraOpen = false; barcode = $event; lookup($event)" />
 </template>

@@ -88,6 +88,13 @@ export interface TrackingRefreshResponse {
   retry_after_seconds: number
 }
 
+export interface OnlinePaymentCapabilities {
+  enabled: boolean
+  presentation_modes?: Array<'redirect' | 'iframe'>
+  iframe_min_width?: number
+  iframe_min_height?: number
+}
+
 export interface OnlinePayment {
   order_id: number
   enabled: boolean
@@ -95,6 +102,9 @@ export interface OnlinePayment {
   paid: boolean
   receipt_accepted: boolean
   page_url: string | null
+  presentation_mode?: 'redirect' | 'iframe'
+  embed_url?: string | null
+  redirect_url?: string | null
   receipt_url: string | null
   amount_minor: number
   currency: 'UAH'

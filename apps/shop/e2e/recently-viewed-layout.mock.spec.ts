@@ -101,24 +101,32 @@ for (const width of [320, 390, 768, 1440]) {
     console.info(`${width}px: catalog ${catalogBox!.width.toFixed(2)}×${catalogBox!.height.toFixed(2)}, recently viewed ${recentBox!.width.toFixed(2)}×${recentBox!.height.toFixed(2)}`)
     expect(Math.abs(catalogBox!.height - recentBox!.height)).toBeLessThanOrEqual(1)
     if (width < 568) {
-      const name = await recent.locator('.catalog-product-tile__mobile-name').first().boundingBox()
-      expect(name!.width).toBeGreaterThanOrEqual(recentBox!.width - 40)
-      const purchase = recent.locator('.catalog-product-tile__mobile-purchase-row').first()
-      const badge = recent.locator('.catalog-product-tile__mobile-meta').first().locator('.catalog-product-tile__volume')
-      expect(await badge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
-      expect(await badge.evaluate(element => {
-        const style = getComputedStyle(element)
-        return Math.abs(element.getBoundingClientRect().height - 24) <= 0.01
-          && style.fontSize === '10px' && style.lineHeight === '16px'
-          && style.paddingLeft === '8px' && style.paddingRight === '8px'
-      })).toBe(true)
-      const [badgeBox, buttonBox] = await Promise.all([badge.boundingBox(), purchase.locator('.catalog-product-tile__cart').boundingBox()])
-      expect(badgeBox!.x + badgeBox!.width <= buttonBox!.x + 1 || badgeBox!.y + badgeBox!.height <= buttonBox!.y + 1).toBe(true)
-      const longRow = recent.locator('.catalog-product-tile__mobile-purchase-row').nth(1)
-      const longBadge = recent.locator('.catalog-product-tile__mobile-meta').nth(1).locator('.catalog-product-tile__volume')
-      const [longBox, longButton] = await Promise.all([longBadge.boundingBox(), longRow.locator('.catalog-product-tile__cart').boundingBox()])
-      expect(await longBadge.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
-      expect(longBox!.x + longBox!.width <= longButton!.x + 1 || longBox!.y + longBox!.height <= longButton!.y + 1).toBe(true)
+      for (const section of [grid, recent]) {
+        for (const index of [0, 1]) {
+          const tile = section.locator('.catalog-product-tile').nth(index)
+          const layout = tile.locator('.catalog-product-tile__mobile-layout')
+          const name = layout.locator('.catalog-product-tile__mobile-name')
+          const type = layout.locator('.catalog-product-tile__mobile-type')
+          const row = layout.locator('.catalog-product-tile__mobile-purchase-row')
+          const price = row.locator(':scope > .catalog-product-tile__prices .catalog-product-tile__price')
+          const button = row.locator('.catalog-product-tile__cart')
+          await expect(name).toHaveText(products[index]!.name)
+          await expect(name).toHaveCSS('font-size', '14px')
+          await expect(name).toHaveCSS('font-weight', '600')
+          await expect(type).toBeVisible()
+          await expect(layout.locator('.catalog-product-tile__volume')).toHaveCount(0)
+          await expect(price).toHaveText(/12\s*345\s*грн/)
+          await expect(button).toBeVisible()
+          const [nameBox, typeBox, rowBox, priceBox, buttonBox] = await Promise.all(
+            [name, type, row, price, button].map(locator => locator.boundingBox()),
+          )
+          expect(nameBox!.width).toBeGreaterThanOrEqual(recentBox!.width - 40)
+          expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(typeBox!.y + 1)
+          expect(typeBox!.y + typeBox!.height).toBeLessThanOrEqual(rowBox!.y + 1)
+          expect(priceBox!.x + priceBox!.width <= buttonBox!.x + 1
+            || priceBox!.y + priceBox!.height <= buttonBox!.y + 1).toBe(true)
+        }
+      }
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
     const fitted = await recent.locator('.catalog-product-tile').first().evaluate(tile => {

@@ -1,3 +1,5 @@
+import type { CameraFrame, CameraWorkerResult } from './barcodeCamera.worker'
+
 export const isCameraBarcode = (value: string): boolean => value.length <= 64 && Boolean(value.trim())
 
 export const stopCameraTracks = (stream: Pick<MediaStream, 'getTracks'> | null) => {
@@ -12,48 +14,99 @@ export const cameraErrorMessage = (error: unknown): string => {
   return 'Не вдалося запустити сканування. Спробуйте ще раз або введіть штрихкод вручну.'
 }
 
-type Detector = { detect: (video: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }
-type DetectorConstructor = {
-  new (options: { formats: string[] }): Detector
-  getSupportedFormats: () => Promise<string[]>
+// UPC-A and EAN-13 with a leading zero share the same bars. Prefer the
+// database's existing representation without changing unknown or manual codes.
+export const resolveCameraBarcode = async (
+  barcode: string,
+  lookup: (value: string) => Promise<{ barcode?: string | null }>,
+): Promise<string> => {
+  if (!/^0\d{12}$/.test(barcode)) return barcode
+  for (const candidate of [barcode, barcode.slice(1)]) {
+    try {
+      const product = await lookup(candidate)
+      return product.barcode || candidate
+    } catch (cause) {
+      const failure = cause as { status?: number, statusCode?: number, response?: { status?: number } } | null
+      if ((failure?.response?.status ?? failure?.statusCode ?? failure?.status) !== 404) throw cause
+    }
+  }
+  return barcode
 }
 
-// Lazy loading keeps the decoder out of the normal manual-input path. Safari
-// currently needs the software decoder; native support is checked by format.
-export const createCameraDecoder = async (): Promise<(video: HTMLVideoElement) => Promise<string | null>> => {
-  const NativeDetector = (globalThis as typeof globalThis & { BarcodeDetector?: DetectorConstructor }).BarcodeDetector
-  if (NativeDetector) {
-    try {
-      const formats = await NativeDetector.getSupportedFormats()
-      if (['ean_13', 'ean_8'].every(format => formats.includes(format))) {
-        const requested = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf']
-        const detector = new NativeDetector({ formats: requested.filter(format => formats.includes(format)) })
-        return async video => {
-          try {
-            const results = await detector.detect(video)
-            return results.find(result => isCameraBarcode(result.rawValue))?.rawValue ?? null
-          } catch { return null }
-        }
-      }
-    } catch { /* Fall back if native detection cannot be initialized. */ }
-  }
-  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
-    import('@zxing/browser'), import('@zxing/library'),
-  ])
-  const reader = new BrowserMultiFormatReader(new Map([
-    [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF]],
-  ]))
+export type CameraDecoder = {
+  decode: (video: HTMLVideoElement) => Promise<string | null>
+  dispose: () => void
+}
+
+export const createCameraDecoder = (signal?: AbortSignal): Promise<CameraDecoder> => new Promise((resolve, reject) => {
+  const worker = new Worker(new URL('./barcodeCamera.worker.ts', import.meta.url), { type: 'module' })
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d', { willReadFrequently: true })
-  if (!context) throw new Error('Canvas unavailable')
-  return async video => {
-    if (!video.videoWidth || !video.videoHeight) return null
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    context.drawImage(video, 0, 0)
-    try {
-      const value = reader.decodeFromCanvas(canvas).getText()
-      return isCameraBarcode(value) ? value : null
-    } catch { return null }
+  let disposed = false
+  let frame = 0
+  let pending: { resolve: (value: string | null) => void, reject: (reason: Error) => void } | undefined
+  let timeout: ReturnType<typeof setTimeout>
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', dispose)
+    worker.terminate()
+    const error = new DOMException('Scanner stopped', 'AbortError')
+    pending?.reject(error)
+    pending = undefined
+    reject(error)
+    canvas.width = canvas.height = 0
   }
-}
+  const fail = () => {
+    const error = new Error('Barcode decoder unavailable')
+    pending?.reject(error)
+    pending = undefined
+    reject(error)
+    dispose()
+  }
+  timeout = setTimeout(fail, 20000)
+  signal?.addEventListener('abort', dispose, { once: true })
+  if (!context) { fail(); return }
+  if (signal?.aborted) { dispose(); return }
+  worker.onerror = fail
+  worker.onmessageerror = fail
+  worker.onmessage = (event: MessageEvent<CameraWorkerResult>) => {
+    if (disposed) return
+    if (event.data.type === 'error') { fail(); return }
+    clearTimeout(timeout)
+    if (event.data.type === 'ready') {
+      resolve({ decode, dispose })
+    } else {
+      const value = event.data.barcode
+      pending?.resolve(value && isCameraBarcode(value) ? value : null)
+      pending = undefined
+    }
+  }
+  const decode = async (video: HTMLVideoElement): Promise<string | null> => {
+    if (disposed) throw new DOMException('Scanner stopped', 'AbortError')
+    if (pending || !video.videoWidth || !video.videoHeight || video.readyState < 2) return null
+    // Scan the guide most frames; periodically include the whole image so a
+    // code outside the guide is not permanently excluded.
+    const fullFrame = frame++ % 5 === 4
+    const sourceWidth = video.videoWidth * (fullFrame ? 1 : 0.85)
+    const sourceHeight = video.videoHeight * (fullFrame ? 1 : 0.6)
+    const scale = Math.min(1, 1024 / sourceWidth)
+    const width = Math.max(1, Math.round(sourceWidth * scale))
+    const height = Math.max(1, Math.round(sourceHeight * scale))
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+    context.drawImage(video, (video.videoWidth - sourceWidth) / 2, (video.videoHeight - sourceHeight) / 2, sourceWidth, sourceHeight, 0, 0, width, height)
+    const pixels = context.getImageData(0, 0, width, height)
+    return new Promise((resolveFrame, rejectFrame) => {
+      pending = { resolve: resolveFrame, reject: rejectFrame }
+      timeout = setTimeout(fail, 10000)
+      try {
+        const message: CameraFrame = { buffer: pixels.data.buffer as ArrayBuffer, width, height }
+        worker.postMessage(message, [message.buffer])
+      } catch { fail() }
+    })
+  }
+})

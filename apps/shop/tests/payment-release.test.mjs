@@ -15,7 +15,7 @@ const waiting = () => ({ order_id: 42, enabled: true, status: 'waiting', paid: f
   receipt_accepted: false, page_url: 'https://pay.mbnk.biz/invoice_42', receipt_url: null,
   amount_minor: 12345, currency: 'UAH', retry_after_seconds: 30 })
 const load = (token = 'guest-capability', reactive = false) => {
-  const calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = [], emitted = []
+  const capabilityCalls = [], calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = [], emitted = []
   const signals = [], guards = new Set(), telemetry = {}
   run(read('utils/commerceTelemetry.ts'), { exports: telemetry, Error, Date, Map, Number })
   telemetry.configureCommerceTelemetry(signal => {
@@ -28,6 +28,7 @@ const load = (token = 'guest-capability', reactive = false) => {
   const state = { response: { ...waiting(), status: 'not_started', page_url: null }, createResponse: waiting(), failure: null, delay: false, resolve: null, redirectFailure: null }
   const document = { hidden: false, addEventListener: (name, fn) => events[name] = fn, removeEventListener: name => delete events[name] }
   const globals = {
+    useState: () => vue.ref(true),
     exports, URL, document, crypto: { randomUUID: () => 'stable-key' },
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
     Error,
@@ -38,6 +39,7 @@ const load = (token = 'guest-capability', reactive = false) => {
     useRouter: () => ({ beforeEach: fn => { guards.add(fn); return () => guards.delete(fn) } }),
     require: () => telemetry,
     useApi: () => async (path, options) => {
+      if (path.endsWith('/online-payment-capabilities')) { capabilityCalls.push({ path, options }); return { enabled: true } }
       calls.push({ path, options })
       if (state.delay && (options.method === 'POST' || state.delayReads)) await new Promise(resolve => { state.resolve = resolve })
       if (state.failure) throw state.failure
@@ -49,8 +51,8 @@ const load = (token = 'guest-capability', reactive = false) => {
   const viewGlobals = { ...globals, exports: {},
     useOrderPayment: () => payment, defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
     usePaymentDisplay: () => ({ paymentText: { value: {} } }), useShopRuntimeDisplay: () => ({ runtimeMessage: value => value }),
-    safePaymentUrl: exports.safePaymentUrl,
-    window: { location: { assign: url => { if (state.redirectFailure) throw state.redirectFailure; redirects.push(url) } } },
+    safePaymentUrl: exports.safePaymentUrl, safePaymentEmbedUrl: exports.safePaymentEmbedUrl, nextTick: vue.nextTick,
+    window: { innerWidth: 390, innerHeight: 844, addEventListener: (name, fn) => events['window:' + name] = fn, removeEventListener: name => delete events['window:' + name], location: { assign: url => { if (state.redirectFailure) throw state.redirectFailure; redirects.push(url) } } },
   }
   run(read('components/OrderPayment.vue').split('<script setup lang="ts">')[1].split('</script>')[0]
     + '\nexports.view = { beginPayment, paid, settled, pageUrl, receiptUrl, accessDenied, hint, illustrationTone, syncMethod, changeOpen, canChange, recordRedirect };', viewGlobals)
@@ -81,6 +83,7 @@ test('late create never navigates after route leave/return, unmount, actor, orde
     env => { env.props.orderId++; env.actorChanged() }, env => { env.props.guestToken = 'other'; env.actorChanged() }]) {
     const env = load(); env.mount(); await flush(); env.state.delay = true
     const pending = env.beginPayment()
+    await flush()
     invalidate(env)
     env.state.resolve(); await pending
     assert.deepEqual(env.redirects, [])
@@ -102,6 +105,7 @@ test('late create also rejects a changed stored guest capability', async () => {
   env.stored.set('shop-order-payment-token:42', 'original-capability')
   env.mount(); await flush(); env.state.delay = true
   const pending = env.beginPayment()
+    await flush()
   env.stored.set('shop-order-payment-token:42', 'replacement-capability')
   env.state.resolve(); await pending
   assert.deepEqual(env.redirects, [])
@@ -396,6 +400,7 @@ test('late create cannot emit redirect intent after navigation or a same-custome
   for (const invalidate of [env => env.navigate(), env => env.unmount(), env => { env.auth.sessionRevision++; env.actorChanged() }]) {
     const env = load(); env.mount(); await flush(); env.state.delay = true
     const pending = env.beginPayment()
+    await flush()
     invalidate(env)
     const count = env.signals.length
     env.state.resolve(); await pending
