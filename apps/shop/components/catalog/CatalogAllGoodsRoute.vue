@@ -739,6 +739,11 @@ useSeo(
 }
 
 @media (max-width: 575px) {
+  .catalog-route__title :deep(.base-scribble-outline) {
+    margin-inline: 0.38em;
+    max-width: calc(100% - 0.76em);
+  }
+
   .catalog-route__brand-info {
     align-items: stretch;
     flex-direction: column;
