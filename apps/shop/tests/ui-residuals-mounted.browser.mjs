@@ -97,7 +97,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       await surface.evaluate(() => {
         calls.length = 0; navigations.length = 0; state.cartItems = []
         state.product = { ...state.product, is_top: true, unavailable: false, hidden: false, price: '12345', package_size: '100 ml',
-          name: 'Long product title for daily grooming and professional hair care',
+          name: 'Long product title for daily grooming and professional hair care '.repeat(4),
           images: [1, 2, 3].map(i => ({ image: '/coverage-' + i + '.png' })) }
       })
       const tile = surface.locator('.catalog-product-tile'), body = tile.locator('.catalog-product-tile__body')
@@ -105,9 +105,50 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       const strip = body.locator('.catalog-product-tile__dots'), dots = strip.locator('button')
       const cart = tile.locator(`.catalog-product-tile__${mobileMode ? 'mobile' : 'desktop'}-layout .catalog-product-tile__cart`)
       if (!mobileMode) {
-        await surface.mouse.move(1000, 800)
+        // Overflow is intentional and measured, so fallback-font widths cannot choose the state under test.
+        await surface.evaluate(() => document.fonts.ready)
+        await surface.waitForFunction(() => document.querySelector('.catalog-product-tile')?.classList.contains('catalog-product-tile--long-name'))
+        const title = tile.locator('.catalog-product-tile__name')
+        // Qualify :hover just like the stylesheet: bare :hover has link-only quirks in this fixture.
+        const nameState = () => title.evaluate(el => {
+          const card = el.closest('.catalog-product-tile'), style = getComputedStyle(el)
+          return { clamp: style.webkitLineClamp, height: el.getBoundingClientRect().height, line: parseFloat(style.lineHeight),
+            mirrorHeight: card.querySelector('.catalog-product-tile__name-measure').getBoundingClientRect().height,
+            hover: card.matches('.catalog-product-tile:hover'), focus: card.matches(':focus-within'), font: style.font, viewport: innerWidth }
+        })
+        const leaveCard = async () => {
+          await surface.mouse.move(1000, 800)
+          await surface.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur() })
+          await title.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        }
+        const assertCollapsed = async () => {
+          const state = await nameState()
+          assert.equal(state.hover, false)
+          assert.equal(state.focus, false)
+          assert.equal(state.clamp, '2', 'idle desktop name retains its two-line clamp')
+          assert.ok(Math.abs(state.height - state.line * 2) <= 1, 'idle desktop viewport is exactly two lines')
+          assert.ok(state.mirrorHeight > state.line * 3 + 1, 'fixture really overflows three lines in the active font')
+          console.info('collapsed name state', JSON.stringify(state))
+        }
+        const assertExpanded = async mode => {
+          const state = await nameState()
+          assert.equal(state[mode], true)
+          if (mode === 'focus') assert.equal(state.hover, false)
+          assert.equal(state.clamp, 'none', 'expanded name uses the existing max-height viewport instead of line clamp')
+          assert.ok(Math.abs(state.height - state.line * 3) <= 1, 'expanded desktop viewport is exactly three lines')
+          console.info(`${mode} name state`, JSON.stringify(state))
+        }
+        await leaveCard()
+        await assertCollapsed()
         assert.equal(await favorite.evaluate(el => getComputedStyle(el).pointerEvents), 'none')
         assert.equal(await top.evaluate(el => getComputedStyle(el).opacity), '1')
+        await tile.hover({ position: { x: 5, y: 5 } })
+        await assertExpanded('hover')
+        await tile.locator('.catalog-product-tile__name-link').focus()
+        await surface.mouse.move(1000, 800)
+        await assertExpanded('focus')
+        await leaveCard()
+        await assertCollapsed()
         await tile.hover({ position: { x: 5, y: 5 } })
       }
       const hitTarget = locator => locator.evaluate(el => {
@@ -156,7 +197,8 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
           priceInRow: prices.parentElement === row && row.firstElementChild === prices,
           priceInPrimary: primary.contains(prices), volumeCount: el.querySelectorAll('.catalog-product-tile__volume').length,
           measurement: mobile ? null : { font: el.querySelector('.catalog-product-tile__name-measure').style.font, width: el.querySelector('.catalog-product-tile__name-measure').getBoundingClientRect().width },
-          lineClamp: getComputedStyle(title).webkitLineClamp }
+          lineClamp: getComputedStyle(title).webkitLineClamp, lineHeight: parseFloat(getComputedStyle(title).lineHeight),
+          expanded: el.classList.contains('catalog-product-tile--long-name') && (el.matches('.catalog-product-tile:hover') || el.matches(':focus-within')) }
       }, mobileMode)
       assert.equal(layout.titleSize, '14px')
       assert.equal(layout.titleWeight, '600')
@@ -173,7 +215,15 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       const overlap = Math.max(0, Math.min(layout.prices.right, layout.cart.right) - Math.max(layout.prices.x, layout.cart.x))
         * Math.max(0, Math.min(layout.prices.bottom, layout.cart.bottom) - Math.max(layout.prices.y, layout.cart.y))
       assert.equal(overlap, 0, 'price and purchase action never overlap, including wrapped mobile rows')
-      assert.equal(layout.lineClamp, '2')
+      if (mobileMode) {
+        assert.equal(layout.expanded, false)
+        assert.equal(layout.lineClamp, '2', 'mobile name always retains its two-line clamp')
+        assert.ok(Math.abs(layout.title.height - layout.lineHeight * 2) <= 1)
+      } else {
+        assert.equal(layout.expanded, true)
+        assert.equal(layout.lineClamp, 'none')
+        assert.ok(Math.abs(layout.title.height - layout.lineHeight * 3) <= 1)
+      }
       if (!mobileMode) {
         assert.ok(layout.measurement.font, 'Nuxt client name measurement branch actually ran')
         assert.ok(Math.abs(layout.measurement.width - layout.title.width) <= 1)
