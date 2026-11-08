@@ -31,7 +31,7 @@ export const posDiscountLabels = {
   promo_code: 'Промокод',
 }
 const reasonLabels: Record<string, string> = {
-  creation_unknown: 'Запит на рахунок збережено. Mono ще не підтвердив, чи рахунок створено.',
+  creation_unknown: 'Рахунок міг бути створений. Перечитайте стан цього продажу.',
   master_mono_disabled: 'Інтеграція mono недоступна.',
   master_mono_profile_conflict: 'Налаштування mono відрізняються від налаштувань на момент продажу.',
   master_mono_fiscal_policy_required: 'Потрібно перевірити фіскальні налаштування.',
@@ -79,11 +79,21 @@ export const usePosSale = () => {
     && saved.value.checkout_id === checkout.value.checkout_id && !saved.value.command && unresolvedCreate(checkout.value))
   const paymentUrl = computed(() => {
     const c = checkout.value
-    if (!access.value || !c || error.value || c.status !== 'awaiting_payment' || !['pending', 'processing'].includes(c.payment.status) || c.receipt.status !== 'not_requested') return null
-    const id = c.payment.invoice_id
-    if (!id || id.length > 256 || /[^A-Za-z0-9_-]/.test(id)) return null
-    const url = `https://pay.mbnk.biz/${id}`
-    return c.payment.qr_payload === url ? url : null
+    if (!access.value || !c || error.value || c.status !== 'awaiting_payment'
+      || !['pending', 'confirmed'].includes(c.order_status) || c.payment.status !== 'pending'
+      || c.payment.confirmed_at !== null || c.receipt.status !== 'not_requested'
+      || c.handover.status !== 'not_ready') return null
+    const { invoice_id: id, qr_payload: payload } = c.payment
+    if (typeof id !== 'string' || !id || id.length > 100 || /[^A-Za-z0-9_-]/.test(id)
+      || typeof payload !== 'string' || payload.length > 240 || !payload.startsWith('https://pay.mbnk.biz/')
+      || /[\s\x00-\x1f\x7f#\\]|%(?![\da-f]{2})|%(?:0[\da-f]|1[\da-f]|7f|5c)/i.test(payload)) return null
+    try {
+      // The server binds the provider URL to the verified invoice. Encode it verbatim.
+      const url = new URL(payload)
+      if (url.href !== payload || (url.pathname === '/' && !payload.includes('?'))) return null
+      if (/^\/[A-Za-z0-9_-]{1,100}$/.test(url.pathname) && url.pathname !== `/${id}`) return null
+      return payload
+    } catch { return null }
   })
   const canHandover = computed(() => access.value && !busy.value && !loading.value && !error.value && checkout.value?.status === 'ready_to_handover' && checkout.value.payment.status === 'paid' && checkout.value.receipt.status === 'accepted' && checkout.value.handover.status === 'ready' && checkout.value.actions.can_handover)
   const stopTimer = () => { if (timer !== undefined) clearTimeout(timer); timer = undefined }
