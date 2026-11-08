@@ -192,6 +192,7 @@ test('changing from barber to administrator releases stale master ownership and 
 })
 
 const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: { request: async (_key, _options, run) => run({}) } } })
   const auth = vue.reactive({ user: { id: 1, role: actor, is_superuser: actor === 'admin', is_active: true, can_record_sales: true, can_accept_qr_payments: true }, accessToken: 'token-A' })
   const calls = [], values = new Map()
   Object.assign(globalThis, vue, {
@@ -199,7 +200,7 @@ const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
     window: { addEventListener() {}, removeEventListener() {} }, setTimeout: () => 1, clearTimeout() {},
     localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
     useApi: () => async (path, options = {}) => {
-      if (path.endsWith('/capabilities')) return { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: live, can_start: live, can_view_admin_sales: actor === 'admin', automatic_reconciliation_enabled: true, poll_after_ms: 3000, blocking_reasons: [] }
+      if (path.endsWith('/capabilities')) return { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: live, can_start: live, can_view_admin_sales: actor === 'admin', automatic_reconciliation_enabled: true, poll_after_ms: 3000, blocking_reasons: [] }
       if (options.method !== 'POST') return { items: [], total: 0, page: 1, page_size: 20 }
       calls.push({ body: options.body, key: options.headers['Idempotency-Key'] })
       return { checkout_id: '22222222-2222-4222-8222-222222222222', intent_id: options.body.intent_id, order_id: 321, revision: 1, employee: { user_id: 1, master_id: actor === 'barber' ? 11 : null, display_name: actor }, currency: 'UAH', amount_minor: 12345, items: [{ product_id: 8, quantity: 1, total_minor: 12345 }], status: 'awaiting_payment', payment: { provider: 'monobank', status: 'pending', invoice_id: 'synthetic', qr_payload: 'https://pay.mbnk.biz/synthetic' }, receipt: { issuer: 'checkbox', status: 'not_requested' }, handover: { status: 'not_ready' }, actions: { can_resume: false, can_refresh: true, can_handover: false, can_recover_invoice: false, can_start_new: false }, poll_after_ms: 3000 }
@@ -208,18 +209,19 @@ const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
   const module = await importSource((await readFile(new URL('../composables/usePosSale.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true'))
   const scope = vue.effectScope(), page = scope.run(() => module.usePosSale())
   await page.init()
-  const offer = { id: 8, name: 'Synthetic', currency: 'UAH', amount_minor: 12345, available_quantity: 1, can_sell: true }
-  return { page, calls, offer, stop: () => scope.stop() }
+  const cart = { items: [{ product_id: 8, quantity: 1 }], promo_code: null }
+  const quote = { items: cart.items, currency: 'UAH', subtotal_minor: 12345, discount_minor: 0, amount_minor: 12345, applied_promo_code: null, promotion_id: null, available_promotions: [], quote_revision: 'a'.repeat(64) }
+  return { page, calls, start: () => page.startCart(cart, quote, { 8: 'Synthetic' }), stop: () => scope.stop() }
 }
-test('master and admin use the same capability-gated live quantity-one checkout without impersonation', async () => {
-  const disabled = await setupPos({ live: false }); await disabled.page.selectOffer(disabled.offer); assert.deepEqual(disabled.calls, []); disabled.stop()
+test('master and admin use the same capability-gated live cart checkout without impersonation', async () => {
+  const disabled = await setupPos({ live: false }); await disabled.start(); assert.deepEqual(disabled.calls, []); disabled.stop()
   for (const actor of ['barber', 'admin']) {
     const state = await setupPos({ actor })
     assert.equal(state.calls.length, 0)
-    await state.page.selectOffer(state.offer)
+    await state.start()
     assert.equal(state.calls.length, 1)
-    assert.deepEqual(Object.keys(state.calls[0].body).sort(), ['currency', 'expected_amount_minor', 'intent_id', 'product_id', 'quantity'])
-    assert.equal(state.calls[0].body.quantity, 1); assert.ok(state.calls[0].key)
+    assert.deepEqual(Object.keys(state.calls[0].body).sort(), ['currency', 'intent_id', 'items', 'promo_code', 'quote_revision'])
+    assert.deepEqual(state.calls[0].body.items, [{ product_id: 8, quantity: 1 }]); assert.ok(state.calls[0].key)
     assert.equal(state.page.checkout.value.employee.user_id, 1)
     assert.equal(state.page.checkout.value.employee.master_id, actor === 'barber' ? 11 : null)
     state.stop()

@@ -8,6 +8,7 @@ const apiSource = await read('composables/useBackofficeApi.ts')
 const typesSource = await read('types/inventory.ts')
 const utilsSource = await read('utils/inventory.ts')
 const barcodeSource = await read('components/inventory/BarcodeInput.vue')
+const findGoodField = await read('components/BaseFindGoodField.vue')
 const compiledUtils = ts.transpileModule(utilsSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText
@@ -82,7 +83,8 @@ test('barcode input suppresses duplicate Enter events without blocking a newly s
   assert.match(barcodeSource, /shouldSuppressBarcodeSubmission/)
   assert.match(barcodeSource, /inputSinceSubmit/)
   assert.match(barcodeSource, /!inputSinceSubmit\.value && shouldSuppressBarcodeSubmission/)
-  assert.match(barcodeSource, /@keydown\.enter\.prevent="submit\(\)"/)
+  assert.match(barcodeSource, /@submit="submit\(\)"/)
+  assert.match(findGoodField, /@keydown\.enter\.prevent="submit"/)
   assert.match(barcodeSource, /emit\('submit', barcode\)/)
   assert.match(barcodeSource, /v-if="match"/)
   assert.match(barcodeSource, /v-else-if="notFound && showNotFound"/)

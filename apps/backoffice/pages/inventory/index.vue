@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { productDisplayImage } from '~/utils/productImages'
 import { canManageCatalog } from '~/utils/catalogAccess'
-import { ArchiveBoxIcon, ArrowDownTrayIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, CameraIcon, XMarkIcon, CubeIcon, LockClosedIcon, ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowDownTrayIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, CubeIcon, LockClosedIcon, ShoppingBagIcon, ShoppingCartIcon } from '@heroicons/vue/24/outline'
 import type { Product } from '~/composables/useBackofficeApi'
 import { inventoryApiErrorMessage } from '~/utils/inventory'
 provide('compactFieldHints', true)
@@ -10,8 +10,6 @@ provide('compactFieldHints', true)
 const auth = useAuthStore()
 const catalogEditable = computed(() => canManageCatalog(auth.user))
 const canPostInventory = computed(() => Boolean(auth.user?.is_superuser || auth.user?.can_post_inventory))
-const cameraOpen = ref(false)
-const searchInput = ref<{ focus: () => void } | null>(null)
 
 const api = useBackofficeApi()
 const route = useRoute()
@@ -100,20 +98,12 @@ const searchAsYouType = (value: string | number | null) => {
 const clearSearch = async () => {
   search.value = ''
   await applyFilters()
-  searchInput.value?.focus()
 }
 onBeforeUnmount(cancelScheduledSearch)
 onBeforeRouteLeave(cancelScheduledSearch)
-const closeCamera = async () => {
-  cameraOpen.value = false
-  await nextTick()
-  searchInput.value?.focus()
-}
 const scanBarcode = async (barcode: string) => {
-  cameraOpen.value = false
   search.value = barcode
   await applyFilters()
-  searchInput.value?.focus()
 }
 watch(() => route.query.search, () => {
   cancelScheduledSearch()
@@ -122,7 +112,6 @@ watch(() => route.query.search, () => {
 watch(() => route.query.stock, () => {
   stockFilter.value = typeof route.query.stock === 'string' ? route.query.stock : ''
 })
-watch(() => route.fullPath, () => { cameraOpen.value = false })
 const changePage = (next: number) => updateQuery({ page: String(next) })
 const retry = async () => { await Promise.all([refresh(), refreshProcurement()]) }
 const productVariant = (item: Product | undefined) => item?.package_size || item?.model_name || (item?.volume_ml ? `${item.volume_ml} мл` : '—')
@@ -160,16 +149,20 @@ const stockTone = (available: number, reserved: number, toOrder: number): 'dange
     </section>
 
     <form class="grid gap-4 rounded-[1.5rem] bg-ui-surface p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end" @submit.prevent="applyFilters">
-      <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-        <div class="inventory-stock-search relative min-w-0">
-          <BaseInput ref="searchInput" :model-value="search" field-class="min-w-0" input-class="base-control py-3 pl-4 pr-12 text-sm" type="search" label="Пошук на складі" hint="Пошук застосовується автоматично серед усіх товарів." placeholder="Назва, SKU або штрихкод" aria-description="Шукає серед усіх товарів." @update:model-value="searchAsYouType"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
-          <button v-if="search" type="button" class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full text-ui-muted hover:text-ui-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="Очистити пошук" title="Очистити пошук" @click="clearSearch"><XMarkIcon class="h-5 w-5" aria-hidden="true" /></button>
-        </div>
-        <BaseButton type="button" variant="neutral" class="h-11 w-11 shrink-0 p-0" aria-label="Сканувати штрихкод" title="Сканувати штрихкод" @click="cameraOpen = true"><CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" /></BaseButton>
-      </div>
+      <BaseFindGoodField
+        :model-value="search"
+        searchbox
+        label="Пошук на складі"
+        hint="Пошук застосовується автоматично серед усіх товарів."
+        placeholder="Назва, SKU або штрихкод"
+        :show-clear="!!search"
+        @update:model-value="searchAsYouType"
+        @submit="applyFilters"
+        @clear="clearSearch"
+        @scan="scanBarcode"
+      />
       <BaseSelect v-model="stockFilter" :options="stockOptions" label="Залишок" hint="Застосовується автоматично до товарів на поточній сторінці." aria-description="Фільтрує товари на цій сторінці." @update:model-value="applyFilters"><template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseSelect>
     </form>
-    <InventoryBarcodeCamera v-if="cameraOpen" @close="closeCamera" @recognized="scanBarcode" />
 
     <p v-if="error || procurementError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">
       {{ inventoryApiErrorMessage(error || procurementError, 'Не вдалося завантажити дані складу.') }}

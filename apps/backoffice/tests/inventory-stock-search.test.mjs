@@ -8,11 +8,10 @@ const script = ts.transpileModule(source.match(/<script setup lang="ts">([\s\S]*
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
-test('clear search cancels pending debounce, immediately resets query, retains filter and restores focus', async () => {
+test('clear search cancels pending debounce, immediately resets query, retains the stock filter', async () => {
   const timers = new Map()
   const navigations = []
   let timerId = 0
-  let focused = false
   const ref = value => ({ value })
   const noop = () => {}
   const globals = {
@@ -28,8 +27,7 @@ test('clear search cancels pending debounce, immediately resets query, retains f
     clearTimeout: id => timers.delete(id),
   }
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-  const state = await new AsyncFunction(...Object.keys(globals), `${script}; return { search, searchInput, clearSearch, searchAsYouType };`)(...Object.values(globals))
-  state.searchInput.value = { focus: () => { focused = true } }
+  const state = await new AsyncFunction(...Object.keys(globals), `${script}; return { search, clearSearch, searchAsYouType };`)(...Object.values(globals))
   state.searchAsYouType('Pending text')
   assert.equal(timers.size, 1)
   const result = state.clearSearch()
@@ -37,6 +35,5 @@ test('clear search cancels pending debounce, immediately resets query, retains f
   assert.equal(timers.size, 0)
   assert.deepEqual(navigations, [{ query: { stock: 'available', context: 'keep' } }])
   await result
-  assert.equal(focused, true)
 })
 

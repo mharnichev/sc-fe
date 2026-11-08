@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { CameraIcon, MagnifyingGlassIcon, XMarkIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { shouldSuppressBarcodeSubmission } from '~/utils/inventory'
 
@@ -32,21 +31,12 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const compactHints = inject<boolean>('compactFieldHints', false)
 const inputRef = ref<{ focus: () => void } | null>(null)
-const cameraOpen = ref(false)
-const route = useRoute()
 const lastSubmittedBarcode = ref('')
 const lastSubmittedAt = ref(0)
 const inputSinceSubmit = ref(true)
 
 const focus = () => inputRef.value?.focus()
-
-const closeCamera = async () => {
-  cameraOpen.value = false
-  await nextTick()
-  focus()
-}
 
 const submit = (value?: string) => {
   const barcode = typeof value === 'string' ? value : props.modelValue
@@ -65,7 +55,6 @@ const submit = (value?: string) => {
 }
 
 const recognize = (barcode: string) => {
-  cameraOpen.value = false
   if (props.disabled || props.loading) return
   // Each explicit camera opening is a new scan, including the same product.
   inputSinceSubmit.value = true
@@ -98,63 +87,33 @@ onMounted(() => {
 })
 
 watch(() => props.disabled, (disabled) => {
-  if (disabled) cameraOpen.value = false
   if (props.autoFocus && !disabled) nextTick(focus)
 })
-watch(() => props.loading, loading => { if (loading) cameraOpen.value = false })
-watch(() => route.fullPath, () => { cameraOpen.value = false })
 
 defineExpose({ focus })
 </script>
 
 <template>
   <section class="space-y-2" aria-live="polite">
-    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-      <BaseInput
-        ref="inputRef"
-        :model-value="modelValue"
-        :label="label"
-        :hint="compactHints ? 'Введіть код вручну або відкрийте камеру.' : undefined"
-        :placeholder="placeholder"
-        autocomplete="off"
-        inputmode="text"
-        :disabled="disabled"
-        :error="error || undefined"
-        field-class="min-w-0"
-        aria-description="Введіть код вручну або відкрийте камеру."
-        @update:model-value="updateValue"
-        @keydown.enter.prevent="submit()"
-      ><template #icon><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
-      <BaseButton type="button" variant="secondary" :disabled="disabled || loading" aria-label="Сканувати" title="Сканувати" class="h-11 w-11 !p-0" @click="cameraOpen = true">
-        <CameraIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-      </BaseButton>
-      <div class="col-span-2 flex gap-2 sm:contents">
-        <BaseButton
-          type="button"
-          variant="primary"
-          :loading="loading"
-          :disabled="disabled || !modelValue.trim()"
-          class="min-h-11 flex-1 whitespace-nowrap sm:flex-none"
-          @click="submit()"
-        >
-          <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          Знайти
-        </BaseButton>
-        <BaseButton
-          v-if="modelValue || match || notFound"
-          type="button"
-          variant="secondary"
-          :disabled="disabled"
-          class="min-h-11 flex-1 whitespace-nowrap sm:flex-none"
-          @click="clear"
-        >
-          <XMarkIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-          Скинути
-        </BaseButton>
-      </div>
-    </div>
-    <p v-if="!compactHints" class="text-xs text-ui-muted">Введіть код вручну або відкрийте камеру.</p>
-    <InventoryBarcodeCamera v-if="cameraOpen" @close="closeCamera" @recognized="recognize" />
+    <BaseFindGoodField
+      ref="inputRef"
+      :model-value="modelValue"
+      :label="label"
+      hint="Введіть код вручну або відкрийте камеру."
+      :placeholder="placeholder"
+      :disabled="disabled"
+      :loading="loading"
+      :error="error || undefined"
+      :show-clear="!!(modelValue || match || notFound)"
+      clear-label="Скинути"
+      scan-label="Сканувати"
+      show-submit
+      require-value
+      @update:model-value="updateValue"
+      @submit="submit()"
+      @scan="recognize"
+      @clear="clear"
+    />
 
     <p v-if="match" class="rounded-lg border border-[var(--bo-border)] bg-[var(--bo-success-surface)] px-3 py-2 text-sm text-[var(--bo-success-text)]">
       Знайдено: <span class="font-medium">{{ match.name }}</span><span v-if="match.sku"> · {{ match.sku }}</span>

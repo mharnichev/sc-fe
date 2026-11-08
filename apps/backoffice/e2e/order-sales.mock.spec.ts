@@ -66,7 +66,7 @@ test('default local mode and lack of permissions expose no real settlement contr
     const path = new URL(route.request().url()).pathname
     if (route.request().method() === 'GET' && (path.endsWith('/returns') || path.endsWith('/fiscal-documents'))) return route.fulfill({ json: [] })
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['record_sales_required'] } })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['record_sales_required'] } })
     if (path.endsWith('/orders/321')) return route.fulfill({ json: order() })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
@@ -86,7 +86,7 @@ test('delegated sales operator discovers the POS from navigation', async ({ page
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: operator })
-    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['accept_qr_required'] } })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: false, can_start: false, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: ['accept_qr_required'] } })
     return route.fulfill({ json: { items: [], total: 0 } })
   })
   await page.goto('/orders/pos')
@@ -127,10 +127,11 @@ test('mobile quick POS preserves photos, stock guards and anonymous quantity-one
   await page.route('**/api/v1/**', route => {
     const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: true, can_start: true, can_view_admin_sales: true, automatic_reconciliation_enabled: true, poll_after_ms: 30000, blocking_reasons: [] } })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: true, can_start: true, can_view_admin_sales: true, automatic_reconciliation_enabled: true, poll_after_ms: 30000, blocking_reasons: [] } })
     if (path.endsWith('/pos/products')) return route.fulfill({ json: { items: [picturedProduct, { ...picturedProduct, id: 9, name: 'Unavailable product', available_quantity: 0, can_sell: false }], total: 2, page: 1, page_size: 20 } })
     if (path.endsWith('/pos/checkouts/active')) return route.fulfill({ json: { items: checkout ? [checkout] : [], total: checkout ? 1 : 0, page: 1, page_size: 20 } })
     if (path.includes('/pos/checkouts/by-intent/')) return checkout ? route.fulfill({ json: checkout }) : route.fulfill({ status: 404, json: { detail: { code: 'missing' } } })
+    if (path.endsWith('/pos/cart/quote')) return route.fulfill({ json: { items: [{ product_id: 8, quantity: 1, base_unit_minor: 12345, unit_minor: 12345, promotion_id: null, promotion_name: null, promotion_code: null }], subtotal_minor: 12345, discount_minor: 0, amount_minor: 12345, applied_promo_code: null, promotion_id: null, available_promotions: [], quote_revision: 'a'.repeat(64), currency: 'UAH' } })
     if (path.endsWith('/pos/checkouts') && req.method() === 'POST') {
       const body = req.postDataJSON()
       submitted.push({ body, key: req.headers()['idempotency-key'] })
@@ -145,15 +146,17 @@ test('mobile quick POS preserves photos, stock guards and anonymous quantity-one
   expect(submitted).toHaveLength(0)
   await page.getByLabel('Знайти товар', { exact: true }).fill('SKU-8')
   await page.getByLabel('Знайти товар', { exact: true }).press('Enter')
-  const available = page.getByRole('button', { name: /Продати: Fixture shampoo/ })
-  await expect(page.getByRole('button', { name: /Продати: Unavailable product/ })).toBeDisabled()
-  await expect.poll(() => available.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  const available = page.getByRole('button', { name: /Додати: Fixture shampoo/ })
+  await expect(page.getByRole('button', { name: /Додати: Unavailable product/ })).toBeDisabled()
+  await expect.poll(() => page.locator('article').filter({ has: available }).locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
   expect(submitted).toHaveLength(0)
   await available.click()
+  await expect(page.getByRole('region', { name: 'Панель кошика' })).toContainText('123,45')
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Відновити цей продаж', exact: true })).toBeVisible()
   expect(submitted).toHaveLength(1)
   const intent = submitted[0].body.intent_id
-  expect(submitted[0].body).toEqual({ intent_id: intent, product_id: 8, quantity: 1, expected_amount_minor: 12345, currency: 'UAH' })
+  expect(submitted[0].body).toEqual({ intent_id: intent, items: [{ product_id: 8, quantity: 1 }], promo_code: null, promotion_id: null, quote_revision: 'a'.repeat(64), currency: 'UAH' })
   expect(submitted[0].key).toMatch(/^[0-9a-f-]{36}$/)
   await page.reload()
   await expect(page.getByRole('img', { name: 'QR для оплати mono' })).toBeVisible()

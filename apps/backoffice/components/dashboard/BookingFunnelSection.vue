@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import {
   ArrowRightIcon,
+  ArrowTrendingDownIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  EyeIcon,
+  HashtagIcon,
+  MagnifyingGlassIcon,
+  ReceiptPercentIcon,
   ChartBarSquareIcon,
   ExclamationTriangleIcon,
   LightBulbIcon,
@@ -29,7 +37,11 @@ const props = defineProps<{
 const absoluteLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_absolute_loss'))
 const percentageLoss = computed(() => bookingLossDisplay(props.funnel, 'largest_percentage_loss'))
 const failureLabels = { timeout: 'Таймаути', network: 'Мережеві помилки', http_4xx: 'Помилки API 4xx', http_5xx: 'Помилки API 5xx', invalid_response: 'Некоректні відповіді' }
-const observationLabels = { time_step_viewed: 'Перегляди кроку часу', availability_requested: 'Запити часу', availability_result: 'Отримані відповіді', availability_failed: 'Помилки / таймаути', availability_cancelled: 'Скасовані запити' }
+const observationMetrics = [
+  { key: 'time_step_viewed', label: 'Перегляди кроку часу', icon: EyeIcon },
+  { key: 'availability_requested', label: 'Запити часу', icon: MagnifyingGlassIcon },
+  { key: 'availability_result', label: 'Отримані відповіді', icon: CheckCircleIcon },
+] as const
 const rows = computed(() => mapBookingFunnelRows(props.funnel))
 const alerts = computed(() => triggeredBookingFunnelAlerts(props.funnel))
 const noSlotOutcomes = computed(() => bookingNoSlotOutcomeDisplay(props.funnel))
@@ -202,29 +214,109 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
         </li>
       </ol>
 
-      <section v-if="funnel.selection_diagnostics" class="mt-4 rounded-2xl border p-4" aria-label="Порівняння відсіву">
-        <h3 class="font-semibold">Відсів: кількість і частка</h3>
-        <div class="mt-2 grid gap-3 sm:grid-cols-2">
-          <div v-for="item in [{ title: 'Найбільший за кількістю', loss: absoluteLoss }, { title: 'Найбільший за часткою', loss: percentageLoss }]" :key="item.title">
-            <p class="text-sm font-semibold">{{ item.title }}</p>
-            <p v-if="item.loss" class="text-sm">{{ item.loss.label }}: {{ item.loss.count }} із {{ item.loss.denominator }} сесій ({{ item.loss.percentage }}). <span v-if="item.loss.smallSample">Мала вибірка.</span></p>
-            <p v-else class="text-sm">Недостатньо даних.</p>
+      <section v-if="funnel.selection_diagnostics" class="booking-funnel__diagnostics mt-4 rounded-2xl border p-4" aria-label="Порівняння відсіву">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="flex items-center gap-2 text-sm font-semibold">
+            <ArrowTrendingDownIcon class="booking-funnel__diagnostic-icon h-5 w-5 shrink-0" aria-hidden="true" />
+            Відсів: кількість і частка
+          </h3>
+          <DashboardMetricHelp
+            title="Як порівнюється відсів"
+            summary="Кількість показує найбільше сесій без наступного кроку; частка — найбільший відсоток від попереднього кроку. Це можуть бути різні переходи."
+            formula="Відсів = сесії A без B. Частка = відсів ÷ сесії A × 100%. Знаменник — сесії попереднього кроку тієї самої когорти booking_start."
+            :note="`Мала вибірка — менше ${funnel.alert_thresholds.meaningful_step_sessions} сесій на переході. Відсів не доводить технічну причину або зламаний перехід.`"
+          />
+        </div>
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <article
+            v-for="item in [{ title: 'Найбільший за кількістю', icon: HashtagIcon, loss: absoluteLoss }, { title: 'Найбільший за часткою', icon: ReceiptPercentIcon, loss: percentageLoss }]"
+            :key="item.title"
+            class="booking-funnel__diagnostic-metric rounded-xl border p-3"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <h4 class="flex items-center gap-2 text-xs font-medium text-ui-secondary">
+                <component :is="item.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                {{ item.title }}
+              </h4>
+              <DashboardMetricHelp
+                v-if="item.loss"
+                :title="item.title"
+                :summary="item.loss.label"
+                :formula="`${item.loss.count?.toLocaleString('uk-UA')} із ${item.loss.denominator.toLocaleString('uk-UA')} сесій попереднього кроку — ${item.loss.percentage}.`"
+                note="Обидва числа стосуються тієї самої когорти початку запису."
+              />
+            </div>
+            <template v-if="item.loss">
+              <p class="mt-2 flex flex-wrap items-baseline gap-x-2 tabular-nums">
+                <strong class="text-2xl font-semibold tracking-tight">{{ item.loss.count?.toLocaleString('uk-UA') }}</strong>
+                <span class="text-xs text-ui-secondary">сесій</span>
+                <span class="ml-auto text-lg font-semibold">{{ item.loss.percentage }}</span>
+              </p>
+              <p class="mt-2 text-xs leading-5 text-ui-secondary">{{ item.loss.label }}</p>
+              <p v-if="item.loss.smallSample" class="mt-2 text-xs font-medium booking-funnel__diagnostic-warning">Мала вибірка</p>
+            </template>
+            <p v-else class="mt-3 text-sm text-ui-secondary">Недостатньо даних</p>
+          </article>
+        </div>
+        <div v-if="funnel.selection_diagnostics.observation_incomplete || funnel.selection_diagnostics.small_sample_transitions.length" class="ui-status-warning mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs leading-5" role="status">
+          <ExclamationTriangleIcon class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p v-if="funnel.selection_diagnostics.observation_incomplete">Спостереження неповні; висновки попередні.</p>
+            <p v-if="funnel.selection_diagnostics.small_sample_transitions.length">Частина переходів має малу вибірку — менше {{ funnel.alert_thresholds.meaningful_step_sessions }} сесій.</p>
           </div>
         </div>
-        <p class="mt-2 text-xs">Знаменник — сесії попереднього кроку тієї самої когорти booking_start. Відсів не доводить технічну причину або зламаний перехід.</p>
-        <p v-if="funnel.selection_diagnostics.observation_incomplete" class="mt-2 text-xs" role="status">Спостереження неповні; висновки попередні.</p>
-        <p v-if="funnel.selection_diagnostics.small_sample_transitions.length" class="mt-2 text-xs">Частина переходів має малу вибірку — нижче встановленого порога {{ funnel.alert_thresholds.meaningful_step_sessions }} сесій.</p>
+        <p class="mt-3 text-xs leading-5 text-ui-secondary">Відсів не доводить причину зупинки запису.</p>
       </section>
-      <section v-if="funnel.observation_diagnostics" class="mt-4 rounded-2xl border p-4" aria-label="Діагностика вибору часу">
-        <h3 class="font-semibold">Діагностика вибору часу</h3>
-        <dl class="mt-2 grid gap-2 sm:grid-cols-3">
-          <div v-for="(label, key) in observationLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.event_counts[key] }}</dd></div>
+      <section v-if="funnel.observation_diagnostics" class="booking-funnel__diagnostics mt-4 rounded-2xl border p-4" aria-label="Діагностика вибору часу">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="flex items-center gap-2 text-sm font-semibold">
+            <ClockIcon class="booking-funnel__diagnostic-icon h-5 w-5 shrink-0" aria-hidden="true" />
+            Діагностика вибору часу
+          </h3>
+          <DashboardMetricHelp
+            title="Діагностика вибору часу"
+            summary="Події за вибраний період, не когорта початку запису і не кількість унікальних клієнтів. Повторні запити враховуються окремо."
+            note="Пропущена доставка можлива. Ці числа не доводять недоступність розкладу чи причину відсіву. Початкова порожня відповідь стосується першого пошуку часу; відповідь без запиту — прогалина спостереження."
+          />
+        </div>
+        <p class="mt-1 text-xs text-ui-secondary">Події за вибраний період</p>
+        <dl class="mt-3 grid gap-2 sm:grid-cols-3">
+          <div v-for="item in observationMetrics" :key="item.key" class="booking-funnel__diagnostic-metric flex items-center justify-between gap-3 rounded-xl border p-3 sm:block">
+            <dt class="flex items-center gap-2 text-xs text-ui-secondary">
+              <component :is="item.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
+              {{ item.label }}
+            </dt>
+            <dd class="text-xl font-semibold tabular-nums sm:mt-2">{{ funnel.observation_diagnostics.event_counts[item.key].toLocaleString('uk-UA') }}</dd>
+          </div>
         </dl>
-        <dl v-if="funnel.observation_diagnostics.failure_counts" class="mt-3 grid gap-2 sm:grid-cols-3" aria-label="Типи помилок пошуку часу">
-          <div v-for="(label, key) in failureLabels" :key="key"><dt class="text-xs">{{ label }}</dt><dd>{{ funnel.observation_diagnostics.failure_counts[key] }}</dd></div>
+        <dl class="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+          <div class="flex items-center justify-between gap-2">
+            <dt class="flex items-center gap-2 text-ui-secondary"><ExclamationTriangleIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Помилки / таймаути</dt>
+            <dd class="font-semibold tabular-nums">{{ funnel.observation_diagnostics.event_counts.availability_failed.toLocaleString('uk-UA') }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="flex items-center gap-2 text-ui-secondary"><ArrowPathIcon class="h-4 w-4 shrink-0" aria-hidden="true" />Скасовані запити</dt>
+            <dd class="font-semibold tabular-nums">{{ funnel.observation_diagnostics.event_counts.availability_cancelled.toLocaleString('uk-UA') }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="text-ui-secondary">Початкові порожні відповіді</dt>
+            <dd class="font-semibold tabular-nums">{{ funnel.observation_diagnostics.initial_empty_results.toLocaleString('uk-UA') }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="text-ui-secondary">Відповіді без запиту</dt>
+            <dd class="font-semibold tabular-nums">{{ funnel.observation_diagnostics.terminals_without_request.toLocaleString('uk-UA') }}</dd>
+          </div>
         </dl>
-        <p class="mt-2 text-xs">Початкові порожні відповіді: {{ funnel.observation_diagnostics.initial_empty_results }}. Результати без зафіксованого запиту: {{ funnel.observation_diagnostics.terminals_without_request }}.</p>
-        <p class="mt-2 text-xs">Події за вибраний період, не когорта початку запису і не кількість унікальних клієнтів. Пропущена доставка можлива; ці числа не доводять недоступність розкладу чи причину відсіву.</p>
+        <details v-if="funnel.observation_diagnostics.failure_counts" class="booking-funnel__diagnostic-details mt-3 border-t">
+          <summary class="min-h-11 cursor-pointer content-center text-xs font-medium">Типи помилок пошуку часу</summary>
+          <dl class="grid gap-x-4 gap-y-2 pb-3 text-xs sm:grid-cols-2" aria-label="Типи помилок пошуку часу">
+            <div v-for="(label, key) in failureLabels" :key="key" class="flex items-center justify-between gap-2">
+              <dt class="text-ui-secondary">{{ label }}</dt>
+              <dd class="font-semibold tabular-nums">{{ funnel.observation_diagnostics.failure_counts[key].toLocaleString('uk-UA') }}</dd>
+            </div>
+          </dl>
+        </details>
+        <p class="mt-2 text-xs leading-5 text-ui-secondary">Можливі пропуски подій. Це не доказ недоступності розкладу.</p>
       </section>
 
       <article class="booking-funnel__insight mt-4 rounded-2xl border p-4" aria-labelledby="booking-no-slot-outcomes-title">
@@ -349,6 +441,26 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
 </template>
 
 <style scoped>
+.booking-funnel__diagnostics {
+  border-color: var(--bo-border);
+  background: var(--bo-surface);
+  color: var(--bo-text-primary);
+}
+
+.booking-funnel__diagnostic-metric {
+  border-color: var(--bo-border);
+  background: var(--bo-surface-elevated);
+}
+
+.booking-funnel__diagnostic-warning { color: var(--bo-warning-text); }
+.booking-funnel__diagnostic-icon { color: var(--bo-accent); }
+.booking-funnel__diagnostic-details { border-color: var(--bo-border); }
+.booking-funnel__diagnostic-details > summary:focus-visible {
+  outline: 2px solid var(--bo-focus-border);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
 .booking-funnel {
   border-color: color-mix(in srgb, var(--accent-text) 18%, var(--border));
   background: color-mix(in srgb, var(--accent-text) 3%, var(--glass));

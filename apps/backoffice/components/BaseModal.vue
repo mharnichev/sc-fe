@@ -57,6 +57,7 @@ const props = withDefaults(defineProps<{
   modelValue: boolean
   maxWidthClass?: string
   fillHeight?: boolean
+  compact?: boolean
   ariaLabel?: string
   ariaLabelledby?: string
   closeOnBackdrop?: boolean
@@ -113,6 +114,7 @@ const focusableSelector = [
   'input:not(:disabled)',
   'select:not(:disabled)',
   'textarea:not(:disabled)',
+  'summary',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
@@ -187,18 +189,18 @@ onBeforeUnmount(() => {
       <section
         ref="panelRef"
         class="backoffice-modal-panel base-modal__panel liquid-glass flex w-full flex-col overflow-hidden rounded-t-[1.5rem] sm:rounded-[1.75rem]"
-        :class="[maxWidthClass, { 'base-modal__panel--fill': fillHeight }]"
+        :class="[maxWidthClass, { 'base-modal__panel--fill': fillHeight, 'base-modal__panel--compact': compact && !fillHeight }]"
         role="dialog"
         aria-modal="true"
         :aria-label="ariaLabelledby ? undefined : ariaLabel"
         :aria-labelledby="ariaLabelledby"
         tabindex="-1"
       >
-        <header v-if="$slots.head" class="base-modal__header shrink-0 border-b px-4 py-4 sm:px-6 sm:py-5">
+        <header v-if="$slots.head" class="base-modal__header shrink-0 border-b" :class="compact ? 'px-3 py-2 sm:px-5 sm:py-3' : 'px-4 py-4 sm:px-6 sm:py-5'">
           <slot name="head" :close="close" :title-id="titleId" />
         </header>
 
-        <div v-if="$slots.body" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 [-webkit-overflow-scrolling:touch] sm:px-6">
+        <div v-if="$slots.body" class="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]" :class="compact ? 'p-3 sm:px-5' : 'px-4 py-5 sm:px-6'">
           <slot name="body" :close="close" />
         </div>
       </section>
@@ -209,6 +211,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .base-modal__panel { height: 95dvh; max-height: 95dvh; }
+.base-modal__panel--compact { height: auto; }
 .base-modal-enter-active, .base-modal-leave-active { transition: opacity 200ms ease; }
 .base-modal-enter-active .base-modal__panel, .base-modal-leave-active .base-modal__panel {
   transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
