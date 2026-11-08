@@ -19,6 +19,8 @@ const receiptTone = computed(() => props.checkout.receipt.status === 'accepted' 
   : ['failed', 'requires_review'].includes(props.checkout.receipt.status) ? 'warning'
     : props.checkout.receipt.status === 'pending' ? 'info' : 'neutral')
 const review = computed(() => props.checkout.status === 'requires_review' || ['unknown','failed','expired','reversed'].includes(props.checkout.payment.status))
+const unconfirmedInvoice = computed(() => !props.checkout.payment.invoice_id && props.checkout.blocking_reasons?.includes('creation_unknown'))
+const unavailableQr = computed(() => props.checkout.status === 'awaiting_payment' && !props.paymentUrl)
 const reasons = computed(() => posBlockingReasons(props.checkout.blocking_reasons))
 const emit = defineEmits<{ handover: []; refresh: []; resume: []; newSale: [] }>()
 const assetUrl = useAssetUrl(), api = useApi(), auth = useAuthStore()
@@ -77,14 +79,14 @@ const print = async () => {
       </BaseCard>
     </dl>
     <p v-if="checkout.status === 'completed' && checkout.handover.status === 'handed_over'" role="status" class="flex items-center justify-center gap-2 font-semibold text-ui-success"><CheckCircleIcon class="h-6 w-6" aria-hidden="true" />Продаж завершено. Товар видано.</p>
-    <p v-else-if="checkout.payment.status === 'paid' && checkout.receipt.status !== 'accepted'" role="status" class="ui-status-info rounded-xl p-3 text-sm">Оплату підтверджено. {{ checkout.receipt.status === 'failed' || checkout.receipt.status === 'requires_review' ? 'Чек потребує перевірки адміністратора.' : 'Очікуємо чек.' }} Повторно платити не потрібно. Видача поки недоступна.</p>
+    <p v-else-if="checkout.payment.status === 'paid' && checkout.receipt.status !== 'accepted'" role="status" class="ui-status-info rounded-xl p-3 text-sm">Оплату підтверджено. {{ checkout.receipt.status === 'failed' || checkout.receipt.status === 'requires_review' ? 'Не вдалося підтвердити чек.' : 'Очікуємо чек.' }} Повторно платити не потрібно. Видача поки недоступна.</p>
     <div v-else-if="review" role="status" class="ui-status-warning space-y-1 rounded-xl p-3 text-sm">
-      <p class="font-semibold">Потрібна перевірка адміністратора</p>
+      <p class="font-semibold">{{ unconfirmedInvoice ? 'Не вдалося підтвердити рахунок mono' : 'Стан оплати потребує уточнення' }}</p>
       <p v-for="reason in reasons" :key="reason">{{ reason }}</p>
       <p v-if="!reasons.length && !checkout.payment.invoice_id">Рахунок mono не прив’язано до цього продажу.</p>
-      <p v-if="!canViewHistory && !checkout.invoice_recovery">Передайте адміністратору номер #{{ checkout.order_id }}.</p>
       <p>Не просіть клієнта платити повторно.</p>
     </div>
+    <p v-else-if="unavailableQr && !error" role="status" class="ui-status-warning rounded-xl p-3 text-sm">QR для оплати поки недоступний. Перечитайте стан цього продажу.</p>
     <p v-else-if="canHandover" role="status" class="text-center font-medium">Оплату та чек підтверджено. Передайте товар клієнту.</p>
     <p v-else role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
     <BaseButton v-if="canRead && checkout.status === 'prepared' && !checkout.payment.invoice_id && checkout.actions.can_resume" variant="neutral" size="lg" block :loading="busy" @click="emit('resume')">Продовжити підготовку рахунку</BaseButton>
@@ -111,7 +113,7 @@ const print = async () => {
     </BaseModal>
     <p v-if="error" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ error }}</p>
     <div class="flex flex-wrap justify-center gap-2">
-      <BaseButton v-if="canRead && (error || review)" variant="neutral" size="lg" :loading="busy" @click="readState">Перечитати стан</BaseButton>
+      <BaseButton v-if="canRead && (error || review || unavailableQr)" variant="neutral" size="lg" :loading="busy" @click="readState">Перечитати стан</BaseButton>
       <BaseButton v-if="canRead && !error && checkout.payment.invoice_id && checkout.actions.can_refresh && checkout.status !== 'completed' && (!automatic || review)" variant="ghost" size="lg" :loading="busy" @click="emit('refresh')"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Оновити стан</BaseButton>
       <NuxtLink v-if="canViewHistory && review" :to="{ path: '/admin/product-sales', query: { q: String(checkout.order_id) } }" class="inline-flex min-h-11 items-center text-sm text-ui-secondary underline underline-offset-4">{{ checkout.invoice_recovery?.can_attach && checkout.actions.can_recover_invoice ? 'Звірити рахунок у продажах товарів' : 'Знайти в історії продажів' }}</NuxtLink>
       <BaseButton v-if="canPrint && checkout.status === 'completed'" variant="neutral" size="lg" :loading="printBusy" @click="print"><DocumentTextIcon class="h-5 w-5" aria-hidden="true" />Відкрити чек</BaseButton>

@@ -1,7 +1,9 @@
+import { BinaryBitmap, HybridBinarizer, QRCodeReader, RGBLuminanceSource } from '@zxing/library'
 import { test, expect, type Page } from '@playwright/test'
+import type { PosCheckout } from '../types/posSale'
 const offer = {id:101,name:'Reuzel Blue',brand_name:'Reuzel',sku:'R-001',barcode:'00000101',image_url:'/media/pos-test.svg',variant_label:'113 г',amount_minor:31000,currency:'UAH',available_quantity:2,can_sell:true,blocking_reasons:[]}
 const uuid='22222222-2222-4222-8222-222222222222'
-async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean}={}) {
+async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout}={}) {
  const role=options.role || 'master', user={id:role==='admin'?18:17,is_active:true,is_superuser:role==='admin',role:role==='admin'?'admin':'barber',master_id:role==='admin'?null:42,can_record_sales:true,can_accept_qr_payments:true,email:'synthetic@example.test'}
  let current:any=null, revoked=false, paused=false, handovers=0, creates=0
  const firstRevision='1'.repeat(64), changedRevision='2'.repeat(64)
@@ -59,6 +61,7 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
    if(options.priceChange && body.quote_revision!==changedRevision)return route.fulfill({status:409,json:{detail:{code:'price_changed',current_quote:quote(body.items,body.promo_code,body.promotion_id,true)}}})
    const priced=quote(body.items,body.promo_code,body.promotion_id,options.priceChange)
    current={checkout_id:uuid,intent_id:body.intent_id,order_id:9001,revision:3,created_at:'2026-11-06T10:00:00Z',employee:{user_id:user.id,master_id:user.master_id,display_name:'Synthetic seller'},items:priced.items.map(item=>({...item,name:item.product_id===101?offer.name:'Reuzel Green',sku:offer.sku,barcode:offer.barcode,image_url:offer.image_url,variant_label:offer.variant_label,total_minor:item.unit_minor*item.quantity})),order_status:'pending',amount_minor:priced.amount_minor,currency:'UAH',status:'awaiting_payment',payment:{provider:'monobank',status:'pending',invoice_id:'POS_SYNTHETIC_INVOICE_101',confirmed_at:null,qr_payload:'https://pay.mbnk.biz/POS_SYNTHETIC_INVOICE_101'},receipt:{issuer:'checkbox',status:'not_requested',recorded_at:null,pdf_url:null},handover:{status:'not_ready',actor_user_id:null,handed_over_at:null},actions:{can_resume:false,can_refresh:true,can_handover:false,can_recover_invoice:false,can_start_new:false},poll_after_ms:30000,blocking_reasons:[]}
+   if (options.projectCheckout) current = options.projectCheckout(current)
    if(options.lostCreate&&creates===1)return route.abort('failed')
    return route.fulfill({status:201,json:current})
   }
@@ -77,13 +80,85 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
  },revoke(){revoked=true},pause(){paused=true}}
 }
 async function select(page:Page){await page.getByLabel('Знайти товар',{exact:true}).fill('00000101');await page.getByLabel('Знайти товар',{exact:true}).press('Enter');await page.getByRole('button',{name:/Додати: Reuzel Blue/}).click();await page.getByRole('region',{name:'Панель кошика'}).getByText('310,00', {exact:false}).waitFor();await page.getByRole('button',{name:'Перейти до оплати',exact:true}).click()}
+
+const opaquePaymentUrl = 'https://pay.mbnk.biz/i/pay?session=synthetic%2Btoken%3D'
+
+test('authorized master gets a QR for the exact verified URL after one checkout', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const fixture = await setup(page, {
+    projectCheckout: checkout => ({ ...checkout, payment: { ...checkout.payment, qr_payload: opaquePaymentUrl } }),
+  })
+  await page.goto('/orders/pos')
+  await select(page)
+
+  const sale = page.getByRole('region', { name: 'Поточний продаж' })
+  const qr = sale.getByRole('img', { name: 'QR для оплати mono' })
+  await expect(qr).toBeVisible()
+  await expect(sale.getByText(/адміністратор/i)).toHaveCount(0)
+  const screenshot = await qr.screenshot({ path: testInfo.outputPath('opaque-mono-qr.png') })
+  const rendered = await page.evaluate(async bytes => {
+    const image = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }))
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    const rgba = context.getImageData(0, 0, image.width, image.height).data
+    const pixels = Array.from({ length: image.width * image.height }, (_, i) => {
+      const offset = i * 4
+      return (rgba[offset]! << 16) | (rgba[offset + 1]! << 8) | rgba[offset + 2]!
+    })
+    return { width: image.width, height: image.height, pixels }
+  }, Array.from<number>(screenshot))
+  const source = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
+  const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source))).getText()
+  expect(decoded).toBe(opaquePaymentUrl)
+  expect(fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
+    .map(request => request.path)).toEqual(['/checkouts'])
+  expect(fixture.external).toEqual([])
+})
+
+for (const [name, qrPayload, orderStatus, paymentStatus] of [
+  ['foreign host', 'https://pay.mbnk.biz.example.test/i/pay?session=synthetic', 'pending', 'pending'],
+  ['credentials', 'https://pay.mbnk.biz@other.test/i/pay?session=synthetic', 'pending', 'pending'],
+  ['unsafe path', 'https://pay.mbnk.biz/i/%2e%2e/pay?session=synthetic', 'pending', 'pending'],
+  ['malformed encoding', 'https://pay.mbnk.biz/i/pay?session=bad%zz', 'pending', 'pending'],
+  ['other invoice', 'https://pay.mbnk.biz/DIFFERENT_INVOICE?session=synthetic', 'pending', 'pending'],
+  ['missing URL', null, 'pending', 'pending'],
+  ['paid', opaquePaymentUrl, 'paid', 'paid'],
+  ['cancelled', opaquePaymentUrl, 'cancelled', 'pending'],
+] as const) {
+  test(`POS omits the payment QR for ${name}`, async ({ page }) => {
+    const fixture = await setup(page, {
+      projectCheckout: checkout => ({
+        ...checkout,
+        order_status: orderStatus,
+        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload },
+      }),
+    })
+    await page.goto('/orders/pos')
+    await select(page)
+    const sale = page.getByRole('region', { name: 'Поточний продаж' })
+    await expect(sale.getByRole('heading', { name: 'Стан продажу' })).toBeVisible()
+    await expect(sale.getByRole('img', { name: 'QR для оплати mono' })).toHaveCount(0)
+    if (orderStatus === 'pending') {
+      await expect(sale.getByText(/QR для оплати поки недоступний/)).toBeVisible()
+      await sale.getByRole('button', { name: 'Перечитати стан', exact: true }).click()
+      await expect.poll(() => fixture.requests.filter(request => request.method === 'GET' && request.path === `/checkouts/${uuid}`).length).toBe(1)
+    }
+    expect(fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
+      .map(request => request.path)).toEqual(['/checkouts'])
+    expect(fixture.external).toEqual([])
+  })
+}
+
 for(const role of ['master','admin'] as const)test(`${role}: same cart sale, QR, backend receipt then one explicit handover`,async({page})=>{
  await page.clock.install();const f=await setup(page,{role,lostHandover:true});await page.goto('/orders/pos')
  expect(f.requests.filter(r=>r.path==='/checkouts'&&r.method==='POST')).toHaveLength(0)
  await select(page);await expect(page.getByRole('img',{name:'QR для оплати mono'})).toBeVisible();expect(f.requests.find(r=>r.path==='/products')?.query.get('q')).toBe('00000101')
  const create=f.requests.find(r=>r.path==='/checkouts')!;expect(Object.keys(create.body).sort()).toEqual(['currency','intent_id','items','promo_code','promotion_id','quote_revision']);expect(create.body.items).toEqual([{product_id:101,quantity:1}]);expect(f.current.employee.user_id).toBe(role==='admin'?18:17)
  f.truth('pending');await page.clock.runFor(30000);await expect(page.getByRole('img',{name:'QR для оплати mono'})).toHaveCount(0);await expect(page.getByText(/Повторно платити не потрібно/)).toBeVisible();await expect(page.getByRole('button',{name:'Товар видано',exact:true})).toHaveCount(0)
- f.truth('receipt_error');await page.clock.runFor(30000);await expect(page.getByText(/Чек потребує перевірки адміністратора/)).toBeVisible();expect(f.requests.filter(r=>r.path==='/checkouts')).toHaveLength(1)
+ f.truth('receipt_error');await page.clock.runFor(30000);await expect(page.getByText(/Не вдалося підтвердити чек/)).toBeVisible();expect(f.requests.filter(r=>r.path==='/checkouts')).toHaveLength(1)
  f.truth('ready');await page.clock.runFor(30000);const handover=page.getByRole('button',{name:'Товар видано',exact:true});await expect(handover).toBeEnabled();expect((await handover.boundingBox())!.height).toBeGreaterThanOrEqual(44);await handover.focus();await expect(handover).toBeFocused();await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'Товар видано',exact:true})).not.toBeFocused();await handover.evaluate((button:HTMLButtonElement)=>{button.click();button.click()})
  await expect(page.getByRole('button',{name:'Перечитати стан',exact:true})).toBeVisible();await page.reload();await expect(page.getByText('Продаж завершено. Товар видано.',{exact:true})).toBeVisible();expect(f.handovers).toBe(1)
  await expect(page.getByRole('button',{name:'Новий продаж',exact:true})).toBeVisible();expect(f.external).toEqual([]);expect(f.consoleErrors).toEqual([])
@@ -93,7 +168,7 @@ test('changed price is confirmed explicitly and the same intent/key survives rel
  const f=await setup(page,{priceChange:true});await page.goto('/orders/pos');await select(page);await expect(page.getByText('Розрахунок кошика змінився',{exact:true})).toBeVisible();await page.screenshot({path:test.info().outputPath('changed-quote-master-dark-390.png'),animations:'disabled'});const first=f.requests.find(r=>r.path==='/checkouts')!;await page.reload();expect(f.requests.filter(r=>r.path==='/checkouts')).toHaveLength(1);await page.getByRole('button',{name:'Погоджуюсь на нову суму'}).click();await expect(page.getByRole('img',{name:'QR для оплати mono'})).toBeVisible();const posts=f.requests.filter(r=>r.path==='/checkouts');expect(posts[1].key).toBe(first.key);expect(posts[1].body.intent_id).toBe(first.body.intent_id);expect(posts[1].body.quote_revision).toBe('2'.repeat(64))
 })
 test('lost create resumes by intent; unknown state cannot expose QR or offer a new invoice',async({page})=>{
- await page.setViewportSize({width:390,height:844});const f=await setup(page,{lostCreate:true,manualRefresh:true});await page.goto('/orders/pos');await select(page);await expect(page.getByRole('button',{name:'Відновити цей продаж',exact:true})).toBeVisible();await page.reload();await expect(page.getByRole('img',{name:'QR для оплати mono'})).toBeVisible();expect(f.requests.filter(r=>r.path==='/checkouts')).toHaveLength(1);f.truth('unknown');await page.getByRole('button',{name:'Оновити стан',exact:true}).click();await expect(page.getByText(/Потрібна перевірка адміністратора/)).toBeVisible();await page.screenshot({path:test.info().outputPath('unknown-master-dark-390.png'),animations:'disabled'});await expect(page.getByRole('img',{name:'QR для оплати mono'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Новий продаж',exact:true})).toHaveCount(0)
+ await page.setViewportSize({width:390,height:844});const f=await setup(page,{lostCreate:true,manualRefresh:true});await page.goto('/orders/pos');await select(page);await expect(page.getByRole('button',{name:'Відновити цей продаж',exact:true})).toBeVisible();await page.reload();await expect(page.getByRole('img',{name:'QR для оплати mono'})).toBeVisible();expect(f.requests.filter(r=>r.path==='/checkouts')).toHaveLength(1);f.truth('unknown');await page.getByRole('button',{name:'Оновити стан',exact:true}).click();await expect(page.getByText('Стан оплати потребує уточнення',{exact:true})).toBeVisible();await page.screenshot({path:test.info().outputPath('unknown-master-dark-390.png'),animations:'disabled'});await expect(page.getByRole('img',{name:'QR для оплати mono'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Новий продаж',exact:true})).toHaveCount(0)
 })
 test('revoked access suppresses QR and all handover actions',async({page})=>{
  const f=await setup(page,{manualRefresh:true});await page.goto('/orders/pos');await select(page);await expect(page.getByRole('img',{name:'QR для оплати mono'})).toBeVisible();f.revoke();await page.getByRole('button',{name:'Оновити стан',exact:true}).click();await expect(page.getByText(/Доступ до продажу втрачено/)).toBeVisible();await expect(page.getByRole('img',{name:'QR для оплати mono'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Товар видано',exact:true})).toHaveCount(0)
@@ -434,7 +509,7 @@ for (const [role, theme, width] of [['master','dark',320],['master','light',390]
   })
 }
 
-async function recoveryFixture(page: Page, role: 'master' | 'admin', mode: 'ready' | 'blocked' | 'lost' | 'conflict' | 'not-found' = 'ready') {
+async function recoveryFixture(page: Page, role: 'master' | 'admin', mode: 'ready' | 'blocked' | 'lost' | 'conflict' | 'not-found' | 'no-link' = 'ready') {
   const admin = role === 'admin'
   const user = { id: admin ? 18 : 17, is_active: true, is_superuser: admin, role: admin ? 'admin' : 'barber', master_id: admin ? null : 42, can_record_sales: true, can_accept_qr_payments: true, email: 'synthetic@example.test' }
   const intentId = '33333333-3333-4333-8333-333333333333'
@@ -477,6 +552,7 @@ async function recoveryFixture(page: Page, role: 'master' | 'admin', mode: 'read
     if (path.endsWith('/master-mono/orders/9001/recover-invoice')) {
       if (mode === 'lost' && attachments().length === 1) return route.abort('failed')
       if (mode === 'not-found' && attachments().length === 1) return route.fulfill({status:404,json:{detail:{code:'master_mono_recovery_invoice_not_found'}}})
+      if (mode === 'no-link') return route.fulfill({status:409,json:{detail:{code:'master_mono_recovery_url_required'}}})
       if (mode === 'conflict' && attachments().length === 1) {
         revision++
         return route.fulfill({status:409,json:{detail:{code:'revision_conflict'}}})
@@ -498,8 +574,10 @@ for (const role of ['master', 'admin'] as const) {
     const sale = page.getByRole('region', {name:'Поточний продаж'})
     await expect(sale.getByText('Продаж #9001', {exact:true})).toBeVisible()
     await expect(sale.getByText('Стан не підтверджено', {exact:true})).toBeVisible()
+    await expect(sale.getByText('Не вдалося підтвердити рахунок mono', {exact:true})).toBeVisible()
+    await expect(sale.getByText(/Рахунок міг бути створений/)).toBeVisible()
     if (role === 'master') {
-      await expect(sale.getByText(/Передайте адміністратору номер/)).toBeVisible()
+      await expect(sale.getByText(/адміністратор/i)).toHaveCount(0)
       await expect(sale.getByText('synthetic-bank-reference')).toHaveCount(0)
     } else await expect(sale.getByText(/інтеграція mono недоступна/i)).toBeVisible()
     await expect(sale.getByRole('button',{name:'Прив’язати наявний рахунок',exact:true})).toHaveCount(0)
@@ -560,6 +638,40 @@ for (const mode of ['lost','conflict','not-found'] as const) {
     await page.screenshot({path:testInfo.outputPath('admin-history-' + mode + '.png'),animations:'disabled'})
   })
 }
+
+test('manager recovery without a bank payment link keeps the original sale and key', async ({ page }) => {
+  const fixture = await recoveryFixture(page, 'admin', 'no-link')
+  const saleReads = () => fixture.requests.filter(request => request.method === 'GET' && request.path.endsWith('/pos/sales/9001')).length
+  await page.goto('/admin/product-sales?q=9001')
+  const details = page.getByRole('button', { name: 'Деталі продажу #9001' })
+  const dialog = page.getByRole('dialog', { name: 'Деталі продажу' })
+  const field = dialog.getByRole('textbox', { name: 'ID рахунку mono', exact: true })
+  const alert = dialog.getByRole('alert')
+  await details.click()
+  await field.fill('synthetic-invoice-9001')
+  await dialog.getByRole('button', { name: 'Прив’язати наявний рахунок', exact: true }).click()
+  await expect(alert).toHaveText('Mono підтвердив рахунок. Оригінальне посилання для оплати недоступне. Перечитайте стан продажу.')
+  await expect.poll(saleReads).toBe(2)
+  await dialog.getByRole('button', { name: 'Перечитати збережений стан', exact: true }).click()
+  await expect.poll(saleReads).toBe(3)
+  expect(fixture.attachments()).toHaveLength(1)
+  expect(fixture.attachments()[0]).toMatchObject({
+    method: 'POST', key: expect.any(String), body: { invoice_id: 'synthetic-invoice-9001', expected_revision: 2 },
+  })
+  await expect(dialog.getByRole('img', { name: 'QR для оплати mono' })).toHaveCount(0)
+  await expect(dialog.getByRole('button', { name: 'Товар видано', exact: true })).toHaveCount(0)
+
+  await page.reload()
+  await details.click()
+  await expect(field).toBeDisabled()
+  await expect(field).toHaveValue('synthetic-invoice-9001')
+  expect(fixture.attachments()).toHaveLength(1)
+  await dialog.getByRole('button', { name: 'Повторити прив’язку', exact: true }).click()
+  await expect(alert).toContainText('Оригінальне посилання для оплати недоступне')
+  expect(fixture.attachments()).toHaveLength(2)
+  expect(fixture.attachments()[1]).toEqual(fixture.attachments()[0])
+  expect(fixture.requests.filter(request => request.method !== 'GET')).toEqual(fixture.attachments())
+})
 
 test('another tab cannot silently replace the invoice the manager confirmed', async ({ page }) => {
   const f = await recoveryFixture(page, 'admin')

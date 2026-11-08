@@ -77,6 +77,9 @@ const attach = async () => {
         if (code === 'revision_conflict' || code === 'idempotency_conflict') {
           failure.value = 'Стан продажу змінився. Перечитуємо збережені дані.'
           reread = 'newer'
+        } else if (status === 409 && code === 'master_mono_recovery_url_required') {
+          failure.value = 'Mono підтвердив рахунок. Оригінальне посилання для оплати недоступне. Перечитайте стан продажу.'
+          reread = 'fresh'
         } else if (code && identityRejections.includes(code)) {
           failure.value = 'Не вдалося підтвердити цей рахунок для продажу. Перевірте ID та дані в mono.'
           rejectCandidate = code === 'master_mono_recovery_invoice_not_found' && status === 404
