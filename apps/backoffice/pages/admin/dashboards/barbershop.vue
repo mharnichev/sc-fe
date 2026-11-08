@@ -44,6 +44,8 @@ definePageMeta({
 })
 
 const api = useBackofficeApi()
+const auth = useAuthStore()
+const discountsSection = ref<{ refresh: () => Promise<void> } | null>(null)
 const route = useRoute()
 const router = useRouter()
 const { apiErrorMessage, formatMoney, normalizeItems, todayInput } = useBookingFormatting()
@@ -185,7 +187,7 @@ const {
   }),
 )
 
-const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery()])
+const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery(), discountsSection.value?.refresh()])
 const applyDashboardFilters = () => selectedPreset.value === 'custom' ? applyRange() : refreshAll()
 const errorStatus = computed(() => {
   if (typeof error.value !== 'object' || !error.value) return undefined
@@ -776,6 +778,8 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
         </section>
       </div>
     </template>
+
+    <DashboardUsedDiscountsSection v-if="auth.user?.is_superuser === true" :key="auth.user.id" ref="discountsSection" />
 
     <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="reputation-title">
       <div class="flex flex-wrap items-start justify-between gap-3">

@@ -4,6 +4,7 @@ type ContentType = 'primary' | 'secondary'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
+  manageFocus?: boolean
   type?: ModalType
   mobileType?: ModalType
   blockClose?: boolean
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<{
   contentType?: ContentType
 }>(), {
   type: 'default',
+  manageFocus: false,
   mobileType: 'default',
   blockClose: false,
   showOverlay: true,
@@ -34,6 +36,7 @@ const emit = defineEmits<{
 }>()
 
 const modalElement = ref<HTMLElement | null>(null)
+const dialogTitleId = useId()
 const previousOverflow = ref('')
 const { terms } = useShopLocale()
 
@@ -70,6 +73,46 @@ watch(() => props.modelValue, value => {
   else {
     document.body.style.overflow = previousOverflow.value
   }
+}, { immediate: true })
+
+watch(() => props.manageFocus && props.modelValue, (open, _previous, onCleanup) => {
+  if (!import.meta.client || !open) return
+  const opener = document.activeElement
+  const getTabStops = () => {
+    const container = modalElement.value?.querySelector('.base-modal__container')
+    return Array.from(container?.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, summary, [tabindex]',
+    ) || []).filter(element =>
+      element.tabIndex >= 0 && !element.matches(':disabled, [aria-disabled="true"]')
+      && !element.closest('[hidden], [inert], [aria-hidden="true"]')
+      && element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible',
+    )
+  }
+  const containTab = (event: KeyboardEvent) => {
+    if (event.key !== 'Tab') return
+    const stops = getTabStops()
+    const first = stops[0]
+    const last = stops.at(-1)
+    const current = document.activeElement
+    if (!stops.some(stop => stop === current) || current === (event.shiftKey ? first : last)) {
+      event.preventDefault()
+      const target = (event.shiftKey ? last : first) || modalElement.value
+      target?.focus()
+    }
+  }
+
+  let cancelled = false
+  document.addEventListener('keydown', containTab)
+  void nextTick(() => {
+    if (cancelled) return
+    const target = getTabStops()[0] || modalElement.value
+    target?.focus()
+  })
+  onCleanup(() => {
+    cancelled = true
+    document.removeEventListener('keydown', containTab)
+    if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
+  })
 }, { immediate: true })
 
 onMounted(() => {
@@ -110,6 +153,8 @@ defineExpose({
           ]"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="manageFocus && showHeader ? dialogTitleId : undefined"
+          :tabindex="manageFocus ? -1 : undefined"
         >
           <button
             v-if="!inline && showOverlay"
@@ -118,6 +163,7 @@ defineExpose({
               { 'base-modal__overlay--closeable': !blockClose },
             ]"
             type="button"
+            :tabindex="manageFocus ? -1 : undefined"
             :disabled="blockClose"
             :aria-label="terms.common.closeDialog"
             @click="close(false)"
@@ -127,7 +173,7 @@ defineExpose({
           <section class="base-modal__container">
             <header v-if="showHeader" class="base-modal__header">
               <slot name="header" :close="forceClose">
-                <h2 class="base-modal__header-title">
+                <h2 :id="manageFocus ? dialogTitleId : undefined" class="base-modal__header-title">
                   <slot name="header-title" />
                 </h2>
                 <div class="base-modal__header-buttons">

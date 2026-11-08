@@ -9,6 +9,14 @@ const catalog = [1, 2].map(base => ({ ...service(base, base), catalog_id: `base-
 type Options = { empty?: boolean, fail?: boolean, hold?: Promise<void>, rangeFail?: boolean, promotion?: boolean, quoteHold?: Promise<void>, homeHash?: boolean }
 async function setup(page: Page, options: Options = {}) {
   await page.clock.install({ time: new Date('2026-11-03T10:00:00+02:00') })
+  await page.context().addCookies([{
+    name: 'barbershop-cookie-consent',
+    value: encodeURIComponent(JSON.stringify({
+      version: 1, choice: 'necessary', analytics: false, marketing: false,
+      createdAt: '2026-11-03T08:00:00.000Z',
+    })),
+    url: 'http://127.0.0.1:3313', sameSite: 'Lax',
+  }])
   const quoteCalls: any[] = []
   const observations: any[] = [], events: any[] = [], writes: string[] = [], ranges: URL[] = []
   await page.route('**/*', async route => {

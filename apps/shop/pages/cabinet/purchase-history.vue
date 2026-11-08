@@ -140,7 +140,7 @@ useSeo(() => terms.value.cabinet.myOrders, () => terms.value.cabinet.purchaseHis
 .purchase-history__summary { display: flex; min-width: 0; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.75rem; }
 .purchase-history__identity { width: 100%; justify-content: space-between; display: flex; flex-wrap: wrap; align-items: center; gap: .65rem 1rem; min-width: 0; }
 .purchase-history__total { margin-left: auto; background: #0a0a0a; color: #fff; border-color: #0a0a0a; max-width: 100%; flex-wrap: wrap; gap: .35rem .5rem; border-radius: .5rem; padding: .55rem .75rem; text-transform: none; letter-spacing: normal; }
-.purchase-history__total strong { font-size: 1rem; font-weight: 800; overflow-wrap: anywhere; }
+.purchase-history__total strong { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
 .purchase-history__summary h2 { margin-top: .15rem; font-size: .85rem; font-weight: 800; }
 .purchase-history__products li { display: flex; align-items: center; gap: .6rem; min-width: 0; }
 .purchase-history__product-name { min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere; }

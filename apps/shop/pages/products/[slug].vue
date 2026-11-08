@@ -2,7 +2,7 @@
 import type { ProductDto, ProductReviewListDto } from '@shared-types'
 import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
-import { categoryGoodsPath, categoryLandingPath } from '~/utils/category-routing'
+import { categoryDestination } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 import { productPageCopy } from '~/utils/product-page-localization'
 import { isProductUnavailable } from '~/utils/product-visibility'
@@ -33,7 +33,7 @@ const {
   pending: productPending,
   error: productError,
   refresh: refreshProduct,
-} = await useLazyAsyncData(
+} = await useAsyncData(
   productDataKey,
   () => domain.getProduct(String(route.params.slug)),
 )
@@ -55,6 +55,16 @@ const isGalleryImageZoomed = ref(false)
 const galleryModalTouchStartX = ref<number | null>(null)
 const mobileGallery = ref<HTMLElement | null>(null)
 const activeGallerySlideIndex = ref(0)
+const activeProductTab = ref('description')
+const productDetailsId = useId()
+const productDetailsTabs = computed(() => [
+  { value: 'description', label: productText.value.description },
+  ...(productComposition.value ? [{ value: 'ingredients', label: productText.value.composition }] : []),
+  { value: 'reviews', label: locale.value === 'uk' ? 'Відгуки' : 'Reviews' },
+])
+watch(() => route.params.slug, () => { activeProductTab.value = 'description' })
+
+
 const reviewForm = reactive({ text: '', rating: 5 })
 const reviewState = reactive({ loading: false, error: '', done: false })
 const recordedProductIds = new Set<number>()
@@ -97,6 +107,9 @@ const removeCompositionFromDescription = (value: string) => {
 
 const galleryImages = computed(() => product.value?.images || [])
 const productComposition = computed(() => htmlToText(product.value ? productDisplayContent(product.value, 'ingredients') : ''))
+watch(productDetailsTabs, (tabs) => {
+  if (!tabs.some(tab => tab.value === activeProductTab.value)) activeProductTab.value = 'description'
+})
 const hasComposition = computed(() => Boolean(productComposition.value))
 const galleryItems = computed(() => {
   const items: Array<{
@@ -125,8 +138,7 @@ const breadcrumbs = computed(() => {
   return product.value.category_tree.length ? product.value.category_tree : [product.value.category]
 })
 const categoryBreadcrumbLink = (index: number) => {
-  const segments = breadcrumbs.value.slice(0, index + 1).map(category => category.slug)
-  return index < breadcrumbs.value.length - 1 ? categoryLandingPath(segments) : categoryGoodsPath(segments)
+  return categoryDestination(breadcrumbs.value[index]!.slug)
 }
 const productBreadcrumbItems = computed<CategoryRouteCrumb[]>(() => {
   if (!product.value) return []
@@ -685,6 +697,24 @@ useHead(() => ({
           </section>
           -->
 
+          <section class="product-details">
+            <BaseTabs
+              :id="productDetailsId"
+              v-model="activeProductTab"
+              :tabs="productDetailsTabs"
+              :label="locale === 'uk' ? 'Інформація про товар' : 'Product information'"
+            />
+            <div class="product-details__panels">
+            <div
+              :id="`${productDetailsId}-panel-description`"
+              class="product-details__panel"
+              :class="{ 'product-details__panel--active': activeProductTab === 'description' }"
+              :aria-hidden="activeProductTab !== 'description'"
+              :inert="activeProductTab !== 'description'"
+              role="tabpanel"
+              :aria-labelledby="`${productDetailsId}-tab-description`"
+              tabindex="0"
+            >
           <BaseAccordion
             v-if="productDescriptionHtml"
             v-model="descriptionAccordionOpen"
@@ -699,9 +729,34 @@ useHead(() => ({
             </template>
             <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
           </BaseAccordion>
-        </div>
-      </div>
-
+              <p v-if="!productDescriptionHtml" class="product-reviews__muted">
+                {{ locale === 'uk' ? 'Опис поки не додано.' : 'No description available yet.' }}
+              </p>
+            </div>
+            <div
+              v-if="productComposition"
+              :id="`${productDetailsId}-panel-ingredients`"
+              class="product-details__panel"
+              :class="{ 'product-details__panel--active': activeProductTab === 'ingredients' }"
+              :aria-hidden="activeProductTab !== 'ingredients'"
+              :inert="activeProductTab !== 'ingredients'"
+              role="tabpanel"
+              :aria-labelledby="`${productDetailsId}-tab-ingredients`"
+              tabindex="0"
+              style="white-space: pre-line"
+            >
+              {{ productComposition || (locale === 'uk' ? 'Склад поки не додано.' : 'No ingredients available yet.') }}
+            </div>
+            <div
+              :id="`${productDetailsId}-panel-reviews`"
+              class="product-details__panel"
+              :class="{ 'product-details__panel--active': activeProductTab === 'reviews' }"
+              :aria-hidden="activeProductTab !== 'reviews'"
+              :inert="activeProductTab !== 'reviews'"
+              role="tabpanel"
+              :aria-labelledby="`${productDetailsId}-tab-reviews`"
+              tabindex="0"
+            >
       <section class="product-reviews">
         <div class="product-reviews__list">
           <div class="product-reviews__header">
@@ -731,12 +786,13 @@ useHead(() => ({
               {{ terms.product.delete }}
             </BaseButton>
           </article>
-          <p v-if="!reviewsPending && !(reviewsPage?.items || []).length" class="product-reviews__muted">
-            {{ terms.product.noReviews }}
-          </p>
+          <div v-if="!reviewsPending && !(reviewsPage?.items || []).length" class="product-reviews__empty">
+            <img src="/images/mascots/reviews-empty.png" alt="" width="88" height="88">
+            <p class="product-reviews__muted">{{ terms.product.noReviews }}</p>
+          </div>
         </div>
 
-        <form class="product-reviews__form" @submit.prevent="submitReview">
+        <form v-if="auth.isAuthenticated" class="product-reviews__form" @submit.prevent="submitReview">
           <h2>{{ terms.product.leaveReview }}</h2>
           <div class="product-reviews__rating">
             <p>{{ terms.product.rating }}</p>
@@ -756,7 +812,7 @@ useHead(() => ({
           <BaseTextarea
             v-model="reviewForm.text" rule="review"
             :label="terms.product.review"
-            :rows="5"
+            :rows="3"
             :disabled="!auth.isAuthenticated"
             :placeholder="terms.product.reviewPlaceholder"
           />
@@ -766,14 +822,23 @@ useHead(() => ({
             </BaseButton>
             <p v-if="reviewState.done" class="product-reviews__success">{{ terms.product.reviewSaved }}</p>
           </div>
-          <div v-else class="product-reviews__actions">
-            <p class="product-reviews__muted">{{ terms.product.signInToReview }}</p>
-            <CustomerAuthDialog />
-          </div>
           <p v-if="reviewState.error" class="product-page__error">{{ runtimeMessage(reviewState.error) }}</p>
         </form>
+        <div v-else class="product-reviews__guest">
+          <h2>{{ terms.product.leaveReview }}</h2>
+          <p class="product-reviews__muted">{{ productText.guestReviewInvitation }}</p>
+          <CustomerAuthDialog />
+        </div>
       </section>
 
+            </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+
+      <SimilarProducts v-if="product.slug === route.params.slug" :key="product.slug" :slug="product.slug" />
       <RecentlyViewedProducts :exclude-product-id="product.id" />
     </div>
 
@@ -954,6 +1019,46 @@ useHead(() => ({
 </template>
 
 <style scoped>
+.product-details {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+.product-details__panels {
+  position: relative;
+  height: 22rem;
+  min-width: 0;
+}
+.product-details__panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
+  padding: 0.5rem 0.25rem;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 300ms ease, visibility 0s linear 300ms;
+}
+.product-details__panel--active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-details__panel {
+    transition: none;
+  }
+}
+.product-details .product-reviews {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0;
+}
+
 .product-page {
   padding: 0 0 3rem;
 }
@@ -962,6 +1067,10 @@ useHead(() => ({
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.product-page__container :deep(.similar-products + .recently-viewed-products) {
+  margin-top: 2.25rem;
 }
 
 .product-page__body {
@@ -1212,6 +1321,7 @@ useHead(() => ({
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-inline: 0;
 }
 
 .product-buy > .product-characteristics {
@@ -1229,7 +1339,7 @@ useHead(() => ({
 .product-buy__name {
   margin: 0;
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.35;
   letter-spacing: 1px;
   color: #0a0a0a;
@@ -1350,9 +1460,9 @@ useHead(() => ({
 .product-buy__cost {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.25rem;
   align-items: stretch;
-  padding: 0.75rem;
+  padding: 0.25rem 0.5rem;
   background: #f5f5f5;
 }
 
@@ -1364,7 +1474,12 @@ useHead(() => ({
 }
 
 .product-buy__cost-badges {
+  position: relative;
   flex: 0 0 auto;
+  width: 5.5rem;
+  height: 70px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .product-buy__cost-badges :deep(.product-status-badges__item) {
@@ -1398,13 +1513,18 @@ useHead(() => ({
 .product-buy__price {
   margin: 0;
   color: #0a0a0a;
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 600;
   line-height: 1;
 }
 
 .product-buy__price--discount {
   color: #c2410c;
+}
+
+.product-buy__button {
+  min-height: 2.5rem;
+  padding-block: 0.5rem;
 }
 
 .product-buy__button :deep(.sc-button__text) {
@@ -1589,7 +1709,7 @@ useHead(() => ({
 .product-reviews__form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.625rem;
 }
 
 .product-reviews__header {
@@ -1603,7 +1723,7 @@ useHead(() => ({
 .product-reviews__header h2 {
   margin: 0;
   color: #0a0a0a;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
@@ -1615,7 +1735,7 @@ useHead(() => ({
 
 .product-review {
   background: #f5f5f5;
-  padding: 1rem;
+  padding: 0.625rem;
 }
 
 .product-review__header {
@@ -1653,7 +1773,7 @@ useHead(() => ({
 
 .product-reviews__rating {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .product-reviews__rating p {
@@ -1668,6 +1788,57 @@ useHead(() => ({
   display: grid;
   gap: 0.5rem;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.product-reviews__rating :deep(.base-choice) {
+  min-height: 2rem;
+  padding: 0.25rem;
+  border: 0;
+  gap: 0.5rem;
+  align-items: center;
+  background: transparent;
+}
+
+.product-reviews__rating :deep(.base-choice__mark) {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0;
+}
+
+.product-reviews__rating :deep(.base-choice__label) {
+  font-size: 0.75rem;
+}
+
+.product-reviews__empty {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-reviews__empty img {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+}
+
+.product-reviews__guest {
+  display: grid;
+  justify-items: start;
+  gap: 0.625rem;
+}
+
+.product-reviews__guest h2,
+.product-reviews__guest p {
+  margin: 0;
+}
+
+.product-reviews__form :deep(.base-field) {
+  gap: 0.375rem;
+}
+
+.product-reviews__form :deep(textarea) {
+  min-height: 5rem;
+  padding: 0.625rem;
 }
 
 .product-reviews__actions {
@@ -1860,13 +2031,15 @@ useHead(() => ({
   }
 
   .product-buy__cost {
+    min-height: 78px;
+    box-sizing: border-box;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
 
   .product-buy__price-wrapper {
-    padding-left: 1.25rem;
+    padding-left: 0.5rem;
   }
 
   .product-buy__price-wrapper--discount {
@@ -1891,6 +2064,16 @@ useHead(() => ({
 }
 
 @media (min-width: 1024px) {
+  .product-page__container :deep(.similar-products + .recently-viewed-products) {
+    margin-top: 3.25rem;
+  }
+
+  .product-reviews__empty img {
+    width: 176px;
+    height: 176px;
+    flex-shrink: 0;
+  }
+
   .product-page__body {
     flex-direction: row;
     align-items: stretch;
@@ -1971,6 +2154,10 @@ useHead(() => ({
   .product-reviews__list,
   .product-reviews__form {
     padding: 0.625rem;
+  }
+
+  .product-buy {
+    padding-inline: 0;
   }
 
   .product-characteristics__item {

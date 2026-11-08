@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
   showPrice?: boolean
   hideGroupCounts?: string[]
   query?: string
+  hasExtraFilters?: boolean
 }>(), {
   price: null,
   pending: false,
@@ -20,6 +21,7 @@ const props = withDefaults(defineProps<{
   showPrice: true,
   hideGroupCounts: () => [],
   query: '',
+  hasExtraFilters: false,
 })
 
 const emit = defineEmits<{
@@ -41,7 +43,7 @@ const selectedEntries = computed(() =>
 )
 
 const selectedCount = computed(() => selectedEntries.value.length)
-const hasCatalogFilters = computed(() => Boolean(props.query))
+const hasCatalogFilters = computed(() => Boolean(props.query || props.hasExtraFilters))
 
 const localizedGroupName = (slug: string, name: string) => localizedMetadataLabel(slug, name, locale.value)
 const localizedValueName = (slug: string, groupName: string, value: string) =>
@@ -61,12 +63,12 @@ const isSelected = (groupSlug: string, valueSlug: string) =>
 
 const isDisabled = (groupSlug: string, valueSlug: string) => {
   if (props.disabled || props.pending) return true
+  if (groupSlug === 'type' || groupSlug === 'brand') return false
   const selected = props.selectedFilters[groupSlug] || []
   return selected.length > 0 && !selected.includes(valueSlug)
 }
 
-const visibleValues = (group: CategoryFilterGroupDto) =>
-  expandedGroups.value[group.slug] ? group.values : group.values.slice(0, DEFAULT_VISIBLE_VALUES)
+const closedGroups = ref<Record<string, boolean>>({})
 
 const showGroupCount = (groupSlug: string) => !props.hideGroupCounts.includes(groupSlug)
 
@@ -137,34 +139,44 @@ const toggleGroupExpansion = (groupSlug: string) => {
         :key="group.slug"
         class="catalog-filter-panel__group"
       >
-        <details class="catalog-filter-panel__details" open>
-          <summary class="catalog-filter-panel__summary">
-            <span>{{ localizedGroupName(group.slug, group.name) }}</span>
-            <BaseIcon name="chevron-down" size="xxs" />
-          </summary>
+        <BaseAccordion
+          class="catalog-filter-panel__details"
+          summary-class="catalog-filter-panel__summary"
+          :model-value="!closedGroups[group.slug]"
+          @update:model-value="closedGroups[group.slug] = !$event"
+        >
+          <template #summary>{{ localizedGroupName(group.slug, group.name) }}</template>
 
-          <ul class="catalog-filter-panel__values">
-            <li v-for="value in visibleValues(group)" :key="value.slug">
-              <BaseCheckbox
-                :model-value="isSelected(group.slug, value.slug)"
-                :label="localizedValueName(group.slug, group.name, value.name)"
-                :description="showGroupCount(group.slug) ? terms.catalog.filterProductCount(value.count) : ''"
-                :disabled="isDisabled(group.slug, value.slug)"
-                @update:model-value="emit('toggle-filter', group.slug, value.slug, $event)"
-              />
-            </li>
-          </ul>
+          <div
+            v-for="(values, index) in [group.values.slice(0, DEFAULT_VISIBLE_VALUES), group.values.slice(DEFAULT_VISIBLE_VALUES)]"
+            :key="index"
+            :class="{ 'catalog-filter-panel__extra': index === 1, 'is-expanded': index === 1 && expandedGroups[group.slug] }"
+            :inert="index === 1 && !expandedGroups[group.slug]"
+          >
+            <ul v-if="values.length" class="catalog-filter-panel__values">
+                <li v-for="value in values" :key="value.slug">
+                  <BaseCheckbox
+                    :model-value="isSelected(group.slug, value.slug)"
+                    :label="localizedValueName(group.slug, group.name, value.name)"
+                    :description="showGroupCount(group.slug) ? terms.catalog.filterProductCount(value.count) : ''"
+                    :disabled="isDisabled(group.slug, value.slug)"
+                    @update:model-value="emit('toggle-filter', group.slug, value.slug, $event)"
+                  />
+                </li>
+            </ul>
+          </div>
 
           <BaseButton
             v-if="group.values.length > DEFAULT_VISIBLE_VALUES"
             class="catalog-filter-panel__show-all"
             type="button"
             variant="text"
+            :aria-expanded="Boolean(expandedGroups[group.slug])"
             @click="toggleGroupExpansion(group.slug)"
           >
             {{ expandedGroups[group.slug] ? terms.catalog.collapse : terms.catalog.showAll }}
           </BaseButton>
-        </details>
+        </BaseAccordion>
       </section>
     </template>
   </aside>
@@ -265,7 +277,7 @@ const toggleGroupExpansion = (groupSlug: string) => {
   padding: 0.125rem 0;
 }
 
-.catalog-filter-panel__summary {
+.catalog-filter-panel__details :deep(.catalog-filter-panel__summary) {
   display: flex;
   min-height: 2.75rem;
   align-items: center;
@@ -279,19 +291,34 @@ const toggleGroupExpansion = (groupSlug: string) => {
   list-style: none;
 }
 
-.catalog-filter-panel__summary > span {
+.catalog-filter-panel__details :deep(.catalog-filter-panel__summary > span) {
   min-width: 0;
   max-width: calc(100% - 1.5rem);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.catalog-filter-panel__summary::-webkit-details-marker {
-  display: none;
+.catalog-filter-panel__extra {
+  display: grid;
+  grid-template-rows: minmax(0, 0fr);
+  opacity: 0;
+  transition: grid-template-rows 300ms ease, opacity 220ms ease;
 }
 
-.catalog-filter-panel__details[open] .catalog-filter-panel__summary :deep(.base-icon) {
-  transform: rotate(180deg);
+.catalog-filter-panel__extra.is-expanded {
+  grid-template-rows: minmax(0, 1fr);
+  opacity: 1;
+}
+
+.catalog-filter-panel__extra > ul {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-filter-panel__extra {
+    transition: none;
+  }
 }
 
 .catalog-filter-panel__values {

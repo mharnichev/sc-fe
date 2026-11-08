@@ -4,8 +4,8 @@ import test from 'node:test'
 import ts from 'typescript'
 
 const source = await readFile(new URL('../utils/barcodeCamera.ts', import.meta.url), 'utf8')
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { isCameraBarcode, stopCameraTracks, cameraErrorMessage, createCameraDecoder } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace("new URL('./barcodeCamera.worker.ts', import.meta.url)", "new URL('file:///barcodeCamera.worker.ts')")
+const { isCameraBarcode, stopCameraTracks, cameraErrorMessage, createCameraDecoder, resolveCameraBarcode } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 
 test('camera barcode validation preserves exact EAN and alphanumeric strings', () => {
   assert.equal(isCameraBarcode('0012345678905'), true)
@@ -21,21 +21,6 @@ test('camera cleanup stops every track, including audio if present', () => {
   assert.doesNotThrow(() => stopCameraTracks(null))
 })
 
-test('native decoder configures both EAN formats and returns the exact code', async () => {
-  const original = globalThis.BarcodeDetector
-  let configured
-  globalThis.BarcodeDetector = class {
-    static async getSupportedFormats() { return ['ean_13', 'ean_8'] }
-    constructor(options) { configured = options.formats }
-    async detect() { return [{ rawValue: '' }, { rawValue: '0012345678905' }] }
-  }
-  try {
-    const decode = await createCameraDecoder()
-    assert.deepEqual(configured, ['ean_13', 'ean_8'])
-    assert.equal(await decode({}), '0012345678905')
-  } finally { globalThis.BarcodeDetector = original }
-})
-
 test('camera errors offer localized manual recovery', () => {
   for (const name of ['NotAllowedError', 'NotFoundError', 'NotReadableError', 'Other']) {
     const error = new Error('private details')
@@ -45,43 +30,100 @@ test('camera errors offer localized manual recovery', () => {
   }
 })
 
-// Exercise the real JS fallback against generated EAN artwork rather than a
-// mocked decoder result. Browser canvas image reads are the only adapter.
-const { createRequire } = await import('node:module')
-const { pathToFileURL } = await import('node:url')
-const require = createRequire(import.meta.url)
-const fallbackCompiled = compiled.replaceAll("'@zxing/browser'", `'${pathToFileURL(require.resolve('@zxing/browser')).href}'`).replaceAll("'@zxing/library'", `'${pathToFileURL(require.resolve('@zxing/library')).href}'`)
-const fallbackUtils = await import(`data:text/javascript;base64,${Buffer.from(fallbackCompiled).toString('base64')}`)
-
-test('software fallback reads actual EAN13 and EAN8 barcode pixels', async () => {
-  const left = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011']
-  const even = ['0100111', '0110011', '0011011', '0100001', '0011101', '0111001', '0000101', '0010001', '0001001', '0010111']
-  const parity = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL']
-  const right = left.map(bits => bits.replace(/[01]/g, bit => bit === '0' ? '1' : '0'))
+test('worker decoder transfers one frame at a time and rejects in-flight work on shutdown', async () => {
+  const originalWorker = globalThis.Worker
   const originalDocument = globalThis.document
-  const originalDetector = globalThis.BarcodeDetector
-  try {
-    globalThis.BarcodeDetector = undefined
-    for (const value of ['5901234123457', '96385074']) {
-      const digits = [...value].map(Number)
-      const start = value.length === 13 ? 1 : 0
-      const half = value.length === 13 ? 6 : 4
-      const bars = '0'.repeat(12) + '101' + digits.slice(start, start + half).map((digit, index) => value.length === 13 && parity[digits[0]][index] === 'G' ? even[digit] : left[digit]).join('') + '01010' + digits.slice(start + half).map(digit => right[digit]).join('') + '101' + '0'.repeat(12)
-      const width = bars.length * 3
-      const height = 120
-      const data = new Uint8ClampedArray(width * height * 4)
-      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-        const offset = (y * width + x) * 4
-        const shade = bars[Math.floor(x / 3)] === '1' ? 0 : 255
-        data.set([shade, shade, shade, 255], offset)
-      }
-      const context = { drawImage() {}, getImageData: () => ({ data }) }
-      globalThis.document = { createElement: () => ({ width, height, getContext: () => context }) }
-      const decode = await fallbackUtils.createCameraDecoder()
-      assert.equal(await decode({ videoWidth: width, videoHeight: height }), value)
-    }
-  } finally {
-    globalThis.document = originalDocument
-    globalThis.BarcodeDetector = originalDetector
+  let instance
+  const transfers = []
+  globalThis.Worker = class {
+    constructor() { instance = this; queueMicrotask(() => this.onmessage({ data: { type: 'ready' } })) }
+    postMessage(message, transfer) { transfers.push({ message, transfer }) }
+    terminate() { this.terminated = true }
   }
+  globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({
+    drawImage() {}, getImageData: (x, y, width, height) => ({ data: new Uint8ClampedArray(width * height * 4) }),
+  }) }) }
+  try {
+    const abort = new AbortController()
+    const decoder = await createCameraDecoder(abort.signal)
+    const video = { videoWidth: 1920, videoHeight: 1080, readyState: 2 }
+    const first = decoder.decode(video)
+    assert.equal(await decoder.decode(video), null)
+    assert.equal(transfers.length, 1)
+    assert.equal(transfers[0].message.width, 1024)
+    assert.equal(transfers[0].transfer[0], transfers[0].message.buffer)
+    instance.onmessage({ data: { type: 'result', barcode: '0012345678905' } })
+    assert.equal(await first, '0012345678905')
+    const pending = decoder.decode(video)
+    abort.abort()
+    await assert.rejects(pending, { name: 'AbortError' })
+    assert.equal(instance.terminated, true)
+    await assert.rejects(decoder.decode(video), { name: 'AbortError' })
+  } finally {
+    globalThis.Worker = originalWorker
+    globalThis.document = originalDocument
+  }
+})
+
+test('worker startup error terminates resources and allows manual recovery', async () => {
+  const originalWorker = globalThis.Worker
+  const originalDocument = globalThis.document
+  let instance
+  globalThis.Worker = class {
+    constructor() { instance = this; queueMicrotask(() => this.onerror(new Error('load failed'))) }
+    terminate() { this.terminated = true }
+  }
+  globalThis.document = { createElement: () => ({ getContext: () => ({}) }) }
+  try {
+    await assert.rejects(createCameraDecoder(), /unavailable/)
+    assert.equal(instance.terminated, true)
+  } finally { globalThis.Worker = originalWorker; globalThis.document = originalDocument }
+})
+
+test('actual WASM worker preserves EAN leading zeros and literal Code39 punctuation', async () => {
+  const { createRequire } = await import('node:module')
+  const require = createRequire(import.meta.url)
+  const wasm = await import('zxing-wasm/reader')
+  const { writeBarcode, prepareZXingModule } = await import('zxing-wasm/writer')
+  const readerBinary = await readFile(require.resolve('zxing-wasm/reader/zxing_reader.wasm'))
+  const writerBinary = await readFile(require.resolve('zxing-wasm/writer/zxing_writer.wasm'))
+  await prepareZXingModule({ overrides: { wasmBinary: writerBinary }, fireImmediately: true })
+  const workerSource = await readFile(new URL('../utils/barcodeCamera.worker.ts', import.meta.url), 'utf8')
+  const workerCode = ts.transpileModule(workerSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
+    .replace(/^import .*;$/gm, '').replace(/^export .*;$/gm, '')
+  const messages = []
+  const scope = { postMessage: message => messages.push(message) }
+  class Pixels { constructor(data, width, height) { Object.assign(this, { data, width, height }) } }
+  new Function('prepareZXingModule', 'readBarcodes', 'ImageData', 'globalThis', 'wasmUrl', workerCode)(
+    () => wasm.prepareZXingModule({ overrides: { wasmBinary: readerBinary }, fireImmediately: true }),
+    wasm.readBarcodes, Pixels, scope, '',
+  )
+  for (const [format, text, expected = text] of [['EAN13', '0012345678905'], ['EAN8', '96385074'], ['UPCA', '012345678905', '0012345678905'], ['Code39', 'A+B'], ['Code128', 'AbC-001']]) {
+    const { symbol } = await writeBarcode(text, { format, scale: 4 })
+    const rgba = new Uint8ClampedArray(symbol.width * symbol.height * 4)
+    for (let i = 0; i < symbol.data.length; i++) rgba.set([symbol.data[i], symbol.data[i], symbol.data[i], 255], i * 4)
+    await scope.onmessage({ data: { buffer: rgba.buffer, width: symbol.width, height: symbol.height } })
+    assert.deepEqual(messages.at(-1), { type: 'result', barcode: expected })
+  }
+})
+
+test('camera UPC lookup prefers exact match, retries only 404 and preserves unknown input', async () => {
+  const code = '0012345678905'
+  const absent = { response: { status: 404 } }
+  const calls = []
+  assert.equal(await resolveCameraBarcode(code, async value => { calls.push(value); return { barcode: value } }), code)
+  assert.deepEqual(calls, [code])
+  calls.length = 0
+  assert.equal(await resolveCameraBarcode(code, async value => {
+    calls.push(value)
+    if (value === code) throw absent
+    return { barcode: value }
+  }), '012345678905')
+  assert.deepEqual(calls, [code, '012345678905'])
+  assert.equal(await resolveCameraBarcode(code, async () => { throw absent }), code)
+  let attempts = 0
+  const failure = { statusCode: 503 }
+  await assert.rejects(resolveCameraBarcode(code, async () => { attempts++; throw failure }), error => error === failure)
+  assert.equal(attempts, 1)
+  assert.equal(await resolveCameraBarcode('5901234123457', async () => { throw Error('Unexpected lookup') }), '5901234123457')
 })

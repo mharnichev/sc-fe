@@ -7,7 +7,7 @@ const route = useRoute()
 const { terms } = useShopLocale()
 const isHydrated = ref(false)
 const isCabinet = computed(() => route.path === '/cabinet' || route.path.startsWith('/cabinet/'))
-const isCatalogRoute = computed(() => route.name === 'slug' || ['/catalog', '/products', '/brands', '/top', '/sale'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
+const isCatalogRoute = computed(() => ['/catalog', '/products', '/brands', '/top', '/sale'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
 const isCheckoutRoute = computed(() => ['/checkout', '/payment'].some(path => route.path === path || route.path.startsWith(`${path}/`)))
 const isFavoritesRoute = computed(() => route.path === '/favorites' || route.path.startsWith('/favorites/'))
 const cabinetLinks = computed(() => [
@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
     ]"
     :aria-label="isCabinet ? terms.common.cabinet : terms.header.shopActions"
   >
-    <NuxtLink to="/" class="base-bottom-bar__btn" :class="{ 'base-bottom-bar__btn--active': route.path === '/' }" :aria-label="terms.common.main">
+    <NuxtLink to="/" class="base-bottom-bar__btn" :class="{ 'base-bottom-bar__btn--active': route.path === '/' && !isCatalogRoute }" :aria-label="terms.common.main">
       <BaseIcon name="home" size="xxs" effect="button" />
     </NuxtLink>
 

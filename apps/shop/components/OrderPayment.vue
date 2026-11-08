@@ -3,32 +3,93 @@ const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
 const props = defineProps<{ orderId: number, guestToken?: string, orderPath?: string, autoStart?: boolean }>()
 const emit = defineEmits<{ 'method-changed': [method: string] }>()
-const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed } = useOrderPayment(() => props.orderId, () => props.guestToken)
+const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed, getCapabilities } = useOrderPayment(() => props.orderId, () => props.guestToken)
+const paymentRoot = ref<HTMLElement | null>(null)
+const widgetOpen = ref(false)
+const preparing = ref(false)
+const widgetFits = ref(false)
+const widgetFrameKey = ref(0)
+let presentationRevision = 0
+const updateWidgetOpen = (value: boolean) => { if (!value) closeWidget(true) }
+let restoreWidgetFocus = false
+const widgetClosed = () => {
+  if (restoreWidgetFocus && !widgetOpen.value && active && paymentRoot.value?.isConnected && document.activeElement === document.body)
+    paymentRoot.value.querySelector<HTMLElement>('.order-payment__actions button, .order-payment__actions a')?.focus()
+  restoreWidgetFocus = false
+}
+const closeWidget = (restoreFocus = false) => {
+  restoreWidgetFocus = restoreFocus
+  widgetOpen.value = false; presentationRevision++; widgetFrameKey.value++
+}
+// Includes the modal header, footer, safe margin and a full 576px provider viewport.
+const measureWidgetSpace = () => {
+  const viewport = window.visualViewport
+  widgetFits.value = Math.min(window.innerWidth, viewport?.width ?? window.innerWidth) >= 608
+    && Math.min(window.innerHeight, viewport?.height ?? window.innerHeight) >= 800
+  if (!widgetFits.value && widgetOpen.value) closeWidget()
+}
 let active = false
 let navigationRevision = 0
 const auth = useCustomerAuthStore()
 const identity = () => JSON.stringify([props.orderId, props.guestToken, auth.customer?.id, auth.sessionRevision, auth.accessToken, auth.isAuthenticated])
 let autoStartContext: { revision: number, identity: string } | undefined
-watch(identity, () => { autoStartContext = undefined }, { flush: 'sync' })
+watch(identity, () => { autoStartContext = undefined; closeWidget(); preparing.value = false }, { flush: 'sync' })
 let removeNavigationGuard: (() => void) | undefined
 onMounted(() => {
   active = true
-  removeNavigationGuard = useRouter().beforeEach(() => { navigationRevision++ })
+  measureWidgetSpace()
+  window.addEventListener('resize', measureWidgetSpace)
+  window.visualViewport?.addEventListener('resize', measureWidgetSpace)
+  removeNavigationGuard = useRouter().beforeEach(() => { navigationRevision++; closeWidget() })
   if (props.autoStart) autoStartContext = { revision: navigationRevision, identity: identity() }
 })
-onBeforeUnmount(() => { active = false; navigationRevision++; removeNavigationGuard?.() })
-const beginPayment = async () => {
-  const context = identity()
-  const revision = navigationRevision
-  const id = props.orderId
-  const result = await create()
-  if (!active || revision !== navigationRevision || context !== identity() || error.value) return
-  const url = result?.order_id === id && !result.paid && result.status === 'waiting' && result.actions?.continue_payment !== false ? safePaymentUrl(result.page_url) : null
+onBeforeUnmount(() => { active = false; navigationRevision++; closeWidget(); removeNavigationGuard?.(); window.removeEventListener('resize', measureWidgetSpace); window.visualViewport?.removeEventListener('resize', measureWidgetSpace) })
+const widgetUrl = computed(() => !error.value && payment.value?.order_id === props.orderId && payment.value.enabled
+  && !payment.value.paid && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false
+  && payment.value.presentation_mode === 'iframe' && Number.isSafeInteger(payment.value.attempt_id) && (payment.value.attempt_id || 0) > 0
+  ? safePaymentEmbedUrl(payment.value.embed_url) : null)
+const navigatePayment = (url: string | null) => {
   if (!url) return
   recordRedirect()
   try { window.location.assign(url) }
   catch (cause) { redirectFailed(cause) }
 }
+const showPayment = () => {
+  if (document.hidden || error.value) return
+  measureWidgetSpace()
+  if (widgetUrl.value && widgetFits.value) { restoreWidgetFocus = false; widgetFrameKey.value++; widgetOpen.value = true }
+  else navigatePayment(pageUrl.value)
+}
+const beginPayment = async () => {
+  if (preparing.value || busy.value || !payment.value?.enabled || payment.value.status !== 'not_started'
+    || payment.value.paid || error.value || payment.value.actions?.start === false) return
+  const context = identity(), revision = navigationRevision
+  preparing.value = true
+  const presentation = presentationRevision
+  try {
+    const caps = await getCapabilities()
+    if (caps === undefined || !active || revision !== navigationRevision || context !== identity() || presentation !== presentationRevision || document.hidden) return
+    measureWidgetSpace()
+    const iframe = widgetFits.value && caps?.enabled && caps.presentation_modes?.includes('iframe')
+      && caps.iframe_min_width === 576 && caps.iframe_min_height === 576
+    if (iframe) { widgetFrameKey.value++; widgetOpen.value = true }
+    const result = await create(iframe ? 'iframe' : 'redirect')
+    if (!active || revision !== navigationRevision || context !== identity() || presentation !== presentationRevision || error.value) return
+    if (result?.order_id === props.orderId) showPayment()
+  } finally {
+    if (context === identity()) preparing.value = false
+    if (!widgetUrl.value && !busy.value) widgetOpen.value = false
+  }
+}
+const continuePayment = async () => {
+  const context = identity(), revision = navigationRevision, presentation = presentationRevision
+  await refresh()
+  if (active && context === identity() && revision === navigationRevision && presentation === presentationRevision) showPayment()
+}
+const widgetFallback = () => { closeWidget(); navigatePayment(pageUrl.value) }
+watch(() => [widgetUrl.value, error.value, busy.value], () => {
+  if (!widgetUrl.value && !busy.value) widgetOpen.value = false
+}, { flush: 'post' })
 const orderPath = ref('')
 const isOrderPath = (value: string) => value === `/cabinet/orders/${props.orderId}` || /^\/tracking\/[A-Za-z0-9._~-]{20,2048}$/.test(value)
 watch(() => [props.orderId, props.orderPath], () => {
@@ -43,7 +104,7 @@ watch(() => [props.orderId, props.orderPath], () => {
 const methodChanged = computed(() => ['offline_payment_selected', 'payment_method_changed'].includes(payment.value?.reason || ''))
 const settled = computed(() => Boolean(payment.value?.paid && ['accepted', 'paid_receipt_pending'].includes(payment.value.status) && (payment.value.reason !== 'order_closed' || payment.value.order?.status === 'completed')))
 const paid = computed(() => Boolean(payment.value?.paid || ['accepted', 'paid_receipt_pending'].includes(payment.value?.status || '')))
-const pageUrl = computed(() => !paid.value && payment.value?.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.page_url) : null)
+const pageUrl = computed(() => !paid.value && payment.value?.order_id === props.orderId && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.presentation_mode === 'iframe' ? payment.value.redirect_url : payment.value.redirect_url ?? payment.value.page_url) : null)
 const autoStartConsumed = ref(false)
 watch(() => props.autoStart, value => {
   if (value && active) autoStartContext = { revision: navigationRevision, identity: identity() }
@@ -56,9 +117,7 @@ watch(() => [props.autoStart, payment.value, busy.value, error.value] as const, 
     || payment.value.order_id !== props.orderId) return
   if (pageUrl.value) {
     autoStartConsumed.value = true
-    recordRedirect()
-    try { window.location.assign(pageUrl.value) }
-    catch (cause) { redirectFailed(cause) }
+    showPayment()
   } else if (payment.value.enabled && payment.value.status === 'not_started' && payment.value.actions?.start !== false) {
     autoStartConsumed.value = true
     void beginPayment()
@@ -134,7 +193,7 @@ const amount = computed(() => {
 </script>
 
 <template>
-  <section class="order-payment soft-surface" :class="{ 'order-payment--paid': settled }" :aria-label="paymentText.label" :aria-busy="busy">
+  <section ref="paymentRoot" class="order-payment soft-surface" :class="{ 'order-payment--paid': settled }" :aria-label="paymentText.label" :aria-busy="busy">
     <div class="order-payment__context">
       <span>{{ paymentText.order }} № {{ orderId }}</span>
       <strong v-if="amount">{{ amount }}</strong>
@@ -148,8 +207,9 @@ const amount = computed(() => {
     <p class="order-payment__hint">{{ hint }}</p>
     <p v-if="settled && !payment?.receipt_accepted" class="order-payment__hint">{{ paymentText.receiptPending }}</p>
     <div class="order-payment__actions">
-      <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !accessDenied && !error" :disabled="busy" @click="beginPayment">{{ paymentText.create }}</BaseButton>
-      <BaseButton v-if="pageUrl && !accessDenied" :href="pageUrl" rel="noreferrer" @click="recordRedirect">{{ paymentText.pay }}</BaseButton>
+      <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !accessDenied && !error" :disabled="busy || preparing" @click="beginPayment">{{ paymentText.create }}</BaseButton>
+      <BaseButton v-if="widgetUrl && widgetFits && !accessDenied" :disabled="busy || preparing" @click="continuePayment">{{ paymentText.pay }}</BaseButton>
+      <BaseButton v-else-if="pageUrl && !accessDenied" :href="pageUrl" rel="noreferrer" @click="recordRedirect">{{ paymentText.pay }}</BaseButton>
       <BaseButton v-if="receiptUrl && payment?.receipt_accepted && !accessDenied" :href="receiptUrl" target="_blank" rel="noopener noreferrer">{{ paymentText.receipt }}</BaseButton>
       <BaseButton variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
       <BaseButton v-if="canChange" variant="borderless" :disabled="busy" @click="openChange">{{ paymentText.changeMethod }}</BaseButton>
@@ -159,6 +219,8 @@ const amount = computed(() => {
     </div>
     <p v-if="!methodChanged && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.provider }}. {{ paymentText.protected }}</p>
     <p v-if="error" class="order-payment__error" role="alert">{{ paymentError }}</p>
+    <MonoPaymentModal :model-value="widgetOpen" :embed-url="widgetUrl" :frame-key="widgetFrameKey"
+      :loading="busy && !widgetUrl" :redirect-url="pageUrl" @update:model-value="updateWidgetOpen" @fallback="widgetFallback" @unavailable="closeWidget()" @closed="widgetClosed" />
     <BaseModal v-model="changeOpen" type="bottom">
       <template #header-title>{{ paymentText.changeTitle }}</template>
       <div class="order-payment__method-form">

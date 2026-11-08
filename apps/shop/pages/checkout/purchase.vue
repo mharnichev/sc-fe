@@ -1089,7 +1089,7 @@ useSeo(
   display: -webkit-box;
   overflow: hidden;
   font-size: inherit;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1099,7 +1099,7 @@ useSeo(
   display: block;
   margin-top: 0.3rem;
   font-size: inherit;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .checkout-order-list__actions {
@@ -1113,7 +1113,7 @@ useSeo(
   justify-content: space-between;
   gap: 1rem;
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .checkout-page__muted {
@@ -1169,7 +1169,9 @@ useSeo(
 
   .checkout-order-list__price {
     margin-top: 0;
-  }
+
+  font-weight: 600;
+}
 }
 
 @media (min-width: 1024px) {

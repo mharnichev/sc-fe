@@ -259,3 +259,327 @@ for (const unavailable of ['disabled', 'error']) {
   await expect(page.locator('#payment-method-onlineCard')).toBeDisabled()
  })
 }
+
+const widgetCaps = { enabled: true, presentation_modes: ['redirect', 'iframe'], iframe_min_width: 576, iframe_min_height: 576 }
+const widgetEmbed = 'https://pay.mbnk.biz/widget/opaque-synthetic?invoice=mock-invoice&mode=frame'
+const widgetState = (phase = 'waiting', mode = 'iframe', id = 987) => ({ order_id: id, enabled: true, status: phase,
+  paid: ['paid_receipt_pending', 'accepted'].includes(phase), receipt_accepted: phase === 'accepted',
+  page_url: phase === 'waiting' ? 'https://pay.mbnk.biz/mock-invoice' : null,
+  redirect_url: phase === 'waiting' ? 'https://pay.mbnk.biz/mock-invoice' : null,
+  embed_url: phase === 'waiting' && mode === 'iframe' ? widgetEmbed : null, presentation_mode: mode,
+  receipt_url: phase === 'accepted' ? 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture' : null,
+  amount_minor: 20000, currency: 'UAH', retry_after_seconds: 120, revision: phase === 'not_started' ? 1 : 2,
+  attempt_id: phase === 'not_started' ? null : 1,
+  actions: { start: phase === 'not_started', continue_payment: phase === 'waiting', refresh: true, change_method: false } })
+
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 608, height: 900 }, { width: 576, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 780 }, { width: 1440, height: 700 }]) {
+ test(`widget selects first presentation from real available geometry ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  await page.setViewportSize(viewport)
+  await page.clock.install()
+  let phase = 'not_started', mode = 'redirect', posts = 0
+  const errors: string[] = []
+  page.on('pageerror', e => errors.push(e.message))
+  page.on('console', m => { if (m.type() === 'error' || /hydration/i.test(m.text())) errors.push(m.text()) })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
+    if (path.endsWith('/987/online-payment')) {
+      if (req.method() === 'POST') { posts++; mode = req.postDataJSON().presentation || 'redirect'; phase = 'waiting' }
+      return route.fulfill({ json: widgetState(phase, mode) })
+    }
+    expect(req.method()).toBe('GET')
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+  if (viewport.width >= 608 && viewport.height >= 800) {
+    const frame = page.locator('.mono-payment-modal__frame')
+    await expect(frame).toBeVisible()
+    await expect(frame).toHaveAttribute('src', widgetEmbed)
+    await expect(frame).toHaveAttribute('allow', 'payment *')
+    await expect(frame).toHaveAttribute('referrerpolicy', 'no-referrer')
+    const entering = await frame.boundingBox()
+    expect(entering!.width).toBe(576); expect(entering!.height).toBe(576)
+    await page.waitForTimeout(750)
+    const box = await frame.boundingBox()
+    expect(box!.width).toBe(576); expect(box!.height).toBe(576)
+    console.log('Widget geometry', JSON.stringify({ viewport, iframe: box }))
+    expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+    const modal = page.locator('.mono-payment-modal .base-modal__container')
+    const rect = await modal.boundingBox()
+    expect(rect!.y).toBeGreaterThanOrEqual(0); expect(rect!.y + rect!.height).toBeLessThanOrEqual(viewport.height)
+    await page.screenshot({ path: `/tmp/sc-pos-20261106/widget-fe-evidence/widget-${viewport.width}x${viewport.height}.png` })
+    await page.keyboard.press('Escape')
+    await expect(frame).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toBeFocused()
+    await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+    await expect(frame).toBeVisible()
+    expect(posts).toBe(1)
+    await page.reload()
+    await expect(frame).toHaveCount(0)
+    await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+    await expect(frame).toBeVisible(); expect(posts).toBe(1)
+    phase = 'paid_receipt_pending'
+    // Authenticated GET is the only settlement authority, even while the frame is open.
+    await page.clock.fastForward(121000)
+    await expect(frame).toHaveCount(0)
+    await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+  } else {
+    await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
+    await expect(page.getByRole('heading', { name: 'Synthetic provider only' })).toBeVisible()
+    expect(mode).toBe('redirect')
+  }
+  expect(posts).toBe(1); expect(errors).toEqual([])
+ })
+}
+
+test('widget messages are bound to the current frame; close, fallback and resize preserve one invoice', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  let phase = 'not_started', posts = 0
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<button id="send">Synthetic frame</button><script>window.synthetic=true</script>' }))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
+    if (path.endsWith('/987/online-payment')) { if (req.method() === 'POST') { posts++; phase = 'waiting' }; return route.fulfill({ json: widgetState(phase) }) }
+    expect(req.method()).toBe('GET'); return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+  await pay.click()
+  const frame = page.locator('.mono-payment-modal__frame')
+  await expect(frame).toBeVisible(); await page.waitForTimeout(750)
+  const send = async (data: string, origin = 'https://pay.mbnk.biz', currentSource = true) => page.evaluate(({ data, origin, currentSource }) => {
+    const source = currentSource ? document.querySelector<HTMLIFrameElement>('.mono-payment-modal__frame')!.contentWindow : window
+    window.dispatchEvent(new MessageEvent('message', { data, origin, source }))
+  }, { data, origin, currentSource })
+  for (const [data, origin, source] of [
+    ['{"message":"close-button"}', 'https://evil.test', true], ['{"message":"close-button"}', 'https://pay.mbnk.biz', false],
+    ['{bad', 'https://pay.mbnk.biz', true], ['x'.repeat(5000), 'https://pay.mbnk.biz', true], ['{"message":"paid"}', 'https://pay.mbnk.biz', true],
+  ] as const) { await send(data, origin, source); await expect(frame).toBeVisible() }
+  await expect(page.getByText('Очікуємо оплату', { exact: true })).toBeVisible()
+  const oldFrame = await frame.elementHandle()
+  await send('{"message":"close-button"}')
+  await expect(frame).toHaveCount(0)
+  await pay.click(); await expect(frame).toBeVisible()
+  // A detached frame must never be a valid source for the reopened modal.
+  await page.evaluate(old => window.dispatchEvent(new MessageEvent('message', { origin: 'https://pay.mbnk.biz', source: (old as HTMLIFrameElement).contentWindow, data: '{"message":"close-button"}' })), oldFrame)
+  await expect(frame).toBeVisible()
+  await send('{"message":"monopay-link","value":"javascript:alert(1)"}')
+  await expect(page.getByText('Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.', { exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/shop\/payment\/987$/)
+  await page.getByRole('button', { name: 'Відкрити сторінку оплати', exact: true }).click()
+  await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice'); expect(posts).toBe(1)
+  await page.goto('/shop/payment/987'); await pay.click(); await expect(frame).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(frame).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Перейти до оплати', exact: true })).toHaveAttribute('href', 'https://pay.mbnk.biz/mock-invoice')
+  expect(posts).toBe(1)
+})
+
+for (const invalidate of ['close', 'resize', 'reload', 'order', 'user', 'unmount', 'lost-response']) {
+ test(`widget late create cannot reopen or replace a payment after ${invalidate}`, async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  let phase = 'not_started', posts = 0, release = () => {}, currentUser = false
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
+    if (path.endsWith('/987/online-payment') || path.endsWith('/988/online-payment')) {
+      const id = path.includes('/988/') ? 988 : 987
+      if (req.method() === 'POST') {
+        posts++; expect(req.postDataJSON()).toEqual({ presentation: 'iframe' })
+        phase = invalidate === 'lost-response' ? 'creation_unknown' : 'waiting'
+        await gate
+        if (invalidate === 'lost-response') return route.abort('failed')
+      }
+      return route.fulfill({ json: widgetState(currentUser || id === 988 ? 'not_started' : phase, 'iframe', id) })
+    }
+    expect(req.method()).toBe('GET')
+    if (path.endsWith('/customers/me')) return route.fulfill({ json: customer })
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const post = page.waitForRequest(req => req.method() === 'POST' && req.url().includes('/987/online-payment'))
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click(); await post
+  await expect(page.getByRole('dialog', { name: 'Захищена оплата карткою' })).toBeVisible()
+  if (invalidate === 'resize') await page.setViewportSize({ width: 390, height: 844 })
+  else if (invalidate === 'reload') await page.reload()
+  else if (invalidate === 'order' || invalidate === 'unmount') await page.evaluate(path => {
+    const app = (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__: { config: { globalProperties: { $router: { push: (path: string) => Promise<unknown> } } } } }).__vue_app__
+    return app.config.globalProperties.$router.push(path)
+  }, invalidate === 'order' ? '/payment/988' : '/contacts')
+  else if (invalidate === 'user') {
+    currentUser = true
+    await page.evaluate(() => {
+      const app = (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__: { config: { globalProperties: { $pinia: { _s: Map<string, { $patch: (state: Record<string, unknown>) => void }> } } } } }).__vue_app__
+      app.config.globalProperties.$pinia._s.get('customer-auth')!.$patch({ accessToken: 'other-synthetic', customer: { id: 99 }, sessionRevision: 7 })
+    })
+  } else if (invalidate !== 'lost-response') await page.keyboard.press('Escape')
+  release()
+  if (invalidate === 'lost-response') {
+    await expect(page.getByRole('alert')).toBeVisible()
+    await page.getByRole('button', { name: 'Оновити статус оплати', exact: true }).click()
+    await expect(page.getByText('Уточнюємо стан оплати', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+    phase = 'waiting'
+    await page.getByRole('button', { name: 'Оновити статус оплати', exact: true }).click()
+  }
+  await expect(page.locator('.mono-payment-modal')).toHaveCount(0)
+  await page.waitForTimeout(200)
+  await expect(page.locator('.mono-payment-modal')).toHaveCount(0)
+  expect(new URL(page.url()).hostname).toBe('127.0.0.1'); expect(posts).toBe(1)
+  if (invalidate === 'close' || invalidate === 'reload' || invalidate === 'lost-response') {
+    await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+    await expect(page.locator('.mono-payment-modal__frame')).toBeVisible(); expect(posts).toBe(1)
+  }
+ })
+}
+
+for (const mobile of [false, true]) {
+ test(`widget integrates with the actual checkout confirmation (${mobile ? 'mobile redirect' : 'desktop iframe'})`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 })
+  let phase = 'not_started', mode = 'redirect', posts = 0, orders = 0
+  await page.addInitScript(product => localStorage.setItem('shop-cart', JSON.stringify({ items: [{ product, quantity: 2 }] })), product)
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
+    if (path.endsWith('/public/orders') && req.method() === 'POST') {
+      orders++; expect(req.postDataJSON().paymentMethod).toBe('onlineCard')
+      return route.fulfill({ status: 201, json: { id: 987, payment_method: 'onlineCard', guest_payment_token: 'signed-fixture-capability', status: 'pending', total_amount: '200.00', items: [{ id: 1, product_id: 123, product_name: product.name, quantity: 2, price: '100.00' }] } })
+    }
+    if (path.endsWith('/987/online-payment')) {
+      expect(req.headers()['x-order-payment-token']).toBe('signed-fixture-capability')
+      if (req.method() === 'POST') { posts++; mode = req.postDataJSON().presentation || 'redirect'; phase = 'waiting' }
+      return route.fulfill({ json: widgetState(phase, mode) })
+    }
+    expect(req.method(), `Unexpected mutation ${path}`).toBe('GET')
+    if (path.endsWith('/np/settlements')) return route.fulfill({ json: { items: [city], cached: true } })
+    if (path.endsWith('/np/branches')) return route.fulfill({ json: { items: [branch], cached: true } })
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/checkout/purchase')
+  await page.getByLabel('ІМʼЯ').fill('Synthetic'); await page.getByLabel('ПРІЗВИЩЕ').fill('Customer'); await page.getByLabel('ТЕЛЕФОН').fill(customer.phone)
+  await page.getByRole('button', { name: 'Київ', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: /^Місто$/i })).toHaveValue(city.label)
+  await page.getByRole('combobox', { name: /^Відділення або поштомат$/i }).focus()
+  await page.getByRole('option', { name: branch.label }).click()
+  await page.locator('label[for=payment-method-onlineCard]').click()
+  expect(posts).toBe(0); expect(orders).toBe(0)
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).last().click()
+  if (mobile) { await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice'); expect(mode).toBe('redirect') }
+  else {
+    await expect(page.getByTestId('order-confirmation')).toBeVisible()
+    await expect(page.locator('.mono-payment-modal__frame')).toBeVisible()
+    await expect(page).toHaveURL(/\/shop\/checkout\/purchase\?confirmation=987$/)
+    expect(mode).toBe('iframe')
+    await page.keyboard.press('Escape'); await page.reload()
+    await expect(page.getByTestId('order-confirmation')).toBeVisible()
+    await expect(page.locator('.mono-payment-modal__frame')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+    await expect(page.locator('.mono-payment-modal__frame')).toBeVisible()
+  }
+  expect(posts).toBe(1); expect(orders).toBe(1)
+ })
+}
+
+test('widget English copy, keyboard boundaries, header and overlay close restore the payment action', async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await context.addCookies([{ name: 'shop-locale', value: 'en', url: 'http://127.0.0.1' }])
+  let posts = 0
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<button>Bank fixture control</button>' }))
+  await page.route('**/api/v1/**', route => {
+    if (route.request().method() === 'POST') posts++
+    expect(route.request().method()).toBe('GET')
+    return route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/987/online-payment') ? widgetState() : { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const pay = page.getByRole('button', { name: 'Proceed to payment', exact: true })
+  await pay.click()
+  const dialog = page.getByRole('dialog', { name: 'Secure card payment', exact: true })
+  const close = dialog.locator('.base-modal__close')
+  await expect(close).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.getByRole('button', { name: 'Return to order', exact: true })).toBeFocused()
+  await page.keyboard.press('Tab'); await expect(close).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.frameLocator('.mono-payment-modal__frame').getByRole('button', { name: 'Bank fixture control' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(dialog.getByRole('button', { name: 'Open payment page', exact: true })).toBeFocused()
+  await close.click(); await expect(dialog).toHaveCount(0); await expect(pay).toBeFocused()
+  await pay.click(); await expect(dialog).toBeVisible()
+  await dialog.locator('.base-modal__overlay').click({ position: { x: 2, y: 2 } })
+  await expect(dialog).toHaveCount(0); await expect(pay).toBeFocused()
+  expect(posts).toBe(0)
+})
+
+test('widget retires a capabilities response after guest capability rotation before any invoice POST', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  let posts = 0, release = () => {}, phase = 'not_started'
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'original-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic frame</h1>' }))
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname
+    if (path.endsWith('online-payment-capabilities')) { await gate; return route.fulfill({ json: widgetCaps }) }
+    if (path.endsWith('/987/online-payment')) {
+      if (req.method() === 'POST') { posts++; expect(req.headers()['x-order-payment-token']).toBe('replacement-capability'); phase = 'waiting' }
+      return route.fulfill({ json: widgetState(phase) })
+    }
+    expect(req.method()).toBe('GET'); return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+  const caps = page.waitForRequest(req => req.url().endsWith('/online-payment-capabilities'))
+  await pay.click(); await caps
+  await page.evaluate(() => sessionStorage.setItem('shop-order-payment-token:987', 'replacement-capability'))
+  release()
+  await expect(pay).toBeEnabled(); expect(posts).toBe(0)
+  await expect(page.locator('.mono-payment-modal')).toHaveCount(0)
+  await pay.click(); await expect(page.locator('.mono-payment-modal__frame')).toBeVisible(); expect(posts).toBe(1)
+})
+
+test('widget waits for persisted identity before reading or reopening the restored invoice', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  let reads = 0, posts = 0
+  await page.addInitScript(() => {
+    sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability')
+    localStorage.setItem('shop-customer-auth', JSON.stringify({ accessToken: '', tokenType: 'Bearer', customer: null }))
+    const callbacks: IdleRequestCallback[] = []
+    window.requestIdleCallback = callback => { callbacks.push(callback); return callbacks.length }
+    const fixture = window as Window & { releasePersistedIdentity?: () => void }
+    fixture.releasePersistedIdentity = () => {
+      for (const callback of callbacks.splice(0)) callback({ didTimeout: false, timeRemaining: () => 50 })
+    }
+  })
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('**/api/v1/**', route => {
+    const request = route.request(), path = new URL(request.url()).pathname
+    if (request.method() === 'POST') posts++
+    expect(request.method()).toBe('GET')
+    if (path.endsWith('/987/online-payment')) { reads++; return route.fulfill({ json: widgetState() }) }
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: { config: { globalProperties: { $nuxt?: { isHydrating: boolean } } } } }
+    return root?.__vue_app__?.config.globalProperties.$nuxt?.isHydrating === false
+  })
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  console.log('Bootstrap native navigator.onLine:', await page.evaluate(() => navigator.onLine))
+  expect(reads).toBe(0); expect(posts).toBe(0)
+  await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+  await page.evaluate(() => (window as Window & { releasePersistedIdentity?: () => void }).releasePersistedIdentity?.())
+  const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+  await expect(pay).toBeEnabled()
+  expect(reads).toBe(1)
+  await pay.click(); await expect(page.locator('.mono-payment-modal__frame')).toBeVisible()
+  expect(reads).toBe(2); expect(posts).toBe(0)
+})

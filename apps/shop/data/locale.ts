@@ -5,6 +5,8 @@ export const shopLocaleOptions: Array<{ code: ShopLocaleCode, label: string, sho
   { code: 'en', label: '🇬🇧 Eng', shortLabel: 'EN' },
 ]
 
+const ukrainianProductPlural = new Intl.PluralRules('uk')
+
 export const shopTerms = {
   uk: {
     brand: {
@@ -53,6 +55,9 @@ export const shopTerms = {
       search: 'Пошук',
       retry: 'Спробувати ще раз',
       closeDialog: 'Закрити вікно',
+      similarProducts: 'Схожі товари',
+      previousSimilarProducts: 'Попередні схожі товари',
+      nextSimilarProducts: 'Наступні схожі товари',
       recentlyViewed: 'Переглянуті товари',
       recentlyViewedDescription: 'Можливо, щось із цього варто переглянути ще раз.',
       previousRecentlyViewed: 'Попередні переглянуті товари',
@@ -112,6 +117,8 @@ export const shopTerms = {
     },
     catalog: {
       filters: 'Фільтри',
+      clearAllFilters: 'Видалити все',
+      viewAllResults: 'Подивитись все',
       size: 'Розмір',
       color: 'Колір',
       brandSearchPlaceholder: 'Пошук брендів',
@@ -123,6 +130,8 @@ export const shopTerms = {
       brand: 'Бренд',
       allBrands: 'Усі бренди',
       sort: 'Сортування',
+      productTypes: 'Типи товарів',
+      productType: 'Тип',
       cheaper: 'Дешевше',
       moreExpensive: 'Дорожче',
       popular: 'Популярні',
@@ -140,7 +149,10 @@ export const shopTerms = {
       productCode: 'Код товару',
       currencyShort: 'грн',
       productsSuffix: 'товарів',
-      productCount: (count: number) => `${count} товарів`,
+      productCount: (count: number) => {
+        const plural = ukrainianProductPlural.select(count)
+        return `${count} ${plural === 'one' ? 'товар' : plural === 'few' ? 'товари' : 'товарів'}`
+      },
       productsDescription: (count: number) => `${count} товарів`,
       badges: {
         label: 'Стани товару',
@@ -487,6 +499,9 @@ export const shopTerms = {
       search: 'Search',
       retry: 'Try again',
       closeDialog: 'Close dialog',
+      similarProducts: 'Similar products',
+      previousSimilarProducts: 'Previous similar products',
+      nextSimilarProducts: 'Next similar products',
       recentlyViewed: 'Recently viewed products',
       recentlyViewedDescription: 'Maybe something here is worth another look.',
       previousRecentlyViewed: 'Previous recently viewed products',
@@ -546,6 +561,8 @@ export const shopTerms = {
     },
     catalog: {
       filters: 'Filters',
+      clearAllFilters: 'Clear all',
+      viewAllResults: 'View all',
       size: 'Size',
       color: 'Color',
       brandSearchPlaceholder: 'Search brands',
@@ -557,6 +574,8 @@ export const shopTerms = {
       brand: 'Brand',
       allBrands: 'All brands',
       sort: 'Sort',
+      productTypes: 'Product types',
+      productType: 'Type',
       cheaper: 'Cheaper',
       moreExpensive: 'More expensive',
       popular: 'Popular',
@@ -574,7 +593,7 @@ export const shopTerms = {
       productCode: 'Product code',
       currencyShort: 'UAH',
       productsSuffix: 'products',
-      productCount: (count: number) => `${count} products`,
+      productCount: (count: number) => `${count} ${count === 1 ? 'product' : 'products'}`,
       productsDescription: (count: number) => `${count} products`,
       badges: {
         label: 'Product statuses',

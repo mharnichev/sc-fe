@@ -14,11 +14,11 @@ const SCROLL_DELTA = 6
 const MENU_OPEN_DELAY = 160
 const MENU_CLOSE_DELAY = 180
 const HEADER_CATEGORY_LINKS = [
-  { slug: 'kosmetika-dlia-borodi', path: '/kosmetika/kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD' },
-  { slug: 'kosmetika-dlia-volossia', path: '/kosmetika/kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR' },
-  { slug: 'kosmetika-dlia-golinnia', path: '/kosmetika/kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING' },
-  { slug: 'kosmetika-dlia-tila', path: '/kosmetika/kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY' },
-  { slug: 'profesiini-grebeni-ta-shchitki', path: '/profesiini-grebeni-ta-shchitki/goods/', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES' },
+  { slug: 'kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD' },
+  { slug: 'kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR' },
+  { slug: 'kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING' },
+  { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY' },
+  { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES' },
 ] as const
 
 const cart = useCartStore()
@@ -265,7 +265,9 @@ const openMobileSearch = () => {
   }
 }
 
-const categoryLink = (category: CategoryTreeNodeDto) => categoryDestination(categoryTree.value, category)
+const categoryLink = (category: CategoryTreeNodeDto) => activeCategory.value
+  ? categoryDestination(activeCategory.value.slug, category.slug)
+  : categoryDestination(category.slug)
 
 const openBasket = () => {
   closeOverlays()
@@ -456,7 +458,7 @@ onBeforeUnmount(() => {
           <NuxtLink
             v-for="link in headerCategoryLinks"
             :key="link.slug"
-            :to="link.path"
+            :to="categoryDestination(link.slug)"
             :class="['shop-header__popular-btn', { 'shop-header__popular-btn--active': isPopularCategoryActive(link.slug) }]"
             :data-category-slug="link.slug"
             :aria-expanded="link.category?.children.length ? activeMenuKey === popularMenuKey(link.category) : undefined"

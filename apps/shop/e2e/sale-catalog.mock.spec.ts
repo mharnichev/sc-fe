@@ -1,11 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const category = { id: 2, name: 'Fixture category', name_en: 'Fixture category', slug: 'fixture-category', children: [], description: null }
-const tree = [{ id: 1, name: 'Fixture root', slug: 'fixture-root', children: [category], description: null }]
+const matte = { id: 2, name: 'Matte', name_en: 'Matte', slug: 'fixture-matte', children: [], description: null }
+const shine = { ...matte, id: 3, name: 'Shine', name_en: 'Shine', slug: 'fixture-shine' }
+const category = { ...matte, id: 1, name: 'Fixture category', name_en: 'Fixture category', slug: 'fixture-category', children: [matte, shine] }
+const tree = [category]
 const brand = { id: 1, name: 'Fixture brand', slug: 'fixture-brand', description: null }
 const products = Array.from({ length: 6 }, (_, index) => ({
   id: 100 + index, name: `Sale fixture ${index + 1}`, slug: `sale-fixture-${index + 1}`,
-  price: '100.00', compare_at_price: '150.00', stock: 10, category_id: 2, brand_id: 1, category, brand,
+  price: String(100 - index), compare_at_price: '150.00', stock: 10,
+  category_id: index % 2 === 0 ? matte.id : shine.id, brand_id: 1,
+  category: index % 2 === 0 ? matte : shine, brand,
   images: [{ image: '/sale-fixture.svg', alt: 'Fixture bottle' }],
   is_effectively_visible: true, is_available_for_purchase: true, status: 'active',
   package_size: '100 ml', reviews_count: 3, average_rating: 0,
@@ -41,18 +45,32 @@ async function fixture(page: Page, locale: 'uk' | 'en') {
     if (path.endsWith('/brands')) return route.fulfill({ json: { items: [brand], total: 1, page: 1, page_size: 100 } })
     if (path.endsWith('/categories')) return route.fulfill({ json: { items: tree, total: 1, page: 1, page_size: 100 } })
     if (path.endsWith('/products/search')) return route.fulfill({ json: { suggestions: ['Fixture pomade'], categories: [category], products } })
-    if (path.endsWith('/filters')) {
-      calls.push({ path, query: Object.fromEntries(url.searchParams) })
-      return route.fulfill({ json: { price: { min: 50, max: 500 }, filters: {
-        finish: { slug: 'finish', name: 'Fixture finish', values: [{ slug: 'matte', name: 'Matte', count: 6 }] },
-      } } })
-    }
-    if (path.endsWith('/products')) {
-      calls.push({ path, query: Object.fromEntries(url.searchParams) })
-      const limit = Number(url.searchParams.get('page_size') || url.searchParams.get('limit') || 20)
-      const offset = Number(url.searchParams.get('offset') || 0)
-      const items = url.searchParams.get('has_discount') === 'true' ? products : [{ ...products[0], name: 'Full-price fixture', compare_at_price: null }]
-      return route.fulfill({ json: { items: items.slice(offset, offset + limit), total: items.length, page: Math.floor(offset / limit) + 1, page_size: limit } })
+    if (path === '/api/v1/public/products/catalog') {
+      const query = Object.fromEntries(url.searchParams)
+      calls.push({ path, query })
+      const limit = Number(query.limit || 20)
+      const offset = Number(query.offset || 0)
+      const eligible = query.has_discount === 'true'
+        ? products
+        : [{ ...products[0]!, name: 'Full-price fixture', compare_at_price: null }]
+      const inCategory = !query.category || query.category === category.slug ? eligible : []
+      const types = url.searchParams.getAll('type')
+      const items = inCategory.filter(item => !types.length || types.includes(item.category.slug))
+      if (query.ordering === 'price') items.sort((a, b) => Number(a.price) - Number(b.price))
+
+      return route.fulfill({ json: {
+        items: items.slice(offset, offset + limit),
+        total: items.length,
+        page: Math.floor(offset / limit) + 1,
+        page_size: limit,
+        price: { min: 95, max: 100 },
+        filters: {
+          type: { slug: 'type', name: 'Type', values: [matte, shine].map(type => ({
+            slug: type.slug, name: type.name, count: inCategory.filter(item => item.category.id === type.id).length,
+          })) },
+          brand: { slug: 'brand', name: 'Brand', values: [{ slug: brand.slug, name: brand.name, count: items.length }] },
+        },
+      } })
     }
     return route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 100 } })
   })
@@ -91,18 +109,43 @@ for (const locale of ['uk', 'en'] as const) {
     await page.locator('.catalog-pagination .base-pagination__page').filter({ hasText: /^2$/ }).click()
     await expect.poll(() => calls.at(-1)?.query.offset).toBe('2')
     await expect(tiles.first()).toContainText('Sale fixture 3')
-    await page.getByRole('tab').first().click()
+    const actions = page.locator('.catalog-route__head-actions')
+    await actions.getByRole('button', { name: locale === 'uk' ? 'Сортування' : 'Sort', exact: true }).click()
+    await page.locator('input[name="catalog-ordering"][value="price"]').locator('..').click()
     await expect.poll(() => calls.at(-1)?.query.ordering).toBe('price')
-    await expect.poll(() => calls.at(-1)?.query.offset).toBe('0')
-    await page.locator('.catalog-route__left-side-bar').getByText('Fixture category', { exact: true }).click()
-    await expect(page.locator('.catalog-route__left-side-bar').getByRole('checkbox', { name: 'Fixture category', exact: true })).toBeChecked()
-    await expect.poll(() => calls.some(call => call.path.endsWith('/fixture-category/filters'))).toBe(true)
-    await expect.poll(() => calls.some(call => call.path.endsWith('/fixture-category/products'))).toBe(true)
-    await page.locator('.catalog-route__left-side-bar').getByText('Matte', { exact: true }).click()
-    await expect(page.locator('.catalog-route__left-side-bar').getByRole('checkbox', { name: /Matte/ })).toBeChecked()
-    await expect.poll(() => calls.at(-1)?.query.finish).toBe('matte')
-    await page.locator('.catalog-filter-panel__clear:visible').first().click()
-    await expect.poll(() => calls.at(-1)?.path.endsWith('/public/products')).toBe(true)
+    await expect.poll(() => calls.at(-1)?.query.offset ?? '0').toBe('0')
+    await expect(tiles.first()).toContainText('Sale fixture 6')
+
+    const trigger = actions.locator('.catalog-filter-trigger')
+    await trigger.click()
+    const drawer = page.locator('.catalog-filter-drawer')
+    const categoryCheckbox = drawer.getByRole('checkbox', { name: 'Fixture category', exact: true })
+    await categoryCheckbox.locator('..').click()
+    await expect(categoryCheckbox).toBeChecked()
+    await expect.poll(() => calls.at(-1)?.query.category).toBe(category.slug)
+
+    const typeCheckbox = drawer.getByRole('checkbox', { name: /^Matte\b/i })
+    await typeCheckbox.locator('..').click()
+    await expect(typeCheckbox).toBeChecked()
+    await expect.poll(() => calls.at(-1)?.query.type).toBe(matte.slug)
+    expect(new URL(page.url()).searchParams.has('category')).toBe(false)
+    const footer = drawer.locator('.catalog-route__filter-actions')
+    const viewAll = locale === 'uk' ? 'Подивитись все' : 'View all'
+    await footer.getByRole('button', { name: `${viewAll}: 3`, exact: true }).click()
+    await expect(drawer).toBeHidden()
+    const applied = new URL(page.url()).searchParams
+    expect(applied.get('category')).toBe(category.slug)
+    expect(applied.get('type')).toBe(matte.slug)
+    await expect(tiles.first()).toContainText('Sale fixture 5')
+    await expect(tiles.nth(1)).toContainText('Sale fixture 3')
+
+    await trigger.click()
+    await footer.getByRole('button', { name: locale === 'uk' ? 'Видалити все' : 'Clear all', exact: true }).click()
+    await footer.getByRole('button', { name: `${viewAll}: 6`, exact: true }).click()
+    await expect(drawer).toBeHidden()
+    expect(new URL(page.url()).searchParams.has('category')).toBe(false)
+    expect(new URL(page.url()).searchParams.has('type')).toBe(false)
+    await expect(tiles.first()).toContainText('Sale fixture 6')
     expect(calls.length).toBeGreaterThan(5)
     for (const call of calls) expect(call.query.has_discount, JSON.stringify(call)).toBe('true')
     expect(writes).toEqual([])
@@ -122,6 +165,9 @@ for (const locale of ['uk', 'en'] as const) {
     await expect(page).toHaveURL(/\/shop\/sale$/)
     await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer', exact: true })).toBeVisible()
     await expect(page.locator('.base-bottom-bar').getByRole('button', { name: locale === 'uk' ? 'Каталог' : 'Catalog', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.catalog-route__content .catalog-product-tile').first()).toContainText('Sale fixture 1')
+    await expect(page.locator('.catalog-route__title .base-scribble-outline__scribble')).toBeAttached()
+    expect(calls.length).toBeGreaterThan(0)
     for (const call of calls) expect(call.query.has_discount).toBe('true')
     expect(writes).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

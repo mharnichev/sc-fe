@@ -1,33 +1,29 @@
 <script setup lang="ts">
+import legacyPaths from '~/data/legacy-category-paths.json'
+import { categoryPathBySegments } from '~/utils/category-routing'
+
 const route = useRoute()
+const domain = useCatalogDomain()
+const segments = (Array.isArray(route.params.slug) ? route.params.slug : [route.params.slug])
+  .map(String).filter(Boolean)
+if (segments.at(-1) === 'goods') segments.pop()
 
-const routeSegments = computed(() => {
-  const raw = route.params.slug
-  return (Array.isArray(raw) ? raw : [raw]).map(item => String(item || '')).filter(Boolean)
-})
-
-const isGoodsRoute = computed(() => routeSegments.value[routeSegments.value.length - 1] === 'goods')
-const categorySegments = computed(() =>
-  isGoodsRoute.value ? routeSegments.value.slice(0, -1) : routeSegments.value,
-)
-
-const legacyCategoryPrefix = [
-  'roboche-mistse',
-  'roboche-mistse-profesiini-grebeni-ta-shchitki',
-]
-const standaloneCategorySlug = 'profesiini-grebeni-ta-shchitki'
-
-if (legacyCategoryPrefix.every((segment, index) => routeSegments.value[index] === segment)) {
-  const suffix = routeSegments.value.slice(legacyCategoryPrefix.length)
-  const destination = `/${standaloneCategorySlug}/${suffix.length ? suffix.join('/') : 'goods'}/`
-  await navigateTo(
-    { path: destination, query: route.query, hash: route.hash },
-    { redirectCode: 301, replace: true },
-  )
+const legacyPrefix = ['roboche-mistse', 'roboche-mistse-profesiini-grebeni-ta-shchitki']
+if (legacyPrefix.every((segment, index) => segments[index] === segment)) {
+  segments.splice(0, 2, 'profesiini-grebeni-ta-shchitki')
 }
-</script>
 
-<template>
-  <CatalogCategoryGoodsRoute v-if="isGoodsRoute" :segments="categorySegments" />
-  <CatalogCategoryLandingRoute v-else :segments="categorySegments" />
-</template>
+const knownPaths: Readonly<Record<string, string>> = legacyPaths
+const path = segments.join('/')
+let category = Object.hasOwn(knownPaths, path) ? knownPaths[path] : undefined
+if (!category && segments.length) {
+  const tree = await domain.getCategoryTree()
+  category = categoryPathBySegments(tree, segments).at(-1)?.slug
+}
+if (!category) throw createError({ statusCode: 404, statusMessage: 'Category not found' })
+
+await navigateTo(
+  { path: '/catalog', query: { ...route.query, category }, hash: route.hash },
+  { redirectCode: 301, replace: true },
+)
+</script>
