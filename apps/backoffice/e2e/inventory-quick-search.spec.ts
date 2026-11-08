@@ -55,7 +55,7 @@ async function setup(page: Page, options: { denied?: boolean, delayed?: boolean 
 const modal = (page: Page) => page.getByRole('dialog', { name: 'Швидкий пошук товару', exact: true })
 async function open(page: Page, path = '/products') {
   await page.goto(path)
-  await page.getByRole('button', { name: 'Сканувати штрихкод', exact: true }).click()
+  await page.getByRole('button', { name: 'Швидкий пошук товару', exact: true }).click()
   await expect(modal(page)).toBeVisible()
 }
 
@@ -165,7 +165,7 @@ test('closing and reopening ignores a late lookup response', async ({ page }) =>
   await modal(page).getByRole('button', { name: 'Знайти', exact: true }).click()
   await expect.poll(() => requests.some(request => request.path.includes('/products/barcode/'))).toBe(true)
   await modal(page).getByRole('button', { name: 'Закрити пошук', exact: true }).click()
-  await page.getByRole('button', { name: 'Сканувати штрихкод', exact: true }).click()
+  await page.getByRole('button', { name: 'Швидкий пошук товару', exact: true }).click()
   const response = page.waitForResponse(response => response.url().includes('/products/barcode/'))
   release()
   await (await response).finished()
@@ -236,7 +236,7 @@ test('compact product finder opens the phone camera in one tap', async ({ page }
   const seller = { id: 17, email: 'pos-camera@example.test', role: 'barber', is_superuser: false, is_active: true, can_record_sales: true, can_accept_qr_payments: true }
   const offer = { id: 42, name: 'POS Pomade', brand_name: 'Synthetic brand', sku: 'POS-100', barcode: '5901234123457', image_url: null, variant_label: '100 мл', amount_minor: 25000, currency: 'UAH', available_quantity: 8, can_sell: true, blocking_reasons: [] }
   const requests: { method: string, path: string, query: URLSearchParams }[] = [], inventoryRequests: string[] = [], external: string[] = []
-  const creates: { intent_id: string, product_id: number, quantity: number, expected_amount_minor: number, currency: string }[] = []
+  const creates: { intent_id: string, items: { product_id: number, quantity: number }[], quote_revision: string, currency: string }[] = []
   await page.addInitScript(({ seller, barcode }) => {
     localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'synthetic-pos-camera', user: seller }))
     const state = { started: 0, stopped: 0, detect: false }
@@ -269,9 +269,13 @@ test('compact product finder opens the phone camera in one tap', async ({ page }
     if (!url.pathname.includes('/backoffice/pos/')) return route.fulfill({ json: [] })
     const path = url.pathname.split('/backoffice/pos')[1]!
     requests.push({ method: request.method(), path, query: url.searchParams })
-    if (path === '/capabilities') return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, can_search: true, can_start: true, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: [] } })
+    if (path === '/capabilities') return route.fulfill({ json: { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: true, can_start: true, can_view_admin_sales: false, automatic_reconciliation_enabled: false, poll_after_ms: 30000, blocking_reasons: [] } })
     if (path === '/checkouts/active') return route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 20 } })
     if (path === '/products') return route.fulfill({ json: { items: [offer], total: 1, page: 1, page_size: 20 } })
+    if (path === '/cart/quote') return route.fulfill({ json: {
+      items: [{ product_id: offer.id, quantity: 1, base_unit_minor: offer.amount_minor, unit_minor: offer.amount_minor, subtotal_minor: offer.amount_minor, discount_minor: 0, amount_minor: offer.amount_minor, promotion_id: null, promotion_name: null, promotion_code: null, discount_source: null }],
+      currency: 'UAH', subtotal_minor: offer.amount_minor, discount_minor: 0, amount_minor: offer.amount_minor, applied_promo_code: null, promotion_id: null, available_promotions: [], quote_revision: 'a'.repeat(64),
+    } })
     if (path === '/checkouts' && request.method() === 'POST') {
       const body = request.postDataJSON(); creates.push(body)
       return route.fulfill({ status: 201, json: {
@@ -290,11 +294,11 @@ test('compact product finder opens the phone camera in one tap', async ({ page }
   await cameraButton.click()
   await expect(page.getByRole('dialog', { name: 'Сканування штрихкоду', exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as unknown as { quickCamera: { started: number } }).quickCamera.started)).toBe(1)
-  await page.screenshot({ path: '/tmp/sc-pos-20261106/pos-fixes/direct-pos-camera-mobile.png', fullPage: true })
+  await page.screenshot({ path: '/tmp/sc-pos-compact-20261108/screens/direct-pos-camera-mobile.png', fullPage: true })
   await page.evaluate(() => { (window as unknown as { quickCamera: { detect: boolean } }).quickCamera.detect = true })
   await expect(page.getByRole('dialog', { name: 'Сканування штрихкоду', exact: true })).toBeHidden()
   await expect(page.getByLabel('Знайти товар', { exact: true })).toHaveValue(offer.barcode)
-  const candidate = page.getByRole('button', { name: /Продати: POS Pomade/ })
+  const candidate = page.getByRole('button', { name: /Додати: POS Pomade/ })
   await expect(candidate).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as unknown as { quickCamera: { stopped: number } }).quickCamera.stopped)).toBe(1)
   expect(requests.filter(request => request.path === '/products').map(request => request.query.get('q'))).toEqual([offer.barcode])
@@ -302,10 +306,13 @@ test('compact product finder opens the phone camera in one tap', async ({ page }
   expect(creates).toHaveLength(0)
   expect(inventoryRequests).toEqual([])
   await candidate.click()
+  await expect(page.getByRole('region', { name: 'Панель кошика' })).toContainText('250,00')
+  expect(creates).toHaveLength(0)
+  await page.getByRole('button', { name: 'Перейти до оплати' }).click()
   await expect(page.getByRole('img', { name: 'QR для оплати mono' })).toBeVisible()
   expect(creates).toHaveLength(1)
-  expect(Object.keys(creates[0]!).sort()).toEqual(['currency', 'expected_amount_minor', 'intent_id', 'product_id', 'quantity'])
-  expect(creates[0]).toMatchObject({ product_id: offer.id, quantity: 1, expected_amount_minor: offer.amount_minor, currency: 'UAH' })
+  expect(Object.keys(creates[0]!).sort()).toEqual(['currency', 'intent_id', 'items', 'promo_code', 'promotion_id', 'quote_revision'])
+  expect(creates[0]).toMatchObject({ items: [{ product_id: offer.id, quantity: 1 }], quote_revision: 'a'.repeat(64), currency: 'UAH' })
   expect(inventoryRequests).toEqual([])
   expect(external).toEqual([])
 })

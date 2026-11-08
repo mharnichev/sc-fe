@@ -1,5 +1,6 @@
 export interface PosCapabilities {
   mode: 'mono_checkbox'; currency: 'UAH'; max_quantity: 1
+  cart_limits?: { max_items: number; max_quantity: number }
   can_search: boolean; can_start: boolean; can_view_admin_sales: boolean
   automatic_reconciliation_enabled: boolean; poll_after_ms: number; blocking_reasons: string[]
 }
@@ -10,6 +11,33 @@ export interface PosOffer {
 }
 export interface PosPage<T> { items: T[]; total: number; page: number; page_size: number }
 export interface PosCreate { intent_id: string; product_id: number; quantity: 1; expected_amount_minor: number; currency: 'UAH' }
+export interface PosCartRequest {
+  items: { product_id: number; quantity: number }[]
+  promo_code: string | null
+  promotion_id?: number | null
+}
+export interface PosCartCreate extends PosCartRequest {
+  intent_id: string
+  quote_revision: string
+  currency: 'UAH'
+}
+export interface PosCartPromotion { id: number; name: string; product_ids: number[] }
+export interface PosCartQuote {
+  items: {
+    product_id: number; quantity: number; base_unit_minor: number; unit_minor: number
+    promotion_id: number | null; promotion_name: string | null; promotion_code: string | null
+    discount_source: 'automatic' | 'selected_promotion' | 'promo_code' | null
+    subtotal_minor: number; discount_minor: number; amount_minor: number
+  }[]
+  subtotal_minor: number
+  discount_minor: number
+  amount_minor: number
+  applied_promo_code: string | null
+  promotion_id: number | null
+  available_promotions: PosCartPromotion[]
+  quote_revision: string
+  currency: 'UAH'
+}
 export interface PosCheckout {
   checkout_id: string; intent_id: string; order_id: number; revision: number; created_at: string
   employee: { user_id: number; master_id: number | null; display_name: string }

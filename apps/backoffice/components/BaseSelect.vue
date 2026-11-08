@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<{
   value?: BaseSelectValue
   options?: BaseSelectOption[]
   native?: boolean
+  inlineMenu?: boolean
   id?: string
   name?: string
   label?: string
@@ -116,6 +117,7 @@ const handleTriggerKeydown = (event: KeyboardEvent) => {
     return
   }
   if (event.key === 'Escape' && open.value) {
+    event.stopPropagation()
     event.preventDefault()
     open.value = false
   }
@@ -126,6 +128,7 @@ const handleMenuKeydown = (event: KeyboardEvent) => {
   const activeIndex = optionButtons.indexOf(document.activeElement as HTMLButtonElement)
 
   if (event.key === 'Escape') {
+    event.stopPropagation()
     event.preventDefault()
     void closeAndFocusTrigger()
     return
@@ -208,7 +211,7 @@ const removePositionListeners = () => {
 }
 
 watch(open, async value => {
-  if (!value) {
+  if (!value || props.inlineMenu) {
     removePositionListeners()
     return
   }
@@ -308,14 +311,14 @@ onBeforeUnmount(() => {
         <ChevronDownIcon class="backoffice-select-chevron h-4 w-4 shrink-0 transition" :class="{ 'rotate-180': open }" aria-hidden="true" />
       </BaseButton>
 
-      <Teleport to="body">
+      <Teleport to="body" :disabled="inlineMenu">
         <div
           v-if="open"
           :id="listboxId"
           ref="menuRef"
-          class="booking-select-menu base-select__menu overflow-y-auto rounded-xl p-1.5 md:rounded-2xl"
-          :class="menuClass"
-          :style="menuStyle"
+          class="base-select__menu overflow-y-auto rounded-xl p-1.5 md:rounded-2xl"
+          :class="inlineMenu ? 'mt-1 max-h-48' : ['booking-select-menu', menuClass]"
+          :style="inlineMenu ? undefined : menuStyle"
           role="listbox"
           :aria-labelledby="hasField ? labelId : undefined"
           @keydown="handleMenuKeydown"
@@ -326,7 +329,7 @@ onBeforeUnmount(() => {
             type="button"
             variant="unstyled"
             class="base-select__option flex w-full min-w-0 items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
-            :class="{ 'is-selected': valuesMatch(currentValue, option.value) }"
+            :class="{ 'is-selected': valuesMatch(currentValue, option.value), 'min-h-11': inlineMenu }"
             :disabled="option.disabled"
             role="option"
             :aria-selected="valuesMatch(currentValue, option.value)"

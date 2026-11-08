@@ -194,7 +194,7 @@ const prev = async () => {
         <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Товари</h1>
       </div>
       <div class="flex w-full flex-wrap gap-2 sm:w-auto">
-      <BaseButton variant="secondary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Сканувати штрихкод</BaseButton>
+      <BaseButton variant="secondary" class="min-h-11 w-full sm:w-auto" @click="quickSearchOpen = true"><QrCodeIcon class="h-5 w-5 shrink-0" aria-hidden="true" />Швидкий пошук товару</BaseButton>
       <NuxtLink v-if="catalogEditable" to="/products/new" class="base-button base-button--primary min-h-11 gap-2 px-5 py-3 text-sm">
         <PlusIcon class="h-4 w-4" aria-hidden="true" />
         Додати товар

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { canManageCatalog } from '~/utils/catalogAccess'
-import { MagnifyingGlassIcon, CheckIcon, LinkIcon, PlusIcon, ArrowPathIcon, PencilSquareIcon, TagIcon, CubeIcon, CurrencyDollarIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, LinkIcon, PlusIcon, ArrowPathIcon, PencilSquareIcon, TagIcon, CubeIcon, CurrencyDollarIcon } from '@heroicons/vue/24/outline'
 import type { InventoryProduct, InventoryProductCreate } from '~/types/inventory'
 import { createInventoryIdempotencyKey, inventoryApiErrorMessage, isDefiniteInventoryRejection } from '~/utils/inventory'
 
@@ -165,10 +165,19 @@ watch(() => props.initialBarcode, value => { if (value && !locked.value) barcode
     <InventoryProductCard v-if="selected && showSelected !== false" :product="selected">
       <BaseButton variant="secondary" class="min-h-11" v-if="unknownCode" type="button" :disabled="locked" @click="choose(selected)">Вибрати знайдений товар</BaseButton>
     </InventoryProductCard>
-    <form class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 gap-y-2" @submit.prevent="find(1)">
-      <BaseInput v-model="search" label="Назва або артикул" hint="Шукаємо лише у вашій базі товарів." placeholder="Наприклад, шампунь або SKU" aria-description="Шукаємо лише у вашій базі товарів." maxlength="255" :disabled="locked" field-class="min-w-0"><template #icon><MagnifyingGlassIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template></BaseInput>
-      <BaseButton type="submit" :disabled="locked" variant="primary" class="min-h-11 shrink-0 whitespace-nowrap"><MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" /><span class="hidden sm:inline">Пошук</span><span class="sr-only sm:hidden">Пошук</span></BaseButton>
-    </form>
+    <BaseFindGoodField
+      v-model="search"
+      label="Назва або артикул"
+      hint="Шукаємо лише у вашій базі товарів."
+      placeholder="Наприклад, шампунь або SKU"
+      :maxlength="255"
+      :disabled="locked"
+      :loading="busy"
+      :show-scan="false"
+      show-submit
+      submit-label="Пошук"
+      @submit="find(1)"
+    />
     <div v-for="product in results" :key="product.id" class="space-y-2 rounded-xl p-2" :class="confirmedProductId === product.id ? 'inventory-picker-selected' : 'bg-ui-subtle'">
       <p v-if="confirmedProductId === product.id" role="status" class="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-ui-primary"><CheckIcon class="h-5 w-5" aria-hidden="true" />Товар вибрано · заповніть кількість і закупівлю нижче</p>
       <InventoryProductCard :product="product" :framed="false"><template #actions><BaseButton :variant="confirmedProductId === product.id ? 'primary' : 'secondary'" :aria-pressed="confirmedProductId === product.id" class="min-h-11 w-full" type="button" :disabled="locked" @click="pick(product)"><component :is="unknownCode && catalogEditable ? LinkIcon : CheckIcon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ unknownCode && catalogEditable ? 'Прив’язати цей товар' : confirmedProductId === product.id ? 'Вибрано ✓' : 'Вибрати цей товар' }}</BaseButton></template></InventoryProductCard>

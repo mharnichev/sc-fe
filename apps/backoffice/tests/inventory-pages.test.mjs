@@ -26,7 +26,7 @@ test('inventory pages stay private, URL-driven, and use inventory API contracts'
   }
   assert.doesNotMatch(overview, /role !== 'admin'/)
   assert.match(overview, /can_post_inventory/)
-  assert.match(overview, /InventoryBarcodeCamera/)
+  assert.match(overview, /<BaseFindGoodField[\s\S]*?@scan="scanBarcode"/)
   assert.doesNotMatch(overview, /InventoryProductPicker|InventoryQuickSearchModal/)
   assert.match(overview, /getInventoryStock/)
   assert.match(overview, /getProcurementQueue/)
