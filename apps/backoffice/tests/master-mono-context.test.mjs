@@ -198,6 +198,7 @@ const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
   Object.assign(globalThis, vue, {
     useAuthStore: () => auth,
     window: { addEventListener() {}, removeEventListener() {} }, setTimeout: () => 1, clearTimeout() {},
+    sessionStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) },
     localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
     useApi: () => async (path, options = {}) => {
       if (path.endsWith('/capabilities')) return { mode: 'mono_checkbox', currency: 'UAH', max_quantity: 1, cart_limits: { max_items: 100, max_quantity: 100 }, can_search: live, can_start: live, can_view_admin_sales: actor === 'admin', automatic_reconciliation_enabled: true, poll_after_ms: 3000, blocking_reasons: [] }
