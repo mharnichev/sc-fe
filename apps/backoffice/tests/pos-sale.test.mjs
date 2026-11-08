@@ -9,6 +9,7 @@ const vue = await import(pathToFileURL(createRequire(require.resolve('nuxt/packa
 const source = await readFile(new URL('../composables/usePosSale.ts', import.meta.url), 'utf8')
 const compile = text => ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
 let sequence=0
+const testTabs = new WeakMap()
 const offer = { id: 8, name: 'Reuzel', brand_name: 'Reuzel', sku: 'R8', barcode: '00123', image_url: null, variant_label: '350 мл', amount_minor: 35000, currency: 'UAH', available_quantity: 2, can_sell: true, blocking_reasons: [] }
 const cart = (id=offer.id) => ({items:[{product_id:id,quantity:1}],promo_code:null})
 const quote = (id=offer.id, amount=35000, revision='1') => ({
@@ -19,6 +20,9 @@ const start = (sale,id=offer.id) => sale.startCart(cart(id),quote(id),{[id]:offe
 const state = (extra={}) => ({ checkout_id:'11111111-1111-4111-8111-111111111111', intent_id:'22222222-2222-4222-8222-222222222222', order_id:3,revision:1,created_at:'2026-11-06T12:00:00Z',employee:{user_id:1,master_id:null,display_name:'Seller'},items:[{product_id:8,name:'Reuzel',sku:'R8',barcode:'00123',image_url:null,variant_label:'350 мл',quantity:1,unit_minor:35000,total_minor:35000}],order_status:'pending',amount_minor:35000,currency:'UAH',status:'awaiting_payment',payment:{provider:'monobank',status:'pending',invoice_id:'invoice-1',confirmed_at:null,qr_payload:'https://pay.mbnk.biz/invoice-1'},receipt:{issuer:'checkbox',status:'not_requested',recorded_at:null,pdf_url:null},handover:{status:'not_ready',actor_user_id:null,handed_over_at:null},actions:{can_resume:false,can_refresh:true,can_handover:false,can_recover_invoice:false,can_start_new:false},poll_after_ms:3000,blocking_reasons:[],...extra })
 async function setup(send, storage=new Map(), user={id:1,is_active:true,is_superuser:true}) {
  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{locks:{request:async (_key,_options,run)=>run({})}}})
+ const tab = testTabs.get(storage) || new Map()
+ testTabs.set(storage,tab)
+ Object.assign(globalThis,{sessionStorage:{getItem:k=>tab.get(k)??null,setItem:(k,v)=>tab.set(k,v)}})
  const auth=vue.reactive({user,accessToken:'token-A'}), calls=[]
  const api=async (path,options={})=>{calls.push({path,...options});return send(path,options)}
  Object.assign(globalThis,vue,{useApi:()=>api,useAuthStore:()=>auth,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{addEventListener(){},removeEventListener(){}},setTimeout:()=>1,clearTimeout:()=>{}})
@@ -232,4 +236,80 @@ test('invalid fiscal basket unlocks only after canonical lookup proves no checko
   assert.equal(f.calls.filter(c=>c.method==='POST').length,1)
   f.stop()
  }
+})
+
+test('deferral preserves the old intent through reload and requires a separate checkout click', async () => {
+ let old
+ const send = (path, options) => {
+  if(base(path)) return base(path)
+  if(path.endsWith('/checkouts') && options.method === 'POST') {
+   if(!old) return old = state({intent_id:options.body.intent_id,status:'requires_review',payment:{...state().payment,status:'unknown',invoice_id:null,qr_payload:null},actions:{...state().actions,can_refresh:false},blocking_reasons:['creation_unknown']})
+   return state({checkout_id:'33333333-3333-4333-8333-333333333333',intent_id:options.body.intent_id})
+  }
+  if(path.includes('/by-intent/') || path.endsWith(old.checkout_id)) return old
+  return {items:[],total:0,page:1,page_size:20}
+ }
+ const first=await setup(send);await start(first.sale)
+ const record=structuredClone(first.sale.saved.value)
+ assert.equal(await first.sale.deferCurrent(),true)
+ assert.equal(first.sale.saved.value,null);assert.equal(first.sale.checkout.value,null)
+ assert.equal(first.sale.activeSales.value[0].order_id,3)
+ assert.equal(first.calls.filter(c=>c.method==='POST').length,1);first.stop()
+ const second=await setup(send,first.storage)
+ assert.equal(second.sale.checkout.value,null)
+ await second.sale.search('another')
+ await second.sale.resumeActive(second.sale.activeSales.value[0])
+ assert.deepEqual(second.sale.saved.value,record)
+ assert.equal(second.sale.checkout.value.checkout_id,old.checkout_id)
+ assert.equal(second.calls.filter(c=>c.method==='POST').length,0)
+ assert.equal(await second.sale.deferCurrent(),true);await start(second.sale,9)
+ const posts=second.calls.filter(c=>c.method==='POST')
+ assert.equal(posts.length,1);assert.notEqual(posts[0].body.intent_id,record.body.intent_id)
+ assert.notEqual(posts[0].headers['Idempotency-Key'],record.key)
+ assert.equal(second.sale.activeSales.value[0].checkout_id,old.checkout_id);second.stop()
+})
+
+test('deferral rejects a changed canonical checkout and preserves an unresolved command', async () => {
+ const key='sc-pos:v1:1', storage=new Map()
+ const checkout=state({status:'requires_review',payment:{...state().payment,status:'unknown',invoice_id:null,qr_payload:null},actions:{...state().actions,can_refresh:false},blocking_reasons:['creation_unknown']})
+ const saved={checkout_id:checkout.checkout_id,key:'33333333-3333-4333-8333-333333333333',body:{...cart(),intent_id:checkout.intent_id,quote_revision:'1'.repeat(64),currency:'UAH'}}
+ storage.set(key,JSON.stringify(saved))
+ const first=await setup(path=>base(path)||(path.includes('/by-intent/')?checkout:state({revision:2})),storage)
+ assert.equal(await first.sale.deferCurrent(),false);assert.equal(first.sale.saved.value.body.intent_id,checkout.intent_id)
+ assert.equal(first.calls.filter(c=>c.method==='POST').length,0);first.stop()
+ const pending={operation:'resume',key:'44444444-4444-4444-8444-444444444444',revision:1}
+ storage.set(key,JSON.stringify({...saved,command:pending}))
+ const second=await setup(path=>base(path)||checkout,storage)
+ assert.equal(await second.sale.deferCurrent(),false);assert.deepEqual(second.sale.saved.value.command,pending)
+ assert.equal(second.calls.filter(c=>c.method==='POST').length,0);second.stop()
+ storage.set(key,JSON.stringify(saved))
+ const attachment='sc-sales:v1:1:pos-attach-invoice:3'
+ const pendingAttachment=JSON.stringify({key:pending.key,body:{invoice_id:'test',expected_revision:1}})
+ storage.set(attachment,pendingAttachment)
+ const third=await setup(path=>base(path)||checkout,storage)
+ assert.equal(await third.sale.deferCurrent(),false)
+ assert.equal(storage.get(attachment),pendingAttachment)
+ assert.equal(third.calls.filter(c=>c.method==='POST').length,0);third.stop()
+})
+
+test('failed read-only reopening does not consume a deferred record or block checkout', async () => {
+ let old, failed = false
+ const f=await setup((path,options)=>{
+  if(base(path)) return base(path)
+  if(path.endsWith('/checkouts') && options.method==='POST') {
+   return old=state({intent_id:options.body.intent_id,status:'requires_review',payment:{...state().payment,status:'unknown',invoice_id:null,qr_payload:null},actions:{...state().actions,can_refresh:false},blocking_reasons:['creation_unknown']})
+  }
+  if(path.includes('/by-intent/')&&failed) throw error(503,'offline')
+  return old
+ })
+ await start(f.sale)
+ assert.equal(await f.sale.deferCurrent(),true)
+ const durable=f.storage.get('sc-pos:v1:1')
+ failed=true;await f.sale.resumeActive(f.sale.activeSales.value[0])
+ assert.equal(f.sale.saved.value,null)
+ assert.equal(f.sale.checkout.value,null)
+ assert.equal(f.sale.allowed.value,true)
+ assert.equal(f.storage.get('sc-pos:v1:1'),durable)
+ assert.equal(f.calls.filter(c=>c.method==='POST').length,1)
+ f.stop()
 })

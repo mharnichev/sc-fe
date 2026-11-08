@@ -38,6 +38,11 @@ export interface PosCartQuote {
   quote_revision: string
   currency: 'UAH'
 }
+export interface PosInvoiceRecovery {
+  reference: string
+  requested_at: string
+  can_attach: boolean
+}
 export interface PosCheckout {
   checkout_id: string; intent_id: string; order_id: number; revision: number; created_at: string
   employee: { user_id: number; master_id: number | null; display_name: string }
@@ -50,9 +55,18 @@ export interface PosCheckout {
   handover: { status: 'not_ready' | 'ready' | 'handed_over'; actor_user_id: number | null; handed_over_at: string | null }
   actions: { can_resume: boolean; can_refresh: boolean; can_handover: boolean; can_recover_invoice: boolean; can_start_new: boolean }
   poll_after_ms: number; blocking_reasons: string[]
+  invoice_recovery?: PosInvoiceRecovery | null
 }
 
 export interface PosSaleSummary {
  order_id: number; checkout_id: string | null; intent_id: string | null; created_at: string; employee: PosCheckout['employee']; items: { product_id: number; name: string; sku: string | null; quantity: number; unit_minor: number; total_minor: number }[]; amount_minor: number; currency: 'UAH'; order_status: PosCheckout['order_status']; status: PosCheckout['status']; payment_status: PosCheckout['payment']['status']; receipt_status: PosCheckout['receipt']['status']; handover_status: PosCheckout['handover']['status']; source: 'quick_pos' | 'existing_mono_pos'
 }
-export interface PosSaleDetail extends PosSaleSummary { payment: PosCheckout['payment']; receipt: PosCheckout['receipt']; handover: PosCheckout['handover']; actions: PosCheckout['actions'] }
+export interface PosSaleDetail extends PosSaleSummary {
+  revision: number
+  blocking_reasons: string[]
+  payment: PosCheckout['payment']
+  receipt: PosCheckout['receipt']
+  handover: PosCheckout['handover']
+  actions: PosCheckout['actions']
+  invoice_recovery?: PosInvoiceRecovery | null
+}

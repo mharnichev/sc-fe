@@ -2,7 +2,18 @@ import type { PosCapabilities, PosCartCreate, PosCartQuote, PosCartRequest, PosC
 const root = '/backoffice/pos'
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
-interface SavedSale { key: string; body: PosCreate | PosCartCreate; offer?: PosOffer; proposed?: PosOffer; proposedQuote?: PosCartQuote; itemNames?: Record<number, string>; checkout_id?: string; command?: { operation: 'resume' | 'refresh' | 'handover'; key: string; revision: number } }
+type SaleSelection = { intent_id: string; currency: 'UAH'; selection_only: true }
+interface SavedSale { key?: string; body: PosCreate | PosCartCreate | SaleSelection; offer?: PosOffer; proposed?: PosOffer; proposedQuote?: PosCartQuote; itemNames?: Record<number, string>; checkout_id?: string; command?: { operation: 'resume' | 'refresh' | 'handover'; key: string; revision: number } }
+type ActiveSale = Pick<PosCheckout, 'checkout_id' | 'order_id' | 'status' | 'amount_minor' | 'revision'> & { products: string }
+interface DeferredSale { record: SavedSale; summary: ActiveSale }
+const saleSummary = (c: PosCheckout): ActiveSale => ({
+  checkout_id: c.checkout_id, order_id: c.order_id, status: c.status, amount_minor: c.amount_minor, revision: c.revision,
+  products: c.items.map(item => item.name).join(', '),
+})
+const unresolvedCreate = (c: PosCheckout) => c.status === 'requires_review' && c.payment.status === 'unknown'
+  && c.payment.invoice_id === null && c.payment.qr_payload === null && c.receipt.status === 'not_requested'
+  && c.handover.status === 'not_ready' && ['pending', 'confirmed'].includes(c.order_status)
+  && c.blocking_reasons?.includes('creation_unknown')
 const quoteRevision = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 function matchesQuote(quote: PosCartQuote, cart: PosCartRequest) {
   return quote?.currency === 'UAH' && quoteRevision(quote.quote_revision) && quote.applied_promo_code === cart.promo_code
@@ -19,12 +30,35 @@ export const posDiscountLabels = {
   selected_promotion: 'Обрана акція',
   promo_code: 'Промокод',
 }
+const reasonLabels: Record<string, string> = {
+  creation_unknown: 'Запит на рахунок збережено. Mono ще не підтвердив, чи рахунок створено.',
+  master_mono_disabled: 'Інтеграція mono недоступна.',
+  master_mono_profile_conflict: 'Налаштування mono відрізняються від налаштувань на момент продажу.',
+  master_mono_fiscal_policy_required: 'Потрібно перевірити фіскальні налаштування.',
+  master_mono_proof_invalid: 'Дані від платіжного провайдера потребують перевірки.',
+  master_mono_recovery_verification_required: 'Рахунок прив’язано. Спочатку потрібно звірити оплату.',
+}
+export const posBlockingReasons = (reasons?: string[]) => [...new Set((reasons || [])
+  .map(reason => Object.hasOwn(reasonLabels, reason) ? reasonLabels[reason] : '').filter(Boolean))]
 export const posMoney = (minor: number) => new Intl.NumberFormat('uk-UA', { style: 'currency', currency: 'UAH' }).format(minor / 100)
 export const usePosSale = () => {
   const api = useApi(), auth = useAuthStore()
   const capabilities = shallowRef<PosCapabilities | null>(null), checkout = shallowRef<PosCheckout | null>(null)
   const offers = shallowRef<PosPage<PosOffer>>({ items: [], total: 0, page: 1, page_size: 20 })
   const active = shallowRef<PosPage<PosCheckout>>({ items: [], total: 0, page: 1, page_size: 20 })
+  const deferred = shallowRef<DeferredSale[]>([])
+  const otherSelection = shallowRef<SavedSale | null>(null)
+  const activeLoading = ref(false)
+  const moreActive = computed(() => active.value.total > active.value.items.length)
+  const activeSales = computed(() => {
+    const summaries = new Map(deferred.value.map(row => [row.summary.checkout_id, row.summary]))
+    for (const c of active.value.items) {
+      const previous = summaries.get(c.checkout_id)
+      if (c.employee?.user_id === auth.user?.id && uuid(c.checkout_id) && Array.isArray(c.items)
+        && (!previous || c.revision > previous.revision)) summaries.set(c.checkout_id, saleSummary(c))
+    }
+    return [...summaries.values()]
+  })
   const saved = shallowRef<SavedSale | null>(null), priceOffer = shallowRef<PosOffer | null>(null)
   const priceQuote = computed(() => saved.value?.proposedQuote || null)
   const cartLimits = computed(() => {
@@ -33,12 +67,16 @@ export const usePosSale = () => {
   })
   const busy = ref(false), loading = ref(false), searchBusy = ref(false), error = ref(''), searchError = ref(''), storageFault = ref(false)
   let generation = 0, searchGeneration = 0, timer: ReturnType<typeof setTimeout> | undefined
-  let storageSnapshot: string | null = null
+  let storageSnapshot: string | null = null, selectionToken: string | null = null
   let initFlight: Promise<void> | null = null, readFlight: Promise<void> | null = null
   const scope = computed(() => auth.user?.id && auth.user.is_active && auth.accessToken ? `sc-pos:v1:${auth.user.id}` : '')
   const session = computed(() => JSON.stringify([scope.value, auth.accessToken, auth.user?.is_superuser, auth.user?.can_record_sales, auth.user?.can_accept_qr_payments]))
   const access = computed(() => !!scope.value && capabilities.value?.mode === 'mono_checkbox' && capabilities.value.can_search && !!auth.user?.is_active && (auth.user.is_superuser || (auth.user.can_record_sales === true && auth.user.can_accept_qr_payments === true)) && !storageFault.value)
-  const allowed = computed(() => access.value && capabilities.value?.can_start === true)
+  const allowed = computed(() => access.value && capabilities.value?.can_start === true && !otherSelection.value)
+  const selectionKey = () => `${scope.value}:selection`
+  const hasInvoiceAttachment = (orderId: number) => localStorage.getItem(`sc-sales:v1:${auth.user?.id}:pos-attach-invoice:${orderId}`) !== null
+  const canDefer = computed(() => allowed.value && !!checkout.value && !!saved.value?.checkout_id
+    && saved.value.checkout_id === checkout.value.checkout_id && !saved.value.command && unresolvedCreate(checkout.value))
   const paymentUrl = computed(() => {
     const c = checkout.value
     if (!access.value || !c || error.value || c.status !== 'awaiting_payment' || !['pending', 'processing'].includes(c.payment.status) || c.receipt.status !== 'not_requested') return null
@@ -50,14 +88,19 @@ export const usePosSale = () => {
   const canHandover = computed(() => access.value && !busy.value && !loading.value && !error.value && checkout.value?.status === 'ready_to_handover' && checkout.value.payment.status === 'paid' && checkout.value.receipt.status === 'accepted' && checkout.value.handover.status === 'ready' && checkout.value.actions.can_handover)
   const stopTimer = () => { if (timer !== undefined) clearTimeout(timer); timer = undefined }
   const current = (v: number) => generation === v && !!scope.value
-  const persist = (value: SavedSale | null) => {
+  const persist = (value: SavedSale | null, parked = deferred.value) => {
     if (!scope.value) return
     try {
-      const raw = value ? JSON.stringify(value) : null
+      const token = value ? (saved.value?.body.intent_id === value.body.intent_id && selectionToken || crypto.randomUUID()) : null
+      const raw = value || parked.length ? JSON.stringify({ version: 2, current: value, selection_token: token, deferred: parked }) : null
+      sessionStorage.setItem(selectionKey(), token ?? '')
       if (raw) localStorage.setItem(scope.value, raw)
       else localStorage.removeItem(scope.value)
       storageSnapshot = raw
+      selectionToken = token
       saved.value = value
+      otherSelection.value = null
+      deferred.value = parked
     }
     catch { storageFault.value = true; throw new Error('storage') }
   }
@@ -84,10 +127,13 @@ export const usePosSale = () => {
     const c = checkout.value
     if (scope.value && capabilities.value?.automatic_reconciliation_enabled && c && c.status !== 'completed' && !busy.value && c.poll_after_ms > 0) timer = setTimeout(() => { void poll() }, Math.max(1000, c.poll_after_ms))
   }
+  const validateCheckout = (c: PosCheckout) => {
+    if (!uuid(c.checkout_id) || !uuid(c.intent_id) || !positive(c.order_id) || !positive(c.revision) || !positive(c.amount_minor) || c.currency !== 'UAH' || !Array.isArray(c.items) || !c.items.length || !c.items.every(item => positive(item.product_id) && positive(item.quantity) && Number.isSafeInteger(item.total_minor) && item.total_minor >= 0) || c.employee.user_id !== auth.user?.id || !c.payment || !c.receipt || !c.handover || !c.actions || c.payment.provider !== 'monobank' || c.receipt.issuer !== 'checkbox' || !['can_resume','can_refresh','can_handover','can_recover_invoice','can_start_new'].every(key => typeof c.actions[key as keyof PosCheckout['actions']] === 'boolean')) throw new Error('invalid state')
+    if (saved.value && (c.intent_id !== saved.value.body.intent_id || (saved.value.checkout_id && c.checkout_id !== saved.value.checkout_id))) throw new Error('foreign intent')
+  }
   const accept = (c: PosCheckout, v: number) => {
     if (!current(v)) return
-    if (!uuid(c.checkout_id) || !uuid(c.intent_id) || !positive(c.order_id) || !positive(c.revision) || !positive(c.amount_minor) || c.currency !== 'UAH' || !Array.isArray(c.items) || !c.items.length || !c.items.every(item => positive(item.product_id) && positive(item.quantity) && Number.isSafeInteger(item.total_minor) && item.total_minor >= 0) || c.employee.user_id !== auth.user?.id || !c.payment || !c.receipt || !c.handover || !c.actions || c.payment.provider !== 'monobank' || c.receipt.issuer !== 'checkbox' || !['can_resume','can_refresh','can_handover','can_recover_invoice','can_start_new'].every(key => typeof c.actions[key as keyof PosCheckout['actions']] === 'boolean')) throw new Error('invalid state')
-    if (saved.value && c.intent_id !== saved.value.body.intent_id) throw new Error('foreign intent')
+    validateCheckout(c)
     if (checkout.value && c.checkout_id === checkout.value.checkout_id && c.revision < checkout.value.revision) return
     checkout.value = c; priceOffer.value = null
     if (saved.value) {
@@ -101,7 +147,7 @@ export const usePosSale = () => {
     if (busy.value || !access.value || !checkout.value || !saved.value) return
     if (saved.value.command && saved.value.command.operation !== operation) return
     const c = checkout.value
-    if (!(operation === 'handover' ? canHandover.value : operation === 'resume' ? c.actions.can_resume : c.actions.can_refresh)) return
+    if (!(operation === 'handover' ? canHandover.value : operation === 'resume' ? c.actions.can_resume && c.status === 'prepared' && !c.payment.invoice_id : c.actions.can_refresh && !!c.payment.invoice_id)) return
     const v = generation; busy.value = true; error.value = ''; stopTimer()
     try {
       const pending = saved.value.command || { operation, key: crypto.randomUUID(), revision: c.revision }
@@ -121,6 +167,7 @@ export const usePosSale = () => {
   const create = async () => {
     if (busy.value || !allowed.value || !saved.value || priceOffer.value || priceQuote.value) return
     const v = generation, intent = saved.value
+    if (!intent.key || 'selection_only' in intent.body || intent.checkout_id) return
     busy.value = true; error.value = ''; stopTimer()
     try {
       const result = await api<PosCheckout>(`${root}/checkouts`, { method: 'POST', body: intent.body, headers: { 'Idempotency-Key': intent.key }, retry: 0, cache: 'no-store' })
@@ -166,18 +213,18 @@ export const usePosSale = () => {
       if (!current(v)) return
       if ((cause as { response?: { status?: number } }).response?.status === 404 && !saved.value?.checkout_id) {
         loading.value = false
-        if (allowed.value && (retryMissing || (saved.value && !('items' in saved.value.body)))) await create()
+        if (allowed.value && retryMissing) await create()
         else error.value = allowed.value ? 'Рахунок ще не знайдено. Відновіть той самий запит.' : 'Нові рахунки призупинено. Збережений запит не створює нову оплату.'
         return
       }
       error.value = message(cause); return
     } finally { if (current(v)) loading.value = false }
     if (!current(v) || !checkout.value) return
-    const pending = saved.value?.command
-    if (pending) {
-      if ((pending.operation === 'handover' && checkout.value.handover.status === 'handed_over') || (pending.operation !== 'handover' && checkout.value.revision > pending.revision && checkout.value.payment.invoice_id)) persist({ ...saved.value!, command: undefined })
-      else await command(pending.operation)
-    } else if (checkout.value.actions.can_resume && checkout.value.status === 'prepared') await command('resume')
+    if (retryMissing) {
+      const pending = saved.value?.command
+      if (pending) await command(pending.operation)
+      else if (checkout.value.actions.can_resume && checkout.value.status === 'prepared') await command('resume')
+    }
     schedule()
   }
   const pollState = (): Promise<void> => {
@@ -196,6 +243,17 @@ export const usePosSale = () => {
     const v = generation
     await withSaleLock(pollState)
     if (current(v)) schedule()
+  }
+  const readSaved = async () => {
+    let readOk = false
+    await withSaleLock(async () => {
+      if (!access.value || !checkout.value || busy.value || loading.value) return
+      const v = generation
+      loading.value = true
+      try { await pollState(); readOk = current(v) && !error.value }
+      finally { if (current(v)) loading.value = false }
+    })
+    return readOk
   }
   const init = (): Promise<void> => {
     if (initFlight) return initFlight
@@ -255,23 +313,142 @@ export const usePosSale = () => {
       } catch (cause) { error.value = message(cause) }
       return
     }
-    if (!priceOffer.value) return
+    if (!priceOffer.value || 'selection_only' in saved.value.body) return
     try { persist({ ...saved.value, body: { ...saved.value.body, expected_amount_minor: priceOffer.value.amount_minor }, offer: priceOffer.value, proposed: undefined }); priceOffer.value = null; await create() }
     catch (cause) { error.value = message(cause) }
   }
-  const resumeActive = async (c: PosCheckout) => {
-    if (busy.value || loading.value || saved.value || !access.value || c.employee.user_id !== auth.user?.id) return
-    try { persist({ key: crypto.randomUUID(), body: { intent_id: c.intent_id, product_id: c.items[0].product_id, quantity: 1, expected_amount_minor: c.amount_minor, currency: 'UAH' }, checkout_id: c.checkout_id, offer: { id:c.items[0].product_id,name:c.items[0].name,brand_name:null,sku:c.items[0].sku,barcode:c.items[0].barcode,image_url:c.items[0].image_url,variant_label:c.items[0].variant_label,amount_minor:c.amount_minor,currency:'UAH',available_quantity:0,can_sell:false,blocking_reasons:[] } }); await recover() }
-    catch (cause) { error.value = message(cause) }
+  const deferCurrent = async () => {
+    let didDefer = false
+    await withSaleLock(async () => {
+      if (!canDefer.value || busy.value || loading.value || !checkout.value || !saved.value) return
+      const record = saved.value, c = checkout.value, v = generation
+      loading.value = true; error.value = ''; stopTimer()
+      try {
+        if (hasInvoiceAttachment(c.order_id)) {
+          error.value = 'Є незавершена звірка рахунку. Спочатку перечитайте стан цього продажу.'
+          return
+        }
+        const freshCapabilities = await read<PosCapabilities>('/capabilities')
+        if (!current(v)) return
+        capabilities.value = freshCapabilities
+        if (!allowed.value) {
+          error.value = 'Нові продажі зараз недоступні. Поточний продаж залишився відкритим.'
+          return
+        }
+        const latest = await read<PosCheckout>(`/checkouts/${c.checkout_id}`)
+        if (!current(v)) return
+        validateCheckout(latest)
+        if (latest.revision < c.revision || !unresolvedCreate(latest)) {
+          accept(latest, v)
+          error.value = 'Стан продажу змінився. Перевірте його перед наступною дією.'
+          return
+        }
+        if (hasInvoiceAttachment(c.order_id)) {
+          error.value = 'Є незавершена звірка рахунку. Спочатку перечитайте стан цього продажу.'
+          return
+        }
+        persist(null, [{ record, summary: saleSummary(latest) }, ...deferred.value.filter(row => row.summary.checkout_id !== c.checkout_id)])
+        checkout.value = null
+        priceOffer.value = null
+        searchGeneration++
+        offers.value = { items: [], total: 0, page: 1, page_size: 20 }
+        searchBusy.value = false
+        searchError.value = ''
+        didDefer = true
+      } catch (cause) { if (current(v)) error.value = message(cause) }
+      finally { if (current(v)) { loading.value = false; schedule() } }
+    })
+    return didDefer
   }
-  const restore = (raw: string) => {
-    const value: SavedSale = JSON.parse(raw)
-    if (!uuid(value.key) || !uuid(value.body?.intent_id) || value.body.currency !== 'UAH' || (value.checkout_id && !uuid(value.checkout_id)) || (value.command && (!uuid(value.command.key) || !['resume','refresh','handover'].includes(value.command.operation) || !positive(value.command.revision)))) throw new Error('invalid saved sale')
+  const selectExisting = async (record: SavedSale, parked = deferred.value) => {
+    const v = generation
+    loading.value = true; error.value = ''
+    try {
+      const latest = await read<PosCheckout>(`/checkouts/by-intent/${record.body.intent_id}`)
+      if (!current(v)) return
+      validateCheckout(latest)
+      if (latest.intent_id !== record.body.intent_id || (record.checkout_id && latest.checkout_id !== record.checkout_id)) throw new Error('foreign selection')
+      persist({ ...record, checkout_id: latest.checkout_id }, parked)
+      accept(latest, v)
+    } catch (cause) { if (current(v)) error.value = message(cause) }
+    finally { if (current(v)) { loading.value = false; schedule() } }
+  }
+  const resumeActive = async (selection: Pick<ActiveSale, 'checkout_id'>) => {
+    if (busy.value || loading.value || saved.value || otherSelection.value || !access.value) return
+    const parked = deferred.value.find(row => row.summary.checkout_id === selection.checkout_id)
+    if (parked) {
+      await selectExisting(parked.record, deferred.value.filter(row => row !== parked))
+      return
+    }
+    const c = active.value.items.find(row => row.checkout_id === selection.checkout_id)
+    if (c && c.employee.user_id === auth.user?.id && uuid(c.checkout_id) && uuid(c.intent_id)) {
+      await selectExisting({ body: { intent_id: c.intent_id, currency: 'UAH', selection_only: true }, checkout_id: c.checkout_id })
+    }
+  }
+  const openOtherSelection = async () => {
+    if (!otherSelection.value || saved.value || loading.value || busy.value || !access.value) return
+    const record = otherSelection.value
+    if (record.checkout_id) await selectExisting(record)
+    else {
+      persist(record)
+      await recover(false)
+    }
+  }
+  const loadMoreActive = async () => {
+    if (!access.value || !moreActive.value || activeLoading.value) return
+    const v = generation, page = active.value.page + 1
+    activeLoading.value = true
+    try {
+      const result = await read<PosPage<PosCheckout>>('/checkouts/active', { page, page_size: 20 })
+      if (!current(v)) return
+      if (result.page !== page || !Array.isArray(result.items)) throw new Error('invalid active page')
+      const byId = new Map([...active.value.items, ...result.items].map(c => [c.checkout_id, c]))
+      active.value = { ...result, items: [...byId.values()] }
+    } catch (cause) { if (current(v)) error.value = message(cause) }
+    finally { if (current(v)) activeLoading.value = false }
+  }
+  const validateRecord = (value: SavedSale) => {
+    if (!uuid(value.body?.intent_id) || value.body.currency !== 'UAH' || (value.checkout_id && !uuid(value.checkout_id)) || (value.command && (!uuid(value.command.key) || !['resume','refresh','handover'].includes(value.command.operation) || !positive(value.command.revision)))) throw new Error('invalid saved sale')
+    if ('selection_only' in value.body) {
+      if (value.body.selection_only !== true || !uuid(value.checkout_id) || value.key || value.proposed || value.proposedQuote) throw new Error('invalid selection')
+      return value
+    }
+    if (!uuid(value.key)) throw new Error('invalid saved key')
     if ('items' in value.body) {
       const items = value.body.items
       if (!Array.isArray(items) || !items.length || !items.every(item => positive(item.product_id) && positive(item.quantity)) || new Set(items.map(item => item.product_id)).size !== items.length || !quoteRevision(value.body.quote_revision) || (value.body.promo_code !== null && typeof value.body.promo_code !== 'string') || (value.body.promotion_id != null && (!positive(value.body.promotion_id) || !!value.body.promo_code)) || (value.proposedQuote && !matchesQuote(value.proposedQuote, value.body))) throw new Error('invalid saved cart')
     } else if (!positive(value.body.product_id) || !positive(value.body.expected_amount_minor) || value.body.quantity !== 1 || !value.offer) throw new Error('invalid saved sale')
-    saved.value = value; priceOffer.value = value.proposed || null
+    return value
+  }
+  const restore = (raw: string) => {
+    const parsed = JSON.parse(raw)
+    if (parsed?.version === 2) {
+      if (!Array.isArray(parsed.deferred)) throw new Error('invalid deferred sales')
+      const records: DeferredSale[] = parsed.deferred
+      const ids = new Set<string>()
+      for (const { record, summary } of records) {
+        validateRecord(record)
+        if (!summary || !uuid(summary.checkout_id) || record.checkout_id !== summary.checkout_id || ids.has(summary.checkout_id)
+          || !positive(summary.order_id) || !positive(summary.revision) || !positive(summary.amount_minor) || typeof summary.products !== 'string' || typeof summary.status !== 'string') throw new Error('invalid deferred sale')
+        ids.add(summary.checkout_id)
+      }
+      const selected = parsed.current === null ? null : validateRecord(parsed.current)
+      if (selected?.checkout_id && ids.has(selected.checkout_id)) throw new Error('duplicate checkout')
+      if (selected && !uuid(parsed.selection_token)) throw new Error('invalid selection token')
+      deferred.value = records
+      if (selected && sessionStorage.getItem(selectionKey()) === parsed.selection_token) {
+        saved.value = selected
+        selectionToken = parsed.selection_token
+      } else {
+        otherSelection.value = selected
+        sessionStorage.setItem(selectionKey(), '')
+      }
+    } else {
+      saved.value = validateRecord(parsed)
+      selectionToken = crypto.randomUUID()
+      sessionStorage.setItem(selectionKey(), selectionToken)
+    }
+    priceOffer.value = saved.value?.proposed || null
   }
   const startNew = async () => {
     if (busy.value || loading.value || !checkout.value?.actions.can_start_new || checkout.value.status !== 'completed' || checkout.value.handover.status !== 'handed_over') return
@@ -281,7 +458,8 @@ export const usePosSale = () => {
     generation++; searchGeneration++; stopTimer(); initFlight = null; readFlight = null
     capabilities.value = null; checkout.value = null; saved.value = null; priceOffer.value = null; busy.value = false; loading.value = false; searchBusy.value = false; error.value = ''; searchError.value = ''; storageFault.value = false
     offers.value = {items:[],total:0,page:1,page_size:20}; active.value = {items:[],total:0,page:1,page_size:20}
-    storageSnapshot = null
+    deferred.value = []; otherSelection.value = null; activeLoading.value = false
+    storageSnapshot = null; selectionToken = null
     if (!scope.value) return
     try { storageSnapshot = localStorage.getItem(scope.value); if (storageSnapshot) restore(storageSnapshot) } catch { storageFault.value = true; error.value = 'Не вдалося прочитати збережений продаж. Зверніться до адміністратора; нову оплату не створюйте.' }
     if (!storageFault.value) void init()
@@ -290,5 +468,5 @@ export const usePosSale = () => {
   const storageChanged = (event: StorageEvent) => { if (event.key === scope.value) reset() }
   if (import.meta.client) window.addEventListener('storage', storageChanged)
   onScopeDispose(() => { generation++; stopTimer(); if (import.meta.client) window.removeEventListener('storage', storageChanged) })
-  return { capabilities, checkout, offers, active, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: PosCheckout) => withSaleLock(() => resumeActive(c)), recover: () => withSaleLock(() => recover()), poll, handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew: () => withSaleLock(startNew) }
+  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Pick<ActiveSale, 'checkout_id'>) => withSaleLock(() => resumeActive(c)), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew: () => withSaleLock(startNew) }
 }
