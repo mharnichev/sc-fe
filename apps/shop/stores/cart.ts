@@ -1,5 +1,6 @@
 import type { ProductDto } from '@shared-types'
 import { isProductUnavailable } from '~/utils/product-visibility'
+import { reportCommerceError } from '~/utils/commerceTelemetry'
 
 interface ToggleQueue {
   tail: Promise<void>
@@ -179,9 +180,10 @@ export const useCartStore = defineStore('cart', {
         }
         useToastStore().show('cart-added', added.name, added.images[0]?.image || added.images[0]?.image_url || '', added.name_en ?? null)
       }
-      catch {
+      catch (error) {
         if (!isCurrentSession()) return
         this.error = terms.value.basket.updateFailed
+        reportCommerceError('cart.add_failed', error, { flow: 'cart' })
       }
       finally {
         if (isCurrentSession()) this.syncing = false
@@ -206,6 +208,7 @@ export const useCartStore = defineStore('cart', {
         this.items = previousItems
         this.error = 'Could not remove server cart item.'
         console.error(error)
+        reportCommerceError('cart.remove_failed', error, { flow: 'cart' })
       }
       finally {
         if (isCurrentSession()) this.syncing = false
@@ -260,14 +263,15 @@ export const useCartStore = defineStore('cart', {
           }
           catch (error) {
             if (!isCurrentSession()) return
-            await this.syncFromServer()
+            await this.syncFromServer({ report: false })
             throw error
           }
         }
       }
-      catch {
+      catch (error) {
         if (!isCurrentSession()) return
         this.error = terms.value.basket.updateFailed
+        reportCommerceError('cart.update_failed', error, { flow: 'cart' })
       }
       finally {
         if (isCurrentSession()) this.syncing = false
@@ -277,7 +281,8 @@ export const useCartStore = defineStore('cart', {
       this.items = []
       this.error = ''
     },
-    async syncFromServer() {
+    // Callers that report their own failure pass report: false so one incident is one event.
+    async syncFromServer({ report = true }: { report?: boolean } = {}) {
       const auth = useCustomerAuthStore()
       if (!auth.isAuthenticated) return
       const isCurrentSession = auth.captureSession()
@@ -297,6 +302,7 @@ export const useCartStore = defineStore('cart', {
       catch (error) {
         if (!isCurrentSession()) return
         this.error = 'Could not load server cart.'
+        if (report) reportCommerceError('cart.load_failed', error, { flow: 'cart' })
         throw error
       }
       finally {
@@ -319,11 +325,12 @@ export const useCartStore = defineStore('cart', {
           await domain.addServerCartItem(item.product.id, item.quantity)
           if (!isCurrentSession()) return
         }
-        await this.syncFromServer()
+        await this.syncFromServer({ report: false })
       }
       catch (error) {
         if (!isCurrentSession()) return
         this.error = 'Could not merge cart.'
+        reportCommerceError('cart.merge_failed', error, { flow: 'cart' })
         throw error
       }
       finally {

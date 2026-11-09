@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CustomerOrder } from '~/types/order'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
+import { reportCommerceError } from '~/utils/commerceTelemetry'
 import { orderTrackingText, shopOrderHasTestProjection, shopOrderHasCheckboxProjection, shopOrderHasNPReturnProjection, shopOrderHasPaymentResolutionProjection, shopOrderHasPaymentProjection } from '~/utils/orderTrackingText'
 const { runtimeText, runtimeMessage, orderItemName } = useShopRuntimeDisplay()
 
@@ -68,6 +69,7 @@ const loadOrder = async () => {
     state.notFound = statusCode === 404 || statusCode === 403 || statusCode === 401
     if (state.notFound) order.value = null
     state.error = state.notFound ? '' : terms.value.cabinet.orderErrorTitle
+    if (!state.notFound) reportCommerceError('payment.order_read_failed', error, { flow: 'payment', order_id: id })
   }
   finally { if (isCurrent()) state.loading = false }
 }

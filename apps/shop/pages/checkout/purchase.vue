@@ -337,7 +337,7 @@ const sendIntent = async (intent: PendingCheckout, freshCheckout = false) => {
     sessionStorage.removeItem(reminderStorageKey(intent.scope))
     pendingIntent.value = null
     sessionStorage.removeItem(intentStorageKey)
-    if (auth.isAuthenticated) await cart.syncFromServer()
+    if (auth.isAuthenticated) await cart.syncFromServer({ report: false })
     else if (cartMayClear.value) cart.clear()
     else cartPreserved.value = cart.items.length > 0
   }

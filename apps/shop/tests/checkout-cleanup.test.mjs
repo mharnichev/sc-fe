@@ -45,8 +45,13 @@ function fixture({ navigation = () => Promise.resolve(), sync = () => Promise.re
 }
 
 test('post-order cart cleanup failure preserves confirmation and is not a failed order', async () => {
-  const f = fixture({ sync: async () => { throw new Error('fixture sync failure') } })
+  let cartReport
+  const f = fixture({ sync: async (options) => {
+    cartReport = options?.report
+    throw new Error('fixture sync failure')
+  } })
   await f.sendIntent(f.pendingIntent.value)
+  assert.equal(cartReport, false, 'checkout owns reporting the failed cart resync')
   assert.equal(f.state.order.id, 42)
   assert.equal(f.state.error, '')
   assert.equal(f.requests.length, 1)

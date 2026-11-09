@@ -3,10 +3,10 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
-const load = () => {
+const load = (clock = Date) => {
   const exports = {}, events = []
   const source = readFileSync(new URL('../utils/commerceTelemetry.ts', import.meta.url), 'utf8')
-  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports, Error, Date, Map, Number })
+  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports, Error, Date: clock, Map, Number })
   exports.configureCommerceTelemetry(event => events.push(event))
   return { ...exports, events }
 }
@@ -158,4 +158,94 @@ test('payment residual signals reach only a captured allowlisted envelope and st
   p.t.reportCommerceError('payment.invalid_provider_url', new Error('new session'), { flow: 'payment', order_id: 99, attempt_id: 3 })
   assert.equal(p.envelopes.at(-1).breadcrumbs.length, 0)
   assert.ok(!JSON.stringify(p.envelopes.at(-1)).includes('"order_id":42'))
+})
+
+test('auth and cart flows keep shopper outcomes silent but report real failures', () => {
+  const t = load()
+  t.reportCommerceError('auth.otp_request_failed', { status: 429 }, { flow: 'auth' })
+  t.reportCommerceError('auth.otp_verify_failed', { statusCode: 400 }, { flow: 'auth' })
+  t.reportCommerceError('auth.phone_change_confirm_failed', { response: { status: 409 } }, { flow: 'auth' })
+  assert.equal(t.events.length, 0)
+  t.reportCommerceError('auth.otp_request_failed', { status: 500 }, { flow: 'auth' })
+  t.reportCommerceError('cart.add_failed', { status: 404 }, { flow: 'cart' })
+  t.reportCommerceError('checkout.create_order_failed', { status: 409 }, { flow: 'checkout' })
+  assert.deepEqual(t.events.map(event => [event.data.flow, event.step]), [
+    ['auth', 'auth.otp_request_failed'], ['cart', 'cart.add_failed'], ['checkout', 'checkout.create_order_failed'],
+  ])
+})
+test('shopper noise is silent for auth and cart but checkout keeps its visibility', () => {
+  const t = load()
+  const offline = Object.assign(new Error('[POST] "/public/customers/auth/request-otp": <no response> Failed to fetch'), { name: 'FetchError' })
+  const aborted = Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })
+  const nativeOffline = new TypeError('Failed to fetch')
+  // Client-side validation and cooldown rejections thrown by useApi before any request.
+  const invalidCode = new Error('Код має містити 6 цифр.')
+  const cooldown = new Error('Зачекайте перед повторним надсиланням.')
+  t.reportCommerceError('auth.otp_request_failed', offline, { flow: 'auth' })
+  t.reportCommerceError('cart.load_failed', aborted, { flow: 'cart' })
+  t.reportCommerceError('cart.add_failed', nativeOffline, { flow: 'cart' })
+  t.reportCommerceError('auth.otp_verify_failed', invalidCode, { flow: 'auth' })
+  t.reportCommerceError('auth.otp_request_failed', cooldown, { flow: 'auth' })
+  t.reportCommerceError('cart.load_failed', { status: 503 }, { flow: 'cart' })
+  t.reportCommerceError('auth.otp_request_failed', { status: 502 }, { flow: 'auth' })
+  assert.equal(t.events.length, 0)
+  t.reportCommerceError('cart.add_failed', new TypeError("Cannot read properties of undefined (reading 'id')"), { flow: 'cart' })
+  t.reportCommerceError('auth.otp_verify_failed', new TypeError("Cannot read properties of undefined (reading 'fetch')"), { flow: 'auth' })
+  t.reportCommerceError('checkout.create_order_failed', offline, { flow: 'checkout' })
+  t.reportCommerceError('checkout.payment_capabilities_failed', { status: 503 }, { flow: 'checkout' })
+  assert.deepEqual([...t.events.map(event => event.step)], ['cart.add_failed', 'auth.otp_verify_failed', 'checkout.create_order_failed', 'checkout.payment_capabilities_failed'])
+})
+test('a page load reports at most ten incidents even when they are spread over time', () => {
+  let now = 1_000_000
+  const t = load({ now: () => now })
+  for (let n = 0; n < 30; n++) {
+    t.reportCommerceError(`cart.step_${n}`, { status: 500 }, { flow: 'cart' })
+    now += 61_000
+  }
+  assert.equal(t.events.length, 10)
+  t.configureCommerceTelemetry(event => t.events.push(event))
+  t.reportCommerceError('auth.otp_verify_failed', { status: 500 }, { flow: 'auth' })
+  assert.equal(t.events.length, 10)
+})
+test('unknown flows are stripped from telemetry data', () => {
+  const t = load()
+  t.reportCommerceError('profile.failed', { status: 500 }, { flow: 'profile' })
+  assert.equal(t.events[0].data.flow, undefined)
+})
+test('beforeSend accepts auth and cart incidents and still rejects unknown flows', () => {
+  const { options } = loadPlugin()
+  for (const [flow, step] of [['auth', 'auth.otp_verify_failed'], ['cart', 'cart.add_failed']]) {
+    const event = options.beforeSend({ tags: { critical: 'true', flow, step }, contexts: { commerce: { flow, http_status: 500 } } })
+    assert.equal(event.tags.flow, flow)
+    assert.equal(event.tags.provider, 'storefront')
+    assert.equal(JSON.stringify(event.fingerprint), JSON.stringify(['commerce', flow, step, '500']))
+  }
+  assert.equal(options.beforeSend({ tags: { critical: 'true', flow: 'profile', step: 'profile.failed' } }), null)
+})
+test('every requested shop journey reports through bounded commerce telemetry', () => {
+  const sources = {
+    'stores/customerAuth.ts': ['auth.otp_request_failed', 'auth.otp_verify_failed', 'auth.phone_change_request_failed', 'auth.phone_change_confirm_failed'],
+    'stores/cart.ts': ['cart.add_failed', 'cart.update_failed', 'cart.remove_failed', 'cart.load_failed', 'cart.merge_failed'],
+    'pages/checkout/recover.vue': ['checkout.recovery_failed'],
+    'pages/checkout/purchase.vue': ['checkout.create_order_failed'],
+    'composables/useOrderPayment.ts': ['payment.start_failed', 'payment.read_failed', 'payment.redirect_failed'],
+    'pages/cabinet/orders/[id].vue': ['payment.order_read_failed'],
+  }
+  for (const [file, steps] of Object.entries(sources)) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+    assert.match(source, /from '~\/utils\/commerceTelemetry'/, file)
+    for (const step of steps) assert.ok(source.includes(`'${step}'`), `${file} reports ${step}`)
+  }
+})
+
+
+test('payment labels admit only known values, not token-shaped response strings', () => {
+  const { options } = loadPlugin()
+  const canary = 'PrivateCapability1234567890'
+  const event = options.beforeSend({
+    tags: { critical: 'true', flow: 'payment', step: 'payment.start_failed' },
+    contexts: { commerce: { payment_method: canary, payment_status: canary } },
+    breadcrumbs: [{ category: 'commerce', message: 'payment.status', data: { payment_method: canary, payment_status: canary } }],
+  })
+  assert.ok(!JSON.stringify(event).includes(canary))
 })

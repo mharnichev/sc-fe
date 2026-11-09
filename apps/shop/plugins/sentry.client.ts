@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/vue'
-import { commerceHttpStatus, configureCommerceTelemetry, reportCommerceError, safeCommerceData, safeCommerceLabel } from '~/utils/commerceTelemetry'
+import { commerceHttpStatus, configureCommerceTelemetry, isCommerceFlow, reportCommerceError, safeCommerceData, safeCommerceLabel } from '~/utils/commerceTelemetry'
 
 const safeStackFilename = (filename?: string) => {
   try {
@@ -25,7 +25,7 @@ export default defineNuxtPlugin(nuxtApp => {
       sampleRate: 1,
       maxBreadcrumbs: 30,
       beforeSend(event) {
-        if (event.tags?.critical !== 'true' || !['checkout', 'payment'].includes(String(event.tags?.flow))) return null
+        if (event.tags?.critical !== 'true' || !isCommerceFlow(event.tags?.flow)) return null
         const step = safeCommerceLabel(event.tags.step)
         if (!step) return null
         const flow = String(event.tags.flow)
