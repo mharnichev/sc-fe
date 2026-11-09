@@ -110,7 +110,22 @@ jobs:
       - name: Publish verified image and immutable digest
         run: |
           set -euo pipefail
-          docker push "$IMAGE_TAG"
+          push_log="$(mktemp "$RUNNER_TEMP/shop-push.XXXXXX")"
+          trap 'rm -f "$push_log"' EXIT
+          for delay in 15 45 0; do
+            if docker push "$IMAGE_TAG" >"$push_log" 2>&1; then
+              cat "$push_log"
+              break
+            else
+              push_status=$?
+            fi
+            cat "$push_log"
+            if [[ "$delay" == 0 ]] || ! grep -Eq 'permission_denied: write_package[[:space:]]*$' "$push_log"; then
+              exit "$push_status"
+            fi
+            echo "GHCR denied write_package; retrying the same image in ${delay}s."
+            sleep "$delay"
+          done
           docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/shop-image.json"
           python3 - <<'PY'
           import json, os, re
