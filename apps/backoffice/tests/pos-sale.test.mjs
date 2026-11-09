@@ -49,9 +49,11 @@ test('price change requires explicit confirmation; same persisted identity and k
 })
 test('lost creation response recovers by intent without new invoice or key',async()=>{
  let body
+ const url='https://pay.merchant-fixture.net/token?next=%2Freceipt'
+ const payment={...state().payment,qr_payload:url,payment_url_source:'mono_authenticated_create_v1',payment_url_expires_at:new Date(Date.now()+600_000).toISOString()}
  const f=await setup((path,options)=>{const b=base(path);if(b)return b;if(path.includes('/by-intent/'))return state({intent_id:body.intent_id});body=options.body;throw new Error('timeout')})
  await start(f.sale);assert.ok(f.sale.error.value);f.stop()
- const g=await setup(path=>base(path)||state({intent_id:body.intent_id}),f.storage);assert.equal(g.calls.filter(c=>c.method==='POST').length,0);assert.equal(g.sale.checkout.value.order_id,3);g.stop()
+ const g=await setup(path=>base(path)||state({intent_id:body.intent_id,payment}),f.storage);assert.equal(g.calls.filter(c=>c.method==='POST').length,0);assert.equal(g.sale.checkout.value.order_id,3);assert.equal(g.sale.paymentUrl.value,url);assert.ok(![...g.storage.values()].some(value=>value.includes(url)));g.stop()
 })
 test('URL, receipt and handover guards fail closed; backend alone establishes readiness',async()=>{
  const f=await setup((path,options)=>base(path)||state({intent_id:options.body?.intent_id}));await start(f.sale)
@@ -514,4 +516,120 @@ test('failed read-only reopening does not consume a deferred record or block che
  assert.equal(f.storage.get('sc-pos:v1:1'),durable)
  assert.equal(f.calls.filter(c=>c.method==='POST').length,1)
  f.stop()
+})
+
+const capturedInvoice = (extra = {}) => state({
+  status: 'requires_review',
+  revision: 2,
+  payment: { ...state().payment, status: 'unknown', invoice_id: null, qr_payload: null },
+  actions: { ...state().actions, can_refresh: false, can_verify_invoice: true },
+  blocking_reasons: ['creation_unknown'],
+  ...extra,
+})
+
+test('verification retries the same saved operation only on explicit action and never starts another checkout', async () => {
+  const url = 'https://checkout.vendor.example.com/synthetic?x=%2F'
+  const payment = { ...state().payment, qr_payload: url, payment_url_source: 'mono_authenticated_create_v1',
+    payment_url_expires_at: new Date(Date.now() + 600_000).toISOString() }
+  let checkout, fail = true
+  const sent = []
+  const api = (path, options) => {
+    const response = base(path)
+    if (response) return response
+    if (path.endsWith('/verify-invoice')) {
+      sent.push(options)
+      if (fail) throw error(503, 'master_mono_candidate_unavailable')
+      checkout = state({ intent_id: checkout.intent_id, revision: 3, payment })
+      return checkout
+    }
+    if (path.endsWith('/checkouts')) checkout = capturedInvoice({ intent_id: options.body.intent_id })
+    return checkout
+  }
+  const first = await setup(api)
+  await start(first.sale)
+  assert.equal(first.sale.paymentUrl.value, null)
+  assert.equal(first.sale.canVerifyInvoice.value, true)
+  await Promise.all([first.sale.verifyInvoice(), first.sale.verifyInvoice()])
+  assert.equal(sent.length, 1)
+  assert.deepEqual(sent[0].body, { expected_revision: 2 })
+  assert.ok(sent[0].headers['Idempotency-Key'])
+  first.stop()
+
+  const reloaded = await setup(api, first.storage)
+  await reloaded.sale.recover()
+  assert.equal(reloaded.calls.filter(call => call.method === 'POST').length, 0)
+  assert.equal(reloaded.sale.canVerifyInvoice.value, true)
+  fail = false
+  await reloaded.sale.verifyInvoice()
+  assert.deepEqual(sent[1], sent[0])
+  assert.equal(reloaded.sale.paymentUrl.value, url)
+  assert.equal(reloaded.sale.saved.value.command, undefined)
+  assert.ok(![...reloaded.storage.values()].some(value => value.includes(url)))
+  assert.deepEqual(reloaded.calls.filter(call => call.method === 'POST').map(call => call.path.split('/').at(-1)), ['verify-invoice'])
+  reloaded.stop()
+})
+
+test('a captured candidate retires a lost resume command and terminal or old unknown state cannot verify', async () => {
+  let checkout
+  const api = (path, options) => {
+    const response = base(path)
+    if (response) return response
+    if (path.endsWith('/resume')) {
+      checkout = capturedInvoice({ intent_id: checkout.intent_id })
+      throw new Error('lost response')
+    }
+    if (path.endsWith('/checkouts')) {
+      checkout = state({ intent_id: options.body.intent_id, status: 'prepared',
+        payment: { ...state().payment, status: 'not_started', invoice_id: null, qr_payload: null },
+        actions: { ...state().actions, can_resume: true, can_refresh: false } })
+    }
+    return checkout
+  }
+  const first = await setup(api)
+  await start(first.sale)
+  await first.sale.resume()
+  assert.equal(first.sale.saved.value.command.operation, 'resume')
+  first.stop()
+
+  const reloaded = await setup(api, first.storage)
+  assert.equal(reloaded.sale.saved.value.command, undefined)
+  assert.equal(reloaded.sale.canVerifyInvoice.value, true)
+  assert.equal(reloaded.calls.filter(call => call.method === 'POST').length, 0)
+  for (const invalid of [
+    { ...checkout, actions: { ...checkout.actions, can_verify_invoice: undefined } },
+    { ...checkout, actions: { ...checkout.actions, can_resume: true } },
+    { ...checkout, order_status: 'cancelled' },
+    { ...checkout, payment: { ...checkout.payment, status: 'paid' } },
+  ]) {
+    reloaded.sale.checkout.value = invalid
+    assert.equal(reloaded.sale.canVerifyInvoice.value, false)
+    await reloaded.sale.verifyInvoice()
+  }
+  assert.equal(reloaded.calls.filter(call => call.method === 'POST').length, 0)
+  reloaded.stop()
+})
+
+test('read-only reload resolves a lost successful verification without replaying it', async () => {
+  let checkout
+  const api = (path, options) => {
+    const response = base(path)
+    if (response) return response
+    if (path.endsWith('/verify-invoice')) {
+      checkout = state({ intent_id: checkout.intent_id, revision: 3 })
+      throw new Error('lost verification acknowledgement')
+    }
+    if (path.endsWith('/checkouts')) checkout = capturedInvoice({ intent_id: options.body.intent_id })
+    return checkout
+  }
+  const first = await setup(api)
+  await start(first.sale)
+  await first.sale.verifyInvoice()
+  assert.equal(first.sale.saved.value.command.operation, 'verify-invoice')
+  first.stop()
+  const reopened = await setup(api, first.storage)
+  assert.equal(reopened.sale.paymentUrl.value, checkout.payment.qr_payload)
+  assert.equal(reopened.sale.saved.value.command, undefined)
+  assert.equal(reopened.sale.canVerifyInvoice.value, false)
+  assert.equal(reopened.calls.filter(call => call.method === 'POST').length, 0)
+  reopened.stop()
 })

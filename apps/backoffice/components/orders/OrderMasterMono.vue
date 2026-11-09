@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { qrMockCode as qrCode } from '~/utils/qrMock'
-import { masterMonoPaymentUrl, masterMonoBlockingReason, validMasterMonoState } from '~/utils/masterMono'
+import { masterMonoPaymentUrl, masterMonoBlockingReason, useMasterMonoPaymentWindow, validMasterMonoState } from '~/utils/masterMono'
 import { useBackofficeApi } from '~/composables/useBackofficeApi'
 import type { MasterMonoCommand, MasterMonoState, OrderResponse } from '~/composables/useBackofficeApi'
 const props = defineProps<{ order: OrderResponse, refreshToken?: number, blocked?: boolean }>()
@@ -13,17 +13,24 @@ const session = computed(() => JSON.stringify([resource.value, auth.user?.id, au
 const rejections = ['master_mono_disabled', 'master_mono_not_ready', 'master_mono_profile_conflict', 'master_mono_checkout_owned', 'master_mono_binding_required', 'master_mono_payment_conflict', 'master_mono_issuer_conflict', 'master_mono_identity_conflict', 'unsupported_zero_total', 'payment_required', 'master_mono_terminal_truth', 'terminal_order']
 const start = useOrderSalesCommand<MasterMonoCommand>('master-mono-start', resource, rejections)
 const refresh = useOrderSalesCommand<MasterMonoCommand>('master-mono-refresh', resource, rejections)
+const verify = useOrderSalesCommand<MasterMonoCommand>('master-mono-verify-invoice', resource, rejections)
+const commands = { start, refresh, 'verify-invoice': verify }
 const state = shallowRef<MasterMonoState | null>(null)
 const loading = ref(false), readError = ref(''), printError = ref(''), ready = ref(false)
-const busy = computed(() => start.busy.value || refresh.busy.value)
-const unresolved = computed(() => !!start.intent.value || !!refresh.intent.value)
+const busy = computed(() => Object.values(commands).some(command => command.busy.value))
+const unresolved = computed(() => Object.values(commands).some(command => !!command.intent.value))
 const selected = computed(() => permission.value)
-const canStart = computed(() => permission.value && state.value?.enabled && state.value.status === 'not_started' && !state.value.invoice_id && !state.value.payment_url && !state.value.paid && !state.value.receipt_accepted && props.order.status !== 'cancelled' && props.order.status !== 'completed' && !state.value.blocking_reasons.length)
+const canStart = computed(() => permission.value && state.value?.enabled && state.value.status === 'not_started' && !state.value.can_verify_invoice && !state.value.invoice_id && !state.value.payment_url && !state.value.paid && !state.value.receipt_accepted && props.order.status !== 'cancelled' && props.order.status !== 'completed' && !state.value.blocking_reasons.length)
+const hasVerifiableInvoice = computed(() => state.value?.can_verify_invoice === true
+  && state.value.status === 'creation_unknown' && !state.value.invoice_id && !state.value.payment_url
+  && !state.value.paid && !state.value.receipt_accepted && ['pending', 'confirmed'].includes(props.order.status))
+const canVerifyInvoice = computed(() => permission.value && hasVerifiableInvoice.value && !start.intent.value && !refresh.intent.value)
+const paymentWindow = useMasterMonoPaymentWindow(() => state.value)
 const paymentUrl = computed(() => {
   const payment = state.value
   if (!permission.value || !ready.value || readError.value || !payment?.enabled
     || !['waiting', 'created'].includes(payment.status) || !['pending', 'confirmed'].includes(props.order.status)
-    || payment.paid || payment.receipt_accepted) return null
+    || payment.paid || payment.receipt_accepted || !paymentWindow.value) return null
   return masterMonoPaymentUrl(payment)
 })
 const paymentQr = computed(() => paymentUrl.value ? qrCode(paymentUrl.value) : null)
@@ -59,8 +66,9 @@ const load = (): Promise<boolean> => {
       if (!valid(version)) return false
       const previous = state.value
       accept(result); readError.value = ''; ready.value = true
-      // A server-observed invoice resolves a lost creation reply without another POST.
-      if (start.intent.value && state.value?.invoice_id && state.value.revision > start.intent.value.body.expected_revision) { start.clear(); start.error.value = '' }
+      // A saved candidate or bound invoice proves the original dispatch advanced.
+      if (start.intent.value && state.value && (state.value.invoice_id || hasVerifiableInvoice.value) && state.value.revision > start.intent.value.body.expected_revision) { start.clear(); start.error.value = '' }
+      if (verify.intent.value && state.value?.invoice_id && state.value.revision > verify.intent.value.body.expected_revision) { verify.clear(); verify.error.value = '' }
       if (refresh.intent.value && state.value && state.value.revision > refresh.intent.value.body.expected_revision) { refresh.clear(); refresh.error.value = '' }
       if ((state.value && state.value.revision > (props.order.revision ?? 0)) || (!previous && (state.value?.paid || state.value?.receipt_accepted || state.value?.can_handover)) || (previous && (previous.paid !== state.value?.paid || previous.receipt_accepted !== state.value?.receipt_accepted || previous.can_handover !== state.value?.can_handover))) emit('changed')
       return true
@@ -86,15 +94,17 @@ watch(handoverAllowed, value => emit('handoverAllowed', value), { immediate: tru
 watch(ready, value => emit('ready', value), { immediate: true, flush: 'sync' })
 watch(busy, value => { emit('busy', value); if (value) stopTimer() }, { immediate: true, flush: 'sync' })
 onBeforeUnmount(() => { active = false; generation++; stopTimer(); clearPrint() })
-const run = async (operation: 'start' | 'refresh') => {
+const run = async (operation: keyof typeof commands) => {
   if (!permission.value || props.blocked || busy.value || loading.value || readError.value || !state.value) return
-  const command = operation === 'start' ? start : refresh
-  const other = operation === 'start' ? refresh : start
-  if (other.intent.value || (operation === 'start' ? !canStart.value : !state.value.invoice_id)) return
+  const command = commands[operation]
+  if (Object.values(commands).some(other => other !== command && other.intent.value)) return
+  const permitted = { start: canStart.value, refresh: !!state.value.invoice_id, 'verify-invoice': canVerifyInvoice.value }
+  if (!permitted[operation]) return
+  const send = { start: api.startMasterMono, refresh: api.refreshMasterMono, 'verify-invoice': api.verifyMasterMonoInvoice }[operation]
   const version = generation, id = props.order.id
   stopTimer()
   await command.execute({ expected_revision: state.value.revision }, async (body, key) => {
-    const result = await (operation === 'start' ? api.startMasterMono(id, body, key) : api.refreshMasterMono(id, body, key))
+    const result = await send(id, body, key)
     // Validate before recording durable completion. An unexpected body remains recoverable.
     if (valid(version)) accept(result)
     return { id: result.order_id }
@@ -125,7 +135,8 @@ const print = async () => {
     <p v-if="state" class="text-lg font-semibold">До сплати: {{ amount }}</p>
     <figure v-if="paymentQr" class="mx-auto w-fit max-w-full text-center"><svg role="img" aria-label="QR для оплати mono" :viewBox="`0 0 ${paymentQr.size} ${paymentQr.size}`" class="h-60 w-60 max-w-full rounded-2xl border border-ui bg-white p-3" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="white" /><path :d="paymentQr.path" fill="black" /></svg><figcaption class="mt-2 text-sm">Відскануйте QR у банківському застосунку</figcaption></figure>
     <a v-if="paymentUrl" :href="paymentUrl" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center text-sm underline">Відкрити платіжне посилання</a>
-    <p v-if="creationUnknown" role="status" class="font-semibold text-amber-800">Перевіряємо створення рахунку. Не створюйте повторну оплату; зверніться до адміністратора.</p>
+    <p v-if="canVerifyInvoice" role="status" class="font-semibold text-amber-800">Рахунок mono очікує перевірки. Не просіть клієнта платити повторно.</p>
+    <p v-else-if="creationUnknown" role="status" class="font-semibold text-amber-800">Перевіряємо створення рахунку. Не створюйте повторну оплату; зверніться до адміністратора.</p>
     <p v-else-if="state?.invoice_id && !state.paid" role="status">Очікуємо підтвердження оплати.</p>
     <div v-if="state" class="grid gap-3 sm:grid-cols-2"><p role="status">Оплата: <strong>{{ state.paid ? 'Підтверджена' : 'Очікує підтвердження' }}</strong></p><p role="status">Чек: <strong>{{ state.receipt_accepted ? 'Прийнятий' : 'Ще не прийнятий' }}</strong></p></div>
     <p v-if="state?.paid && !state.receipt_accepted" role="status" class="font-semibold text-amber-800">Оплату підтверджено. Очікуємо чек; нову оплату не створюйте. Видача ще недоступна.</p>
@@ -133,12 +144,13 @@ const print = async () => {
     <p v-if="state && !state.enabled" role="status" class="text-amber-800">Оплату через mono тимчасово вимкнено. Зверніться до адміністратора.</p>
     <p v-if="loading" role="status" class="text-sm text-ui-secondary">Перевіряємо стан…</p>
     <div class="flex flex-wrap gap-3">
-      <BaseButton v-if="canStart" variant="primary" size="lg" :disabled="blocked || busy || loading || !!readError || !!refresh.intent.value" @click="run('start')">{{ start.intent.value ? 'Відновити той самий запит' : 'Створити QR для оплати' }}</BaseButton>
-      <BaseButton v-if="state?.invoice_id || refresh.intent.value" :disabled="blocked || busy || loading || !!readError || !!start.intent.value" @click="run('refresh')">{{ refresh.intent.value ? 'Повторити перевірку' : 'Перевірити статус' }}</BaseButton>
+      <BaseButton v-if="canStart" variant="primary" size="lg" :disabled="blocked || busy || loading || !!readError || !!refresh.intent.value || !!verify.intent.value" @click="run('start')">{{ start.intent.value ? 'Відновити той самий запит' : 'Створити QR для оплати' }}</BaseButton>
+      <BaseButton v-if="canVerifyInvoice" variant="primary" size="lg" :disabled="blocked || busy || loading || !!readError" @click="run('verify-invoice')">Перевірити рахунок mono</BaseButton>
+      <BaseButton v-if="state?.invoice_id || refresh.intent.value" :disabled="blocked || busy || loading || !!readError || !!start.intent.value || !!verify.intent.value" @click="run('refresh')">{{ refresh.intent.value ? 'Повторити перевірку' : 'Перевірити статус' }}</BaseButton>
       <BaseButton v-if="canPrint" :disabled="busy" @click="print">Відкрити PDF-чек</BaseButton>
       <BaseButton v-if="readError || creationUnknown" :disabled="loading || busy" @click="load">Оновити стан</BaseButton>
     </div>
-    <p v-if="readError || start.error.value || refresh.error.value || printError" role="alert" class="text-rose-600">{{ readError || (start.error.value || refresh.error.value ? 'Результат запиту ще не підтверджено. Оновіть стан; нову оплату не створюйте.' : printError) }}</p>
+    <p v-if="readError || start.error.value || refresh.error.value || verify.error.value || printError" role="alert" class="text-rose-600">{{ readError || (start.error.value || refresh.error.value || verify.error.value ? 'Результат запиту ще не підтверджено. Оновіть стан; нову оплату не створюйте.' : printError) }}</p>
     <details v-if="state?.blocking_reasons.length" class="text-sm text-ui-secondary"><summary class="cursor-pointer">Чому дія недоступна</summary><p v-for="reason in state.blocking_reasons" :key="reason" class="mt-2 break-words">{{ masterMonoBlockingReason(reason) }}</p></details>
   </section>
 </template>

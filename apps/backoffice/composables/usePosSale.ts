@@ -1,11 +1,12 @@
 import type { PosCapabilities, PosCartCreate, PosCartQuote, PosCartRequest, PosCheckout, PosCreate, PosOffer, PosPage } from '~/types/posSale'
-import { masterMonoPaymentUrl } from '~/utils/masterMono'
+import { masterMonoPaymentUrl, useMasterMonoPaymentWindow } from '~/utils/masterMono'
 import { closedPosAttachmentKey, parseSalesIntent, salesIntentStorageKey } from '~/utils/orderSales'
 const root = '/backoffice/pos'
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 type SaleSelection = { intent_id: string; currency: 'UAH'; selection_only: true }
-interface SavedSale { key?: string; body: PosCreate | PosCartCreate | SaleSelection; offer?: PosOffer; proposed?: PosOffer; proposedQuote?: PosCartQuote; itemNames?: Record<number, string>; checkout_id?: string; command?: { operation: 'resume' | 'refresh' | 'handover'; key: string; revision: number } }
+type SaleCommand = 'resume' | 'refresh' | 'handover' | 'verify-invoice'
+interface SavedSale { key?: string; body: PosCreate | PosCartCreate | SaleSelection; offer?: PosOffer; proposed?: PosOffer; proposedQuote?: PosCartQuote; itemNames?: Record<number, string>; checkout_id?: string; command?: { operation: SaleCommand; key: string; revision: number } }
 type ActiveSale = Pick<PosCheckout, 'checkout_id' | 'order_id' | 'status' | 'amount_minor' | 'revision'> & { products: string }
 interface DeferredSale { record: SavedSale; summary: ActiveSale }
 const saleSummary = (c: PosCheckout): ActiveSale => ({
@@ -16,12 +17,14 @@ const unresolvedCreate = (c: PosCheckout) => c.status === 'requires_review' && c
   && c.payment.invoice_id === null && c.payment.qr_payload === null && c.receipt.status === 'not_requested'
   && c.handover.status === 'not_ready' && ['pending', 'confirmed'].includes(c.order_status)
   && c.blocking_reasons?.includes('creation_unknown')
+const hasVerifiableInvoice = (c: PosCheckout) => c.actions.can_verify_invoice === true
+  && unresolvedCreate(c) && c.payment.confirmed_at === null && !c.actions.can_resume
 export const posExpiredClosure = (c: PosCheckout) => c.order_status === 'cancelled' && c.status === 'requires_review'
   && c.payment.status === 'expired' && c.payment.invoice_id === null && c.payment.qr_payload === null && c.payment.confirmed_at === null
   && c.receipt.status === 'not_requested' && c.handover.status === 'not_ready'
   && !c.blocking_reasons?.includes('master_mono_closed_conflict')
 const canExitExpired = (c: PosCheckout) => posExpiredClosure(c) && c.blocking_reasons?.includes('master_mono_sale_closed') === true && c.actions.can_start_new
-  && !c.actions.can_resume && !c.actions.can_refresh && !c.actions.can_handover && !c.actions.can_recover_invoice
+  && !c.actions.can_resume && !c.actions.can_refresh && !c.actions.can_handover && !c.actions.can_recover_invoice && c.actions.can_verify_invoice !== true
 const quoteRevision = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 function matchesQuote(quote: PosCartQuote, cart: PosCartRequest) {
   return quote?.currency === 'UAH' && quoteRevision(quote.quote_revision) && quote.applied_promo_code === cart.promo_code
@@ -125,15 +128,25 @@ export const usePosSale = () => {
     }
     return canStartNew.value ? exitLockIssue.value : ''
   })
+  const paymentWindow = useMasterMonoPaymentWindow(() => checkout.value?.payment)
   const paymentUrl = computed(() => {
     const c = checkout.value
     if (!access.value || !c || error.value || c.status !== 'awaiting_payment'
       || !['pending', 'confirmed'].includes(c.order_status) || c.payment.status !== 'pending'
       || c.payment.confirmed_at !== null || c.receipt.status !== 'not_requested'
-      || c.handover.status !== 'not_ready') return null
-    return masterMonoPaymentUrl({ invoice_id: c.payment.invoice_id, payment_url: c.payment.qr_payload })
+      || c.handover.status !== 'not_ready' || !paymentWindow.value) return null
+    return masterMonoPaymentUrl({
+      invoice_id: c.payment.invoice_id,
+      payment_url: c.payment.qr_payload,
+      payment_url_source: c.payment.payment_url_source,
+    })
   })
   const canHandover = computed(() => access.value && !busy.value && !loading.value && !error.value && checkout.value?.status === 'ready_to_handover' && checkout.value.payment.status === 'paid' && checkout.value.receipt.status === 'accepted' && checkout.value.handover.status === 'ready' && checkout.value.actions.can_handover)
+  const canVerifyInvoice = computed(() => {
+    const c = checkout.value, record = saved.value
+    return !!(access.value && c && record?.checkout_id === c.checkout_id && hasVerifiableInvoice(c)
+      && (!record.command || record.command.operation === 'verify-invoice'))
+  })
   const stopTimer = () => { if (timer !== undefined) clearTimeout(timer); timer = undefined }
   const current = (v: number) => generation === v && !!scope.value
   const persist = (value: SavedSale | null, parked = deferred.value) => {
@@ -187,22 +200,33 @@ export const usePosSale = () => {
     checkout.value = c; priceOffer.value = null
     if (saved.value) {
       const pending = saved.value.command
-      const resolved = pending && ((pending.operation === 'handover' && c.handover.status === 'handed_over') || (pending.operation !== 'handover' && c.revision > pending.revision && !!c.payment.invoice_id))
+      const resolved = pending && (pending.operation === 'handover'
+        ? c.handover.status === 'handed_over'
+        : c.revision > pending.revision && (!!c.payment.invoice_id
+          || (pending.operation === 'resume' && hasVerifiableInvoice(c))
+          || (pending.operation === 'verify-invoice' && canExitExpired(c))))
       persist({ ...saved.value, checkout_id: c.checkout_id, proposed: undefined, proposedQuote: undefined, command: resolved ? undefined : pending })
     }
   }
   const read = <T,>(path: string, query?: Record<string, string | number>) => api<T>(`${root}${path}`, { query, retry: 0, cache: 'no-store' })
-  const command = async (operation: 'resume' | 'refresh' | 'handover') => {
-    if (busy.value || !access.value || !checkout.value || !saved.value) return
+  const command = async (operation: SaleCommand) => {
+    if (busy.value || loading.value || !access.value || !checkout.value || !saved.value) return
     if (saved.value.command && saved.value.command.operation !== operation) return
     const c = checkout.value
-    if (!(operation === 'handover' ? canHandover.value : operation === 'resume' ? c.actions.can_resume && c.status === 'prepared' && !c.payment.invoice_id : c.actions.can_refresh && !!c.payment.invoice_id)) return
+    const permitted = {
+      handover: canHandover.value,
+      resume: c.actions.can_resume && c.actions.can_verify_invoice !== true && c.status === 'prepared' && !c.payment.invoice_id,
+      refresh: c.actions.can_refresh && !!c.payment.invoice_id,
+      'verify-invoice': canVerifyInvoice.value,
+    }
+    if (!permitted[operation]) return
     const v = generation; busy.value = true; error.value = ''; stopTimer()
     try {
       const pending = saved.value.command || { operation, key: crypto.randomUUID(), revision: c.revision }
       persist({ ...saved.value, command: pending })
       const result = await api<PosCheckout>(`${root}/checkouts/${c.checkout_id}/${pending.operation}`, { method: 'POST', body: { expected_revision: pending.revision }, headers: { 'Idempotency-Key': pending.key }, retry: 0, cache: 'no-store' })
       if (!current(v)) return
+      if (operation === 'verify-invoice' && result.order_id !== c.order_id) throw new Error('foreign order')
       accept(result, v); if (saved.value) persist({ ...saved.value, command: undefined })
     } catch (cause) {
       if (current(v)) {
@@ -271,8 +295,8 @@ export const usePosSale = () => {
     if (!current(v) || !checkout.value) return
     if (retryMissing) {
       const pending = saved.value?.command
-      if (pending) await command(pending.operation)
-      else if (checkout.value.actions.can_resume && checkout.value.status === 'prepared') await command('resume')
+      if (pending && pending.operation !== 'verify-invoice') await command(pending.operation)
+      else if (!pending && checkout.value.actions.can_resume && checkout.value.status === 'prepared') await command('resume')
     }
     schedule()
   }
@@ -490,7 +514,7 @@ export const usePosSale = () => {
     finally { if (current(v)) activeLoading.value = false }
   }
   const validateRecord = (value: SavedSale) => {
-    if (!uuid(value.body?.intent_id) || value.body.currency !== 'UAH' || (value.checkout_id && !uuid(value.checkout_id)) || (value.command && (!uuid(value.command.key) || !['resume','refresh','handover'].includes(value.command.operation) || !positive(value.command.revision)))) throw new Error('invalid saved sale')
+    if (!uuid(value.body?.intent_id) || value.body.currency !== 'UAH' || (value.checkout_id && !uuid(value.checkout_id)) || (value.command && (!uuid(value.command.key) || !['resume','refresh','handover','verify-invoice'].includes(value.command.operation) || !positive(value.command.revision)))) throw new Error('invalid saved sale')
     if ('selection_only' in value.body) {
       if (value.body.selection_only !== true || !uuid(value.checkout_id) || value.key || value.proposed || value.proposedQuote) throw new Error('invalid selection')
       return value
@@ -580,5 +604,5 @@ export const usePosSale = () => {
   const storageChanged = (event: StorageEvent) => { if (event.key === scope.value) reset() }
   if (import.meta.client) window.addEventListener('storage', storageChanged)
   onScopeDispose(() => { generation++; stopTimer(); if (import.meta.client) window.removeEventListener('storage', storageChanged) })
-  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection, () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, canStartNew, startNewIssue, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Parameters<typeof resumeActive>[0]) => withSaleLock(() => resumeActive(c), () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew }
+  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection, () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, canStartNew, startNewIssue, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Parameters<typeof resumeActive>[0]) => withSaleLock(() => resumeActive(c), () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), canVerifyInvoice, verifyInvoice: () => withSaleLock(() => command('verify-invoice')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew }
 }

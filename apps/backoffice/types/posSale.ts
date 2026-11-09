@@ -43,6 +43,8 @@ export interface PosInvoiceRecovery {
   requested_at: string
   can_attach: boolean
 }
+export type MonoPaymentUrlSource = 'mono_authenticated_create_v1'
+
 export interface PosCheckout {
   checkout_id: string; intent_id: string; order_id: number; revision: number; created_at: string
   employee: { user_id: number; master_id: number | null; display_name: string }
@@ -50,10 +52,10 @@ export interface PosCheckout {
   order_status: 'pending' | 'confirmed' | 'paid' | 'completed' | 'cancelled'
   amount_minor: number; currency: 'UAH'
   status: 'prepared' | 'creating_invoice' | 'awaiting_payment' | 'payment_processing' | 'paid_receipt_pending' | 'ready_to_handover' | 'completed' | 'requires_review'
-  payment: { provider: 'monobank'; status: 'not_started' | 'pending' | 'processing' | 'paid' | 'failed' | 'expired' | 'reversed' | 'unknown'; invoice_id: string | null; confirmed_at: string | null; qr_payload: string | null }
+  payment: { provider: 'monobank'; status: 'not_started' | 'pending' | 'processing' | 'paid' | 'failed' | 'expired' | 'reversed' | 'unknown'; invoice_id: string | null; confirmed_at: string | null; qr_payload: string | null; payment_url_source?: MonoPaymentUrlSource | null; payment_url_expires_at?: string | null }
   receipt: { issuer: 'checkbox'; status: 'not_requested' | 'pending' | 'accepted' | 'failed' | 'requires_review'; recorded_at: string | null; pdf_url: string | null }
   handover: { status: 'not_ready' | 'ready' | 'handed_over'; actor_user_id: number | null; handed_over_at: string | null }
-  actions: { can_resume: boolean; can_refresh: boolean; can_handover: boolean; can_recover_invoice: boolean; can_start_new: boolean }
+  actions: { can_resume: boolean; can_refresh: boolean; can_handover: boolean; can_recover_invoice: boolean; can_start_new: boolean; can_verify_invoice?: boolean }
   poll_after_ms: number; blocking_reasons: string[]
   invoice_recovery?: PosInvoiceRecovery | null
 }
