@@ -217,7 +217,7 @@ const amount = computed(() => {
       <CustomerAuthDialog v-if="accessDenied" :label="paymentText.signIn" />
       <BaseButton v-if="error || payment?.actions?.contact_support || payment?.status === 'requires_review' || (payment && !payment.enabled && !methodChanged)" to="/contacts" variant="text">{{ paymentText.contact }}</BaseButton>
     </div>
-    <p v-if="!methodChanged && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.provider }}. {{ paymentText.protected }}</p>
+    <p v-if="!methodChanged && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.protected }}</p>
     <p v-if="error" class="order-payment__error" role="alert">{{ paymentError }}</p>
     <MonoPaymentModal :model-value="widgetOpen" :embed-url="widgetUrl" :frame-key="widgetFrameKey"
       :loading="busy && !widgetUrl" :redirect-url="pageUrl" @update:model-value="updateWidgetOpen" @fallback="widgetFallback" @unavailable="closeWidget()" @closed="widgetClosed" />

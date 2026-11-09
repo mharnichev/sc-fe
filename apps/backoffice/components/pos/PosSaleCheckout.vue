@@ -102,6 +102,7 @@ const print = async () => {
     </div>
     <p v-else-if="unavailableQr && !error" role="status" class="ui-status-warning rounded-xl p-3 text-sm">QR для оплати поки недоступний. Перечитайте стан цього продажу.</p>
     <p v-else-if="canHandover" role="status" class="text-center font-medium">Оплату та чек підтверджено. Передайте товар клієнту.</p>
+    <BaseLoader v-else-if="code && ['pending', 'processing'].includes(checkout.payment.status)" inline size="sm" label="Очікуємо підтвердження оплати mono…" class="w-full py-2 text-ui-secondary" />
     <p v-else-if="!expiredClosed" role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
     <BaseButton v-if="canVerifyInvoice" variant="primary" size="lg" block :loading="busy" @click="emit('verifyInvoice')"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Перевірити рахунок mono</BaseButton>
     <BaseButton v-if="canRead && checkout.status === 'prepared' && !checkout.payment.invoice_id && checkout.actions.can_resume && !checkout.actions.can_verify_invoice" variant="neutral" size="lg" block :loading="busy" @click="emit('resume')">Продовжити підготовку рахунку</BaseButton>

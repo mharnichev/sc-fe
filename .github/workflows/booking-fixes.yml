@@ -44,6 +44,9 @@ jobs:
         run: pnpm --filter @apps/${{ matrix.app }} build
       - name: Install browser
         run: pnpm --filter @apps/backoffice exec playwright install --with-deps chromium
+      - name: Install WebKit for exact-image mobile PWA verification
+        if: matrix.app == 'backoffice'
+        run: pnpm --filter @apps/backoffice exec playwright install --with-deps webkit
       - name: Set immutable candidate tag
         run: echo "IMAGE_TAG=${IMAGE_REPOSITORY}:booking-${APPLICATION}-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
       - name: Build immutable release image
@@ -68,6 +71,9 @@ jobs:
       - name: Verify POS and sales against the exact backoffice image
         if: matrix.app == 'backoffice'
         run: pnpm --filter @apps/backoffice exec playwright test --config playwright.sales-mock.config.ts --retries=0
+      - name: Verify PWA and mobile against the exact backoffice image
+        if: matrix.app == 'backoffice'
+        run: pnpm --filter @apps/backoffice exec playwright test --config playwright.pwa-mock.config.ts --retries=0
       - name: Verify preview cleanup
         if: always()
         run: |

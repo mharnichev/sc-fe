@@ -1088,3 +1088,205 @@ test('own-admin expired close archives an exact lost bind only on fresh terminal
   expect(await page.evaluate(key => localStorage.getItem(key), pendingKey)).toBeNull()
   expect(fixture.external).toEqual([])
 })
+
+test('personal history applies dialog filters, resets pagination and ignores stale results', async ({ page }) => {
+  const user = { id: 17, is_active: true, is_superuser: false, role: 'barber', master_id: 42, can_record_sales: true, can_accept_qr_payments: true }
+  const queries: URLSearchParams[] = []
+  let failNextHistory = false
+  let delayedDetails: Promise<void> | undefined
+  let movedToCompleted = false
+  let releaseOlder: () => void = () => {}
+  const olderResponse = new Promise<void>(resolve => { releaseOlder = resolve })
+  const active = { order_id: 7, checkout_id: uuid, intent_id: '33333333-3333-4333-8333-333333333333', created_at: '2026-11-09T16:26:46Z', employee: { user_id: 17, master_id: 42, display_name: 'Продавець' },
+    items: [{ product_id: 1, name: 'Глина Reuzel Matt Clay 35 г', sku: 'RZ-35', quantity: 1, unit_minor: 62900, total_minor: 62900 }],
+    amount_minor: 62900, currency: 'UAH', order_status: 'pending', status: 'paid_receipt_pending', payment_status: 'paid',
+    receipt_status: 'pending', handover_status: 'not_ready', source: 'quick_pos' }
+  const completed = { ...active, checkout_id: null, intent_id: null, order_id: 12, amount_minor: 129900, order_status: 'completed', status: 'completed', receipt_status: 'accepted', handover_status: 'handed_over' }
+  const cancelled = { ...active, checkout_id: null, intent_id: null, order_id: 6, order_status: 'cancelled', status: 'requires_review', payment_status: 'expired', receipt_status: 'not_requested' }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(actor => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'synthetic-only', user: actor })), user)
+  await page.route('**/api/v1/**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (url.pathname.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', can_search: true, can_start: true, automatic_reconciliation_enabled: false } })
+    if (url.pathname.endsWith('/pos/checkouts/' + uuid)) {
+      if (delayedDetails) {
+        await delayedDetails
+        movedToCompleted = true
+        return route.fulfill({ json: {
+          ...active, order_status: 'completed', status: 'completed', payment: { status: 'paid' },
+          receipt: { status: 'accepted' }, handover: { status: 'handed_over' }, blocking_reasons: [],
+        } })
+      }
+      return route.fulfill({ json: {
+        ...active, payment: { status: 'paid' }, receipt: { status: 'pending' }, handover: { status: 'not_ready' }, blocking_reasons: [],
+      } })
+    }
+    if (url.pathname.endsWith('/pos/my-sales')) {
+      const params = url.searchParams
+      queries.push(params)
+      if (failNextHistory) {
+        failNextHistory = false
+        return route.fulfill({ status: 503, json: { detail: 'fixture unavailable' } })
+      }
+      const current = Number(params.get('page'))
+      const scope = params.get('scope'), sort = params.get('sort'), term = params.get('q')
+      if (sort === 'oldest') await olderResponse
+      if (scope === 'active') return route.fulfill({ json: {
+        items: movedToCompleted ? [] : [active], total: movedToCompleted ? 0 : 1, page: current, page_size: 20,
+      } })
+      const items = term ? [] : scope === 'completed' ? [sort === 'amount_asc' ? { ...completed, order_id: 4 } : completed]
+        : current === 1 ? [active, ...Array.from({ length: 19 }, (_, i) => ({ ...completed, order_id: 100 + i }))] : [cancelled]
+      return route.fulfill({ json: { items, total: term ? 0 : scope === 'completed' ? 1 : 21, page: current, page_size: 20 } })
+    }
+    return route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 20 } })
+  })
+  await page.goto('/orders/pos')
+  const historyTab = page.getByRole('tab', { name: 'Мої продажі' })
+  await historyTab.click()
+  const history = page.getByRole('region', { name: 'Мої продажі' })
+  const filterButton = history.getByRole('button', { name: /^Фільтри/ })
+  const dialog = page.getByRole('dialog', { name: 'Фільтри продажів' })
+  const sortButton = dialog.getByRole('button', { name: /^Сортування/ })
+  const search = dialog.getByRole('searchbox', { name: 'Пошук продажів' })
+  const apply = dialog.getByRole('button', { name: 'Застосувати', exact: true })
+  const showFilters = async () => {
+    await filterButton.click()
+    await expect(dialog).toBeVisible()
+  }
+  const selectSort = async (name: string) => {
+    await sortButton.click()
+    await dialog.getByRole('option', { name, exact: true }).click()
+    await expect(sortButton).toBeFocused()
+  }
+  const sale = (id: number) => history.locator('article').filter({ has: page.getByRole('heading', { name: 'Продаж #' + id, exact: true }) })
+  await expect(sale(7).getByText('Оплачено · очікуємо чек')).toBeVisible()
+  await expect(sale(7).getByText('Оплачено', { exact: true })).toBeVisible()
+  await expect(sale(7).getByText('Очікується', { exact: true })).toBeVisible()
+  await expect(sale(7).getByText('Не готово', { exact: true })).toBeVisible()
+  await sale(7).getByRole('button', { name: 'Деталі продажу #7' }).click()
+  await expect(sale(7).getByRole('button', { name: 'Продовжити цей продаж' })).toBeVisible()
+  await page.setViewportSize({ width: 320, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await history.getByRole('button', { name: 'Показати ще' }).click()
+  await expect(sale(6)).toBeVisible()
+  expect(queries.at(-1)?.get('page')).toBe('2')
+  const queryCount = queries.length
+  await expect(history.getByRole('searchbox')).toHaveCount(0)
+  await showFilters()
+  await expect(dialog.getByRole('button', { name: 'Закрити' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(apply).toBeFocused()
+  await dialog.getByRole('button', { name: 'Завершені', exact: true }).click()
+  await search.fill('Не застосовано')
+  await sortButton.press('ArrowDown')
+  const listbox = dialog.getByRole('listbox', { name: 'Сортування' })
+  await expect(listbox).toBeVisible()
+  await expect(listbox.getByRole('option', { name: 'Спочатку нові' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(dialog.getByRole('button', { name: 'Скинути' })).toBeFocused()
+  await sortButton.press('ArrowDown')
+  await page.keyboard.press('Escape')
+  await expect(listbox).toHaveCount(0)
+  await expect(sortButton).toBeFocused()
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(filterButton).toBeFocused()
+  expect(queries).toHaveLength(queryCount)
+
+  await showFilters()
+  await expect(search).toHaveValue('')
+  await expect(dialog.getByRole('button', { name: 'Усі', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await dialog.getByRole('button', { name: 'Завершені', exact: true }).click()
+  await apply.click()
+  await expect(sale(12)).toBeVisible()
+  await expect(sale(7)).toHaveCount(0)
+  await expect(filterButton).toHaveAccessibleName('Фільтри, застосовано 1')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+  expect(queries.at(-1)?.get('scope')).toBe('completed')
+
+  await showFilters()
+  await expect(dialog.getByRole('button', { name: 'Завершені', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await selectSort('Спочатку давні')
+  await apply.click()
+  await expect.poll(() => queries.at(-1)?.get('sort')).toBe('oldest')
+  await expect(history.getByText('Завантажуємо мої продажі')).toBeVisible()
+  await showFilters()
+  await expect(sortButton).toHaveAccessibleName(/Спочатку давні/)
+  await selectSort('Від меншої суми')
+  await apply.click()
+  await expect(sale(4)).toBeVisible()
+  const stale = page.waitForResponse(response => new URL(response.url()).searchParams.get('sort') === 'oldest')
+  releaseOlder()
+  await (await stale).finished()
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await expect(sale(12)).toHaveCount(0)
+  expect(queries.at(-1)?.get('scope')).toBe('completed')
+  expect(queries.at(-1)?.get('sort')).toBe('amount_asc')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+
+  await showFilters()
+  await search.fill(' Reuzel ')
+  await search.press('Enter')
+  await expect(history.getByText('За цими умовами продажів немає')).toBeVisible()
+  expect(queries.at(-1)?.get('q')).toBe('Reuzel')
+  await expect(filterButton).toHaveAccessibleName('Фільтри, застосовано 3')
+  const beforeReset = queries.length
+  await showFilters()
+  await dialog.getByRole('button', { name: 'Скинути' }).click()
+  await expect(search).toHaveValue('')
+  await expect(sortButton).toHaveAccessibleName(/Спочатку нові/)
+  expect(queries).toHaveLength(beforeReset)
+  await apply.click()
+  await expect(sale(7)).toBeVisible()
+  await expect(filterButton).toBeFocused()
+  await expect(filterButton).toHaveAccessibleName('Фільтри')
+  expect(queries).toHaveLength(beforeReset + 1)
+  expect(Object.fromEntries(queries.at(-1)!)).toEqual({ scope: 'all', sort: 'newest', page: '1', page_size: '20' })
+
+  failNextHistory = true
+  await showFilters()
+  await search.fill('fixture-retry')
+  await apply.click()
+  await expect(history.getByRole('alert')).toHaveText('Не вдалося завантажити мої продажі. Спробуйте ще раз.')
+  await history.getByRole('button', { name: 'Спробувати ще раз' }).click()
+  await expect(history.getByText('За цими умовами продажів немає')).toBeVisible()
+  expect(queries.at(-1)?.get('q')).toBe('fixture-retry')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+
+  for (const destination of ['filters', 'tab', 'modal', 'removed card'] as const) {
+    await test.step(`late details response with focus on ${destination}`, async () => {
+      movedToCompleted = false
+      await page.reload()
+      await historyTab.click()
+      await showFilters()
+      await dialog.getByRole('button', { name: 'В роботі', exact: true }).click()
+      await apply.click()
+      await expect(sale(7)).toBeVisible()
+
+      let releaseDetails = () => {}
+      delayedDetails = new Promise<void>(resolve => { releaseDetails = resolve })
+      const details = sale(7).getByRole('button', { name: 'Деталі продажу #7' })
+      await details.click()
+      await expect(details).toBeFocused()
+      const closeModal = dialog.getByRole('button', { name: 'Закрити' })
+      if (destination === 'filters') await filterButton.focus()
+      if (destination === 'tab') await historyTab.focus()
+      if (destination === 'modal') await showFilters()
+      releaseDetails()
+
+      const notice = history.getByText('Продаж #7: Завершено. Список оновлено.')
+      await expect(notice).toBeVisible()
+      await expect(sale(7)).toHaveCount(0)
+      if (destination === 'filters') await expect.soft(filterButton).toBeFocused({ timeout: 1500 })
+      if (destination === 'tab') await expect.soft(historyTab).toBeFocused({ timeout: 1500 })
+      if (destination === 'removed card') await expect(notice).toBeFocused()
+      if (destination === 'modal') {
+        await expect(closeModal).toBeFocused()
+        await page.keyboard.press('Escape')
+        await expect(filterButton).toBeFocused()
+      }
+    })
+  }
+})

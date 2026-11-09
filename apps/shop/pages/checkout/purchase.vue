@@ -188,19 +188,19 @@ onMounted(async () => {
 })
 const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
-  { label: locale.value === 'uk' ? 'Карткою онлайн · monobank' : 'Pay online · monobank', value: 'onlineCard' },
+  { label: paymentText.value.option, value: 'onlineCard' },
 ])
 const paymentChoiceText = computed(() => locale.value === 'uk' ? {
   introduction: 'Оберіть зручний спосіб оплати.',
   onlineUnavailable: 'Онлайн-оплата тимчасово недоступна.',
   onlineLoading: 'Перевіряємо доступність онлайн-оплати…',
-  onlineDescription: 'Після створення замовлення ви зможете перейти на захищену сторінку платіжного провайдера та оплатити карткою.',
+  onlineDescription: 'Після оформлення замовлення ви зможете перейти до захищеної форми оплати.',
   onlineConfirmation: 'Замовлення створено. Завершіть оплату.',
 } : {
   introduction: 'Choose how you would like to pay.',
   onlineUnavailable: 'Online payment is temporarily unavailable.',
   onlineLoading: 'Checking online payment availability…',
-  onlineDescription: 'After placing your order, you can continue to the payment provider’s secure page and pay by card.',
+  onlineDescription: 'After you place your order, you can continue to the secure payment form.',
   onlineConfirmation: 'Order created. Complete your payment.',
 })
 const isDeliveryValid = computed(() => {
@@ -560,15 +560,9 @@ useSeo(
                     :disabled="option.value === 'onlineCard' && !onlinePaymentEnabled"
                     :description="option.value === 'onlineCard' && !onlinePaymentEnabled ? (onlinePaymentLoading ? paymentChoiceText.onlineLoading : paymentChoiceText.onlineUnavailable) : undefined"
                   />
-                    <div v-if="option.value === 'onlineCard'" class="checkout-payment-method__cards" role="group" :aria-label="locale === 'uk' ? 'Онлайн-оплата: Visa, Mastercard, monobank' : 'Online payment: Visa, Mastercard, monobank'">
-                      <img :src="shopAsset('/payment-brands/visa-blue.png')" alt="Visa" width="56" height="18">
-                      <img :src="shopAsset('/payment-brands/mastercard.svg')" alt="Mastercard" width="50" height="32">
-                      <img :src="shopAsset('/payment-brands/monobank.svg')" alt="monobank" width="108" height="24">
-                    </div>
-                  <div v-if="option.value === 'onlineCard' && form.paymentMethod === 'onlineCard'" class="checkout-payment-method__details">
-                    <p>{{ paymentChoiceText.onlineDescription }}</p>
-
-                  </div>
+                  <p v-if="option.value === 'onlineCard' && form.paymentMethod === 'onlineCard'" class="checkout-payment-method__details">
+                    {{ paymentChoiceText.onlineDescription }}
+                  </p>
                 </div>
               </div>
             </BaseField>
@@ -939,8 +933,7 @@ useSeo(
 
 .checkout-payment-methods {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 0.5rem;
 }
@@ -967,32 +960,10 @@ useSeo(
 }
 
 .checkout-payment-method__details {
-  display: grid;
-  gap: 0.875rem;
   padding: 0 1rem 1rem 3.25rem;
   color: #525252;
   font-size: 0.8125rem;
   line-height: 1.5;
-}
-
-.checkout-payment-method__cards {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 1rem;
-  width: fit-content;
-  margin: 0 0 0 12px;
-  max-width: calc(100% - 12px);
-}
-
-.checkout-payment-method__cards img {
-  display: block;
-  flex: 0 1 auto;
-  min-width: 0;
-  width: auto;
-  height: 18px;
-  object-fit: contain;
-  max-width: 100%;
 }
 
 .checkout-card--payment { padding: 1.25rem; }
@@ -1142,6 +1113,10 @@ useSeo(
 }
 
 @media (min-width: 768px) {
+  .checkout-payment-methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .checkout-form__grid--two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

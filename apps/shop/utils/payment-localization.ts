@@ -1,10 +1,10 @@
 export const paymentCopy = {
   uk: {
-    widgetTitle: 'Захищена оплата карткою', widgetFrame: 'Оплата через monobank',
+    widgetTitle: 'Захищена оплата карткою', widgetFrame: 'Захищена форма оплати',
     widgetFallback: 'Відкрити сторінку оплати', widgetClose: 'Повернутись до замовлення',
     widgetHint: 'Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.',
 
-    option: 'Онлайн карткою', statusPage: 'Сторінка статусу оплати',
+    option: 'Онлайн-оплата карткою', statusPage: 'Сторінка статусу оплати',
     title: 'Оплата замовлення', description: 'Захищений статус оплати замовлення', unavailable: 'Замовлення недоступне.',
     label: 'Онлайн-оплата', heading: 'Онлайн-оплата карткою', create: 'Перейти до оплати',
     accessTitle: 'Не вдалося відкрити оплату', accessHint: 'Поверніться у вкладку, де оформлювали замовлення, або увійдіть в акаунт покупця. Якщо посилання застаріло, зверніться до підтримки.',
@@ -14,7 +14,7 @@ export const paymentCopy = {
     updateError: 'Не вдалося оновити оплату. Спробуйте ще раз.',
     viewOrder: 'Переглянути замовлення та доставку',
     order: 'Замовлення', amount: 'До сплати', loading: 'Перевіряємо оплату…',
-    provider: 'Оплата через monobank', protected: 'Реквізити картки вводяться лише на захищеній сторінці платіжного сервісу.',
+    protected: 'Вводьте реквізити картки лише в захищеній формі оплати.',
     checking: 'Перевіряємо результат. Якщо ви вже підтвердили оплату в банку, зачекайте — повторно платити не потрібно.',
     paidTitle: 'Дякуємо! Оплату отримано', paidNext: 'Оплату підтверджено. За підготовкою та доставкою можна стежити на сторінці замовлення.',
     receiptPending: 'Фіскальний чек ще формується. Оплату вже отримано — повторювати її не потрібно.',
@@ -37,7 +37,7 @@ export const paymentCopy = {
     statuses: { not_started: 'Оплату ще не розпочато', creation_unknown: 'Уточнюємо стан оплати', waiting: 'Очікуємо оплату', paid_receipt_pending: 'Оплату отримано. Готуємо чек.', accepted: 'Оплату прийнято, чек готовий', requires_review: 'Стан оплати потребує уточнення' },
   },
   en: {
-    widgetTitle: 'Secure card payment', widgetFrame: 'Payment via monobank',
+    widgetTitle: 'Secure card payment', widgetFrame: 'Secure payment form',
     widgetFallback: 'Open payment page', widgetClose: 'Return to order',
     widgetHint: 'If payment does not load, continue on the secure page for this same payment.',
 
@@ -51,7 +51,7 @@ export const paymentCopy = {
     updateError: 'Could not update the payment. Please try again.',
     viewOrder: 'View order and delivery',
     order: 'Order', amount: 'Amount due', loading: 'Checking payment…',
-    provider: 'Payment via monobank', protected: 'Enter card details only on the payment provider’s secure page.',
+    protected: 'Enter card details only in the secure payment form.',
     checking: 'We are checking the result. If you already approved the payment with your bank, please wait — do not pay again.',
     paidTitle: 'Thank you! Payment received', paidNext: 'Payment is confirmed. Follow preparation and delivery progress on your order page.',
     receiptPending: 'Your fiscal receipt is being prepared. Payment has been received — do not pay again.',
