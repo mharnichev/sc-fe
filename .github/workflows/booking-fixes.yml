@@ -3,6 +3,12 @@ on:
   push:
     branches: [codex/booking-availability-statistics-20261103, codex/inventory-release-20261104, codex/pos-combined-release-20261106]
   workflow_dispatch:
+    inputs:
+      application:
+        description: Application image scope
+        type: choice
+        options: [all, backoffice]
+        default: all
 permissions:
   contents: read
   packages: write
@@ -16,11 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - app: barbershop
-            repository: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
-          - app: backoffice
-            repository: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
+        include: ${{ fromJSON(inputs.application == 'backoffice' && '[{"app":"backoffice","repository":"ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40"}]' || '[{"app":"barbershop","repository":"ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40"},{"app":"backoffice","repository":"ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40"}]') }}
     env:
       IMAGE_REPOSITORY: ${{ matrix.repository }}
       APPLICATION: ${{ matrix.app }}
