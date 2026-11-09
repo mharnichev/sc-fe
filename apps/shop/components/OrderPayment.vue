@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
-const props = defineProps<{ orderId: number, guestToken?: string, orderPath?: string, autoStart?: boolean }>()
+const props = defineProps<{ orderId: number, guestToken?: string, resumeGuest?: boolean, orderPath?: string, autoStart?: boolean }>()
 const emit = defineEmits<{ 'method-changed': [method: string] }>()
-const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed, getCapabilities } = useOrderPayment(() => props.orderId, () => props.guestToken)
+const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed, getCapabilities, hasGuestCapability } = useOrderPayment(() => props.orderId, () => props.guestToken, props.resumeGuest)
 const paymentRoot = ref<HTMLElement | null>(null)
 const widgetOpen = ref(false)
 const preparing = ref(false)
@@ -21,7 +21,7 @@ const closeWidget = (restoreFocus = false) => {
   restoreWidgetFocus = restoreFocus
   widgetOpen.value = false; presentationRevision++; widgetFrameKey.value++
 }
-// Includes the modal header, footer, safe margin and a full 576px provider viewport.
+// Includes the drawer header, footer and a full 576px provider viewport.
 const measureWidgetSpace = () => {
   const viewport = window.visualViewport
   widgetFits.value = Math.min(window.innerWidth, viewport?.width ?? window.innerWidth) >= 608
@@ -81,12 +81,15 @@ const beginPayment = async () => {
     if (!widgetUrl.value && !busy.value) widgetOpen.value = false
   }
 }
-const continuePayment = async () => {
+const continuePayment = async (redirect = false) => {
   const context = identity(), revision = navigationRevision, presentation = presentationRevision
-  await refresh()
-  if (active && context === identity() && revision === navigationRevision && presentation === presentationRevision) showPayment()
+  const result = await refresh()
+  if (!result || !active || document.hidden || error.value || context !== identity()
+    || revision !== navigationRevision || presentation !== presentationRevision) return
+  if (!redirect) showPayment()
+  else if (pageUrl.value) { closeWidget(true); navigatePayment(pageUrl.value) }
 }
-const widgetFallback = () => { closeWidget(); navigatePayment(pageUrl.value) }
+const widgetFallback = () => { void continuePayment(true) }
 watch(() => [widgetUrl.value, error.value, busy.value], () => {
   if (!widgetUrl.value && !busy.value) widgetOpen.value = false
 }, { flush: 'post' })
@@ -208,19 +211,18 @@ const amount = computed(() => {
     <p v-if="settled && !payment?.receipt_accepted" class="order-payment__hint">{{ paymentText.receiptPending }}</p>
     <div class="order-payment__actions">
       <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !accessDenied && !error" :disabled="busy || preparing" @click="beginPayment">{{ paymentText.create }}</BaseButton>
-      <BaseButton v-if="widgetUrl && widgetFits && !accessDenied" :disabled="busy || preparing" @click="continuePayment">{{ paymentText.pay }}</BaseButton>
-      <BaseButton v-else-if="pageUrl && !accessDenied" :href="pageUrl" rel="noreferrer" @click="recordRedirect">{{ paymentText.pay }}</BaseButton>
+      <BaseButton v-if="((widgetUrl && widgetFits) || pageUrl) && !accessDenied && !error" :disabled="busy || preparing" @click="continuePayment()">{{ paymentText.pay }}</BaseButton>
       <BaseButton v-if="receiptUrl && payment?.receipt_accepted && !accessDenied" :href="receiptUrl" target="_blank" rel="noopener noreferrer">{{ paymentText.receipt }}</BaseButton>
       <BaseButton variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
       <BaseButton v-if="canChange" variant="borderless" :disabled="busy" @click="openChange">{{ paymentText.changeMethod }}</BaseButton>
-      <BaseButton v-if="orderPath && !accessDenied" :to="orderPath" variant="borderless">{{ paymentText.viewOrder }}</BaseButton>
+      <BaseButton v-if="orderPath && !accessDenied && (!resumeGuest || !hasGuestCapability())" :to="orderPath" variant="borderless">{{ paymentText.viewOrder }}</BaseButton>
       <CustomerAuthDialog v-if="accessDenied" :label="paymentText.signIn" />
       <BaseButton v-if="error || payment?.actions?.contact_support || payment?.status === 'requires_review' || (payment && !payment.enabled && !methodChanged)" to="/contacts" variant="text">{{ paymentText.contact }}</BaseButton>
     </div>
     <p v-if="!methodChanged && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.protected }}</p>
     <p v-if="error" class="order-payment__error" role="alert">{{ paymentError }}</p>
     <MonoPaymentModal :model-value="widgetOpen" :embed-url="widgetUrl" :frame-key="widgetFrameKey"
-      :loading="busy && !widgetUrl" :redirect-url="pageUrl" @update:model-value="updateWidgetOpen" @fallback="widgetFallback" @unavailable="closeWidget()" @closed="widgetClosed" />
+      :busy="busy" :redirect-url="pageUrl" @update:model-value="updateWidgetOpen" @fallback="widgetFallback" @unavailable="closeWidget()" @closed="widgetClosed" />
     <BaseModal v-model="changeOpen" type="bottom">
       <template #header-title>{{ paymentText.changeTitle }}</template>
       <div class="order-payment__method-form">
