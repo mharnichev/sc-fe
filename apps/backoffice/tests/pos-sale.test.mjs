@@ -239,6 +239,80 @@ test('invalid fiscal basket unlocks only after canonical lookup proves no checko
  }
 })
 
+test('expired-sale exit drops stale offers without requiring a reload', async () => {
+ let checkout = null
+ let available = 2
+ const f = await setup((path, request) => {
+  if (path.endsWith('/products')) return { items:[{...offer,available_quantity:available}],total:1,page:1,page_size:20 }
+  if (path.endsWith('/checkouts') && request.method === 'POST') {
+   checkout = state({
+    intent_id:request.body.intent_id, revision:2, status:'requires_review',
+    payment:{...state().payment,status:'unknown',invoice_id:null,qr_payload:null},
+    actions:{...state().actions,can_refresh:false},blocking_reasons:['creation_unknown'],
+   })
+   return checkout
+  }
+  return base(path) || checkout
+ })
+ await f.sale.search(offer.name)
+ assert.equal(f.sale.offers.value.items[0].available_quantity,2)
+ await start(f.sale)
+ checkout = {...checkout,revision:3,order_status:'cancelled',payment:{...checkout.payment,status:'expired'},actions:{...checkout.actions,can_start_new:true}}
+ available = 1
+ assert.equal(await f.sale.readSaved(),true)
+ await f.sale.startNew()
+ assert.equal(f.sale.checkout.value,null)
+ assert.deepEqual(f.sale.offers.value.items,[])
+ await f.sale.search(offer.name)
+ assert.equal(f.sale.offers.value.items[0].available_quantity,1)
+ assert.equal(f.calls.filter(call=>call.method==='POST').length,1)
+ f.stop()
+})
+
+test('expired-sale exit retains the selection when a newer bank conflict appears', async () => {
+ const intentId = state().intent_id
+ const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:intentId,currency:'UAH',quote_revision:'1'.repeat(64)} }
+ const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)]])
+ const expired = state({
+  revision:3, order_status:'cancelled', status:'requires_review',
+  payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
+  actions:{...state().actions,can_refresh:false,can_start_new:true},
+ })
+ const conflict = {
+  ...expired, revision:4,
+  payment:{...expired.payment,status:'unknown'}, receipt:{...expired.receipt,status:'requires_review'},
+  actions:{...expired.actions,can_start_new:false}, blocking_reasons:['master_mono_closed_conflict'],
+ }
+ const f = await setup(path => base(path) || (path.includes('/by-intent/') ? expired : conflict), storage)
+ assert.equal(f.sale.canStartNew.value,true)
+ await f.sale.startNew()
+ assert.equal(f.sale.canStartNew.value,false)
+ assert.equal(f.sale.checkout.value.revision,4)
+ assert.equal(f.sale.saved.value.key,record.key)
+ assert.equal(f.sale.saved.value.body.intent_id,intentId)
+ assert.equal(f.calls.some(call=>call.method==='POST'),false)
+ f.stop()
+})
+
+test('expired-sale exit preserves an unresolved command and never replays it', async () => {
+ const intentId = state().intent_id
+ const command = { operation:'resume',key:'55555555-5555-4555-8555-555555555555',revision:2 }
+ const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:intentId,currency:'UAH',quote_revision:'1'.repeat(64)}, command }
+ const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)]])
+ const expired = state({
+  revision:3, order_status:'cancelled', status:'requires_review',
+  payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
+  actions:{...state().actions,can_refresh:false,can_start_new:true},
+ })
+ const f = await setup(path => base(path) || expired, storage)
+ assert.equal(f.sale.canStartNew.value,false)
+ await f.sale.recover()
+ await f.sale.startNew()
+ assert.deepEqual(f.sale.saved.value.command,command)
+ assert.equal(f.calls.some(call=>call.method==='POST'),false)
+ f.stop()
+})
+
 test('deferral preserves the old intent through reload and requires a separate checkout click', async () => {
  let old
  const send = (path, options) => {

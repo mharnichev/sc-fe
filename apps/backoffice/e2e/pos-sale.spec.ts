@@ -680,6 +680,87 @@ test('manager recovery without a bank payment link keeps the original sale and k
   expect(fixture.requests.filter(request => request.method !== 'GET')).toEqual(fixture.attachments())
 })
 
+test('0150 closed sale exits to fresh stock after reread and reload without replaying the old intent', async ({ page, context }) => {
+  const intentId = '33333333-3333-4333-8333-333333333333'
+  const key = '44444444-4444-4444-8444-444444444444'
+  const selectionToken = '55555555-5555-4555-8555-555555555555'
+  const oldRecord = {
+    key, checkout_id: uuid,
+    body: { intent_id: intentId, currency: 'UAH', items: [{ product_id: 101, quantity: 1 }], quote_revision: '1'.repeat(64), promo_code: null, promotion_id: null },
+  }
+  let closed = false
+  const reads: string[] = []
+  const state = (): PosCheckout => ({
+    checkout_id: uuid, intent_id: intentId, order_id: 5, revision: closed ? 3 : 2, created_at: '2026-11-09T07:57:55Z',
+    employee: { user_id: 17, master_id: 42, display_name: 'Synthetic master' },
+    items: [{ product_id: 101, name: offer.name, sku: offer.sku, barcode: offer.barcode, image_url: null, variant_label: offer.variant_label, quantity: 1, unit_minor: 62900, total_minor: 62900 }],
+    order_status: closed ? 'cancelled' : 'pending', amount_minor: 62900, currency: 'UAH', status: 'requires_review',
+    payment: { provider: 'monobank', status: closed ? 'expired' : 'unknown', invoice_id: null, confirmed_at: null, qr_payload: null },
+    receipt: { issuer: 'checkbox', status: 'not_requested', recorded_at: null, pdf_url: null },
+    handover: { status: 'not_ready', actor_user_id: null, handed_over_at: null },
+    actions: { can_resume: false, can_refresh: false, can_handover: false, can_recover_invoice: false, can_start_new: closed },
+    blocking_reasons: ['creation_unknown'], poll_after_ms: 10000,
+  })
+  const install = async (tab: Page) => {
+    const fixture = await setup(tab, { manualRefresh: true })
+    await tab.route(/\/pos\/checkouts\//, async route => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      expect(request.method()).toBe('GET')
+      reads.push(path)
+      if (path.endsWith('/active')) {
+        const items = closed ? [] : [state()]
+        return route.fulfill({ json: { items, total: items.length, page: 1, page_size: 20 } })
+      }
+      expect(path.endsWith('/' + intentId) || path.endsWith('/' + uuid)).toBe(true)
+      return route.fulfill({ json: state() })
+    })
+    await tab.route(/\/pos\/products(?:\?|$)/, route => route.fulfill({
+      json: { items: [{ ...offer, available_quantity: closed ? 1 : 0, can_sell: closed }], total: 1, page: 1, page_size: 20 },
+    }))
+    return fixture
+  }
+  await page.addInitScript(({ oldRecord, selectionToken }) => {
+    if (localStorage.getItem('closure-fixture-initialized')) return
+    localStorage.setItem('closure-fixture-initialized', 'true')
+    localStorage.setItem('sc-pos:v1:17', JSON.stringify({ version: 2, current: oldRecord, selection_token: selectionToken, deferred: [] }))
+    sessionStorage.setItem('sc-pos:v1:17:selection', selectionToken)
+  }, { oldRecord, selectionToken })
+  const fixture = await install(page)
+  await page.goto('/orders/pos')
+  const sale = page.getByRole('region', { name: 'Поточний продаж' })
+  const exit = sale.getByRole('button', { name: 'До пошуку товарів', exact: true })
+  await expect(sale.getByText('Продаж #5', { exact: true })).toBeVisible()
+  await expect(exit).toHaveCount(0)
+  const other = await context.newPage()
+  const otherFixture = await install(other)
+  await other.goto('/orders/pos')
+  await expect(other.getByRole('button', { name: 'Відкрити збережений продаж' })).toBeVisible()
+
+  closed = true
+  await sale.getByRole('button', { name: 'Перечитати стан', exact: true }).click()
+  await expect(sale.getByText('Продаж скасовано. Строк дії рахунку минув, оплату не отримано.')).toBeVisible()
+  await expect(sale.getByText('Рахунок прострочено', { exact: true })).toBeVisible()
+  await expect(sale.getByRole('img', { name: 'QR для оплати mono' })).toHaveCount(0)
+  await expect(sale.getByRole('button', { name: 'Товар видано', exact: true })).toHaveCount(0)
+  await page.reload()
+  await expect(exit).toBeVisible()
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sc-pos:v1:17')!).current)).toMatchObject(oldRecord)
+  const beforeExit = reads.filter(path => path.endsWith('/' + uuid)).length
+  await exit.click()
+  await expect(page.getByLabel('Знайти товар')).toBeVisible()
+  await expect(other.getByLabel('Знайти товар')).toBeVisible()
+  expect(reads.filter(path => path.endsWith('/' + uuid))).toHaveLength(beforeExit + 1)
+  expect(await page.evaluate(() => localStorage.getItem('sc-pos:v1:17'))).toBeNull()
+
+  await page.getByLabel('Знайти товар').fill(offer.barcode)
+  await page.getByLabel('Знайти товар').press('Enter')
+  await expect(page.getByText('Доступно: 1 шт.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Додати: Reuzel Blue' }).click()
+  await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toBeEnabled()
+  expect([...fixture.requests, ...otherFixture.requests].filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))).toEqual([])
+})
+
 test('another tab cannot silently replace the invoice the manager confirmed', async ({ page }) => {
   const f = await recoveryFixture(page, 'admin')
   await page.goto('/admin/product-sales?q=9001')

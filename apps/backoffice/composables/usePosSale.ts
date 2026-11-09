@@ -15,6 +15,10 @@ const unresolvedCreate = (c: PosCheckout) => c.status === 'requires_review' && c
   && c.payment.invoice_id === null && c.payment.qr_payload === null && c.receipt.status === 'not_requested'
   && c.handover.status === 'not_ready' && ['pending', 'confirmed'].includes(c.order_status)
   && c.blocking_reasons?.includes('creation_unknown')
+export const posExpiredClosure = (c: PosCheckout) => c.order_status === 'cancelled' && c.status === 'requires_review'
+  && c.payment.status === 'expired' && c.payment.invoice_id === null && c.payment.qr_payload === null && c.payment.confirmed_at === null
+  && c.receipt.status === 'not_requested' && c.handover.status === 'not_ready'
+  && !c.blocking_reasons?.includes('master_mono_closed_conflict')
 const quoteRevision = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 function matchesQuote(quote: PosCartQuote, cart: PosCartRequest) {
   return quote?.currency === 'UAH' && quoteRevision(quote.quote_revision) && quote.applied_promo_code === cart.promo_code
@@ -78,6 +82,14 @@ export const usePosSale = () => {
   const hasInvoiceAttachment = (orderId: number) => localStorage.getItem(`sc-sales:v1:${auth.user?.id}:pos-attach-invoice:${orderId}`) !== null
   const canDefer = computed(() => allowed.value && !!checkout.value && !!saved.value?.checkout_id
     && saved.value.checkout_id === checkout.value.checkout_id && !saved.value.command && unresolvedCreate(checkout.value))
+  const canStartNew = computed(() => {
+    const c = checkout.value, record = saved.value
+    if (!allowed.value || error.value || !c?.actions.can_start_new || !record
+      || record.checkout_id !== c.checkout_id || record.command) return false
+    if (c.status === 'completed' && c.handover.status === 'handed_over') return true
+    return posExpiredClosure(c) && !c.actions.can_resume && !c.actions.can_refresh
+      && !c.actions.can_handover && !c.actions.can_recover_invoice
+  })
   const paymentUrl = computed(() => {
     const c = checkout.value
     if (!access.value || !c || error.value || c.status !== 'awaiting_payment'
@@ -452,8 +464,35 @@ export const usePosSale = () => {
     priceOffer.value = saved.value?.proposed || null
   }
   const startNew = async () => {
-    if (busy.value || loading.value || !checkout.value?.actions.can_start_new || checkout.value.status !== 'completed' || checkout.value.handover.status !== 'handed_over') return
-    try { persist(null); checkout.value = null; priceOffer.value = null; error.value = ''; await init() } catch (cause) { error.value = message(cause) }
+    const c = checkout.value
+    if (!c || busy.value || loading.value || !canStartNew.value) return
+    const v = generation
+    try {
+      if (posExpiredClosure(c)) {
+        // A late bank conflict can revoke the exit. Read the same sale under the tab lock.
+        loading.value = true
+        try {
+          const latest = await read<PosCheckout>(`/checkouts/${c.checkout_id}`)
+          if (!current(v)) return
+          if (latest.revision < c.revision) throw new Error('stale closure')
+          accept(latest, v)
+          if (!posExpiredClosure(latest) || !canStartNew.value) return
+          if (hasInvoiceAttachment(c.order_id)) {
+            error.value = 'Є незавершена звірка рахунку. Перечитайте стан цього продажу.'
+            return
+          }
+        } finally { if (current(v)) loading.value = false }
+      }
+      stopTimer()
+      persist(null)
+      searchGeneration++
+      offers.value = { items: [], total: 0, page: 1, page_size: 20 }
+      searchBusy.value = false
+      searchError.value = ''
+      checkout.value = null
+      priceOffer.value = null
+      await init()
+    } catch (cause) { if (current(v)) error.value = message(cause) }
   }
   const reset = () => {
     generation++; searchGeneration++; stopTimer(); initFlight = null; readFlight = null
@@ -469,5 +508,5 @@ export const usePosSale = () => {
   const storageChanged = (event: StorageEvent) => { if (event.key === scope.value) reset() }
   if (import.meta.client) window.addEventListener('storage', storageChanged)
   onScopeDispose(() => { generation++; stopTimer(); if (import.meta.client) window.removeEventListener('storage', storageChanged) })
-  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Pick<ActiveSale, 'checkout_id'>) => withSaleLock(() => resumeActive(c)), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew: () => withSaleLock(startNew) }
+  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, canStartNew, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Pick<ActiveSale, 'checkout_id'>) => withSaleLock(() => resumeActive(c)), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew: () => withSaleLock(startNew) }
 }
