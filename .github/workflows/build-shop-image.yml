@@ -5,6 +5,7 @@ on:
     branches:
       - codex/shop-complete-owned-20261102
       - codex/pos-combined-release-20261106
+      - codex/ready-ui-combined-20261109
   workflow_dispatch:
 
 permissions:
@@ -20,6 +21,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/codex/shop-complete-owned-20261102' ||
       github.ref == 'refs/heads/codex/pos-combined-release-20261106' ||
+      github.ref == 'refs/heads/codex/ready-ui-combined-20261109' ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 30

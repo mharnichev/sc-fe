@@ -141,7 +141,7 @@ test('checkout payment capability and values stay stable across locale toggles',
   for (const language of ['uk', 'en', 'uk']) {
     locale.value = language
     assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'onlineCard'])
-    assert.equal(paymentOptions.value[1].label, language === 'uk' ? 'Карткою онлайн · monobank' : 'Pay online · monobank')
+    assert.equal(paymentOptions.value[1].label, language === 'uk' ? 'Онлайн-оплата карткою' : 'Pay online by card')
     assert.equal(globalThis.paymentText.value.statusPage, language === 'uk' ? 'Сторінка статусу оплати' : 'Payment status page')
   }
   onlinePaymentEnabled.value = false
