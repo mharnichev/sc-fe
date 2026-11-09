@@ -699,7 +699,7 @@ test('0150 closed sale exits to fresh stock after reread and reload without repl
     receipt: { issuer: 'checkbox', status: 'not_requested', recorded_at: null, pdf_url: null },
     handover: { status: 'not_ready', actor_user_id: null, handed_over_at: null },
     actions: { can_resume: false, can_refresh: false, can_handover: false, can_recover_invoice: false, can_start_new: closed },
-    blocking_reasons: ['creation_unknown'], poll_after_ms: 10000,
+    blocking_reasons: closed ? ['master_mono_sale_closed', 'cancelled'] : ['creation_unknown'], poll_after_ms: 10000,
   })
   const install = async (tab: Page) => {
     const fixture = await setup(tab, { manualRefresh: true })
@@ -729,17 +729,17 @@ test('0150 closed sale exits to fresh stock after reread and reload without repl
   const fixture = await install(page)
   await page.goto('/orders/pos')
   const sale = page.getByRole('region', { name: 'Поточний продаж' })
-  const exit = sale.getByRole('button', { name: 'До пошуку товарів', exact: true })
+  const exit = sale.getByRole('button', { name: 'Новий продаж', exact: true })
   await expect(sale.getByText('Продаж #5', { exact: true })).toBeVisible()
   await expect(exit).toHaveCount(0)
   const other = await context.newPage()
   const otherFixture = await install(other)
   await other.goto('/orders/pos')
-  await expect(other.getByRole('button', { name: 'Відкрити збережений продаж' })).toBeVisible()
+  await expect(other.getByRole('button', { name: 'Перевірити збережений продаж' })).toBeVisible()
 
   closed = true
   await sale.getByRole('button', { name: 'Перечитати стан', exact: true }).click()
-  await expect(sale.getByText('Продаж скасовано. Строк дії рахунку минув, оплату не отримано.')).toBeVisible()
+  await expect(sale.getByText('Строк дії рахунку минув, оплату не отримано.')).toBeVisible()
   await expect(sale.getByText('Рахунок прострочено', { exact: true })).toBeVisible()
   await expect(sale.getByRole('img', { name: 'QR для оплати mono' })).toHaveCount(0)
   await expect(sale.getByRole('button', { name: 'Товар видано', exact: true })).toHaveCount(0)
@@ -994,7 +994,7 @@ test('own-admin expired close archives an exact lost bind only on fresh terminal
   await dialog.getByRole('button', { name: closeButton }).click()
   await expect(dialog.getByText('Продаж закрито. Резерв товару знято.')).toBeVisible()
   await page.reload()
-  const exit = sale.getByRole('button', { name: 'До пошуку товарів', exact: true })
+  const exit = sale.getByRole('button', { name: 'Новий продаж', exact: true })
   await expect(exit).toBeVisible()
   expect(await page.evaluate(key => localStorage.getItem(key), pendingKey)).toBe(pending)
   const offset = fixture.requests.length

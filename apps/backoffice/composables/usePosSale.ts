@@ -20,6 +20,8 @@ export const posExpiredClosure = (c: PosCheckout) => c.order_status === 'cancell
   && c.payment.status === 'expired' && c.payment.invoice_id === null && c.payment.qr_payload === null && c.payment.confirmed_at === null
   && c.receipt.status === 'not_requested' && c.handover.status === 'not_ready'
   && !c.blocking_reasons?.includes('master_mono_closed_conflict')
+const canExitExpired = (c: PosCheckout) => posExpiredClosure(c) && c.blocking_reasons?.includes('master_mono_sale_closed') === true && c.actions.can_start_new
+  && !c.actions.can_resume && !c.actions.can_refresh && !c.actions.can_handover && !c.actions.can_recover_invoice
 const quoteRevision = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 function matchesQuote(quote: PosCartQuote, cart: PosCartRequest) {
   return quote?.currency === 'UAH' && quoteRevision(quote.quote_revision) && quote.applied_promo_code === cart.promo_code
@@ -72,6 +74,7 @@ export const usePosSale = () => {
     return positive(limits?.max_items) && positive(limits?.max_quantity) ? limits : null
   })
   const busy = ref(false), loading = ref(false), searchBusy = ref(false), error = ref(''), searchError = ref(''), storageFault = ref(false)
+  const exitLockIssue = ref('')
   let generation = 0, searchGeneration = 0, timer: ReturnType<typeof setTimeout> | undefined
   let storageSnapshot: string | null = null, selectionToken: string | null = null
   let initFlight: Promise<void> | null = null, readFlight: Promise<void> | null = null
@@ -109,8 +112,18 @@ export const usePosSale = () => {
     if (!allowed.value || error.value || !c?.actions.can_start_new || !record
       || record.checkout_id !== c.checkout_id || record.command) return false
     if (c.status === 'completed' && c.handover.status === 'handed_over') return true
-    return posExpiredClosure(c) && !c.actions.can_resume && !c.actions.can_refresh
-      && !c.actions.can_handover && !c.actions.can_recover_invoice
+    return canExitExpired(c)
+  })
+  const startNewIssue = computed(() => {
+    const c = checkout.value
+    if (!c || error.value) return ''
+    if (posExpiredClosure(c)) {
+      if (saved.value?.command) return 'Є незавершена дія з цим продажем. Перечитайте його стан.'
+      if (!access.value) return 'Доступ до продажів недоступний. Зверніться до адміністратора.'
+      if (!capabilities.value?.can_start) return 'Нові продажі тимчасово призупинено.'
+      if (!canStartNew.value) return 'Пошук поки недоступний. Перечитайте стан цього продажу.'
+    }
+    return canStartNew.value ? exitLockIssue.value : ''
   })
   const paymentUrl = computed(() => {
     const c = checkout.value
@@ -145,13 +158,14 @@ export const usePosSale = () => {
     if (status === 404) return 'Продаж не знайдено або немає доступу до нього.'
     return 'Результат ще не підтверджено. Відновіть цей самий продаж; не створюйте нову оплату.'
   }
-  const withSaleLock = async (work: () => Promise<void>) => {
+  const withSaleLock = async (work: () => Promise<void>, onBusy?: () => void) => {
     const v = generation, key = scope.value
     if (!key || storageFault.value) return
     if (!navigator.locks) { error.value = 'Для безпечної оплати відкрийте POS в актуальному браузері.'; return }
     try {
       await navigator.locks.request(key, { ifAvailable: true }, async lock => {
-        if (!lock || !current(v)) return
+        if (!current(v)) return
+        if (!lock) { onBusy?.(); return }
         if (localStorage.getItem(key) !== storageSnapshot) { reset(); return }
         await work()
       })
@@ -285,7 +299,7 @@ export const usePosSale = () => {
       if (!access.value || !checkout.value || busy.value || loading.value) return
       const v = generation
       loading.value = true
-      try { await pollState(); readOk = current(v) && !error.value }
+      try { await pollState(); readOk = current(v) && !error.value; if (readOk) exitLockIssue.value = '' }
       finally { if (current(v)) loading.value = false }
     })
     return readOk
@@ -316,6 +330,12 @@ export const usePosSale = () => {
     try { const result = await read<PosPage<PosOffer>>('/products', { q: query.slice(0,120), page, page_size: 20 }); if (current(v) && request === searchGeneration) offers.value = result }
     catch { if (current(v) && request === searchGeneration) searchError.value = 'Не вдалося знайти товари. Спробуйте ще раз.' }
     finally { if (current(v) && request === searchGeneration) searchBusy.value = false }
+  }
+  const clearSearchResults = () => {
+    searchGeneration++
+    offers.value = { items: [], total: 0, page: 1, page_size: 20 }
+    searchBusy.value = false
+    searchError.value = ''
   }
   const getCartQuote = async (cart: PosCartRequest) => {
     if (!allowed.value || !cartLimits.value || saved.value || checkout.value) throw new Error('cart unavailable')
@@ -385,48 +405,75 @@ export const usePosSale = () => {
         persist(null, [{ record, summary: saleSummary(latest) }, ...deferred.value.filter(row => row.summary.checkout_id !== c.checkout_id)])
         checkout.value = null
         priceOffer.value = null
-        searchGeneration++
-        offers.value = { items: [], total: 0, page: 1, page_size: 20 }
-        searchBusy.value = false
-        searchError.value = ''
+        clearSearchResults()
         didDefer = true
       } catch (cause) { if (current(v)) error.value = message(cause) }
       finally { if (current(v)) { loading.value = false; schedule() } }
     })
     return didDefer
   }
-  const selectExisting = async (record: SavedSale, parked = deferred.value) => {
-    const v = generation
+  const selectExisting = async (record: SavedSale, parked = deferred.value, expectedOrderId?: number, pinCheckout = false) => {
+    const v = generation, originalJournal = storageSnapshot
     loading.value = true; error.value = ''
     try {
-      const latest = await read<PosCheckout>(`/checkouts/by-intent/${record.body.intent_id}`)
+      const latest = await read<PosCheckout>(pinCheckout && record.checkout_id ? `/checkouts/${record.checkout_id}` : `/checkouts/by-intent/${record.body.intent_id}`)
       if (!current(v)) return
+      if (localStorage.getItem(scope.value) !== originalJournal) { reset(); return }
       validateCheckout(latest)
-      if (latest.intent_id !== record.body.intent_id || (record.checkout_id && latest.checkout_id !== record.checkout_id)) throw new Error('foreign selection')
+      if (latest.intent_id !== record.body.intent_id || (record.checkout_id && latest.checkout_id !== record.checkout_id)
+          || (expectedOrderId !== undefined && latest.order_id !== expectedOrderId)) throw new Error('foreign selection')
+      if (pinCheckout && ['completed', 'cancelled'].includes(latest.order_status)) {
+        error.value = 'Стан продажу змінився. Перечитайте його в історії.'
+        return
+      }
       persist({ ...record, checkout_id: latest.checkout_id }, parked)
       accept(latest, v)
     } catch (cause) { if (current(v)) error.value = message(cause) }
     finally { if (current(v)) { loading.value = false; schedule() } }
   }
-  const resumeActive = async (selection: Pick<ActiveSale, 'checkout_id'>) => {
+  const resumeActive = async (selection: Pick<ActiveSale, 'checkout_id'> & Partial<Pick<PosCheckout, 'intent_id' | 'employee' | 'order_id'>>) => {
     if (busy.value || loading.value || saved.value || otherSelection.value || !access.value) return
+    const pinned = !!selection.intent_id && positive(selection.order_id) && selection.employee?.user_id === auth.user?.id
+    if (selection.intent_id && !pinned) { error.value = 'Не вдалося підтвердити цей продаж.'; return }
     const parked = deferred.value.find(row => row.summary.checkout_id === selection.checkout_id)
     if (parked) {
-      await selectExisting(parked.record, deferred.value.filter(row => row !== parked))
+      if (pinned && (parked.record.body.intent_id !== selection.intent_id || parked.summary.order_id !== selection.order_id)) {
+        error.value = 'Збережений продаж не збігається з історією.'
+        return
+      }
+      await selectExisting(parked.record, deferred.value.filter(row => row !== parked), selection.order_id, pinned)
       return
     }
-    const c = active.value.items.find(row => row.checkout_id === selection.checkout_id)
-    if (c && c.employee.user_id === auth.user?.id && uuid(c.checkout_id) && uuid(c.intent_id)) {
-      await selectExisting({ body: { intent_id: c.intent_id, currency: 'UAH', selection_only: true }, checkout_id: c.checkout_id })
+    const c = pinned ? selection : active.value.items.find(row => row.checkout_id === selection.checkout_id)
+    if (c?.employee?.user_id === auth.user?.id && c && uuid(c.checkout_id) && uuid(c.intent_id)) {
+      await selectExisting({ body: { intent_id: c.intent_id, currency: 'UAH', selection_only: true }, checkout_id: c.checkout_id }, undefined, c.order_id, pinned)
     }
   }
   const openOtherSelection = async () => {
     if (!otherSelection.value || saved.value || loading.value || busy.value || !access.value) return
-    const record = otherSelection.value
-    if (record.checkout_id) await selectExisting(record)
-    else {
-      persist(record)
-      await recover(false)
+    const record = otherSelection.value, v = generation, originalJournal = storageSnapshot
+    loading.value = true; error.value = ''
+    try {
+      const latest = await read<PosCheckout>(record.checkout_id ? `/checkouts/${record.checkout_id}` : `/checkouts/by-intent/${record.body.intent_id}`)
+      if (!current(v)) return
+      validateCheckout(latest)
+      if (latest.intent_id !== record.body.intent_id || (record.checkout_id && latest.checkout_id !== record.checkout_id)) throw new Error('foreign selection')
+      if (localStorage.getItem(scope.value) !== originalJournal) { reset(); return }
+      if (!record.command && canExitExpired(latest)) {
+        if (!archiveClosedAttachment(latest)) {
+          error.value = 'Є незавершена звірка рахунку. Зверніться до адміністратора щодо цього продажу.'
+          return
+        }
+        clearSearchResults()
+        persist(null)
+        return
+      }
+      persist({ ...record, checkout_id: latest.checkout_id })
+      accept(latest, v)
+    } catch (cause) {
+      if (current(v)) error.value = message(cause)
+    } finally {
+      if (current(v)) { loading.value = false; schedule() }
     }
   }
   const loadMoreActive = async () => {
@@ -485,10 +532,11 @@ export const usePosSale = () => {
     }
     priceOffer.value = saved.value?.proposed || null
   }
-  const startNew = async () => {
+  const exitToSearch = async () => {
+    exitLockIssue.value = ''
     const c = checkout.value
     if (!c || busy.value || loading.value || !canStartNew.value) return
-    const v = generation
+    const v = generation, originalJournal = storageSnapshot
     try {
       if (posExpiredClosure(c)) {
         // A late bank conflict can revoke the exit. Read the same sale under the tab lock.
@@ -496,27 +544,29 @@ export const usePosSale = () => {
         try {
           const latest = await read<PosCheckout>(`/checkouts/${c.checkout_id}`)
           if (!current(v)) return
+          if (localStorage.getItem(scope.value) !== originalJournal) { reset(); return }
           if (latest.order_id !== c.order_id || latest.revision < c.revision) throw new Error('stale closure')
           accept(latest, v)
           if (!posExpiredClosure(latest) || !canStartNew.value) return
           if (!archiveClosedAttachment(latest)) {
-            error.value = 'Є незавершена звірка рахунку. Перечитайте стан цього продажу.'
+            error.value = 'Є незавершена звірка рахунку. Зверніться до адміністратора щодо цього продажу.'
             return
           }
         } finally { if (current(v)) loading.value = false }
       }
       stopTimer()
       persist(null)
-      searchGeneration++
-      offers.value = { items: [], total: 0, page: 1, page_size: 20 }
-      searchBusy.value = false
-      searchError.value = ''
+      clearSearchResults()
       checkout.value = null
       priceOffer.value = null
       await init()
     } catch (cause) { if (current(v)) error.value = message(cause) }
   }
+  const startNew = () => withSaleLock(exitToSearch, () => {
+    exitLockIssue.value = 'Перевірка продажу ще триває або POS зайнятий в іншій вкладці. Спробуйте ще раз.'
+  })
   const reset = () => {
+    exitLockIssue.value = ''
     generation++; searchGeneration++; stopTimer(); initFlight = null; readFlight = null
     capabilities.value = null; checkout.value = null; saved.value = null; priceOffer.value = null; busy.value = false; loading.value = false; searchBusy.value = false; error.value = ''; searchError.value = ''; storageFault.value = false
     offers.value = {items:[],total:0,page:1,page_size:20}; active.value = {items:[],total:0,page:1,page_size:20}
@@ -530,5 +580,5 @@ export const usePosSale = () => {
   const storageChanged = (event: StorageEvent) => { if (event.key === scope.value) reset() }
   if (import.meta.client) window.addEventListener('storage', storageChanged)
   onScopeDispose(() => { generation++; stopTimer(); if (import.meta.client) window.removeEventListener('storage', storageChanged) })
-  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, canStartNew, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Pick<ActiveSale, 'checkout_id'>) => withSaleLock(() => resumeActive(c)), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew: () => withSaleLock(startNew) }
+  return { capabilities, checkout, offers, active, activeSales, activeLoading, moreActive, loadMoreActive, otherSelection, openOtherSelection: () => withSaleLock(openOtherSelection, () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), canDefer, deferCurrent, priceOffer, priceQuote, cartLimits, saved, busy, loading, searchBusy, error, searchError, storageFault, access, allowed, paymentUrl, canHandover, canStartNew, startNewIssue, init, search, getCartQuote, startCart, confirmPrice: () => withSaleLock(confirmPrice), resumeActive: (c: Parameters<typeof resumeActive>[0]) => withSaleLock(() => resumeActive(c), () => { error.value = 'POS зайнятий в іншій вкладці. Спробуйте ще раз.' }), recover: () => withSaleLock(() => recover()), readSelection: () => withSaleLock(() => recover(false)), readSaved, poll, resume: () => withSaleLock(() => command('resume')), handover: () => withSaleLock(() => command('handover')), refresh: () => withSaleLock(() => command('refresh')), startNew }
 }

@@ -11,6 +11,7 @@ const assetUrl = useAssetUrl(), api = useApi()
 let debounce: ReturnType<typeof setTimeout> | undefined
 const clearDebounce = () => { if (debounce !== undefined) clearTimeout(debounce); debounce = undefined }
 const submit = (page = 1) => { clearDebounce(); if (props.disabled) return; searched.value = true; emit('search', query.value, page) }
+defineExpose({ refresh: () => { if (query.value.trim()) submit() } })
 const openCamera = clearDebounce
 const scanned = (code: string) => { query.value = code; submit() }
 watch(query, () => { clearDebounce(); if (!props.disabled) debounce = setTimeout(() => submit(), 275) }, { flush: 'sync' })

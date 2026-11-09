@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { CheckCircleIcon, PhotoIcon, ArrowPathIcon, DocumentTextIcon, ClockIcon, QrCodeIcon, ShoppingBagIcon, CreditCardIcon, ReceiptPercentIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, PhotoIcon, ArrowPathIcon, DocumentTextIcon, ClockIcon, QrCodeIcon, ShoppingBagIcon, CreditCardIcon, ReceiptPercentIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import type { PosCheckout } from '~/types/posSale'
 import { posBlockingReasons, posExpiredClosure, posMoney } from '~/composables/usePosSale'
 import { qrMockCode } from '~/utils/qrMock'
-const props = defineProps<{ checkout: PosCheckout; paymentUrl: string | null; automatic: boolean; canStartNew: boolean; busy: boolean; canHandover: boolean; canRead: boolean; canViewHistory: boolean; canDefer: boolean; deferSale: () => Promise<boolean>; readState: () => Promise<boolean>; error: string }>()
+const props = defineProps<{ checkout: PosCheckout; paymentUrl: string | null; automatic: boolean; canStartNew: boolean; startNewIssue: string; busy: boolean; canHandover: boolean; canRead: boolean; canViewHistory: boolean; canDefer: boolean; deferSale: () => Promise<boolean>; readState: () => Promise<boolean>; error: string }>()
 const paymentLabels: Record<PosCheckout['payment']['status'], string> = {
   not_started: 'Не розпочато', pending: 'Очікує оплати', processing: 'Обробляється',
   paid: 'Підтверджена', failed: 'Помилка оплати', expired: 'Рахунок прострочено',
@@ -58,10 +58,19 @@ const print = async () => {
     <header class="flex flex-wrap items-start justify-between gap-2">
       <div>
         <p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Продаж #{{ checkout.order_id }}</p>
-        <h2 class="mt-1 text-lg font-semibold">{{ code ? 'Оплата через mono' : 'Стан продажу' }}</h2>
+        <h2 class="mt-1 text-lg font-semibold">{{ expiredClosed ? 'Продаж скасовано' : code ? 'Оплата через mono' : 'Стан продажу' }}</h2>
       </div>
       <BaseBadge v-if="code" tone="accent"><QrCodeIcon class="h-4 w-4" aria-hidden="true" />Mono QR</BaseBadge>
     </header>
+    <p v-if="expiredClosed" role="status" class="ui-status-info rounded-xl p-3 text-sm">Строк дії рахунку минув, оплату не отримано.</p>
+    <div v-if="canStartNew" class="space-y-1.5">
+      <BaseButton type="button" variant="primary" size="lg" block :loading="busy" loading-label="Перевіряємо продаж" @click="emit('newSale')">
+        <MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Новий продаж
+      </BaseButton>
+      <p v-if="expiredClosed" class="text-center text-xs text-ui-secondary">Повернутися до пошуку й сканування товарів.</p>
+    </div>
+    <p v-if="startNewIssue" role="status" class="ui-status-warning rounded-xl p-3 text-sm">{{ startNewIssue }}</p>
+    <p v-if="error" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ error }}</p>
     <p class="text-center text-3xl font-semibold tabular-nums">{{ posMoney(checkout.amount_minor) }}</p>
     <!-- QR is machine-readable content: fixed black modules on a white quiet zone, independent of UI theme. -->
     <figure v-if="code" class="mx-auto w-fit max-w-full text-center">
@@ -81,10 +90,9 @@ const print = async () => {
       </BaseCard>
     </dl>
     <p v-if="checkout.status === 'completed' && checkout.handover.status === 'handed_over'" role="status" class="flex items-center justify-center gap-2 font-semibold text-ui-success"><CheckCircleIcon class="h-6 w-6" aria-hidden="true" />Продаж завершено. Товар видано.</p>
-    <p v-else-if="expiredClosed" role="status" class="ui-status-info rounded-xl p-3 text-sm">Продаж скасовано. Строк дії рахунку минув, оплату не отримано.</p>
     <p v-else-if="closedConflict" role="status" class="ui-status-warning rounded-xl p-3 text-sm">Продаж скасовано. Нові дані про оплату потребують звірки.</p>
     <p v-else-if="checkout.payment.status === 'paid' && checkout.receipt.status !== 'accepted'" role="status" class="ui-status-info rounded-xl p-3 text-sm">Оплату підтверджено. {{ checkout.receipt.status === 'failed' || checkout.receipt.status === 'requires_review' ? 'Не вдалося підтвердити чек.' : 'Очікуємо чек.' }} Повторно платити не потрібно. Видача поки недоступна.</p>
-    <div v-else-if="review" role="status" class="ui-status-warning space-y-1 rounded-xl p-3 text-sm">
+    <div v-else-if="review && !expiredClosed" role="status" class="ui-status-warning space-y-1 rounded-xl p-3 text-sm">
       <p class="font-semibold">{{ unconfirmedInvoice ? 'Не вдалося підтвердити рахунок mono' : 'Стан оплати потребує уточнення' }}</p>
       <p v-for="reason in reasons" :key="reason">{{ reason }}</p>
       <p v-if="!reasons.length && !checkout.payment.invoice_id">Рахунок mono не прив’язано до цього продажу.</p>
@@ -92,10 +100,9 @@ const print = async () => {
     </div>
     <p v-else-if="unavailableQr && !error" role="status" class="ui-status-warning rounded-xl p-3 text-sm">QR для оплати поки недоступний. Перечитайте стан цього продажу.</p>
     <p v-else-if="canHandover" role="status" class="text-center font-medium">Оплату та чек підтверджено. Передайте товар клієнту.</p>
-    <p v-else role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
+    <p v-else-if="!expiredClosed" role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
     <BaseButton v-if="canRead && checkout.status === 'prepared' && !checkout.payment.invoice_id && checkout.actions.can_resume" variant="neutral" size="lg" block :loading="busy" @click="emit('resume')">Продовжити підготовку рахунку</BaseButton>
     <BaseButton v-if="canHandover" variant="primary" size="lg" block :loading="busy" @click="emit('handover')">Товар видано</BaseButton>
-    <BaseButton v-if="canStartNew" variant="primary" size="lg" block :disabled="busy" @click="emit('newSale')">{{ expiredClosed ? 'До пошуку товарів' : 'Новий продаж' }}</BaseButton>
     <BaseButton v-if="canDefer" variant="neutral" size="lg" block :disabled="busy" @click="deferOpen = true"><ClockIcon class="h-4 w-4" aria-hidden="true" />Відкласти продаж</BaseButton>
     <BaseModal v-model="deferOpen" compact max-width-class="max-w-md" aria-label="Відкласти продаж" :close-on-escape="!busy" :close-on-backdrop="!busy">
       <template #head="{ close }">
@@ -106,7 +113,7 @@ const print = async () => {
       </template>
       <template #body="{ close }">
         <div class="space-y-3">
-          <p class="text-sm text-ui-secondary">Він залишиться в «Незавершених продажах». Рахунок і резерв не скасовуються.</p>
+          <p class="text-sm text-ui-secondary">Він залишиться у вкладці «Мої продажі». Рахунок і резерв не скасовуються.</p>
           <p class="text-sm font-medium">Не просіть клієнта платити повторно за цей продаж.</p>
           <div class="grid gap-2 sm:flex sm:justify-end">
             <BaseButton variant="ghost" size="lg" :disabled="busy" @click="close">Залишитися</BaseButton>
@@ -115,9 +122,8 @@ const print = async () => {
         </div>
       </template>
     </BaseModal>
-    <p v-if="error" role="alert" class="ui-status-danger rounded-xl p-3 text-sm">{{ error }}</p>
     <div class="flex flex-wrap justify-center gap-2">
-      <BaseButton v-if="canRead && (error || review || unavailableQr)" variant="neutral" size="lg" :loading="busy" @click="readState">Перечитати стан</BaseButton>
+      <BaseButton v-if="canRead && (error || review || unavailableQr)" :variant="expiredClosed ? 'ghost' : 'neutral'" size="lg" :loading="busy" @click="readState">Перечитати стан</BaseButton>
       <BaseButton v-if="canRead && !error && checkout.payment.invoice_id && checkout.actions.can_refresh && checkout.status !== 'completed' && (!automatic || review)" variant="ghost" size="lg" :loading="busy" @click="emit('refresh')"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Оновити стан</BaseButton>
       <NuxtLink v-if="canViewHistory && review" :to="{ path: '/admin/product-sales', query: { q: String(checkout.order_id) } }" class="inline-flex min-h-11 items-center text-sm text-ui-secondary underline underline-offset-4">{{ checkout.invoice_recovery?.can_attach && checkout.actions.can_recover_invoice ? 'Звірити рахунок у продажах товарів' : 'Знайти в історії продажів' }}</NuxtLink>
       <BaseButton v-if="canPrint && checkout.status === 'completed'" variant="neutral" size="lg" :loading="printBusy" @click="print"><DocumentTextIcon class="h-5 w-5" aria-hidden="true" />Відкрити чек</BaseButton>

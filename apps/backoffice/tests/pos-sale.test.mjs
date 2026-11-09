@@ -240,6 +240,85 @@ test('invalid fiscal basket unlocks only after canonical lookup proves no checko
  }
 })
 
+test('an other-tab journal clears only after a fresh clean close and preserves pending and quarantined sales', async () => {
+ const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:state().intent_id,currency:'UAH',quote_revision:'1'.repeat(64)} }
+ const journal = current => new Map([['sc-pos:v1:1',JSON.stringify({version:2,current,selection_token:'55555555-5555-4555-8555-555555555555',deferred:[]})]])
+ const storage = journal(record)
+ const master = {id:1,is_active:true,is_superuser:false,can_record_sales:true,can_accept_qr_payments:true}
+ const closed = state({
+  revision:3, order_status:'cancelled', status:'requires_review',
+  payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
+  actions:{...state().actions,can_refresh:false,can_start_new:true}, blocking_reasons:['master_mono_sale_closed','cancelled'],
+ })
+ const f = await setup(path => base(path) || closed, storage, master)
+ assert.equal(f.sale.allowed.value,false)
+ assert.equal(f.sale.otherSelection.value.key,record.key)
+ await f.sale.openOtherSelection()
+ assert.equal(f.sale.checkout.value,null)
+ assert.equal(f.sale.otherSelection.value,null)
+ assert.equal(f.sale.allowed.value,true)
+ assert.equal(f.storage.has('sc-pos:v1:1'),false)
+ assert.equal(f.calls.filter(call=>call.path.endsWith('/' + closed.checkout_id)).length,1)
+ assert.equal(f.calls.some(call=>call.method==='POST'),false)
+ f.stop()
+
+ const pending = {...record,command:{operation:'resume',key:'66666666-6666-4666-8666-666666666666',revision:2}}
+ const conflict = {...closed,payment:{...closed.payment,status:'unknown'},receipt:{...closed.receipt,status:'requires_review'},
+  actions:{...closed.actions,can_start_new:false},blocking_reasons:['master_mono_closed_conflict']}
+ for (const [saved, fresh] of [[pending,closed],[record,conflict],[record,{...closed,blocking_reasons:[]}]]) {
+  const store = journal(saved)
+  const tab = await setup(path => base(path) || fresh, store, master)
+  await tab.sale.openOtherSelection()
+  assert.equal(tab.sale.saved.value.key,record.key)
+  assert.deepEqual(tab.sale.saved.value.command,saved.command)
+  assert.equal(tab.sale.canStartNew.value,false)
+  assert.equal(tab.calls.some(call=>call.method==='POST'),false)
+  tab.stop()
+ }
+})
+
+test('personal history cannot select a mismatched or newly cancelled checkout', async () => {
+ const shown = state()
+ const cancelled = {...shown,order_status:'cancelled',status:'requires_review',blocking_reasons:['master_mono_closed_conflict']}
+ for (const fresh of [cancelled,{...shown,order_id:4}]) {
+  const f = await setup(path => base(path) || fresh)
+  await f.sale.resumeActive(shown)
+  assert.equal(f.sale.checkout.value,null)
+  assert.equal(f.sale.saved.value,null)
+  assert.equal(f.storage.has('sc-pos:v1:1'),false)
+  assert.match(f.sale.error.value,/Перечитайте|Результат ще не підтверджено/)
+  assert.equal(f.calls.filter(call=>call.path.endsWith('/' + shown.checkout_id)).length,1)
+  assert.equal(f.calls.some(call=>call.method==='POST'),false)
+  f.stop()
+ }
+})
+
+test('terminal exit reports a busy tab and retries with a fresh GET only', async () => {
+ const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:state().intent_id,currency:'UAH',quote_revision:'1'.repeat(64)} }
+ const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)]])
+ const closed = state({
+  revision:3, order_status:'cancelled', status:'requires_review',
+  payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
+  actions:{...state().actions,can_refresh:false,can_start_new:true}, blocking_reasons:['master_mono_sale_closed','cancelled'],
+ })
+ const f = await setup(path => base(path) || closed, storage)
+ const acquire = navigator.locks.request
+ navigator.locks.request = async (_key,_options,run) => run(null)
+ const before = f.calls.length
+ await f.sale.startNew()
+ assert.match(f.sale.startNewIssue?.value || '', /Перевірка продажу ще триває/)
+ assert.equal(f.sale.canStartNew.value,true)
+ assert.equal(f.calls.length,before)
+ assert.equal(f.sale.saved.value.key,record.key)
+ navigator.locks.request = acquire
+ await f.sale.startNew()
+ assert.equal(f.sale.startNewIssue.value,'')
+ assert.equal(f.sale.checkout.value,null)
+ assert.equal(f.calls.slice(before).filter(call=>call.path.endsWith('/' + closed.checkout_id)).length,1)
+ assert.equal(f.calls.some(call=>call.method==='POST'),false)
+ f.stop()
+})
+
 test('expired-sale exit drops stale offers without requiring a reload', async () => {
  let checkout = null
  let available = 2
@@ -258,7 +337,7 @@ test('expired-sale exit drops stale offers without requiring a reload', async ()
  await f.sale.search(offer.name)
  assert.equal(f.sale.offers.value.items[0].available_quantity,2)
  await start(f.sale)
- checkout = {...checkout,revision:3,order_status:'cancelled',payment:{...checkout.payment,status:'expired'},actions:{...checkout.actions,can_start_new:true}}
+ checkout = {...checkout,revision:3,order_status:'cancelled',payment:{...checkout.payment,status:'expired'},actions:{...checkout.actions,can_start_new:true},blocking_reasons:['master_mono_sale_closed','cancelled']}
  available = 1
  assert.equal(await f.sale.readSaved(),true)
  await f.sale.startNew()
@@ -279,7 +358,7 @@ test('expired-sale exit retains the selection when a newer bank conflict appears
  const expired = state({
   revision:3, order_status:'cancelled', status:'requires_review',
   payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
-  actions:{...state().actions,can_refresh:false,can_start_new:true},
+  actions:{...state().actions,can_refresh:false,can_start_new:true}, blocking_reasons:['master_mono_sale_closed','cancelled'],
  })
  const conflict = {
   ...expired, revision:4,
@@ -350,7 +429,7 @@ test('expired-sale exit preserves an unresolved command and never replays it', a
  const expired = state({
   revision:3, order_status:'cancelled', status:'requires_review',
   payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
-  actions:{...state().actions,can_refresh:false,can_start_new:true},
+  actions:{...state().actions,can_refresh:false,can_start_new:true}, blocking_reasons:['master_mono_sale_closed','cancelled'],
  })
  const f = await setup(path => base(path) || expired, storage)
  assert.equal(f.sale.canStartNew.value,false)
