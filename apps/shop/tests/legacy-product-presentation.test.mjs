@@ -85,7 +85,7 @@ const guestSetup = async (t, getProduct) => {
   const env = await load(t, getProduct, storage)
   const auth = { isAuthenticated: false, customer: null, accessToken: '', sessionRevision: 0, $subscribe() {}, captureSession() { const revision = this.sessionRevision; return () => revision === this.sessionRevision } }
   let ready
-  Object.assign(globalThis, { useCustomerAuthStore: () => auth, useShopLocale: () => ({ terms: vue.ref({}) }), useToastStore: () => ({ show() {} }), defineNuxtPlugin: fn => fn, onNuxtReady: callback => { ready = callback } })
+  Object.assign(globalThis, { reportCommerceError: () => {}, useCustomerAuthStore: () => auth, useShopLocale: () => ({ terms: vue.ref({}) }), useToastStore: () => ({ show() {} }), defineNuxtPlugin: fn => fn, onNuxtReady: callback => { ready = callback } })
   const { useCartStore } = await sourceModule((await read('../stores/cart.ts')).replace(/^import .*\n/gm, ''))
   const { useFavoritesStore } = await sourceModule((await read('../stores/favorites.ts')).replace(/^import .*\n/gm, ''))
   const cart = useCartStore(env.instance), favorites = useFavoritesStore(env.instance)

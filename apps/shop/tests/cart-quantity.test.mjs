@@ -7,9 +7,10 @@ import ts from 'typescript'
 const source = readFileSync(new URL('../stores/cart.ts', import.meta.url), 'utf8')
 const product = () => ({ id: 1, slug: 'available-product', name: 'Product', price: '350', stock: 0, images: [], is_available_for_purchase: true })
 const loadStore = ({ authenticated = false, getProduct = async () => product(), captureSession = () => () => true, ...domain } = {}) => {
-  const toasts = []
+  const toasts = [], reports = []
   const syncWatchers = new Set()
   const context = vm.createContext({
+    reportCommerceError: step => reports.push(step),
     useCustomerAuthStore: () => ({ isAuthenticated: authenticated, customer: authenticated ? { id: 42 } : null, captureSession }),
     useShopLocale: () => ({ terms: { value: { basket: { unavailable: 'unavailable', quantityLimit: 'limit', updateFailed: 'failed' } } } }),
     useCatalogDomain: () => ({ getProduct, ...domain }),
@@ -38,7 +39,7 @@ const loadStore = ({ authenticated = false, getProduct = async () => product(), 
     compilerOptions: { module: ts.ModuleKind.None },
   }).outputText
   vm.runInContext(script + '\nglobalThis.result = useCartStore()', context)
-  return { store: context.result, toasts, syncWatchers }
+  return { store: context.result, toasts, syncWatchers, reports }
 }
 
 test('unknown public stock does not cap available product at one; guest limit stays ten', async () => {
@@ -270,4 +271,15 @@ test('outward toggle preserves operation rejection and leaves the next toggle us
   store.add = add
   await store.toggle(product())
   assert.equal(store.items.length, 1)
+})
+
+test('a failed authenticated decrease with a failed resync is reported once', async () => {
+  const fail = () => Promise.reject(Object.assign(new Error('server'), { statusCode: 500 }))
+  const { store, reports } = loadStore({
+    authenticated: true, deleteServerCartItem: async () => {}, addServerCartItem: fail, getServerCart: fail,
+  })
+  store.items = [{ product: product(), quantity: 3 }]
+  await store.update(1, 2)
+  assert.deepEqual([...reports], ['cart.update_failed'])
+  assert.equal(store.error, 'failed')
 })
