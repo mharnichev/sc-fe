@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { ArrowPathIcon, ClockIcon, ShoppingBagIcon } from '@heroicons/vue/24/outline'
 import PosSaleSearch from '~/components/pos/PosSaleSearch.vue'
+import PosSaleHistory from '~/components/pos/PosSaleHistory.vue'
 import PosSaleCart from '~/components/pos/PosSaleCart.vue'
-import type { PosCartPromotion, PosCartQuote, PosCheckout, PosOffer } from '~/types/posSale'
+import type { PosCartPromotion, PosCartQuote, PosOffer, PosSaleSummary } from '~/types/posSale'
 import PosSaleCheckout from '~/components/pos/PosSaleCheckout.vue'
 import { posCanAddOffer, posDiscountLabels, posMoney } from '~/composables/usePosSale'
 const sale = usePosSale()
 const auth = useAuthStore()
+const canViewOwnHistory = computed(() => !!auth.accessToken && !!auth.user?.is_active
+  && (auth.user.is_superuser || (auth.user.can_record_sales === true && auth.user.can_accept_qr_payments === true)))
 const heading = ref<HTMLElement | null>(null)
+const searchPanel = ref<InstanceType<typeof PosSaleSearch> | null>(null)
+const tab = ref<string | number>('sell')
+const historyResumeError = ref('')
+const tabs = [
+  { value: 'sell', label: 'Продати', icon: ShoppingBagIcon },
+  { value: 'history', label: 'Мої продажі', icon: ClockIcon },
+]
 const deferredNotice = ref<number | null>(null)
-const activeStatus: Record<PosCheckout['status'], string> = {
-  requires_review: 'Потрібна перевірка', prepared: 'Підготовлено', creating_invoice: 'Створюється рахунок',
-  awaiting_payment: 'Очікує оплати', payment_processing: 'Оплата перевіряється',
-  paid_receipt_pending: 'Очікує чека', ready_to_handover: 'Можна видати', completed: 'Завершено',
-}
 async function deferSale() {
   const id = sale.checkout.value?.order_id
   if (!id || !await sale.deferCurrent()) return false
@@ -22,7 +27,36 @@ async function deferSale() {
   heading.value?.focus()
   return true
 }
-watch(() => auth.user?.id, () => { deferredNotice.value = null })
+async function startNewSale() {
+  await sale.startNew()
+  if (sale.checkout.value || sale.saved.value || sale.otherSelection.value || !sale.access.value) return
+  await nextTick()
+  heading.value?.focus()
+}
+async function verifySavedSale() {
+  await sale.openOtherSelection()
+  if (!sale.checkout.value && !sale.saved.value && !sale.otherSelection.value && sale.access.value) {
+    await nextTick()
+    searchPanel.value?.refresh()
+  }
+}
+async function showSell() {
+  tab.value = 'sell'
+  await nextTick()
+  heading.value?.focus()
+}
+async function resumeHistory(entry: PosSaleSummary) {
+  historyResumeError.value = ''
+  if (!entry.checkout_id || !entry.intent_id) return
+  if (sale.checkout.value?.checkout_id !== entry.checkout_id) {
+    if (rows.value.length) return
+    await sale.resumeActive({ checkout_id: entry.checkout_id, intent_id: entry.intent_id, employee: entry.employee, order_id: entry.order_id })
+  }
+  if (sale.checkout.value?.checkout_id === entry.checkout_id) await showSell()
+  else historyResumeError.value = sale.error.value || 'Не вдалося відкрити продаж. Перечитайте його стан.'
+}
+watch(tab, () => { historyResumeError.value = '' })
+watch(() => auth.user?.id, () => { deferredNotice.value = null; tab.value = 'sell' })
 const rows = ref<{ offer: PosOffer; quantity: number }[]>([])
 const quantities = computed(() => Object.fromEntries(rows.value.map(row => [row.offer.id, row.quantity])))
 const quote = shallowRef<PosCartQuote | null>(null)
@@ -138,10 +172,14 @@ async function pay() {
       </div>
       <NuxtLink v-if="sale.capabilities.value?.can_view_admin_sales" to="/admin/product-sales" class="inline-flex min-h-11 items-center text-sm text-ui-secondary underline underline-offset-4">Продажі товарів</NuxtLink>
     </header>
+    <BaseTabs v-model="tab" :tabs="tabs" aria-label="Продажі у салоні" list-class="!grid grid-cols-2" tab-class="!justify-center">
+      <template #default="{ panelId, tabId }">
+        <div :id="panelId" role="tabpanel" :aria-labelledby="tabId" class="mt-2.5">
+          <div v-show="tab === 'sell'" class="space-y-2.5">
     <BaseCard v-if="sale.loading.value && !sale.checkout.value" padding="sm">
       <BaseLoader inline size="sm" label="Відновлюємо стан продажу" />
     </BaseCard>
-    <PosSaleCheckout v-if="sale.checkout.value" :key="sale.checkout.value.checkout_id" :checkout="sale.checkout.value" :payment-url="sale.paymentUrl.value" :can-start-new="sale.canStartNew.value" :automatic="sale.capabilities.value?.automatic_reconciliation_enabled === true" :busy="sale.busy.value || sale.loading.value" :can-handover="sale.canHandover.value" :can-read="sale.access.value" :can-view-history="sale.capabilities.value?.can_view_admin_sales === true" :can-defer="sale.canDefer.value" :defer-sale="deferSale" :error="sale.error.value" @handover="sale.handover" @refresh="sale.refresh" @resume="sale.resume" :read-state="sale.readSaved" @new-sale="sale.startNew" />
+    <PosSaleCheckout v-if="sale.checkout.value" :key="sale.checkout.value.checkout_id" :checkout="sale.checkout.value" :payment-url="sale.paymentUrl.value" :can-start-new="sale.canStartNew.value" :start-new-issue="sale.startNewIssue.value" :automatic="sale.capabilities.value?.automatic_reconciliation_enabled === true" :busy="sale.busy.value || sale.loading.value" :can-handover="sale.canHandover.value" :can-read="sale.access.value" :can-view-history="sale.capabilities.value?.can_view_admin_sales === true" :can-defer="sale.canDefer.value" :defer-sale="deferSale" :error="sale.error.value" @handover="sale.handover" @refresh="sale.refresh" @resume="sale.resume" :read-state="sale.readSaved" @new-sale="startNewSale" />
     <BaseCard v-else-if="sale.priceQuote.value" as="section" padding="sm" class="space-y-2.5">
       <BaseBadge tone="warning" dot>Потрібне підтвердження</BaseBadge>
       <h2 class="text-lg font-semibold">Розрахунок кошика змінився</h2>
@@ -168,25 +206,27 @@ async function pay() {
       <p v-if="sale.error.value" role="alert" class="ui-status-warning rounded-xl p-3 text-sm">{{ sale.error.value }}</p>
       <BaseCard v-if="!sale.loading.value && !sale.access.value" class="space-y-3"><p role="status" class="text-sm">Продаж через mono зараз недоступний. Зверніться до адміністратора.</p><BaseButton variant="neutral" size="lg" @click="sale.init">Перевірити доступність</BaseButton></BaseCard>
       <BaseCard v-if="sale.access.value && sale.otherSelection.value" padding="sm" class="space-y-2">
-        <p role="status" class="text-sm">У браузері є інший збережений продаж. Відкрийте його, щоб перечитати стан.</p>
-        <BaseButton variant="neutral" size="lg" :disabled="sale.loading.value || !!rows.length" @click="sale.openOtherSelection">Відкрити збережений продаж</BaseButton>
+        <p role="status" class="text-sm">У браузері є збережений продаж. {{ rows.length ? 'Звільніть кошик, щоб перевірити його стан.' : 'Перевірте його стан, щоб продовжити.' }}</p>
+        <BaseButton variant="neutral" size="lg" :disabled="sale.loading.value || !!rows.length" @click="verifySavedSale">Перевірити збережений продаж</BaseButton>
       </BaseCard>
       <p v-else-if="sale.access.value && !sale.allowed.value" role="status" class="ui-status-warning rounded-xl p-3 text-sm">Нові продажі тимчасово призупинено. Існуючі продажі можна відновити та видати після оплати й чека.</p>
       <p v-if="deferredNotice" role="status" class="ui-status-info rounded-xl p-2.5 text-sm">Продаж #{{ deferredNotice }} відкладено. Можна додати товари для іншої покупки.</p>
-      <PosSaleSearch v-if="sale.access.value" :results="sale.offers.value" :loading="sale.searchBusy.value" :disabled="!sale.access.value || sale.loading.value || sale.busy.value" :can-start="sale.allowed.value && !!sale.cartLimits.value && !paying" :quantities="quantities" :limits="sale.cartLimits.value" :error="sale.searchError.value" @search="sale.search" @select="add" />
-      <BaseCard v-if="sale.activeSales.value.length" as="section" padding="sm" class="space-y-2" aria-label="Незавершені продажі">
-        <h2 class="flex items-center gap-2 text-base font-semibold"><ClockIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Незавершені продажі</h2>
-        <p v-if="rows.length" class="text-xs text-ui-secondary">Щоб відкрити незавершений продаж, спочатку звільніть кошик.</p>
-        <p v-else class="text-xs text-ui-secondary">Відкрийте продаж, щоб перевірити його стан. Не приймайте повторну оплату за нього.</p>
-        <BaseButton v-for="c in sale.activeSales.value" :key="c.checkout_id" variant="neutral" size="lg" block class="!justify-between !rounded-xl text-left" :disabled="!sale.access.value || sale.busy.value || sale.loading.value || !!sale.otherSelection.value || !!rows.length" :aria-label="`Відкрити продаж #${c.order_id}`" :aria-describedby="`pos-active-${c.checkout_id}`" @click="sale.resumeActive(c)">
-          <span class="min-w-0"><span class="block break-words">#{{ c.order_id }} · {{ c.products }}</span><span :id="`pos-active-${c.checkout_id}`" class="block text-xs" :class="c.status === 'requires_review' ? 'text-ui-warning' : 'text-ui-secondary'">{{ activeStatus[c.status] || 'Стан потребує перевірки' }}</span></span>
-          <span class="shrink-0 tabular-nums">{{ posMoney(c.amount_minor) }}</span>
-        </BaseButton>
-        <BaseButton v-if="sale.moreActive.value" variant="ghost" size="lg" :loading="sale.activeLoading.value" @click="sale.loadMoreActive">Показати ще</BaseButton>
-      </BaseCard>
+      <PosSaleSearch v-if="sale.access.value" ref="searchPanel" :results="sale.offers.value" :loading="sale.searchBusy.value" :disabled="!sale.access.value || sale.loading.value || sale.busy.value" :can-start="sale.allowed.value && !!sale.cartLimits.value && !paying" :quantities="quantities" :limits="sale.cartLimits.value" :error="sale.searchError.value" @search="sale.search" @select="add" />
       <p v-if="sale.allowed.value && !sale.cartLimits.value" role="status" class="ui-status-warning rounded-xl p-3 text-sm">Розрахунок кошика тимчасово недоступний.</p>
       <PosSaleCart v-if="sale.cartLimits.value" :rows="rows" :quote="quote" :promo="promo" :promotion-id="promotionId" :promotions="promotions" :max-quantity="sale.cartLimits.value.max_quantity" :busy="quoteBusy" :paying="paying" :can-pay="canPay" :error="quoteError || sale.error.value" @quantity="setQuantity" @code="setCode" @promotion="setPromotion" @retry="retry++" @pay="pay" />
     </template>
+          </div>
+          <template v-if="tab === 'history'">
+            <BaseCard v-if="(sale.saved.value || sale.otherSelection.value) && !sale.checkout.value" padding="sm" class="mb-2.5 space-y-1">
+              <p class="text-sm">У браузері є збережений продаж, стан якого ще потрібно перевірити.</p>
+              <BaseButton type="button" variant="ghost" size="lg" @click="showSell">Відкрити вкладку «Продати»</BaseButton>
+            </BaseCard>
+            <PosSaleHistory v-if="canViewOwnHistory && auth.user" :actor-id="auth.user.id" :current-checkout-id="sale.checkout.value?.checkout_id" :can-resume="sale.access.value && !rows.length && !sale.saved.value && !sale.otherSelection.value && !sale.busy.value && !sale.loading.value" :resume-error="historyResumeError" @resume="resumeHistory" />
+            <p v-else role="status" class="ui-status-warning rounded-xl p-3 text-sm">Мої продажі зараз недоступні.</p>
+          </template>
+        </div>
+      </template>
+    </BaseTabs>
   </div>
 </template>
 <style scoped>
