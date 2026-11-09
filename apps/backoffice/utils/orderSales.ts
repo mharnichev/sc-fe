@@ -1,6 +1,8 @@
 export interface SalesIntent<T> { key: string, body: T, resultId?: number }
 export const salesIntentStorageKey = (actor: number, operation: string, resource: string) =>
   `sc-sales:v1:${actor}:${operation}:${resource}`
+export const closedPosAttachmentKey = (actor: number, orderId: number) =>
+  salesIntentStorageKey(actor, 'pos-attach-invoice-closed', String(orderId))
 export const parseSalesIntent = <T>(raw: string | null): SalesIntent<T> | null => {
   if (!raw) return null
   try {

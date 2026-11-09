@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LinkIcon } from '@heroicons/vue/24/outline'
 import type { PosInvoiceRecovery } from '~/types/posSale'
-import { salesErrorDetail } from '~/utils/orderSales'
+import { closedPosAttachmentKey, salesErrorDetail } from '~/utils/orderSales'
 
 const props = defineProps<{ orderId: number; revision: number; recovery: PosInvoiceRecovery; reading?: boolean; readSale: () => Promise<boolean> }>()
 const api = useApi({ refreshOnUnauthorized: false })
@@ -45,6 +45,7 @@ const attach = async () => {
   if (!canAttach.value) return
   const orderId = props.orderId, revision = props.revision, submittedInvoice = invoice.value
   const actor = auth.user?.id, token = auth.accessToken
+  if (!actor) return
   const sameSession = () => actor === auth.user?.id && token === auth.accessToken && orderId === props.orderId
   let reread: 'fresh' | 'newer' | undefined, rejectCandidate = false
   failure.value = ''
@@ -58,6 +59,16 @@ const attach = async () => {
       return
     }
     if (!sameSession() || !isAllowed.value || revision !== props.revision) return
+    try {
+      if (localStorage.getItem(closedPosAttachmentKey(actor, orderId)) !== null) {
+        failure.value = 'Продаж закрито. Перечитуємо його стан.'
+        reread = 'newer'
+        return
+      }
+    } catch {
+      failure.value = 'Сховище недоступне. Прив’язку заблоковано.'
+      return
+    }
     await command.execute({ invoice_id: submittedInvoice, expected_revision: revision }, async (body, key) => {
       if (body.invoice_id !== submittedInvoice) {
         failure.value = 'В іншій вкладці збережено інший рахунок. Перевірте його перед явним повтором.'

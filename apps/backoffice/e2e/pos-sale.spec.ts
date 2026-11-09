@@ -778,3 +778,235 @@ test('another tab cannot silently replace the invoice the manager confirmed', as
   await expect.poll(() => f.attachments().length).toBe(1)
   expect(f.attachments()[0]).toMatchObject(saved)
 })
+
+const closeOrderId = 5
+const closeStorageKey = 'sc-sales:v1:18:pos-close-expired-unpaid:5'
+const closeButton = 'Перевірити й закрити продаж'
+const retryCloseButton = 'Перевірити стан і повторити запит'
+async function expiredCloseFixture(page: Page, mode: 'lost' | 'committed' | 'refused' | 'stale' | 'own', admin = true) {
+  const user = { id: admin ? 18 : 17, is_active: true, is_superuser: admin, role: admin ? 'admin' : 'barber', can_record_sales: true, can_accept_qr_payments: true, email: 'synthetic@example.test' }
+  const own = mode === 'own', saleId = own ? 9005 : closeOrderId
+  const requests: { method: string; path: string; key?: string; body: unknown }[] = []
+  const external: string[] = []
+  let closed = false, quarantined = false, revision = 2
+  let releaseResponse: () => void = () => {}
+  const firstResponse = new Promise<void>(resolve => { releaseResponse = resolve })
+  const state = (id: number, history = true) => {
+    const boundLegacySale = id === 4
+    const done = id === saleId && closed
+    const payment = boundLegacySale || (done && !quarantined) ? 'expired' : 'unknown'
+    const receipt = done && quarantined ? 'requires_review' : 'not_requested'
+    return {
+      order_id: id, checkout_id: uuid, intent_id: '33333333-3333-4333-8333-333333333333',
+      revision: id === saleId ? revision : 2, source: 'quick_pos', created_at: '2026-11-09T08:00:00Z',
+      employee: { user_id: own ? 18 : 17, master_id: own ? null : 42, display_name: 'Synthetic seller' },
+      items: [{ product_id: 248, name: 'Synthetic product', quantity: 1, unit_minor: 62900, total_minor: 62900 }],
+      amount_minor: 62900, currency: 'UAH', order_status: done || boundLegacySale ? 'cancelled' : 'pending', status: 'requires_review',
+      payment_status: payment, receipt_status: receipt, handover_status: 'not_ready',
+      payment: { provider: 'monobank', status: payment, invoice_id: boundLegacySale ? 'synthetic-old-invoice' : null, confirmed_at: null, qr_payload: null },
+      receipt: { issuer: 'checkbox', status: receipt, recorded_at: null, pdf_url: null },
+      handover: { status: 'not_ready', actor_user_id: null, handed_over_at: null },
+      actions: { can_resume: false, can_refresh: false, can_handover: false, can_recover_invoice: own && !history && !done, can_start_new: own && !history && done },
+      invoice_recovery: own && id === saleId && !done
+        ? { reference: 'synthetic-bank-reference', requested_at: '2026-11-09T08:00:00Z', can_attach: true } : null, can_check_expired_close: admin && id === saleId && !done,
+      blocking_reasons: done ? quarantined ? ['master_mono_closed_conflict'] : ['master_mono_sale_closed', 'cancelled'] : ['creation_unknown'],
+    }
+  }
+  const posts = () => requests.filter(request => request.method !== 'GET')
+  await page.context().addInitScript(user => {
+    localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'synthetic-only', user }))
+  }, user)
+  await page.context().route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url()), path = url.pathname
+    if (url.hostname !== '127.0.0.1') { external.push(url.origin); return route.abort('blockedbyclient') }
+    if (!path.includes('/api/v1/')) return route.continue()
+    requests.push({ path, method: request.method(), key: request.headers()['idempotency-key'], body: request.postData() ? request.postDataJSON() : null })
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (path.endsWith('/pos/capabilities')) return route.fulfill({ json: {
+      mode: 'mono_checkbox', can_search: true, can_start: true, can_view_admin_sales: admin, automatic_reconciliation_enabled: false, poll_after_ms: 30000,
+    } })
+    if (path.endsWith('/checkouts/active')) {
+      const items = own && !closed ? [state(saleId, false)] : []
+      return route.fulfill({ json: { items, total: items.length, page: 1, page_size: 20 } })
+    }
+    if (own && (path.includes('/checkouts/by-intent/') || path.endsWith('/checkouts/' + uuid))) {
+      return route.fulfill({ json: state(saleId, false) })
+    }
+    if (own && path.endsWith('/orders/' + saleId + '/recover-invoice') && request.method() === 'POST') {
+      return route.abort('failed')
+    }
+    if (path.endsWith('/pos/sales')) {
+      const items = [state(3), state(4), state(saleId)].filter(item => !url.searchParams.has('order_status') || item.order_status === url.searchParams.get('order_status'))
+      return route.fulfill({ json: { items, total: items.length, page: 1, page_size: 20 } })
+    }
+    if (/\/pos\/sales\/\d+$/.test(path)) return route.fulfill({ json: state(Number(path.split('/').at(-1))) })
+    if (path.endsWith('/master-mono/orders/' + saleId + '/close-expired-unpaid') && request.method() === 'POST') {
+      if (mode === 'lost' && posts().length === 1) { await firstResponse; return route.abort('failed') }
+      if (mode === 'refused') return route.fulfill({ status: 409, json: { detail: { code: 'master_mono_close_unpaid_unproven' } } })
+      closed = true
+      revision++
+      if (mode === 'committed') return route.abort('failed')
+      return route.fulfill({ json: { order_id: saleId, revision, status: 'cancelled' } })
+    }
+    return route.fulfill({ status: 404, json: {} })
+  })
+  const open = async (tab: Page, id = saleId) => {
+    await tab.getByRole('button', { name: `Деталі продажу #${id}` }).click()
+    const dialog = tab.getByRole('dialog', { name: 'Деталі продажу' })
+    await expect(dialog.getByRole('heading', { name: `Продаж #${id}` })).toBeVisible()
+    return dialog
+  }
+  return { requests, external, posts, open, saleId, releaseResponse, changeRevision: () => { revision++ }, quarantine: () => { quarantined = true; revision++ } }
+}
+
+test('admin expired close confirms the canonical sale after a lost success and shows later quarantine', async ({ page }) => {
+  const fixture = await expiredCloseFixture(page, 'committed')
+  await page.goto('/admin/product-sales')
+  await page.getByLabel('Статус замовлення', { exact: true }).click()
+  await page.getByRole('option', { name: 'Очікує', exact: true }).click()
+  await page.getByRole('button', { name: 'Застосувати фільтри' }).click()
+  const dialog = await fixture.open(page)
+  await expect(dialog.getByText(/Резерв звільниться, лише якщо/)).toBeVisible()
+  await dialog.getByRole('button', { name: closeButton }).click()
+  await expect(dialog.getByText('Продаж закрито. Резерв товару знято.')).toBeVisible()
+  await expect(page.locator('button[aria-label="Деталі продажу #5"]')).toHaveCount(0)
+  const [post] = fixture.posts()
+  expect(post.body).toEqual({ expected_revision: 2 })
+  expect(post.key).toMatch(/^[a-f0-9-]{14}4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/)
+  const reads = fixture.requests.filter(r => r.path.endsWith('/pos/sales/5') || r === post)
+  expect(reads.map(r => r.method)).toEqual(['GET', 'GET', 'POST', 'GET'])
+  expect(await page.evaluate(key => localStorage.getItem(key), closeStorageKey)).toBeNull()
+  fixture.quarantine()
+  await dialog.getByRole('button', { name: 'Перечитати стан', exact: true }).click()
+  await expect(dialog.getByText('Продаж закрито. Нові дані про оплату потребують звірки.')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: closeButton })).toHaveCount(0)
+  expect(fixture.posts()).toHaveLength(1)
+  expect(fixture.external).toEqual([])
+})
+
+test('admin expired close persists the original key, excludes another tab, and retries only after explicit GET', async ({ page }) => {
+  const fixture = await expiredCloseFixture(page, 'lost')
+  const other = await page.context().newPage()
+  await Promise.all([page.goto('/admin/product-sales'), other.goto('/admin/product-sales')])
+  const [first, second] = await Promise.all([fixture.open(page), fixture.open(other)])
+  try {
+    await first.getByRole('button', { name: closeButton }).click()
+    await expect.poll(() => fixture.posts().length).toBe(1)
+    await second.getByRole('button', { name: retryCloseButton }).click()
+    await expect(second.getByText(/В іншій вкладці вже триває/)).toBeVisible()
+    expect(fixture.posts()).toHaveLength(1)
+  } finally {
+    fixture.releaseResponse()
+  }
+  await expect(first.getByText(/Закриття не підтверджено. Запит збережено/)).toBeVisible()
+  await page.reload()
+  const restored = await fixture.open(page)
+  await expect(restored.getByRole('button', { name: retryCloseButton })).toBeVisible()
+  const [post] = fixture.posts()
+  const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || 'null'), closeStorageKey)
+  expect(saved).toEqual({ key: post.key, body: post.body })
+  expect(fixture.posts()).toHaveLength(1)
+  const offset = fixture.requests.length
+  await restored.getByRole('button', { name: retryCloseButton }).click()
+  await expect(restored.getByText('Продаж закрито. Резерв товару знято.')).toBeVisible()
+  expect(fixture.posts()).toEqual([post, post])
+  expect(fixture.requests.slice(offset, offset + 3).map(r => r.method)).toEqual(['GET', 'POST', 'GET'])
+  expect(fixture.external).toEqual([])
+})
+
+test('admin expired close hides the action for unknown order 3 and stops on a stale revision', async ({ page }) => {
+  const fixture = await expiredCloseFixture(page, 'stale')
+  await page.goto('/admin/product-sales')
+  const unknown = await fixture.open(page, 3)
+  await expect(unknown.getByRole('region', { name: 'Закриття простроченого продажу' })).toHaveCount(0)
+  await unknown.press('Escape')
+  const ordinaryCancellation = await fixture.open(page, 4)
+  await expect(ordinaryCancellation.getByRole('region', { name: 'Закриття простроченого продажу' })).toHaveCount(0)
+  await ordinaryCancellation.press('Escape')
+  const candidate = await fixture.open(page)
+  fixture.changeRevision()
+  await candidate.getByRole('button', { name: closeButton }).click()
+  await expect(candidate.getByText(/Стан продажу змінився/)).toBeVisible()
+  expect(fixture.posts()).toEqual([])
+  expect(await page.evaluate(key => localStorage.getItem(key), closeStorageKey)).toBeNull()
+})
+
+test('admin expired close preserves the command when bank proof is refused', async ({ page }) => {
+  const fixture = await expiredCloseFixture(page, 'refused')
+  await page.goto('/admin/product-sales')
+  const dialog = await fixture.open(page)
+  await dialog.getByRole('button', { name: closeButton }).click()
+  await expect(dialog.getByText('Перевірка mono та чека не підтвердила умови закриття.')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: retryCloseButton })).toBeVisible()
+  await expect(dialog.getByText('Продаж закрито. Резерв товару знято.')).toHaveCount(0)
+  expect(fixture.posts()).toHaveLength(1)
+  expect(await page.evaluate(key => localStorage.getItem(key), closeStorageKey)).toContain(fixture.posts()[0].key)
+})
+
+test('master cannot access the admin expired close or trigger any sale command', async ({ page }) => {
+  const fixture = await expiredCloseFixture(page, 'stale', false)
+  await page.goto('/admin/product-sales')
+  await expect(page).toHaveURL(/\/orders\/pos/)
+  await expect(page.getByRole('button', { name: closeButton })).toHaveCount(0)
+  expect(fixture.requests.some(r => r.path.includes('/pos/sales'))).toBe(false)
+  expect(fixture.posts()).toEqual([])
+})
+
+
+test('own-admin expired close archives an exact lost bind only on fresh terminal exit, without replay', async ({ page, context }) => {
+  const fixture = await expiredCloseFixture(page, 'own')
+  const id = fixture.saleId
+  const pendingKey = `sc-sales:v1:18:pos-attach-invoice:${id}`
+  const archiveKey = `sc-sales:v1:18:pos-attach-invoice-closed:${id}`
+  const foreignOrder = 'sc-sales:v1:18:pos-attach-invoice:3'
+  const foreignActor = `sc-sales:v1:17:pos-attach-invoice:${id}`
+  await page.addInitScript(({ foreignOrder, foreignActor }) => {
+    if (localStorage.getItem('own-closure-initialized')) return
+    localStorage.setItem('own-closure-initialized', 'true')
+    const token = '55555555-5555-4555-8555-555555555555'
+    const record = { checkout_id: '22222222-2222-4222-8222-222222222222', body: {
+      intent_id: '33333333-3333-4333-8333-333333333333', currency: 'UAH', selection_only: true,
+    } }
+    localStorage.setItem('sc-pos:v1:18', JSON.stringify({ version: 2, current: record, selection_token: token, deferred: [] }))
+    sessionStorage.setItem('sc-pos:v1:18:selection', token)
+    localStorage.setItem(foreignOrder, 'foreign-order-record')
+    localStorage.setItem(foreignActor, 'foreign-actor-record')
+  }, { foreignOrder, foreignActor })
+  await page.goto('/orders/pos')
+  const sale = page.getByRole('region', { name: 'Поточний продаж' })
+  await expect(sale.getByText(`Продаж #${id}`, { exact: true })).toBeVisible()
+
+  const history = await context.newPage()
+  await history.goto('/admin/product-sales')
+  const dialog = await fixture.open(history)
+  await dialog.getByLabel('ID рахунку mono').fill('saved-synthetic-invoice')
+  await dialog.getByRole('button', { name: 'Прив’язати наявний рахунок', exact: true }).click()
+  await expect(dialog.getByText(/Результат прив’язки не підтверджено/)).toBeVisible()
+  const pending = await page.evaluate(key => localStorage.getItem(key), pendingKey)
+  expect(JSON.parse(pending!)).toEqual({ key: fixture.posts()[0].key, body: { invoice_id: 'saved-synthetic-invoice', expected_revision: 2 } })
+
+  const stale = await context.newPage()
+  await stale.goto('/admin/product-sales')
+  const staleDialog = await fixture.open(stale)
+  const staleRetry = staleDialog.getByRole('button', { name: 'Повторити прив’язку', exact: true })
+  await expect(staleRetry).toBeVisible()
+
+  await dialog.getByRole('button', { name: closeButton }).click()
+  await expect(dialog.getByText('Продаж закрито. Резерв товару знято.')).toBeVisible()
+  await page.reload()
+  const exit = sale.getByRole('button', { name: 'До пошуку товарів', exact: true })
+  await expect(exit).toBeVisible()
+  expect(await page.evaluate(key => localStorage.getItem(key), pendingKey)).toBe(pending)
+  const offset = fixture.requests.length
+  await exit.click()
+  await expect(page.getByLabel('Знайти товар')).toBeVisible()
+  expect(fixture.requests.slice(offset).filter(r => r.path.endsWith('/checkouts/' + uuid)).map(r => r.method)).toEqual(['GET'])
+  const storage = await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), [pendingKey, archiveKey, foreignOrder, foreignActor])
+  expect(storage).toEqual([null, pending, 'foreign-order-record', 'foreign-actor-record'])
+
+  await staleRetry.click()
+  await expect(staleDialog.getByText('Продаж закрито. Резерв товару знято.')).toBeVisible()
+  expect(fixture.posts().map(r => r.path.split('/').at(-1))).toEqual(['recover-invoice', 'close-expired-unpaid'])
+  expect(await page.evaluate(key => localStorage.getItem(key), pendingKey)).toBeNull()
+  expect(fixture.external).toEqual([])
+})
