@@ -9,6 +9,7 @@ const vue = await import(pathToFileURL(createRequire(require.resolve('nuxt/packa
 const source = await readFile(new URL('../composables/usePosSale.ts', import.meta.url), 'utf8')
 const compile = text => ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
 const monoUtils = await import(`data:text/javascript;base64,${Buffer.from(compile(await readFile(new URL('../utils/masterMono.ts', import.meta.url), 'utf8'))).toString('base64')}`)
+const orderSalesUtils = await import(`data:text/javascript;base64,${Buffer.from(compile(await readFile(new URL('../utils/orderSales.ts', import.meta.url), 'utf8'))).toString('base64')}`)
 let sequence=0
 const testTabs = new WeakMap()
 const offer = { id: 8, name: 'Reuzel', brand_name: 'Reuzel', sku: 'R8', barcode: '00123', image_url: null, variant_label: '350 мл', amount_minor: 35000, currency: 'UAH', available_quantity: 2, can_sell: true, blocking_reasons: [] }
@@ -26,7 +27,7 @@ async function setup(send, storage=new Map(), user={id:1,is_active:true,is_super
  Object.assign(globalThis,{sessionStorage:{getItem:k=>tab.get(k)??null,setItem:(k,v)=>tab.set(k,v)}})
  const auth=vue.reactive({user,accessToken:'token-A'}), calls=[]
  const api=async (path,options={})=>{calls.push({path,...options});return send(path,options)}
- Object.assign(globalThis,vue,monoUtils,{useApi:()=>api,useAuthStore:()=>auth,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{addEventListener(){},removeEventListener(){}},setTimeout:()=>1,clearTimeout:()=>{}})
+ Object.assign(globalThis,vue,monoUtils,orderSalesUtils,{useApi:()=>api,useAuthStore:()=>auth,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{addEventListener(){},removeEventListener(){}},setTimeout:()=>1,clearTimeout:()=>{}})
  const js=compile(source.replace(/^import .*\n/gm,'').replace(/import\.meta\.client/g,'true'))
  const module=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${sequence++}`)
  const scope=vue.effectScope(), sale=scope.run(()=>module.usePosSale())
@@ -272,7 +273,9 @@ test('expired-sale exit drops stale offers without requiring a reload', async ()
 test('expired-sale exit retains the selection when a newer bank conflict appears', async () => {
  const intentId = state().intent_id
  const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:intentId,currency:'UAH',quote_revision:'1'.repeat(64)} }
- const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)]])
+ const attachment = 'sc-sales:v1:1:pos-attach-invoice:3'
+ const raw = JSON.stringify({key:'66666666-6666-4666-8666-666666666666',body:{invoice_id:'saved-invoice',expected_revision:2}})
+ const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)], [attachment,raw]])
  const expired = state({
   revision:3, order_status:'cancelled', status:'requires_review',
   payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
@@ -290,8 +293,53 @@ test('expired-sale exit retains the selection when a newer bank conflict appears
  assert.equal(f.sale.checkout.value.revision,4)
  assert.equal(f.sale.saved.value.key,record.key)
  assert.equal(f.sale.saved.value.body.intent_id,intentId)
+ assert.equal(storage.get(attachment),raw)
+ assert.equal(storage.has('sc-sales:v1:1:pos-attach-invoice-closed:3'),false)
  assert.equal(f.calls.some(call=>call.method==='POST'),false)
  f.stop()
+})
+
+test('audited exit keeps unconfirmed or mismatched attachment records pending', async () => {
+ const pendingKey = 'sc-sales:v1:1:pos-attach-invoice:3'
+ const archiveKey = 'sc-sales:v1:1:pos-attach-invoice-closed:3'
+ const record = { key:'44444444-4444-4444-8444-444444444444', checkout_id:state().checkout_id, body:{...cart(),intent_id:state().intent_id,currency:'UAH',quote_revision:'1'.repeat(64)} }
+ const expired = state({
+  revision:3, order_status:'cancelled', status:'requires_review',
+  payment:{...state().payment,status:'expired',invoice_id:null,qr_payload:null},
+  actions:{...state().actions,can_refresh:false,can_start_new:true},
+  blocking_reasons:['master_mono_sale_closed','cancelled'],
+ })
+ const bind = { key:'66666666-6666-4666-8666-666666666666',body:{invoice_id:'saved-invoice',expected_revision:2} }
+ for (const { pending = bind, fresh = expired, priorArchive, actor, failArchive = false } of [
+  { pending: {...bind,body:{...bind.body,expected_revision:1}} },
+  { pending: {...bind,resultId:3} },
+  { fresh: {...expired,order_id:4} },
+  { fresh: {...expired,blocking_reasons:[]} },
+  { fresh: {...expired, payment:{...expired.payment,status:'unknown'}, receipt:{...expired.receipt,status:'requires_review'},
+    actions:{...expired.actions,can_start_new:false}, blocking_reasons:['master_mono_closed_conflict']} },
+  { failArchive: true },
+  { priorArchive: JSON.stringify({...bind,key:'77777777-7777-4777-8777-777777777777'}) },
+  { actor: {id:1,is_active:true,is_superuser:false,can_record_sales:true,can_accept_qr_payments:true} },
+ ]) {
+  const raw = JSON.stringify(pending)
+  const storage = new Map([['sc-pos:v1:1',JSON.stringify(record)], [pendingKey,raw]])
+  if (priorArchive) storage.set(archiveKey,priorArchive)
+  if (failArchive) {
+   const set = storage.set.bind(storage)
+   storage.set = (key,value) => {
+    if (key === archiveKey) throw new Error('storage quota')
+    return set(key,value)
+   }
+  }
+  const f = await setup(path => base(path) || (path.includes('/by-intent/') ? expired : fresh), storage, actor)
+  assert.equal(f.sale.canStartNew.value,true)
+  await f.sale.startNew()
+  assert.equal(storage.get(pendingKey),raw)
+  assert.equal(storage.get(archiveKey),priorArchive)
+  assert.equal(f.sale.saved.value.key,record.key)
+  assert.equal(f.calls.some(call=>call.method==='POST'),false)
+  f.stop()
+ }
 })
 
 test('expired-sale exit preserves an unresolved command and never replays it', async () => {

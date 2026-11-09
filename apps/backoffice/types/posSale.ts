@@ -62,6 +62,7 @@ export interface PosSaleSummary {
  order_id: number; checkout_id: string | null; intent_id: string | null; created_at: string; employee: PosCheckout['employee']; items: { product_id: number; name: string; sku: string | null; quantity: number; unit_minor: number; total_minor: number }[]; amount_minor: number; currency: 'UAH'; order_status: PosCheckout['order_status']; status: PosCheckout['status']; payment_status: PosCheckout['payment']['status']; receipt_status: PosCheckout['receipt']['status']; handover_status: PosCheckout['handover']['status']; source: 'quick_pos' | 'existing_mono_pos'
 }
 export interface PosSaleDetail extends PosSaleSummary {
+  can_check_expired_close?: boolean
   revision: number
   blocking_reasons: string[]
   payment: PosCheckout['payment']

@@ -1,5 +1,6 @@
 import type { PosCapabilities, PosCartCreate, PosCartQuote, PosCartRequest, PosCheckout, PosCreate, PosOffer, PosPage } from '~/types/posSale'
 import { masterMonoPaymentUrl } from '~/utils/masterMono'
+import { closedPosAttachmentKey, parseSalesIntent, salesIntentStorageKey } from '~/utils/orderSales'
 const root = '/backoffice/pos'
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
@@ -79,7 +80,28 @@ export const usePosSale = () => {
   const access = computed(() => !!scope.value && capabilities.value?.mode === 'mono_checkbox' && capabilities.value.can_search && !!auth.user?.is_active && (auth.user.is_superuser || (auth.user.can_record_sales === true && auth.user.can_accept_qr_payments === true)) && !storageFault.value)
   const allowed = computed(() => access.value && capabilities.value?.can_start === true && !otherSelection.value)
   const selectionKey = () => `${scope.value}:selection`
-  const hasInvoiceAttachment = (orderId: number) => localStorage.getItem(`sc-sales:v1:${auth.user?.id}:pos-attach-invoice:${orderId}`) !== null
+  const invoiceAttachmentKey = (actor: number, orderId: number) => salesIntentStorageKey(actor, 'pos-attach-invoice', String(orderId))
+  const hasInvoiceAttachment = (orderId: number) => !!auth.user && localStorage.getItem(invoiceAttachmentKey(auth.user.id, orderId)) !== null
+  // Called only under the sale lock after the authoritative checkout read.
+  const archiveClosedAttachment = (c: PosCheckout) => {
+    const user = auth.user
+    if (!user) return false
+    const key = invoiceAttachmentKey(user.id, c.order_id)
+    const raw = localStorage.getItem(key)
+    if (raw === null) return true
+    const pending = parseSalesIntent<{ invoice_id: unknown; expected_revision: unknown }>(raw)
+    if (!user.is_superuser || !c.blocking_reasons?.includes('master_mono_sale_closed')
+        || !pending || !uuid(pending.key) || pending.resultId !== undefined || Object.keys(pending.body).length !== 2
+        || typeof pending.body.invoice_id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(pending.body.invoice_id)
+        || !positive(pending.body.expected_revision) || pending.body.expected_revision !== c.revision - 1) return false
+    const archive = closedPosAttachmentKey(user.id, c.order_id)
+    const previous = localStorage.getItem(archive)
+    if (previous !== null && previous !== raw) return false
+    if (previous === null) localStorage.setItem(archive, raw)
+    if (localStorage.getItem(key) !== raw) return false
+    localStorage.removeItem(key)
+    return true
+  }
   const canDefer = computed(() => allowed.value && !!checkout.value && !!saved.value?.checkout_id
     && saved.value.checkout_id === checkout.value.checkout_id && !saved.value.command && unresolvedCreate(checkout.value))
   const canStartNew = computed(() => {
@@ -474,10 +496,10 @@ export const usePosSale = () => {
         try {
           const latest = await read<PosCheckout>(`/checkouts/${c.checkout_id}`)
           if (!current(v)) return
-          if (latest.revision < c.revision) throw new Error('stale closure')
+          if (latest.order_id !== c.order_id || latest.revision < c.revision) throw new Error('stale closure')
           accept(latest, v)
           if (!posExpiredClosure(latest) || !canStartNew.value) return
-          if (hasInvoiceAttachment(c.order_id)) {
+          if (!archiveClosedAttachment(latest)) {
             error.value = 'Є незавершена звірка рахунку. Перечитайте стан цього продажу.'
             return
           }
