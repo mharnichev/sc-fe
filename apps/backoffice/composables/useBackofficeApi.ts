@@ -1,3 +1,4 @@
+import type { MonoPaymentUrlSource } from '~/types/posSale'
 import type {
   CustomerSegment, SegmentList, SegmentCreate, SegmentUpdate, SegmentMemberQuery,
   SegmentPreviewRequest, SegmentPreviewResponse, CampaignAudiencePreview,
@@ -283,6 +284,9 @@ export interface MasterMonoState {
   amount_minor: number
   invoice_id: string | null
   payment_url: string | null
+  payment_url_source?: MonoPaymentUrlSource | null
+  payment_url_expires_at?: string | null
+  can_verify_invoice?: boolean
   receipt_pdf_path: string | null
   can_handover: boolean
   blocking_reasons: string[]
@@ -1584,6 +1588,7 @@ export const useBackofficeApi = () => {
   const getMasterMonoState = (id: number) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}`, { retry: 0 })
   const startMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/start`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
   const refreshMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/refresh`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const verifyMasterMonoInvoice = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/verify-invoice`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0, cache: 'no-store' })
   // Always use this authenticated endpoint; never follow a provider-returned PDF URL.
   const getMasterMonoReceiptPdf = (id: number) => api<Blob>(`/backoffice/master-mono/orders/${id}/receipt/pdf`, { responseType: 'blob', retry: 0 })
   const getQrMockReadiness = () => api<QrMockReadiness>('/backoffice/integrations/monobank-qr/readiness', { retry: 0 })
@@ -2847,6 +2852,7 @@ export const useBackofficeApi = () => {
     getMasterMonoState,
     startMasterMono,
     refreshMasterMono,
+    verifyMasterMonoInvoice,
     getMasterMonoReceiptPdf,
     getQrMockReadiness,
     getOrderQrMockAttempts,

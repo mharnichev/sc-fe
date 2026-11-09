@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 import type { PosCheckout } from '../types/posSale'
 const offer = {id:101,name:'Reuzel Blue',brand_name:'Reuzel',sku:'R-001',barcode:'00000101',image_url:'/media/pos-test.svg',variant_label:'113 г',amount_minor:31000,currency:'UAH',available_quantity:2,can_sell:true,blocking_reasons:[]}
 const uuid='22222222-2222-4222-8222-222222222222'
-async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout}={}) {
+async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout; verifyCheckout?: (checkout: PosCheckout) => PosCheckout | null}={}) {
  const role=options.role || 'master', user={id:role==='admin'?18:17,is_active:true,is_superuser:role==='admin',role:role==='admin'?'admin':'barber',master_id:role==='admin'?null:42,can_record_sales:true,can_accept_qr_payments:true,email:'synthetic@example.test'}
  let current:any=null, revoked=false, paused=false, handovers=0, creates=0
  const firstRevision='1'.repeat(64), changedRevision='2'.repeat(64)
@@ -66,6 +66,12 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
    return route.fulfill({status:201,json:current})
   }
   if(path.endsWith('/handover')){handovers++;current={...current,revision:current.revision+1,status:'completed',order_status:'completed',handover:{status:'handed_over',actor_user_id:user.id,handed_over_at:'2026-11-06T10:05:00Z'},actions:{...current.actions,can_handover:false,can_start_new:true}};if(options.lostHandover&&handovers===1)return route.abort('failed');return route.fulfill({json:current})}
+  if (path.endsWith('/verify-invoice') && options.verifyCheckout) {
+   const verified = options.verifyCheckout(current)
+   if (!verified) return route.fulfill({ status: 503, json: { detail: { code: 'master_mono_candidate_unavailable' } } })
+   current = verified
+   return route.fulfill({ json: current })
+  }
   if(path.startsWith('/checkouts/'))return route.fulfill({json:current})
   if(path.startsWith('/sales')){
    if(role!=='admin')return route.fulfill({status:403,json:{detail:{code:'permission_denied'}}})
@@ -83,15 +89,23 @@ async function select(page:Page){await page.getByLabel('Знайти товар'
 
 const opaquePaymentUrl = 'https://pay.mbnk.biz/i/pay?session=synthetic%2Btoken%3D'
 const shortPaymentUrl = 'https://pay.mbnk.biz/sensitive-provider-data-never-log'
+const attestedPaymentUrl = 'https://pay.merchant-fixture.net/pay/a%2FB?token=%2B%3D'
+const attestedSource = 'mono_authenticated_create_v1' as const
 const providerInvoiceId = 'p2_synthetic_provider'
+const fixtureExpiry = () => new Date(Date.now() + 600_000).toISOString()
 
-for (const [kind, paymentUrl] of [['nested opaque', opaquePaymentUrl], ['short opaque', shortPaymentUrl]] as const) {
+for (const [kind, paymentUrl, source] of [
+  ['nested opaque legacy', opaquePaymentUrl, null],
+  ['short opaque legacy', shortPaymentUrl, null],
+  ['authenticated create response', attestedPaymentUrl, attestedSource],
+] as const) {
 test(`authorized master gets a QR for the exact verified ${kind} URL after one checkout`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const fixture = await setup(page, {
     projectCheckout: checkout => ({
       ...checkout,
-      payment: { ...checkout.payment, invoice_id: providerInvoiceId, qr_payload: paymentUrl },
+      payment: { ...checkout.payment, invoice_id: providerInvoiceId, qr_payload: paymentUrl,
+        payment_url_source: source, payment_url_expires_at: source ? fixtureExpiry() : null },
     }),
   })
   await page.goto('/orders/pos')
@@ -116,31 +130,36 @@ test(`authorized master gets a QR for the exact verified ${kind} URL after one c
     })
     return { width: image.width, height: image.height, pixels }
   }, Array.from<number>(screenshot))
-  const source = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
-  const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source))).getText()
+  const pixels = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
+  const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(pixels))).getText()
   expect(decoded).toBe(paymentUrl)
+  expect(await page.evaluate(() => localStorage.getItem('sc-pos:v1:17'))).not.toContain(paymentUrl)
   expect(fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
     .map(request => request.path)).toEqual(['/checkouts'])
   expect(fixture.external).toEqual([])
 })
 }
 
-for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId] of [
-  ['foreign host', 'https://pay.mbnk.biz.example.test/i/pay?session=synthetic', 'pending', 'pending'],
-  ['credentials', 'https://pay.mbnk.biz@other.test/i/pay?session=synthetic', 'pending', 'pending'],
-  ['unsafe path', 'https://pay.mbnk.biz/i/%2e%2e/pay?session=synthetic', 'pending', 'pending'],
-  ['malformed encoding', 'https://pay.mbnk.biz/i/pay?session=bad%zz', 'pending', 'pending'],
-  ['missing invoice identity', shortPaymentUrl, 'pending', 'pending', null],
+for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId, source] of [
+  ['unattested new host', attestedPaymentUrl, 'pending', 'pending'],
+  ['credentials', 'https://pay.merchant-fixture.net@other.net/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['explicit port', 'https://pay.merchant-fixture.net:443/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['obfuscated loopback', 'https://0x7f000001/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['unsafe path', 'https://pay.merchant-fixture.net/i/%2e%2e/pay?session=synthetic', 'pending', 'pending', undefined, attestedSource],
+  ['malformed encoding', 'https://pay.merchant-fixture.net/i/pay?session=bad%zz', 'pending', 'pending', undefined, attestedSource],
+  ['missing invoice identity', attestedPaymentUrl, 'pending', 'pending', null, attestedSource],
   ['missing URL', null, 'pending', 'pending'],
   ['paid', shortPaymentUrl, 'paid', 'paid'],
-  ['cancelled', shortPaymentUrl, 'cancelled', 'pending'],
+  ['cancelled', attestedPaymentUrl, 'cancelled', 'pending', undefined, attestedSource],
 ] as const) {
   test(`POS omits the payment QR for ${name}`, async ({ page }) => {
     const fixture = await setup(page, {
       projectCheckout: checkout => ({
         ...checkout,
         order_status: orderStatus,
-        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload, invoice_id: invoiceId === null ? null : checkout.payment.invoice_id },
+        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload,
+          invoice_id: invoiceId === null ? null : checkout.payment.invoice_id,
+          payment_url_source: source, payment_url_expires_at: source ? fixtureExpiry() : null },
       }),
     })
     await page.goto('/orders/pos')
@@ -158,6 +177,65 @@ for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId] of [
     expect(fixture.external).toEqual([])
   })
 }
+
+test('an attested QR disappears when its bank validity ends even with manual reconciliation', async ({ page }) => {
+  const now = Date.now()
+  await page.clock.install({ time: now })
+  const expiry = new Date(now + 12_000).toISOString()
+  const fixture = await setup(page, {
+    manualRefresh: true,
+    projectCheckout: checkout => ({ ...checkout, payment: {
+      ...checkout.payment, qr_payload: attestedPaymentUrl,
+      payment_url_source: attestedSource, payment_url_expires_at: expiry,
+    } }),
+  })
+  await page.goto('/orders/pos')
+  await select(page)
+  const qr = page.getByRole('img', { name: 'QR для оплати mono' })
+  await expect(qr).toBeVisible()
+  await page.clock.runFor(12_000)
+  await expect(qr).toHaveCount(0)
+  await expect(page.getByText(/QR для оплати поки недоступний/)).toBeVisible()
+  expect(fixture.requests.filter(request => request.path === '/checkouts' && request.method === 'POST')).toHaveLength(1)
+  expect(fixture.external).toEqual([])
+})
+
+test('the saved invoice can be verified after reload without creating another checkout', async ({ page }) => {
+  let attempts = 0
+  const fixture = await setup(page, {
+    manualRefresh: true,
+    projectCheckout: checkout => ({ ...checkout, status: 'requires_review', blocking_reasons: ['creation_unknown'],
+      payment: { ...checkout.payment, status: 'unknown', invoice_id: null, qr_payload: null },
+      actions: { ...checkout.actions, can_refresh: false, can_verify_invoice: true } }),
+    verifyCheckout: checkout => ++attempts === 1 ? null : ({
+      ...checkout, revision: checkout.revision + 1, status: 'awaiting_payment', blocking_reasons: [],
+      payment: { ...checkout.payment, status: 'pending', invoice_id: providerInvoiceId,
+        qr_payload: attestedPaymentUrl, payment_url_source: attestedSource, payment_url_expires_at: fixtureExpiry() },
+      actions: { ...checkout.actions, can_refresh: true, can_verify_invoice: false },
+    }),
+  })
+  await page.goto('/orders/pos')
+  await select(page)
+  const verify = page.getByRole('button', { name: 'Перевірити рахунок mono', exact: true })
+  const qr = page.getByRole('img', { name: 'QR для оплати mono' })
+  await expect(qr).toHaveCount(0)
+  await verify.click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Результат ще не підтверджено' })).toBeVisible()
+  await page.reload()
+  await expect(verify).toBeEnabled()
+  expect(attempts).toBe(1)
+  await expect(qr).toHaveCount(0)
+  await verify.click()
+  await expect(qr).toBeVisible()
+  const posts = fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
+  expect(posts.map(({ path }) => path)).toEqual(['/checkouts', '/checkouts/' + uuid + '/verify-invoice', '/checkouts/' + uuid + '/verify-invoice'])
+  expect(posts[1].key).toBeTruthy()
+  expect(posts[1].key).toBe(posts[2].key)
+  expect(posts[1].body).toEqual({ expected_revision: 3 })
+  expect(posts[2].body).toEqual(posts[1].body)
+  expect(await page.evaluate(() => localStorage.getItem('sc-pos:v1:17'))).not.toContain(attestedPaymentUrl)
+  expect(fixture.external).toEqual([])
+})
 
 for(const role of ['master','admin'] as const)test(`${role}: same cart sale, QR, backend receipt then one explicit handover`,async({page})=>{
  await page.clock.install();const f=await setup(page,{role,lostHandover:true});await page.goto('/orders/pos')
