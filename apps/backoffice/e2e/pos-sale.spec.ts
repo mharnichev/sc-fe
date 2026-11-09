@@ -82,11 +82,17 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
 async function select(page:Page){await page.getByLabel('Знайти товар',{exact:true}).fill('00000101');await page.getByLabel('Знайти товар',{exact:true}).press('Enter');await page.getByRole('button',{name:/Додати: Reuzel Blue/}).click();await page.getByRole('region',{name:'Панель кошика'}).getByText('310,00', {exact:false}).waitFor();await page.getByRole('button',{name:'Перейти до оплати',exact:true}).click()}
 
 const opaquePaymentUrl = 'https://pay.mbnk.biz/i/pay?session=synthetic%2Btoken%3D'
+const shortPaymentUrl = 'https://pay.mbnk.biz/sensitive-provider-data-never-log'
+const providerInvoiceId = 'p2_synthetic_provider'
 
-test('authorized master gets a QR for the exact verified URL after one checkout', async ({ page }, testInfo) => {
+for (const [kind, paymentUrl] of [['nested opaque', opaquePaymentUrl], ['short opaque', shortPaymentUrl]] as const) {
+test(`authorized master gets a QR for the exact verified ${kind} URL after one checkout`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const fixture = await setup(page, {
-    projectCheckout: checkout => ({ ...checkout, payment: { ...checkout.payment, qr_payload: opaquePaymentUrl } }),
+    projectCheckout: checkout => ({
+      ...checkout,
+      payment: { ...checkout.payment, invoice_id: providerInvoiceId, qr_payload: paymentUrl },
+    }),
   })
   await page.goto('/orders/pos')
   await select(page)
@@ -112,28 +118,29 @@ test('authorized master gets a QR for the exact verified URL after one checkout'
   }, Array.from<number>(screenshot))
   const source = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
   const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source))).getText()
-  expect(decoded).toBe(opaquePaymentUrl)
+  expect(decoded).toBe(paymentUrl)
   expect(fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
     .map(request => request.path)).toEqual(['/checkouts'])
   expect(fixture.external).toEqual([])
 })
+}
 
-for (const [name, qrPayload, orderStatus, paymentStatus] of [
+for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId] of [
   ['foreign host', 'https://pay.mbnk.biz.example.test/i/pay?session=synthetic', 'pending', 'pending'],
   ['credentials', 'https://pay.mbnk.biz@other.test/i/pay?session=synthetic', 'pending', 'pending'],
   ['unsafe path', 'https://pay.mbnk.biz/i/%2e%2e/pay?session=synthetic', 'pending', 'pending'],
   ['malformed encoding', 'https://pay.mbnk.biz/i/pay?session=bad%zz', 'pending', 'pending'],
-  ['other invoice', 'https://pay.mbnk.biz/DIFFERENT_INVOICE?session=synthetic', 'pending', 'pending'],
+  ['missing invoice identity', shortPaymentUrl, 'pending', 'pending', null],
   ['missing URL', null, 'pending', 'pending'],
-  ['paid', opaquePaymentUrl, 'paid', 'paid'],
-  ['cancelled', opaquePaymentUrl, 'cancelled', 'pending'],
+  ['paid', shortPaymentUrl, 'paid', 'paid'],
+  ['cancelled', shortPaymentUrl, 'cancelled', 'pending'],
 ] as const) {
   test(`POS omits the payment QR for ${name}`, async ({ page }) => {
     const fixture = await setup(page, {
       projectCheckout: checkout => ({
         ...checkout,
         order_status: orderStatus,
-        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload },
+        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload, invoice_id: invoiceId === null ? null : checkout.payment.invoice_id },
       }),
     })
     await page.goto('/orders/pos')

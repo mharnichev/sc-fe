@@ -21,10 +21,13 @@ const pdfFixture = (() => {
 
 const actorFixture = (master: boolean) => ({ id: 1, email: 'master-mono@example.test', is_active: true, is_superuser: !master, role: master ? 'barber' : 'admin', master_id: master ? 11 : null, can_record_sales: true, can_accept_qr_payments: true, can_post_inventory: !master })
 const orderFixture = () => ({ id: 321, status: 'pending', channel: 'backoffice_pos', fulfillment_method: 'pickup', total_amount: '123.45', subtotal_amount: '123.45', discount_amount: '0.00', revision: 1, simulation: false, payment_status: 'unpaid', fulfillment_status: 'reserved', fiscal_status: 'not_requested', items: [{ id: 11, product_id: 8, product_name: 'Master mono fixture shampoo', quantity: 1, price: '123.45', total_price: '123.45', quantity_from_stock: 1, quantity_to_order: 0, quantity_received_for_order: 0 }], sales_actions: { can_record_payment: true, can_handover: false, blocking_reasons: [] as string[] }, payments: [] as unknown[], handovers: [] as unknown[] })
-const setup = async (page: Page, master = true, options: { unknown?: boolean, unsafeUrl?: boolean, historical?: boolean, lostHandoverReply?: boolean } = {}) => {
+const setup = async (page: Page, master = true, options: { unknown?: boolean, unsafeUrl?: boolean, historical?: boolean, lostHandoverReply?: boolean, existingPaymentUrl?: string } = {}) => {
   const actor = actorFixture(master)
   let order = { ...orderFixture(), simulation: !master || !!options.historical }, truth = '', handovers = 0, stateReads = 0
   let state = { order_id: 321, revision: 1, mode: 'mono_checkbox', enabled: true, paid: false, receipt_accepted: false, status: 'not_started', amount_minor: 12345, invoice_id: null as string | null, payment_url: null as string | null, receipt_pdf_path: null as string | null, can_handover: false, blocking_reasons: [] as string[] }
+  if (options.existingPaymentUrl) {
+    state = { ...state, status: 'waiting', invoice_id: 'p2_synthetic_provider', payment_url: options.existingPaymentUrl, blocking_reasons: ['waiting'] }
+  }
   const handoverCommands: Array<{ body: unknown, key?: string }> = []
   const commands: Array<{ operation: string, body: any, key?: string }> = [], pdfHeaders: Array<Record<string, string>> = []
   const project = () => {
@@ -124,6 +127,25 @@ test('live master transport fixture: validated QR → pending receipt → authen
   expect(fixture.snapshot().handovers).toBe(1)
   expect(fixture.commands.map(item => item.operation)).toEqual(['start', 'refresh'])
   for (const command of fixture.commands) { expect(command.key).toBeTruthy(); expect(command.body.expected_revision).toBeGreaterThan(0) }
+})
+
+test('opening an already bound POS order shows the exact short URL without another payment command', async ({ page }) => {
+  const paymentUrl = 'https://pay.mbnk.biz/synthetic-short-token'
+  const fixture = await setup(page, true, { existingPaymentUrl: paymentUrl })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/orders/321')
+  const panel = page.getByRole('region', { name: 'mono → Checkbox', exact: true })
+  const qr = panel.getByRole('img', { name: 'QR для оплати mono' })
+  const link = panel.getByRole('link', { name: 'Відкрити платіжне посилання' })
+  await expect(qr).toBeVisible()
+  await expect(link).toHaveAttribute('href', paymentUrl)
+  await expect(panel.getByRole('button', { name: 'Створити QR для оплати', exact: true })).toHaveCount(0)
+  fixture.setTruth('paid_receipt_pending')
+  await expect(panel.getByText(/Оплату підтверджено\. Очікуємо чек/)).toBeVisible()
+  await expect(qr).toHaveCount(0)
+  await expect(link).toHaveCount(0)
+  expect(fixture.commands).toEqual([])
+  expect(fixture.handoverCommands).toEqual([])
 })
 
 test('administrator retains legacy POS QR without querying master-only endpoint', async ({ page }) => {

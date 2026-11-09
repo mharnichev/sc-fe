@@ -19,7 +19,13 @@ const busy = computed(() => start.busy.value || refresh.busy.value)
 const unresolved = computed(() => !!start.intent.value || !!refresh.intent.value)
 const selected = computed(() => permission.value)
 const canStart = computed(() => permission.value && state.value?.enabled && state.value.status === 'not_started' && !state.value.invoice_id && !state.value.payment_url && !state.value.paid && !state.value.receipt_accepted && props.order.status !== 'cancelled' && props.order.status !== 'completed' && !state.value.blocking_reasons.length)
-const paymentUrl = computed(() => permission.value && ready.value && !readError.value && state.value?.enabled && !['declined', 'expired', 'cancelled', 'reversed', 'failed', 'creation_unknown'].includes(state.value.status) && !['cancelled', 'completed'].includes(props.order.status) && !state.value.paid && !state.value?.receipt_accepted ? masterMonoPaymentUrl(state.value) : null)
+const paymentUrl = computed(() => {
+  const payment = state.value
+  if (!permission.value || !ready.value || readError.value || !payment?.enabled
+    || !['waiting', 'created'].includes(payment.status) || !['pending', 'confirmed'].includes(props.order.status)
+    || payment.paid || payment.receipt_accepted) return null
+  return masterMonoPaymentUrl(payment)
+})
 const paymentQr = computed(() => paymentUrl.value ? qrCode(paymentUrl.value) : null)
 const creationUnknown = computed(() => !!state.value && !state.value.invoice_id && !state.value.payment_url && (state.value.status !== 'not_started' || unresolved.value))
 const handoverAllowed = computed(() => permission.value && ready.value && !loading.value && !readError.value && !unresolved.value && !busy.value && !!state.value?.enabled && !!state.value.paid && !!state.value.receipt_accepted && state.value.can_handover && state.value.revision === props.order.revision)
