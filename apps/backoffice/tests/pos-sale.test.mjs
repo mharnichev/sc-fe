@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url)
 const vue = await import(pathToFileURL(createRequire(require.resolve('nuxt/package.json')).resolve('vue')).href)
 const source = await readFile(new URL('../composables/usePosSale.ts', import.meta.url), 'utf8')
 const compile = text => ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
+const monoUtils = await import(`data:text/javascript;base64,${Buffer.from(compile(await readFile(new URL('../utils/masterMono.ts', import.meta.url), 'utf8'))).toString('base64')}`)
 let sequence=0
 const testTabs = new WeakMap()
 const offer = { id: 8, name: 'Reuzel', brand_name: 'Reuzel', sku: 'R8', barcode: '00123', image_url: null, variant_label: '350 мл', amount_minor: 35000, currency: 'UAH', available_quantity: 2, can_sell: true, blocking_reasons: [] }
@@ -25,7 +26,7 @@ async function setup(send, storage=new Map(), user={id:1,is_active:true,is_super
  Object.assign(globalThis,{sessionStorage:{getItem:k=>tab.get(k)??null,setItem:(k,v)=>tab.set(k,v)}})
  const auth=vue.reactive({user,accessToken:'token-A'}), calls=[]
  const api=async (path,options={})=>{calls.push({path,...options});return send(path,options)}
- Object.assign(globalThis,vue,{useApi:()=>api,useAuthStore:()=>auth,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{addEventListener(){},removeEventListener(){}},setTimeout:()=>1,clearTimeout:()=>{}})
+ Object.assign(globalThis,vue,monoUtils,{useApi:()=>api,useAuthStore:()=>auth,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{addEventListener(){},removeEventListener(){}},setTimeout:()=>1,clearTimeout:()=>{}})
  const js=compile(source.replace(/^import .*\n/gm,'').replace(/import\.meta\.client/g,'true'))
  const module=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${sequence++}`)
  const scope=vue.effectScope(), sale=scope.run(()=>module.usePosSale())

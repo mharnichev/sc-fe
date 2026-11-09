@@ -1,11 +1,16 @@
 import type { MasterMonoState } from '~/composables/useBackofficeApi'
 
-// Match the canonical provider URL byte-for-byte: URL parsing alone normalizes
-// empty ports, credentials and escaped path characters before validation.
-export const masterMonoPaymentUrl = (state: MasterMonoState | null): string | null => {
-  if (!state || !state.invoice_id || state.invoice_id.length > 256 || /[^A-Za-z0-9_-]/.test(state.invoice_id)) return null
-  const expected = `https://pay.mbnk.biz/${state.invoice_id}`
-  return state.payment_url === expected ? expected : null
+// Both endpoints supply the bank URL already bound to the invoice by the server.
+// Keep its exact bytes after checking the trusted origin and browser serialization.
+export const masterMonoPaymentUrl = (state: Pick<MasterMonoState, 'invoice_id' | 'payment_url'> | null): string | null => {
+  const id = state?.invoice_id, payload = state?.payment_url
+  if (typeof id !== 'string' || !id || id.length > 100 || /[^A-Za-z0-9_-]/.test(id)
+    || typeof payload !== 'string' || payload.length > 240 || !payload.startsWith('https://pay.mbnk.biz/')
+    || /[\s\x00-\x1f\x7f#\\]|%(?![\da-f]{2})|%(?:0[\da-f]|1[\da-f]|7f|5c)/i.test(payload)) return null
+  try {
+    const url = new URL(payload)
+    return url.href === payload && (url.pathname !== '/' || payload.includes('?')) ? payload : null
+  } catch { return null }
 }
 
 export const validMasterMonoState = (value: MasterMonoState, orderId: number): boolean => !!value &&

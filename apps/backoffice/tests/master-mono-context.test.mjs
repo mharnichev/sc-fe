@@ -10,6 +10,7 @@ const vue = await import(pathToFileURL(nuxtRequire.resolve('vue')).href)
 const compiler = await import(pathToFileURL(nuxtRequire.resolve('@vue/compiler-sfc')).href)
 let sequence = 0
 const importSource = source => import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText).toString('base64')}#${sequence++}`)
+const monoUtils = await importSource(await readFile(new URL('../utils/masterMono.ts', import.meta.url), 'utf8'))
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
 const fixture = extra => ({ order_id: 321, revision: 1, mode: 'mono_checkbox', enabled: true, paid: false, receipt_accepted: false, status: 'not_started', amount_minor: 12345, invoice_id: null, payment_url: null, receipt_pdf_path: null, can_handover: false, blocking_reasons: [], ...extra })
 const source = await readFile(new URL('../components/orders/OrderMasterMono.vue', import.meta.url), 'utf8')
@@ -38,7 +39,7 @@ const setup = async (api, values = new Map()) => {
     window: { open: () => ({ close() {}, location: { replace() {} } }) },
     localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
   })
-  Object.assign(globalThis, await importSource((await readFile(new URL('../utils/masterMono.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '')))
+  Object.assign(globalThis, monoUtils)
   Object.assign(globalThis, await importSource((await readFile(new URL('../composables/useOrderSalesCommand.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')))
   const script = source.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
   const scope = vue.effectScope()
@@ -125,10 +126,17 @@ test('permission removal clears state and stops poll without accepting late GET'
   assert.equal(state.page.state.value, null); assert.equal(state.timers.size, 0); assert.equal(state.page.selected.value, false); state.stop()
 })
 
-test('QR only encodes the exact canonical provider URL and PDF requires the fixed order path', async () => {
+test('QR preserves the exact verified provider URL in payable states and PDF requires the fixed order path', async () => {
   const state = await setup({ getMasterMonoState: async () => fixture({ status: 'waiting', invoice_id: 'invoice-1', payment_url: 'https://pay.mbnk.biz/invoice-1' }) })
   assert.equal(state.page.paymentUrl.value, 'https://pay.mbnk.biz/invoice-1'); assert.equal(state.page.paymentQr.value.path, 'https://pay.mbnk.biz/invoice-1')
-  for (const payment_url of ['https://evil.test/invoice-1', 'https://pay.mbnk.biz/invoice-2', 'https://user@pay.mbnk.biz/invoice-1', 'https://pay.mbnk.biz:443/invoice-1', 'https://pay.mbnk.biz:/invoice-1', 'https://pay.mbnk.biz/invoice-1?q=1', 'https://pay.mbnk.biz/invoice-1#x', 'http://pay.mbnk.biz/invoice-1', 'https://pay.mbnk.biz/invoice-1/', 'https://pay.mbnk.biz/invoice-1\n', null]) {
+  const shortUrl = 'https://pay.mbnk.biz/test-short-token'
+  state.page.accept(fixture({ revision: 2, status: 'created', invoice_id: 'invoice-1', payment_url: shortUrl }))
+  assert.equal(state.page.paymentQr.value.path, shortUrl)
+  for (const status of ['processing', 'failure', 'expired', 'creation_unknown', 'master_mono_proof_invalid']) {
+    state.page.accept(fixture({ revision: 2, status, invoice_id: 'invoice-1', payment_url: shortUrl }))
+    assert.equal(state.page.paymentQr.value, null, status)
+  }
+  for (const payment_url of ['https://evil.test/invoice-1', 'https://user@pay.mbnk.biz/invoice-1', 'https://pay.mbnk.biz:443/invoice-1', 'https://pay.mbnk.biz:/invoice-1', 'https://pay.mbnk.biz/invoice-1#x', 'http://pay.mbnk.biz/invoice-1', 'https://pay.mbnk.biz/i/%2e%2e/pay', 'https://pay.mbnk.biz/invoice-1?token=bad%zz', 'https://pay.mbnk.biz/invoice-1\n', null]) {
     state.page.accept(fixture({ revision: 2, status: 'waiting', invoice_id: 'invoice-1', payment_url })); assert.equal(state.page.paymentQr.value, null)
   }
   state.page.accept(fixture({ revision: 3, invoice_id: 'invoice-1', paid: true, receipt_accepted: true, receipt_pdf_path: 'https://evil.test/check.pdf' }))
@@ -195,7 +203,7 @@ const setupPos = async ({ live = true, actor = 'barber' } = {}) => {
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: { request: async (_key, _options, run) => run({}) } } })
   const auth = vue.reactive({ user: { id: 1, role: actor, is_superuser: actor === 'admin', is_active: true, can_record_sales: true, can_accept_qr_payments: true }, accessToken: 'token-A' })
   const calls = [], values = new Map()
-  Object.assign(globalThis, vue, {
+  Object.assign(globalThis, vue, monoUtils, {
     useAuthStore: () => auth,
     window: { addEventListener() {}, removeEventListener() {} }, setTimeout: () => 1, clearTimeout() {},
     sessionStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) },

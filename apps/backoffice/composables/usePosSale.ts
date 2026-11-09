@@ -1,4 +1,5 @@
 import type { PosCapabilities, PosCartCreate, PosCartQuote, PosCartRequest, PosCheckout, PosCreate, PosOffer, PosPage } from '~/types/posSale'
+import { masterMonoPaymentUrl } from '~/utils/masterMono'
 const root = '/backoffice/pos'
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
@@ -83,17 +84,7 @@ export const usePosSale = () => {
       || !['pending', 'confirmed'].includes(c.order_status) || c.payment.status !== 'pending'
       || c.payment.confirmed_at !== null || c.receipt.status !== 'not_requested'
       || c.handover.status !== 'not_ready') return null
-    const { invoice_id: id, qr_payload: payload } = c.payment
-    if (typeof id !== 'string' || !id || id.length > 100 || /[^A-Za-z0-9_-]/.test(id)
-      || typeof payload !== 'string' || payload.length > 240 || !payload.startsWith('https://pay.mbnk.biz/')
-      || /[\s\x00-\x1f\x7f#\\]|%(?![\da-f]{2})|%(?:0[\da-f]|1[\da-f]|7f|5c)/i.test(payload)) return null
-    try {
-      // The server binds the provider URL to the verified invoice. Encode it verbatim.
-      const url = new URL(payload)
-      if (url.href !== payload || (url.pathname === '/' && !payload.includes('?'))) return null
-      if (/^\/[A-Za-z0-9_-]{1,100}$/.test(url.pathname) && url.pathname !== `/${id}`) return null
-      return payload
-    } catch { return null }
+    return masterMonoPaymentUrl({ invoice_id: c.payment.invoice_id, payment_url: c.payment.qr_payload })
   })
   const canHandover = computed(() => access.value && !busy.value && !loading.value && !error.value && checkout.value?.status === 'ready_to_handover' && checkout.value.payment.status === 'paid' && checkout.value.receipt.status === 'accepted' && checkout.value.handover.status === 'ready' && checkout.value.actions.can_handover)
   const stopTimer = () => { if (timer !== undefined) clearTimeout(timer); timer = undefined }
