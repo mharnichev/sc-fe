@@ -183,15 +183,19 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
     items: [
       { ...order().items[0], product_name: 'Шампунь Reuzel Daily Shampoo', quantity: 2, price: '350.00', total_price: '700.00' },
       { ...order().items[0], id: 12, product_id: 9, product_name: 'Помада Reuzel Blue', price: '450.00', total_price: '450.00' },
-    ], total_amount: '1150.00', subtotal_amount: '1150.00',
+      { ...order().items[0], id: 13, product_id: 10, product_name: 'Товар зі збереженим фото', product_image_url: '/order-item-demo.svg', price: '50.00', total_price: '50.00' },
+    ], total_amount: '1200.00', subtotal_amount: '1200.00',
   }
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
   await page.route('**/order-item-demo.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="white"/><rect x="23" y="6" width="18" height="8" rx="2" fill="#333"/><rect x="18" y="14" width="28" height="44" rx="5" fill="#32834e"/><rect x="19" y="28" width="26" height="18" fill="#f5e8bc"/></svg>' }))
+  await page.route('**/order-item-missing.svg', route => route.fulfill({ status: 404 }))
+  let snapshotCatalogReads = 0
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/products/8')) return route.fulfill({ json: { id: 8, image_url: '/order-item-demo.svg' } })
+    if (path.endsWith('/products/8')) return route.fulfill({ json: { id: 8, display_image_urls: ['/order-item-missing.svg', '/order-item-demo.svg'] } })
+    if (path.endsWith('/products/10')) snapshotCatalogReads++
     if (path.endsWith('/products/9')) return route.fulfill({ status: 403, json: { detail: 'Catalog unavailable' } })
     if (path.endsWith('/orders/3')) return route.fulfill({ json: current })
     if (path.endsWith('/3/fulfillment')) return route.fulfill({ json: { items: current.items } })
@@ -211,23 +215,41 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
   await expect.poll(() => picturedItem.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
   const itemWithoutPhoto = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Помада Reuzel Blue', exact: true }) })
   await expect(itemWithoutPhoto.locator('img')).toHaveCount(0)
-  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-desktop.png', fullPage: true })
+  const snapshotItem = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Товар зі збереженим фото', exact: true }) })
+  await expect.poll(() => snapshotItem.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(snapshotCatalogReads).toBe(0)
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
   await expect(page.getByRole('table', { name: 'Позиції замовлення' })).toBeVisible()
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
   await page.getByText('Технічні дані та синхронізація', { exact: true }).click()
   await expect(page.getByText('hidden-provider-ref', { exact: true })).toBeVisible()
   await page.getByText('Технічні дані та синхронізація', { exact: true }).click()
+  const summary = page.getByRole('region', { name: 'Стан замовлення' })
+  const receipt = summary.getByRole('button', { name: 'Чек та фіскалізація' })
+  const fiscal = summary.getByText('Фіскалізація', { exact: true })
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 })
+    await summary.scrollIntoViewIfNeeded()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    const summary = page.getByRole('region', { name: 'Стан замовлення' })
-    const payment = await summary.locator('dt').filter({ hasText: /^Оплата$/ }).boundingBox()
-    const fulfillment = await summary.locator('dt').filter({ hasText: /^Виконання$/ }).boundingBox()
+    const payment = await summary.getByText('Оплата', { exact: true }).boundingBox()
+    const fulfillment = await summary.getByText('Виконання', { exact: true }).boundingBox()
+    const receiptBox = (await receipt.boundingBox())!
     expect(Math.abs(payment!.y - fulfillment!.y)).toBeLessThan(2)
-    expect((await summary.boundingBox())!.height).toBeLessThan(290)
+    expect(receiptBox.height).toBeGreaterThanOrEqual(44)
+    expect(payment!.y + payment!.height).toBeGreaterThan(receiptBox.y)
+    expect(payment!.y).toBeLessThan(receiptBox.y + receiptBox.height)
+    expect((await summary.boundingBox())!.height).toBeLessThan(100)
+    await expect(picturedItem.locator('img')).toBeVisible()
   }
-  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-mobile.png', fullPage: true })
+  await expect(fiscal).not.toBeVisible()
+  await receipt.press('Enter')
+  await expect(receipt).toHaveAttribute('aria-expanded', 'true')
+  await expect(fiscal).toBeVisible()
+  await receipt.press('Enter')
+  await expect(fiscal).not.toBeVisible()
+  current.fiscal_status = 'checkbox_fiscal_unknown'
+  await page.reload()
+  await expect(summary.getByText('Результат Checkbox невідомий', { exact: false })).toBeVisible()
 })
 
 

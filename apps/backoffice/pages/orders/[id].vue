@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { orderPaymentMethodLabel } from '~/utils/orderSales'
-import { productDisplayImage } from '~/utils/productImages'
+import { productDisplayImages } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowPathIcon, ChevronDownIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
@@ -31,8 +31,8 @@ import { procurementStatusLabel } from '~/utils/inventory'
 const route = useRoute()
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
-const productImages = ref<Record<number, string>>({})
-const failedProductImages = ref<number[]>([])
+const productImages = ref<Record<number, string[]>>({})
+const failedProductImages = ref<Record<number, Set<string>>>({})
 const auth = useAuthStore()
 const { isBarber } = useBackofficeAccess()
 const toast = useBaseToastNotification()
@@ -164,20 +164,55 @@ const shippingPayloadEntries = computed(() => {
   return Object.entries(payload)
 })
 
-const orderItems = computed(() => fulfillment.value?.items || order.value?.items || [])
+const orderItems = computed(() => {
+  const currentFulfillment = fulfillment.value
+  if (currentFulfillment?.id != null && String(currentFulfillment.id) !== orderId.value) return order.value?.items || []
+  return currentFulfillment?.items || order.value?.items || []
+})
+const orderItemPhotos = computed(() => {
+  const snapshots = new Map(order.value?.items.map(item => [item.id, item.product_image_url]))
+  return orderItems.value.map(item => {
+    const snapshot = [item.product_image_url, snapshots.get(item.id)]
+      .map(url => assetUrl(url?.trim()))
+      .find(url => url && !failedProductImages.value[item.id]?.has(url))
+    return { item, snapshot }
+  })
+})
+const missingProductIds = computed(() => [...new Set(orderItemPhotos.value
+  .filter(({ snapshot }) => !snapshot)
+  .map(({ item }) => item.product_id))])
+const visibleOrderItems = computed(() => orderItemPhotos.value.map(({ item, snapshot }) => {
+  const photo = snapshot || productImages.value[item.product_id]
+    ?.map(url => assetUrl(url))
+    .find(url => url && !failedProductImages.value[item.id]?.has(url))
+  return { item, photo }
+}))
+const markPhotoFailed = (id: number, url: string) => {
+  failedProductImages.value[id] ??= new Set()
+  failedProductImages.value[id].add(url)
+}
+
+let requestedProductImages = new Set<number>()
+watch([orderId, () => auth.user?.id, isBarber, isPosSale], () => {
+  requestedProductImages = new Set()
+  productImages.value = {}
+  failedProductImages.value = {}
+}, { flush: 'sync' })
 
 // Optional catalog photos must not delay the order or its actions.
-watch([orderId, () => auth.user?.id, () => !isBarber.value || isPosSale.value, () => orderItems.value.map(item => item.product_id).join(',')], async (_value, _previous, onCleanup) => {
-  let current = true
-  onCleanup(() => { current = false })
-  productImages.value = {}; failedProductImages.value = []
-  if (!import.meta.client || (isBarber.value && !isPosSale.value)) return
-  const ids = [...new Set(orderItems.value.map(item => item.product_id))]
-  for (let index = 0; index < ids.length && current; index += 4) {
+watch([orderId, () => order.value?.id, () => auth.user?.id, isBarber, isPosSale, () => missingProductIds.value.join(',')], async () => {
+  if (!import.meta.client || String(order.value?.id) !== orderId.value || (isBarber.value && !isPosSale.value)) return
+  const requests = requestedProductImages
+  const generation = orderContext
+  const current = () => requests === requestedProductImages && generation === orderContext
+  const ids = missingProductIds.value.filter(id => !requests.has(id))
+  ids.forEach(id => requests.add(id))
+  for (let index = 0; index < ids.length && current(); index += 4) {
     await Promise.all(ids.slice(index, index + 4).map(async id => {
       try {
-        const product = await api.getProduct(id)
-        if (current && productDisplayImage(product)) productImages.value[id] = productDisplayImage(product)
+        const product = isBarber.value ? { images: await api.getProductImages(id) } : await api.getProduct(id)
+        const photos = productDisplayImages(product)
+        if (current() && photos.length) productImages.value[id] = photos
       }
       catch { /* Catalog failures use the photo placeholder. */ }
     }))
@@ -421,13 +456,15 @@ const updateStatus = async () => {
         <BaseCard as="section" class="min-w-0">
           <h2 class="flex items-center gap-2 text-lg font-semibold"><ShoppingBagIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Позиції <span class="text-sm text-ui-secondary" aria-hidden="true">{{ orderItems.length }}</span></h2>
           <p v-if="hasOutstandingProcurement" role="status" class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Частина товарів очікує надходження.</p>
-          <div class="mt-3 divide-y divide-ui">
-            <article v-for="item in orderItems" :key="item.id" class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
-              <div class="flex min-w-0 items-center gap-2.5">
-                <img v-if="productImages[item.product_id] && !failedProductImages.includes(item.product_id)" :src="assetUrl(productImages[item.product_id])" alt="" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedProductImages.push(item.product_id)">
-                <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-ui-subtle text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-6 w-6" /></span>
-                <div class="min-w-0"><h3 class="break-words text-sm font-medium">{{ item.product_name || `Товар #${item.product_id}` }}</h3><p class="mt-1 text-xs text-ui-secondary">{{ item.quantity }} шт. × {{ snapshotMoney(item.price) }}</p></div></div>
-              <p class="text-sm font-semibold">{{ snapshotMoney(item.total_price) }}</p>
+          <div class="mt-1 divide-y divide-ui sm:mt-2">
+            <article v-for="{ item, photo } in visibleOrderItems" :key="item.id" class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-0.5 py-1.5 sm:gap-x-3 sm:py-2">
+              <span class="col-start-1 row-span-2 row-start-1 grid h-11 w-11 place-items-center overflow-hidden self-center rounded-lg border border-ui bg-ui-subtle text-ui-secondary sm:h-12 sm:w-12" aria-hidden="true">
+                <img v-if="photo" :src="photo" alt="" width="48" height="48" loading="lazy" class="h-full w-full object-contain" @error="markPhotoFailed(item.id, photo)">
+                <PhotoIcon v-else class="h-5 w-5" />
+              </span>
+              <h3 class="col-span-2 col-start-2 row-start-1 min-w-0 self-end text-sm font-medium leading-snug [overflow-wrap:anywhere] sm:col-span-1">{{ item.product_name || `Товар #${item.product_id}` }}</h3>
+              <p class="col-start-2 row-start-2 text-xs text-ui-secondary">{{ item.quantity }} шт. × {{ snapshotMoney(item.price) }}</p>
+              <p class="col-start-3 row-start-2 whitespace-nowrap text-right text-sm font-semibold tabular-nums sm:row-span-2 sm:row-start-1 sm:self-center">{{ snapshotMoney(item.total_price) }}</p>
             </article>
           </div>
           <p v-if="!orderItems.length" class="py-3 text-sm text-ui-secondary">Товари відсутні.</p>
@@ -454,10 +491,16 @@ const updateStatus = async () => {
                   <th>Сума snapshot</th>
                 </tr>
             </template>
-                <tr v-for="item in orderItems" :key="item.id">
+                <tr v-for="{ item, photo } in visibleOrderItems" :key="item.id">
                   <td>
-                    <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
-                    <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
+                    <div class="flex items-center gap-2">
+                      <img v-if="photo" :src="photo" alt="" width="32" height="32" loading="lazy" class="h-8 w-8 shrink-0 rounded-md bg-ui-subtle object-contain" @error="markPhotoFailed(item.id, photo)">
+                      <span v-else class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-ui-subtle text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-4 w-4" /></span>
+                      <div>
+                        <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
+                        <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
+                      </div>
+                    </div>
                   </td>
                   <td class="text-ui-secondary">{{ item.product_sku || '—' }}</td>
                   <td class="text-ui-secondary">{{ item.quantity }}</td>

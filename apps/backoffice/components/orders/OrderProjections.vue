@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDownIcon, CreditCardIcon, DocumentTextIcon, TruckIcon } from '@heroicons/vue/24/outline'
 import type { OrderProjections } from '~/composables/useBackofficeApi'
 const props = defineProps<{ order: OrderProjections, compact?: boolean }>()
 const labels: Record<string, string> = {
@@ -104,9 +105,44 @@ const rows = computed(() => [
   ['Оплата', label(props.order.payment_status)], ['Виконання', label(props.order.fulfillment_status)],
   ['Фіскалізація', label(props.order.fiscal_status)], ['Доставка чека', label(props.order.receipt_delivery_status)],
 ])
+const needsAttention = computed(() => [props.order.fiscal_status, props.order.receipt_delivery_status]
+  .some(value => /unknown|rejected|invalid|error|exception/.test(value || '')))
+const receiptId = useId()
+const receiptOpen = ref(needsAttention.value)
+watch(needsAttention, value => { receiptOpen.value = value })
 </script>
 <template>
-  <dl class="grid" :class="compact ? 'grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4' : 'gap-4 sm:grid-cols-2 lg:grid-cols-4'"><div v-for="[title, value] in rows" :key="title"><dt class="text-ui-secondary" :class="compact ? 'text-xs' : 'text-sm'">{{ title }}</dt><dd class="font-medium text-ui-primary" :class="compact ? 'mt-0.5 break-words text-sm leading-snug' : 'mt-1'">{{ value }}</dd></div></dl>
+  <div v-if="compact" class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 sm:gap-x-4">
+    <dl class="grid grid-cols-[minmax(0,4fr)_minmax(0,5fr)] gap-x-2 py-0.5 min-[360px]:grid-cols-2 sm:gap-x-3">
+      <div v-for="([title, value], index) in rows.slice(0, 2)" :key="title" class="min-w-0 sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-2">
+        <dt class="flex items-center gap-1 text-xs text-ui-secondary">
+          <component :is="index === 0 ? CreditCardIcon : TruckIcon" class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
+          {{ title }}
+        </dt>
+        <dd class="break-words text-xs font-medium leading-tight text-ui-primary sm:text-sm">{{ value }}</dd>
+      </div>
+    </dl>
+    <BaseButton
+      variant="unstyled"
+      type="button"
+      class="flex min-h-11 items-center gap-1 rounded-md px-1 text-xs text-ui-secondary hover:bg-ui-subtle focus-visible:outline focus-visible:outline-2 sm:gap-2 sm:px-2"
+      :aria-controls="receiptId"
+      :aria-expanded="receiptOpen"
+      @click="receiptOpen = !receiptOpen"
+    >
+      <DocumentTextIcon class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
+      <span>Чек<span class="sr-only sm:not-sr-only"> та фіскалізація</span></span>
+      <span v-if="needsAttention" class="font-semibold text-ui-primary"><span aria-hidden="true">!</span><span class="sr-only">Потребує уваги</span></span>
+      <ChevronDownIcon class="h-3 w-3 shrink-0 sm:h-4 sm:w-4" :class="{ 'rotate-180': receiptOpen }" aria-hidden="true" />
+    </BaseButton>
+    <dl v-show="receiptOpen" :id="receiptId" class="col-span-2 grid grid-cols-2 gap-2 border-t border-ui py-2">
+      <div v-for="[title, value] in rows.slice(2)" :key="title" class="min-w-0 text-xs">
+        <dt class="text-ui-secondary">{{ title }}</dt>
+        <dd class="mt-0.5 break-words font-medium text-ui-primary">{{ value }}</dd>
+      </div>
+    </dl>
+  </div>
+  <dl v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div v-for="[title, value] in rows" :key="title"><dt class="text-sm text-ui-secondary">{{ title }}</dt><dd class="mt-1 font-medium text-ui-primary">{{ value }}</dd></div></dl>
   <div v-if="compact && failure" class="ui-status-warning mt-3 rounded-xl px-3 py-2 text-sm" role="status">
     <p class="font-medium">{{ failureReasons[failure.code] || 'Не вдалося підготувати оплату.' }}</p>
     <p v-if="missing">Перевірити: {{ missing }}.</p>
