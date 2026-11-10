@@ -92,6 +92,37 @@ const setup = async (page: Page, master = true, options: { unknown?: boolean, un
   return { commands, handoverCommands, pdfHeaders, setTruth: (value: string) => { truth = value; state = { ...state, revision: state.revision + 1 } }, snapshot: () => ({ order, state, handovers, stateReads }) }
 }
 
+for (const image of ['legacy', 'processed'] as const) {
+  test(`master POS uses the ${image} product photo when an older order has no snapshot or gallery`, async ({ page }) => {
+    await setup(page, true, { historical: true })
+    const legacyUrl = '/master-pos-legacy.svg'
+    const processedUrl = '/master-pos-processed.svg'
+    const expectedUrl = image === 'processed' ? processedUrl : legacyUrl
+    await page.route('**/api/v1/backoffice/products/8/images', route => route.fulfill({ json: [] }))
+    await page.route('**/api/v1/backoffice/products/8', route => route.fulfill({
+      json: {
+        id: 8,
+        image_url: legacyUrl,
+        images: [],
+        display_image_urls: [expectedUrl],
+      },
+    }))
+    await page.route('**/master-pos-*.svg', route => route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="green"/></svg>',
+    }))
+
+    await page.goto('/orders/321')
+    const item = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Master mono fixture shampoo', exact: true }) })
+    const photo = item.locator('img')
+    await expect(photo).toBeVisible()
+    await expect.poll(() => photo.evaluate((img: HTMLImageElement) => ({
+      path: new URL(img.src).pathname,
+      width: img.naturalWidth,
+    }))).toEqual({ path: expectedUrl, width: 32 })
+  })
+}
+
 test('live master transport fixture: validated QR → pending receipt → authenticated PDF → explicit handover', async ({ page }) => {
   const fixture = await setup(page)
   await page.goto('/orders/321')

@@ -1,5 +1,5 @@
 import type { OnlinePayment, OnlinePaymentCapabilities } from '~/types/order'
-import { commerceBreadcrumb, reportCommerceError } from '~/utils/commerceTelemetry'
+import { commerceBreadcrumb, reportCommerceError, safeCommerceData } from '~/utils/commerceTelemetry'
 
 export const safePaymentUrl = (value: string | null | undefined, receipt = false): string | null => {
   if (!value) return null
@@ -32,6 +32,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   const payment = ref<OnlinePayment | null>(null)
   const busy = ref(false)
   const error = ref('')
+  const presentationFailure = ref<'iframe' | 'redirect' | null>(null)
   const errorKind = ref<'access' | 'conflict' | 'connection' | ''>('')
   let generation = 0
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -39,6 +40,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   let readFailures = 0
   let telemetryActive = false
   let removeTelemetryGuard: (() => void) | undefined
+  let presentationCurrent = () => false
   let redirectCurrent = () => false
   const identity = () => `${orderId()}:${guestToken() || ''}:${auth.customer?.id}:${auth.sessionRevision}:${auth.accessToken}`
   const stop = () => { generation++; clearTimeout(timer); busy.value = false }
@@ -48,6 +50,21 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   const writeStorage = (key: string, value: string) => { try { sessionStorage.setItem(key, value) } catch {} }
   const tokenKey = () => `shop-order-payment-token:${orderId()}`
   const capability = () => resumeGuest || !auth.isAuthenticated ? guestToken() || readStorage(tokenKey()) : null
+  const reportedDiagnostics = new Set<string>()
+  const reportDiagnostic = (step: string, code: string) => {
+    if (!telemetryActive || reportedDiagnostics.size >= 10) return
+    const data = safeCommerceData({ flow: 'payment', order_id: orderId(), attempt_id: payment.value?.attempt_id,
+      payment_status: payment.value?.status, diagnostic_code: code })
+    const key = `${data.order_id}:${data.attempt_id || ''}:${step}:${data.diagnostic_code}`
+    if (reportedDiagnostics.has(key)) return
+    reportedDiagnostics.add(key)
+    reportCommerceError(step, new Error('Shop payment diagnostic'), data)
+  }
+  const diagnosePresentation = (stage: 'iframe' | 'redirect', code: string) => {
+    if (!presentationCurrent()) return
+    presentationFailure.value = stage
+    reportDiagnostic(stage === 'iframe' ? 'payment.iframe_failed' : 'payment.redirect_failed', code)
+  }
   const request = async (create = false, paymentMethod?: string, presentation: 'iframe' | 'redirect' = 'redirect') => {
     const change = paymentMethod !== undefined
     if (create && (!payment.value?.enabled || payment.value.status !== 'not_started' || payment.value.paid || error.value || errorKind.value === 'access' || payment.value.actions?.start === false)) return
@@ -107,17 +124,26 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
         readFailures = 0
         errorKind.value = ''
         const changed = payment.value?.status !== result.status || payment.value?.attempt_id !== result.attempt_id
+        if (changed || result.order_id !== orderId() || result.paid || result.status !== 'waiting') presentationFailure.value = null
         payment.value = result
         const snapshot = payment.value
         // Only an accepted response from this mounted route may produce new signals.
-        redirectCurrent = () => telemetryActive && isCurrent() && payment.value === snapshot && !error.value
-          && result.order_id === orderId() && !result.paid && result.status === 'waiting'
-          && result.actions?.continue_payment !== false && Boolean(safePaymentUrl(result.page_url))
+        const redirectUrl = safePaymentUrl(result.presentation_mode === 'iframe' ? result.redirect_url : result.redirect_url ?? result.page_url)
+        presentationCurrent = () => isCurrent() && payment.value === snapshot && !error.value
+          && result.order_id === orderId() && result.enabled && !result.paid && result.status === 'waiting'
+          && result.actions?.continue_payment !== false && !result.payment_failure && result.payment_status !== 'failed'
+        redirectCurrent = () => presentationCurrent() && Boolean(redirectUrl)
         if (telemetryActive && isCurrent()) {
           if (changed || create || change) commerceBreadcrumb('payment.status', telemetryData())
-          if (result.order_id === orderId() && !result.paid && result.status === 'waiting'
-            && result.actions?.continue_payment !== false && !safePaymentUrl(result.page_url)) {
-            reportCommerceError('payment.invalid_provider_url', new Error('Invalid payment provider URL'), telemetryData())
+          if (result.order_id === orderId() && !result.paid && !['accepted', 'paid_receipt_pending'].includes(result.status)
+            && (result.payment_failure || result.payment_status === 'failed')) {
+            const diagnostic = safeCommerceData({ diagnostic_code: result.payment_failure?.code }).diagnostic_code || 'payment_facts_incomplete'
+            reportDiagnostic('payment.invoice_facts', diagnostic)
+          } else if (presentationCurrent() && !redirectUrl) {
+            reportDiagnostic('payment.invalid_provider_url', 'redirect_url_missing')
+          } else if (presentationCurrent() && result.presentation_mode === 'iframe'
+            && (!safePaymentEmbedUrl(result.embed_url) || !Number.isSafeInteger(result.attempt_id) || (result.attempt_id || 0) <= 0)) {
+            diagnosePresentation('iframe', 'iframe_facts_missing')
           }
         }
         return result
@@ -153,7 +179,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     }
   }
   const reset = () => {
-    stop(); readFailures = 0; payment.value = null; error.value = ''; errorKind.value = ''
+    stop(); readFailures = 0; presentationFailure.value = null; payment.value = null; error.value = ''; errorKind.value = ''
     if (mounted && persistenceReady.value) void request()
   }
   const visibility = () => { if (document.hidden) stop(); else void request() }
@@ -181,9 +207,10 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
   }
   return {
     getCapabilities, hasGuestCapability: () => Boolean(capability()),
-    payment, busy, error, errorKind, refresh: () => request(), create: (presentation: 'iframe' | 'redirect' = 'redirect') => request(true, undefined, presentation),
+    payment, busy, error, errorKind, presentationFailure, refresh: () => request(), create: (presentation: 'iframe' | 'redirect' = 'redirect') => request(true, undefined, presentation),
     changeMethod: (method: string) => request(false, method),
-    recordRedirect: () => { if (redirectCurrent()) commerceBreadcrumb('payment.redirect', { flow: 'payment', order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status }) },
-    redirectFailed: (cause: unknown) => { if (redirectCurrent()) reportCommerceError('payment.redirect_failed', cause, { flow: 'payment', order_id: orderId() }) },
+    recordRedirect: () => { if (telemetryActive && redirectCurrent()) commerceBreadcrumb('payment.redirect', { flow: 'payment', order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status }) },
+    redirectFailed: () => { if (redirectCurrent()) diagnosePresentation('redirect', 'navigation_failed') },
+    iframeFailed: (code: 'iframe_load_failed' | 'iframe_layout_unavailable') => diagnosePresentation('iframe', code),
   }
 }

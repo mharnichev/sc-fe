@@ -95,11 +95,19 @@ export interface OnlinePaymentCapabilities {
   iframe_min_height?: number
 }
 
+export interface OnlinePaymentFailure {
+  code: string
+  missing: string[]
+  reconciliation_required: boolean
+}
+
 export interface OnlinePayment {
   order_id: number
   enabled: boolean
   status: 'not_started' | 'creation_unknown' | 'waiting' | 'paid_receipt_pending' | 'accepted' | 'requires_review'
   paid: boolean
+  payment_status?: 'failed' | null
+  payment_failure?: OnlinePaymentFailure | null
   receipt_accepted: boolean
   page_url: string | null
   presentation_mode?: 'redirect' | 'iframe'

@@ -700,3 +700,69 @@ test('widget waits for persisted identity before reading or reopening the restor
   await pay.click(); await expect(page.locator('.mono-payment-modal__frame')).toBeVisible()
   expect(reads).toBe(2); expect(posts).toBe(0)
 })
+
+
+test('Shop iframe error offers the same hosted invoice without another invoice POST', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Local bank fixture</h1>' }))
+  await page.route('**/api/v1/**', route => {
+    const req = route.request()
+    expect(req.method()).toBe('GET')
+    return route.fulfill({ json: req.url().endsWith('/987/online-payment') ? widgetState('waiting', 'iframe') : { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+  await pay.click()
+  const frame = page.locator('.mono-payment-modal__frame')
+  await expect(frame).toBeVisible()
+  await frame.dispatchEvent('error')
+  await expect(frame).toHaveCount(0)
+  await expect(page.getByText('Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.', { exact: true })).toBeVisible()
+  await pay.click()
+  await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
+})
+
+test('blocked Shop iframe navigation leaves the same hosted invoice available', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  const hostedUrl = widgetState().redirect_url!
+  let reads = 0, invoicePosts = 0, hostedNavigations = 0
+  await page.route(widgetEmbed, route => route.abort('blockedbyclient'))
+  await page.route(hostedUrl, route => {
+    expect(route.request().isNavigationRequest()).toBe(true)
+    expect(route.request().frame()).toBe(page.mainFrame())
+    hostedNavigations++
+    return route.fulfill({ contentType: 'text/html', body: '<h1>Hosted invoice fixture</h1>' })
+  })
+  await page.route('**/api/v1/**', route => {
+    const request = route.request()
+    if (new URL(request.url()).pathname.endsWith('/987/online-payment')) {
+      if (request.method() === 'POST') invoicePosts++
+      else reads++
+      return route.fulfill({ json: widgetState('waiting', 'iframe') })
+    }
+    expect(request.method()).toBe('GET')
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+
+  await page.goto('/shop/payment/987')
+  const frameBlocked = page.waitForEvent('requestfailed', request =>
+    request.isNavigationRequest() && request.url() === widgetEmbed && request.frame() !== page.mainFrame())
+  await page.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+  expect((await frameBlocked).failure()).not.toBeNull()
+
+  // An aborted cross-origin frame need not raise a DOM error. The fallback is
+  // available inside the still-open drawer without a synthetic error event.
+  const dialog = page.getByRole('dialog', { name: 'Захищена оплата карткою' })
+  await expect(dialog.locator('iframe')).toBeVisible()
+  const fallback = dialog.getByRole('button', { name: 'Відкрити сторінку оплати', exact: true })
+  await expect(fallback).toBeEnabled()
+  const readsBeforeFallback = reads
+  await fallback.click()
+  await expect(page).toHaveURL(hostedUrl)
+  await expect(page.getByRole('heading', { name: 'Hosted invoice fixture' })).toBeVisible()
+  expect(reads).toBeGreaterThan(readsBeforeFallback)
+  expect(hostedNavigations).toBe(1)
+  expect(invoicePosts).toBe(0)
+})
