@@ -14,10 +14,10 @@ const flush = () => new Promise(resolve => setImmediate(resolve))
 const waiting = () => ({ order_id: 42, enabled: true, status: 'waiting', paid: false,
   receipt_accepted: false, page_url: 'https://pay.mbnk.biz/invoice_42', receipt_url: null,
   amount_minor: 12345, currency: 'UAH', retry_after_seconds: 30 })
-const load = (token = 'guest-capability', reactive = false) => {
+const load = (token = 'guest-capability', reactive = false, clock = Date) => {
   const capabilityCalls = [], calls = [], timers = [], errors = [], redirects = [], watches = [], mounts = [], unmounts = [], emitted = []
   const signals = [], guards = new Set(), telemetry = {}
-  run(read('utils/commerceTelemetry.ts'), { exports: telemetry, Error, Date, Map, Number })
+  run(read('utils/commerceTelemetry.ts'), { exports: telemetry, Error, Date: clock, Map, Number })
   telemetry.configureCommerceTelemetry(signal => {
     signals.push(signal)
     if (signal.error) errors.push([signal.step, signal.error, signal.data])
@@ -50,7 +50,7 @@ const load = (token = 'guest-capability', reactive = false) => {
   const payment = exports.useOrderPayment(() => props.orderId, () => props.guestToken)
   const viewGlobals = { ...globals, exports: {},
     useOrderPayment: () => payment, defineProps: () => props, defineEmits: () => (...args) => emitted.push(args),
-    usePaymentDisplay: () => ({ paymentText: { value: {} } }), useShopRuntimeDisplay: () => ({ runtimeMessage: value => value }),
+    usePaymentDisplay: () => ({ paymentText: { value: { unavailableForm: 'form unavailable', reviewHint: 'review needed', widgetHint: 'use hosted payment' } } }), useShopRuntimeDisplay: () => ({ runtimeMessage: value => value }),
     safePaymentUrl: exports.safePaymentUrl, safePaymentEmbedUrl: exports.safePaymentEmbedUrl, nextTick: vue.nextTick,
     window: { innerWidth: 390, innerHeight: 844, addEventListener: (name, fn) => events['window:' + name] = fn, removeEventListener: name => delete events['window:' + name], location: { assign: url => { if (state.redirectFailure) throw state.redirectFailure; redirects.push(url) } } },
   }
@@ -436,4 +436,40 @@ test('409 and 422 method conflicts keep the modal and snapshot, block writes, th
     assert.equal(env.canChange.value, false)
     env.unmount()
   }
+})
+
+test('incomplete API facts are one owned, bounded incident and hide the payment link', async () => {
+  let time = 0
+  const env = load('guest-capability', false, { now: () => time })
+  env.state.response = { ...waiting(), attempt_id: 19, payment_status: 'failed',
+    payment_failure: { code: 'invoice_result_unconfirmed', missing: ['private-provider-data'], reconciliation_required: true } }
+  env.mount(); await flush()
+  await env.payment.refresh()
+  time += 301_000
+  await env.payment.refresh()
+  assert.equal(env.errors.length, 1)
+  assert.equal(env.errors[0][0], 'payment.invoice_facts')
+  assert.equal(env.errors[0][2].diagnostic_code, 'invoice_result_unconfirmed')
+  assert.equal(env.errors[0][2].order_id, 42)
+  assert.equal(env.errors[0][2].attempt_id, 19)
+  assert.ok(!JSON.stringify(env.signals).includes('private-provider-data'))
+  assert.equal(env.pageUrl.value, null)
+  assert.equal(env.hint.value, 'review needed')
+  env.unmount()
+})
+
+test('iframe failure keeps the same safe hosted link and deduplicates by attempt', async () => {
+  const env = load()
+  env.state.response = { ...waiting(), attempt_id: 19, presentation_mode: 'iframe',
+    embed_url: 'https://pay.mbnk.biz/widget/invoice_42', redirect_url: waiting().page_url }
+  env.mount(); await flush()
+  env.payment.iframeFailed('iframe_load_failed')
+  await env.payment.refresh()
+  env.payment.iframeFailed('iframe_load_failed')
+  assert.equal(env.payment.presentationFailure.value, 'iframe')
+  assert.equal(env.pageUrl.value, waiting().page_url)
+  assert.equal(env.hint.value, 'use hosted payment')
+  assert.equal(env.errors.length, 1)
+  assert.equal(env.errors[0][2].diagnostic_code, 'iframe_load_failed')
+  env.unmount()
 })

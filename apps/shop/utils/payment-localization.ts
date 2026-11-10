@@ -1,5 +1,6 @@
 export const paymentCopy = {
   uk: {
+    unavailableForm: 'Не вдалося відкрити форму оплати. Замовлення збережено. Оновіть статус або зверніться до нас із номером замовлення.',
     widgetTitle: 'Захищена оплата карткою', widgetFrame: 'Захищена форма оплати',
     widgetFallback: 'Відкрити сторінку оплати', widgetClose: 'Повернутись до замовлення',
     widgetHint: 'Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.',
@@ -37,6 +38,7 @@ export const paymentCopy = {
     statuses: { not_started: 'Оплату ще не розпочато', creation_unknown: 'Уточнюємо стан оплати', waiting: 'Очікуємо оплату', paid_receipt_pending: 'Оплату отримано. Готуємо чек.', accepted: 'Оплату прийнято, чек готовий', requires_review: 'Стан оплати потребує уточнення' },
   },
   en: {
+    unavailableForm: 'The payment form could not be opened. Your order is saved. Refresh the status or contact us with your order number.',
     widgetTitle: 'Secure card payment', widgetFrame: 'Secure payment form',
     widgetFallback: 'Open payment page', widgetClose: 'Return to order',
     widgetHint: 'If payment does not load, continue on the secure page for this same payment.',

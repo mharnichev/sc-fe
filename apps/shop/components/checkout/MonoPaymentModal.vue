@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{ modelValue: boolean, embedUrl: string | null, frameKey: number, busy: boolean, redirectUrl: string | null }>()
-const emit = defineEmits<{ 'update:modelValue': [value: boolean], fallback: [], unavailable: [], closed: [] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: boolean], fallback: [], unavailable: [code: 'iframe_load_failed' | 'iframe_layout_unavailable'], closed: [] }>()
 const { paymentText } = usePaymentDisplay()
 const frame = ref<HTMLIFrameElement | null>(null)
 const fallbackRequested = ref(false)
@@ -19,13 +19,18 @@ const message = (event: MessageEvent) => {
     else if (data.message === 'monopay-link') fallbackRequested.value = true
   } catch {}
 }
+const frameError = (event: Event) => {
+  const current = frame.value
+  if (props.modelValue && current && event.currentTarget === current && current.dataset.frameKey === String(props.frameKey))
+    emit('unavailable', 'iframe_load_failed')
+}
 watch(frame, (element, _previous, onCleanup) => {
   if (!element) return
   const checkGeometry = () => {
-    if (!props.modelValue) return
+    if (!props.modelValue || frame.value !== element) return
     const content = element.parentElement
     if (!content || element.offsetWidth < 576 || element.offsetHeight < 576
-      || content.clientWidth < element.offsetWidth || content.clientHeight < element.offsetHeight) emit('unavailable')
+      || content.clientWidth < element.offsetWidth || content.clientHeight < element.offsetHeight) emit('unavailable', 'iframe_layout_unavailable')
   }
   const observer = new ResizeObserver(checkGeometry)
   observer.observe(element)
@@ -44,7 +49,7 @@ onBeforeUnmount(() => window.removeEventListener('message', message))
     <div v-if="busy && !embedUrl" class="mono-payment-modal__loading" role="status">{{ paymentText.loading }}</div>
     <iframe v-else-if="modelValue && embedUrl" :key="frameKey" ref="frame" :data-frame-key="frameKey"
       class="mono-payment-modal__frame" :src="embedUrl" :title="paymentText.widgetFrame"
-      width="576" height="576" tabindex="0" allow="payment *" referrerpolicy="no-referrer" />
+      width="576" height="576" tabindex="0" allow="payment *" referrerpolicy="no-referrer" @error="frameError" />
     <template #bottom-buttons>
       <p v-if="fallbackRequested" class="mono-payment-modal__hint" role="status">{{ paymentText.widgetHint }}</p>
       <div class="mono-payment-modal__actions">

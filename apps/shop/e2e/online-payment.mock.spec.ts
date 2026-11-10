@@ -700,3 +700,25 @@ test('widget waits for persisted identity before reading or reopening the restor
   await pay.click(); await expect(page.locator('.mono-payment-modal__frame')).toBeVisible()
   expect(reads).toBe(2); expect(posts).toBe(0)
 })
+
+
+test('Shop iframe error offers the same hosted invoice without another invoice POST', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Local bank fixture</h1>' }))
+  await page.route('**/api/v1/**', route => {
+    const req = route.request()
+    expect(req.method()).toBe('GET')
+    return route.fulfill({ json: req.url().endsWith('/987/online-payment') ? widgetState('waiting', 'iframe') : { items: [], total: 0 } })
+  })
+  await page.goto('/shop/payment/987')
+  const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
+  await pay.click()
+  const frame = page.locator('.mono-payment-modal__frame')
+  await expect(frame).toBeVisible()
+  await frame.dispatchEvent('error')
+  await expect(frame).toHaveCount(0)
+  await expect(page.getByText('Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.', { exact: true })).toBeVisible()
+  await pay.click()
+  await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
+})

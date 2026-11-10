@@ -40,8 +40,8 @@ export default defineNuxtPlugin(nuxtApp => {
           environment: config.sentryEnvironment,
           release: config.sentryRelease || undefined,
           level: 'error',
-          tags: { app: 'shop', critical: 'true', flow, step, provider, payment_method: data.payment_method || '', http_status: String(data.http_status || '') },
-          fingerprint: ['commerce', flow, step, String(data.http_status || 'internal')],
+          tags: { app: 'shop', critical: 'true', flow, step, provider, ...(data.diagnostic_code ? { diagnostic_code: data.diagnostic_code } : {}), payment_method: data.payment_method || '', http_status: String(data.http_status || '') },
+          fingerprint: ['commerce', flow, step, String(data.http_status || 'internal'), ...(data.diagnostic_code ? [data.diagnostic_code] : [])],
           contexts: { commerce: { ...data } },
           exception: { values: event.exception?.values?.map(value => ({
             type: 'Error', value: `Commerce failure: ${String(event.tags?.step)}`,

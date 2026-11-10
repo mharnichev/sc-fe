@@ -249,3 +249,15 @@ test('payment labels admit only known values, not token-shaped response strings'
   })
   assert.ok(!JSON.stringify(event).includes(canary))
 })
+
+
+test('payment diagnostic code is allowlisted again at the outgoing Sentry boundary', () => {
+  const { options } = loadPlugin()
+  const tags = { critical: 'true', flow: 'payment', step: 'payment.invoice_facts' }
+  const accepted = options.beforeSend({ tags, contexts: { commerce: { diagnostic_code: 'invoice_id_missing', order_id: 42, attempt_id: 12, payload: 'private-value' } } })
+  assert.equal(accepted.tags.diagnostic_code, 'invoice_id_missing')
+  assert.equal(accepted.contexts.commerce.attempt_id, 12)
+  assert.ok(!JSON.stringify(accepted).includes('private-value'))
+  const rejected = options.beforeSend({ tags: { ...tags, diagnostic_code: 'secret_token' }, contexts: { commerce: { diagnostic_code: 'secret_token' } } })
+  assert.ok(!JSON.stringify(rejected).includes('secret_token'))
+})
