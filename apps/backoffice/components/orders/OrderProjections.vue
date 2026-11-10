@@ -2,6 +2,8 @@
 import type { OrderProjections } from '~/composables/useBackofficeApi'
 const props = defineProps<{ order: OrderProjections, compact?: boolean }>()
 const labels: Record<string, string> = {
+  mono_checkbox_external_receipt_pending: 'Очікує підтвердження чека',
+  mono_checkbox_external_pending_document: 'Чек ще недоступний',
   master_mono_receipt_accepted: 'Чек mono → Checkbox підтверджено',
   master_mono_receipt_pending: 'Очікуємо підтвердження чека mono → Checkbox',
   master_mono_pdf_available: 'PDF-чек доступний',
@@ -71,10 +73,32 @@ const labels: Record<string, string> = {
   simulated_pending_document: 'Тестовий документ для локального друку ще відсутній',
   simulated_local_print_available: 'Тестовий чек доступний для локального перегляду / друку',
   simulated_paid: 'Тестова оплата (симуляція)', simulated_handed_over: 'Тестова видача (симуляція)', paid: 'Оплачено', handed_over: 'Видано',
-  unpaid: 'Не оплачено', legacy_unknown: 'Історичні дані: немає підтвердження',
+  failed: 'Помилка оплати', unpaid: 'Не оплачено', legacy_unknown: 'Історичні дані: немає підтвердження',
   reserved: 'Зарезервовано', unfulfilled: 'Очікує виконання', cancelled: 'Скасовано',
   not_requested: 'Не запитувалась', pending_document: 'Фіскальний документ відсутній',
 }
+const failureReasons: Record<string, string> = {
+  merchant_readiness_failed: 'mono не готовий до створення рахунку.',
+  invoice_pre_dispatch_failed: 'Не виконано умови для надсилання рахунку.',
+  payment_page_unverified: 'Сторінку оплати не підтверджено.',
+  invoice_response_invalid: 'Не вдалося перевірити відповідь mono.',
+  invoice_binding_unconfirmed: 'Зв’язок рахунку із замовленням не підтверджено.',
+  invoice_result_unconfirmed: 'Результат запиту на створення рахунку невідомий.',
+  invoice_binding_missing: 'Відсутній зв’язок рахунку із замовленням.',
+  invoice_id_missing: 'Ідентифікатор рахунку відсутній.',
+}
+const missingLabels: Record<string, string> = {
+  merchant_readiness: 'готовність приймання оплат',
+  dispatch_preconditions: 'умови надсилання рахунку',
+  invoice_id: 'ідентифікатор рахунку',
+  bank_dispatch_result: 'результат надсилання до mono',
+  payment_page_url: 'сторінка оплати',
+  verified_invoice_binding: 'зв’язок рахунку із замовленням',
+  verified_invoice_response: 'перевірена відповідь mono',
+  payment_intent: 'платіжний запис',
+}
+const failure = computed(() => props.order.payment_status === 'failed' ? props.order.payment_failure : null)
+const missing = computed(() => failure.value?.missing.map(code => missingLabels[code] || 'дані оплати').join(', '))
 const label = (value?: string) => labels[value || 'legacy_unknown'] || value
 const rows = computed(() => [
   ['Оплата', label(props.order.payment_status)], ['Виконання', label(props.order.fulfillment_status)],
@@ -83,4 +107,9 @@ const rows = computed(() => [
 </script>
 <template>
   <dl class="grid" :class="compact ? 'grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4' : 'gap-4 sm:grid-cols-2 lg:grid-cols-4'"><div v-for="[title, value] in rows" :key="title"><dt class="text-ui-secondary" :class="compact ? 'text-xs' : 'text-sm'">{{ title }}</dt><dd class="font-medium text-ui-primary" :class="compact ? 'mt-0.5 break-words text-sm leading-snug' : 'mt-1'">{{ value }}</dd></div></dl>
+  <div v-if="compact && failure" class="ui-status-warning mt-3 rounded-xl px-3 py-2 text-sm" role="status">
+    <p class="font-medium">{{ failureReasons[failure.code] || 'Не вдалося підготувати оплату.' }}</p>
+    <p v-if="missing">Перевірити: {{ missing }}.</p>
+    <p v-if="failure.reconciliation_required">Потрібна звірка оплати.</p>
+  </div>
 </template>
