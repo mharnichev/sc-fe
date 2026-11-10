@@ -210,8 +210,7 @@ watch([orderId, () => order.value?.id, () => auth.user?.id, isBarber, isPosSale,
   for (let index = 0; index < ids.length && current(); index += 4) {
     await Promise.all(ids.slice(index, index + 4).map(async id => {
       try {
-        const product = isBarber.value ? { images: await api.getProductImages(id) } : await api.getProduct(id)
-        const photos = productDisplayImages(product)
+        const photos = productDisplayImages(await api.getProduct(id))
         if (current() && photos.length) productImages.value[id] = photos
       }
       catch { /* Catalog failures use the photo placeholder. */ }
