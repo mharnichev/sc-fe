@@ -3,6 +3,16 @@ import { ChevronDownIcon, CreditCardIcon, DocumentTextIcon, TruckIcon } from '@h
 import type { OrderProjections } from '~/composables/useBackofficeApi'
 const props = defineProps<{ order: OrderProjections, compact?: boolean }>()
 const labels: Record<string, string> = {
+  mono_checkbox_external_accepted: 'Чек mono → Checkbox підтверджено',
+  simulated_mono_checkbox_external_accepted: 'Тестовий чек mono → Checkbox підтверджено',
+  paid_production: 'Оплачено',
+  payment_reconciliation_required: 'Потрібна звірка оплати',
+  pickup_handed_over: 'Видано',
+  carrier_dispatched: 'Передано перевізнику',
+  fulfilled: 'Виконано',
+  simulated_pickup_handed_over: 'Тестова видача',
+  simulated_carrier_dispatched: 'Тестова передача перевізнику',
+  simulated_fulfilled: 'Тестове виконання',
   mono_checkbox_external_receipt_pending: 'Очікує підтвердження чека',
   mono_checkbox_external_pending_document: 'Чек ще недоступний',
   master_mono_receipt_accepted: 'Чек mono → Checkbox підтверджено',

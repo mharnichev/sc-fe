@@ -2,8 +2,9 @@ import { parseSalesIntent, salesErrorDetail, salesIntentStorageKey } from '~/uti
 import type { SalesIntent } from '~/utils/orderSales'
 
 // Persist before sending. Unknown network outcomes always retain the exact key and body.
-export const useOrderSalesCommand = <T extends object>(operation: string, resource: MaybeRefOrGetter<string>, definitiveErrorCodes: readonly string[] = []) => {
+export const useOrderSalesCommand = <T extends object>(operation: string, resource: MaybeRefOrGetter<string>, definitiveErrorCodes: readonly string[] = [], persistence: 'local' | 'session' = 'local') => {
   const auth = useAuthStore()
+  const storage = () => persistence === 'session' ? sessionStorage : localStorage
   const intent = shallowRef<SalesIntent<T> | null>(null)
   const busy = ref(false)
   const error = ref('')
@@ -13,11 +14,11 @@ export const useOrderSalesCommand = <T extends object>(operation: string, resour
   watch(scope, key => {
     generation++; intent.value = null; error.value = ''; busy.value = false
     if (!import.meta.client || !key) return
-    try { intent.value = parseSalesIntent<T>(localStorage.getItem(key)) }
+    try { intent.value = parseSalesIntent<T>(storage().getItem(key)) }
     catch { error.value = 'Сховище недоступне. Команди заблоковано для безпечного повтору.' }
   }, { immediate: true, flush: 'sync' })
   const clear = () => {
-    if (scope.value && intent.value && parseSalesIntent<T>(localStorage.getItem(scope.value))?.key === intent.value.key) localStorage.removeItem(scope.value)
+    if (scope.value && intent.value && parseSalesIntent<T>(storage().getItem(scope.value))?.key === intent.value.key) storage().removeItem(scope.value)
     intent.value = null
   }
   const execute = async (body: T, send: (body: T, key: string) => Promise<{ id: number }>, success: (id: number) => unknown | Promise<unknown>) => {
@@ -27,20 +28,20 @@ export const useOrderSalesCommand = <T extends object>(operation: string, resour
     let command: SalesIntent<T> | null = null, persisted = false
     const ownsIntent = () => {
       if (!current() || !command) return false
-      try { return parseSalesIntent<T>(localStorage.getItem(startedScope))?.key === command.key }
+      try { return parseSalesIntent<T>(storage().getItem(startedScope))?.key === command.key }
       catch { return false }
     }
     busy.value = true; error.value = ''
     try {
-      command = parseSalesIntent<T>(localStorage.getItem(startedScope)) || intent.value || { key: crypto.randomUUID(), body: JSON.parse(JSON.stringify(body)) as T }
-      localStorage.setItem(startedScope, JSON.stringify(command))
+      command = parseSalesIntent<T>(storage().getItem(startedScope)) || intent.value || { key: crypto.randomUUID(), body: JSON.parse(JSON.stringify(body)) as T }
+      storage().setItem(startedScope, JSON.stringify(command))
       persisted = true
       intent.value = command
       const result = command.resultId ? { id: command.resultId } : await send(command.body, command.key)
       // Only the current instance and durable intent may accept a late response.
       if (!ownsIntent()) return
       command.resultId = result.id
-      localStorage.setItem(startedScope, JSON.stringify(command))
+      storage().setItem(startedScope, JSON.stringify(command))
       await success(result.id)
     }
     catch (cause) {

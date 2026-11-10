@@ -12,7 +12,7 @@ import OrderReturnsMock from '~/components/orders/OrderReturnsMock.vue'
 import OrderEttnMock from '~/components/orders/OrderEttnMock.vue'
 import OrderFiscalMock from '~/components/orders/OrderFiscalMock.vue'
 import OrderProjections from '~/components/orders/OrderProjections.vue'
-import OrderOnlineCancellation from '~/components/orders/OrderOnlineCancellation.vue'
+import OrderCancellation from '~/components/orders/OrderCancellation.vue'
 import OrderShopOperations from '~/components/orders/OrderShopOperations.vue'
 import OrderShopPayments from '~/components/orders/OrderShopPayments.vue'
 import OrderShopPaymentResolution from '~/components/orders/OrderShopPaymentResolution.vue'
@@ -25,7 +25,7 @@ import ShopFiscalReports from '~/components/orders/ShopFiscalReports.vue'
 import { isShopCarrierReturnShipment, shopFiscalUsesCanonicalPanel } from '~/utils/shopFiscal'
 import { orderUsesNovaPoshta } from '~/utils/shipmentStatus'
 import { orderAmountMinor, orderStatusOptions } from '~/utils/orderSales'
-import type { OrderPaymentCommand, OrderHandoverCommand, PreliminaryOrderDocument } from '~/composables/useBackofficeApi'
+import type { OrderPaymentCommand, OrderHandoverCommand, PreliminaryOrderDocument, OrderCancellationState } from '~/composables/useBackofficeApi'
 import { procurementStatusLabel } from '~/utils/inventory'
 
 const route = useRoute()
@@ -80,11 +80,13 @@ const statusDraft = ref('')
 const statusPending = ref(false)
 const statusError = ref('')
 
-const statusLocked = computed(() => !!order.value?.channel && ['cancelled', 'completed'].includes(order.value.status))
-const shopOnlineOrder = computed(() => order.value?.channel === 'shop' && !order.value.simulation &&
-  (order.value.payment_method === 'onlineCard' || order.value.payment_channel === 'online_monobank' || !!order.value.payment_failure))
+const statusLocked = computed(() => !!order.value && (order.value.archived || order.value.status === 'cancelled' ||
+  (!!order.value.channel && order.value.status === 'completed')))
+const cancellation = ref<InstanceType<typeof OrderCancellation> | null>(null)
 const statusOptions = computed(() => orderStatusOptions(!!order.value && !order.value.channel)
-  .filter(option => !shopOnlineOrder.value || option.value !== 'cancelled'))
+  .filter(option => option.value !== 'cancelled' || cancellation.value?.canCancel)
+  .map(option => option.value === 'cancelled' ? { ...option, label: 'Відмова' } : option))
+const archived = computed(() => order.value?.archived || order.value?.status === 'cancelled')
 const paymentDetails = ref<HTMLDetailsElement | null>(null)
 const orderHeading = ref<HTMLHeadingElement | null>(null)
 
@@ -301,18 +303,40 @@ const reloadSales = async () => {
   try {
     const [nextOrder, nextFulfillment] = await Promise.all([api.getOrder(id), api.getOrderFulfillment(id)])
     if (generation !== orderContext || request !== salesRead || id !== orderId.value || String(nextOrder.id) !== id) return
+    if ((nextOrder.revision ?? 0) < (order.value?.revision ?? 0)) return
     order.value = nextOrder; fulfillment.value = nextFulfillment; fiscalRefresh.value++
   }
   catch (err: unknown) {
     if (generation === orderContext && request === salesRead) toast.error(apiErrorMessage(err, 'Не вдалося оновити замовлення. Повторіть читання.'))
   }
 }
-const onOrderCancelled = async (result: { order_id: number, revision: number, order_status: string }) => {
-  if (!order.value || order.value.status === 'cancelled' || result.order_status !== 'cancelled' ||
+const applyArchivedFacts = (result: OrderCancellationState) => {
+  if (!order.value || !result.archived || result.order_status !== 'cancelled' ||
     result.order_id !== order.value.id || String(result.order_id) !== orderId.value) return
-  order.value = { ...order.value, status: result.order_status, revision: result.revision, payment_failure: null }
-  toast.success('Замовлення скасовано.')
+  if (result.revision >= (order.value.revision ?? 0)) {
+    order.value = {
+      ...order.value,
+      archived: true,
+      status: result.order_status,
+      revision: result.revision,
+      payment_status: result.payment_status,
+      fiscal_status: result.fiscal_status,
+      fulfillment_status: result.fulfillment_status,
+    }
+  }
+}
+
+const onOrderCancelled = async (result: OrderCancellationState) => {
+  const wasArchived = archived.value
+  applyArchivedFacts(result)
+  if (!wasArchived && archived.value) toast.success('Замовлення скасовано й переміщено до архіву.')
   await Promise.all([reloadSales(), refreshNuxtData('backoffice-orders-list')])
+}
+
+const confirmCancellationFromStatus = async () => {
+  statusOpen.value = false
+  await nextTick()
+  cancellation.value?.showConfirmation()
 }
 
 const recordPayment = async () => {
@@ -349,6 +373,10 @@ const openStatus = () => {
 
 const updateStatus = async () => {
   if (!canSubmitStatus.value || !order.value) return
+  if (statusDraft.value === 'cancelled') {
+    await confirmCancellationFromStatus()
+    return
+  }
 
   const generation = orderContext, id = order.value.id, status = statusDraft.value
   statusPending.value = true
@@ -375,8 +403,8 @@ const updateStatus = async () => {
 <template>
   <div class="order-detail mx-auto max-w-7xl space-y-4">
     <header>
-      <NuxtLink to="/orders" class="inline-flex min-h-11 items-center gap-2 text-sm text-ui-secondary">
-        <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />До замовлень
+      <NuxtLink :to="archived ? { path: '/orders', query: { archive: 'archived' } } : '/orders'" class="inline-flex min-h-11 items-center gap-2 text-sm text-ui-secondary">
+        <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />{{ archived ? 'До архіву' : 'До замовлень' }}
       </NuxtLink>
       <BaseCard padding="sm" class="order-heading liquid-glass">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -398,12 +426,16 @@ const updateStatus = async () => {
               <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
               Змінити статус
             </BaseButton>
-            <OrderOnlineCancellation
-              v-if="shopOnlineOrder && !isBarber && auth.user?.is_active"
+            <OrderCancellation
+              v-if="!isBarber && auth.user?.is_active"
+              ref="cancellation"
               :key="`${order.id}:${auth.user.id}:${auth.sessionRevision}`"
               :order-id="order.id"
               :revision="order.revision"
+              :archived="archived"
+              :can-open-payment-review="order.channel === 'shop'"
               @cancelled="onOrderCancelled"
+              @archived-facts="applyArchivedFacts"
               @reconcile="openPaymentDetails"
               @focus-fallback="orderHeading?.focus()"
             />
@@ -435,17 +467,15 @@ const updateStatus = async () => {
         </template>
         <template #body>
           <form class="space-y-4" @submit.prevent="updateStatus">
-            <label class="base-field space-y-1.5 text-sm">
-              <span class="base-field__label font-medium">Новий статус</span>
-              <BaseSelect v-model="statusDraft" native class="w-full" :disabled="statusPending || statusLocked">
-                <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </BaseSelect>
-            </label>
+            <BaseSelect v-model="statusDraft" inline-menu label="Новий статус" aria-label="Новий статус"
+              :options="statusOptions" :disabled="statusPending || statusLocked" />
             <p v-if="statusLocked" class="text-sm text-ui-secondary">Замовлення закрите.</p>
             <p v-if="statusError" class="ui-status-danger rounded-xl p-3 text-sm" role="alert">{{ statusError }}</p>
             <div class="flex flex-wrap justify-end gap-2">
               <BaseButton variant="neutral" :disabled="statusPending" @click="statusOpen = false">Закрити</BaseButton>
-              <BaseButton type="submit" variant="primary" :loading="statusPending" :disabled="!canSubmitStatus">Оновити статус</BaseButton>
+              <BaseButton type="submit" variant="primary" :loading="statusPending" :disabled="!canSubmitStatus">
+                {{ statusDraft === 'cancelled' ? 'Продовжити' : 'Оновити статус' }}
+              </BaseButton>
             </div>
           </form>
         </template>

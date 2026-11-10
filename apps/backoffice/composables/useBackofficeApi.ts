@@ -362,7 +362,28 @@ export interface Shipment {
   events: Array<{ operation: string, raw_status: string, normalized_status: string, outcome: string, created_at: string }>
 }
 export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, blocking_reasons: string[] }
+export type OrderArchiveScope = 'active' | 'archived' | 'all'
+
+export interface OrderCancellationState {
+  order_id: number
+  revision: number
+  order_status: string
+  archived: boolean
+  can_cancel: boolean
+  payment_status: string
+  fiscal_status: string
+  fulfillment_status: string
+  cancelled_at: string | null
+  cancelled_by_user_id: number | null
+  comment: string | null
+  active_reservation_quantity: number
+  released_reservation_quantity: number
+  late_payment_verified: boolean
+  reconciliation: { payment: boolean, receipt: boolean, inventory: boolean }
+}
+
 export interface OrderProjections {
+  archived?: boolean
   shipments?: Shipment[]
   shipment_actions?: ShipmentActions
   simulation?: boolean
@@ -1618,9 +1639,9 @@ export const useBackofficeApi = () => {
   const createShipmentReturn = (orderId: number, id: number, body: ShipmentReturnCommand, key: string) => api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/return-shipment`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
   const getShipmentLabel = (orderId: number, id: number) => api<string>(`/backoffice/orders/${orderId}/shipments/${id}/label`, { responseType: 'text', retry: 0 })
 
-  const getOrders = (page = 1, pageSize = 10) =>
+  const getOrders = (page = 1, pageSize = 10, filters: { archive?: OrderArchiveScope, search?: string } = {}) =>
     api<PaginatedResponse<OrderSummary>>('/backoffice/orders', {
-      query: { page, page_size: normalizePageSize(pageSize) },
+      query: { page, page_size: normalizePageSize(pageSize), archive: filters.archive, search: filters.search || undefined },
     })
 
   const getOrder = (orderId: number | string) =>
