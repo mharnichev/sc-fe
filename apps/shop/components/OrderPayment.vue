@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
-const props = defineProps<{ orderId: number, guestToken?: string, resumeGuest?: boolean, orderPath?: string, autoStart?: boolean }>()
+const props = defineProps<{ orderId: number, guestToken?: string, resumeGuest?: boolean, orderPath?: string, autoStart?: boolean, primaryHeading?: boolean }>()
 const emit = defineEmits<{ 'method-changed': [method: string] }>()
 const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed, getCapabilities, hasGuestCapability, presentationFailure, iframeFailed } = useOrderPayment(() => props.orderId, () => props.guestToken, props.resumeGuest)
 const paymentRoot = ref<HTMLElement | null>(null)
@@ -108,7 +108,7 @@ watch(() => [props.orderId, props.orderPath], () => {
 }, { immediate: true })
 const methodChanged = computed(() => ['offline_payment_selected', 'payment_method_changed'].includes(payment.value?.reason || ''))
 const settled = computed(() => Boolean(payment.value?.paid && ['accepted', 'paid_receipt_pending'].includes(payment.value.status) && (payment.value.reason !== 'order_closed' || payment.value.order?.status === 'completed')))
-const pageUrl = computed(() => !apiFailure.value && !paid.value && payment.value?.order_id === props.orderId && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.presentation_mode === 'iframe' ? payment.value.redirect_url : payment.value.redirect_url ?? payment.value.page_url) : null)
+const pageUrl = computed(() => !error.value && !apiFailure.value && !paid.value && payment.value?.order_id === props.orderId && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.presentation_mode === 'iframe' ? payment.value.redirect_url : payment.value.redirect_url ?? payment.value.page_url) : null)
 const missingPaymentPage = computed(() => payment.value?.enabled && payment.value.status === 'waiting'
   && payment.value.actions?.continue_payment !== false && !paid.value && !pageUrl.value && !widgetUrl.value)
 const paymentProblem = computed(() => apiFailure.value || presentationFailure?.value || missingPaymentPage.value)
@@ -146,26 +146,32 @@ const title = computed(() => {
   if (accessDenied.value) return paymentText.value.accessTitle
   if (methodChanged.value) return paymentText.value.methodChanged
   if (settled.value) return paymentText.value.paidTitle
-  if (paymentProblem.value) return paymentText.value.failedTitle
   if (payment.value?.reason === 'order_closed') return paymentText.value.closedTitle
   if (payment.value?.reason === 'payment_failed') return paymentText.value.failedTitle
   if (payment.value?.reason === 'invoice_expired') return paymentText.value.expiredTitle
+  if (payment.value?.status === 'creation_failed') return paymentText.value.creationFailedTitle
+  if (payment.value?.status === 'creation_unknown') return paymentText.value.creationTitle
+  if (paymentProblem.value) return paymentText.value.failedTitle
+  if (!payment.value && !error.value) return paymentText.value.loading
+  if (payment.value?.status === 'waiting' && pageUrl.value) return paymentText.value.existingTitle
   return payment.value?.status === 'requires_review' ? paymentText.value.reviewTitle : paymentText.value.heading
 })
 const hint = computed(() => {
   if (accessDenied.value) return paymentText.value.accessHint
-  if (!payment.value && busy.value) return paymentText.value.loading
+  if (!payment.value && !error.value) return ''
   if (methodChanged.value) return payment.value?.order?.payment_method === 'cash' ? paymentText.value.pickupHint : paymentText.value.methodChangedHint
-  if (settled.value) return payment.value?.order?.status === 'completed' ? paymentText.value.completedHint : paymentText.value.paidNext
+  if (settled.value) return payment.value?.order?.status === 'completed' ? paymentText.value.completedHint : payment.value?.receipt_accepted ? paymentText.value.paidNext : ''
   if (payment.value?.reason === 'order_closed') return paymentText.value.closedHint
   if (payment.value?.reason === 'payment_reversed') return paymentText.value.reversedHint
   if (apiFailure.value) return payment.value?.payment_failure?.reconciliation_required === false ? paymentText.value.unavailableForm : paymentText.value.reviewHint
-  if (['payment_failed', 'invoice_expired'].includes(payment.value?.reason || '')) return paymentText.value.failedHint
+  if (payment.value?.reason === 'invoice_expired') return paymentText.value.expiredHint
+  if (payment.value?.reason === 'payment_failed') return paymentText.value.failedHint
   if (payment.value?.status === 'requires_review') return paymentText.value.reviewHint
   if (missingPaymentPage.value || presentationFailure?.value === 'redirect') return paymentText.value.unavailableForm
   if (presentationFailure?.value === 'iframe') return paymentText.value.widgetHint
   if (errorKind?.value === 'conflict') return paymentText.value.conflictHint
   if (error.value) return paymentText.value.connectionHint
+  if (payment.value?.status === 'creation_failed') return paymentText.value.creationFailedHint
   if (payment.value?.status === 'creation_unknown') return paymentText.value.checking
   if (payment.value && !payment.value.enabled) return paymentText.value.disabled
   if (payment.value?.status === 'waiting') return paymentText.value.waitingHint
@@ -211,16 +217,15 @@ const amount = computed(() => {
 <template>
   <section ref="paymentRoot" class="order-payment soft-surface" :class="{ 'order-payment--paid': settled }" :aria-label="paymentText.label" :aria-busy="busy">
     <div class="order-payment__context">
-      <span>{{ paymentText.order }} № {{ orderId }}</span>
+      <span :data-testid="primaryHeading ? 'order-number' : undefined">{{ paymentText.order }} № {{ orderId }}</span>
       <strong v-if="amount">{{ amount }}</strong>
     </div>
     <div class="order-payment__heading">
-      <h2>{{ title }}</h2>
-      <span class="order-payment__illustration"><PaymentStatusIllustration v-if="illustrationTone" :tone="illustrationTone" /></span>
+      <component :is="primaryHeading ? 'h1' : 'h2'" class="order-payment__title" :tabindex="primaryHeading ? -1 : undefined">{{ title }}</component>
+      <span v-if="illustrationTone" class="order-payment__illustration"><PaymentStatusIllustration :tone="illustrationTone" /></span>
     </div>
-    <p v-if="payment" class="order-payment__status" role="status">{{ labels[payment.status] || paymentText.statuses.requires_review }}</p>
-    <p v-else-if="busy" role="status">{{ paymentText.loading }}</p>
-    <p class="order-payment__hint">{{ hint }}</p>
+    <p v-if="payment && !settled && !['creation_unknown', 'creation_failed'].includes(payment.status)" class="order-payment__status" role="status">{{ labels[payment.status] || paymentText.statuses.requires_review }}</p>
+    <p v-if="hint" class="order-payment__hint">{{ hint }}</p>
     <p v-if="settled && !payment?.receipt_accepted" class="order-payment__hint">{{ paymentText.receiptPending }}</p>
     <div class="order-payment__actions">
       <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !apiFailure && !accessDenied && !error" :disabled="busy || preparing" @click="beginPayment">{{ paymentText.create }}</BaseButton>
@@ -257,11 +262,12 @@ const amount = computed(() => {
   gap: 1rem;
   padding: clamp(1rem, 3vw, 2rem);
 }
-.order-payment--paid h2 { color: #166534; }
+.order-payment--paid .order-payment__title { color: #166534; }
 .order-payment__context { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1rem; font-size: .875rem; }
-.order-payment__heading { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; gap: .75rem; min-height: 64px; }
-.order-payment__illustration { width: 64px; height: 64px; display: grid; place-items: center; }
-.order-payment h2 { font-size: 1.5rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.order-payment__heading { display: flex; align-items: center; gap: .75rem; }
+.order-payment__illustration { flex: none; width: 64px; height: 64px; display: grid; place-items: center; }
+.order-payment__title { flex: 1; min-width: 0; font-size: 1.5rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.order-payment__title[tabindex="-1"]:focus { outline: none; }
 .order-payment__status { font-weight: 700; }
 .order-payment__hint { color: #525252; line-height: 1.6; }
 .order-payment__actions { display: flex; flex-wrap: wrap; gap: .75rem; }
@@ -270,7 +276,6 @@ const amount = computed(() => {
 .order-payment__error { color: #a16207; line-height: 1.5; }
 .order-payment__method-form { display: grid; gap: 1rem; line-height: 1.5; }
 @media (max-width: 575px) {
-  .order-payment__heading { grid-template-columns: minmax(0, 1fr) 56px; min-height: 56px; }
   .order-payment__illustration { width: 56px; height: 56px; }
   .order-payment__actions { display: grid; }
   .order-payment__actions > * { width: 100%; }

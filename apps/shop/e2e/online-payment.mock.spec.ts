@@ -118,7 +118,7 @@ for (const mobile of [false, true]) {
 
 for (const authenticated of [false, true]) {
  for (const priceChanged of [false, true]) {
- test(`${authenticated ? 'customer' : 'guest'} ${priceChanged ? 'price drift requires manual payment' : 'fresh checkout auto-pays once'} and keeps payment and receipt evidence separate`, async ({ page }) => {
+ test(`${authenticated ? 'customer' : 'guest'} ${priceChanged ? 'price drift requires manual payment' : 'fresh checkout auto-pays once'} and keeps payment and receipt evidence separate`, async ({ page }, testInfo) => {
   let ordered = false, created = false, phase = 'not_started', posts = 0, orders = 0
   const orderTotal = priceChanged ? '201.00' : '180.00'
   let paymentChannel: string | null = 'online_monobank'
@@ -155,7 +155,9 @@ for (const authenticated of [false, true]) {
         expect(req.headers()['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/i)
         expect(req.postDataJSON()).toEqual({}); posts++; created = true; phase = 'waiting'
       } else expect(req.method()).toBe('GET')
-      await route.fulfill({ json: { order_id: 987, enabled: true, status: phase, paid: ['paid_receipt_pending', 'accepted'].includes(phase), receipt_accepted: phase === 'accepted', page_url: created ? 'https://pay.mbnk.biz/mock-invoice' : null, receipt_url: phase === 'accepted' ? 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture' : null, amount_minor: priceChanged ? 20100 : 18000, currency: 'UAH', retry_after_seconds: 30 } }); return
+      await route.fulfill({ json: { order_id: 987, enabled: true, status: phase, paid: ['paid_receipt_pending', 'accepted'].includes(phase), receipt_accepted: phase === 'accepted', page_url: created && phase === 'waiting' ? 'https://pay.mbnk.biz/mock-invoice' : null,
+        ...(phase === 'creation_unknown' ? { reason: 'invoice_creation_unknown', actions: { start: false, continue_payment: false, refresh: true, change_method: false, contact_support: true } } : {}),
+        receipt_url: phase === 'accepted' ? 'https://cabinet.tax.gov.ua/cashregs/check?id=fixture' : null, amount_minor: priceChanged ? 20100 : 18000, currency: 'UAH', retry_after_seconds: 30 } }); return
     }
     expect(req.method(), `Unexpected mutation ${path}`).toBe('GET')
     if (path.endsWith('/customers/me')) { await route.fulfill({ json: customer }); return }
@@ -207,6 +209,21 @@ for (const authenticated of [false, true]) {
   expect(posts).toBe(1)
   expect(orders).toBe(1)
   expect(external).toEqual(['https://pay.mbnk.biz/mock-invoice'])
+  if (!priceChanged) {
+    const width = authenticated ? 1440 : 390
+    await page.setViewportSize({ width, height: 900 })
+    await expect(page.getByRole('heading', { level: 1, name: 'Рахунок готовий до оплати' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toBeInViewport()
+    await page.screenshot({ path: testInfo.outputPath(`checkout-existing-${width}.png`) })
+    phase = 'creation_unknown'
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1, name: 'Перевіряємо, чи створено рахунок' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Оновити статус оплати' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Зв’язатися з нами' })).toBeInViewport()
+    await page.screenshot({ path: testInfo.outputPath(`checkout-unknown-${width}.png`) })
+    phase = 'waiting'
+  }
   await page.goto('/shop/payment/987')
   await expect(page).toHaveURL(/\/payment\/987$/)
   const bank = page.getByRole('button', { name: 'Перейти до оплати' })
@@ -217,7 +234,7 @@ for (const authenticated of [false, true]) {
   await page.reload(); await expect(bank).toBeVisible()
   phase = 'paid_receipt_pending'
   await page.getByRole('button', { name: 'Оновити статус оплати' }).click()
-  await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Фіскальний чек ще формується.', { exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Переглянути фіскальний чек' })).toHaveCount(0)
   await expect(bank).toHaveCount(0)
   phase = 'accepted'
@@ -226,9 +243,9 @@ for (const authenticated of [false, true]) {
   if (authenticated) {
     phase = 'paid_receipt_pending'
     await page.goto('/shop/cabinet/orders/987')
-    await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Фіскальний чек ще формується.', { exact: true })).toBeVisible()
     await page.reload()
-    await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Фіскальний чек ще формується.', { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Переглянути фіскальний чек' })).toHaveCount(0)
     phase = 'accepted'
     await page.reload()
@@ -328,7 +345,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 608, height: 900
     // Authenticated GET is the only settlement authority, even while the frame is open.
     await page.clock.fastForward(121000)
     await expect(frame).toHaveCount(0)
-    await expect(page.getByText('Оплату отримано. Готуємо чек.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Фіскальний чек ще формується.', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
   } else {
     await expect(page).toHaveURL('https://pay.mbnk.biz/mock-invoice')
@@ -542,7 +559,7 @@ for (const invalidate of ['close', 'resize', 'reload', 'order', 'user', 'unmount
   if (invalidate === 'lost-response') {
     await expect(page.getByRole('alert')).toBeVisible()
     await page.getByRole('button', { name: 'Оновити статус оплати', exact: true }).click()
-    await expect(page.getByText('Уточнюємо стан оплати', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Перевіряємо, чи створено рахунок', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
     phase = 'waiting'
     await page.getByRole('button', { name: 'Оновити статус оплати', exact: true }).click()
@@ -766,3 +783,32 @@ test('blocked Shop iframe navigation leaves the same hosted invoice available', 
   expect(hostedNavigations).toBe(1)
   expect(invoicePosts).toBe(0)
 })
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 1000 }]) {
+  test(`pre-dispatch failure and uncertain creation never offer another invoice at ${viewport.width}`, async ({ page }, testInfo) => {
+    let phase = 'creation_failed'
+    await page.setViewportSize(viewport)
+    await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
+    await page.route('**/api/v1/**', route => {
+      const request = route.request()
+      expect(request.method()).toBe('GET')
+      if (new URL(request.url()).pathname.endsWith('/987/online-payment')) {
+        return route.fulfill({ json: { ...widgetState(phase), reason: phase === 'creation_failed' ? 'invoice_pre_dispatch_failed' : 'invoice_creation_unknown',
+          actions: { start: false, continue_payment: false, refresh: true, change_method: false, contact_support: true } } })
+      }
+      return route.fulfill({ json: { items: [], total: 0 } })
+    })
+    await page.goto('/shop/payment/987')
+    await expect(page.getByRole('heading', { name: 'Рахунок не створено' })).toBeInViewport()
+    await expect(page.getByRole('link', { name: 'Зв’язатися з нами' })).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath(`payment-failed-${viewport.width}.png`) })
+    phase = 'creation_unknown'
+    const refresh = page.getByRole('button', { name: 'Оновити статус оплати' })
+    await refresh.click()
+    await expect(page.getByRole('heading', { name: 'Перевіряємо, чи створено рахунок' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Перейти до оплати' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Перейти до оплати' })).toHaveCount(0)
+    await expect(refresh).toBeInViewport()
+    await page.screenshot({ path: testInfo.outputPath(`payment-unknown-${viewport.width}.png`) })
+  })
+}

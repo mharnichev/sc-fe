@@ -1,7 +1,7 @@
 const labels: Record<string, string> = {
   created: 'Підготовлено', unknown: 'Результат не визначено — потрібна звірка',
   handed_over: 'Передано перевізнику', in_transit: 'У дорозі', delivered: 'Доставлено', refused: 'Відмова отримувача',
-  returning: 'Повертається', returned: 'Повернуто перевізником', cancelled: 'Скасовано',
+  cancel_pending: 'Скасування ТТН на звірці', returning: 'Повертається', returned: 'Повернуто перевізником', cancelled: 'Скасовано',
   requires_review: 'Потрібна перевірка',
 }
 export const shipmentStatusLabel = (status: string) => labels[status] || 'Потрібна перевірка'

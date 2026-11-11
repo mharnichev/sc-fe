@@ -23,7 +23,7 @@ const setup = async ({ api, storage = new Map(), component = 'OrderShopPaymentRe
  Object.assign(globalThis, await importSource((await readFile(new URL('../utils/shopPayments.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '')))
  const utilities = await importSource((await readFile(new URL('../utils/shopPaymentResolution.ts', import.meta.url), 'utf8')).replace(/import\.meta\.client/g, 'true'));Object.assign(globalThis, utilities, await importSource((await readFile(new URL('../utils/shopCheckboxFiscal.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')))
  const source = (await readFile(new URL(`../components/orders/${component}.vue`, import.meta.url), 'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
- const exports = component === 'OrderShopPaymentResolution' ? 'state, loading, error, read, paid, review, inspect, correction, claim, close, finalize, selectedId, record, recovered, recovering, reason, custody, invoiceId, foreignId, replacementId, correctionConfirmed, claimReason, claimConfirmed, finalizeConfirmed, bankType, bankSource, bankDocument, bankLine, bankDate, bankVerified, noMoney, noHold, allInvoicesClosed, bankEvidence, canOpen, canCase, openCase, runCase, reload, testContext' : component === 'OrderShopPayments' ? 'state, pinnedInvoiceId, invoiceId, canRun, send, verify' : 'state, record, canRecord, receiveReturn, receive'
+ const exports = component === 'OrderShopPaymentResolution' ? 'state, loading, error, read, paid, review, inspect, correction, claim, close, finalize, selectedId, record, recovered, recovering, reason, custody, invoiceId, foreignId, replacementId, correctionConfirmed, claimReason, claimConfirmed, finalizeConfirmed, bankType, bankSource, bankDocument, bankLine, bankDate, bankVerified, noMoney, noHold, allInvoicesClosed, workerStopped, workerStoppedAt, workerEvidence, bankEvidence, canOpen, canCase, openCase, runCase, reload, testContext' : component === 'OrderShopPayments' ? 'state, pinnedInvoiceId, invoiceId, canRun, send, verify' : 'state, record, canRecord, receiveReturn, receive'
  const module = await importSource(`export function instantiate() {\n${source}\nreturn {${exports}};\n}`), scope = vue.effectScope(), panel = scope.run(() => module.instantiate());await tick()
  return { panel, auth, props, events, storage, utilities, stop: () => scope.stop() }
 }
@@ -53,6 +53,42 @@ test('correction selects two immutable observations and cannot silently verify o
 })
 test('manual closure uses current server candidate list/policy and all four exact attestations',async()=>{
  const item={...record('invoice_review','review_required',3),known_invoice_ids:['own','secondOwn']};let current=withCase(item);const posts=[];const f=await setup({api:async(path,o)=>{if(o?.method==='POST'){posts.push({path,...o});current=withCase({...item,revision:4,status:'closed_unpaid',closure:{id:10},finalization:{id:11}});return current.cases[0]}return current}});fillClosure(f.panel);for(const field of ['noMoney','noHold','allInvoicesClosed','bankVerified']){f.panel[field].value=false;await f.panel.runCase('close_unpaid');assert.equal(posts.length,0);f.panel[field].value=true}await f.panel.runCase('close_unpaid');assert.deepEqual(posts[0].body,{...common(3),expected_manual_policy_id:policy.id,expected_manual_policy_hash:hash,evidence:{type:'bank_closure_statement',source:'Synthetic external bank closure document',issuer:policy.issuer,account:policy.account,document_id:'DOC-1',line_id:'LINE-1',order_id:321,intent_id:intentId,reference,known_invoice_ids:['own','secondOwn'],verified_at:new Date('2026-10-19T13:00:00').toISOString(),verified:true,no_money:true,no_hold:true,all_reference_invoices_closed:true}});assert.equal(posts.length,1);assert.equal(f.panel.record.value.status,'closed_unpaid');f.stop()
+})
+test('abandoned dispatch requires current evidence and explicit worker-stop confirmation', async () => {
+  const item = record('invoice_review', 'review_required', 3)
+  let current = { ...withCase(item), invoice_dispatch_in_flight: true }
+  const posts = []
+  const fixture = await setup({ api: async (path, options) => {
+    if (options?.method !== 'POST') return current
+    posts.push({ path, body: options.body })
+    current = withCase({ ...item, status: 'closed_unpaid', revision: 4, finalization: { id: 8 } })
+    return current.cases[0]
+  } })
+  const { panel } = fixture
+  fillClosure(panel)
+  await panel.runCase('close_unpaid')
+  assert.equal(posts.length, 0)
+
+  current = { ...current, cases: [{ ...item, actions: { close_abandoned_dispatch: true } }] }
+  await panel.reload()
+  fillClosure(panel)
+  panel.workerStoppedAt.value = '2026-10-19T12:00:00'
+  panel.workerEvidence.value = 'Synthetic stop record 1'
+  panel.workerStopped.value = true
+  panel.workerEvidence.value = 'Synthetic stop record 2'
+  await panel.runCase('close_unpaid')
+  assert.equal(posts.length, 0)
+
+  panel.workerStopped.value = true
+  await panel.runCase('close_unpaid')
+  assert.equal(posts.length, 1)
+  assert.equal(posts[0].path, '/backoffice/shop-payment-resolutions/cases/7/close-unpaid')
+  assert.deepEqual(posts[0].body.evidence.abandoned_dispatch, {
+    worker_stopped: true,
+    stopped_at: new Date('2026-10-19T12:00:00').toISOString(),
+    evidence: 'Synthetic stop record 2',
+  })
+  fixture.stop()
 })
 test('failure/expired/404 observations cannot manufacture absent close permission or guessed candidates',async()=>{
  for(const kind of ['expired','failure','404']){const item={...record('invoice_review','review_required'),actions:{inspect:true},observations:[{...observation(1,'candidate'),...(kind==='404'?{proof:null,error_code:'monobank_unavailable'}:{proof:{...observation(1,'candidate').proof,status:kind}})}]};let posts=0;const f=await setup({api:async(_p,o)=>{if(o?.method==='POST')posts++;return withCase(item)}});fillClosure(f.panel);await f.panel.runCase('close_unpaid');assert.equal(posts,0);f.stop()}

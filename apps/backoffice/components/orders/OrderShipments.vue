@@ -12,7 +12,9 @@ const fixture = useOrderSalesCommand<{ expected_revision: number, address_snapsh
 const prepare = useOrderSalesCommand<ShipmentCreateCommand>('shipment-prepare', resource)
 type TargetCommand = ShipmentCommand & { shipment_id: number }
 const refresh = useOrderSalesCommand<TargetCommand>('shipment-refresh', resource)
-const cancel = useOrderSalesCommand<TargetCommand>('shipment-cancel', resource)
+const cancel = useOrderSalesCommand<TargetCommand>('shipment-cancel', resource, [
+  'shipment_status_stale', 'reconcile_required', 'already_handed_over', 'cancel_reconciliation_required', 'shipment_already_cancelled',
+])
 const handover = useOrderSalesCommand<TargetCommand>('shipment-handover', resource)
 // These business rejections occur before acceptance. Unknown outcomes and
 // idempotency conflicts must retain their original request and key.
@@ -44,6 +46,51 @@ const declared = ref(''), cod = ref('0')
 const evidence = ref('')
 const mockStatus = ref('created')
 const labelError = ref('')
+const cancelNeedsRead = ref(false)
+const cancelCanonical = shallowRef<OrderResponse | null>(null)
+const currentShipmentOrder = computed(() => cancelCanonical.value ?? props.order)
+const cancelActions = computed(() => currentShipmentOrder.value.shipment_actions)
+const cancelChecking = ref(false)
+const cancelContext = () => `${auth.user?.id}:${auth.sessionRevision}:${props.order.id}`
+const canCancel = (shipment: Shipment) => !cancelNeedsRead.value
+  && cancelActions.value?.can_cancel === true && cancelActions.value.cancel_shipment_id === shipment.id
+const canReconcileCancel = (shipment: Shipment) => !cancelNeedsRead.value
+  && cancelActions.value?.can_reconcile_cancel === true && cancelActions.value.cancel_shipment_id === shipment.id
+const cancelReason = (shipment: Shipment) => cancelActions.value?.cancel_shipment_id === shipment.id
+  ? ({
+      already_handed_over: 'Товар передано. Використайте сценарій повернення.',
+      shipment_status_stale: 'Оновіть дані НП перед скасуванням ТТН.',
+      cancel_reconciliation_required: 'Спочатку звірте результат скасування.',
+      reconcile_required: 'Спочатку підтвердьте вихідну ТТН.',
+    } as Record<string, string>)[cancelActions.value.cancel_blocking_reason || ''] || ''
+  : ''
+const acceptCancelRead = (order: OrderResponse) => {
+  const id = cancel.intent.value?.body.shipment_id
+  const target = order.shipments?.find(shipment => shipment.id === id)
+  if (target && (['cancel_pending', 'cancelled'].includes(target.status)
+    || (order.revision ?? 0) > (cancel.intent.value?.body.expected_revision ?? Infinity))) {
+    cancel.clear()
+    cancel.error.value = ''
+  }
+}
+const checkCancel = async () => {
+  const scope = cancelContext()
+  cancelNeedsRead.value = true; cancelChecking.value = true
+  try {
+    const value = await api.getOrder(props.order.id)
+    if (scope !== cancelContext() || value.id !== props.order.id) return
+    cancelCanonical.value = value
+    acceptCancelRead(value)
+    cancelNeedsRead.value = false
+    emit('changed')
+  } catch { /* The original intent stays fenced until a successful read. */ }
+  finally { if (scope === cancelContext()) cancelChecking.value = false }
+}
+watch(cancelContext, () => { cancelNeedsRead.value = false; cancelChecking.value = false; cancelCanonical.value = null; acceptCancelRead(props.order) }, { immediate: true })
+watch(() => props.order, order => {
+  acceptCancelRead(order)
+  if (cancelCanonical.value && (order.revision ?? 0) >= (cancelCanonical.value.revision ?? 0)) cancelCanonical.value = null
+})
 watch([() => props.order.id, () => auth.user?.id], () => { confirmed.value = false; corrected.value = false; evidence.value = ''; tracking.value = ''; declared.value = props.order.total_amount }, { immediate: true })
 const storedAddressSummary = computed(() => shipmentAddressSummary(props.order.shipping_payload_json, props.order))
 const storedAddressReady = computed(() => storedShipmentAddressReady(props.order.shipping_payload_json))
@@ -63,12 +110,41 @@ const create = async () => {
   await prepare.execute({ expected_revision: props.order.revision!, source: source.value, ...(addressSnapshot.value ? { address_snapshot: addressSnapshot.value } : {}), ...(source.value === 'attach' ? { tracking_number: tracking.value.trim() } : {}), packaging: { weight_kg: Number(weight.value), length_cm: Number(length.value), width_cm: Number(width.value), height_cm: Number(height.value), places: Number(places.value), payer: payer.value, declared_value_minor: orderAmountMinor(declared.value)!, cod_amount_minor: orderAmountMinor(cod.value) || 0 } }, (body, key) => api.createOrderShipment(props.order.id, body, key), () => { prepare.clear(); confirmed.value = false; emit('changed') })
   if (!prepare.intent.value) emit('changed')
 }
+const refreshBeforeCancel = (shipment: Shipment) => shipment.status === 'cancel_pending'
+  || cancelActions.value?.cancel_shipment_id === shipment.id && cancelActions.value.cancel_blocking_reason === 'shipment_status_stale'
+const canRefreshShipment = (shipment: Shipment) => !cancelNeedsRead.value && (!unresolved.value || !!refresh.intent.value
+  || !!cancel.intent.value && refreshBeforeCancel(shipment))
 const run = async (operation: 'refresh' | 'cancel' | 'handover', shipment: Shipment) => {
   const command = { refresh, cancel, handover }[operation]
-  if (!enabled.value || busy.value || (unresolved.value && !command.intent.value)) return
-  if (operation === 'handover' && !command.intent.value && (!props.order.shipment_actions?.can_handover || !evidence.value.trim())) return
-  await command.execute({ expected_revision: props.order.revision!, shipment_id: shipment.id, ...(operation === 'refresh' ? { mock_status: mockStatus.value } : {}), ...(operation === 'handover' ? { evidence: evidence.value.trim() } : {}) }, (body, key) => { const { shipment_id, ...payload } = body; return api.runShipmentCommand(props.order.id, shipment_id, operation, payload, key) }, () => { command.clear(); evidence.value = ''; emit('changed') })
-  if (!command.intent.value) emit('changed')
+  if (!enabled.value || busy.value || (operation === 'refresh' ? !canRefreshShipment(shipment) : unresolved.value && !command.intent.value)) return
+  if (operation === 'cancel' && !canCancel(shipment)) return
+  if (operation === 'refresh' && shipment.status === 'cancel_pending' && !canReconcileCancel(shipment)) return
+  if (operation === 'handover' && (shipment.status === 'cancel_pending' || !command.intent.value && (!props.order.shipment_actions?.can_handover || !evidence.value.trim()))) return
+  const canonical = operation === 'cancel' || operation === 'refresh' && refreshBeforeCancel(shipment)
+  const scope = cancelContext()
+  const revision = canonical ? currentShipmentOrder.value.revision! : props.order.revision!
+  await command.execute({
+    expected_revision: revision, shipment_id: shipment.id,
+    ...(operation === 'refresh' && !refreshBeforeCancel(shipment) ? { mock_status: mockStatus.value } : {}),
+    ...(operation === 'handover' ? { evidence: evidence.value.trim() } : {}),
+  }, async (body, key) => {
+    const { shipment_id, ...payload } = body
+    const result = await api.runShipmentCommand(props.order.id, shipment_id, operation, payload, key)
+    if (canonical && scope === cancelContext()) {
+      const target = result.shipments?.find(item => item.id === shipment_id)
+      if (result.id !== props.order.id || (result.revision ?? 0) < payload.expected_revision || !target
+        || operation === 'cancel' && !['cancel_pending', 'cancelled'].includes(target.status)) throw new Error('Invalid cancellation response')
+      cancelCanonical.value = result
+    }
+    return result
+  }, () => {
+    command.clear()
+    if (canonical && cancelCanonical.value) acceptCancelRead(cancelCanonical.value)
+    evidence.value = ''
+    emit('changed')
+  })
+  if (canonical && command.error.value) await checkCancel()
+  else if (!command.intent.value) emit('changed')
 }
 type SettlementForm = { providerEvent: string, paymentEvidence: string, paymentConfirmed: boolean, receiptEvidence: string, receiptConfirmed: boolean, goodsFit: boolean, returnEvidence: string, returnConfirmed: boolean, returnQuantities: Record<number, number | string | null>, dispositions: Record<number, '' | 'restock' | 'not_restock'> }
 const settlements = ref<Record<number, ShipmentSettlement>>({})
@@ -175,19 +251,21 @@ const label = async (shipment: Shipment) => {
       <BaseCheckbox v-model="confirmed" label="Адресу та збережені refs перевірено" :disabled="busy || unresolved" />
       <BaseButton type="submit" :loading="prepare.busy.value" :disabled="busy || (!prepare.intent.value && (unresolved || !confirmed || !addressReady || !validPackaging))">{{ prepare.intent.value ? 'Повторити підготовку MOCK' : 'Підготувати MOCK відправлення' }}</BaseButton>
     </form>
-    <article v-for="shipment in order.shipments || []" :key="shipment.id" class="space-y-3 border-t pt-4">
+    <article v-for="shipment in currentShipmentOrder.shipments || []" :key="shipment.id" class="space-y-3 border-t pt-4">
       <p>{{ isMockShipment(shipment) ? 'MOCK — тестове відправлення' : 'Відправлення' }} · {{ shipment.tracking_number || 'Номер не підтверджено' }}</p>
       <p>{{ shipmentStatusLabel(shipment.status) }} · остання перевірка: {{ shipment.last_checked_at || 'Ще не виконувалась' }}</p>
       <p v-if="shipment.address_snapshot">Адреса відправлення: {{ shipment.address_snapshot.cityLabel }} · {{ shipment.address_snapshot.warehouseLabel || shipment.address_snapshot.streetLabel }} {{ shipment.address_snapshot.buildingNumber }}</p>
       <p v-if="shipment.packaging">Упаковка: {{ shipment.packaging.weight_kg }} кг · {{ shipment.packaging.length_cm }} × {{ shipment.packaging.width_cm }} × {{ shipment.packaging.height_cm }} см · місць {{ shipment.packaging.places }}</p>
       <p>Оплата товару ведеться окремо. Відмова чи повернення перевізником не оприбутковує товар на склад.</p>
       <div class="flex flex-wrap gap-3">
-        <BaseButton v-if="isMockShipment(shipment) && shipment.label_url" variant="neutral" @click="label(shipment)">MOCK етикетка / друк</BaseButton>
+        <BaseButton v-if="isMockShipment(shipment) && shipment.label_url && !['unknown', 'cancel_pending', 'cancelled'].includes(shipment.status)" variant="neutral" @click="label(shipment)">MOCK етикетка / друк</BaseButton>
         <template v-if="isMockShipment(shipment) && enabled && (shipment.active || [refresh, cancel, handover].some(command => command.intent.value?.body.shipment_id === shipment.id))">
-          <label>MOCK стан для перевірки<BaseSelect v-model="mockStatus" native :disabled="busy || unresolved"><option v-for="state in ['created','in_transit','delivered','refused','returning','returned','unrecognized']" :key="state" :value="state">{{ state }}</option></BaseSelect></label>
-          <BaseButton :disabled="busy || (unresolved && !refresh.intent.value)" @click="run('refresh', shipment)">{{ refresh.intent.value ? 'Повторити звірку MOCK' : 'Звірити MOCK стан' }}</BaseButton>
-          <BaseButton v-if="shipment.status === 'created' || cancel.intent.value?.body.shipment_id === shipment.id" :disabled="busy || (unresolved && !cancel.intent.value)" @click="run('cancel', shipment)">{{ cancel.intent.value ? 'Повторити скасування MOCK' : 'Скасувати MOCK' }}</BaseButton>
-          <div v-if="order.shipment_actions?.can_handover || handover.intent.value" class="space-y-2">
+          <label v-if="!refreshBeforeCancel(shipment)">MOCK стан для перевірки<BaseSelect v-model="mockStatus" native :disabled="busy || unresolved"><option v-for="state in ['created','in_transit','delivered','refused','returning','returned','unrecognized']" :key="state" :value="state">{{ state }}</option></BaseSelect></label>
+          <BaseButton v-if="shipment.status !== 'cancel_pending' || canReconcileCancel(shipment)" :variant="refreshBeforeCancel(shipment) ? 'primary' : 'neutral'" :disabled="busy || !canRefreshShipment(shipment)" @click="run('refresh', shipment)">{{ shipment.status === 'cancel_pending' ? 'Звірити скасування ТТН' : refreshBeforeCancel(shipment) ? 'Оновити дані перед скасуванням' : refresh.intent.value ? 'Повторити звірку MOCK' : 'Звірити MOCK стан' }}</BaseButton>
+          <BaseButton v-if="canCancel(shipment)" variant="danger-outline" :disabled="busy || (unresolved && !cancel.intent.value)" @click="run('cancel', shipment)">{{ cancel.intent.value ? 'Повторити той самий запит' : 'Скасувати ТТН до передачі' }}</BaseButton>
+          <p v-if="cancelReason(shipment)" class="text-ui-secondary text-sm">{{ cancelReason(shipment) }}</p>
+          <BaseButton v-if="cancelNeedsRead && (cancelActions?.cancel_shipment_id === shipment.id || cancel.intent.value?.body.shipment_id === shipment.id || refresh.intent.value?.body.shipment_id === shipment.id)" :disabled="busy || cancelChecking" @click="checkCancel">Оновити стан ТТН</BaseButton>
+          <div v-if="shipment.status !== 'cancel_pending' && (order.shipment_actions?.can_handover || handover.intent.value)" class="space-y-2">
             <BaseInput v-model="evidence" label="Підстава тестової передачі перевізнику" :disabled="busy || unresolved" />
             <BaseButton :disabled="busy || (unresolved && !handover.intent.value) || (!handover.intent.value && !evidence.trim())" @click="run('handover', shipment)">{{ handover.intent.value ? 'Повторити передачу MOCK' : 'Підтвердити передачу MOCK' }}</BaseButton>
           </div>

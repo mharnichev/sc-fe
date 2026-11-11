@@ -20,6 +20,9 @@ const busy = computed(() => list.some(command => command.busy.value)), unresolve
 const pendingId = computed(() => { void busy.value; return caseCommands.find(command => command.intent.value)?.intent.value?.body.case_id || attach.intent.value?.resultId })
 const selectedId = ref(''), recovered = shallowRef<ShopNPCase | null>(null), recoveryError = ref(''), recovering = ref(false)
 const record = computed(() => { const id = pendingId.value || Number(selectedId.value); return state.value?.cases.find(item => item.id === id) || (recovered.value?.id === id ? recovered.value : null) })
+const caseOptions = computed(() => state.value?.cases.map(item => ({
+  value: String(item.id), label: item.return_ttn,
+})) ?? [])
 const returnTTN = ref(''), linkage = ref<'easy_return' | 'manual_document'>('easy_return'), reason = ref(''), attachConfirmed = ref(false)
 const manualSource = ref(''), manualDocument = ref(''), manualLine = ref(''), quantities = ref<Record<number, number | string | null>>({})
 const receiptEvidence = ref(''), contentsConfirmed = ref(false), goodsFit = ref(false), dispositions = ref<Record<number, '' | 'restock' | 'not_restock'>>({})
@@ -86,7 +89,7 @@ const attachCase = async () => {
     if (!shopNPCaseMatches(result, props.order.id) || !matches(result)) throw new Error('Mismatched NP attachment acknowledgement')
     return { id: result.id }
   }, id => accepted(version, id, matches, () => { attach.clear(); returnTTN.value = ''; reason.value = ''; quantities.value = {}; manualSource.value = ''; manualDocument.value = ''; manualLine.value = '' }))
-  if (read.current(version) && !attach.intent.value && attach.error.value) await read.load()
+  if (read.current(version) && attach.error.value && !attach.intent.value?.resultId) await read.load()
 }
 const runCase = async (operation: ShopNPOperation) => {
   const command = commands[operation], current = record.value
@@ -105,7 +108,7 @@ const runCase = async (operation: ShopNPOperation) => {
     if (!shopNPCaseMatches(result, props.order.id, case_id) || !matches(result)) throw new Error('Mismatched NP command acknowledgement')
     return { id: result.id }
   }, id => accepted(version, id, matches, () => { command.clear(); receiptEvidence.value = ''; dispositions.value = {}; goodsFit.value = false; closeEvidence.value = ''; claimReason.value = '' }))
-  if (read.current(version) && !command.intent.value && command.error.value) await read.load()
+  if (read.current(version) && command.error.value && !command.intent.value?.resultId) await read.load()
 }
 const restoreSaved = () => {
   const saved = attach.intent.value?.body
@@ -131,15 +134,14 @@ const reload = async () => { if (await read.load() && pendingId.value && !state.
 
 <template>
   <section class="np-panel" aria-label="Зовнішні повернення НП магазину">
-    <header><h2>Повернення НП · існуюча зворотна ТТН</h2><BaseButton variant="neutral" :disabled="loading || busy" @click="reload">Оновити повернення НП</BaseButton></header>
-    <p>Тут прив’язується вже оформлена зовні ТТН. Створення відправлення НП, банківських переказів і повідомлень немає. Зв’язок ТТН, прибуття, вміст, склад, гроші та чек — окремі факти.</p>
-    <p v-if="testContext" class="np-panel__notice" role="status">ЛОКАЛЬНИЙ MOCK · повернення НП та пов’язані факти тестові; реальні операції перевізника, платежі й надсилання до ДПС не виконуються.</p>
+    <header><h2>Повернення Новою поштою</h2><BaseButton variant="neutral" size="sm" :disabled="loading || busy" @click="reload">Оновити стан</BaseButton></header>
+    <p v-if="testContext" class="np-panel__notice" role="status">Тестові дані</p>
     <p v-if="recovering" role="status">Відновлюємо оригінальний випадок НП та перевіряємо його актуальні дозволи…</p>
     <p v-if="loading" role="status">Перевіряємо випадки, профіль і актуальні дозволи…</p>
     <p v-if="props.profileReady === false" role="status">Фіскальний профіль ще не підтверджено. Дії тимчасово заблоковано; збережений запит не змінено.</p>
     <template v-if="state">
       <div v-if="!state.cases.length && state.blocking_reasons.length"><p>Передумови для нової прив’язки ТТН:</p><p v-for="code in state.blocking_reasons" :key="code">{{ shopNPReason(code) }}</p></div>
-      <p v-if="unresolved" class="np-panel__notice" role="status">Є точний збережений запит. Повтор використовує його початкові дані та ключ; інші дії заблоковано до перевірки результату.</p>
+      <p v-if="unresolved" class="np-panel__notice" role="status">Результат запиту уточнюється. Оновіть стан перед наступною дією.</p>
       <div v-if="state.actions.attach || attach.intent.value" class="np-panel__group">
         <h3>Прив’язати існуючу зворотну ТТН</h3>
         <p>Вихідна ТТН: <strong>{{ state.original_ttn || 'Не підтверджено' }}</strong>. {{ state.financial_mode === 'unpaid_cod' ? 'Неоплачена COD-відмова: лише повна відправлена кількість, без фінансових фактів.' : 'Оплачений продаж: оберіть кількості однієї зворотної посилки.' }}</p>
@@ -157,29 +159,42 @@ const reload = async () => { if (await read.load() && pendingId.value && !state.
         <BaseCheckbox v-if="!attach.intent.value" v-model="attachConfirmed" :disabled="!attachValid || busy || loading">{{ linkage === 'manual_document' ? 'Особисто звірив/звіряла документ, рядок, замовлення, обидві ТТН та кількості посилки.' : 'Підтверджую прив’язку існуючої зворотної ТТН та обраних кількостей для серверної перевірки.' }}</BaseCheckbox>
         <BaseButton variant="primary" :disabled="!canAttach || (!attach.intent.value && (!attachValid || !attachConfirmed))" @click="attachCase">{{ attach.intent.value ? 'Повторити ту саму прив’язку ТТН' : 'Прив’язати існуючу зворотну ТТН' }}</BaseButton>
       </div>
-      <BaseSelect v-if="state.cases.length" v-model="selectedId" :id="`np-case-${order.id}`" :aria-labelledby="`np-case-${order.id}-label`" label="Зовнішній випадок повернення НП" native :disabled="locked"><option v-for="item in state.cases" :key="item.id" :value="String(item.id)">#{{ item.id }} · {{ item.return_ttn }} · {{ item.financial_mode === 'paid' ? 'оплачений продаж' : 'неоплачена COD-відмова' }}</option></BaseSelect>
+      <BaseSelect v-if="caseOptions.length > 1" v-model="selectedId" inline-menu label="Зворотна ТТН" :options="caseOptions" :disabled="locked" />
       <p v-if="pendingId && !record" role="status">Відновлюємо оригінальний випадок #{{ pendingId }}. Його точний запит збережено.</p>
       <article v-if="record" :aria-label="`Зовнішнє повернення НП #${record.id}`" class="np-panel__group">
-        <h3>Випадок НП #{{ record.id }} · {{ record.financial_mode === 'paid' ? 'оплачений продаж' : 'неоплачена COD-відмова' }}</h3>
-        <p v-if="record.test_context" class="np-panel__notice">ТЕСТОВИЙ КОНТЕКСТ · не підтверджує реальну операцію НП або гроші.</p>
+        <h3>{{ record.financial_mode === 'paid' ? 'Повернення оплаченого замовлення' : 'Неоплачена відмова' }}</h3>
         <p role="status">{{ shopNPStatus(record.status) }}</p>
-        <p>Вихідна ТТН {{ record.original_ttn }} → зворотна ТТН {{ record.return_ttn }}</p>
-        <p>{{ record.linkage_authority === 'manual' ? 'Зв’язок ТТН: ручна перевірка зовнішнього документа співробітником; не автоматична перевірка НП.' : record.linkage_authority === 'test' ? 'Зв’язок ТТН: тестовий перевірений доказ НП.' : 'Зв’язок ТТН: перевірений сервером доказ НП.' }}</p>
-        <p v-if="record.manual_link">Документ зв’язку: {{ record.manual_link.source }} · {{ record.manual_link.document_id }} · рядок {{ record.manual_link.line_id }}</p>
-        <ul><li v-for="line in record.lines" :key="line.order_item_id">{{ line.name || `Позиція #${line.order_item_id}` }} · {{ line.quantity }}</li></ul>
+        <dl class="np-panel__numbers">
+          <div><dt>Вихідна ТТН</dt><dd>{{ record.original_ttn }}</dd></div>
+          <div><dt>Зворотна ТТН</dt><dd>{{ record.return_ttn }}</dd></div>
+        </dl>
+        <p class="np-panel__meta">Остання звірка · {{ record.observation ? formatDateTime(record.observation.proof.observed_at) : 'Ще не виконана' }}</p>
         <p v-for="code in record.blocking_reasons" :key="code">{{ shopNPReason(code) }}</p>
-        <details v-if="record.observation"><summary>Окремий доказ спостереження НП</summary><p>Вихідна ТТН: {{ shopNPObservationStatus(record.observation.proof.original.status) }} · {{ record.observation.proof.original.raw_status }}</p><p>Зворотна ТТН: {{ shopNPObservationStatus(record.observation.proof.reverse.status) }} · {{ record.observation.proof.reverse.raw_status }}</p><p>Спостереження: {{ formatDateTime(record.observation.proof.observed_at) }}</p><p class="np-panel__hash">Hash доказу: {{ record.observation.proof_hash }}</p></details>
-        <BaseButton v-if="record.actions.refresh || refresh.intent.value" :disabled="!canCase('refresh')" @click="runCase('refresh')">{{ refresh.intent.value ? 'Повторити ту саму перевірку повернення НП' : 'Перевірити повернення НП' }}</BaseButton>
+        <details>
+          <summary>Деталі відправлення</summary>
+          <p>{{ record.linkage_authority === 'manual' ? 'Зв’язок ТТН підтверджено документом співробітника.' : record.linkage_authority === 'test' ? 'Зв’язок ТТН підтверджено у тесті.' : 'Зв’язок ТТН підтверджено сервером.' }}</p>
+          <p v-if="record.manual_link">{{ record.manual_link.source }} · {{ record.manual_link.document_id }} · рядок {{ record.manual_link.line_id }}</p>
+          <ul><li v-for="line in record.lines" :key="line.order_item_id">{{ line.name || `Позиція #${line.order_item_id}` }} · {{ line.quantity }} шт.</li></ul>
+          <template v-if="record.observation">
+            <p>Вихідна ТТН · {{ shopNPObservationStatus(record.observation.proof.original.status) }}</p>
+            <p>Зворотна ТТН · {{ shopNPObservationStatus(record.observation.proof.reverse.status) }}</p>
+          </template>
+        </details>
+        <BaseButton v-if="refresh.intent.value || (record.actions.refresh && !record.actions.receive && !record.actions.financial_claim && !record.actions.close_unpaid)" :disabled="!canCase('refresh')" @click="runCase('refresh')">{{ refresh.intent.value ? 'Повторити ту саму перевірку повернення НП' : 'Перевірити повернення НП' }}</BaseButton>
         <div v-if="record.receipt" class="np-panel__facts"><h3>Фізичне приймання НП #{{ record.receipt.id }}</h3><p>Вміст перевірено окремо · {{ record.receipt.evidence }} · співробітник #{{ record.receipt.operator_id }} · {{ formatDateTime(record.receipt.created_at) }}</p><ul><li v-for="line in record.receipt.lines" :key="line.order_item_id">Позиція #{{ line.order_item_id }} · {{ line.quantity }} · {{ line.disposition === 'restock' ? 'Оприбутковано за цим прийманням' : 'Прийнято без оприбуткування' }}</li></ul><p class="np-panel__hash">Hash приймання: {{ record.receipt.snapshot_hash }}</p></div>
         <div v-if="record.actions.receive || receive.intent.value" class="np-panel__group">
           <h3>Окрема перевірка вмісту та приймання</h3><p>Прийміть усі зазначені кількості посилки. Прибуття НП не доводить її вміст і не змінює склад автоматично.</p>
-          <BaseSelect v-for="line in record.lines" :key="line.order_item_id" v-model="dispositions[line.order_item_id]" :id="`np-disposition-${record.id}-${line.order_item_id}`" :aria-labelledby="`np-disposition-${record.id}-${line.order_item_id}-label`" :label="`Рішення щодо повернення ${line.name || line.order_item_id}`" native :disabled="locked"><option value="">Оберіть рішення</option><option value="restock">Оприбуткувати придатний товар</option><option value="not_restock">Прийняти без оприбуткування</option></BaseSelect>
+          <BaseSelect v-for="line in record.lines" :key="line.order_item_id" v-model="dispositions[line.order_item_id]" :id="`np-disposition-${record.id}-${line.order_item_id}`" :aria-labelledby="`np-disposition-${record.id}-${line.order_item_id}-label`" :label="`${line.name || line.order_item_id} · ${line.quantity} шт.`" native :disabled="locked"><option value="">Оберіть рішення</option><option value="restock">Оприбуткувати придатний товар</option><option value="not_restock">Прийняти без оприбуткування</option></BaseSelect>
           <BaseInput v-model="receiptEvidence" label="Доказ перевірки вмісту та приймання НП" :maxlength="500" :disabled="locked" />
-          <BaseCheckbox v-model="goodsFit" :disabled="locked">Товар, обраний для оприбуткування, оглянуто та визнано придатним до продажу.</BaseCheckbox>
+          <BaseCheckbox v-if="receiptLines.some(line => line.disposition === 'restock')" v-model="goodsFit" :disabled="locked">Товар, обраний для оприбуткування, оглянуто та визнано придатним до продажу.</BaseCheckbox>
           <BaseCheckbox v-model="contentsConfirmed" :disabled="locked">Особисто перевірив/перевірила вміст, усі кількості посилки та кожне рішення щодо складу.</BaseCheckbox>
           <BaseButton variant="primary" :disabled="!canCase('receive') || (!receive.intent.value && !receiptValid)" @click="runCase('receive')">{{ receive.intent.value ? 'Повторити те саме приймання НП' : 'Зафіксувати окреме приймання НП' }}</BaseButton>
         </div>
         <template v-if="record.financial_mode === 'paid'">
+          <dl class="np-panel__numbers">
+            <div><dt>Кошти</dt><dd>{{ record.status === 'closed_paid' ? 'Повернення підтверджено' : record.financial_return_id ? 'На звірці' : 'Ще не оформлено' }}</dd></div>
+            <div><dt>Чек повернення</dt><dd>{{ record.financial_document_id ? 'Підтверджено' : 'Ще не підтверджено' }}</dd></div>
+          </dl>
           <p v-if="record.financial_return_id">Фінансове повернення #{{ record.financial_return_id }} успадковує приймання НП #{{ record.receipt?.id }}. Повернення грошей і чек оформлюються окремо в розділі «Повернення»; повторного складського руху немає.</p>
           <div v-if="record.actions.financial_claim || claim.intent.value" class="np-panel__group"><h3>Фінансовий запит за прийнятою посилкою</h3><p>Запит охопить усі прийняті кількості цієї посилки. Він не виконує банківського переказу, не видає чек та не оприбутковує товар повторно.</p><BaseInput v-model="claimReason" label="Причина фінансового повернення за прийманням НП" :maxlength="500" :disabled="locked" /><BaseCheckbox v-model="claimConfirmed" :disabled="locked">Підтверджую окремий фінансовий запит за всім прийманням цієї посилки.</BaseCheckbox><BaseButton :disabled="!canCase('financial_claim') || (!claim.intent.value && (!claimConfirmed || !claimReason.trim()))" @click="runCase('financial_claim')">{{ claim.intent.value ? 'Повторити той самий фінансовий запит НП' : 'Створити фінансове повернення за прийманням НП' }}</BaseButton></div>
         </template>
@@ -194,9 +209,12 @@ const reload = async () => { if (await read.load() && pendingId.value && !state.
   </section>
 </template>
 <style scoped>
-.np-panel { padding:1.25rem; border:1px solid var(--bo-border); border-radius:1.5rem; background:var(--bo-surface); color:var(--bo-text-primary); }
+.np-panel { display:grid; gap:.65rem; padding:clamp(.875rem, 2vw, 1.25rem); border:1px solid var(--bo-border); border-radius:1.5rem; background:var(--bo-surface); color:var(--bo-text-primary); }
 .np-panel header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; } .np-panel h2 { font-size:1.2rem; font-weight:700; } .np-panel h3 { font-weight:600; }
-.np-panel p, .np-panel ul, .np-panel details { margin-top:.8rem; } .np-panel ul { padding-left:1.2rem; list-style:disc; } .np-panel summary { cursor:pointer; padding:.5rem 0; }
-.np-panel__group { display:grid; gap:.8rem; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--bo-border); }
+.np-panel ul { padding-left:1.2rem; list-style:disc; } .np-panel summary { cursor:pointer; padding:.5rem 0; }
+.np-panel__group { display:grid; gap:.65rem; margin-top:.2rem; padding-top:.7rem; border-top:1px solid var(--bo-border); }
+.np-panel__numbers { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 8rem),1fr)); gap:.5rem; }
+.np-panel__numbers dt, .np-panel__meta { color:var(--bo-text-secondary); font-size:.875rem; }
+.np-panel__numbers dd { font-weight:600; overflow-wrap:anywhere; }
 .np-panel__notice, .np-panel__facts { padding:1rem; border:1px solid var(--bo-border); border-radius:.75rem; background:var(--bo-surface-hover); } .np-panel__hash { overflow-wrap:anywhere; color:var(--bo-text-secondary); }
 </style>

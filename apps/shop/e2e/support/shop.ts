@@ -144,7 +144,7 @@ export const selectRealNovaPoshta = async (page: Page) => {
   expect(branches.status()).toBe(200)
   const branch = (await branches.json()).items.find((item: { type: string, status: string }) => item.type === 'warehouse' && item.status === 'Working')
   expect(branch?.ref).toBeTruthy()
-  await page.getByRole('combobox', { name: /^Відділення$/i }).click()
+  await page.getByRole('combobox', { name: /^Відділення або поштомат$/i }).click()
   await page.getByRole('option', { name: branch.label, exact: true }).click()
   return { city, branch }
 }

@@ -118,6 +118,14 @@ const formatTime = (value?: string | null) => {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? text.value.invalidDate : date.toLocaleString(dateLocale.value, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Kyiv' })
 }
+const shipmentsById = computed(() => new Map((props.shipments || []).map(shipment => [shipment.id, shipment])))
+const originalShipment = (shipment: CustomerShipment) => shipment.return_of_shipment_id ? shipmentsById.value.get(shipment.return_of_shipment_id) : undefined
+const returnScenario = (shipment: CustomerShipment) => {
+  const original = originalShipment(shipment)
+  if (!original) return ''
+  const status = deliveryStatus(original)
+  return status === 'refused' ? text.value.refusalScenario : status === 'delivered' ? text.value.deliveredReturnScenario : ''
+}
 const receiptDates = computed(() => new Map((props.shipments || []).flatMap(shipment => orderReceiptDates([shipment])).map(receipt => [receipt.id, receipt.date])))
 const itemName = (id: number) => {
   const item = props.items?.find(item => item.id === id)
@@ -138,9 +146,8 @@ const itemName = (id: number) => {
     <p v-if="error" role="alert">{{ runtimeMessage(error) }}</p>
     <article v-for="shipment in shipments" :key="shipment.id" class="shipments__card soft-surface" :aria-label="`${text.shipments} #${shipment.id}`">
       <p v-if="shipment.simulation && shipments.some(parcel => !parcel.simulation)" class="shipments__note">{{ locale === 'en' ? 'Test shipment' : 'Тестове відправлення' }}</p>
-      <p v-if="shipment.return_of_shipment_id">{{ text.returnOf }} #{{ shipment.return_of_shipment_id }}</p>
       <div class="shipments__tracking">
-        <h3>{{ text.tracking }}:</h3>
+        <h3>{{ shipment.return_of_shipment_id ? text.returnTracking : text.tracking }}:</h3>
         <template v-if="shipment.tracking_number">
           <BaseButton type="button" variant="text" size="sm" class="shipments__number" :disabled="copying" @click="copyTracking(shipment.tracking_number)">{{ shipment.tracking_number }}</BaseButton>
           <BaseButton type="button" variant="borderless" size="sm" class="shipments__copy" :aria-label="text.copy" :title="text.copy" :disabled="copying" @click="copyTracking(shipment.tracking_number)">
@@ -149,6 +156,10 @@ const itemName = (id: number) => {
         </template>
         <p v-else>{{ text.noNumber }}</p>
       </div>
+      <p v-if="originalShipment(shipment)?.tracking_number" class="shipments__checked">
+        {{ text.originalTracking }} · {{ originalShipment(shipment)?.tracking_number }}
+      </p>
+      <p v-if="returnScenario(shipment)" class="shipments__scenario">{{ returnScenario(shipment) }}</p>
       <p><OrderStatusBadge :label="shipmentStatusLabel(deliveryStatus(shipment), locale, !shipment.simulation)" :icon="'nova-post'" :tone="shipmentStatusTone(deliveryStatus(shipment))" /></p>
       <p v-if="!shipment.simulation && deliveryStatus(shipment) === 'delivered' && !shipment.return_of_shipment_id" class="shipments__received">{{ locale === 'en' ? 'Received' : 'Отримано' }}: <time v-if="receiptDates.get(shipment.id)" :datetime="receiptDates.get(shipment.id) || undefined">{{ formatTime(receiptDates.get(shipment.id)) }}</time><span v-else>{{ locale === 'en' ? 'Date not recorded' : 'Дату не зафіксовано' }}</span></p>
       <p v-if="!shipment.simulation && shipment.stale !== false" class="shipments__warning">{{ text.stale }}</p>
@@ -177,11 +188,12 @@ const itemName = (id: number) => {
 </template>
 <style scoped>
 .shipments { display: grid; min-width: 0; gap: 1rem; background: transparent; padding: 1rem; }
+.shipments__scenario { font-weight: 600; }
 .shipments__status { display: inline-flex; align-items: center; gap: .35rem; }
 .shipments h2, .shipments h3, .shipments h4 { font-weight: 800; }
 .shipments__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
 .shipments__card { display: grid; min-width: 0; gap: .65rem; border: 0; padding: .85rem; overflow-wrap: anywhere; }
-.shipments__tracking { display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.shipments__tracking { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-width: 0; }
 .shipments__number { min-width: 0; padding: .5rem .15rem; text-align: left; overflow-wrap: anywhere; }
 .shipments__number :deep(.sc-button__text) { white-space: normal; overflow-wrap: anywhere; }
 .shipments__copy { flex-shrink: 0; min-width: 44px; min-height: 44px; padding: .5rem; }

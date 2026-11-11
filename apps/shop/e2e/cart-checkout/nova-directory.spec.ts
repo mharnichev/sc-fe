@@ -27,7 +27,7 @@ async function chooseCity(page: Page) {
 test('directory: popular city, keyboard branch, refs submitted and reset on edit', async ({ page }) => {
   await setup(page)
   await chooseCity(page)
-  const field = page.getByRole('combobox', { name: /^Відділення$/i })
+  const field = page.getByRole('combobox', { name: /^Відділення або поштомат$/i })
   await field.focus()
   await expect(page.getByRole('option', { name: branch.label })).toBeVisible()
   await field.press('ArrowDown')
@@ -66,7 +66,7 @@ test('directory: courier requires canonical street and clears address when metho
   await expect(submit).toBeDisabled()
   await expect(page.getByRole('textbox', { name: /^Будинок/i })).toHaveValue('')
   await page.locator('label[for=shipping-method-warehouse]').click()
-  await expect(page.getByRole('combobox', { name: /^Відділення$/i })).toHaveValue('')
+  await expect(page.getByRole('combobox', { name: /^Відділення або поштомат$/i })).toHaveValue('')
 })
 test('directory: failed search retry and empty result', async ({ page }) => {
   await setup(page)
@@ -82,7 +82,7 @@ test('directory: failed search retry and empty result', async ({ page }) => {
 test('directory: popular-city change immediately invalidates previous branch even when lookup fails', async ({ page }) => {
   await setup(page)
   await chooseCity(page)
-  const branchField = page.getByRole('combobox', { name: /^Відділення$/i })
+  const branchField = page.getByRole('combobox', { name: /^Відділення або поштомат$/i })
   await branchField.focus()
   await page.getByRole('option', { name: branch.label }).click()
   const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()
@@ -116,7 +116,7 @@ test('directory: initial ArrowUp selects last suggestion and stale responses can
   await expect(page.getByRole('option', { name: 'Київське, область' })).toHaveAttribute('aria-selected', 'true')
   await field.press('Enter')
   await expect(field).toHaveValue('Київське, область')
-  await expect(page.getByRole('combobox', { name: /^Відділення$/i })).toBeEnabled()
+  await expect(page.getByRole('combobox', { name: /^Відділення або поштомат$/i })).toBeEnabled()
 })
 
 test('directory: courier-only settlement has no city ref; unavailable courier cannot be submitted', async ({ page }) => {
