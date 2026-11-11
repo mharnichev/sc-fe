@@ -5,6 +5,8 @@ import { EyeIcon } from '@heroicons/vue/24/outline'
 import type { OrderSummary } from '~/composables/useBackofficeApi'
 
 const api = useBackofficeApi()
+const auth = useAuthStore()
+const canWatch = computed(() => auth.user?.is_superuser || auth.user?.can_record_sales && auth.user?.can_manage_fiscal_settings)
 const { formatDateTime, formatMoney } = useBookingFormatting()
 const route = useRoute()
 const router = useRouter()
@@ -42,7 +44,10 @@ const deliveryLabel = (order: OrderSummary) =>
     <div>
       <p class="ui-eyebrow text-sm uppercase tracking-[0.3em]">Продажі</p>
       <h1 class="mt-2 text-3xl font-semibold text-ui-primary">Замовлення</h1>
-      <NuxtLink to="/orders/pos" class="base-button mt-4">Продати товар</NuxtLink>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <NuxtLink to="/orders/pos" class="base-button">Продати товар</NuxtLink>
+        <NuxtLink v-if="canWatch" to="/orders/operations-watch" class="base-button">Операційний нагляд</NuxtLink>
+      </div>
     </div>
 
     <BaseCard variant="subtle" padding="sm" class="space-y-3">

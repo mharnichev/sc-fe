@@ -161,12 +161,12 @@ const state = reactive<{ loading: boolean, order: CheckoutOrder | null, error: s
   error: '',
 })
 
-const confirmationHeading = ref<HTMLHeadingElement | null>(null)
+const confirmation = ref<HTMLElement | null>(null)
 watch(() => state.order, order => {
   if (!order) return
   // The confirmation replaces a long form on the same route.
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  confirmationHeading.value?.focus({ preventScroll: true })
+  confirmation.value?.querySelector('h1')?.focus({ preventScroll: true })
 }, { flush: 'post' })
 
 const deliveryMethodOptions = computed(() => [
@@ -194,14 +194,12 @@ const paymentChoiceText = computed(() => locale.value === 'uk' ? {
   introduction: 'Оберіть зручний спосіб оплати.',
   onlineUnavailable: 'Онлайн-оплата тимчасово недоступна.',
   onlineLoading: 'Перевіряємо доступність онлайн-оплати…',
-  onlineDescription: 'Після оформлення замовлення ви зможете перейти до захищеної форми оплати.',
-  onlineConfirmation: 'Замовлення створено. Завершіть оплату.',
+  onlineDescription: 'Після створення замовлення ви зможете перейти на захищену сторінку платіжного провайдера та оплатити карткою.',
 } : {
   introduction: 'Choose how you would like to pay.',
   onlineUnavailable: 'Online payment is temporarily unavailable.',
   onlineLoading: 'Checking online payment availability…',
-  onlineDescription: 'After you place your order, you can continue to the secure payment form.',
-  onlineConfirmation: 'Order created. Complete your payment.',
+  onlineDescription: 'After placing your order, you can continue to the payment provider’s secure page and pay by card.',
 })
 const isDeliveryValid = computed(() => {
   if (!selectedCity.value) return false
@@ -417,10 +415,11 @@ useSeo(
 </script>
 
 <template>
-  <section v-if="state.order" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
+  <section v-if="state.order" ref="confirmation" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
     <div class="checkout-card checkout-confirmation__card">
-      <h1 ref="confirmationHeading" class="checkout-page__success" tabindex="-1">{{ state.order.payment_method === 'onlineCard' ? paymentChoiceText.onlineConfirmation : terms.checkout.orderSuccess }}</h1>
-      <p class="checkout-confirmation__number" data-testid="order-number">№ {{ state.order.id }}</p>
+      <OrderPayment primary-heading :key="state.order.id" :auto-start="autoPayOrderId === state.order.id" v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" @method-changed="paymentMethodChanged" />
+      <h1 v-else class="checkout-page__success" tabindex="-1">{{ terms.checkout.orderSuccess }}</h1>
+      <p v-if="state.order.payment_method !== 'onlineCard'" class="checkout-confirmation__number" data-testid="order-number">№ {{ state.order.id }}</p>
       <CheckoutOrderItems :items="state.order.items" />
       <OrderCallbackPreference :requested="state.order.callback_requested" />
       <div class="checkout-total">
@@ -430,7 +429,6 @@ useSeo(
       <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
       <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="borderless">{{ paymentText.statusPage }}</BaseButton>
-      <OrderPayment :key="state.order.id" :auto-start="autoPayOrderId === state.order.id" v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" @method-changed="paymentMethodChanged" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
       <BaseButton to="/catalog" variant="borderless">{{ terms.common.catalog }}</BaseButton>

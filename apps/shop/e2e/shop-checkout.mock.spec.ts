@@ -8,7 +8,7 @@ const branch = { ref: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', settlement_ref: ci
 
 for (const authenticated of [false, true]) {
  for (const courier of [false, true]) {
-  test(`${authenticated ? 'customer' : 'guest'} ${courier ? 'courier/card-on-delivery' : 'branch/cash-on-delivery'} completes checkout with canonical delivery and unpaid preliminary document`, async ({ page }) => {
+  test(`${authenticated ? 'customer' : 'guest'} ${courier ? 'courier/cash-on-delivery' : 'branch/cash-on-delivery'} completes checkout with canonical delivery and unpaid preliminary document`, async ({ page }) => {
     const posts: Array<{ body: Record<string, unknown>, key?: string }> = []
     let ordered = false
     await page.route('https://**', route => route.abort())
@@ -25,7 +25,7 @@ for (const authenticated of [false, true]) {
         ordered = true
         await route.fulfill({ status: 201, json: {
           id: 987, total_amount: '180.00', subtotal_amount: '200.00', discount_amount: '20.00', status: 'pending',
-          payment_status: 'unpaid', payment_method: courier ? 'cardOnDelivery' : 'cashOnDelivery', fulfillment_status: 'reserved', fiscal_status: 'not_requested',
+          payment_status: 'unpaid', payment_method: 'cashOnDelivery', fulfillment_status: 'reserved', fiscal_status: 'not_requested',
           items: [{ id: 1, product_id: 123, product_name: product.name, quantity: 2, price: '90.00', total_price: '180.00' }],
           preliminary_documents: [{ id: 1, number: 'SC-987-1', version: 1, document_kind: 'preliminary', created_at: '2026-10-18T00:00:00Z', print_url: '/api/v1/public/order-documents/mock-only' }],
         } }); return
@@ -50,10 +50,10 @@ for (const authenticated of [false, true]) {
       await page.getByRole('combobox', { name: /^Вулиця$/i }).fill('Тес')
       await page.getByRole('option', { name: 'вул. Тестова' }).click()
       await page.getByRole('textbox', { name: /^Будинок/i }).fill('12')
-      await page.locator('label[for=payment-method-cardOnDelivery]').click()
+      await expect(page.getByRole('radio', { name: 'Оплата при отриманні', exact: true })).toBeChecked()
     }
     else {
-      await page.getByRole('combobox', { name: /^Відділення$/i }).focus()
+      await page.getByRole('combobox', { name: /^Відділення або поштомат$/i }).focus()
       await page.getByRole('option', { name: branch.label }).click()
     }
     const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()
@@ -70,7 +70,7 @@ for (const authenticated of [false, true]) {
     await expect(page.getByText('Попереднє замовлення. Не є фіскальним чеком', { exact: true })).toBeVisible()
     expect(posts).toHaveLength(1)
     expect(posts[0]!.key).toMatch(/^[a-f0-9-]{36}$/i)
-    expect(posts[0]!.body).toMatchObject({ items: [{ product_id: 123, quantity: 2 }], shippingSettlementRef: city.ref, shippingMethod: courier ? 'courier' : 'warehouse', paymentMethod: courier ? 'cardOnDelivery' : 'cashOnDelivery' })
+    expect(posts[0]!.body).toMatchObject({ items: [{ product_id: 123, quantity: 2 }], shippingSettlementRef: city.ref, shippingMethod: courier ? 'courier' : 'warehouse', paymentMethod: 'cashOnDelivery' })
     if (courier) expect(posts[0]!.body).toMatchObject({ shippingStreetRef: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', buildingNumber: '12' })
     else expect(posts[0]!.body.shippingWarehouseRef).toBe(branch.ref)
     expect(posts[0]!.body).not.toHaveProperty('total_amount')

@@ -361,7 +361,7 @@ export interface Shipment {
   handed_over_at: string | null, label_url?: string | null,
   events: Array<{ operation: string, raw_status: string, normalized_status: string, outcome: string, created_at: string }>
 }
-export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, blocking_reasons: string[] }
+export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, can_cancel?: boolean, can_reconcile_cancel?: boolean, cancel_shipment_id?: number | null, cancel_blocking_reason?: string | null, blocking_reasons: string[] }
 export type OrderArchiveScope = 'active' | 'archived' | 'all'
 
 export interface OrderCancellationState {

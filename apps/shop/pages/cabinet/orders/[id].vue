@@ -114,6 +114,7 @@ useSeo(() => order.value ? `${terms.value.cabinet.order} #${order.value.id}` : t
             </li>
           </ul>
         </section>
+        <OrderReturnStatus v-if="order.direct_return" :projection="order.direct_return" />
         <OrderShipments :key="`${order.id}:${auth.customer?.id}:${auth.sessionRevision}`" :shipments="order.shipments" :order-id="order.id" :items="order.items" @updated="loadOrder" @unavailable="trackingUnavailable" />
         <section v-if="Number(order.discount_amount) > 0" class="order-detail__section order-detail__summary" :aria-label="terms.checkout.orderSummary">
           <h2>{{ terms.checkout.orderSummary }}</h2>

@@ -14,7 +14,11 @@ const rows = async (order, paymentOnly = false, locale = 'uk') => { Object.assig
 for (const locale of ['uk','en']) test(`${locale}: exact NP return projections preserve test authority without inventing money`, async () => {
  for (const state of text.npReturnProjectionStates) {
   const order = { payment_status: 'unpaid', fulfillment_status: state, fiscal_status: 'not_requested' }, actual = await rows(order, false, locale)
-  assert.equal(actual[0][1], text.orderTrackingText[locale][state]); assert.notEqual(actual[0][1], text.orderTrackingText[locale].legacy_unknown); assert.equal(actual.length, 2)
+  assert.equal(actual[0][1], text.orderTrackingText[locale][state]); assert.notEqual(actual[0][1], text.orderTrackingText[locale].legacy_unknown); assert.equal(actual.length, 4)
+  const words = text.orderTrackingText[locale]
+  const expectedMoney = state.endsWith('refusal_closed') ? words.npRefundNotRequired : state.endsWith('return_fiscalized') ? words.npRefundConfirmed : words.npRefundWaiting
+  const expectedReceipt = state.endsWith('refusal_closed') ? words.npRefundReceiptNotRequired : state.endsWith('return_fiscalized') ? words.npRefundConfirmed : words.npRefundWaiting
+  assert.deepEqual(actual.slice(-2).map(([name, value]) => [name, value]), [[words.npRefundMoney, expectedMoney], [words.npRefundReceipt, expectedReceipt]])
   if (state.startsWith('simulated_')) assert.match(actual[0][1], locale === 'uk' ? /Тест/ : /Test/); else assert.doesNotMatch(actual[0][1], locale === 'uk' ? /Тест/ : /Test/)
   assert.deepEqual(await rows(order, true, locale), [])
   if (state.endsWith('refusal_closed')) assert.match(actual[0][1], locale === 'uk' ? /без платежу/ : /without payment/)

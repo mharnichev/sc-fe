@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ArrowPathIcon, ChevronDownIcon, ShoppingBagIcon, UserIco
 import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
 import OrderShopCarrierReturns from '~/components/orders/OrderShopCarrierReturns.vue'
+import OrderShopNPDirectReturn from '~/components/orders/OrderShopNPDirectReturn.vue'
 import OrderShopNPReturns from '~/components/orders/OrderShopNPReturns.vue'
 import OrderShipments from '~/components/orders/OrderShipments.vue'
 import FiscalReportsMock from '~/components/orders/FiscalReportsMock.vue'
@@ -16,12 +17,16 @@ import OrderCancellation from '~/components/orders/OrderCancellation.vue'
 import OrderShopOperations from '~/components/orders/OrderShopOperations.vue'
 import OrderShopPayments from '~/components/orders/OrderShopPayments.vue'
 import OrderShopPaymentResolution from '~/components/orders/OrderShopPaymentResolution.vue'
+import OrderShopDirectRefund from '~/components/orders/OrderShopDirectRefund.vue'
+import OrderShopExternalFiscalReconciliation from '~/components/orders/OrderShopExternalFiscalReconciliation.vue'
+import OrderShopExternalReceipt from '~/components/orders/OrderShopExternalReceipt.vue'
 import OrderShopCheckboxFiscal from '~/components/orders/OrderShopCheckboxFiscal.vue'
 import OrderShopCheckboxReturns from '~/components/orders/OrderShopCheckboxReturns.vue'
 import ShopCheckboxReports from '~/components/orders/ShopCheckboxReports.vue'
 import OrderShopFiscal from '~/components/orders/OrderShopFiscal.vue'
 import OrderShopReturns from '~/components/orders/OrderShopReturns.vue'
 import ShopFiscalReports from '~/components/orders/ShopFiscalReports.vue'
+import type { ExternalFiscalReport } from '~/utils/shopFiscal'
 import { isShopCarrierReturnShipment, shopFiscalUsesCanonicalPanel } from '~/utils/shopFiscal'
 import { orderUsesNovaPoshta } from '~/utils/shipmentStatus'
 import { orderAmountMinor, orderStatusOptions } from '~/utils/orderSales'
@@ -40,9 +45,16 @@ const { apiErrorMessage, formatDateTime, formatMoney } = useBookingFormatting()
 
 const legacyShipmentOrder = computed(() => order.value ? { ...order.value, shipments: (order.value.shipments || []).filter(shipment => !isShopCarrierReturnShipment(shipment)) } : null)
 const usesShopFiscal = computed(() => !!order.value && shopFiscalUsesCanonicalPanel(order.value))
-const shopFiscalProfile = ref<'checkbox' | 'local_mock' | 'unavailable' | null>(null)
+const fiscalProfiles = ['checkbox', 'mono_checkbox_external', 'local_mock', 'unavailable'] as const
+type FiscalProfile = typeof fiscalProfiles[number]
+const shopFiscalProfile = ref<FiscalProfile | null>(null)
 const fiscalProfileError = ref(''), fiscalProfileLoading = ref(false)
+const externalFiscalReport = shallowRef<ExternalFiscalReport | null>(null)
+const directRefundActive = ref(false)
+const usesExternalReceipt = computed(() => shopFiscalProfile.value === 'mono_checkbox_external')
 const usesCheckbox = computed(() => usesShopFiscal.value && shopFiscalProfile.value === 'checkbox')
+const usesUnpaidReturnFlow = computed(() => usesShopFiscal.value && ['cod', 'cashOnDelivery', 'cardOnDelivery', 'cash_on_delivery', 'card_on_delivery']
+  .includes(order.value?.payment_method || ''))
 const fiscalProfileReady = computed(() => !usesShopFiscal.value || (shopFiscalProfile.value !== null && !fiscalProfileLoading.value && !fiscalProfileError.value))
 const isPosSale = computed(() => order.value?.channel === 'backoffice_pos')
 const legacyQrOwnsSale = ref(false)
@@ -280,15 +292,19 @@ const profileApi = useApi()
 let fiscalProfileSequence = 0, fiscalProfileActive = true, fiscalProfileScope = ''
 const loadFiscalProfile = async () => {
   const sequence = ++fiscalProfileSequence, id = orderId.value, scope = JSON.stringify([id, auth.user])
-  if (scope !== fiscalProfileScope) { shopFiscalProfile.value = null; fiscalProfileScope = scope }
+  if (scope !== fiscalProfileScope) { shopFiscalProfile.value = null; externalFiscalReport.value = null; directRefundActive.value = false; fiscalProfileScope = scope }
   fiscalProfileError.value = ''; fiscalProfileLoading.value = false
   if (!import.meta.client || !auth.user?.id || !usesShopFiscal.value) return
   fiscalProfileLoading.value = true
   try {
-    const value = await profileApi<{ order_id: number, fiscal_profile?: string }>(`/backoffice/shop-checkbox/orders/${id}/profile`, { retry: 0 })
+    const value = await profileApi<{ order_id: number, fiscal_profile?: FiscalProfile }>(`/backoffice/shop-checkbox/orders/${id}/profile`, { retry: 0 })
+      .catch((cause: { response?: { status?: number } }) => {
+        if (cause.response?.status !== 500 || order.value?.channel !== 'shop') throw cause
+        return profileApi<{ order_id: number, fiscal_profile?: FiscalProfile }>(`/backoffice/orders/${id}/shop-operations`, { retry: 0 })
+      })
     if (!fiscalProfileActive || sequence !== fiscalProfileSequence || orderId.value !== id) return
-    if (value.order_id !== Number(id) || !['checkbox', 'local_mock', 'unavailable'].includes(value.fiscal_profile || '')) throw new Error('Invalid fiscal profile')
-    shopFiscalProfile.value = value.fiscal_profile as 'checkbox' | 'local_mock' | 'unavailable'
+    if (value.order_id !== Number(id) || !value.fiscal_profile || !fiscalProfiles.includes(value.fiscal_profile)) throw new Error('Invalid fiscal profile')
+    shopFiscalProfile.value = value.fiscal_profile
   } catch { if (fiscalProfileActive && sequence === fiscalProfileSequence) fiscalProfileError.value = 'Не вдалося перевірити серверний фіскальний профіль. Нові фіскальні дії заблоковано; оновіть профіль.' }
   finally { if (fiscalProfileActive && sequence === fiscalProfileSequence) fiscalProfileLoading.value = false }
 }
@@ -578,7 +594,7 @@ const updateStatus = async () => {
         </aside>
       </div>
       <template v-if="order.channel === 'shop' && !isBarber">
-        <details ref="paymentDetails" class="order-disclosure base-card">
+        <details id="shop-payment-resolution" ref="paymentDetails" class="order-disclosure base-card">
           <summary><CreditCardIcon class="order-summary-icon" aria-hidden="true" /><span>Оплата та звірка</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
           <div class="mt-3 space-y-3">
             <p class="text-sm text-ui-secondary" aria-label="Спосіб оплати">{{ orderPaymentMethodLabel(order) }}</p>
@@ -589,7 +605,7 @@ const updateStatus = async () => {
         <details class="order-disclosure base-card">
           <summary><ClipboardDocumentListIcon class="order-summary-icon" aria-hidden="true" /><span>Виконання</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
           <div class="mt-3">
-            <OrderShopOperations :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <OrderShopOperations :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" @fiscal-report="externalFiscalReport = $event" />
           </div>
         </details>
       </template>
@@ -627,7 +643,7 @@ const updateStatus = async () => {
           <p class="text-sm text-ui-secondary" role="status">{{ fiscalProfileError ? 'Фіскальні дії недоступні. Оновіть профіль.' : 'Перевіряємо фіскальний профіль…' }}</p>
           <BaseButton variant="neutral" size="sm" :loading="fiscalProfileLoading" @click="loadFiscalProfile">Оновити фіскальний профіль</BaseButton>
         </BaseCard>
-        <details class="order-disclosure base-card" :open="!usesShopFiscal && orderUsesNovaPoshta(order)"><summary><TruckIcon class="order-summary-icon" aria-hidden="true" /><span>Відправлення та ТТН</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4"><OrderShopNPReturns v-if="usesCheckbox && order.fulfillment_method === 'nova_poshta'" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopCarrierReturns :inert="!fiscalProfileReady || undefined" v-if="usesShopFiscal && shopFiscalProfile !== null && !usesCheckbox && order.fulfillment_method === 'nova_poshta'" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShipments v-if="legacyShipmentOrder" :order="legacyShipmentOrder" @changed="reloadSales" /></div></details>
+        <details class="order-disclosure base-card" :open="orderUsesNovaPoshta(order)"><summary><TruckIcon class="order-summary-icon" aria-hidden="true" /><span>Відправлення та ТТН</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4"><OrderShopNPDirectReturn v-if="order.channel === 'shop' && (order.payment_channel === 'online_monobank' || order.payment_method === 'onlineCard') && order.fulfillment_method === 'nova_poshta'" :key="order.id" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopNPReturns v-if="(usesCheckbox || usesUnpaidReturnFlow) && order.fulfillment_method === 'nova_poshta'" :profile-ready="usesUnpaidReturnFlow || fiscalProfileReady" :inert="!usesUnpaidReturnFlow && !fiscalProfileReady || undefined" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopCarrierReturns :inert="!fiscalProfileReady || undefined" v-if="usesShopFiscal && shopFiscalProfile !== null && !usesCheckbox && !usesExternalReceipt && order.fulfillment_method === 'nova_poshta'" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShipments v-if="legacyShipmentOrder" :order="legacyShipmentOrder" @changed="reloadSales" /></div></details>
         <details class="order-disclosure base-card"><summary><DocumentTextIcon class="order-summary-icon" aria-hidden="true" /><span>Документи та чеки</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4">
       <BaseCard as="section" padding="sm">
         <h2 class="font-semibold">Попередні документи SC</h2>
@@ -640,13 +656,42 @@ const updateStatus = async () => {
         <p v-if="documentError" class="mt-3 text-sm text-rose-600" role="alert">{{ documentError }}</p>
       </BaseCard>
 
-          <OrderShopCheckboxFiscal v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
-          <OrderShopFiscal :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          <OrderShopExternalReceipt v-if="usesExternalReceipt && fiscalProfileReady" :key="order.id" :order-id="order.id" :revision="order.revision" :refund-active="directRefundActive" @changed="reloadSales" />
+          <OrderShopCheckboxFiscal v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          <OrderShopFiscal :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
           <OrderFiscalMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" :sale-automation-owned="ettnOwner === 'checkbox_ettn' || qrOwnsSale" @changed="reloadSales" />
         </div></details>
-        <details class="order-disclosure base-card"><summary><ArrowUturnLeftIcon class="order-summary-icon" aria-hidden="true" /><span>Повернення</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><OrderShopCheckboxReturns v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopReturns :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderReturnsMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
+        <details id="shop-direct-refund" class="order-disclosure base-card"><summary><ArrowUturnLeftIcon class="order-summary-icon" aria-hidden="true" /><span>Повернення</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><OrderShopDirectRefund v-if="usesExternalReceipt" :inert="!fiscalProfileReady || undefined" :key="order.id" :order-id="order.id" :revision="order.revision" @changed="reloadSales" @active="directRefundActive = $event" /><OrderShopCheckboxReturns v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopReturns :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderReturnsMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
         <details class="order-disclosure base-card"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" /><span>Автоматизація ЕТТН</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><OrderEttnMock :order="order" :refresh-token="fiscalRefresh" @owner="ettnOwner = $event" @changed="reloadSales" /></div></details>
-        <details class="order-disclosure base-card"><summary><ChartBarIcon class="order-summary-icon" aria-hidden="true" /><span>Звіти каси</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><ShopCheckboxReports v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :refresh-token="fiscalRefresh" @changed="reloadSales" /><ShopFiscalReports :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :refresh-token="fiscalRefresh" @changed="reloadSales" /><FiscalReportsMock v-else-if="!usesShopFiscal" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
+        <details class="order-disclosure base-card">
+          <summary><ChartBarIcon class="order-summary-icon" aria-hidden="true" /><span>{{ usesExternalReceipt ? 'Фіскальний звіт замовлення' : 'Звіти каси' }}</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
+          <div class="mt-3">
+            <section v-if="usesExternalReceipt" class="base-card rounded-2xl space-y-3 p-4" aria-label="Фіскальний звіт mono → Checkbox">
+              <p v-if="!externalFiscalReport">Підтверджених зовнішніх чеків для звіту ще немає.</p>
+              <template v-else>
+                <p>mono → Checkbox · {{ externalFiscalReport.authority === 'test' ? 'Тестові дані' : 'Дані провайдера' }}</p>
+                <dl class="space-y-2">
+                  <div v-for="entry in externalFiscalReport.entries" :key="entry.receipt_id" class="flex flex-wrap items-start justify-between gap-2">
+                    <dt class="min-w-0">
+                      <span>{{ entry.kind === 'sale' ? 'Продаж' : 'Повернення' }}</span>
+                      <span class="block break-all text-sm text-slate-500">{{ entry.receipt_id }}</span>
+                      <span v-if="entry.original_receipt_id" class="block break-all text-sm text-slate-500">Чек продажу · {{ entry.original_receipt_id }}</span>
+                    </dt>
+                    <dd class="font-semibold">{{ formatMoney(entry.amount_minor / 100) }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-2 border-t border-slate-300 pt-2" data-testid="external-fiscal-net">
+                    <dt>Залишок після повернень</dt><dd class="font-semibold">{{ formatMoney(externalFiscalReport.net_minor / 100) }}</dd>
+                  </div>
+                </dl>
+              </template>
+            </section>
+            <OrderShopExternalFiscalReconciliation v-if="usesExternalReceipt && fiscalProfileReady" :key="order.id"
+              :order-id="order.id" :revision="order.revision" :refresh-token="fiscalRefresh" />
+            <ShopCheckboxReports v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <ShopFiscalReports :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <FiscalReportsMock v-else-if="!usesShopFiscal" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          </div>
+        </details>
         <details class="order-disclosure base-card"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" /><span>Технічні дані та синхронізація</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4 text-sm">
           <dl class="grid gap-3 sm:grid-cols-2"><div v-for="row in [...syncRows, ...technicalShippingRows]" :key="row.label"><dt class="text-ui-secondary">{{ row.label }}</dt><dd class="mt-1 break-words">{{ displayValue(row.value) }}</dd></div></dl>
           <details v-if="shippingPayloadEntries.length"><summary class="cursor-pointer py-2">Shipping payload</summary><div class="mt-2 grid gap-3 md:grid-cols-2"><article v-for="[key, value] in shippingPayloadEntries" :key="key" class="min-w-0 rounded-xl bg-ui-subtle p-3"><p class="break-all text-xs text-ui-secondary">{{ key }}</p><pre class="mt-2 whitespace-pre-wrap break-all text-xs">{{ typeof value === 'string' ? value : JSON.stringify(value, null, 2) }}</pre></article></div></details>

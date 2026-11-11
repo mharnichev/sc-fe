@@ -9,6 +9,16 @@ const label = (value?: string) => {
   const key = known.find(key => key === value) || 'legacy_unknown'
   return text.value[key]
 }
+const npRefundRows = computed(() => {
+  const state = props.order.fulfillment_status
+  if (!npReturnProjectionStates.some(status => status === state)) return []
+  const cod = state?.endsWith('np_refusal_closed')
+  const verified = state?.endsWith('np_return_fiscalized')
+  return [
+    [text.value.npRefundMoney, cod ? text.value.npRefundNotRequired : verified ? text.value.npRefundConfirmed : text.value.npRefundWaiting, 'info-outline'],
+    [text.value.npRefundReceipt, cod ? text.value.npRefundReceiptNotRequired : verified ? text.value.npRefundConfirmed : text.value.npRefundWaiting, 'info-outline'],
+  ]
+})
 const rows = computed(() => {
   // Only canonical payment projections prove a payment; general order status does not.
   const payment = (['paid_manual', 'paid_provider', 'simulated_paid', 'refunded', 'simulated_refunded', 'financial_exception', 'simulated_financial_exception'].includes(props.order.payment_status || '') || props.order.payment_status === 'unpaid' && ['cancelled_before_handover', 'simulated_cancelled_before_handover'].includes(props.order.fulfillment_status || ''))
@@ -17,6 +27,7 @@ const rows = computed(() => {
     ...payment,
     [text.value.fulfillment, label(props.order.fulfillment_status), 'box'],
     [text.value.fiscal, label(props.order.fiscal_status), 'info-outline'],
+    ...npRefundRows.value,
     ...(['simulated_pending_document', 'simulated_local_print_available', 'checkbox_pending_document', 'checkbox_local_print_available', 'simulated_checkbox_pending_document', 'simulated_checkbox_local_print_available'].includes(props.order.receipt_delivery_status || '') ? [[text.value.receipt_preview, label(props.order.receipt_delivery_status), 'info-outline']] : []),
   ]
 })
