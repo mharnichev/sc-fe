@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 import type { PosCheckout } from '../types/posSale'
 const offer = {id:101,name:'Reuzel Blue',brand_name:'Reuzel',sku:'R-001',barcode:'00000101',image_url:'/media/pos-test.svg',variant_label:'113 г',amount_minor:31000,currency:'UAH',available_quantity:2,can_sell:true,blocking_reasons:[]}
 const uuid='22222222-2222-4222-8222-222222222222'
-async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout}={}) {
+async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout; verifyCheckout?: (checkout: PosCheckout) => PosCheckout | null}={}) {
  const role=options.role || 'master', user={id:role==='admin'?18:17,is_active:true,is_superuser:role==='admin',role:role==='admin'?'admin':'barber',master_id:role==='admin'?null:42,can_record_sales:true,can_accept_qr_payments:true,email:'synthetic@example.test'}
  let current:any=null, revoked=false, paused=false, handovers=0, creates=0
  const firstRevision='1'.repeat(64), changedRevision='2'.repeat(64)
@@ -66,6 +66,12 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
    return route.fulfill({status:201,json:current})
   }
   if(path.endsWith('/handover')){handovers++;current={...current,revision:current.revision+1,status:'completed',order_status:'completed',handover:{status:'handed_over',actor_user_id:user.id,handed_over_at:'2026-11-06T10:05:00Z'},actions:{...current.actions,can_handover:false,can_start_new:true}};if(options.lostHandover&&handovers===1)return route.abort('failed');return route.fulfill({json:current})}
+  if (path.endsWith('/verify-invoice') && options.verifyCheckout) {
+   const verified = options.verifyCheckout(current)
+   if (!verified) return route.fulfill({ status: 503, json: { detail: { code: 'master_mono_candidate_unavailable' } } })
+   current = verified
+   return route.fulfill({ json: current })
+  }
   if(path.startsWith('/checkouts/'))return route.fulfill({json:current})
   if(path.startsWith('/sales')){
    if(role!=='admin')return route.fulfill({status:403,json:{detail:{code:'permission_denied'}}})
@@ -83,15 +89,23 @@ async function select(page:Page){await page.getByLabel('Знайти товар'
 
 const opaquePaymentUrl = 'https://pay.mbnk.biz/i/pay?session=synthetic%2Btoken%3D'
 const shortPaymentUrl = 'https://pay.mbnk.biz/sensitive-provider-data-never-log'
+const attestedPaymentUrl = 'https://pay.merchant-fixture.net/pay/a%2FB?token=%2B%3D'
+const attestedSource = 'mono_authenticated_create_v1' as const
 const providerInvoiceId = 'p2_synthetic_provider'
+const fixtureExpiry = () => new Date(Date.now() + 600_000).toISOString()
 
-for (const [kind, paymentUrl] of [['nested opaque', opaquePaymentUrl], ['short opaque', shortPaymentUrl]] as const) {
+for (const [kind, paymentUrl, source] of [
+  ['nested opaque legacy', opaquePaymentUrl, null],
+  ['short opaque legacy', shortPaymentUrl, null],
+  ['authenticated create response', attestedPaymentUrl, attestedSource],
+] as const) {
 test(`authorized master gets a QR for the exact verified ${kind} URL after one checkout`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const fixture = await setup(page, {
     projectCheckout: checkout => ({
       ...checkout,
-      payment: { ...checkout.payment, invoice_id: providerInvoiceId, qr_payload: paymentUrl },
+      payment: { ...checkout.payment, invoice_id: providerInvoiceId, qr_payload: paymentUrl,
+        payment_url_source: source, payment_url_expires_at: source ? fixtureExpiry() : null },
     }),
   })
   await page.goto('/orders/pos')
@@ -116,31 +130,36 @@ test(`authorized master gets a QR for the exact verified ${kind} URL after one c
     })
     return { width: image.width, height: image.height, pixels }
   }, Array.from<number>(screenshot))
-  const source = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
-  const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source))).getText()
+  const pixels = new RGBLuminanceSource(Int32Array.from(rendered.pixels), rendered.width, rendered.height)
+  const decoded = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(pixels))).getText()
   expect(decoded).toBe(paymentUrl)
+  expect(await page.evaluate(() => localStorage.getItem('sc-pos:v1:17'))).not.toContain(paymentUrl)
   expect(fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
     .map(request => request.path)).toEqual(['/checkouts'])
   expect(fixture.external).toEqual([])
 })
 }
 
-for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId] of [
-  ['foreign host', 'https://pay.mbnk.biz.example.test/i/pay?session=synthetic', 'pending', 'pending'],
-  ['credentials', 'https://pay.mbnk.biz@other.test/i/pay?session=synthetic', 'pending', 'pending'],
-  ['unsafe path', 'https://pay.mbnk.biz/i/%2e%2e/pay?session=synthetic', 'pending', 'pending'],
-  ['malformed encoding', 'https://pay.mbnk.biz/i/pay?session=bad%zz', 'pending', 'pending'],
-  ['missing invoice identity', shortPaymentUrl, 'pending', 'pending', null],
+for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId, source] of [
+  ['unattested new host', attestedPaymentUrl, 'pending', 'pending'],
+  ['credentials', 'https://pay.merchant-fixture.net@other.net/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['explicit port', 'https://pay.merchant-fixture.net:443/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['obfuscated loopback', 'https://0x7f000001/i/pay', 'pending', 'pending', undefined, attestedSource],
+  ['unsafe path', 'https://pay.merchant-fixture.net/i/%2e%2e/pay?session=synthetic', 'pending', 'pending', undefined, attestedSource],
+  ['malformed encoding', 'https://pay.merchant-fixture.net/i/pay?session=bad%zz', 'pending', 'pending', undefined, attestedSource],
+  ['missing invoice identity', attestedPaymentUrl, 'pending', 'pending', null, attestedSource],
   ['missing URL', null, 'pending', 'pending'],
   ['paid', shortPaymentUrl, 'paid', 'paid'],
-  ['cancelled', shortPaymentUrl, 'cancelled', 'pending'],
+  ['cancelled', attestedPaymentUrl, 'cancelled', 'pending', undefined, attestedSource],
 ] as const) {
   test(`POS omits the payment QR for ${name}`, async ({ page }) => {
     const fixture = await setup(page, {
       projectCheckout: checkout => ({
         ...checkout,
         order_status: orderStatus,
-        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload, invoice_id: invoiceId === null ? null : checkout.payment.invoice_id },
+        payment: { ...checkout.payment, status: paymentStatus, qr_payload: qrPayload,
+          invoice_id: invoiceId === null ? null : checkout.payment.invoice_id,
+          payment_url_source: source, payment_url_expires_at: source ? fixtureExpiry() : null },
       }),
     })
     await page.goto('/orders/pos')
@@ -158,6 +177,65 @@ for (const [name, qrPayload, orderStatus, paymentStatus, invoiceId] of [
     expect(fixture.external).toEqual([])
   })
 }
+
+test('an attested QR disappears when its bank validity ends even with manual reconciliation', async ({ page }) => {
+  const now = Date.now()
+  await page.clock.install({ time: now })
+  const expiry = new Date(now + 12_000).toISOString()
+  const fixture = await setup(page, {
+    manualRefresh: true,
+    projectCheckout: checkout => ({ ...checkout, payment: {
+      ...checkout.payment, qr_payload: attestedPaymentUrl,
+      payment_url_source: attestedSource, payment_url_expires_at: expiry,
+    } }),
+  })
+  await page.goto('/orders/pos')
+  await select(page)
+  const qr = page.getByRole('img', { name: 'QR для оплати mono' })
+  await expect(qr).toBeVisible()
+  await page.clock.runFor(12_000)
+  await expect(qr).toHaveCount(0)
+  await expect(page.getByText(/QR для оплати поки недоступний/)).toBeVisible()
+  expect(fixture.requests.filter(request => request.path === '/checkouts' && request.method === 'POST')).toHaveLength(1)
+  expect(fixture.external).toEqual([])
+})
+
+test('the saved invoice can be verified after reload without creating another checkout', async ({ page }) => {
+  let attempts = 0
+  const fixture = await setup(page, {
+    manualRefresh: true,
+    projectCheckout: checkout => ({ ...checkout, status: 'requires_review', blocking_reasons: ['creation_unknown'],
+      payment: { ...checkout.payment, status: 'unknown', invoice_id: null, qr_payload: null },
+      actions: { ...checkout.actions, can_refresh: false, can_verify_invoice: true } }),
+    verifyCheckout: checkout => ++attempts === 1 ? null : ({
+      ...checkout, revision: checkout.revision + 1, status: 'awaiting_payment', blocking_reasons: [],
+      payment: { ...checkout.payment, status: 'pending', invoice_id: providerInvoiceId,
+        qr_payload: attestedPaymentUrl, payment_url_source: attestedSource, payment_url_expires_at: fixtureExpiry() },
+      actions: { ...checkout.actions, can_refresh: true, can_verify_invoice: false },
+    }),
+  })
+  await page.goto('/orders/pos')
+  await select(page)
+  const verify = page.getByRole('button', { name: 'Перевірити рахунок mono', exact: true })
+  const qr = page.getByRole('img', { name: 'QR для оплати mono' })
+  await expect(qr).toHaveCount(0)
+  await verify.click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Результат ще не підтверджено' })).toBeVisible()
+  await page.reload()
+  await expect(verify).toBeEnabled()
+  expect(attempts).toBe(1)
+  await expect(qr).toHaveCount(0)
+  await verify.click()
+  await expect(qr).toBeVisible()
+  const posts = fixture.requests.filter(request => request.method === 'POST' && request.path.startsWith('/checkouts'))
+  expect(posts.map(({ path }) => path)).toEqual(['/checkouts', '/checkouts/' + uuid + '/verify-invoice', '/checkouts/' + uuid + '/verify-invoice'])
+  expect(posts[1].key).toBeTruthy()
+  expect(posts[1].key).toBe(posts[2].key)
+  expect(posts[1].body).toEqual({ expected_revision: 3 })
+  expect(posts[2].body).toEqual(posts[1].body)
+  expect(await page.evaluate(() => localStorage.getItem('sc-pos:v1:17'))).not.toContain(attestedPaymentUrl)
+  expect(fixture.external).toEqual([])
+})
 
 for(const role of ['master','admin'] as const)test(`${role}: same cart sale, QR, backend receipt then one explicit handover`,async({page})=>{
  await page.clock.install();const f=await setup(page,{role,lostHandover:true});await page.goto('/orders/pos')
@@ -1009,4 +1087,206 @@ test('own-admin expired close archives an exact lost bind only on fresh terminal
   expect(fixture.posts().map(r => r.path.split('/').at(-1))).toEqual(['recover-invoice', 'close-expired-unpaid'])
   expect(await page.evaluate(key => localStorage.getItem(key), pendingKey)).toBeNull()
   expect(fixture.external).toEqual([])
+})
+
+test('personal history applies dialog filters, resets pagination and ignores stale results', async ({ page }) => {
+  const user = { id: 17, is_active: true, is_superuser: false, role: 'barber', master_id: 42, can_record_sales: true, can_accept_qr_payments: true }
+  const queries: URLSearchParams[] = []
+  let failNextHistory = false
+  let delayedDetails: Promise<void> | undefined
+  let movedToCompleted = false
+  let releaseOlder: () => void = () => {}
+  const olderResponse = new Promise<void>(resolve => { releaseOlder = resolve })
+  const active = { order_id: 7, checkout_id: uuid, intent_id: '33333333-3333-4333-8333-333333333333', created_at: '2026-11-09T16:26:46Z', employee: { user_id: 17, master_id: 42, display_name: 'Продавець' },
+    items: [{ product_id: 1, name: 'Глина Reuzel Matt Clay 35 г', sku: 'RZ-35', quantity: 1, unit_minor: 62900, total_minor: 62900 }],
+    amount_minor: 62900, currency: 'UAH', order_status: 'pending', status: 'paid_receipt_pending', payment_status: 'paid',
+    receipt_status: 'pending', handover_status: 'not_ready', source: 'quick_pos' }
+  const completed = { ...active, checkout_id: null, intent_id: null, order_id: 12, amount_minor: 129900, order_status: 'completed', status: 'completed', receipt_status: 'accepted', handover_status: 'handed_over' }
+  const cancelled = { ...active, checkout_id: null, intent_id: null, order_id: 6, order_status: 'cancelled', status: 'requires_review', payment_status: 'expired', receipt_status: 'not_requested' }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(actor => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'synthetic-only', user: actor })), user)
+  await page.route('**/api/v1/**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (url.pathname.endsWith('/pos/capabilities')) return route.fulfill({ json: { mode: 'mono_checkbox', can_search: true, can_start: true, automatic_reconciliation_enabled: false } })
+    if (url.pathname.endsWith('/pos/checkouts/' + uuid)) {
+      if (delayedDetails) {
+        await delayedDetails
+        movedToCompleted = true
+        return route.fulfill({ json: {
+          ...active, order_status: 'completed', status: 'completed', payment: { status: 'paid' },
+          receipt: { status: 'accepted' }, handover: { status: 'handed_over' }, blocking_reasons: [],
+        } })
+      }
+      return route.fulfill({ json: {
+        ...active, payment: { status: 'paid' }, receipt: { status: 'pending' }, handover: { status: 'not_ready' }, blocking_reasons: [],
+      } })
+    }
+    if (url.pathname.endsWith('/pos/my-sales')) {
+      const params = url.searchParams
+      queries.push(params)
+      if (failNextHistory) {
+        failNextHistory = false
+        return route.fulfill({ status: 503, json: { detail: 'fixture unavailable' } })
+      }
+      const current = Number(params.get('page'))
+      const scope = params.get('scope'), sort = params.get('sort'), term = params.get('q')
+      if (sort === 'oldest') await olderResponse
+      if (scope === 'active') return route.fulfill({ json: {
+        items: movedToCompleted ? [] : [active], total: movedToCompleted ? 0 : 1, page: current, page_size: 20,
+      } })
+      const items = term ? [] : scope === 'completed' ? [sort === 'amount_asc' ? { ...completed, order_id: 4 } : completed]
+        : current === 1 ? [active, ...Array.from({ length: 19 }, (_, i) => ({ ...completed, order_id: 100 + i }))] : [cancelled]
+      return route.fulfill({ json: { items, total: term ? 0 : scope === 'completed' ? 1 : 21, page: current, page_size: 20 } })
+    }
+    return route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 20 } })
+  })
+  await page.goto('/orders/pos')
+  const historyTab = page.getByRole('tab', { name: 'Мої продажі' })
+  await historyTab.click()
+  const history = page.getByRole('region', { name: 'Мої продажі' })
+  const filterButton = history.getByRole('button', { name: /^Фільтри/ })
+  const dialog = page.getByRole('dialog', { name: 'Фільтри продажів' })
+  const sortButton = dialog.getByRole('button', { name: /^Сортування/ })
+  const search = dialog.getByRole('searchbox', { name: 'Пошук продажів' })
+  const apply = dialog.getByRole('button', { name: 'Застосувати', exact: true })
+  const showFilters = async () => {
+    await filterButton.click()
+    await expect(dialog).toBeVisible()
+  }
+  const selectSort = async (name: string) => {
+    await sortButton.click()
+    await dialog.getByRole('option', { name, exact: true }).click()
+    await expect(sortButton).toBeFocused()
+  }
+  const sale = (id: number) => history.locator('article').filter({ has: page.getByRole('heading', { name: 'Продаж #' + id, exact: true }) })
+  await expect(sale(7).getByText('Оплачено · очікуємо чек')).toBeVisible()
+  await expect(sale(7).getByText('Оплачено', { exact: true })).toBeVisible()
+  await expect(sale(7).getByText('Очікується', { exact: true })).toBeVisible()
+  await expect(sale(7).getByText('Не готово', { exact: true })).toBeVisible()
+  await sale(7).getByRole('button', { name: 'Деталі продажу #7' }).click()
+  await expect(sale(7).getByRole('button', { name: 'Продовжити цей продаж' })).toBeVisible()
+  await page.setViewportSize({ width: 320, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await history.getByRole('button', { name: 'Показати ще' }).click()
+  await expect(sale(6)).toBeVisible()
+  expect(queries.at(-1)?.get('page')).toBe('2')
+  const queryCount = queries.length
+  await expect(history.getByRole('searchbox')).toHaveCount(0)
+  await showFilters()
+  await expect(dialog.getByRole('button', { name: 'Закрити' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(apply).toBeFocused()
+  await dialog.getByRole('button', { name: 'Завершені', exact: true }).click()
+  await search.fill('Не застосовано')
+  await sortButton.press('ArrowDown')
+  const listbox = dialog.getByRole('listbox', { name: 'Сортування' })
+  await expect(listbox).toBeVisible()
+  await expect(listbox.getByRole('option', { name: 'Спочатку нові' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(dialog.getByRole('button', { name: 'Скинути' })).toBeFocused()
+  await sortButton.press('ArrowDown')
+  await page.keyboard.press('Escape')
+  await expect(listbox).toHaveCount(0)
+  await expect(sortButton).toBeFocused()
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(filterButton).toBeFocused()
+  expect(queries).toHaveLength(queryCount)
+
+  await showFilters()
+  await expect(search).toHaveValue('')
+  await expect(dialog.getByRole('button', { name: 'Усі', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await dialog.getByRole('button', { name: 'Завершені', exact: true }).click()
+  await apply.click()
+  await expect(sale(12)).toBeVisible()
+  await expect(sale(7)).toHaveCount(0)
+  await expect(filterButton).toHaveAccessibleName('Фільтри, застосовано 1')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+  expect(queries.at(-1)?.get('scope')).toBe('completed')
+
+  await showFilters()
+  await expect(dialog.getByRole('button', { name: 'Завершені', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await selectSort('Спочатку давні')
+  await apply.click()
+  await expect.poll(() => queries.at(-1)?.get('sort')).toBe('oldest')
+  await expect(history.getByText('Завантажуємо мої продажі')).toBeVisible()
+  await showFilters()
+  await expect(sortButton).toHaveAccessibleName(/Спочатку давні/)
+  await selectSort('Від меншої суми')
+  await apply.click()
+  await expect(sale(4)).toBeVisible()
+  const stale = page.waitForResponse(response => new URL(response.url()).searchParams.get('sort') === 'oldest')
+  releaseOlder()
+  await (await stale).finished()
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await expect(sale(12)).toHaveCount(0)
+  expect(queries.at(-1)?.get('scope')).toBe('completed')
+  expect(queries.at(-1)?.get('sort')).toBe('amount_asc')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+
+  await showFilters()
+  await search.fill(' Reuzel ')
+  await search.press('Enter')
+  await expect(history.getByText('За цими умовами продажів немає')).toBeVisible()
+  expect(queries.at(-1)?.get('q')).toBe('Reuzel')
+  await expect(filterButton).toHaveAccessibleName('Фільтри, застосовано 3')
+  const beforeReset = queries.length
+  await showFilters()
+  await dialog.getByRole('button', { name: 'Скинути' }).click()
+  await expect(search).toHaveValue('')
+  await expect(sortButton).toHaveAccessibleName(/Спочатку нові/)
+  expect(queries).toHaveLength(beforeReset)
+  await apply.click()
+  await expect(sale(7)).toBeVisible()
+  await expect(filterButton).toBeFocused()
+  await expect(filterButton).toHaveAccessibleName('Фільтри')
+  expect(queries).toHaveLength(beforeReset + 1)
+  expect(Object.fromEntries(queries.at(-1)!)).toEqual({ scope: 'all', sort: 'newest', page: '1', page_size: '20' })
+
+  failNextHistory = true
+  await showFilters()
+  await search.fill('fixture-retry')
+  await apply.click()
+  await expect(history.getByRole('alert')).toHaveText('Не вдалося завантажити мої продажі. Спробуйте ще раз.')
+  await history.getByRole('button', { name: 'Спробувати ще раз' }).click()
+  await expect(history.getByText('За цими умовами продажів немає')).toBeVisible()
+  expect(queries.at(-1)?.get('q')).toBe('fixture-retry')
+  expect(queries.at(-1)?.get('page')).toBe('1')
+
+  for (const destination of ['filters', 'tab', 'modal', 'removed card'] as const) {
+    await test.step(`late details response with focus on ${destination}`, async () => {
+      movedToCompleted = false
+      await page.reload()
+      await historyTab.click()
+      await showFilters()
+      await dialog.getByRole('button', { name: 'В роботі', exact: true }).click()
+      await apply.click()
+      await expect(sale(7)).toBeVisible()
+
+      let releaseDetails = () => {}
+      delayedDetails = new Promise<void>(resolve => { releaseDetails = resolve })
+      const details = sale(7).getByRole('button', { name: 'Деталі продажу #7' })
+      await details.click()
+      await expect(details).toBeFocused()
+      const closeModal = dialog.getByRole('button', { name: 'Закрити' })
+      if (destination === 'filters') await filterButton.focus()
+      if (destination === 'tab') await historyTab.focus()
+      if (destination === 'modal') await showFilters()
+      releaseDetails()
+
+      const notice = history.getByText('Продаж #7: Завершено. Список оновлено.')
+      await expect(notice).toBeVisible()
+      await expect(sale(7)).toHaveCount(0)
+      if (destination === 'filters') await expect.soft(filterButton).toBeFocused({ timeout: 1500 })
+      if (destination === 'tab') await expect.soft(historyTab).toBeFocused({ timeout: 1500 })
+      if (destination === 'removed card') await expect(notice).toBeFocused()
+      if (destination === 'modal') {
+        await expect(closeModal).toBeFocused()
+        await page.keyboard.press('Escape')
+        await expect(filterButton).toBeFocused()
+      }
+    })
+  }
 })

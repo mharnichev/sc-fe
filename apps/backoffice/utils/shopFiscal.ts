@@ -63,3 +63,18 @@ export const shopFiscalUsesCanonicalPanel = (order: { channel?: string | null, s
   && !(order.shipments || []).some(shipment => (shipment.simulation === true || shipment.carrier === 'mock_nova_poshta') && !isShopCarrierReturnShipment(shipment))
   && (order.payments || []).every(payment => payment.simulation === false && ['shop_manual', 'shop_provider'].includes(payment.source))
   && (order.handovers || []).every(handover => handover.simulation === false)
+
+
+export interface ExternalFiscalReport {
+  issuer: 'mono_checkbox_external'
+  authority: 'test' | 'provider'
+  currency: 'UAH'
+  net_minor: number
+  entries: Array<{
+    kind: 'sale' | 'return'
+    receipt_id: string
+    original_receipt_id: string | null
+    amount_minor: number
+    structured_totals_verified: boolean
+  }>
+}

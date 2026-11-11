@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderResponse } from '~/composables/useBackofficeApi'
+import type { ExternalFiscalReport } from '~/utils/shopFiscal'
 import { orderAmountMinor } from '~/utils/orderSales'
 
 type Operation = 'manual_payment' | 'provider_payment' | 'handover' | 'complete'
@@ -10,6 +11,7 @@ interface ManualPayment extends RevisionCommand { amount_minor: number, currency
 interface ProviderPayment extends RevisionCommand { reference: string }
 interface PhysicalCommand extends RevisionCommand { evidence: string }
 interface ShopState {
+  external_fiscal_report?: ExternalFiscalReport | null
   payments_profile?: 'r2' | 'legacy'
   order_id: number
   revision: number
@@ -25,7 +27,7 @@ interface ShopState {
 }
 
 const props = defineProps<{ order: OrderResponse, refreshToken?: number }>()
-const emit = defineEmits<{ changed: [] }>()
+const emit = defineEmits<{ changed: [], fiscalReport: [report: ExternalFiscalReport | null] }>()
 const api = useApi(), auth = useAuthStore()
 const { formatDateTime, formatMoney } = useBookingFormatting()
 const resource = computed(() => String(props.order.id))
@@ -39,6 +41,7 @@ const commandList = [manual, provider, handover, complete]
 const busy = computed(() => commandList.some(command => command.busy.value))
 const unresolved = computed(() => commandList.some(command => !!command.intent.value))
 const state = shallowRef<ShopState | null>(null)
+watch(() => state.value?.external_fiscal_report ?? null, report => emit('fiscalReport', report))
 const loading = ref(false), readError = ref('')
 const source = ref<'manual' | 'provider'>('manual')
 const method = ref<Method>('bank_transfer')
@@ -48,6 +51,8 @@ const manualConfirmed = ref(false), providerConfirmed = ref(false), handoverConf
 const labels = { reserved: 'Зарезервовано', paid: 'Оплату підтверджено', dispatched: 'Видачу / відправлення підтверджено', completed: 'Замовлення завершено' }
 const methodLabels: Record<Method, string> = { cash: 'Готівка', card: 'Картка', bank_transfer: 'Банківський переказ', cod: 'Післяплата' }
 const reasonLabels: Record<string, string> = {
+  direct_refund_active: 'Перед видачею звірте повернення mono → Checkbox.',
+  direct_refund_partial_remainder_requires_review: 'Перед видачею звірте залишок після часткового повернення.',
   shop_operations_disabled: 'Операції магазину вимкнено. Нові факти не записуються.',
   record_sales_required: 'Немає дозволу на облік продажів.', post_inventory_required: 'Немає дозволу на видачу товару.',
   manage_shipments_required: 'Немає дозволу на керування відправленнями.',

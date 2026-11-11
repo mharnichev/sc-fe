@@ -26,7 +26,7 @@ test('master provider URL renders as a decodable QR, not a simulator payload', a
   // These are generated, axis-aligned modules, not a camera image.
   assert.equal(new zxing.QRCodeReader().decode(bitmap, new Map([[zxing.DecodeHintType.PURE_BARCODE, true]])).getText(), url)
 })
-const setup = async (api, values = new Map()) => {
+const setup = async (api, values = new Map(), hasPaymentDeadline = false) => {
   const auth = vue.reactive({ user: { id: 1, is_active: true, can_record_sales: true, can_accept_qr_payments: true, role: 'barber', master_id: 11 }, accessToken: 'token-A' })
   const props = vue.reactive({ order: { id: 321, revision: 1, simulation: false, channel: 'backoffice_pos', status: 'pending' }, blocked: false })
   const unmount = [], events = [], timers = new Map(); let timerSequence = 0
@@ -35,7 +35,7 @@ const setup = async (api, values = new Map()) => {
     qrCode: value => ({ size: 21, path: value }),
     useAuthStore: () => auth, useBackofficeApi: () => api, useBackofficeAccess: () => ({ isBarber: vue.computed(() => auth.user.role === 'barber') }),
     defineProps: () => props, defineEmits: () => (...event) => events.push(event), onBeforeUnmount: fn => unmount.push(fn),
-    setTimeout: (fn, ms) => { assert.equal(ms, 3000); timers.set(++timerSequence, fn); return timerSequence }, clearTimeout: id => timers.delete(id),
+    setTimeout: (fn, ms) => { if (!hasPaymentDeadline) assert.equal(ms, 3000); timers.set(++timerSequence, fn); return timerSequence }, clearTimeout: id => timers.delete(id),
     window: { open: () => ({ close() {}, location: { replace() {} } }) },
     localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
   })
@@ -43,7 +43,7 @@ const setup = async (api, values = new Map()) => {
   Object.assign(globalThis, await importSource((await readFile(new URL('../composables/useOrderSalesCommand.ts', import.meta.url), 'utf8')).replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')))
   const script = source.split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '').replace(/import\.meta\.client/g, 'true')
   const scope = vue.effectScope()
-  const page = await scope.run(() => importSource(script + '\nexport { state, selected, start, refresh, canStart, run, load, accept, print, readError, ready, paymentUrl, paymentQr, canPrint, handoverAllowed, creationUnknown };'))
+  const page = await scope.run(() => importSource(script + '\nexport { state, selected, start, refresh, verify, canStart, canVerifyInvoice, run, load, accept, print, readError, ready, paymentUrl, paymentQr, canPrint, handoverAllowed, creationUnknown };'))
   await page.load()
   return { page, auth, props, values, events, timers, stop: () => { unmount.forEach(fn => fn()); scope.stop() } }
 }
@@ -127,11 +127,40 @@ test('permission removal clears state and stops poll without accepting late GET'
 })
 
 test('QR preserves the exact verified provider URL in payable states and PDF requires the fixed order path', async () => {
-  const state = await setup({ getMasterMonoState: async () => fixture({ status: 'waiting', invoice_id: 'invoice-1', payment_url: 'https://pay.mbnk.biz/invoice-1' }) })
+  const state = await setup({ getMasterMonoState: async () => fixture({ status: 'waiting', invoice_id: 'invoice-1', payment_url: 'https://pay.mbnk.biz/invoice-1' }) }, undefined, true)
   assert.equal(state.page.paymentUrl.value, 'https://pay.mbnk.biz/invoice-1'); assert.equal(state.page.paymentQr.value.path, 'https://pay.mbnk.biz/invoice-1')
   const shortUrl = 'https://pay.mbnk.biz/test-short-token'
   state.page.accept(fixture({ revision: 2, status: 'created', invoice_id: 'invoice-1', payment_url: shortUrl }))
   assert.equal(state.page.paymentQr.value.path, shortUrl)
+  const attested = { revision: 2, status: 'created', invoice_id: 'invoice-1', payment_url_source: 'mono_authenticated_create_v1', payment_url_expires_at: new Date(Date.now() + 600_000).toISOString() }
+  const newUrl = 'https://pay.merchant-fixture.net/a%2FB?token=%2B%3D'
+  state.page.accept(fixture({ ...attested, payment_url: newUrl }))
+  assert.equal(state.page.paymentQr.value.path, newUrl)
+  state.page.accept(fixture({ ...attested, payment_url: newUrl, payment_url_source: null }))
+  assert.equal(state.page.paymentQr.value, null)
+  for (const payment_url_expires_at of [null, 'not-a-date', new Date(Date.now() - 1000).toISOString()]) {
+    state.page.accept(fixture({ ...attested, payment_url: newUrl, payment_url_expires_at }))
+    assert.equal(state.page.paymentQr.value, null)
+  }
+  for (const payment_url of [
+    'http://pay.merchant-fixture.net/a',
+    'https://pay.merchant-fixture.net./a',
+    'https://pay.merchant-fixture.net:/a',
+    'https://pay.merchant-fixture.net/a#b',
+    'https://pay.merchant-fixture.net/%0Aa',
+    'https://pay%2emerchant-fixture.net/a',
+    'https://xn--bcher-kva.net/a',
+    'https://127.1/a',
+    'https://[::1]/a',
+    'https://pay.home.arpa/a',
+    'https://service.local/a',
+    'https://localhost/a',
+  ]) {
+    state.page.accept(fixture({ ...attested, payment_url }))
+    assert.equal(state.page.paymentQr.value, null, payment_url)
+  }
+  state.page.accept(fixture({ ...attested, payment_url: shortUrl, payment_url_source: 'unrecognized_version' }))
+  assert.equal(state.page.paymentQr.value, null)
   for (const status of ['processing', 'failure', 'expired', 'creation_unknown', 'master_mono_proof_invalid']) {
     state.page.accept(fixture({ revision: 2, status, invoice_id: 'invoice-1', payment_url: shortUrl }))
     assert.equal(state.page.paymentQr.value, null, status)
@@ -312,4 +341,39 @@ test('polling a newer revision refreshes parent handover revision even when paym
   await state.page.load(); assert.equal(state.events.filter(event => event[0] === 'changed').length, initial + 1)
   revision = 1; await state.page.load(); assert.equal(state.page.state.value.revision, 2)
   assert.equal(state.events.filter(event => event[0] === 'changed').length, initial + 1); state.stop()
+})
+
+test('legacy master panel resumes verification with the same key after a lost reply', async () => {
+  const storage = new Map(), requests = []
+  let current = fixture()
+  const candidate = fixture({ revision: 2, status: 'creation_unknown', can_verify_invoice: true, blocking_reasons: ['creation_unknown'] })
+  const api = {
+    getMasterMonoState: async () => current,
+    startMasterMono: async () => { current = candidate; throw new Error('lost start reply') },
+    verifyMasterMonoInvoice: async (id, body, key) => {
+      requests.push({ id, body, key })
+      if (requests.length === 1) throw new Error('lost verify reply')
+      current = fixture({ revision: 3, status: 'waiting', invoice_id: 'bound-original-invoice',
+        payment_url: 'https://pay.mbnk.biz/bound-original-invoice' })
+      return current
+    },
+  }
+  const first = await setup(api, storage)
+  await first.page.run('start')
+  assert.ok(first.page.start.intent.value)
+  await first.page.load()
+  assert.equal(first.page.start.intent.value, null)
+  assert.equal(first.page.canVerifyInvoice.value, true)
+  assert.equal(first.page.paymentQr.value, null)
+  await first.page.run('verify-invoice')
+  assert.equal(requests.length, 1)
+  assert.deepEqual(requests[0].body, { expected_revision: 2 })
+  first.stop()
+  const reopened = await setup(api, storage)
+  assert.equal(requests.length, 1)
+  await reopened.page.run('verify-invoice')
+  assert.deepEqual(requests[1], requests[0])
+  assert.equal(reopened.page.verify.intent.value, null)
+  assert.equal(reopened.page.paymentUrl.value, current.payment_url)
+  reopened.stop()
 })

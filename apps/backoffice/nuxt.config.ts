@@ -34,6 +34,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase,
+      sentryDsn: '',
+      sentryEnvironment: 'production',
+      sentryRelease: '',
       mockShopBase: env.NUXT_PUBLIC_MOCK_SHOP_BASE || 'http://127.0.0.1:6060',
     },
   },

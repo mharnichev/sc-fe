@@ -10,6 +10,7 @@ export interface CommerceData {
   payment_status?: string
   http_status?: number
   failure_count?: number
+  diagnostic_code?: string
 }
 export interface CommerceSignal {
   step: string
@@ -25,6 +26,12 @@ let pageReports = 0
 const duplicates = new Map<string, number>()
 export const configureCommerceTelemetry = (next?: Sink) => { sink = next; recent = []; duplicates.clear() }
 export const safeCommerceLabel = (value: unknown) => typeof value === 'string' && /^[a-zA-Z][a-zA-Z0-9_.]{0,63}$/.test(value) ? value : undefined
+const paymentMethods = ['cash', 'cashOnDelivery', 'cardOnDelivery', 'onlineCard', 'cod', 'card', 'online', 'monobank']
+const paymentStatuses = ['not_started', 'creation_unknown', 'waiting', 'paid_receipt_pending', 'accepted', 'requires_review']
+const diagnosticCodes = ['merchant_readiness_failed', 'invoice_pre_dispatch_failed', 'payment_page_unverified',
+  'invoice_response_invalid', 'invoice_binding_unconfirmed', 'invoice_result_unconfirmed', 'invoice_binding_missing',
+  'invoice_id_missing', 'payment_facts_incomplete', 'redirect_url_missing', 'iframe_facts_missing',
+  'iframe_load_failed', 'iframe_layout_unavailable', 'navigation_failed']
 export const safeCommerceData = (input: CommerceData = {}): CommerceData => {
   const data: CommerceData = {}
   if (isCommerceFlow(input.flow)) data.flow = input.flow
@@ -33,10 +40,9 @@ export const safeCommerceData = (input: CommerceData = {}): CommerceData => {
     if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) data[key] = value
   }
   if (typeof input.attempt_id === 'number' && Number.isSafeInteger(input.attempt_id) && input.attempt_id > 0) data.attempt_id = input.attempt_id
-  for (const key of ['payment_method', 'payment_status'] as const) {
-    const value = safeCommerceLabel(input[key])
-    if (value) data[key] = value
-  }
+  if (typeof input.payment_method === 'string' && paymentMethods.includes(input.payment_method)) data.payment_method = input.payment_method
+  if (typeof input.payment_status === 'string' && paymentStatuses.includes(input.payment_status)) data.payment_status = input.payment_status
+  if (typeof input.diagnostic_code === 'string' && diagnosticCodes.includes(input.diagnostic_code)) data.diagnostic_code = input.diagnostic_code
   return data
 }
 export const commerceHttpStatus = (cause: unknown): number => {
@@ -76,7 +82,7 @@ export const reportCommerceError = (step: string, cause: unknown, input: Commerc
     const now = Date.now()
     for (const [key, timestamp] of duplicates) if (now - timestamp >= 300_000) duplicates.delete(key)
     recent = recent.filter(timestamp => now - timestamp < 60_000)
-    const key = `${data.flow}:${step}:${data.order_id || ''}:${data.attempt_id || ''}:${data.http_status || ''}`
+    const key = `${data.flow}:${step}:${data.order_id || ''}:${data.attempt_id || ''}:${data.http_status || ''}:${data.diagnostic_code || ''}`
     if (duplicates.has(key) || recent.length >= 5 || pageReports >= pageBudget) return
     duplicates.set(key, now); recent.push(now); pageReports++
     // FetchError messages may contain URLs, tokens, response bodies or contact data.

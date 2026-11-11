@@ -161,12 +161,12 @@ const state = reactive<{ loading: boolean, order: CheckoutOrder | null, error: s
   error: '',
 })
 
-const confirmationHeading = ref<HTMLHeadingElement | null>(null)
+const confirmation = ref<HTMLElement | null>(null)
 watch(() => state.order, order => {
   if (!order) return
   // The confirmation replaces a long form on the same route.
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  confirmationHeading.value?.focus({ preventScroll: true })
+  confirmation.value?.querySelector('h1')?.focus({ preventScroll: true })
 }, { flush: 'post' })
 
 const deliveryMethodOptions = computed(() => [
@@ -188,20 +188,18 @@ onMounted(async () => {
 })
 const paymentOptions = computed(() => [
   { label: terms.value.checkout.paymentOptions.cashOnDelivery, value: 'cashOnDelivery' },
-  { label: locale.value === 'uk' ? 'Карткою онлайн · monobank' : 'Pay online · monobank', value: 'onlineCard' },
+  { label: paymentText.value.option, value: 'onlineCard' },
 ])
 const paymentChoiceText = computed(() => locale.value === 'uk' ? {
   introduction: 'Оберіть зручний спосіб оплати.',
   onlineUnavailable: 'Онлайн-оплата тимчасово недоступна.',
   onlineLoading: 'Перевіряємо доступність онлайн-оплати…',
   onlineDescription: 'Після створення замовлення ви зможете перейти на захищену сторінку платіжного провайдера та оплатити карткою.',
-  onlineConfirmation: 'Замовлення створено. Завершіть оплату.',
 } : {
   introduction: 'Choose how you would like to pay.',
   onlineUnavailable: 'Online payment is temporarily unavailable.',
   onlineLoading: 'Checking online payment availability…',
   onlineDescription: 'After placing your order, you can continue to the payment provider’s secure page and pay by card.',
-  onlineConfirmation: 'Order created. Complete your payment.',
 })
 const isDeliveryValid = computed(() => {
   if (!selectedCity.value) return false
@@ -337,7 +335,7 @@ const sendIntent = async (intent: PendingCheckout, freshCheckout = false) => {
     sessionStorage.removeItem(reminderStorageKey(intent.scope))
     pendingIntent.value = null
     sessionStorage.removeItem(intentStorageKey)
-    if (auth.isAuthenticated) await cart.syncFromServer()
+    if (auth.isAuthenticated) await cart.syncFromServer({ report: false })
     else if (cartMayClear.value) cart.clear()
     else cartPreserved.value = cart.items.length > 0
   }
@@ -417,10 +415,11 @@ useSeo(
 </script>
 
 <template>
-  <section v-if="state.order" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
+  <section v-if="state.order" ref="confirmation" class="checkout-page checkout-confirmation" data-testid="order-confirmation">
     <div class="checkout-card checkout-confirmation__card">
-      <h1 ref="confirmationHeading" class="checkout-page__success" tabindex="-1">{{ state.order.payment_method === 'onlineCard' ? paymentChoiceText.onlineConfirmation : terms.checkout.orderSuccess }}</h1>
-      <p class="checkout-confirmation__number" data-testid="order-number">№ {{ state.order.id }}</p>
+      <OrderPayment primary-heading :key="state.order.id" :auto-start="autoPayOrderId === state.order.id" v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" @method-changed="paymentMethodChanged" />
+      <h1 v-else class="checkout-page__success" tabindex="-1">{{ terms.checkout.orderSuccess }}</h1>
+      <p v-if="state.order.payment_method !== 'onlineCard'" class="checkout-confirmation__number" data-testid="order-number">№ {{ state.order.id }}</p>
       <CheckoutOrderItems :items="state.order.items" />
       <OrderCallbackPreference :requested="state.order.callback_requested" />
       <div class="checkout-total">
@@ -430,7 +429,6 @@ useSeo(
       <p v-if="cartPreserved" role="status">{{ runtimeText.cartPreserved }}</p>
       <OrderProjections :order="state.order" />
       <BaseButton v-if="state.order.payment_method === 'onlineCard'" :to="`/payment/${state.order.id}`" variant="borderless">{{ paymentText.statusPage }}</BaseButton>
-      <OrderPayment :key="state.order.id" :auto-start="autoPayOrderId === state.order.id" v-if="state.order.payment_method === 'onlineCard'" :order-id="state.order.id" :guest-token="state.order.guest_payment_token || undefined" :order-path="auth.isAuthenticated ? `/cabinet/orders/${state.order.id}` : guestShipmentPath(state.order.guest_tracking_url) || undefined" @method-changed="paymentMethodChanged" />
       <OrderDocuments :order-id="state.order.id" :documents="state.order.preliminary_documents" :guest="!auth.isAuthenticated" />
       <BaseButton v-if="!auth.isAuthenticated && guestShipmentPath(state.order.guest_tracking_url)" :to="guestShipmentPath(state.order.guest_tracking_url)!">{{ runtimeText.trackingTitle }}</BaseButton>
       <BaseButton to="/catalog" variant="borderless">{{ terms.common.catalog }}</BaseButton>
@@ -560,15 +558,9 @@ useSeo(
                     :disabled="option.value === 'onlineCard' && !onlinePaymentEnabled"
                     :description="option.value === 'onlineCard' && !onlinePaymentEnabled ? (onlinePaymentLoading ? paymentChoiceText.onlineLoading : paymentChoiceText.onlineUnavailable) : undefined"
                   />
-                    <div v-if="option.value === 'onlineCard'" class="checkout-payment-method__cards" role="group" :aria-label="locale === 'uk' ? 'Онлайн-оплата: Visa, Mastercard, monobank' : 'Online payment: Visa, Mastercard, monobank'">
-                      <img :src="shopAsset('/payment-brands/visa-blue.png')" alt="Visa" width="56" height="18">
-                      <img :src="shopAsset('/payment-brands/mastercard.svg')" alt="Mastercard" width="50" height="32">
-                      <img :src="shopAsset('/payment-brands/monobank.svg')" alt="monobank" width="108" height="24">
-                    </div>
-                  <div v-if="option.value === 'onlineCard' && form.paymentMethod === 'onlineCard'" class="checkout-payment-method__details">
-                    <p>{{ paymentChoiceText.onlineDescription }}</p>
-
-                  </div>
+                  <p v-if="option.value === 'onlineCard' && form.paymentMethod === 'onlineCard'" class="checkout-payment-method__details">
+                    {{ paymentChoiceText.onlineDescription }}
+                  </p>
                 </div>
               </div>
             </BaseField>
@@ -939,8 +931,7 @@ useSeo(
 
 .checkout-payment-methods {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 0.5rem;
 }
@@ -967,32 +958,10 @@ useSeo(
 }
 
 .checkout-payment-method__details {
-  display: grid;
-  gap: 0.875rem;
   padding: 0 1rem 1rem 3.25rem;
   color: #525252;
   font-size: 0.8125rem;
   line-height: 1.5;
-}
-
-.checkout-payment-method__cards {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 1rem;
-  width: fit-content;
-  margin: 0 0 0 12px;
-  max-width: calc(100% - 12px);
-}
-
-.checkout-payment-method__cards img {
-  display: block;
-  flex: 0 1 auto;
-  min-width: 0;
-  width: auto;
-  height: 18px;
-  object-fit: contain;
-  max-width: 100%;
 }
 
 .checkout-card--payment { padding: 1.25rem; }
@@ -1142,6 +1111,10 @@ useSeo(
 }
 
 @media (min-width: 768px) {
+  .checkout-payment-methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .checkout-form__grid--two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

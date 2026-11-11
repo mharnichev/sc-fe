@@ -1,3 +1,4 @@
+import type { MonoPaymentUrlSource } from '~/types/posSale'
 import type {
   CustomerSegment, SegmentList, SegmentCreate, SegmentUpdate, SegmentMemberQuery,
   SegmentPreviewRequest, SegmentPreviewResponse, CampaignAudiencePreview,
@@ -283,6 +284,9 @@ export interface MasterMonoState {
   amount_minor: number
   invoice_id: string | null
   payment_url: string | null
+  payment_url_source?: MonoPaymentUrlSource | null
+  payment_url_expires_at?: string | null
+  can_verify_invoice?: boolean
   receipt_pdf_path: string | null
   can_handover: boolean
   blocking_reasons: string[]
@@ -357,8 +361,29 @@ export interface Shipment {
   handed_over_at: string | null, label_url?: string | null,
   events: Array<{ operation: string, raw_status: string, normalized_status: string, outcome: string, created_at: string }>
 }
-export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, blocking_reasons: string[] }
+export interface ShipmentActions { mode: string, can_manage: boolean, can_create: boolean, simulation_available: boolean, can_handover: boolean, can_cancel?: boolean, can_reconcile_cancel?: boolean, cancel_shipment_id?: number | null, cancel_blocking_reason?: string | null, blocking_reasons: string[] }
+export type OrderArchiveScope = 'active' | 'archived' | 'all'
+
+export interface OrderCancellationState {
+  order_id: number
+  revision: number
+  order_status: string
+  archived: boolean
+  can_cancel: boolean
+  payment_status: string
+  fiscal_status: string
+  fulfillment_status: string
+  cancelled_at: string | null
+  cancelled_by_user_id: number | null
+  comment: string | null
+  active_reservation_quantity: number
+  released_reservation_quantity: number
+  late_payment_verified: boolean
+  reconciliation: { payment: boolean, receipt: boolean, inventory: boolean }
+}
+
 export interface OrderProjections {
+  archived?: boolean
   shipments?: Shipment[]
   shipment_actions?: ShipmentActions
   simulation?: boolean
@@ -367,6 +392,7 @@ export interface OrderProjections {
   fulfillment_method?: string | null
   revision?: number
   payment_status?: string
+  payment_failure?: { code: string, missing: string[], reconciliation_required: boolean } | null
   payment_channel?: 'online_monobank' | null
   fulfillment_status?: string
   fiscal_status?: string
@@ -1584,6 +1610,7 @@ export const useBackofficeApi = () => {
   const getMasterMonoState = (id: number) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}`, { retry: 0 })
   const startMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/start`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
   const refreshMasterMono = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/refresh`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
+  const verifyMasterMonoInvoice = (id: number, body: MasterMonoCommand, key: string) => api<MasterMonoState>(`/backoffice/master-mono/orders/${id}/verify-invoice`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0, cache: 'no-store' })
   // Always use this authenticated endpoint; never follow a provider-returned PDF URL.
   const getMasterMonoReceiptPdf = (id: number) => api<Blob>(`/backoffice/master-mono/orders/${id}/receipt/pdf`, { responseType: 'blob', retry: 0 })
   const getQrMockReadiness = () => api<QrMockReadiness>('/backoffice/integrations/monobank-qr/readiness', { retry: 0 })
@@ -1612,9 +1639,9 @@ export const useBackofficeApi = () => {
   const createShipmentReturn = (orderId: number, id: number, body: ShipmentReturnCommand, key: string) => api<OrderResponse>(`/backoffice/orders/${orderId}/shipments/${id}/return-shipment`, { method: 'POST', body, headers: { 'Idempotency-Key': key }, retry: 0 })
   const getShipmentLabel = (orderId: number, id: number) => api<string>(`/backoffice/orders/${orderId}/shipments/${id}/label`, { responseType: 'text', retry: 0 })
 
-  const getOrders = (page = 1, pageSize = 10) =>
+  const getOrders = (page = 1, pageSize = 10, filters: { archive?: OrderArchiveScope, search?: string } = {}) =>
     api<PaginatedResponse<OrderSummary>>('/backoffice/orders', {
-      query: { page, page_size: normalizePageSize(pageSize) },
+      query: { page, page_size: normalizePageSize(pageSize), archive: filters.archive, search: filters.search || undefined },
     })
 
   const getOrder = (orderId: number | string) =>
@@ -2847,6 +2874,7 @@ export const useBackofficeApi = () => {
     getMasterMonoState,
     startMasterMono,
     refreshMasterMono,
+    verifyMasterMonoInvoice,
     getMasterMonoReceiptPdf,
     getQrMockReadiness,
     getOrderQrMockAttempts,

@@ -142,3 +142,30 @@ for (const code of ['np_return_unconfigured', 'np_return_profile_mismatch', 'np_
  assert.equal(posts.length, 2); assert.notEqual(posts[0].headers['Idempotency-Key'], posts[1].headers['Idempotency-Key'])
  assert.equal(posts[1].body.return_ttn, '59000000000323'); assert.equal(fixture.storage.size, 0); fixture.stop()
 })
+
+test('unknown NP mutation requires a successful read before exact retry is enabled', async () => {
+ const item = record('paid', 'arrived', 2)
+ const writes = []
+ let failRead = false
+ const fixture = await setup({ api: async (_path, options) => {
+   if (options?.method !== 'POST') {
+     if (failRead) throw new Error('State unavailable')
+     return withCase(item)
+   }
+   writes.push(options)
+   failRead = true
+   throw new Error('Request timed out')
+ } })
+ fillReceipt(fixture.panel)
+ await fixture.panel.runCase('receive')
+ assert.equal(writes.length, 1)
+ assert.equal(fixture.panel.canCase('receive'), false)
+ await fixture.panel.runCase('receive')
+ assert.equal(writes.length, 1)
+ failRead = false
+ await fixture.panel.reload()
+ assert.equal(fixture.panel.canCase('receive'), true)
+ await fixture.panel.runCase('receive')
+ assert.deepEqual(writes[1], writes[0])
+ fixture.stop()
+})

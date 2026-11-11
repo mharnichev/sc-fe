@@ -73,7 +73,7 @@ const review = async () => {
   } catch (cause) {
     error.value = true; items.value = []
     // Expired or reused reminder links answer 410 and stay silent.
-    reportCommerceError('checkout.recovery_failed', cause, { flow: 'checkout' })
+    if (isCurrentSession() && token.value) reportCommerceError('checkout.recovery_failed', cause, { flow: 'checkout' })
   }
   finally { busy.value = false }
 }

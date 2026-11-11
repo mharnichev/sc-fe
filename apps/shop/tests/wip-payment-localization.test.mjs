@@ -25,10 +25,10 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect, widgetUrl, widgetOpen, widgetFits, widgetFrameKey, preparing, updateWidgetOpen, widgetFallback, widgetClosed, paymentRoot };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, continuePayment, apiFailure, paymentProblem, widgetUnavailable, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect, widgetUrl, widgetOpen, widgetFits, widgetFrameKey, preparing, updateWidgetOpen, widgetFallback, widgetClosed, paymentRoot };')
   const render = vue.compile(parse(file).descriptor.template.content)
   const html = () => {
-    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
+    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, resumeGuest: false, primaryHeading: false, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
     app.component('BaseRadio', { props: ['label'], setup: props => () => vue.h('label', props.label) })
@@ -38,6 +38,7 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
     return renderToString(app)
   }
   const statuses = {
+    creation_failed: ['Рахунок не створено', 'No invoice was created'],
     not_started: ['Оплату ще не розпочато', 'Payment has not started'],
     creation_unknown: ['Уточнюємо стан оплати', 'Checking payment status'],
     waiting: ['Очікуємо оплату', 'Awaiting payment'],
@@ -47,16 +48,25 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   }
   for (const [status, expected] of Object.entries(statuses)) {
     payment.value.status = status
+    payment.value.paid = ['paid_receipt_pending', 'accepted'].includes(status)
+    payment.value.receipt_accepted = status === 'accepted'
     const snapshot = JSON.stringify(payment.value)
     for (const language of ['uk', 'en', 'uk']) {
       locale.value = language
       assert.equal(component.labels.value[status], expected[language === 'en' ? 1 : 0])
       const rendered = await html()
-      assert.ok(rendered.includes(expected[language === 'en' ? 1 : 0]))
+      const text = component.paymentText.value
+      const visible = {
+        creation_unknown: text.creationTitle,
+        paid_receipt_pending: text.receiptPending,
+        accepted: text.paidTitle,
+      }[status] ?? expected[language === 'en' ? 1 : 0]
+      assert.ok(rendered.includes(visible))
       assert.ok(rendered.includes(component.paymentText.value.refresh))
       const buttons = [...rendered.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
-      assert.equal(buttons.some(([, label]) => label.includes(component.paymentText.value.create)), status === 'not_started')
-      assert.equal(rendered.includes('href="https://pay.mbnk.biz/test"'), status === 'waiting')
+      const actionLabel = status === 'waiting' ? component.paymentText.value.pay : component.paymentText.value.create
+      assert.equal(buttons.some(([, label]) => label.includes(actionLabel)), status === 'not_started' || status === 'waiting')
+      assert.ok(!rendered.includes('href="https://pay.mbnk.biz/test"'))
       assert.equal(JSON.stringify(payment.value), snapshot)
       assert.equal(actions, 0)
     }
@@ -123,7 +133,7 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
 
 test('WIP payment page retains numeric order validation while headings change locale', async () => {
   const route = vue.reactive({ params: { id: '12' } })
-  Object.assign(globalThis, vue, { usePaymentDisplay, useRoute: () => route, useCustomerAuthStore: () => ({ isAuthenticated: false }), useSeo() {}, useHead() {} })
+  Object.assign(globalThis, vue, { usePaymentDisplay, useRoute: () => route, useState: (_key, init) => vue.ref(init()), useCustomerAuthStore: () => ({ isAuthenticated: false }), useSeo() {}, useHead() {} })
   const source = (await readFile(new URL('../pages/payment/[id].vue', import.meta.url), 'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0]
   const component = await sourceModule(source + '\nexport { valid, id, paymentText };')
   locale.value = 'uk'; assert.equal(component.paymentText.value.title, 'Оплата замовлення')
@@ -141,7 +151,7 @@ test('checkout payment capability and values stay stable across locale toggles',
   for (const language of ['uk', 'en', 'uk']) {
     locale.value = language
     assert.deepEqual(paymentOptions.value.map(option => option.value), ['cashOnDelivery', 'onlineCard'])
-    assert.equal(paymentOptions.value[1].label, language === 'uk' ? 'Карткою онлайн · monobank' : 'Pay online · monobank')
+    assert.equal(paymentOptions.value[1].label, language === 'uk' ? 'Онлайн-оплата карткою' : 'Pay online by card')
     assert.equal(globalThis.paymentText.value.statusPage, language === 'uk' ? 'Сторінка статусу оплати' : 'Payment status page')
   }
   onlinePaymentEnabled.value = false

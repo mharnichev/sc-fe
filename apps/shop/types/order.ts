@@ -46,9 +46,22 @@ export interface CustomerShipment {
   items?: Array<{ order_item_id: number, quantity: number }> | null
   events?: Array<{ raw_status: string, normalized_status: string, event_at: string | null, observed_at: string }>
 }
+export interface CustomerDirectReturn {
+  simulation: true
+  inspection_status: 'awaiting_parcel' | 'awaiting_inspection' | 'awaiting_confirmation' | 'received'
+  received_quantity: number | null
+  tracking_stale: boolean
+  refund_kind: 'full' | 'partial' | null
+  money_status: 'not_started' | 'pending' | 'confirmed'
+  refunded_amount_minor: number | null
+  currency: 'UAH' | null
+  return_receipt_status: 'not_started' | 'pending' | 'confirmed'
+  financial_stale: boolean
+}
 export interface OrderProjections {
   callback_requested?: boolean | null
   shipments?: CustomerShipment[]
+  direct_return?: CustomerDirectReturn | null
   delivery_summary?: Record<string, number>
   guest_tracking_url?: string | null
   channel?: 'shop' | 'backoffice_pos' | null
@@ -95,11 +108,19 @@ export interface OnlinePaymentCapabilities {
   iframe_min_height?: number
 }
 
+export interface OnlinePaymentFailure {
+  code: string
+  missing: string[]
+  reconciliation_required: boolean
+}
+
 export interface OnlinePayment {
   order_id: number
   enabled: boolean
-  status: 'not_started' | 'creation_unknown' | 'waiting' | 'paid_receipt_pending' | 'accepted' | 'requires_review'
+  status: 'not_started' | 'creation_failed' | 'creation_unknown' | 'waiting' | 'paid_receipt_pending' | 'accepted' | 'requires_review'
   paid: boolean
+  payment_status?: 'failed' | null
+  payment_failure?: OnlinePaymentFailure | null
   receipt_accepted: boolean
   page_url: string | null
   presentation_mode?: 'redirect' | 'iframe'

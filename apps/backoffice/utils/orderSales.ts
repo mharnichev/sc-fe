@@ -33,8 +33,8 @@ export const orderStatusOptions = (legacy: boolean) => [
 
 // Confirmation provenance, not the selected checkout method, identifies a paid
 // online transaction. Keep ordinary card and COD payments distinct.
-export const orderPaymentMethodLabel = (order: { payment_channel?: string | null, payment_method?: string | null }): string => {
-  if (order.payment_channel === 'online_monobank') return 'Онлайн через mono'
+export const orderPaymentMethodLabel = (order: { payment_channel?: string | null, payment_method?: string | null, payment_status?: string }): string => {
+  if (order.payment_channel === 'online_monobank' || (order.payment_method === 'onlineCard' && order.payment_status === 'failed')) return 'Онлайн через mono'
   if (order.payment_method === 'onlineCard') return 'Онлайн через mono — очікує оплати'
   const labels: Record<string, string> = {
     cash: 'Готівка', card: 'Картка', bank_transfer: 'Банківський переказ',

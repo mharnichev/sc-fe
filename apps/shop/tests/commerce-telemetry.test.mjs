@@ -237,3 +237,27 @@ test('every requested shop journey reports through bounded commerce telemetry', 
     for (const step of steps) assert.ok(source.includes(`'${step}'`), `${file} reports ${step}`)
   }
 })
+
+
+test('payment labels admit only known values, not token-shaped response strings', () => {
+  const { options } = loadPlugin()
+  const canary = 'PrivateCapability1234567890'
+  const event = options.beforeSend({
+    tags: { critical: 'true', flow: 'payment', step: 'payment.start_failed' },
+    contexts: { commerce: { payment_method: canary, payment_status: canary } },
+    breadcrumbs: [{ category: 'commerce', message: 'payment.status', data: { payment_method: canary, payment_status: canary } }],
+  })
+  assert.ok(!JSON.stringify(event).includes(canary))
+})
+
+
+test('payment diagnostic code is allowlisted again at the outgoing Sentry boundary', () => {
+  const { options } = loadPlugin()
+  const tags = { critical: 'true', flow: 'payment', step: 'payment.invoice_facts' }
+  const accepted = options.beforeSend({ tags, contexts: { commerce: { diagnostic_code: 'invoice_id_missing', order_id: 42, attempt_id: 12, payload: 'private-value' } } })
+  assert.equal(accepted.tags.diagnostic_code, 'invoice_id_missing')
+  assert.equal(accepted.contexts.commerce.attempt_id, 12)
+  assert.ok(!JSON.stringify(accepted).includes('private-value'))
+  const rejected = options.beforeSend({ tags: { ...tags, diagnostic_code: 'secret_token' }, contexts: { commerce: { diagnostic_code: 'secret_token' } } })
+  assert.ok(!JSON.stringify(rejected).includes('secret_token'))
+})

@@ -111,8 +111,16 @@ test('ordinary nonmaster staff retains item, contact, address and preliminary or
   await expect(page.getByText('Fixture customer', { exact: true })).toBeVisible()
   await expect(page.getByText('Fixture city', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Оновити статус', exact: true })).not.toBeVisible()
-  await page.getByText('Змінити статус замовлення', { exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Оновити статус', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Змінити статус', exact: true }).click()
+  const statusDialog = page.getByRole('dialog', { name: 'Змінити статус замовлення' })
+  const saveStatus = statusDialog.getByRole('button', { name: 'Оновити статус', exact: true })
+  const statuses = statusDialog.getByRole('button', { name: 'Новий статус' })
+  await expect(statuses).toHaveText('Очікує')
+  await expect(saveStatus).toBeDisabled()
+  await statuses.click()
+  await statusDialog.getByRole('option', { name: 'Підтверджено', exact: true }).click()
+  await expect(saveStatus).toBeEnabled()
+  await page.getByRole('button', { name: 'Закрити', exact: true }).click()
   await page.getByText('Документи та чеки', { exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Попередні документи SC', exact: true })).toBeVisible()
 })
@@ -177,15 +185,19 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
     items: [
       { ...order().items[0], product_name: 'Шампунь Reuzel Daily Shampoo', quantity: 2, price: '350.00', total_price: '700.00' },
       { ...order().items[0], id: 12, product_id: 9, product_name: 'Помада Reuzel Blue', price: '450.00', total_price: '450.00' },
-    ], total_amount: '1150.00', subtotal_amount: '1150.00',
+      { ...order().items[0], id: 13, product_id: 10, product_name: 'Товар зі збереженим фото', product_image_url: '/order-item-demo.svg', price: '50.00', total_price: '50.00' },
+    ], total_amount: '1200.00', subtotal_amount: '1200.00',
   }
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
   await page.route('**/order-item-demo.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="white"/><rect x="23" y="6" width="18" height="8" rx="2" fill="#333"/><rect x="18" y="14" width="28" height="44" rx="5" fill="#32834e"/><rect x="19" y="28" width="26" height="18" fill="#f5e8bc"/></svg>' }))
+  await page.route('**/order-item-missing.svg', route => route.fulfill({ status: 404 }))
+  let snapshotCatalogReads = 0
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
-    if (path.endsWith('/products/8')) return route.fulfill({ json: { id: 8, image_url: '/order-item-demo.svg' } })
+    if (path.endsWith('/products/8')) return route.fulfill({ json: { id: 8, display_image_urls: ['/order-item-missing.svg', '/order-item-demo.svg'] } })
+    if (path.endsWith('/products/10')) snapshotCatalogReads++
     if (path.endsWith('/products/9')) return route.fulfill({ status: 403, json: { detail: 'Catalog unavailable' } })
     if (path.endsWith('/orders/3')) return route.fulfill({ json: current })
     if (path.endsWith('/3/fulfillment')) return route.fulfill({ json: { items: current.items } })
@@ -205,23 +217,41 @@ test('desktop order keeps essentials visible and technical data collapsed', asyn
   await expect.poll(() => picturedItem.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
   const itemWithoutPhoto = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Помада Reuzel Blue', exact: true }) })
   await expect(itemWithoutPhoto.locator('img')).toHaveCount(0)
-  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-desktop.png', fullPage: true })
+  const snapshotItem = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Товар зі збереженим фото', exact: true }) })
+  await expect.poll(() => snapshotItem.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(snapshotCatalogReads).toBe(0)
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
   await expect(page.getByRole('table', { name: 'Позиції замовлення' })).toBeVisible()
   await page.getByText('Склад, ціни та знижки', { exact: true }).click()
   await page.getByText('Технічні дані та синхронізація', { exact: true }).click()
   await expect(page.getByText('hidden-provider-ref', { exact: true })).toBeVisible()
   await page.getByText('Технічні дані та синхронізація', { exact: true }).click()
+  const summary = page.getByRole('region', { name: 'Стан замовлення' })
+  const receipt = summary.getByRole('button', { name: 'Чек та фіскалізація' })
+  const fiscal = summary.getByText('Фіскалізація', { exact: true })
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 })
+    await summary.scrollIntoViewIfNeeded()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    const summary = page.getByRole('region', { name: 'Стан замовлення' })
-    const payment = await summary.locator('dt').filter({ hasText: /^Оплата$/ }).boundingBox()
-    const fulfillment = await summary.locator('dt').filter({ hasText: /^Виконання$/ }).boundingBox()
+    const payment = await summary.getByText('Оплата', { exact: true }).boundingBox()
+    const fulfillment = await summary.getByText('Виконання', { exact: true }).boundingBox()
+    const receiptBox = (await receipt.boundingBox())!
     expect(Math.abs(payment!.y - fulfillment!.y)).toBeLessThan(2)
-    expect((await summary.boundingBox())!.height).toBeLessThan(290)
+    expect(receiptBox.height).toBeGreaterThanOrEqual(44)
+    expect(payment!.y + payment!.height).toBeGreaterThan(receiptBox.y)
+    expect(payment!.y).toBeLessThan(receiptBox.y + receiptBox.height)
+    expect((await summary.boundingBox())!.height).toBeLessThan(100)
+    await expect(picturedItem.locator('img')).toBeVisible()
   }
-  await page.screenshot({ path: '/tmp/sc-pos-20261106/legacy-order-detail-mobile.png', fullPage: true })
+  await expect(fiscal).not.toBeVisible()
+  await receipt.press('Enter')
+  await expect(receipt).toHaveAttribute('aria-expanded', 'true')
+  await expect(fiscal).toBeVisible()
+  await receipt.press('Enter')
+  await expect(fiscal).not.toBeVisible()
+  current.fiscal_status = 'checkbox_fiscal_unknown'
+  await page.reload()
+  await expect(summary.getByText('Результат Checkbox невідомий', { exact: false })).toBeVisible()
 })
 
 
@@ -241,3 +271,282 @@ test('order layout preserves barber visibility restrictions', async ({ page }) =
   await expect(page.getByText('Hidden customer', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Документи та чеки', { exact: true })).toHaveCount(0)
 })
+
+test('external Mono receipt uses only its own read, refresh and PDF actions', async ({ page, context }, testInfo) => {
+  const profile = 'synthetic-mono'
+  const hash = 'a'.repeat(64)
+  const current = { ...order(), channel: 'shop', payment_method: 'onlineCard', payment_status: 'paid_production' }
+  let refreshed = false
+  const writes: string[] = []
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort())
+  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
+  await page.route('**/api/v1/**', route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() !== 'GET') writes.push(path)
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (path.endsWith('/backoffice/orders/321')) return route.fulfill({ json: current })
+    if (path.endsWith('/shop-checkbox/orders/321/profile')) return route.fulfill({ status: 500, json: {} })
+    if (path.endsWith('/321/shop-operations')) return route.fulfill({ json: { order_id: 321, fiscal_profile: 'mono_checkbox_external' } })
+    if (path.endsWith('/shop-payments/orders/321')) return route.fulfill({ json: {
+      order_id: 321, revision: 1, mode: 'prepayment', profile_id: profile, profile_hash: hash,
+      intent: { status: 'accepted' }, payment: { id: 12 },
+    } })
+    if (path.endsWith('/external-receipt/pdf')) return route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.4\n%%EOF' })
+    if (path.endsWith('/external-receipt/refresh')) {
+      expect(request.postDataJSON()).toEqual({ expected_revision: 1, expected_profile_id: profile, expected_profile_hash: hash })
+      expect(request.headers()['idempotency-key']).toBeTruthy()
+      refreshed = true
+    }
+    if (/\/external-receipt(?:\/refresh)?$/.test(path)) return route.fulfill({ json: {
+      order_id: 321, revision: 1, fiscal_profile: 'mono_checkbox_external', enabled: true, paid: true,
+      accepted: refreshed, authority: refreshed ? 'test' : 'none', status: refreshed ? 'accepted' : 'mono_checkbox_receipt_pending',
+      receipt: refreshed ? { pdf_available: true, imported_at: '2026-11-11T08:00:00Z' } : null,
+    } })
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/orders/321')
+  await page.getByRole('button', { name: 'Змінити статус', exact: true }).click()
+  const statusDialog = page.getByRole('dialog', { name: 'Змінити статус замовлення' })
+  await statusDialog.getByRole('button', { name: 'Новий статус' }).click()
+  await expect(statusDialog.getByRole('option', { name: 'Підтверджено' })).toBeVisible()
+  await expect(statusDialog.getByRole('option', { name: 'Відмова' })).toHaveCount(0)
+  await statusDialog.getByRole('button', { name: 'Закрити', exact: true }).click()
+  const receipt = page.getByRole('region', { name: 'Чек mono → Checkbox' })
+  await page.locator('summary').filter({ hasText: 'Документи та чеки' }).click()
+  await expect(receipt.getByText('Чек формується', { exact: true })).toBeVisible()
+  await expect(receipt.getByRole('button')).toHaveCount(1)
+  await receipt.screenshot({ path: testInfo.outputPath('external-receipt-390.png') })
+  await receipt.getByRole('button', { name: 'Звірити чек', exact: true }).click()
+  await expect(receipt.getByText('Чек підтверджено', { exact: true })).toBeVisible()
+  const download = page.waitForEvent('download')
+  await receipt.getByRole('button', { name: 'Завантажити PDF' }).click()
+  expect((await download).suggestedFilename()).toBe('receipt-321.pdf')
+  expect(writes).toEqual(['/api/v1/backoffice/shop-payments/orders/321/external-receipt/refresh'])
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await receipt.screenshot({ path: testInfo.outputPath('external-receipt-1440.png') })
+})
+
+test('statement discovery uses the canonical action and guards closing during invoice dispatch', async ({ page, context }, testInfo) => {
+  const profile = 'synthetic-mono'
+  const hash = 'b'.repeat(64)
+  const current = { ...order(), channel: 'shop', payment_method: 'onlineCard' }
+  const caseRecord = {
+    id: 7, order_id: 321, revision: 1, order_revision: 1, kind: 'invoice_review', profile_id: profile, profile_hash: hash,
+    status: 'inspection_required', reason: 'Підтвердити результат створення рахунку', test_context: true, snapshot: {},
+    known_invoice_ids: [], observations: [], exceptions: [], actions: { discover: true, inspect: true, close_unpaid: true }, blocking_reasons: [],
+  }
+  let reads = 0, discoveries = 0
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort())
+  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
+  await page.route('**/api/v1/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (path.endsWith('/backoffice/orders/321')) return route.fulfill({ json: current })
+    if (path.endsWith('/shop-checkbox/orders/321/profile')) return route.fulfill({ json: { order_id: 321, fiscal_profile: 'unavailable' } })
+    if (path.endsWith('/shop-payment-resolutions/orders/321')) {
+      reads++
+      return route.fulfill({ json: {
+        order_id: 321, revision: 1, enabled: true, paid_profile_hash: null, invoice_profile_hash: hash,
+        invoice_candidate_id: 'candidate-synthetic', invoice_dispatch_in_flight: true,
+        cases: [caseRecord], actions: {}, blocking_reasons: [],
+      } })
+    }
+    if (path.endsWith('/shop-payment-resolutions/cases/7/discover')) {
+      discoveries++
+      expect(request.method()).toBe('POST')
+      expect(request.headers()['idempotency-key']).toBeTruthy()
+      expect(request.postDataJSON()).toEqual({
+        expected_revision: 1, expected_profile_id: profile, expected_profile_hash: hash,
+        start: expect.stringMatching(/Z$/), end: expect.stringMatching(/Z$/),
+      })
+      return route.fulfill({ status: 409, json: { detail: { code: 'resolution_revision_conflict' } } })
+    }
+    expect(request.method(), path).toBe('GET')
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/orders/321')
+  await page.getByText('Оплата та звірка', { exact: true }).click()
+  const resolution = page.getByRole('region', { name: 'Скасування до видачі та звірка передплати' })
+  const action = resolution.getByRole('button', { name: 'Знайти рахунок у виписці' })
+  await expect(resolution.getByText('Неперевірений рахунок · candidate-synthetic')).toBeVisible()
+  await expect(resolution.getByText(/Закриття тимчасово заблоковано/)).toBeVisible()
+  await expect(resolution.getByRole('button', { name: /Закрити неоплачене/ })).toHaveCount(0)
+  await expect(action).toBeDisabled()
+  await resolution.getByLabel('Початок періоду (місцевий час)').fill('2026-11-10T08:00')
+  await resolution.getByLabel('Кінець періоду (місцевий час)').fill('2026-11-10T10:00')
+  await expect(action).toBeEnabled()
+  await resolution.screenshot({ path: testInfo.outputPath('backoffice-discovery-390.png') })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await resolution.screenshot({ path: testInfo.outputPath('backoffice-discovery-1440.png') })
+  await action.click()
+  await expect(resolution.getByRole('alert')).toContainText('Стан випадку змінився')
+  expect(reads).toBeGreaterThan(1)
+  expect(discoveries).toBe(1)
+})
+
+for (const kind of ['full', 'partial'] as const) {
+test(`direct ${kind} test refund recovers a lost start and reports separate fiscal facts`, async ({ page, context }, testInfo) => {
+  let starts = 0, checks = 0
+  const returned = kind === 'full' ? 12345 : 6000
+  const report = () => ({
+    issuer: 'mono_checkbox_external', authority: 'test', currency: 'UAH', net_minor: checks === 2 ? 12345 - returned : 12345,
+    entries: [
+      { kind: 'sale', receipt_id: 'synthetic-sale', original_receipt_id: null, amount_minor: 12345, structured_totals_verified: false },
+      ...(checks === 2 ? [{ kind: 'return', receipt_id: 'synthetic-receipt', original_receipt_id: 'synthetic-sale', amount_minor: returned, structured_totals_verified: true }] : []),
+    ],
+  })
+  let current = { ...order(), channel: 'shop', payment_method: 'onlineCard', status: 'paid', payment_status: 'simulated_paid' }
+  let comparisons = 0
+  let comparisonDenied = false
+  const shift = (reportId: string, sold: number, returned: number) => ({
+    kind: 'x', report_id: reportId, scope: 'provider_cash_register_shift', authority: 'test',
+    currency: 'UAH', reported_at: '2026-11-11T09:00:00Z', shift_sale_minor: sold, shift_return_minor: returned,
+  })
+  const state = () => ({
+    order_id: 321, revision: current.revision, available: checks < 2,
+    can_start: starts === 0, can_reconcile: starts > 0 && checks < 2,
+    refundable_items: starts ? [] : [{ basket_index: 0, name: 'Fixture shampoo', quantity: 2, unit_amount_minor: 6000 }],
+    kind: starts ? kind : null, amount_minor: starts ? returned : null, ext_ref: starts ? 'synthetic-reference' : null,
+    bank_confirmed: checks === 2, return_receipt_id: checks ? 'synthetic-receipt' : null,
+    finalized_at: checks === 2 ? '2026-11-11T08:00:00Z' : null, last_checked_at: checks ? '2026-11-11T08:00:00Z' : null,
+    reason: !starts ? 'ready' : checks === 2 ? 'complete' : 'bank_reconciliation_required',
+  })
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort())
+  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
+  await page.route('**/api/v1/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (path.endsWith('/backoffice/orders/321')) return route.fulfill({ json: current })
+    if (path.endsWith('/shop-checkbox/orders/321/profile')) return route.fulfill({ json: { order_id: 321, fiscal_profile: 'mono_checkbox_external' } })
+    if (path.endsWith('/321/shop-operations')) return route.fulfill({ json: {
+      order_id: 321, revision: current.revision, order: current, stage: 'paid', authority: 'test', payment: null, fulfillment: null, completion: null,
+      actions: {}, blocking_reasons: [], available_payment_methods: [], external_fiscal_report: report(),
+    } })
+    if (path.endsWith('/shop-external-fiscal-reports/orders/321')) {
+      expect(request.method()).toBe('GET')
+      comparisons++
+      return route.fulfill(comparisonDenied ? { status: 403, json: {} } : { json: {
+        order_id: 321, revision: current.revision, local_status: 'projected', local_projection: report(), refund_status: 'finalized',
+        provider_x: { status: 'matched', evidence: null, missing_receipt_ids: [],
+          reports: [shift('synthetic-x1', 80000, 0), shift('synthetic-x2', 34500, 20000)] },
+        provider_z: { status: 'missing', reports: [], evidence: null, missing_receipt_ids: [] },
+      } })
+    }
+    if (path.endsWith('/shop-direct-refunds/orders/321/start')) {
+      expect(request.method()).toBe('POST')
+      expect(request.headers()['idempotency-key']).toBeTruthy()
+      expect(request.postDataJSON()).toEqual({ expected_revision: 1, kind, goods_in_custody: true, quantities: kind === 'partial' ? { 0: 1 } : {} })
+      starts++
+      current = { ...current, revision: 2 }
+      return route.abort('connectionreset')
+    }
+    if (path.endsWith('/shop-direct-refunds/orders/321/reconcile')) {
+      expect(request.method()).toBe('POST')
+      checks++
+      if (checks === 2) current = { ...current, revision: 3, status: kind === 'full' ? 'cancelled' : 'paid' }
+      return route.fulfill({ json: state() })
+    }
+    if (path.endsWith('/shop-direct-refunds/orders/321')) return route.fulfill({ json: state() })
+    expect(request.method(), path).toBe('GET')
+    return route.fulfill({ json: { items: [], total: 0 } })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/orders/321')
+  await page.locator('summary').filter({ hasText: /^Повернення$/ }).click()
+  const refund = page.getByRole('region', { name: 'Повернення mono → Checkbox' })
+  const start = refund.getByTestId('direct-refund-start')
+  const reconcile = refund.getByTestId('direct-refund-reconcile')
+  await expect(start).toBeDisabled()
+  if (kind === 'partial') {
+    await refund.getByRole('button', { name: 'Обсяг повернення' }).click()
+    await refund.getByRole('option', { name: 'Часткове повернення' }).click()
+    await refund.getByRole('spinbutton', { name: /Fixture shampoo/ }).fill('1')
+  }
+  await refund.getByRole('checkbox', { name: /весь товар/ }).check()
+  await start.click()
+  await expect(reconcile).toBeVisible()
+  expect(starts).toBe(1)
+  await expect(start).toHaveCount(0)
+  await reconcile.click()
+  await expect(refund.getByText('Чек підтверджено', { exact: true })).toBeVisible()
+  await expect(refund.getByText('Очікуємо підтвердження банку', { exact: true })).toBeVisible()
+  await expect(refund.getByText(/Остання звірка/)).toBeVisible()
+  await refund.screenshot({ path: testInfo.outputPath('direct-refund-reconciliation-390.png') })
+  await reconcile.click()
+  await expect(refund.getByText('Повернення завершено', { exact: true })).toBeVisible()
+  await expect(refund.getByText('Повернення підтверджено', { exact: true })).toBeVisible()
+  await expect(reconcile).toHaveCount(0)
+  expect(starts).toBe(1)
+  expect(checks).toBe(2)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await refund.screenshot({ path: testInfo.outputPath('direct-refund-complete-1440.png') })
+  await page.locator('summary').filter({ hasText: 'Фіскальний звіт замовлення' }).click()
+  const fiscal = page.getByRole('region', { name: 'Фіскальний звіт mono → Checkbox' })
+  await expect(fiscal.getByText('Продаж', { exact: true })).toBeVisible()
+  await expect(fiscal.getByText('Повернення', { exact: true })).toBeVisible()
+  await expect(fiscal.getByText('Чек продажу · synthetic-sale')).toBeVisible()
+  await expect(fiscal.getByTestId('external-fiscal-net')).toContainText(kind === 'full' ? /0,00\s+грн/ : /63,45\s+грн/)
+  await fiscal.screenshot({ path: testInfo.outputPath(`external-fiscal-report-${kind}-1440.png`) })
+  const width = kind === 'full' ? 390 : 1440
+  await page.setViewportSize({ width, height: 900 })
+  const comparison = page.getByRole('region', { name: 'Звірка зовнішньої зміни' })
+  const check = comparison.getByRole('button', { name: 'Перевірити звіти X і Z' })
+  expect(comparisons).toBe(0)
+  await check.click()
+  await expect(comparison.getByText('Чеки замовлення збігаються')).toBeVisible()
+  await expect(comparison.getByText('Звіт зміни відсутній')).toBeVisible()
+  await expect(comparison.getByText('Продажі за зміну')).toHaveCount(2)
+  await expect(comparison.getByText(/800,00/)).toBeVisible()
+  await expect(comparison.getByText(/345,00/)).toBeVisible()
+  await expect(comparison.getByText(/Залишок за замовленням/)).toContainText(kind === 'full' ? /0,00/ : /63,45/)
+  await comparison.screenshot({ path: testInfo.outputPath(`external-shifts-${width}.png`) })
+  comparisonDenied = true
+  await check.click()
+  await expect(comparison.getByRole('alert')).toContainText('Немає дозволу')
+  await expect(comparison.getByText('Продажі за зміну')).toHaveCount(0)
+  expect(comparisons).toBe(2)
+})
+}
+
+for (const width of [390, 1440]) {
+  test(`operations watch shows bounded queue and only order navigation at ${width}px`, async ({ page, context }, testInfo) => {
+    let denied = false
+    await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort())
+    await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', user })), user)
+    await page.route('**/api/v1/**', route => {
+      const request = route.request(), path = new URL(request.url()).pathname
+      expect(request.method(), path).toBe('GET')
+      if (path.endsWith('/auth/me')) return route.fulfill({ json: user })
+      if (path.endsWith('/shop-operations-watch')) return route.fulfill(denied ? { status: 403, json: {} } : { json: {
+        observed_at: '2026-11-11T10:00:00Z', counts: { payment_without_sale: 1, refund_stale: 2, sms_uncertain: 1 },
+        stale_minutes: 60, total: 4, truncated: true, automatic_actions: false,
+        issues: [
+          { reason: 'payment_without_sale', entity_id: '4', order_id: 321, since: '2026-11-11T07:00:00Z', authority: 'test', reserved_units: null },
+          { reason: 'refund_stale', entity_id: '7', order_id: 322, since: '2026-11-11T08:00:00Z', authority: 'test', reserved_units: 1, stage: 'refund_receipt_pending' },
+          { reason: 'sms_uncertain', entity_id: 'internal-id', order_id: null, since: '2026-11-11T09:00:00Z', authority: 'unverified', reserved_units: null },
+        ], background_process: { role: 'owner', state: 'running', last_error_code: null, scheduler_names: [] },
+      } })
+      return route.fulfill({ json: { items: [], total: 0 } })
+    })
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/orders/operations-watch')
+    const queue = page.getByRole('region', { name: 'Черга операцій' })
+    await expect(queue.getByText('Показано 3 з 4 операцій.')).toBeVisible()
+    await expect(queue.getByText('Оплата очікує чека продажу')).toBeVisible()
+    await expect(queue.getByText('Очікуємо чек повернення')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await expect(queue.getByRole('link', { name: 'Відкрити замовлення №321' })).toHaveAttribute('href', '/orders/321')
+    await expect(queue.getByRole('link')).toHaveCount(2)
+    await expect(queue.getByText('internal-id')).toHaveCount(0)
+    await queue.screenshot({ path: testInfo.outputPath(`operations-queue-${width}.png`) })
+    denied = true
+    await page.getByRole('button', { name: 'Оновити спостереження' }).click()
+    await expect(page.getByRole('alert')).toContainText('Немає прав')
+    await expect(queue).toHaveCount(0)
+  })
+}

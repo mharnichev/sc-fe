@@ -5,6 +5,7 @@ on:
     branches:
       - codex/shop-complete-owned-20261102
       - codex/pos-combined-release-20261106
+      - codex/ready-ui-combined-20261109
   workflow_dispatch:
 
 permissions:
@@ -20,6 +21,8 @@ jobs:
     if: >-
       github.ref == 'refs/heads/codex/shop-complete-owned-20261102' ||
       github.ref == 'refs/heads/codex/pos-combined-release-20261106' ||
+      github.ref == 'refs/heads/codex/ready-ui-combined-20261109' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/shop-launch-ci-20261110') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -108,7 +111,22 @@ jobs:
       - name: Publish verified image and immutable digest
         run: |
           set -euo pipefail
-          docker push "$IMAGE_TAG"
+          push_log="$(mktemp "$RUNNER_TEMP/shop-push.XXXXXX")"
+          trap 'rm -f "$push_log"' EXIT
+          for delay in 15 45 0; do
+            if docker push "$IMAGE_TAG" >"$push_log" 2>&1; then
+              cat "$push_log"
+              break
+            else
+              push_status=$?
+            fi
+            cat "$push_log"
+            if [[ "$delay" == 0 ]] || ! grep -Eq 'permission_denied: write_package[[:space:]]*$' "$push_log"; then
+              exit "$push_status"
+            fi
+            echo "GHCR denied write_package; retrying the same image in ${delay}s."
+            sleep "$delay"
+          done
           docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/shop-image.json"
           python3 - <<'PY'
           import json, os, re

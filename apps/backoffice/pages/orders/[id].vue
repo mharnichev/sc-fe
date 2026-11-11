@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { orderPaymentMethodLabel } from '~/utils/orderSales'
-import { productDisplayImage } from '~/utils/productImages'
-import { ArrowLeftIcon, ArrowPathIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import { productDisplayImages } from '~/utils/productImages'
+import { ArrowLeftIcon, ArrowPathIcon, ChevronDownIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
 import OrderShopCarrierReturns from '~/components/orders/OrderShopCarrierReturns.vue'
+import OrderShopNPDirectReturn from '~/components/orders/OrderShopNPDirectReturn.vue'
 import OrderShopNPReturns from '~/components/orders/OrderShopNPReturns.vue'
 import OrderShipments from '~/components/orders/OrderShipments.vue'
 import FiscalReportsMock from '~/components/orders/FiscalReportsMock.vue'
@@ -12,36 +13,48 @@ import OrderReturnsMock from '~/components/orders/OrderReturnsMock.vue'
 import OrderEttnMock from '~/components/orders/OrderEttnMock.vue'
 import OrderFiscalMock from '~/components/orders/OrderFiscalMock.vue'
 import OrderProjections from '~/components/orders/OrderProjections.vue'
+import OrderCancellation from '~/components/orders/OrderCancellation.vue'
 import OrderShopOperations from '~/components/orders/OrderShopOperations.vue'
 import OrderShopPayments from '~/components/orders/OrderShopPayments.vue'
 import OrderShopPaymentResolution from '~/components/orders/OrderShopPaymentResolution.vue'
+import OrderShopDirectRefund from '~/components/orders/OrderShopDirectRefund.vue'
+import OrderShopExternalFiscalReconciliation from '~/components/orders/OrderShopExternalFiscalReconciliation.vue'
+import OrderShopExternalReceipt from '~/components/orders/OrderShopExternalReceipt.vue'
 import OrderShopCheckboxFiscal from '~/components/orders/OrderShopCheckboxFiscal.vue'
 import OrderShopCheckboxReturns from '~/components/orders/OrderShopCheckboxReturns.vue'
 import ShopCheckboxReports from '~/components/orders/ShopCheckboxReports.vue'
 import OrderShopFiscal from '~/components/orders/OrderShopFiscal.vue'
 import OrderShopReturns from '~/components/orders/OrderShopReturns.vue'
 import ShopFiscalReports from '~/components/orders/ShopFiscalReports.vue'
+import type { ExternalFiscalReport } from '~/utils/shopFiscal'
 import { isShopCarrierReturnShipment, shopFiscalUsesCanonicalPanel } from '~/utils/shopFiscal'
 import { orderUsesNovaPoshta } from '~/utils/shipmentStatus'
 import { orderAmountMinor, orderStatusOptions } from '~/utils/orderSales'
-import type { OrderPaymentCommand, OrderHandoverCommand, PreliminaryOrderDocument } from '~/composables/useBackofficeApi'
+import type { OrderPaymentCommand, OrderHandoverCommand, PreliminaryOrderDocument, OrderCancellationState } from '~/composables/useBackofficeApi'
 import { procurementStatusLabel } from '~/utils/inventory'
 
 const route = useRoute()
 const api = useBackofficeApi()
 const assetUrl = useAssetUrl()
-const productImages = ref<Record<number, string>>({})
-const failedProductImages = ref<number[]>([])
+const productImages = ref<Record<number, string[]>>({})
+const failedProductImages = ref<Record<number, Set<string>>>({})
 const auth = useAuthStore()
-const { isAdmin, isBarber } = useBackofficeAccess()
+const { isBarber } = useBackofficeAccess()
 const toast = useBaseToastNotification()
 const { apiErrorMessage, formatDateTime, formatMoney } = useBookingFormatting()
 
 const legacyShipmentOrder = computed(() => order.value ? { ...order.value, shipments: (order.value.shipments || []).filter(shipment => !isShopCarrierReturnShipment(shipment)) } : null)
 const usesShopFiscal = computed(() => !!order.value && shopFiscalUsesCanonicalPanel(order.value))
-const shopFiscalProfile = ref<'checkbox' | 'local_mock' | 'unavailable' | null>(null)
+const fiscalProfiles = ['checkbox', 'mono_checkbox_external', 'local_mock', 'unavailable'] as const
+type FiscalProfile = typeof fiscalProfiles[number]
+const shopFiscalProfile = ref<FiscalProfile | null>(null)
 const fiscalProfileError = ref(''), fiscalProfileLoading = ref(false)
+const externalFiscalReport = shallowRef<ExternalFiscalReport | null>(null)
+const directRefundActive = ref(false)
+const usesExternalReceipt = computed(() => shopFiscalProfile.value === 'mono_checkbox_external')
 const usesCheckbox = computed(() => usesShopFiscal.value && shopFiscalProfile.value === 'checkbox')
+const usesUnpaidReturnFlow = computed(() => usesShopFiscal.value && ['cod', 'cashOnDelivery', 'cardOnDelivery', 'cash_on_delivery', 'card_on_delivery']
+  .includes(order.value?.payment_method || ''))
 const fiscalProfileReady = computed(() => !usesShopFiscal.value || (shopFiscalProfile.value !== null && !fiscalProfileLoading.value && !fiscalProfileError.value))
 const isPosSale = computed(() => order.value?.channel === 'backoffice_pos')
 const legacyQrOwnsSale = ref(false)
@@ -74,22 +87,38 @@ const {
   { watch: [orderId] },
 )
 
+const statusOpen = ref(false)
 const statusDraft = ref('')
 const statusPending = ref(false)
 const statusError = ref('')
 
-const statusLocked = computed(() => !!order.value?.channel && ['cancelled', 'completed'].includes(order.value.status))
-const statusOptions = computed(() => orderStatusOptions(!!order.value && !order.value.channel))
+const statusLocked = computed(() => !!order.value && (order.value.archived || order.value.status === 'cancelled' ||
+  (!!order.value.channel && order.value.status === 'completed')))
+const cancellation = ref<InstanceType<typeof OrderCancellation> | null>(null)
+const statusOptions = computed(() => orderStatusOptions(!!order.value && !order.value.channel)
+  .filter(option => option.value !== 'cancelled' || cancellation.value?.canCancel)
+  .map(option => option.value === 'cancelled' ? { ...option, label: 'Відмова' } : option))
+const archived = computed(() => order.value?.archived || order.value?.status === 'cancelled')
+const paymentDetails = ref<HTMLDetailsElement | null>(null)
+const orderHeading = ref<HTMLHeadingElement | null>(null)
+
+const openPaymentDetails = async () => {
+  const details = paymentDetails.value
+  if (!details) return
+  details.open = true
+  await nextTick()
+  details.querySelector('summary')?.focus()
+}
 
 const statusLabels = { pending: 'Очікує', confirmed: 'Підтверджено', paid: 'Оплачено', completed: 'Завершено', cancelled: 'Скасовано' } as Record<string, string>
 
-const statusBadgeClass = (status?: string | null) => {
-  if (status === 'completed') return 'bg-emerald-50 text-emerald-700'
-  if (status === 'paid') return 'bg-cyan-50 text-cyan-700'
-  if (status === 'confirmed') return 'bg-blue-50 text-blue-700'
-  if (status === 'cancelled') return 'bg-rose-50 text-rose-700'
-  return 'bg-amber-50 text-amber-700'
-}
+const statusTones = {
+  pending: 'warning',
+  confirmed: 'info',
+  paid: 'success',
+  completed: 'success',
+  cancelled: 'danger',
+} as const
 
 const displayValue = (value?: string | number | null) => {
   if (value === null || value === undefined || value === '') return '—'
@@ -112,8 +141,8 @@ const shippingRows = computed(() => {
   const item = order.value
   if (!item) return []
   return [
-    { label: 'Компанія', value: item.shipping_company },
-    { label: 'Метод', value: item.shipping_method },
+    { label: 'Перевізник', value: item.shipping_company === 'novaPost' ? 'Нова пошта' : item.shipping_company },
+    { label: 'Метод', value: item.shipping_method === 'warehouse' ? 'У відділення' : item.shipping_method },
     { label: 'Область', value: item.shipping_area },
     { label: 'Місто', value: item.shipping_city },
     { label: 'Відділення', value: item.shipping_warehouse_number },
@@ -149,20 +178,54 @@ const shippingPayloadEntries = computed(() => {
   return Object.entries(payload)
 })
 
-const orderItems = computed(() => fulfillment.value?.items || order.value?.items || [])
+const orderItems = computed(() => {
+  const currentFulfillment = fulfillment.value
+  if (currentFulfillment?.id != null && String(currentFulfillment.id) !== orderId.value) return order.value?.items || []
+  return currentFulfillment?.items || order.value?.items || []
+})
+const orderItemPhotos = computed(() => {
+  const snapshots = new Map(order.value?.items.map(item => [item.id, item.product_image_url]))
+  return orderItems.value.map(item => {
+    const snapshot = [item.product_image_url, snapshots.get(item.id)]
+      .map(url => assetUrl(url?.trim()))
+      .find(url => url && !failedProductImages.value[item.id]?.has(url))
+    return { item, snapshot }
+  })
+})
+const missingProductIds = computed(() => [...new Set(orderItemPhotos.value
+  .filter(({ snapshot }) => !snapshot)
+  .map(({ item }) => item.product_id))])
+const visibleOrderItems = computed(() => orderItemPhotos.value.map(({ item, snapshot }) => {
+  const photo = snapshot || productImages.value[item.product_id]
+    ?.map(url => assetUrl(url))
+    .find(url => url && !failedProductImages.value[item.id]?.has(url))
+  return { item, photo }
+}))
+const markPhotoFailed = (id: number, url: string) => {
+  failedProductImages.value[id] ??= new Set()
+  failedProductImages.value[id].add(url)
+}
+
+let requestedProductImages = new Set<number>()
+watch([orderId, () => auth.user?.id, isBarber, isPosSale], () => {
+  requestedProductImages = new Set()
+  productImages.value = {}
+  failedProductImages.value = {}
+}, { flush: 'sync' })
 
 // Optional catalog photos must not delay the order or its actions.
-watch([orderId, () => auth.user?.id, () => !isBarber.value || isPosSale.value, () => orderItems.value.map(item => item.product_id).join(',')], async (_value, _previous, onCleanup) => {
-  let current = true
-  onCleanup(() => { current = false })
-  productImages.value = {}; failedProductImages.value = []
-  if (!import.meta.client || (isBarber.value && !isPosSale.value)) return
-  const ids = [...new Set(orderItems.value.map(item => item.product_id))]
-  for (let index = 0; index < ids.length && current; index += 4) {
+watch([orderId, () => order.value?.id, () => auth.user?.id, isBarber, isPosSale, () => missingProductIds.value.join(',')], async () => {
+  if (!import.meta.client || String(order.value?.id) !== orderId.value || (isBarber.value && !isPosSale.value)) return
+  const requests = requestedProductImages
+  const generation = orderContext
+  const current = () => requests === requestedProductImages && generation === orderContext
+  const ids = missingProductIds.value.filter(id => !requests.has(id))
+  ids.forEach(id => requests.add(id))
+  for (let index = 0; index < ids.length && current(); index += 4) {
     await Promise.all(ids.slice(index, index + 4).map(async id => {
       try {
-        const product = await api.getProduct(id)
-        if (current && productDisplayImage(product)) productImages.value[id] = productDisplayImage(product)
+        const photos = productDisplayImages(await api.getProduct(id))
+        if (current() && photos.length) productImages.value[id] = photos
       }
       catch { /* Catalog failures use the photo placeholder. */ }
     }))
@@ -172,14 +235,6 @@ watch([orderId, () => auth.user?.id, () => !isBarber.value || isPosSale.value, (
 const hasOutstandingProcurement = computed(() => orderItems.value.some(item =>
   item.quantity_to_order > item.quantity_received_for_order,
 ) || false)
-
-watch(
-  () => order.value?.status,
-  value => {
-    statusDraft.value = value || ''
-  },
-  { immediate: true },
-)
 
 const documentPrintPending = ref(false)
 const preliminaryCommand = useOrderSalesCommand<{ expected_revision: number }>('preliminary-document', orderId)
@@ -192,7 +247,7 @@ const closePendingDocuments = () => {
 }
 watch([orderId, () => auth.user?.id], () => {
   closePendingDocuments(); documentPrintPending.value = false; documentError.value = ''
-  statusPending.value = false; statusError.value = ''
+  statusOpen.value = false; statusPending.value = false; statusError.value = ''
 }, { flush: 'sync' })
 onBeforeUnmount(closePendingDocuments)
 const createDocument = async () => {
@@ -237,15 +292,19 @@ const profileApi = useApi()
 let fiscalProfileSequence = 0, fiscalProfileActive = true, fiscalProfileScope = ''
 const loadFiscalProfile = async () => {
   const sequence = ++fiscalProfileSequence, id = orderId.value, scope = JSON.stringify([id, auth.user])
-  if (scope !== fiscalProfileScope) { shopFiscalProfile.value = null; fiscalProfileScope = scope }
+  if (scope !== fiscalProfileScope) { shopFiscalProfile.value = null; externalFiscalReport.value = null; directRefundActive.value = false; fiscalProfileScope = scope }
   fiscalProfileError.value = ''; fiscalProfileLoading.value = false
   if (!import.meta.client || !auth.user?.id || !usesShopFiscal.value) return
   fiscalProfileLoading.value = true
   try {
-    const value = await profileApi<{ order_id: number, fiscal_profile?: string }>(`/backoffice/shop-checkbox/orders/${id}/profile`, { retry: 0 })
+    const value = await profileApi<{ order_id: number, fiscal_profile?: FiscalProfile }>(`/backoffice/shop-checkbox/orders/${id}/profile`, { retry: 0 })
+      .catch((cause: { response?: { status?: number } }) => {
+        if (cause.response?.status !== 500 || order.value?.channel !== 'shop') throw cause
+        return profileApi<{ order_id: number, fiscal_profile?: FiscalProfile }>(`/backoffice/orders/${id}/shop-operations`, { retry: 0 })
+      })
     if (!fiscalProfileActive || sequence !== fiscalProfileSequence || orderId.value !== id) return
-    if (value.order_id !== Number(id) || !['checkbox', 'local_mock', 'unavailable'].includes(value.fiscal_profile || '')) throw new Error('Invalid fiscal profile')
-    shopFiscalProfile.value = value.fiscal_profile as 'checkbox' | 'local_mock' | 'unavailable'
+    if (value.order_id !== Number(id) || !value.fiscal_profile || !fiscalProfiles.includes(value.fiscal_profile)) throw new Error('Invalid fiscal profile')
+    shopFiscalProfile.value = value.fiscal_profile
   } catch { if (fiscalProfileActive && sequence === fiscalProfileSequence) fiscalProfileError.value = 'Не вдалося перевірити серверний фіскальний профіль. Нові фіскальні дії заблоковано; оновіть профіль.' }
   finally { if (fiscalProfileActive && sequence === fiscalProfileSequence) fiscalProfileLoading.value = false }
 }
@@ -260,12 +319,42 @@ const reloadSales = async () => {
   try {
     const [nextOrder, nextFulfillment] = await Promise.all([api.getOrder(id), api.getOrderFulfillment(id)])
     if (generation !== orderContext || request !== salesRead || id !== orderId.value || String(nextOrder.id) !== id) return
+    if ((nextOrder.revision ?? 0) < (order.value?.revision ?? 0)) return
     order.value = nextOrder; fulfillment.value = nextFulfillment; fiscalRefresh.value++
   }
   catch (err: unknown) {
     if (generation === orderContext && request === salesRead) toast.error(apiErrorMessage(err, 'Не вдалося оновити замовлення. Повторіть читання.'))
   }
 }
+const applyArchivedFacts = (result: OrderCancellationState) => {
+  if (!order.value || !result.archived || result.order_status !== 'cancelled' ||
+    result.order_id !== order.value.id || String(result.order_id) !== orderId.value) return
+  if (result.revision >= (order.value.revision ?? 0)) {
+    order.value = {
+      ...order.value,
+      archived: true,
+      status: result.order_status,
+      revision: result.revision,
+      payment_status: result.payment_status,
+      fiscal_status: result.fiscal_status,
+      fulfillment_status: result.fulfillment_status,
+    }
+  }
+}
+
+const onOrderCancelled = async (result: OrderCancellationState) => {
+  const wasArchived = archived.value
+  applyArchivedFacts(result)
+  if (!wasArchived && archived.value) toast.success('Замовлення скасовано й переміщено до архіву.')
+  await Promise.all([reloadSales(), refreshNuxtData('backoffice-orders-list')])
+}
+
+const confirmCancellationFromStatus = async () => {
+  statusOpen.value = false
+  await nextTick()
+  cancellation.value?.showConfirmation()
+}
+
 const recordPayment = async () => {
   if (qrOwnsSale.value || !order.value?.simulation || (!order.value.sales_actions?.can_record_payment && !paymentCommand.intent.value) || commandBusy.value) return
   const amount = orderAmountMinor(order.value.total_amount)
@@ -287,8 +376,23 @@ const handover = async () => {
   if (generation === orderContext && !handoverCommand.intent.value && handoverCommand.error.value) await reloadSales()
 }
 
+const canUpdateStatus = computed(() => !isBarber.value && !!order.value && String(order.value.id) === orderId.value && !statusLocked.value)
+const canSubmitStatus = computed(() => canUpdateStatus.value && !statusPending.value && statusDraft.value !== order.value?.status &&
+  statusOptions.value.some(option => option.value === statusDraft.value))
+
+const openStatus = () => {
+  if (!canUpdateStatus.value || !order.value) return
+  statusDraft.value = order.value.status
+  statusError.value = ''
+  statusOpen.value = true
+}
+
 const updateStatus = async () => {
-  if (statusPending.value || statusLocked.value || !order.value || !statusDraft.value || statusDraft.value === order.value.status || !statusOptions.value.some(option => option.value === statusDraft.value)) return
+  if (!canSubmitStatus.value || !order.value) return
+  if (statusDraft.value === 'cancelled') {
+    await confirmCancellationFromStatus()
+    return
+  }
 
   const generation = orderContext, id = order.value.id, status = statusDraft.value
   statusPending.value = true
@@ -300,11 +404,11 @@ const updateStatus = async () => {
     order.value = result
     toast.success('Статус замовлення оновлено.')
     await reloadSales()
+    if (generation === orderContext) statusOpen.value = false
   }
   catch (err: unknown) {
     if (generation !== orderContext) return
     statusError.value = apiErrorMessage(err, 'Не вдалося оновити статус замовлення.')
-    toast.error(statusError.value)
   }
   finally {
     if (generation === orderContext) statusPending.value = false
@@ -314,37 +418,102 @@ const updateStatus = async () => {
 
 <template>
   <div class="order-detail mx-auto max-w-7xl space-y-4">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div><NuxtLink to="/orders" class="inline-flex min-h-11 items-center gap-2 text-sm text-ui-secondary"><ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />До замовлень</NuxtLink><h1 class="text-2xl font-semibold">Замовлення #{{ orderId }}</h1><p v-if="order?.created_at" class="mt-1 text-xs text-ui-secondary">{{ formatDateTime(order.created_at) }}</p></div>
-      <NuxtLink v-if="isPosSale" to="/orders/pos" class="base-button base-button--neutral min-h-11 gap-2 px-4 text-sm"><PlusIcon class="h-5 w-5" aria-hidden="true" />Продати ще товар</NuxtLink>
+    <header>
+      <NuxtLink :to="archived ? { path: '/orders', query: { archive: 'archived' } } : '/orders'" class="inline-flex min-h-11 items-center gap-2 text-sm text-ui-secondary">
+        <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />{{ archived ? 'До архіву' : 'До замовлень' }}
+      </NuxtLink>
+      <BaseCard padding="sm" class="order-heading liquid-glass">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 ref="orderHeading" tabindex="-1" class="text-2xl font-semibold">Замовлення #{{ orderId }}</h1>
+              <BaseBadge v-if="order && String(order.id) === orderId && (!isBarber || isPosSale)" :tone="statusTones[order.status as keyof typeof statusTones] || 'neutral'" dot>
+                {{ statusLabels[order.status] || order.status }}
+              </BaseBadge>
+            </div>
+            <p v-if="order?.created_at && String(order.id) === orderId" class="mt-1 text-xs text-ui-secondary">{{ formatDateTime(order.created_at) }}</p>
+          </div>
+          <div v-if="order && String(order.id) === orderId && (!isBarber || isPosSale)" class="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:justify-end">
+            <div class="mr-auto sm:text-right">
+              <p class="text-xs text-ui-secondary">Сума замовлення</p>
+              <p class="text-xl font-semibold tabular-nums">{{ formatMoney(order.total_amount) }}</p>
+            </div>
+            <BaseButton v-if="canUpdateStatus" variant="primary" size="lg" aria-haspopup="dialog" :disabled="statusPending" @click="openStatus">
+              <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
+              Змінити статус
+            </BaseButton>
+            <OrderCancellation
+              v-if="!isBarber && auth.user?.is_active"
+              ref="cancellation"
+              :key="`${order.id}:${auth.user.id}:${auth.sessionRevision}`"
+              :order-id="order.id"
+              :revision="order.revision"
+              :archived="archived"
+              :can-open-payment-review="order.channel === 'shop'"
+              @cancelled="onOrderCancelled"
+              @archived-facts="applyArchivedFacts"
+              @reconcile="openPaymentDetails"
+              @focus-fallback="orderHeading?.focus()"
+            />
+            <NuxtLink v-if="isPosSale" to="/orders/pos" class="base-button base-button--neutral min-h-11 gap-2 px-4 text-sm">
+              <PlusIcon class="h-5 w-5" aria-hidden="true" />Продати ще товар
+            </NuxtLink>
+          </div>
+        </div>
+      </BaseCard>
     </header>
     <p v-if="error" role="alert" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{{ apiErrorMessage(error, 'Не вдалося завантажити замовлення.') }}</p>
     <div v-if="pending && (!order || String(order.id) !== orderId)" class="space-y-3"><div v-for="index in 3" :key="index" class="h-24 animate-pulse rounded-2xl bg-ui-subtle" /></div>
     <div v-else-if="order && String(order.id) === orderId" :key="orderId" class="space-y-4">
-      <section v-if="!isBarber || isPosSale" aria-label="Стан замовлення" class="rounded-2xl border border-ui bg-ui-surface p-3 sm:p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-2"><span class="rounded-full px-3 py-1 text-sm font-semibold" :class="statusBadgeClass(order.status)">{{ statusLabels[order.status] || order.status }}</span><span v-if="order.simulation" class="text-sm font-medium text-amber-700">Тестовий продаж · без реальних платежів</span></div>
-          <div class="text-right"><p class="text-xs text-ui-secondary">Сума замовлення</p><p class="text-2xl font-semibold">{{ formatMoney(order.total_amount) }}</p></div>
-        </div>
-        <div v-if="!isBarber" class="mt-3 border-t border-ui pt-3"><OrderProjections :order="order" compact /></div>
-      </section>
-      <p v-if="statusError" role="alert" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{{ statusError }}</p>
+      <BaseCard v-if="!isBarber" as="section" padding="sm" aria-label="Стан замовлення">
+        <OrderProjections :order="order" compact />
+      </BaseCard>
+      <BaseBadge v-if="order.simulation && (!isBarber || isPosSale)" tone="warning">Тестовий продаж · без реальних платежів</BaseBadge>
+      <BaseModal
+        v-if="!isBarber"
+        v-model="statusOpen"
+        compact
+        max-width-class="max-w-md"
+        aria-label="Змінити статус замовлення"
+        :close-on-backdrop="!statusPending"
+        :close-on-escape="!statusPending"
+      >
+        <template #head>
+          <h2 class="text-lg font-semibold">Змінити статус замовлення</h2>
+        </template>
+        <template #body>
+          <form class="space-y-4" @submit.prevent="updateStatus">
+            <BaseSelect v-model="statusDraft" inline-menu label="Новий статус" aria-label="Новий статус"
+              :options="statusOptions" :disabled="statusPending || statusLocked" />
+            <p v-if="statusLocked" class="text-sm text-ui-secondary">Замовлення закрите.</p>
+            <p v-if="statusError" class="ui-status-danger rounded-xl p-3 text-sm" role="alert">{{ statusError }}</p>
+            <div class="flex flex-wrap justify-end gap-2">
+              <BaseButton variant="neutral" :disabled="statusPending" @click="statusOpen = false">Закрити</BaseButton>
+              <BaseButton type="submit" variant="primary" :loading="statusPending" :disabled="!canSubmitStatus">
+                {{ statusDraft === 'cancelled' ? 'Продовжити' : 'Оновити статус' }}
+              </BaseButton>
+            </div>
+          </form>
+        </template>
+      </BaseModal>
       <p v-if="fulfillmentError" class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800" role="status">Не вдалося оновити окремий статус виконання: {{ apiErrorMessage(fulfillmentError, 'показано дані замовлення.') }}</p>
       <div v-if="!isBarber || isPosSale" class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <section class="min-w-0 rounded-2xl border border-ui bg-ui-surface p-4 sm:p-5">
+        <BaseCard as="section" class="min-w-0">
           <h2 class="flex items-center gap-2 text-lg font-semibold"><ShoppingBagIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Позиції <span class="text-sm text-ui-secondary" aria-hidden="true">{{ orderItems.length }}</span></h2>
           <p v-if="hasOutstandingProcurement" role="status" class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Частина товарів очікує надходження.</p>
-          <div class="mt-3 divide-y divide-ui">
-            <article v-for="item in orderItems" :key="item.id" class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
-              <div class="flex min-w-0 items-center gap-2.5">
-                <img v-if="productImages[item.product_id] && !failedProductImages.includes(item.product_id)" :src="assetUrl(productImages[item.product_id])" alt="" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedProductImages.push(item.product_id)">
-                <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-ui-subtle text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-6 w-6" /></span>
-                <div class="min-w-0"><h3 class="break-words text-sm font-medium">{{ item.product_name || `Товар #${item.product_id}` }}</h3><p class="mt-1 text-xs text-ui-secondary">{{ item.quantity }} шт. × {{ snapshotMoney(item.price) }}</p></div></div>
-              <p class="text-sm font-semibold">{{ snapshotMoney(item.total_price) }}</p>
+          <div class="mt-1 divide-y divide-ui sm:mt-2">
+            <article v-for="{ item, photo } in visibleOrderItems" :key="item.id" class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-0.5 py-1.5 sm:gap-x-3 sm:py-2">
+              <span class="col-start-1 row-span-2 row-start-1 grid h-11 w-11 place-items-center overflow-hidden self-center rounded-lg border border-ui bg-ui-subtle text-ui-secondary sm:h-12 sm:w-12" aria-hidden="true">
+                <img v-if="photo" :src="photo" alt="" width="48" height="48" loading="lazy" class="h-full w-full object-contain" @error="markPhotoFailed(item.id, photo)">
+                <PhotoIcon v-else class="h-5 w-5" />
+              </span>
+              <h3 class="col-span-2 col-start-2 row-start-1 min-w-0 self-end text-sm font-medium leading-snug [overflow-wrap:anywhere] sm:col-span-1">{{ item.product_name || `Товар #${item.product_id}` }}</h3>
+              <p class="col-start-2 row-start-2 text-xs text-ui-secondary">{{ item.quantity }} шт. × {{ snapshotMoney(item.price) }}</p>
+              <p class="col-start-3 row-start-2 whitespace-nowrap text-right text-sm font-semibold tabular-nums sm:row-span-2 sm:row-start-1 sm:self-center">{{ snapshotMoney(item.total_price) }}</p>
             </article>
           </div>
           <p v-if="!orderItems.length" class="py-3 text-sm text-ui-secondary">Товари відсутні.</p>
-          <div v-if="Number(order.discount_amount) > 0 || order.promo_code" class="mt-2 flex flex-wrap justify-between gap-2 border-t border-ui pt-3 text-sm text-ui-secondary"><span>Знижка: {{ snapshotMoney(order.discount_amount) }}</span><span v-if="order.promo_code">Промокод: {{ order.promo_code }}</span></div>
+          <div v-if="Number(order.discount_amount) > 0 || order.promo_code" class="mt-2 flex flex-wrap justify-between gap-2 border-t border-ui pt-3 text-sm text-ui-secondary"><span>До знижки: {{ snapshotMoney(order.subtotal_amount) }}</span><span>Знижка: {{ snapshotMoney(order.discount_amount) }}</span><span v-if="order.promo_code">Промокод: {{ order.promo_code }}</span></div>
           <details v-if="!isBarber" class="mt-3 border-t border-ui pt-2"><summary class="cursor-pointer py-2 text-sm font-medium"><ClipboardDocumentListIcon class="mr-1 inline h-4 w-4" aria-hidden="true" />Склад, ціни та знижки</summary>
           <BaseTable
             caption="Позиції замовлення"
@@ -367,10 +536,16 @@ const updateStatus = async () => {
                   <th>Сума snapshot</th>
                 </tr>
             </template>
-                <tr v-for="item in orderItems" :key="item.id">
+                <tr v-for="{ item, photo } in visibleOrderItems" :key="item.id">
                   <td>
-                    <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
-                    <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
+                    <div class="flex items-center gap-2">
+                      <img v-if="photo" :src="photo" alt="" width="32" height="32" loading="lazy" class="h-8 w-8 shrink-0 rounded-md bg-ui-subtle object-contain" @error="markPhotoFailed(item.id, photo)">
+                      <span v-else class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-ui-subtle text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-4 w-4" /></span>
+                      <div>
+                        <p class="font-medium text-ui-primary">{{ item.product_name || `Товар #${item.product_id}` }}</p>
+                        <p class="mt-1 text-xs text-ui-muted">Product ID: {{ item.product_id }}</p>
+                      </div>
+                    </div>
                   </td>
                   <td class="text-ui-secondary">{{ item.product_sku || '—' }}</td>
                   <td class="text-ui-secondary">{{ item.quantity }}</td>
@@ -390,67 +565,51 @@ const updateStatus = async () => {
                 </tr>
           </BaseTable>
           </details>
-        </section>
-        <aside v-if="!isBarber" class="min-w-0 space-y-4">
-          <section class="rounded-2xl border border-ui bg-ui-surface p-4"><h2 class="flex items-center gap-2 font-semibold"><UserIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Клієнт</h2><p class="mt-3 break-words font-medium">{{ fullCustomerName === '—' ? 'Без контакту' : fullCustomerName }}</p><p v-if="order.customer_phone" class="mt-1 text-sm">{{ order.customer_phone }}</p><dl class="mt-3 text-sm" data-testid="order-callback-preference"><dt class="text-ui-secondary">Уточнення телефоном</dt><dd class="mt-1 font-medium">{{ order.callback_requested === true ? 'Просить передзвонити для уточнення деталей' : order.callback_requested === false ? 'Дзвінок не запитано' : 'Не вказано (історичний вибір невідомий)' }}</dd></dl><p v-if="order.comment" class="mt-3 whitespace-pre-line break-words rounded-xl bg-ui-subtle p-3 text-sm">{{ order.comment }}</p><details v-if="order.customer_email" class="mt-2"><summary class="cursor-pointer py-2 text-sm text-ui-secondary">Email клієнта</summary><p v-if="order.customer_email" class="mt-2 break-all text-sm">{{ order.customer_email }}</p></details></section>
-          <section class="rounded-2xl border border-ui bg-ui-surface p-4"><h2 class="flex items-center gap-2 font-semibold"><TruckIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Доставка</h2><p v-if="order.fulfillment_method === 'pickup'" class="mt-3 text-sm">Отримання у салоні</p><dl v-if="visibleShippingRows.length" class="mt-3 space-y-2 text-sm"><div v-for="row in visibleShippingRows" :key="row.label" class="grid grid-cols-[6rem_minmax(0,1fr)] gap-2"><dt class="text-ui-secondary">{{ row.label }}</dt><dd class="break-words">{{ row.value }}</dd></div></dl><p v-else-if="order.fulfillment_method !== 'pickup'" class="mt-3 text-sm text-ui-secondary">Дані доставки не вказані.</p></section>
+        </BaseCard>
+        <aside v-if="!isBarber" class="min-w-0 space-y-3">
+          <BaseCard as="section" padding="sm">
+            <h2 class="flex items-center gap-2 font-semibold"><UserIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Клієнт</h2>
+            <p class="mt-2 break-words font-medium">{{ fullCustomerName === '—' ? 'Без контакту' : fullCustomerName }}</p>
+            <a v-if="order.customer_phone" :href="`tel:${order.customer_phone}`" class="mt-1 inline-block text-sm text-ui-secondary underline underline-offset-2">{{ order.customer_phone }}</a>
+            <dl class="mt-2 text-sm" data-testid="order-callback-preference">
+              <dt class="sr-only">Уточнення телефоном</dt>
+              <dd class="text-ui-secondary">{{ order.callback_requested === true ? 'Просить передзвонити для уточнення деталей' : order.callback_requested === false ? 'Дзвінок не запитано' : 'Не вказано (історичний вибір невідомий)' }}</dd>
+            </dl>
+            <p v-if="order.comment" class="mt-3 whitespace-pre-line break-words rounded-xl bg-ui-subtle p-3 text-sm">{{ order.comment }}</p>
+            <details v-if="order.customer_email" class="mt-2">
+              <summary class="cursor-pointer py-1 text-sm text-ui-secondary">Email клієнта</summary>
+              <p class="mt-1 break-all text-sm">{{ order.customer_email }}</p>
+            </details>
+          </BaseCard>
+          <BaseCard as="section" padding="sm">
+            <h2 class="flex items-center gap-2 font-semibold"><TruckIcon class="h-5 w-5 text-ui-secondary" aria-hidden="true" />Доставка</h2>
+            <p v-if="order.fulfillment_method === 'pickup'" class="mt-2 text-sm">Отримання у салоні</p>
+            <dl v-if="visibleShippingRows.length" class="mt-2 space-y-1 text-sm">
+              <div v-for="row in visibleShippingRows" :key="row.label" class="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+                <dt class="text-ui-secondary">{{ row.label }}</dt><dd class="break-words">{{ row.value }}</dd>
+              </div>
+            </dl>
+            <p v-else-if="order.fulfillment_method !== 'pickup'" class="mt-2 text-sm text-ui-secondary">Дані доставки не вказані.</p>
+          </BaseCard>
         </aside>
       </div>
-      <details v-if="!isBarber" class="order-disclosure"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" />Змінити статус замовлення</summary><div class="mt-3">
-      <section class="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center">
-        <div class="flex flex-wrap items-center gap-3">
-          <span
-            class="rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.15em]"
-            :class="statusBadgeClass(order.status)"
-          >
-            {{ statusLabels[order.status] || order.status }}
-          </span>
-          <span class="text-sm text-slate-500">
-            Разом: <strong class="font-semibold text-slate-900">{{ formatMoney(order.total_amount) }}</strong>
-          </span>
-          <span class="text-sm text-slate-500">
-            Підсумок: <strong class="font-semibold text-slate-900">{{ snapshotMoney(order.subtotal_amount) }}</strong>
-          </span>
-          <span class="text-sm text-slate-500">
-            Знижка: <strong class="font-semibold text-slate-900">{{ snapshotMoney(order.discount_amount) }}</strong>
-          </span>
-          <span v-if="order.promo_code" class="text-sm text-slate-500">
-            Промокод: <strong class="font-semibold text-slate-900">{{ order.promo_code }}</strong>
-          </span>
-        </div>
-        <form v-if="!statusLocked" class="grid gap-3 sm:grid-cols-[minmax(12rem,16rem)_auto]" @submit.prevent="updateStatus">
-          <BaseSelect
-            native
-            aria-label="Новий статус замовлення"
-            v-model="statusDraft"
-            class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm"
-            :disabled="statusPending || statusLocked"
-          >
-            <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </BaseSelect>
-          <BaseButton
-            type="submit"
-            :loading="statusPending"
-            :disabled="statusLocked || statusDraft === order.status || !statusOptions.some(option => option.value === statusDraft)"
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
-          >
-            <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
-            Оновити статус
-          </BaseButton>
-        </form>
-        <p v-else class="text-sm text-slate-500">Замовлення закрите. Подальші операції потребують окремого дозволеного сценарію.</p>
-      </section>
-
-
-      </div></details>
-      <div class="space-y-4">
-      <section v-if="usesShopFiscal && !fiscalProfileReady" class="rounded-xl border border-amber-300 p-4" aria-label="Перевірка фіскального профілю"><p role="status">{{ fiscalProfileError || 'Перевіряємо серверний фіскальний профіль. Нові фіскальні дії тимчасово заблоковано; збережений запит не змінено.' }}</p><BaseButton :disabled="fiscalProfileLoading" @click="loadFiscalProfile">Оновити фіскальний профіль</BaseButton></section>
-      <p v-if="order.channel === 'shop' && !isBarber" class="text-sm font-medium" aria-label="Спосіб оплати">Спосіб оплати: {{ orderPaymentMethodLabel(order) }}</p>
-      <OrderShopPayments v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
-      <OrderShopPaymentResolution v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
-      <OrderShopOperations v-if="order.channel === 'shop' && !isBarber" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+      <template v-if="order.channel === 'shop' && !isBarber">
+        <details id="shop-payment-resolution" ref="paymentDetails" class="order-disclosure base-card">
+          <summary><CreditCardIcon class="order-summary-icon" aria-hidden="true" /><span>Оплата та звірка</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
+          <div class="mt-3 space-y-3">
+            <p class="text-sm text-ui-secondary" aria-label="Спосіб оплати">{{ orderPaymentMethodLabel(order) }}</p>
+            <OrderShopPayments :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <OrderShopPaymentResolution :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          </div>
+        </details>
+        <details class="order-disclosure base-card">
+          <summary><ClipboardDocumentListIcon class="order-summary-icon" aria-hidden="true" /><span>Виконання</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
+          <div class="mt-3">
+            <OrderShopOperations :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" @fiscal-report="externalFiscalReport = $event" />
+          </div>
+        </details>
+      </template>
+      <div v-if="order.channel !== 'shop' && (isPosSale || !orderUsesNovaPoshta(order))" class="space-y-4">
       <section v-if="isBarber && order.channel === 'backoffice_pos' && order.simulation" aria-label="Історичний тестовий продаж" class="rounded-2xl border border-amber-200 p-4"><p role="status">Це історичний тестовий запис. Оплата та видача недоступні. Для продажу створіть нове замовлення.</p></section>
       <OrderMasterMono v-if="isBarber && order.channel === 'backoffice_pos' && !order.simulation" :order="order" :refresh-token="fiscalRefresh" :blocked="paymentCommand.busy.value || handoverCommand.busy.value || !!paymentCommand.intent.value || !!handoverCommand.intent.value || legacyQrOwnsSale" @selected="masterMonoSelected = $event" @ready="masterMonoReady = $event" @busy="masterMonoBusy = $event" @handover-allowed="masterMonoHandoverAllowed = $event" @changed="reloadSales" />
       <OrderQrMock v-if="order.channel === 'backoffice_pos' && order.simulation && !isBarber" :order="order" :refresh-token="fiscalRefresh" @owner="legacyQrOwnsSale = $event" @changed="reloadSales" />
@@ -480,28 +639,60 @@ const updateStatus = async () => {
 
       </div>
       <template v-if="!isBarber">
-        <details class="order-disclosure" :open="orderUsesNovaPoshta(order)"><summary><TruckIcon class="order-summary-icon" aria-hidden="true" />Відправлення та ТТН</summary><div class="mt-3 space-y-4"><OrderShopNPReturns v-if="usesCheckbox && order.fulfillment_method === 'nova_poshta'" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopCarrierReturns :inert="!fiscalProfileReady || undefined" v-if="usesShopFiscal && shopFiscalProfile !== null && !usesCheckbox && order.fulfillment_method === 'nova_poshta'" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShipments v-if="legacyShipmentOrder" :order="legacyShipmentOrder" @changed="reloadSales" /></div></details>
-        <details class="order-disclosure"><summary><DocumentTextIcon class="order-summary-icon" aria-hidden="true" />Документи та чеки</summary><div class="mt-3 space-y-4">
-      <section v-if="!isBarber" class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="text-xl font-semibold text-slate-900">Попередні документи SC</h2>
-        <p class="my-4">Попереднє замовлення. Не є фіскальним чеком</p>
+        <BaseCard v-if="usesShopFiscal && !fiscalProfileReady" as="section" padding="sm" aria-label="Перевірка фіскального профілю" class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm text-ui-secondary" role="status">{{ fiscalProfileError ? 'Фіскальні дії недоступні. Оновіть профіль.' : 'Перевіряємо фіскальний профіль…' }}</p>
+          <BaseButton variant="neutral" size="sm" :loading="fiscalProfileLoading" @click="loadFiscalProfile">Оновити фіскальний профіль</BaseButton>
+        </BaseCard>
+        <details class="order-disclosure base-card" :open="orderUsesNovaPoshta(order)"><summary><TruckIcon class="order-summary-icon" aria-hidden="true" /><span>Відправлення та ТТН</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4"><OrderShopNPDirectReturn v-if="order.channel === 'shop' && (order.payment_channel === 'online_monobank' || order.payment_method === 'onlineCard') && order.fulfillment_method === 'nova_poshta'" :key="order.id" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopNPReturns v-if="(usesCheckbox || usesUnpaidReturnFlow) && order.fulfillment_method === 'nova_poshta'" :profile-ready="usesUnpaidReturnFlow || fiscalProfileReady" :inert="!usesUnpaidReturnFlow && !fiscalProfileReady || undefined" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopCarrierReturns :inert="!fiscalProfileReady || undefined" v-if="usesShopFiscal && shopFiscalProfile !== null && !usesCheckbox && !usesExternalReceipt && order.fulfillment_method === 'nova_poshta'" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShipments v-if="legacyShipmentOrder" :order="legacyShipmentOrder" @changed="reloadSales" /></div></details>
+        <details class="order-disclosure base-card"><summary><DocumentTextIcon class="order-summary-icon" aria-hidden="true" /><span>Документи та чеки</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4">
+      <BaseCard as="section" padding="sm">
+        <h2 class="font-semibold">Попередні документи SC</h2>
+        <p class="mb-3 mt-1 text-sm text-ui-secondary">Нефіскальні документи</p>
         <div class="flex flex-wrap gap-3">
-          <BaseButton :disabled="documentPending || !order.revision" @click="createDocument">{{ preliminaryCommand.intent.value ? 'Повторити запит документа' : 'Створити нову версію документа' }}</BaseButton>
+          <BaseButton variant="primary" :disabled="documentPending || !order.revision" @click="createDocument">{{ preliminaryCommand.intent.value ? 'Повторити запит документа' : 'Створити нову версію документа' }}</BaseButton>
           <BaseButton v-for="document in order.preliminary_documents || []" :key="document.id" variant="neutral" :disabled="documentPending" @click="openDocument(document)">{{ document.number }} · v{{ document.version }} · Перегляд / друк</BaseButton>
         </div>
         <p v-if="!order.preliminary_documents?.length" class="mt-3 text-sm text-slate-500">Документи відсутні.</p>
         <p v-if="documentError" class="mt-3 text-sm text-rose-600" role="alert">{{ documentError }}</p>
-      </section>
+      </BaseCard>
 
-
-          <OrderShopCheckboxFiscal v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
-          <OrderShopFiscal :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          <OrderShopExternalReceipt v-if="usesExternalReceipt && fiscalProfileReady" :key="order.id" :order-id="order.id" :revision="order.revision" :refund-active="directRefundActive" @changed="reloadSales" />
+          <OrderShopCheckboxFiscal v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          <OrderShopFiscal :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
           <OrderFiscalMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" :sale-automation-owned="ettnOwner === 'checkbox_ettn' || qrOwnsSale" @changed="reloadSales" />
         </div></details>
-        <details class="order-disclosure"><summary><ArrowUturnLeftIcon class="order-summary-icon" aria-hidden="true" />Повернення</summary><div class="mt-3"><OrderShopCheckboxReturns v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopReturns :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderReturnsMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
-        <details class="order-disclosure"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" />Автоматизація ЕТТН</summary><div class="mt-3"><OrderEttnMock :order="order" :refresh-token="fiscalRefresh" @owner="ettnOwner = $event" @changed="reloadSales" /></div></details>
-        <details class="order-disclosure"><summary><ChartBarIcon class="order-summary-icon" aria-hidden="true" />Звіти каси</summary><div class="mt-3"><ShopCheckboxReports v-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :refresh-token="fiscalRefresh" @changed="reloadSales" /><ShopFiscalReports :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null" :refresh-token="fiscalRefresh" @changed="reloadSales" /><FiscalReportsMock v-else-if="!usesShopFiscal" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
-        <details class="order-disclosure"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" />Технічні дані та синхронізація</summary><div class="mt-3 space-y-4 text-sm">
+        <details id="shop-direct-refund" class="order-disclosure base-card"><summary><ArrowUturnLeftIcon class="order-summary-icon" aria-hidden="true" /><span>Повернення</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><OrderShopDirectRefund v-if="usesExternalReceipt" :inert="!fiscalProfileReady || undefined" :key="order.id" :order-id="order.id" :revision="order.revision" @changed="reloadSales" @active="directRefundActive = $event" /><OrderShopCheckboxReturns v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderShopReturns :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /><OrderReturnsMock v-else-if="!usesShopFiscal" :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" /></div></details>
+        <details class="order-disclosure base-card"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" /><span>Автоматизація ЕТТН</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3"><OrderEttnMock :order="order" :refresh-token="fiscalRefresh" @owner="ettnOwner = $event" @changed="reloadSales" /></div></details>
+        <details class="order-disclosure base-card">
+          <summary><ChartBarIcon class="order-summary-icon" aria-hidden="true" /><span>{{ usesExternalReceipt ? 'Фіскальний звіт замовлення' : 'Звіти каси' }}</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
+          <div class="mt-3">
+            <section v-if="usesExternalReceipt" class="base-card rounded-2xl space-y-3 p-4" aria-label="Фіскальний звіт mono → Checkbox">
+              <p v-if="!externalFiscalReport">Підтверджених зовнішніх чеків для звіту ще немає.</p>
+              <template v-else>
+                <p>mono → Checkbox · {{ externalFiscalReport.authority === 'test' ? 'Тестові дані' : 'Дані провайдера' }}</p>
+                <dl class="space-y-2">
+                  <div v-for="entry in externalFiscalReport.entries" :key="entry.receipt_id" class="flex flex-wrap items-start justify-between gap-2">
+                    <dt class="min-w-0">
+                      <span>{{ entry.kind === 'sale' ? 'Продаж' : 'Повернення' }}</span>
+                      <span class="block break-all text-sm text-slate-500">{{ entry.receipt_id }}</span>
+                      <span v-if="entry.original_receipt_id" class="block break-all text-sm text-slate-500">Чек продажу · {{ entry.original_receipt_id }}</span>
+                    </dt>
+                    <dd class="font-semibold">{{ formatMoney(entry.amount_minor / 100) }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-2 border-t border-slate-300 pt-2" data-testid="external-fiscal-net">
+                    <dt>Залишок після повернень</dt><dd class="font-semibold">{{ formatMoney(externalFiscalReport.net_minor / 100) }}</dd>
+                  </div>
+                </dl>
+              </template>
+            </section>
+            <OrderShopExternalFiscalReconciliation v-if="usesExternalReceipt && fiscalProfileReady" :key="order.id"
+              :order-id="order.id" :revision="order.revision" :refresh-token="fiscalRefresh" />
+            <ShopCheckboxReports v-else-if="usesCheckbox" :profile-ready="fiscalProfileReady" :inert="!fiscalProfileReady || undefined" :aria-busy="!fiscalProfileReady" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <ShopFiscalReports :inert="!fiscalProfileReady || undefined" v-else-if="usesShopFiscal && shopFiscalProfile !== null && !usesExternalReceipt" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+            <FiscalReportsMock v-else-if="!usesShopFiscal" :refresh-token="fiscalRefresh" @changed="reloadSales" />
+          </div>
+        </details>
+        <details class="order-disclosure base-card"><summary><Cog6ToothIcon class="order-summary-icon" aria-hidden="true" /><span>Технічні дані та синхронізація</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary><div class="mt-3 space-y-4 text-sm">
           <dl class="grid gap-3 sm:grid-cols-2"><div v-for="row in [...syncRows, ...technicalShippingRows]" :key="row.label"><dt class="text-ui-secondary">{{ row.label }}</dt><dd class="mt-1 break-words">{{ displayValue(row.value) }}</dd></div></dl>
           <details v-if="shippingPayloadEntries.length"><summary class="cursor-pointer py-2">Shipping payload</summary><div class="mt-2 grid gap-3 md:grid-cols-2"><article v-for="[key, value] in shippingPayloadEntries" :key="key" class="min-w-0 rounded-xl bg-ui-subtle p-3"><p class="break-all text-xs text-ui-secondary">{{ key }}</p><pre class="mt-2 whitespace-pre-wrap break-all text-xs">{{ typeof value === 'string' ? value : JSON.stringify(value, null, 2) }}</pre></article></div></details>
         </div></details>
@@ -511,8 +702,41 @@ const updateStatus = async () => {
 </template>
 
 <style scoped>
-.order-disclosure { border: 1px solid var(--bo-border); border-radius: 1rem; padding: .25rem 1rem; }
-.order-disclosure > summary { min-height: 3rem; cursor: pointer; padding: .75rem 0; font-size: .875rem; font-weight: 600; }
-.order-summary-icon { display: inline; width: 1.25rem; height: 1.25rem; margin-right: .5rem; vertical-align: text-bottom; }
+.order-heading {
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.order-disclosure {
+  border-radius: 1rem;
+  padding-inline: 1rem;
+  box-shadow: none;
+}
+
+.order-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  min-height: 3rem;
+  padding-block: .625rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.order-disclosure > summary::-webkit-details-marker { display: none; }
+.order-disclosure > summary:focus-visible { outline: 2px solid var(--bo-accent); outline-offset: 2px; border-radius: .5rem; }
 .order-disclosure[open] { padding-bottom: 1rem; }
+.order-disclosure[open] > summary { border-bottom: 1px solid var(--bo-border); }
+.order-summary-icon, .order-chevron { width: 1.125rem; height: 1.125rem; flex: none; }
+.order-chevron { margin-inline-start: auto; }
+.order-disclosure[open] > summary .order-chevron { transform: rotate(180deg); }
+
+@supports not (backdrop-filter: blur(1px)) {
+  .order-heading { background: var(--bo-surface); }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .order-heading { background: var(--bo-surface); backdrop-filter: none; }
+}
 </style>
