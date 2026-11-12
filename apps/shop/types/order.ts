@@ -137,6 +137,7 @@ export interface OnlinePayment {
     refresh: boolean
     retry: boolean
     change_method: boolean
+    cancel?: boolean
     contact_support: boolean
   }
   revision?: number

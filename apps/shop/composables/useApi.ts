@@ -54,7 +54,7 @@ export const useApi = () => {
       const visitorId = getVisitorId()
 
       if (visitorId) headers.set('X-Visitor-ID', visitorId)
-      const guestPayment = /^\/public\/orders\/[1-9]\d*\/online-payment(?:\/change-method)?$/.test(path)
+      const guestPayment = /^\/public\/orders\/[1-9]\d*\/online-payment(?:\/(?:change-method|cancellation))?$/.test(path)
         && headers.has('X-Order-Payment-Token')
       if (customerAuth.accessToken && !guestPayment) {
         headers.set('Authorization', `${customerAuth.tokenType || 'Bearer'} ${customerAuth.accessToken}`)
