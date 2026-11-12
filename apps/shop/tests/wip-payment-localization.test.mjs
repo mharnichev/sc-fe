@@ -25,10 +25,10 @@ test('WIP payment status and errors react UK → EN → UK without mutating prov
   })
   const file = await readFile(new URL('../components/OrderPayment.vue', import.meta.url), 'utf8')
   const source = file.split('<script setup lang="ts">')[1].split('</script>')[0]
-  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, continuePayment, apiFailure, paymentProblem, widgetUnavailable, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect, widgetUrl, widgetOpen, widgetFits, widgetFrameKey, preparing, updateWidgetOpen, widgetFallback, widgetClosed, paymentRoot };')
+  const component = await sourceModule(source + '\nexport { labels, paymentError, paymentText, pageUrl, receiptUrl, settled, paid, amount, title, illustrationTone, hint, orderPath, accessDenied, beginPayment, continuePayment, apiFailure, paymentProblem, widgetUnavailable, canChange, methodChanged, changeOpen, availableMethods, selectedMethod, openChange, confirmChange, recordRedirect, widgetUrl, widgetOpen, widgetFits, widgetFrameKey, preparing, updateWidgetOpen, widgetFallback, widgetClosed, paymentRoot, cancelled, canCancel, cancelOpen, cancelling, cancellationNotice, sameVersion, openCancellation, confirmCancellation, restoreCancellationFocus };')
   const render = vue.compile(parse(file).descriptor.template.content)
   const html = () => {
-    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, resumeGuest: false, primaryHeading: false, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
+    const app = vue.createSSRApp({ setup: () => ({ ...component, orderId: 12, resumeGuest: false, primaryHeading: false, allowCancellation: false, payment, busy: false, error, errorKind, create() {}, refresh() {} }), render })
     app.component('BaseButton', { props: ['href'], setup: (props, { slots }) => () => vue.h(props.href ? 'a' : 'button', props.href ? { href: props.href } : {}, slots.default?.()) })
     app.component('PaymentStatusIllustration', { props: ['tone'], setup: props => () => vue.h('span', { 'data-payment-tone': props.tone }) })
     app.component('BaseRadio', { props: ['label'], setup: props => () => vue.h('label', props.label) })

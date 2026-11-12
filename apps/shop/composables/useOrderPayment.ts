@@ -1,6 +1,8 @@
 import type { OnlinePayment, OnlinePaymentCapabilities } from '~/types/order'
 import { commerceBreadcrumb, reportCommerceError, safeCommerceData } from '~/utils/commerceTelemetry'
 
+type CancellationVersion = { expected_revision: number, expected_attempt_id: number | null }
+
 export const safePaymentUrl = (value: string | null | undefined, receipt = false): string | null => {
   if (!value) return null
   try {
@@ -65,8 +67,20 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     presentationFailure.value = stage
     reportDiagnostic(stage === 'iframe' ? 'payment.iframe_failed' : 'payment.redirect_failed', code)
   }
-  const request = async (create = false, paymentMethod?: string, presentation: 'iframe' | 'redirect' = 'redirect') => {
+  const cancellationVersion = computed<CancellationVersion | null>(() => {
+    const snapshot = payment.value
+    if (snapshot?.order_id !== orderId() || snapshot.actions?.cancel !== true || snapshot.paid || snapshot.order?.status === 'cancelled'
+      || ['accepted', 'paid_receipt_pending'].includes(snapshot.status) || error.value || errorKind.value === 'access') return null
+    const { revision, attempt_id: attemptId } = snapshot
+    if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1
+      || (attemptId !== null && (typeof attemptId !== 'number' || !Number.isSafeInteger(attemptId) || attemptId < 1))) return null
+    return { expected_revision: revision, expected_attempt_id: attemptId }
+  })
+  const request = async (create = false, paymentMethod?: string, presentation: 'iframe' | 'redirect' = 'redirect', cancellation?: CancellationVersion) => {
     const change = paymentMethod !== undefined
+    const write = create || change || Boolean(cancellation)
+    if (cancellation && (cancellationVersion.value?.expected_revision !== cancellation.expected_revision
+      || cancellationVersion.value.expected_attempt_id !== cancellation.expected_attempt_id)) return
     if (create && (!payment.value?.enabled || payment.value.status !== 'not_started' || payment.value.paid || error.value || errorKind.value === 'access' || payment.value.actions?.start === false)) return
     if (change && (!payment.value?.actions?.change_method || payment.value.status !== 'not_started'
       || payment.value.paid || error.value || errorKind.value === 'access'
@@ -85,14 +99,16 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     if (errorKind.value !== 'access') errorKind.value = ''
     let missingCapability = false
     const telemetryData = () => ({ flow: 'payment' as const, order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status })
-    if (telemetryActive && isCurrent() && (create || change)) commerceBreadcrumb(change ? 'payment.change_method' : 'payment.start', telemetryData())
+    if (telemetryActive && isCurrent() && write) commerceBreadcrumb(cancellation ? 'payment.cancel' : change ? 'payment.change_method' : 'payment.start', telemetryData())
     try {
       const headers: Record<string, string> = {}
       if (!auth.isAuthenticated && !token) { missingCapability = true; errorKind.value = 'access'; throw new Error('missing capability') }
       if (token) headers['X-Order-Payment-Token'] = token
       let createBody: { presentation?: 'iframe' } = {}
-      if (create || change) {
-        const key = change
+      if (write) {
+        const key = cancellation
+          ? `shop-order-payment-cancel:${orderId()}:${cancellation.expected_revision}:${cancellation.expected_attempt_id ?? 'none'}`
+          : change
           ? `shop-order-payment-change:${orderId()}:${payment.value!.revision}:${payment.value!.attempt_id ?? 'none'}:${paymentMethod}`
           : `shop-order-payment-intent:${orderId()}`
         if (create) {
@@ -117,10 +133,12 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
         memoryIntents.set(key, headers['Idempotency-Key'])
         writeStorage(key, headers['Idempotency-Key'])
       }
-      const body = change ? { payment_method: paymentMethod, expected_revision: payment.value!.revision, expected_attempt_id: payment.value!.attempt_id } : createBody
-      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment${change ? '/change-method' : ''}`, { method: create || change ? 'POST' : 'GET', ...(create || change ? { body } : {}), headers, retry: 0, timeout: 15000 })
+      const body = cancellation ?? (change ? { payment_method: paymentMethod, expected_revision: payment.value!.revision, expected_attempt_id: payment.value!.attempt_id } : createBody)
+      const suffix = cancellation ? '/cancellation' : change ? '/change-method' : ''
+      const result = await api<OnlinePayment>(`/public/orders/${orderId()}/online-payment${suffix}`, { method: write ? 'POST' : 'GET', ...(write ? { body } : {}), headers, retry: 0, timeout: 15000 })
       if (isCurrent()) {
-        if (!create && !change && token && token === guestToken() && result.order_id === orderId()) writeStorage(tokenKey(), token)
+        if (cancellation && result.order_id !== orderId()) throw new Error('Cancellation response order mismatch')
+        if (!write && token && token === guestToken() && result.order_id === orderId()) writeStorage(tokenKey(), token)
         readFailures = 0
         errorKind.value = ''
         const changed = payment.value?.status !== result.status || payment.value?.attempt_id !== result.attempt_id
@@ -134,7 +152,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
           && result.actions?.continue_payment !== false && !result.payment_failure && result.payment_status !== 'failed'
         redirectCurrent = () => presentationCurrent() && Boolean(redirectUrl)
         if (telemetryActive && isCurrent()) {
-          if (changed || create || change) commerceBreadcrumb('payment.status', telemetryData())
+          if (changed || write) commerceBreadcrumb('payment.status', telemetryData())
           if (result.order_id === orderId() && !result.paid && !['accepted', 'paid_receipt_pending'].includes(result.status)
             && (result.payment_failure || result.payment_status === 'failed')) {
             const diagnostic = safeCommerceData({ diagnostic_code: result.payment_failure?.code }).diagnostic_code || 'payment_facts_incomplete'
@@ -156,10 +174,10 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
           : [409, 422].includes(status) ? 'conflict' : 'connection'
         if (errorKind.value === 'access') payment.value = null
         error.value = 'Не вдалося оновити оплату. Спробуйте ще раз.'
-        if (!create && !change) readFailures++
+        if (!write) readFailures++
         if (telemetryActive && isCurrent() && !missingCapability && !(resumeGuest && token && errorKind.value === 'access')
-          && (create || change || readFailures >= 3 || [403, 404].includes(status))) {
-          reportCommerceError(change ? 'payment.change_method_failed' : create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: create || change ? undefined : readFailures })
+          && (write || readFailures >= 3 || [403, 404].includes(status))) {
+          reportCommerceError(cancellation ? 'payment.cancel_failed' : change ? 'payment.change_method_failed' : create ? 'payment.start_failed' : 'payment.read_failed', cause, { ...telemetryData(), failure_count: write ? undefined : readFailures })
         }
       }
     }
@@ -209,6 +227,7 @@ export const useOrderPayment = (orderId: () => number, guestToken: () => string 
     getCapabilities, hasGuestCapability: () => Boolean(capability()),
     payment, busy, error, errorKind, presentationFailure, refresh: () => request(), create: (presentation: 'iframe' | 'redirect' = 'redirect') => request(true, undefined, presentation),
     changeMethod: (method: string) => request(false, method),
+    cancellationVersion, cancelPayment: (version: CancellationVersion) => request(false, undefined, 'redirect', version),
     recordRedirect: () => { if (telemetryActive && redirectCurrent()) commerceBreadcrumb('payment.redirect', { flow: 'payment', order_id: orderId(), attempt_id: payment.value?.attempt_id, payment_status: payment.value?.status }) },
     redirectFailed: () => { if (redirectCurrent()) diagnosePresentation('redirect', 'navigation_failed') },
     iframeFailed: (code: 'iframe_load_failed' | 'iframe_layout_unavailable') => diagnosePresentation('iframe', code),

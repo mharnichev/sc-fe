@@ -7,6 +7,81 @@ const product = { id: 123, name: 'Mock pomade', slug: 'mock-pomade', price: '100
 const city = { ref: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', city_ref: null, name: 'Київ', label: 'Київ, тестова область', area: 'Тестова', region: '', delivery_available: true }
 const branch = { ref: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', settlement_ref: city.ref, city_ref: null, number: '1', label: 'Тестове відділення №1', name: 'Тестове відділення №1', address: 'Тестова, 1', type: 'warehouse', status: 'Working' }
 
+for (const scenario of ['guest', 'guest with an active account', 'cabinet', 'conflict'] as const) {
+  test(`decline payment uses the confirmed server revision (${scenario})`, async ({ page, context }) => {
+    const authenticated = scenario === 'cabinet'
+    const conflict = scenario === 'conflict'
+    let cancellations = 0
+    let orderReads = 0
+    let statusReads = 0
+    let available = false
+    await context.addCookies([{ name: 'shop-locale', value: 'uk', url: 'http://127.0.0.1' }])
+    await page.addInitScript(({ authenticated, guestWithAccount, customer }) => {
+      if (authenticated || guestWithAccount) localStorage.setItem('shop-customer-auth', JSON.stringify({ accessToken: 'mock-only', tokenType: 'Bearer', customer }))
+      if (!authenticated) sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability')
+    }, { authenticated, guestWithAccount: scenario === 'guest with an active account', customer })
+    const order = () => ({ id: 987, number: '987', status: cancellations && !conflict ? 'cancelled' : 'pending',
+      payment_method: 'onlineCard', payment_channel: 'online_monobank', fulfillment_method: 'nova_post',
+      created_at: '2026-11-12T10:00:00Z', total_amount: '200.00', items: [], shipments: [] })
+    const payment = () => ({
+      order_id: 987, enabled: !cancellations || conflict, status: cancellations && conflict ? 'accepted' : 'not_started',
+      reason: cancellations && !conflict ? 'order_closed' : 'ready',
+      paid: Boolean(cancellations && conflict), receipt_accepted: false, page_url: null, receipt_url: null,
+      amount_minor: 20000, currency: 'UAH', revision: cancellations ? 4 : 3, attempt_id: null,
+      actions: { cancel: available && !cancellations, start: !cancellations, refresh: true }, order: order(),
+    })
+    await page.route('**/api/v1/**', async route => {
+      const request = route.request(), path = new URL(request.url()).pathname
+      if (path.endsWith('/987/online-payment/cancellation')) {
+        expect(request.method()).toBe('POST')
+        expect(request.headers()['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/i)
+        expect(request.headers()['x-order-payment-token']).toBe(authenticated ? undefined : 'mock-payment-capability')
+        expect(request.headers().authorization).toBe(authenticated ? 'Bearer mock-only' : undefined)
+        expect(request.postDataJSON()).toEqual({ expected_revision: 3, expected_attempt_id: null })
+        cancellations++
+        return conflict ? route.fulfill({ status: 409, json: { detail: 'Synthetic conflict' } }) : route.fulfill({ json: payment() })
+      }
+      expect(request.method(), path).toBe('GET')
+      if (path.endsWith('/987/online-payment')) { statusReads++; return route.fulfill({ json: payment() }) }
+      if (path.endsWith('/public/orders/me/987')) { orderReads++; return route.fulfill({ json: order() }) }
+      if (path.endsWith('/customers/me')) return route.fulfill({ json: customer })
+      return route.fulfill({ json: { items: [], total: 0 } })
+    })
+    await page.goto(authenticated ? '/shop/cabinet/orders/987' : '/shop/payment/987')
+    const decline = page.getByRole('button', { name: 'Відмовитися від оплати', exact: true })
+    const refresh = page.getByRole('button', { name: 'Оновити статус оплати', exact: true })
+    await expect(page.getByText('Оплату ще не розпочато')).toBeVisible()
+    await expect(decline).toHaveCount(0)
+    available = true
+    await refresh.click()
+    await decline.click()
+    const dialog = page.getByRole('dialog', { name: 'Відмовитися від оплати' })
+    await expect(dialog).toBeVisible()
+    expect(cancellations).toBe(0)
+    await dialog.getByRole('button', { name: 'Назад', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    expect(cancellations).toBe(0)
+    await decline.click()
+    const confirm = dialog.getByRole('button', { name: 'Підтвердити відмову', exact: true })
+    const readsBeforeConfirm = statusReads
+    await confirm.click()
+    if (conflict) {
+      await expect(dialog.getByRole('alert')).toContainText('Стан замовлення змінився')
+      await expect(confirm).toBeDisabled()
+      await expect.poll(() => statusReads).toBeGreaterThan(readsBeforeConfirm)
+      await dialog.getByRole('button', { name: 'Назад', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Оплату отримано' })).toBeVisible()
+    } else {
+      await expect(dialog).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: 'Замовлення скасовано' })).toBeVisible()
+      if (authenticated) await expect.poll(() => orderReads).toBe(2)
+    }
+    await expect(decline).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Перейти до оплати', exact: true })).toHaveCount(0)
+    expect(cancellations).toBe(1)
+  })
+}
+
 for (const locale of ['uk', 'en'] as const) {
  for (const status of [409, 422]) {
  test(`method conflict ${status} stays localized inside modal and requires refresh (${locale})`, async ({ page, context }) => {

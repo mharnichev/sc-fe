@@ -238,6 +238,37 @@ test('paid/settled semantics remain exact for contradictory legacy responses', a
 const changeable = () => ({ ...waiting(), status: 'not_started', page_url: null, revision: 3, attempt_id: null,
   actions: { start: true, change_method: true, refresh: true }, available_payment_methods: ['cashOnDelivery'] })
 
+test('cancellation requires a matching confirmed snapshot and reuses its key after a lost response', async () => {
+  const env = load()
+  const response = { ...changeable(), actions: { cancel: true } }
+  env.state.response = response
+  env.mount(); await flush()
+  const version = env.payment.cancellationVersion.value
+  const count = env.calls.length
+  for (const patch of [{ revision: 4 }, { attempt_id: 7 }, { attempt_id: undefined }, { actions: { cancel: false } }, { paid: true }, { order_id: 99 }]) {
+    env.payment.payment.value = { ...response, ...patch }
+    await env.payment.cancelPayment(version)
+  }
+  assert.equal(env.calls.length, count)
+  env.payment.payment.value = response
+  env.state.failure = new Error('timeout')
+  await env.payment.cancelPayment(version)
+  const first = env.calls.at(-1)
+  assert.equal(first.path, '/public/orders/42/online-payment/cancellation')
+  assert.equal(first.options.retry, 0)
+  assert.equal(JSON.stringify(first.options.body), JSON.stringify({ expected_revision: 3, expected_attempt_id: null }))
+  await env.payment.cancelPayment(version)
+  assert.equal(env.calls.length, count + 1)
+  env.state.failure = null
+  await env.payment.refresh()
+  assert.equal(env.calls.at(-1).options.method, 'GET')
+  env.state.createResponse = { ...response, revision: 4, order: { status: 'cancelled' }, actions: { cancel: false } }
+  await env.payment.cancelPayment(version)
+  assert.equal(env.calls.at(-1).options.headers['Idempotency-Key'], first.options.headers['Idempotency-Key'])
+  assert.equal(env.payment.cancellationVersion.value, null)
+  env.unmount()
+})
+
 test('method change requires explicit complete authority; legacy/unsafe snapshots cannot write', async () => {
   const env = load(); env.mount(); await flush()
   for (const snapshot of [null, waiting(), { ...changeable(), actions: undefined },

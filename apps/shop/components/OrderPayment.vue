@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const { paymentText } = usePaymentDisplay()
 const { runtimeMessage } = useShopRuntimeDisplay()
-const props = defineProps<{ orderId: number, guestToken?: string, resumeGuest?: boolean, orderPath?: string, autoStart?: boolean, primaryHeading?: boolean }>()
-const emit = defineEmits<{ 'method-changed': [method: string] }>()
-const { payment, busy, error, errorKind, refresh, create, changeMethod, recordRedirect, redirectFailed, getCapabilities, hasGuestCapability, presentationFailure, iframeFailed } = useOrderPayment(() => props.orderId, () => props.guestToken, props.resumeGuest)
+const props = defineProps<{ orderId: number, guestToken?: string, resumeGuest?: boolean, orderPath?: string, autoStart?: boolean, primaryHeading?: boolean, allowCancellation?: boolean }>()
+const emit = defineEmits<{ 'method-changed': [method: string], 'order-status-changed': [] }>()
+const { payment, busy, error, errorKind, refresh, create, changeMethod, cancellationVersion, cancelPayment, recordRedirect, redirectFailed, getCapabilities, hasGuestCapability, presentationFailure, iframeFailed } = useOrderPayment(() => props.orderId, () => props.guestToken, props.resumeGuest)
 const paymentRoot = ref<HTMLElement | null>(null)
 const widgetOpen = ref(false)
 const preparing = ref(false)
@@ -45,9 +45,10 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { active = false; navigationRevision++; closeWidget(); removeNavigationGuard?.(); window.removeEventListener('resize', measureWidgetSpace); window.visualViewport?.removeEventListener('resize', measureWidgetSpace) })
 const paid = computed(() => Boolean(payment.value?.paid || ['accepted', 'paid_receipt_pending'].includes(payment.value?.status || '')))
+const cancelled = computed(() => payment.value?.order_id === props.orderId && payment.value.order?.status === 'cancelled' && !paid.value)
 const apiFailure = computed(() => !paid.value && Boolean(payment.value?.payment_failure || payment.value?.payment_status === 'failed'))
 const widgetUrl = computed(() => !error.value && payment.value?.order_id === props.orderId && payment.value.enabled
-  && !apiFailure.value && presentationFailure?.value !== 'iframe' && !payment.value.paid && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false
+  && !cancelled.value && !apiFailure.value && presentationFailure?.value !== 'iframe' && !payment.value.paid && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false
   && payment.value.presentation_mode === 'iframe' && Number.isSafeInteger(payment.value.attempt_id) && (payment.value.attempt_id || 0) > 0
   ? safePaymentEmbedUrl(payment.value.embed_url) : null)
 const navigatePayment = (url: string | null) => {
@@ -108,7 +109,7 @@ watch(() => [props.orderId, props.orderPath], () => {
 }, { immediate: true })
 const methodChanged = computed(() => ['offline_payment_selected', 'payment_method_changed'].includes(payment.value?.reason || ''))
 const settled = computed(() => Boolean(payment.value?.paid && ['accepted', 'paid_receipt_pending'].includes(payment.value.status) && (payment.value.reason !== 'order_closed' || payment.value.order?.status === 'completed')))
-const pageUrl = computed(() => !error.value && !apiFailure.value && !paid.value && payment.value?.order_id === props.orderId && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.presentation_mode === 'iframe' ? payment.value.redirect_url : payment.value.redirect_url ?? payment.value.page_url) : null)
+const pageUrl = computed(() => !error.value && !cancelled.value && !apiFailure.value && !paid.value && payment.value?.order_id === props.orderId && payment.value.status === 'waiting' && payment.value.actions?.continue_payment !== false ? safePaymentUrl(payment.value.presentation_mode === 'iframe' ? payment.value.redirect_url : payment.value.redirect_url ?? payment.value.page_url) : null)
 const missingPaymentPage = computed(() => payment.value?.enabled && payment.value.status === 'waiting'
   && payment.value.actions?.continue_payment !== false && !paid.value && !pageUrl.value && !widgetUrl.value)
 const paymentProblem = computed(() => apiFailure.value || presentationFailure?.value || missingPaymentPage.value)
@@ -141,11 +142,12 @@ const paymentError = computed(() => error.value === 'Не вдалося оно�
   ? paymentText.value.updateError : runtimeMessage(error.value))
 const accessDenied = computed(() => errorKind?.value === 'access')
 const illustrationTone = computed(() => settled.value ? 'success'
-  : paymentProblem.value || error.value || payment.value?.status === 'requires_review' || (payment.value && !payment.value.enabled && !methodChanged.value) ? 'error' : null)
+  : !cancelled.value && (paymentProblem.value || error.value || payment.value?.status === 'requires_review' || (payment.value && !payment.value.enabled && !methodChanged.value)) ? 'error' : null)
 const title = computed(() => {
   if (accessDenied.value) return paymentText.value.accessTitle
   if (methodChanged.value) return paymentText.value.methodChanged
   if (settled.value) return paymentText.value.paidTitle
+  if (cancelled.value) return paymentText.value.cancelledTitle
   if (payment.value?.reason === 'order_closed') return paymentText.value.closedTitle
   if (payment.value?.reason === 'payment_failed') return paymentText.value.failedTitle
   if (payment.value?.reason === 'invoice_expired') return paymentText.value.expiredTitle
@@ -161,6 +163,7 @@ const hint = computed(() => {
   if (!payment.value && !error.value) return ''
   if (methodChanged.value) return payment.value?.order?.payment_method === 'cash' ? paymentText.value.pickupHint : paymentText.value.methodChangedHint
   if (settled.value) return payment.value?.order?.status === 'completed' ? paymentText.value.completedHint : payment.value?.receipt_accepted ? paymentText.value.paidNext : ''
+  if (cancelled.value) return paymentText.value.cancelledHint
   if (payment.value?.reason === 'order_closed') return paymentText.value.closedHint
   if (payment.value?.reason === 'payment_reversed') return paymentText.value.reversedHint
   if (apiFailure.value) return payment.value?.payment_failure?.reconciliation_required === false ? paymentText.value.unavailableForm : paymentText.value.reviewHint
@@ -207,6 +210,58 @@ const confirmChange = async () => {
   }
 }
 watch(() => [props.orderId, props.guestToken, accessDenied.value], () => { changeOpen.value = false })
+const cancelOpen = ref(false)
+const cancelling = ref(false)
+const cancellationNotice = ref<'changed' | 'unknown' | ''>('')
+const confirmedVersion = ref<NonNullable<typeof cancellationVersion.value> | null>(null)
+const canCancel = computed(() => props.allowCancellation && !cancelled.value && Boolean(cancellationVersion.value))
+const sameVersion = computed(() => canCancel.value && confirmedVersion.value
+  && confirmedVersion.value.expected_revision === cancellationVersion.value?.expected_revision
+  && confirmedVersion.value.expected_attempt_id === cancellationVersion.value?.expected_attempt_id)
+const openCancellation = () => {
+  if (!canCancel.value || busy.value || preparing.value || !cancellationVersion.value) return
+  confirmedVersion.value = { ...cancellationVersion.value }
+  cancellationNotice.value = ''
+  cancelOpen.value = true
+}
+const confirmCancellation = async () => {
+  const version = confirmedVersion.value
+  if (!version || !sameVersion.value || cancelling.value || busy.value) return
+  const context = identity(), navigation = navigationRevision
+  const isCurrent = () => active && context === identity() && navigation === navigationRevision
+  cancelling.value = true
+  try {
+    const result = await cancelPayment(version)
+    if (!isCurrent() || accessDenied.value) return
+    if (result?.order_id === props.orderId) {
+      cancelOpen.value = false
+      if (!cancelled.value) await refresh()
+    } else if (error.value) {
+      cancellationNotice.value = errorKind.value === 'conflict' ? 'changed' : 'unknown'
+      confirmedVersion.value = null
+      const fresh = await refresh()
+      if (isCurrent() && fresh?.order_id === props.orderId && !cancelled.value) emit('order-status-changed')
+    }
+  } finally {
+    if (context === identity()) cancelling.value = false
+  }
+}
+watch(() => [identity(), accessDenied.value], () => {
+  cancelOpen.value = false
+  cancelling.value = false
+  confirmedVersion.value = null
+  cancellationNotice.value = ''
+})
+watch(cancelled, (value) => {
+  if (!value || !active || !props.allowCancellation) return
+  cancelOpen.value = false
+  emit('order-status-changed')
+})
+const restoreCancellationFocus = () => {
+  if (active && cancelled.value && document.activeElement === document.body) {
+    paymentRoot.value?.querySelector<HTMLElement>('.order-payment__title')?.focus({ preventScroll: true })
+  }
+}
 const amount = computed(() => {
   const minor = payment.value?.amount_minor
   if (typeof minor !== 'number' || !Number.isSafeInteger(minor) || minor < 0) return ''
@@ -221,23 +276,25 @@ const amount = computed(() => {
       <strong v-if="amount">{{ amount }}</strong>
     </div>
     <div class="order-payment__heading">
-      <component :is="primaryHeading ? 'h1' : 'h2'" class="order-payment__title" :tabindex="primaryHeading ? -1 : undefined">{{ title }}</component>
+      <component :is="primaryHeading ? 'h1' : 'h2'" class="order-payment__title" :tabindex="primaryHeading || allowCancellation ? -1 : undefined">{{ title }}</component>
       <span v-if="illustrationTone" class="order-payment__illustration"><PaymentStatusIllustration :tone="illustrationTone" /></span>
     </div>
-    <p v-if="payment && !settled && !['creation_unknown', 'creation_failed'].includes(payment.status)" class="order-payment__status" role="status">{{ labels[payment.status] || paymentText.statuses.requires_review }}</p>
-    <p v-if="hint" class="order-payment__hint">{{ hint }}</p>
+    <p v-if="cancelled" class="order-payment__status" role="status">{{ paymentText.cancelledHint }}</p>
+    <p v-else-if="payment && !settled && !['creation_unknown', 'creation_failed'].includes(payment.status)" class="order-payment__status" role="status">{{ labels[payment.status] || paymentText.statuses.requires_review }}</p>
+    <p v-if="hint && !cancelled" class="order-payment__hint">{{ hint }}</p>
     <p v-if="settled && !payment?.receipt_accepted" class="order-payment__hint">{{ paymentText.receiptPending }}</p>
     <div class="order-payment__actions">
-      <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !apiFailure && !accessDenied && !error" :disabled="busy || preparing" @click="beginPayment">{{ paymentText.create }}</BaseButton>
+      <BaseButton v-if="payment?.enabled && payment.status === 'not_started' && payment.actions?.start !== false && !paid && !cancelled && !apiFailure && !accessDenied && !error" :disabled="busy || preparing" @click="beginPayment">{{ paymentText.create }}</BaseButton>
       <BaseButton v-if="((widgetUrl && widgetFits) || pageUrl) && !accessDenied && !error" :disabled="busy || preparing" @click="continuePayment()">{{ paymentText.pay }}</BaseButton>
       <BaseButton v-if="receiptUrl && payment?.receipt_accepted && !accessDenied" :href="receiptUrl" target="_blank" rel="noopener noreferrer">{{ paymentText.receipt }}</BaseButton>
       <BaseButton variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
       <BaseButton v-if="canChange" variant="borderless" :disabled="busy" @click="openChange">{{ paymentText.changeMethod }}</BaseButton>
+      <BaseButton v-if="canCancel" variant="text" :disabled="busy || preparing || cancelling" @click="openCancellation">{{ paymentText.refusePayment }}</BaseButton>
       <BaseButton v-if="orderPath && !accessDenied && (!resumeGuest || !hasGuestCapability())" :to="orderPath" variant="borderless">{{ paymentText.viewOrder }}</BaseButton>
       <CustomerAuthDialog v-if="accessDenied" :label="paymentText.signIn" />
-      <BaseButton v-if="paymentProblem || error || payment?.actions?.contact_support || payment?.status === 'requires_review' || (payment && !payment.enabled && !methodChanged)" to="/contacts" variant="text">{{ paymentText.contact }}</BaseButton>
+      <BaseButton v-if="error || payment?.actions?.contact_support || (!cancelled && (paymentProblem || payment?.status === 'requires_review' || (payment && !payment.enabled && !methodChanged)))" to="/contacts" variant="text">{{ paymentText.contact }}</BaseButton>
     </div>
-    <p v-if="!methodChanged && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.protected }}</p>
+    <p v-if="!methodChanged && !cancelled && (pageUrl || payment?.status === 'not_started')" class="order-payment__security">{{ paymentText.protected }}</p>
     <p v-if="error" class="order-payment__error" role="alert">{{ paymentError }}</p>
     <MonoPaymentModal :model-value="widgetOpen" :embed-url="widgetUrl" :frame-key="widgetFrameKey"
       :busy="busy" :redirect-url="pageUrl" @update:model-value="updateWidgetOpen" @fallback="widgetFallback" @unavailable="widgetUnavailable" @closed="widgetClosed" />
@@ -250,6 +307,16 @@ const amount = computed(() => {
         <BaseButton v-if="error" variant="borderless" :disabled="busy" @click="refresh">{{ paymentText.refresh }}</BaseButton>
         <BaseButton :disabled="busy || !canChange || !availableMethods.includes(selectedMethod)" @click="confirmChange">{{ paymentText.confirmChange }}</BaseButton>
         <BaseButton variant="text" :disabled="busy" @click="changeOpen = false">{{ paymentText.cancel }}</BaseButton>
+      </div>
+    </BaseModal>
+    <BaseModal v-model="cancelOpen" type="bottom" manage-focus :block-close="cancelling" @after-leave="restoreCancellationFocus">
+      <template #header-title>{{ paymentText.refusePayment }}</template>
+      <div class="order-payment__method-form">
+        <p>{{ paymentText.refuseHint }}</p>
+        <p v-if="cancellationNotice === 'unknown'" role="alert">{{ paymentText.refusalUnknown }}</p>
+        <p v-else-if="cancellationNotice === 'changed' || (!sameVersion && !cancelling)" role="alert">{{ paymentText.refusalChanged }}</p>
+        <BaseButton variant="borderless" :disabled="cancelling" @click="cancelOpen = false">{{ paymentText.cancel }}</BaseButton>
+        <BaseButton :disabled="busy || cancelling || !sameVersion" @click="confirmCancellation">{{ paymentText.confirmRefusal }}</BaseButton>
       </div>
     </BaseModal>
   </section>

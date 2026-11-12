@@ -11,7 +11,7 @@ useHead({ meta: [{ name: 'robots', content: 'noindex,nofollow' }, { name: 'refer
 <template>
   <main class="payment-page">
     <h1>{{ paymentText.title }}</h1>
-    <OrderPayment v-if="valid" :key="id" resume-guest :order-id="id" :guest-token="resume?.id === id ? resume.token : undefined" :order-path="auth.isAuthenticated && resume?.id !== id ? `/cabinet/orders/${id}` : undefined" />
+    <OrderPayment v-if="valid" :key="id" resume-guest allow-cancellation :order-id="id" :guest-token="resume?.id === id ? resume.token : undefined" :order-path="auth.isAuthenticated && resume?.id !== id ? `/cabinet/orders/${id}` : undefined" />
     <section v-else role="alert">
       <h2>{{ paymentText.unavailable }}</h2>
       <p>{{ paymentText.accessHint }}</p>
