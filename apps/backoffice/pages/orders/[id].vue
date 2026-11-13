@@ -15,6 +15,7 @@ import OrderFiscalMock from '~/components/orders/OrderFiscalMock.vue'
 import OrderProjections from '~/components/orders/OrderProjections.vue'
 import OrderCancellation from '~/components/orders/OrderCancellation.vue'
 import OrderShopOperations from '~/components/orders/OrderShopOperations.vue'
+import OrderShopMonoCancellation from '~/components/orders/OrderShopMonoCancellation.vue'
 import OrderShopPayments from '~/components/orders/OrderShopPayments.vue'
 import OrderShopPaymentResolution from '~/components/orders/OrderShopPaymentResolution.vue'
 import OrderShopDirectRefund from '~/components/orders/OrderShopDirectRefund.vue'
@@ -598,6 +599,7 @@ const updateStatus = async () => {
           <summary><CreditCardIcon class="order-summary-icon" aria-hidden="true" /><span>Оплата та звірка</span><ChevronDownIcon class="order-chevron" aria-hidden="true" /></summary>
           <div class="mt-3 space-y-3">
             <p class="text-sm text-ui-secondary" aria-label="Спосіб оплати">{{ orderPaymentMethodLabel(order) }}</p>
+            <OrderShopMonoCancellation :order="order" @changed="reloadSales" />
             <OrderShopPayments :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
             <OrderShopPaymentResolution :order="order" :refresh-token="fiscalRefresh" @changed="reloadSales" />
           </div>
