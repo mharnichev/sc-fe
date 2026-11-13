@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { sanitizeInput, inputLimits, type InputRule } from '~/utils/inputSafety'
 const props = withDefaults(defineProps<{
-  rule?: Extract<InputRule, 'message' | 'review' | 'note'>
+  rule?: Extract<InputRule, 'message' | 'review' | 'note'> | 'plain'
   id?: string
   label?: string
   description?: string
@@ -30,7 +30,7 @@ const model = defineModel<string>({ default: '' })
 const onInput = (event: Event) => {
   const input = event.target as HTMLTextAreaElement
   if ((event as InputEvent).isComposing) return
-  input.value = sanitizeInput(input.value, props.rule)
+  if (props.rule !== 'plain') input.value = sanitizeInput(input.value, props.rule)
   model.value = input.value
 }
 </script>
@@ -48,7 +48,7 @@ const onInput = (event: Event) => {
     <textarea
       :id="fieldId"
       :value="model"
-      :maxlength="inputLimits[rule]"
+      :maxlength="rule === 'plain' ? undefined : inputLimits[rule]"
       :minlength="rule === 'message' ? 10 : rule === 'review' ? 3 : undefined"
       @input="onInput"
       @compositionend="onInput"
