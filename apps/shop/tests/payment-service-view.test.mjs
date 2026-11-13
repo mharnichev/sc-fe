@@ -68,7 +68,7 @@ test('widget messages never trust another source, raw links, oversized or settle
   const events = [], exports = {}, currentWindow = {}, oldWindow = {}
   vm.runInNewContext(ts.default.transpileModule(source + '\nexports.test = { frame, message, fallbackRequested };', {
     compilerOptions: { module: ts.default.ModuleKind.CommonJS },
-  }).outputText, { exports, defineProps: () => props, defineEmits: () => (...args) => events.push(args),
+  }).outputText, { exports, URL, defineProps: () => props, defineEmits: () => (...args) => events.push(args),
     usePaymentDisplay: () => ({ paymentText: {} }), ref: value => ({ value }), watch() {}, onMounted() {}, onBeforeUnmount() {},
   })
   const view = exports.test
