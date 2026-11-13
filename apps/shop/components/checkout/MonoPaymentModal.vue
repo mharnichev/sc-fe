@@ -9,7 +9,7 @@ const message = (event: MessageEvent) => {
   const current = frame.value
   if (!props.modelValue || !props.embedUrl || !current || current.dataset.frameKey !== String(props.frameKey)
     || current.getAttribute('src') !== props.embedUrl || event.source !== current.contentWindow
-    || event.origin !== 'https://pay.mbnk.biz') return
+    || event.origin !== new URL(props.embedUrl).origin) return
   // Mono documents JSON strings. Bound parsing; never forward data.value or infer settlement.
   if (typeof event.data !== 'string' || event.data.length > 4096) return
   try {

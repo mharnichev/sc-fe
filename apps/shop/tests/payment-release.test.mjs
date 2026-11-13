@@ -492,7 +492,7 @@ test('incomplete API facts are one owned, bounded incident and hide the payment 
 test('iframe failure keeps the same safe hosted link and deduplicates by attempt', async () => {
   const env = load()
   env.state.response = { ...waiting(), attempt_id: 19, presentation_mode: 'iframe',
-    embed_url: 'https://pay.mbnk.biz/widget/invoice_42', redirect_url: waiting().page_url }
+    embed_url: 'https://pay.monobank.ua/widget/invoice_42', redirect_url: waiting().page_url }
   env.mount(); await flush()
   env.payment.iframeFailed('iframe_load_failed')
   await env.payment.refresh()
