@@ -15,14 +15,16 @@ export const safePaymentUrl = (value: string | null | undefined, receipt = false
   } catch { return null }
 }
 
+const monoEmbedOrigins = ['https://pay.mbnk.biz', 'https://pay.monobank.ua']
+
 // Unlike a hosted invoice path, the provider's authenticated widget URL is opaque.
 export const safePaymentEmbedUrl = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string' || value.length > 2048 || /[\u0000-\u0020\u007f\\]/.test(value)
     || /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(value) || /\s/u.test(value)
-    || !value.startsWith('https://pay.mbnk.biz/') || value.includes('#')) return null
+    || !monoEmbedOrigins.some(origin => value.startsWith(origin + '/')) || value.includes('#')) return null
   try {
     const url = new URL(value)
-    return url.origin === 'https://pay.mbnk.biz' && !url.username && !url.password && !url.port ? value : null
+    return monoEmbedOrigins.includes(url.origin) && !url.username && !url.password && !url.port ? value : null
   } catch { return null }
 }
 

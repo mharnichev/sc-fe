@@ -537,14 +537,15 @@ test('widget messages are bound to the current frame; close, fallback and resize
   let phase = 'not_started', posts = 0, holdRead = false, releaseRead = () => {}
   const readGate = new Promise<void>(resolve => { releaseRead = resolve })
   await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
-  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<button id="send">Synthetic frame</button><script>window.synthetic=true</script>' }))
+  await page.route('https://pay.monobank.ua/**', route => route.fulfill({ contentType: 'text/html', body: '<button id="send">Synthetic frame</button><script>window.synthetic=true</script>' }))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: 'Hosted fallback' }))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
     if (path.endsWith('/987/online-payment')) {
       if (req.method() === 'POST') { posts++; phase = 'waiting' }
       else if (holdRead) await readGate
-      return route.fulfill({ json: widgetState(phase) })
+      return route.fulfill({ json: { ...widgetState(phase), embed_url: phase === "waiting" ? widgetEmbed.replace("pay.mbnk.biz", "pay.monobank.ua") : null } })
     }
     expect(req.method()).toBe('GET'); return route.fulfill({ json: { items: [], total: 0 } })
   })
@@ -552,14 +553,15 @@ test('widget messages are bound to the current frame; close, fallback and resize
   const pay = page.getByRole('button', { name: 'Перейти до оплати', exact: true })
   await pay.click()
   const frame = page.locator('.mono-payment-modal__frame')
-  await expect(frame).toBeVisible(); await page.waitForTimeout(750)
-  const send = async (data: string, origin = 'https://pay.mbnk.biz', currentSource = true) => page.evaluate(({ data, origin, currentSource }) => {
+  await expect(frame).toBeVisible()
+  await expect(page.frameLocator('.mono-payment-modal__frame').getByRole('button', { name: 'Synthetic frame' })).toBeVisible()
+  const send = async (data: string, origin = 'https://pay.monobank.ua', currentSource = true) => page.evaluate(({ data, origin, currentSource }) => {
     const source = currentSource ? document.querySelector<HTMLIFrameElement>('.mono-payment-modal__frame')!.contentWindow : window
     window.dispatchEvent(new MessageEvent('message', { data, origin, source }))
   }, { data, origin, currentSource })
   for (const [data, origin, source] of [
-    ['{"message":"close-button"}', 'https://evil.test', true], ['{"message":"close-button"}', 'https://pay.mbnk.biz', false],
-    ['{bad', 'https://pay.mbnk.biz', true], ['x'.repeat(5000), 'https://pay.mbnk.biz', true], ['{"message":"paid"}', 'https://pay.mbnk.biz', true],
+    ['{"message":"close-button"}', 'https://evil.test', true], ['{"message":"close-button"}', 'https://pay.monobank.ua', false],
+    ['{bad', 'https://pay.monobank.ua', true], ['x'.repeat(5000), 'https://pay.monobank.ua', true], ['{"message":"paid"}', 'https://pay.monobank.ua', true],
   ] as const) { await send(data, origin, source); await expect(frame).toBeVisible() }
   await expect(page.getByText('Очікуємо оплату', { exact: true })).toBeVisible()
   const oldFrame = await frame.elementHandle()
@@ -567,7 +569,7 @@ test('widget messages are bound to the current frame; close, fallback and resize
   await expect(frame).toHaveCount(0)
   await pay.click(); await expect(frame).toBeVisible()
   // A detached frame must never be a valid source for the reopened modal.
-  await page.evaluate(old => window.dispatchEvent(new MessageEvent('message', { origin: 'https://pay.mbnk.biz', source: (old as HTMLIFrameElement).contentWindow, data: '{"message":"close-button"}' })), oldFrame)
+  await page.evaluate(old => window.dispatchEvent(new MessageEvent('message', { origin: 'https://pay.monobank.ua', source: (old as HTMLIFrameElement).contentWindow, data: '{"message":"close-button"}' })), oldFrame)
   await expect(frame).toBeVisible()
   await send('{"message":"monopay-link","value":"javascript:alert(1)"}')
   await expect(page.getByText('Якщо оплата не відкрилась, продовжте на захищеній сторінці цього ж платежу.', { exact: true })).toBeVisible()
@@ -595,7 +597,8 @@ for (const invalidate of ['close', 'resize', 'reload', 'order', 'user', 'unmount
   let phase = 'not_started', posts = 0, release = () => {}, currentUser = false
   const gate = new Promise<void>(resolve => { release = resolve })
   await page.addInitScript(() => sessionStorage.setItem('shop-order-payment-token:987', 'mock-payment-capability'))
-  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('https://pay.monobank.ua/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: 'Hosted fallback' }))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
@@ -655,7 +658,8 @@ for (const mobile of [false, true]) {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 })
   let phase = 'not_started', mode = 'redirect', posts = 0, orders = 0
   await page.addInitScript(product => localStorage.setItem('shop-cart', JSON.stringify({ items: [{ product, quantity: 2 }] })), product)
-  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('https://pay.monobank.ua/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Synthetic provider only</h1>' }))
+  await page.route('https://pay.mbnk.biz/**', route => route.fulfill({ contentType: 'text/html', body: 'Hosted fallback' }))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname
     if (path.endsWith('online-payment-capabilities')) return route.fulfill({ json: widgetCaps })
