@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{
   label?: string
   description?: string
   error?: string
-  type?: 'text' | 'email' | 'tel' | 'search' | 'url' | 'password' | 'number' | 'date' | 'datetime-local'
+  type?: 'text' | 'email' | 'tel' | 'search' | 'url' | 'password' | 'number' | 'date' | 'month' | 'datetime-local'
   name?: string
   placeholder?: string
   autocomplete?: string
@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
 
 const model = defineModel<string | number>({ default: '' })
 const resolvedRule = computed<InputRule>(() => props.rule || (props.autocomplete === 'one-time-code' ? 'otp' : props.type === 'email' ? 'email' : props.type === 'tel' ? 'phone' : props.type === 'search' ? 'search' : 'text'))
-const nativeValue = computed(() => ['number', 'date', 'datetime-local', 'password'].includes(props.type))
+const nativeValue = computed(() => ['number', 'date', 'month', 'datetime-local', 'password'].includes(props.type))
 const onInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   if ((event as InputEvent).isComposing) return
