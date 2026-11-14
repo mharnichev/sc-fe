@@ -35,12 +35,14 @@ const open = ref(false)
 const busy = ref(false)
 const outcome = ref<'confirmed' | 'review' | null>(null)
 const error = ref('')
+const confirmation = ref('')
 let generation = 0
 watch([() => props.order.id, () => auth.user?.id, () => auth.sessionRevision], () => {
   generation++
   open.value = false
   busy.value = false
   outcome.value = null
+  confirmation.value = ''
   error.value = ''
 }, { flush: 'sync' })
 onScopeDispose(() => { generation++ })
@@ -81,10 +83,17 @@ const submit = async () => {
       method: 'POST', body: { expected_revision: state.revision }, retry: 0,
     })
     if (context !== generation) return
-    if (result.order_id !== id || result.invoice_status !== 'deactivated' || result.order_status !== 'cancelled') {
+    if (result.order_id !== id || !['deactivated', 'expired'].includes(result.invoice_status) || result.order_status !== 'cancelled') {
       outcome.value = 'review'
       return
     }
+    const invoiceMessage = result.invoice_status === 'expired'
+      ? 'Термін дії інвойсу Mono минув.'
+      : 'Закриття інвойсу Mono підтверджено.'
+    const orderMessage = operation === 'deactivate-archived-invoice'
+      ? 'Архівне замовлення та його резерв залишилися без змін.'
+      : 'Замовлення скасовано, активний резерв знято.'
+    confirmation.value = `${invoiceMessage} ${orderMessage}`
     outcome.value = 'confirmed'
     emit('changed')
   }
@@ -114,7 +123,7 @@ const submit = async () => {
     <BaseButton v-if="action && !outcome" variant="danger-outline" aria-haspopup="dialog" @click="open = true">
       {{ label }}
     </BaseButton>
-    <p v-if="outcome === 'confirmed'" role="status">Закриття інвойсу Mono підтверджено.</p>
+    <p v-if="outcome === 'confirmed'" role="status">{{ confirmation }}</p>
     <p v-if="outcome === 'review'" role="alert">Результат закриття не підтверджено. Потрібна звірка з Mono перед будь-яким повтором.</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <BaseModal v-model="open" compact max-width-class="max-w-md" :aria-label="label"
