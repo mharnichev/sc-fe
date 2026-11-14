@@ -11,7 +11,7 @@ const source = readFileSync(new URL('../components/orders/OrderShopMonoCancellat
   .split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm, '')
 const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
 
-function setup(t, { archived = false, permitted = true, revision = 7, reject, orderPatch } = {}) {
+function setup(t, { archived = false, permitted = true, revision = 7, reject, orderPatch, responsePatch } = {}) {
   const order = vue.reactive({
     id: 42, revision: 7, channel: 'shop', payment_method: 'onlineCard', payment_status: 'unpaid',
     archived, status: archived ? 'cancelled' : 'pending', ...orderPatch,
@@ -28,12 +28,12 @@ function setup(t, { archived = false, permitted = true, revision = 7, reject, or
         status: archived ? 'cancelled' : 'reconciliation_required', reason: 'invoice_reconciliation_required',
       }
       if (reject) throw reject
-      return { order_id: 42, order_status: 'cancelled', invoice_status: 'deactivated' }
+      return { order_id: 42, order_status: 'cancelled', invoice_status: 'deactivated', ...responsePatch }
     },
   }
   const scope = vue.effectScope()
   t.after(() => scope.stop())
-  scope.run(() => runInNewContext(js + '\nglobalThis.view = { action, open, outcome, submit };', context))
+  scope.run(() => runInNewContext(js + '\nglobalThis.view = { action, open, outcome, confirmation, submit };', context))
   const view = context.view
   const confirm = () => { view.open.value = true; return view.submit() }
   return { ...view, confirm, requests, events, auth }
@@ -78,5 +78,26 @@ test('permissions and paid status suppress the action', async t => {
     assert.equal(view.action.value, null)
     await view.confirm()
     assert.equal(view.requests.length, 0)
+  }
+})
+
+for (const archived of [false, true]) {
+  test(`expired invoice confirms ${archived ? 'archive closure' : 'reserve release'}`, async t => {
+    const view = setup(t, { archived, responsePatch: { invoice_status: 'expired' } })
+    await view.confirm()
+    assert.equal(view.outcome.value, 'confirmed')
+    assert.match(view.confirmation.value, /Термін дії інвойсу Mono минув/)
+    assert.match(view.confirmation.value, archived ? /резерв залишилися без змін/ : /активний резерв знято/)
+    assert.deepEqual(view.events, [['changed']])
+  })
+}
+
+test('unexpected invoice status, order status or order identity still requires review', async t => {
+  for (const responsePatch of [{ invoice_status: 'processing' }, { invoice_status: 'expired', order_status: 'pending' }, { invoice_status: 'expired', order_id: 43 }]) {
+    const view = setup(t, { responsePatch })
+    await view.confirm()
+    assert.equal(view.outcome.value, 'review')
+    assert.equal(view.confirmation.value, '')
+    assert.deepEqual(view.events, [])
   }
 })
