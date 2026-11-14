@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canAccessShopBalance } from '~/utils/shopBalanceAccess'
 import { canManageCatalog } from '~/utils/catalogAccess'
 import {
   HomeIcon,
@@ -102,6 +103,7 @@ const barberShopLinks = computed(() => [
   ...(isAdmin.value
     ? [
         { label: 'Дашборд барбершопу', to: '/admin/dashboards/barbershop', icon: HomeIcon },
+        ...(canAccessShopBalance(auth.user) ? [{ label: 'Загальний баланс', to: '/general-balance', icon: ChartBarSquareIcon }] : []),
         { label: 'Статистика', to: '/admin/statistics', icon: ChartBarSquareIcon },
         ...(auth.user?.is_active && auth.user?.is_superuser ? [{ label: 'Продажі товарів', to: '/admin/product-sales', icon: ShoppingBagIcon }] : []),
         ...(auth.user?.is_active && auth.user?.is_superuser ? [{ label: 'Винагороди майстрів', to: '/admin/sales-rewards', icon: ChartBarSquareIcon }] : []),

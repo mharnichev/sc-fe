@@ -4,7 +4,7 @@ import { useId } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
-type CalendarMode = 'date' | 'datetime'
+type CalendarMode = 'date' | 'datetime' | 'month'
 
 const props = withDefaults(defineProps<{
   modelValue?: string | null
@@ -72,7 +72,9 @@ const parseDate = (value?: string | null) => {
 }
 
 const currentValue = computed(() => props.modelValue ?? props.value ?? '')
-const selectedDate = computed(() => parseDate(currentValue.value))
+const selectedDate = computed(() => parseDate(
+  props.mode === 'month' && currentValue.value ? currentValue.value + '-01' : currentValue.value,
+))
 const selectedDateInput = computed(() => selectedDate.value ? formatDate(selectedDate.value) : '')
 const minDateInput = computed(() => props.min?.slice(0, 10) || '')
 const maxDateInput = computed(() => props.max?.slice(0, 10) || '')
@@ -81,7 +83,14 @@ const monthLabel = computed(() =>
   new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' }).format(new Date(viewYear.value, viewMonth.value, 1)),
 )
 
-const displayValue = computed(() => currentValue.value || '')
+const monthNames = new Intl.DateTimeFormat('uk-UA', { month: 'long' })
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, index) => ({
+  value: viewYear.value + '-' + pad(index + 1),
+  label: monthNames.format(new Date(viewYear.value, index, 1)),
+})))
+const displayValue = computed(() => props.mode === 'month' && selectedDate.value
+  ? new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' }).format(selectedDate.value)
+  : currentValue.value)
 const resolvedInputClass = computed(() => [props.inputClass, attrs.class])
 
 const weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
@@ -129,7 +138,7 @@ const dateIsDisabled = (value: string) => {
   return false
 }
 
-const emitValue = (dateInput: string, close = props.mode === 'date') => {
+const emitValue = (dateInput: string, close = props.mode !== 'datetime') => {
   const nextValue = props.mode === 'datetime'
     ? `${dateInput}T${timeValue.value || '09:00'}`
     : dateInput
@@ -155,13 +164,17 @@ const clearValue = () => {
 }
 
 const goToToday = () => {
-  const input = formatDate(today)
+  const input = props.mode === 'month' ? formatDate(today).slice(0, 7) : formatDate(today)
   viewYear.value = today.getFullYear()
   viewMonth.value = today.getMonth()
-  if (!dateIsDisabled(input)) emitValue(input, props.mode === 'date')
+  if (!dateIsDisabled(input)) emitValue(input)
 }
 
-const changeMonth = (direction: number) => {
+const shiftView = (direction: number) => {
+  if (props.mode === 'month') {
+    viewYear.value += direction
+    return
+  }
   const date = new Date(viewYear.value, viewMonth.value + direction, 1)
   viewYear.value = date.getFullYear()
   viewMonth.value = date.getMonth()
@@ -204,7 +217,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
       @keydown.esc.stop.prevent="closeWithFocus()"
     >
       <div class="relative">
-        <CalendarDaysIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <CalendarDaysIcon class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
         <BaseInput
           ref="inputRef"
           v-bind="passthroughAttrs"
@@ -233,41 +246,58 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
         :id="`${fieldId}-popup`"
         role="dialog"
         :aria-label="label || 'Вибір дати'"
-        class="booking-select-menu absolute mt-2 w-full min-w-[18rem] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
-        :class="menuClass"
+        class="booking-select-menu absolute mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
+        :class="[menuClass, mode !== 'month' && 'min-w-[18rem]']"
         style="z-index: 50010;"
       >
         <div class="mb-3 flex items-center justify-between gap-2">
-          <BaseButton type="button" variant="unstyled" class="rounded-full p-2 text-slate-600 hover:bg-slate-100" aria-label="Попередній місяць" @click="changeMonth(-1)">
+          <BaseButton type="button" variant="unstyled" class="rounded-full p-2 text-slate-600 hover:bg-slate-100" :aria-label="mode === 'month' ? 'Попередній рік' : 'Попередній місяць'" @click="shiftView(-1)">
             <ChevronLeftIcon class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
-          <p class="text-sm font-semibold capitalize text-slate-900">{{ monthLabel }}</p>
-          <BaseButton type="button" variant="unstyled" class="rounded-full p-2 text-slate-600 hover:bg-slate-100" aria-label="Наступний місяць" @click="changeMonth(1)">
+          <p class="text-sm font-semibold capitalize text-slate-900">{{ mode === 'month' ? viewYear : monthLabel }}</p>
+          <BaseButton type="button" variant="unstyled" class="rounded-full p-2 text-slate-600 hover:bg-slate-100" :aria-label="mode === 'month' ? 'Наступний рік' : 'Наступний місяць'" @click="shiftView(1)">
             <ChevronRightIcon class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
         </div>
 
-        <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-slate-500">
-          <span v-for="day in weekdayLabels" :key="day">{{ day }}</span>
-        </div>
-        <div class="mt-1 grid grid-cols-7 gap-1">
+        <div v-if="mode === 'month'" class="grid grid-cols-3 gap-1">
           <BaseButton
-            v-for="day in calendarDays"
-            :key="day.value"
+            v-for="month in monthOptions"
+            :key="month.value"
             type="button"
             variant="unstyled"
-            class="min-h-9 rounded-xl px-1 text-sm transition"
-            :class="[
-              day.value === selectedDateInput ? 'bg-cyan-600 text-white' : 'text-slate-700 hover:bg-slate-100',
-              day.muted ? 'opacity-45' : '',
-              dateIsDisabled(day.value) ? 'cursor-not-allowed opacity-30' : '',
-            ]"
-            :disabled="dateIsDisabled(day.value)"
-            @click="selectDate(day.value)"
+            class="min-h-9 rounded-xl px-1 text-xs capitalize"
+            :class="month.value === currentValue ? 'bg-cyan-600 text-white' : 'text-ui-secondary hover:bg-ui-surface'"
+            :aria-pressed="month.value === currentValue"
+            :disabled="dateIsDisabled(month.value)"
+            @click="selectDate(month.value)"
           >
-            {{ day.label }}
+            {{ month.label }}
           </BaseButton>
         </div>
+        <template v-else>
+          <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-slate-500">
+            <span v-for="day in weekdayLabels" :key="day">{{ day }}</span>
+          </div>
+          <div class="mt-1 grid grid-cols-7 gap-1">
+            <BaseButton
+              v-for="day in calendarDays"
+              :key="day.value"
+              type="button"
+              variant="unstyled"
+              class="min-h-9 rounded-xl px-1 text-sm transition"
+              :class="[
+                day.value === selectedDateInput ? 'bg-cyan-600 text-white' : 'text-slate-700 hover:bg-slate-100',
+                day.muted ? 'opacity-45' : '',
+                dateIsDisabled(day.value) ? 'cursor-not-allowed opacity-30' : '',
+              ]"
+              :disabled="dateIsDisabled(day.value)"
+              @click="selectDate(day.value)"
+            >
+              {{ day.label }}
+            </BaseButton>
+          </div>
+        </template>
 
         <div v-if="mode === 'datetime'" class="mt-3 border-t border-slate-100 pt-3">
           <BaseInput
