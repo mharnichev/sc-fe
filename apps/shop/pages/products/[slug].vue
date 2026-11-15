@@ -148,6 +148,26 @@ const removeCompositionFromDescription = (value: string) => {
 
 const galleryImages = computed(() => product.value?.images || [])
 const productComposition = computed(() => htmlToText(product.value ? productDisplayContent(product.value, 'ingredients') : ''))
+const compositionViewports = ref<HTMLElement[]>([])
+const compositionScrollDuration = ref(0)
+watchPostEffect((onCleanup) => {
+  const viewport = compositionViewports.value[0]
+  const text = viewport?.querySelector('p')
+  if (!viewport || !text) {
+    compositionScrollDuration.value = 0
+    return
+  }
+
+  const measure = () => {
+    const height = text.getBoundingClientRect().height
+    compositionScrollDuration.value = height > viewport.clientHeight ? (height + 16) / 22 : 0
+  }
+  const observer = new ResizeObserver(measure)
+  observer.observe(viewport)
+  observer.observe(text)
+  measure()
+  onCleanup(() => observer.disconnect())
+})
 const productUsageHtml = computed(() => {
   const usage = product.value ? productDisplayContent(product.value, 'usage').trim() : ''
   return usageText(usage) ? usage : ''
@@ -579,8 +599,19 @@ useHead(() => ({
                     :aria-label="productText.compositionTitle"
                   >
                     <BaseBadge class="product-gallery__composition-label" tone="neutral">{{ productText.composition }}</BaseBadge>
-                    <div class="product-gallery__composition-content">
-                      <p>{{ productComposition }}</p>
+                    <div
+                      ref="compositionViewports"
+                      class="product-gallery__composition-content"
+                      :class="{ 'product-gallery__composition-content--scrolling': compositionScrollDuration }"
+                      :tabindex="compositionScrollDuration ? 0 : undefined"
+                    >
+                      <div
+                        class="product-gallery__composition-track"
+                        :style="{ animationDuration: `${compositionScrollDuration}s` }"
+                      >
+                        <p>{{ productComposition }}</p>
+                        <p v-if="compositionScrollDuration" class="product-gallery__composition-repeat" aria-hidden="true">{{ productComposition }}</p>
+                      </div>
                     </div>
                   </article>
                 </template>
@@ -768,14 +799,13 @@ useHead(() => ({
           <BaseAccordion
             v-if="productDescriptionHtml"
             v-model="descriptionAccordionOpen"
-            class="product-description"
             summary-class="product-description__summary"
             :disabled="!descriptionCanCollapse"
             :preview-height="descriptionCanCollapse ? descriptionPreviewHeight : 0"
             itemprop="description"
           >
-            <template #summary>
-              <h2 class="product-section-title">{{ productText.description }}</h2>
+            <template #summary="{ open }">
+              {{ open ? terms.catalog.collapse : terms.home.showMore }}
             </template>
             <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
           </BaseAccordion>
@@ -798,7 +828,7 @@ useHead(() => ({
             <div
               v-if="productComposition"
               :id="`${productDetailsId}-panel-ingredients`"
-              class="product-details__panel"
+              class="product-details__panel product-details__ingredients"
               :class="{ 'product-details__panel--active': activeProductTab === 'ingredients' }"
               :aria-hidden="activeProductTab !== 'ingredients'"
               :inert="activeProductTab !== 'ingredients'"
@@ -1086,6 +1116,14 @@ useHead(() => ({
   min-width: 0;
   gap: 1rem;
 }
+@media (max-width: 520px) {
+  .product-details :deep(.base-tabs [role="tab"]) {
+    flex: 1 0 auto;
+    padding-inline: 0.125rem;
+    font-size: clamp(0.75rem, 3.6vw, 0.875rem);
+    white-space: nowrap;
+  }
+}
 .product-details__panels {
   position: relative;
   height: 22rem;
@@ -1301,12 +1339,13 @@ useHead(() => ({
   overflow: hidden;
   background: #ffc846;
   color: #0a0a0a;
+  padding: 3.5rem 1.25rem 1.25rem;
 }
 
 .product-gallery__composition-label {
-  flex: 0 0 auto;
-  align-self: flex-end;
-  margin: 0.75rem 0.75rem 0;
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
   border: 1px solid currentColor;
   background: transparent;
   color: inherit;
@@ -1317,28 +1356,61 @@ useHead(() => ({
   width: 100%;
   min-height: 0;
   flex: 1 1 auto;
-  flex-direction: column;
-  align-items: stretch;
   overflow-y: auto;
-  padding: 1rem 1.25rem 1.25rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(10 10 10 / 35%) transparent;
+  scrollbar-width: none;
   text-align: right;
 }
 
-.product-gallery__composition-content::-webkit-scrollbar {
-  width: 4px;
+.product-gallery__composition-track {
+  display: grid;
+  width: 100%;
+  margin-top: auto;
+  gap: 16px;
+  overflow-wrap: anywhere;
 }
 
-.product-gallery__composition-content::-webkit-scrollbar-thumb {
-  background: rgb(10 10 10 / 35%);
-  border-radius: 2px;
+.product-gallery__composition-repeat {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .product-gallery__composition-content--scrolling {
+    overflow: hidden;
+  }
+
+  .product-gallery__composition-content--scrolling .product-gallery__composition-track {
+    animation: product-composition-scroll linear infinite;
+  }
+
+  .product-gallery__composition-content--scrolling .product-gallery__composition-repeat {
+    display: block;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within {
+    overflow-y: auto;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within .product-gallery__composition-track {
+    animation-name: none;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within .product-gallery__composition-repeat {
+    display: none;
+  }
+}
+
+@keyframes product-composition-scroll {
+  to {
+    transform: translateY(calc(-50% - 8px));
+  }
+}
+
+.product-gallery__composition-content::-webkit-scrollbar {
+  display: none;
 }
 
 .product-gallery__composition-content p {
-  flex: 0 0 auto;
-  margin: auto 0 0;
-  overflow-wrap: anywhere;
+  margin: 0;
   text-align: right;
   font-size: clamp(0.6875rem, 2.5vw, 0.875rem);
   font-weight: 600;
@@ -1666,11 +1738,12 @@ useHead(() => ({
   margin-bottom: 0.75rem;
 }
 
-:deep(.product-description__summary) .product-section-title {
-  margin-bottom: 0;
+:deep(.product-description__summary[aria-disabled="true"]) {
+  display: none;
 }
 
-.product-description__html {
+.product-description__html,
+.product-details__ingredients {
   color: #404040;
   font-size: 14px;
   line-height: 1.7;
