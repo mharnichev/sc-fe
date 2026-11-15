@@ -13,6 +13,30 @@ interface RefundState {
   reason: string | null
 }
 
+const dpsLabels = {
+  awaiting_receipt: 'Очікується чек Mono',
+  unconfigured: 'Доступ до Checkbox не налаштовано',
+  unavailable: 'Checkbox недоступний або відхилив доступ',
+  not_found: 'Чек не знайдено в Checkbox',
+  mismatch: 'Дані чека не збігаються',
+  unconfirmed: 'Відповідь ДПС ще не підтверджена',
+  accepted: 'ДПС прийняла чек',
+  rejected: 'ДПС відхилила чек',
+}
+
+interface DpsReceipt {
+  receipt_id: string | null
+  status: keyof typeof dpsLabels
+  checked_at: string | null
+  checkbox_status: string | null
+  fiscal_code: string | null
+  is_sent_dps: boolean | null
+  sent_dps_at: string | null
+  response_status: string | null
+  response_id: string | null
+  response_error_message: string | null
+}
+
 const props = defineProps<{ orderId: number, revision?: number }>()
 const emit = defineEmits<{ changed: [] }>()
 const api = useApi()
@@ -20,6 +44,27 @@ const auth = useAuthStore()
 const endpoint = computed(() => `/backoffice/master-mono/orders/${props.orderId}/refund`)
 const scope = computed(() => JSON.stringify([props.orderId, auth.user?.id, auth.sessionRevision]))
 const state = shallowRef<RefundState>()
+const dps = shallowRef<{ sale: DpsReceipt, refund: DpsReceipt }>()
+const dpsError = ref('')
+const reconciliationNotice = ref('')
+const dpsEndpoint = computed(() => `/backoffice/master-mono/orders/${props.orderId}/dps`)
+const time = new Intl.DateTimeFormat('uk-UA', { dateStyle: 'short', timeStyle: 'medium' })
+
+const checkDps = async () => {
+  if (busy.value) return
+  const request = ++sequence
+  busy.value = true
+  dps.value = undefined
+  dpsError.value = ''
+  try {
+    const value = await api<{ sale: DpsReceipt, refund: DpsReceipt }>(dpsEndpoint.value, { retry: 0 })
+    if (request === sequence) dps.value = value
+  } catch {
+    if (request === sequence) dpsError.value = 'Не вдалося виконати звірку з Checkbox.'
+  } finally {
+    if (request === sequence) busy.value = false
+  }
+}
 const busy = ref(false)
 const error = ref('')
 const reason = ref('')
@@ -58,6 +103,7 @@ const submit = async (action: 'start' | 'reconcile' | 'receive') => {
   const suffix = action === 'start' ? '' : `/${action}`
   busy.value = true
   error.value = ''
+  reconciliationNotice.value = ''
   try {
     const value = await api<RefundState>(endpoint.value + suffix, {
       method: 'POST',
@@ -70,12 +116,25 @@ const submit = async (action: 'start' | 'reconcile' | 'receive') => {
     })
     if (request !== sequence) return
     state.value = value
+    dps.value = undefined
+    dpsError.value = ''
     confirmed.value = false
-    emit('changed')
-  } catch {
+    if (action === 'reconcile' && value.money_status === 'not_started') {
+      reconciliationNotice.value = 'Mono не зафіксував повернення для цього замовлення.'
+    } else {
+      emit('changed')
+    }
+  } catch (cause) {
     if (request !== sequence) return
+    const code = (cause as { data?: { detail?: { code?: string } } })?.data?.detail?.code
     uncertain.value = true
-    error.value = 'Не вдалося підтвердити результат. Оновіть стан повернення.'
+    if (action === 'reconcile' && code === 'pos_refund_reconciliation_unavailable') {
+      error.value = 'Mono не відповідає. Повторіть звірку пізніше.'
+    } else if (action === 'reconcile' && code === 'pos_refund_reconciliation_unconfirmed') {
+      error.value = 'Mono ще не підтвердив повне повернення. Перевірте операцію в кабінеті Mono.'
+    } else {
+      error.value = 'Не вдалося підтвердити результат. Оновіть стан повернення.'
+    }
   } finally {
     if (request === sequence) busy.value = false
   }
@@ -86,6 +145,9 @@ watch(scope, () => {
   busy.value = false
   error.value = ''
   state.value = undefined
+  dps.value = undefined
+  dpsError.value = ''
+  reconciliationNotice.value = ''
   reason.value = ''
   confirmed.value = false
   uncertain.value = false
@@ -101,6 +163,7 @@ onBeforeUnmount(() => { sequence++ })
   <BaseCard as="section" class="space-y-3">
     <h2 class="text-lg font-semibold">Повернення через Mono</h2>
     <p v-if="error" role="alert" class="text-ui-danger">{{ error }}</p>
+    <p v-if="reconciliationNotice" role="status">{{ reconciliationNotice }}</p>
     <BaseButton v-if="error || uncertain" variant="secondary" :loading="busy" @click="load">Оновити стан</BaseButton>
     <p v-else-if="busy && !state" role="status">Завантаження…</p>
     <template v-if="state">
@@ -125,8 +188,27 @@ onBeforeUnmount(() => { sequence++ })
       </form>
       <p v-else-if="state.money_status === 'not_started'">Повернення доступне після підтвердження оплати й чека продажу та ввімкнення функції.</p>
       <div v-if="state.can_reconcile || state.can_receive" class="flex flex-wrap gap-2">
-        <BaseButton v-if="state.can_reconcile" variant="secondary" :disabled="busy || uncertain" @click="submit('reconcile')">Звірити повернення</BaseButton>
+        <BaseButton v-if="state.can_reconcile" variant="secondary" :disabled="busy || uncertain" @click="submit('reconcile')">{{ state.money_status === 'not_started' ? 'Перевірити повернення в Mono' : 'Звірити повернення' }}</BaseButton>
         <BaseButton v-if="state.can_receive" variant="secondary" :disabled="busy || uncertain" @click="submit('receive')">Підтвердити приймання товару на склад</BaseButton>
+      </div>
+      <div v-if="state.can_start || state.can_reconcile || state.money_status !== 'not_started'" class="space-y-2 border-t pt-3">
+        <BaseButton variant="secondary" :disabled="busy" @click="checkDps">Перевірити відповідь ДПС</BaseButton>
+        <p v-if="dpsError" role="alert" class="text-ui-danger">{{ dpsError }}</p>
+        <dl v-if="dps" class="grid gap-3 sm:grid-cols-2" aria-live="polite">
+          <div v-for="(check, kind) in dps" :key="kind" class="min-w-0 space-y-1 break-words">
+            <dt class="font-semibold">{{ kind === 'sale' ? 'Чек продажу' : 'Чек повернення' }}</dt>
+            <dd>{{ dpsLabels[check.status] }}</dd>
+            <dd v-if="check.checkbox_status">Статус Checkbox · {{ check.checkbox_status }}</dd>
+            <dd v-if="check.receipt_id">ID чека · {{ check.receipt_id }}</dd>
+            <dd v-if="check.fiscal_code">Фіскальний номер · {{ check.fiscal_code }}</dd>
+            <dd v-if="check.is_sent_dps != null">Відправлено до ДПС · {{ check.is_sent_dps ? 'Так' : 'Ні' }}</dd>
+            <dd v-if="check.sent_dps_at">Час відправлення · {{ time.format(new Date(check.sent_dps_at)) }}</dd>
+            <dd v-if="check.response_status">Код відповіді ДПС · {{ check.response_status }}</dd>
+            <dd v-if="check.response_id">ID відповіді · {{ check.response_id }}</dd>
+            <dd v-if="check.response_error_message" class="text-ui-danger">{{ check.response_error_message }}</dd>
+            <dd v-if="check.checked_at" class="text-sm text-ui-secondary">Перевірено · {{ time.format(new Date(check.checked_at)) }}</dd>
+          </div>
+        </dl>
       </div>
     </template>
   </BaseCard>

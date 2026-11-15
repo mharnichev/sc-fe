@@ -295,6 +295,20 @@ test('admin opens a paid POS order and reconciles a refund after the response is
   await expect(refund.getByText('Очікується підтвердження')).toBeVisible()
   await refund.getByRole('button', { name: 'Звірити повернення' }).click()
   await expect(refund.getByText('Чек підтверджено')).toBeVisible()
+  let dpsReads = 0
+  await page.route('**/api/v1/backoffice/master-mono/orders/321/dps', async route => {
+    expect(route.request().method()).toBe('GET')
+    dpsReads++
+    return route.fulfill({ json: {
+      sale: { status: 'accepted', fiscal_code: 'fixture-sale', is_sent_dps: true, response_status: 'OK', response_id: 'sale-response' },
+      refund: { status: 'rejected', is_sent_dps: false, response_status: 'INVALID', response_error_message: 'Тестова відповідь ДПС' },
+    } })
+  })
+  await refund.getByRole('button', { name: 'Перевірити відповідь ДПС' }).click()
+  await expect(refund.getByText('ДПС прийняла чек', { exact: true })).toBeVisible()
+  await expect(refund.getByText('ДПС відхилила чек', { exact: true })).toBeVisible()
+  await expect(refund.getByText('Тестова відповідь ДПС', { exact: true })).toBeVisible()
+  expect(dpsReads).toBe(1)
   await refund.getByRole('button', { name: 'Підтвердити приймання товару на склад' }).click()
   await page.reload()
   await expect(refund.getByText('Товар прийнято')).toBeVisible()
