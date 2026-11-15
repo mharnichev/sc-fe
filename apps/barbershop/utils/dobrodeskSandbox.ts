@@ -1,7 +1,7 @@
 import type { DobroDeskWidgetOptions } from '@dobrodesk/widget'
 
 // A different origin is required: the provider rejects opaque-origin requests.
-export const createSandboxedDobroDeskWidget = (_options: DobroDeskWidgetOptions, frameUrl: string) => {
+export const createSandboxedDobroDeskWidget = (options: DobroDeskWidgetOptions, frameUrl: string, onClosed?: () => void) => {
   const target = new URL(frameUrl)
   if (target.origin === window.location.origin) throw new Error('Support requires a separate origin')
   const frame = document.createElement('iframe')
@@ -21,6 +21,7 @@ export const createSandboxedDobroDeskWidget = (_options: DobroDeskWidgetOptions,
     const receive = (event: MessageEvent) => {
       if (event.source !== frame.contentWindow || event.origin !== target.origin || event.data?.source !== 'soulcuts-support') return
       if (event.data.type === 'presentation') { frame.hidden = !permitted || event.data.open !== true; return }
+      if (event.data.type === 'closed') { onClosed?.(); return }
       if (!['ready', 'error'].includes(event.data.type)) return
       clearTimeout(timeout)
       event.data.type === 'ready' ? resolve() : reject(new Error('Support unavailable'))
@@ -29,7 +30,8 @@ export const createSandboxedDobroDeskWidget = (_options: DobroDeskWidgetOptions,
     cleanup = () => window.removeEventListener('message', receive)
   })
   const command = (name: string, value?: unknown) => frame.contentWindow?.postMessage({ source: 'soulcuts-support', command: name, value }, target.origin)
-  document.body.append(frame)
+  const container = options.container ?? document.body
+  container.append(frame)
   // The host exposes only presentation commands, never identity or page context.
   return {
     ready,
