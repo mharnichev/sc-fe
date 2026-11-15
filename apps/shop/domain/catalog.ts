@@ -79,6 +79,8 @@ interface PublicProductDto {
   description_en?: string | null
   short_description_en?: string | null
   ingredients_en?: string | null
+  usage?: string | null
+  usage_en?: string | null
   name_en?: string | null
   product_type_en?: string | null
   id: number
@@ -125,6 +127,8 @@ interface PublicProductDto {
 }
 
 type ShopProductDto = ProductDto & {
+  usage?: string | null
+  usage_en?: string | null
   attributes_json: Record<string, unknown> | null
   is_new?: boolean | null
   is_top?: boolean | null
@@ -401,6 +405,8 @@ const mapProduct = (product: PublicProductDto, resolveAssetUrl: (url: string) =>
     ingredients_en: product.ingredients_en ?? null,
     description: product.description ?? '',
     ingredients: product.ingredients ?? null,
+    usage: product.usage,
+    usage_en: product.usage_en,
     price: pricing.price,
     recommended_retail_price: decimalString(product.recommended_retail_price),
     shop_price: decimalString(product.shop_price),

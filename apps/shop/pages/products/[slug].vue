@@ -60,6 +60,7 @@ const productDetailsId = useId()
 const productDetailsTabs = computed(() => [
   { value: 'description', label: productText.value.description },
   ...(productComposition.value ? [{ value: 'ingredients', label: productText.value.composition }] : []),
+  ...(productUsageHtml.value ? [{ value: 'usage', label: productText.value.usage }] : []),
   { value: 'reviews', label: locale.value === 'uk' ? 'Відгуки' : 'Reviews' },
 ])
 watch(() => route.params.slug, () => { activeProductTab.value = 'description' })
@@ -94,6 +95,46 @@ const htmlToText = (value: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+const usageLabel = /^(?:спосіб застосування|застосування|спосіб використання|how to use|method of (?:application|use)|application|directions(?: for use)?)(?:\s*[:\-–—]\s*|$)/iu
+const compositionLabel = /^(?:склад|ingredients?)\s*:\s*/iu
+const usageText = (html: string) => decodeHtmlEntities(html
+  .replace(/<!--[^]*?-->/g, '')
+  .replace(/<\/?(?:p|div|br|li|ul|ol|h[1-6])\b[^>]*>/gi, ' ')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&#(?:160|x0*a0);/gi, ' '))
+  .replace(/\s+/gu, ' ')
+  .trim()
+
+const removeDuplicateProductBlock = (description: string, html: string, label: RegExp) => {
+  const content = usageText(html).replace(label, '').trim()
+  if (!content) return description
+
+  // Compare whole blocks so paragraphs with additional information stay intact.
+  if (usageText(description).replace(label, '').trim() === content) return ''
+  const blocks = [...description.matchAll(/<(ol|ul)\b[^>]*>[^]*?<\/\1\s*>|<(p|h[1-6])\b[^>]*>(?:(?!<\/?(?:p|h[1-6]|ol|ul)\b)[^])*<\/\2\s*>/gi)]
+  let keptHtml = ''
+  let removedThrough = 0
+  for (const [index, first] of blocks.entries()) {
+    if (first.index < removedThrough) continue
+    const startsWithHeading = !usageText(first[0]).replace(label, '').trim()
+    const contentStart = startsWithHeading ? first.index + first[0].length : first.index
+    let end = first.index
+    for (let next = index; next < blocks.length; next++) {
+      const block = blocks[next]!
+      if (description.slice(end, block.index).trim()) break
+      end = block.index + block[0].length
+      const candidate = usageText(description.slice(contentStart, end)).replace(label, '').trim()
+      if (candidate === content) {
+        keptHtml += description.slice(removedThrough, first.index)
+        removedThrough = end
+        break
+      }
+      if (!content.startsWith(candidate)) break
+    }
+  }
+  return (keptHtml + description.slice(removedThrough)).trim()
+}
+
 const removeCompositionFromDescription = (value: string) => {
   const compositionLabel = /(?:склад|ingredients?)\s*:/i.exec(value)
   if (!compositionLabel) return value.trim()
@@ -107,6 +148,10 @@ const removeCompositionFromDescription = (value: string) => {
 
 const galleryImages = computed(() => product.value?.images || [])
 const productComposition = computed(() => htmlToText(product.value ? productDisplayContent(product.value, 'ingredients') : ''))
+const productUsageHtml = computed(() => {
+  const usage = product.value ? productDisplayContent(product.value, 'usage').trim() : ''
+  return usageText(usage) ? usage : ''
+})
 watch(productDetailsTabs, (tabs) => {
   if (!tabs.some(tab => tab.value === activeProductTab.value)) activeProductTab.value = 'description'
 })
@@ -158,7 +203,12 @@ const averageRating = computed(() => reviewsPage.value?.average_rating || produc
 const reviewsCount = computed(() => reviewsPage.value?.total ?? product.value?.reviews_count ?? 0)
 const productDescriptionHtml = computed(() => {
   const description = (product.value ? productDisplayContent(product.value, 'description') : '').trim()
-  return productComposition.value ? removeCompositionFromDescription(description) : description
+  if (!productUsageHtml.value) {
+    return productComposition.value ? removeCompositionFromDescription(description) : description
+  }
+  // A legacy ingredients block can be followed by instructions that must remain visible.
+  const withoutComposition = removeDuplicateProductBlock(description, productComposition.value, compositionLabel)
+  return removeDuplicateProductBlock(withoutComposition, productUsageHtml.value, usageLabel)
 })
 const descriptionElement = ref<HTMLElement | null>(null)
 const descriptionExpanded = ref(false)
@@ -733,6 +783,18 @@ useHead(() => ({
                 {{ locale === 'uk' ? 'Опис поки не додано.' : 'No description available yet.' }}
               </p>
             </div>
+            <div
+              v-if="productUsageHtml"
+              :id="`${productDetailsId}-panel-usage`"
+              class="product-details__panel product-description__html"
+              :class="{ 'product-details__panel--active': activeProductTab === 'usage' }"
+              :aria-hidden="activeProductTab !== 'usage'"
+              :inert="activeProductTab !== 'usage'"
+              role="tabpanel"
+              :aria-labelledby="`${productDetailsId}-tab-usage`"
+              tabindex="0"
+              v-html="productUsageHtml"
+            />
             <div
               v-if="productComposition"
               :id="`${productDetailsId}-panel-ingredients`"
