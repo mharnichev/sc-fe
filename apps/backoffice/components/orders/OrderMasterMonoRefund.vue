@@ -201,7 +201,7 @@ onBeforeUnmount(() => { sequence++ })
             <dd v-if="check.checkbox_status">Статус Checkbox · {{ check.checkbox_status }}</dd>
             <dd v-if="check.receipt_id">ID чека · {{ check.receipt_id }}</dd>
             <dd v-if="check.fiscal_code">Фіскальний номер · {{ check.fiscal_code }}</dd>
-            <dd v-if="check.is_sent_dps != null">Відправлено до ДПС · {{ check.is_sent_dps ? 'Так' : 'Ні' }}</dd>
+            <dd v-if="check.is_sent_dps === true">Відправлено до ДПС</dd>
             <dd v-if="check.sent_dps_at">Час відправлення · {{ time.format(new Date(check.sent_dps_at)) }}</dd>
             <dd v-if="check.response_status">Код відповіді ДПС · {{ check.response_status }}</dd>
             <dd v-if="check.response_id">ID відповіді · {{ check.response_id }}</dd>
