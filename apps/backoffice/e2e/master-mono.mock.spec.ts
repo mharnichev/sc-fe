@@ -246,3 +246,57 @@ test('committed handover with lost reply retries the exact saved command after G
   expect(fixture.snapshot().handovers).toBe(1)
   expect(fixture.snapshot().order.handovers).toHaveLength(1)
 })
+
+test('admin opens a paid POS order and reconciles a refund after the response is lost', async ({ page }) => {
+  await setup(page, false)
+  const order = { ...orderFixture(), status: 'completed', payment_status: 'paid', simulation: false }
+  await page.route('**/api/v1/backoffice/orders/321', route => route.fulfill({ json: order }))
+  let started = false
+  let received = false
+  let issued = false
+  let writes = 0
+  const response = () => ({
+    revision: started ? 2 : 1,
+    amount_minor: 12345,
+    items: [{ name: 'POS shampoo', quantity: 1 }],
+    money_status: started ? 'refunded' : 'not_started',
+    receipt_status: issued ? 'issued' : started ? 'pending' : 'not_started',
+    stock_status: received ? 'received' : 'awaiting_goods',
+    receipt_url: null,
+    can_start: !started,
+    can_reconcile: started && !issued,
+    can_receive: started && !received,
+    reason: started ? 'Товар повернуто' : null,
+  })
+  await page.route('**/api/v1/backoffice/master-mono/orders/321/refund**', async route => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (request.method() === 'GET') return route.fulfill({ json: response() })
+    if (url.pathname.endsWith('/reconcile')) issued = true
+    else if (url.pathname.endsWith('/receive')) received = true
+    else {
+      writes++
+      expect(request.headers()['idempotency-key']).toBeTruthy()
+      expect(request.postDataJSON()).toEqual({ expected_revision: 1, reason: 'Товар повернуто' })
+      started = true
+      return route.abort('connectionreset')
+    }
+    return route.fulfill({ json: response() })
+  })
+
+  await page.goto('/orders/321')
+  const refund = page.getByRole('heading', { name: 'Повернення через Mono' }).locator('..')
+  await expect(refund.getByText('POS shampoo × 1')).toBeVisible()
+  await refund.getByLabel('Причина повернення').fill('Товар повернуто')
+  await refund.getByLabel('Підтверджую повне повернення коштів').check()
+  await refund.getByRole('button', { name: 'Повернути кошти' }).click()
+  await refund.getByRole('button', { name: 'Оновити стан' }).click()
+  await expect(refund.getByText('Кошти повернено')).toBeVisible()
+  await expect(refund.getByText('Очікується підтвердження')).toBeVisible()
+  await refund.getByRole('button', { name: 'Звірити повернення' }).click()
+  await expect(refund.getByText('Чек підтверджено')).toBeVisible()
+  await refund.getByRole('button', { name: 'Підтвердити приймання товару на склад' }).click()
+  await page.reload()
+  await expect(refund.getByText('Товар прийнято')).toBeVisible()
+  expect(writes).toBe(1)
+})

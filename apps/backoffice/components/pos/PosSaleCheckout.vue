@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CheckCircleIcon, PhotoIcon, ArrowPathIcon, DocumentTextIcon, ClockIcon, QrCodeIcon, ShoppingBagIcon, CreditCardIcon, ReceiptPercentIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import type { PosCheckout } from '~/types/posSale'
-import { posBlockingReasons, posExpiredClosure, posMoney } from '~/composables/usePosSale'
+import { posBlockingReasons, posExpiredClosure, posMoney, posRefundClosed } from '~/composables/usePosSale'
 import { qrMockCode } from '~/utils/qrMock'
 const props = defineProps<{ checkout: PosCheckout; paymentUrl: string | null; automatic: boolean; canStartNew: boolean; startNewIssue: string; busy: boolean; canHandover: boolean; canRead: boolean; canVerifyInvoice: boolean; canViewHistory: boolean; canDefer: boolean; deferSale: () => Promise<boolean>; readState: () => Promise<boolean>; error: string }>()
 const paymentLabels: Record<PosCheckout['payment']['status'], string> = {
@@ -20,6 +20,7 @@ const receiptTone = computed(() => props.checkout.receipt.status === 'accepted' 
     : props.checkout.receipt.status === 'pending' ? 'info' : 'neutral')
 const review = computed(() => props.checkout.status === 'requires_review' || ['unknown','failed','expired','reversed'].includes(props.checkout.payment.status))
 const expiredClosed = computed(() => posExpiredClosure(props.checkout))
+const refundClosed = computed(() => posRefundClosed(props.checkout))
 const closedConflict = computed(() => props.checkout.order_status === 'cancelled' && props.checkout.blocking_reasons?.includes('master_mono_closed_conflict'))
 const unconfirmedInvoice = computed(() => !props.checkout.payment.invoice_id && props.checkout.blocking_reasons?.includes('creation_unknown'))
 const unavailableQr = computed(() => props.checkout.status === 'awaiting_payment' && !props.paymentUrl)
@@ -58,11 +59,12 @@ const print = async () => {
     <header class="flex flex-wrap items-start justify-between gap-2">
       <div>
         <p class="ui-eyebrow text-xs uppercase tracking-[0.16em]">Продаж #{{ checkout.order_id }}</p>
-        <h2 class="mt-1 text-lg font-semibold">{{ expiredClosed ? 'Продаж скасовано' : code ? 'Оплата через mono' : 'Стан продажу' }}</h2>
+        <h2 class="mt-1 text-lg font-semibold">{{ (expiredClosed || refundClosed) ? 'Продаж скасовано' : code ? 'Оплата через mono' : 'Стан продажу' }}</h2>
       </div>
       <BaseBadge v-if="code" tone="accent"><QrCodeIcon class="h-4 w-4" aria-hidden="true" />Mono QR</BaseBadge>
     </header>
     <p v-if="expiredClosed" role="status" class="ui-status-info rounded-xl p-3 text-sm">Строк дії рахунку минув, оплату не отримано.</p>
+    <p v-if="refundClosed" role="status" class="ui-status-info rounded-xl p-3 text-sm">Кошти повернено через Mono. Продаж закрито.</p>
     <div v-if="canStartNew" class="space-y-1.5">
       <BaseButton type="button" variant="primary" size="lg" block :loading="busy" loading-label="Перевіряємо продаж" @click="emit('newSale')">
         <MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />Новий продаж
@@ -92,7 +94,7 @@ const print = async () => {
     <p v-if="checkout.status === 'completed' && checkout.handover.status === 'handed_over'" role="status" class="flex items-center justify-center gap-2 font-semibold text-ui-success"><CheckCircleIcon class="h-6 w-6" aria-hidden="true" />Продаж завершено. Товар видано.</p>
     <p v-else-if="closedConflict" role="status" class="ui-status-warning rounded-xl p-3 text-sm">Продаж скасовано. Нові дані про оплату потребують звірки.</p>
     <p v-else-if="checkout.payment.status === 'paid' && checkout.receipt.status !== 'accepted'" role="status" class="ui-status-info rounded-xl p-3 text-sm">Оплату підтверджено. {{ checkout.receipt.status === 'failed' || checkout.receipt.status === 'requires_review' ? 'Не вдалося підтвердити чек.' : 'Очікуємо чек.' }} Повторно платити не потрібно. Видача поки недоступна.</p>
-    <div v-else-if="review && !expiredClosed" role="status" class="ui-status-warning space-y-1 rounded-xl p-3 text-sm">
+    <div v-else-if="review && !expiredClosed && !refundClosed" role="status" class="ui-status-warning space-y-1 rounded-xl p-3 text-sm">
       <p class="font-semibold">{{ canVerifyInvoice ? 'Рахунок mono очікує перевірки' : unconfirmedInvoice ? 'Не вдалося підтвердити рахунок mono' : 'Стан оплати потребує уточнення' }}</p>
       <template v-if="!canVerifyInvoice">
         <p v-for="reason in reasons" :key="reason">{{ reason }}</p>
@@ -103,7 +105,7 @@ const print = async () => {
     <p v-else-if="unavailableQr && !error" role="status" class="ui-status-warning rounded-xl p-3 text-sm">QR для оплати поки недоступний. Перечитайте стан цього продажу.</p>
     <p v-else-if="canHandover" role="status" class="text-center font-medium">Оплату та чек підтверджено. Передайте товар клієнту.</p>
     <BaseLoader v-else-if="code && ['pending', 'processing'].includes(checkout.payment.status)" inline size="sm" label="Очікуємо підтвердження оплати mono…" class="w-full py-2 text-ui-secondary" />
-    <p v-else-if="!expiredClosed" role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
+    <p v-else-if="!expiredClosed && !refundClosed" role="status" class="text-center text-sm text-ui-secondary">{{ code ? 'Очікуємо підтвердження оплати…' : 'Перевіряємо стан цього самого продажу…' }}</p>
     <BaseButton v-if="canVerifyInvoice" variant="primary" size="lg" block :loading="busy" @click="emit('verifyInvoice')"><ArrowPathIcon class="h-4 w-4" aria-hidden="true" />Перевірити рахунок mono</BaseButton>
     <BaseButton v-if="canRead && checkout.status === 'prepared' && !checkout.payment.invoice_id && checkout.actions.can_resume && !checkout.actions.can_verify_invoice" variant="neutral" size="lg" block :loading="busy" @click="emit('resume')">Продовжити підготовку рахунку</BaseButton>
     <BaseButton v-if="canHandover" variant="primary" size="lg" block :loading="busy" @click="emit('handover')">Товар видано</BaseButton>

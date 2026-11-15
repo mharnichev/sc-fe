@@ -3,6 +3,7 @@ import { orderPaymentMethodLabel } from '~/utils/orderSales'
 import { productDisplayImages } from '~/utils/productImages'
 import { ArrowLeftIcon, ArrowPathIcon, ChevronDownIcon, ShoppingBagIcon, UserIcon, TruckIcon, CreditCardIcon, DocumentTextIcon, Cog6ToothIcon, ArrowUturnLeftIcon, ChartBarIcon, ClipboardDocumentListIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import OrderMasterMono from '~/components/orders/OrderMasterMono.vue'
+import OrderMasterMonoRefund from '~/components/orders/OrderMasterMonoRefund.vue'
 import OrderQrMock from '~/components/orders/OrderQrMock.vue'
 import OrderShopCarrierReturns from '~/components/orders/OrderShopCarrierReturns.vue'
 import OrderShopNPDirectReturn from '~/components/orders/OrderShopNPDirectReturn.vue'
@@ -57,6 +58,8 @@ const usesCheckbox = computed(() => usesShopFiscal.value && shopFiscalProfile.va
 const usesUnpaidReturnFlow = computed(() => usesShopFiscal.value && ['cod', 'cashOnDelivery', 'cardOnDelivery', 'cash_on_delivery', 'card_on_delivery']
   .includes(order.value?.payment_method || ''))
 const fiscalProfileReady = computed(() => !usesShopFiscal.value || (shopFiscalProfile.value !== null && !fiscalProfileLoading.value && !fiscalProfileError.value))
+const canManagePosRefund = computed(() => !isBarber.value && (auth.user?.is_superuser
+  || (auth.user?.can_manage_fiscal_settings && auth.user?.can_fiscalize_returns)))
 const isPosSale = computed(() => order.value?.channel === 'backoffice_pos')
 const legacyQrOwnsSale = ref(false)
 const masterMonoSelected = ref(false), masterMonoReady = ref(false), masterMonoBusy = ref(false), masterMonoHandoverAllowed = ref(false)
@@ -640,6 +643,10 @@ const updateStatus = async () => {
       </section>
 
       </div>
+      <OrderMasterMonoRefund v-if="isPosSale && !order.simulation && canManagePosRefund"
+        :key="order.id" :order-id="order.id" :revision="order.revision"
+        @changed="reloadSales" />
+
       <template v-if="!isBarber">
         <BaseCard v-if="usesShopFiscal && !fiscalProfileReady" as="section" padding="sm" aria-label="Перевірка фіскального профілю" class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-sm text-ui-secondary" role="status">{{ fiscalProfileError ? 'Фіскальні дії недоступні. Оновіть профіль.' : 'Перевіряємо фіскальний профіль…' }}</p>
