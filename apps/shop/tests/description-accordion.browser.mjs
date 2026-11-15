@@ -15,9 +15,13 @@ const pageSource = await readFile(new URL('pages/products/[slug].vue', root), 'u
 const logic = pageSource.slice(pageSource.indexOf('const descriptionElement ='), pageSource.indexOf('const plainProductDescription ='))
 const template = pageSource.match(/<BaseAccordion\s+v-if="productDescriptionHtml"[\s\S]*?<\/BaseAccordion>/)[0]
 const css = pageSource.slice(pageSource.indexOf(':deep(.product-description__summary)'), pageSource.indexOf('.product-characteristics__list {'))
+const localeSource = await readFile(new URL('data/locale.ts', root), 'utf8')
+const { code: localeCode } = await transform(localeSource, { loader: 'ts', format: 'esm' })
+const { shopTerms } = await import(`data:text/javascript;base64,${Buffer.from(localeCode).toString('base64')}`)
+const descriptionTerms = { catalog: { collapse: shopTerms.en.catalog.collapse }, home: { showMore: shopTerms.en.home.showMore } }
 const sources = {
   Accordion: await readFile(new URL('components/ui/BaseAccordion.vue', root), 'utf8'),
-  Description: `<script setup lang="ts">const productDescriptionHtml = window.descriptionHtml; const productText = { description: 'Description' }; ${logic}</script><template>${template}</template><style scoped>${css}</style>`,
+  Description: `<script setup lang="ts">const productDescriptionHtml = window.descriptionHtml; const terms = ${JSON.stringify(descriptionTerms)}; ${logic}</script><template>${template}</template><style scoped>${css}</style>`,
 }
 const modules = {}, styles = []
 const serverModules = {}
@@ -61,15 +65,17 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><div id="app">${serverHtml}</div>`)
     await page.addStyleTag({ content: `body { margin: 0 } main { width: 100%; max-width: 650px } h2 { margin:0; font-size:18px } ${styles.join('\n')}` })
     await page.addScriptTag({ content: bundle.outputFiles[0].text })
-    const accordion = page.locator('.product-description')
+    const accordion = page.locator('details').filter({ has: page.locator('.product-description__html') })
     const summary = accordion.locator('summary')
     const setLines = async n => page.evaluate(n => { descriptionHtml.value = `<p>${Array.from({ length: n }, (_, i) => `Line ${i} <strong>emphasis</strong>`).join('<br>')}</p>` }, n)
     await expect(summary).toHaveAttribute('aria-disabled', 'true')
+    await expect(summary).toBeHidden()
     await setLines(10)
     await expect(summary).toHaveAttribute('aria-disabled', 'true')
     await setLines(11)
     await expect(summary).not.toHaveAttribute('aria-disabled', 'true')
     await expect(summary).toHaveAttribute('aria-expanded', 'false')
+    await expect(summary).toHaveText(descriptionTerms.home.showMore)
     await expect.poll(() => accordion.evaluate(el => el.style.height)).not.toBe('')
     const preview = await accordion.evaluate(el => {
       const text = el.querySelector('.product-description__html')
@@ -81,6 +87,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.ok(preview.bottom > preview.tenth && preview.bottom <= preview.eleventh, JSON.stringify(preview))
     await summary.click()
     await expect(summary).toHaveAttribute('aria-expanded', 'true')
+    await expect(summary).toHaveText(descriptionTerms.catalog.collapse)
     await page.waitForTimeout(650)
     assert.equal(await accordion.evaluate(el => el.style.height), '')
     await summary.focus(); await page.keyboard.press('Enter')

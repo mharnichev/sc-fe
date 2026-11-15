@@ -7,22 +7,33 @@ const { productPageCopy } = await sourceModule(await readFile(new URL('../utils/
 const page = await readFile(new URL('../pages/products/[slug].vue', import.meta.url), 'utf8')
 Object.assign(globalThis, vue, { productPageCopy, locale })
 const selection = page.split('\n').find(line => line.startsWith('const productText ='))
-const { productText } = await sourceModule(selection + '\nexport { productText };')
+const tabSelection = page.slice(page.indexOf('const productDetailsTabs ='), page.indexOf('watch(() => route.params.slug'))
+const { productText, productDetailsTabs } = await sourceModule(`
+  const productComposition = ref('Ingredients fixture')
+  const productUsageHtml = ref('<p>Usage fixture</p>')
+  ${selection}
+  ${tabSelection}
+  export { productText, productDetailsTabs }
+`)
 
 test('actual product page copy switches UK → EN → UK for ingredients, gallery, loading and unavailable states', () => {
+  const tabLabels = () => productDetailsTabs.value.map(({ label }) => label)
   const view = vue.computed(() => [productText.value.composition, productText.value.characteristics, productText.value.description, productText.value.loadingProduct, productText.value.notFoundTitle, productText.value.retry])
   locale.value = 'uk'
   assert.deepEqual(view.value, ['Склад', 'Характеристики', 'Опис', 'Завантаження товару', 'Товар не знайдено', 'Спробувати ще раз'])
+  assert.deepEqual(tabLabels(), ['Опис', 'Склад', 'Застосування', 'Відгуки'])
   locale.value = 'en'
+  assert.deepEqual(tabLabels(), ['Description', 'Ingredients', 'How to use', 'Reviews'])
   assert.deepEqual(view.value, ['Ingredients', 'Characteristics', 'Description', 'Loading product', 'Product not found', 'Try again'])
   assert.equal(productText.value.openImage(2, 'Shampoo'), 'Open image 2 of Shampoo')
   assert.equal(productText.value.goToSlide(3, 4), 'Go to slide 3 of 4')
   assert.equal(productText.value.showImage(2), 'Show image 2')
   assert.equal(productText.value.loadErrorTitle, 'Could not load the product')
   locale.value = 'uk'
+  assert.deepEqual(tabLabels(), ['Опис', 'Склад', 'Застосування', 'Відгуки'])
   assert.equal(view.value[0], 'Склад')
   assert.equal(productText.value.openImage(2, 'Шампунь'), 'Відкрити зображення 2 товару Шампунь')
-  for (const key of ['composition', 'characteristics', 'description', 'loadingProduct', 'notFoundTitle', 'loadErrorTitle', 'retry', 'gallery', 'compositionTitle', 'galleryNavigation', 'chooseVolume', 'otherImages']) assert.ok(page.includes(`productText.${key}`), key)
+  for (const key of ['composition', 'characteristics', 'loadingProduct', 'notFoundTitle', 'loadErrorTitle', 'retry', 'gallery', 'compositionTitle', 'galleryNavigation', 'chooseVolume', 'otherImages']) assert.ok(page.includes(`productText.${key}`), key)
 })
 
 test('review failures saved in Ukrainian translate when English is selected and preserve the stored source', () => {

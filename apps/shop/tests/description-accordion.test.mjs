@@ -13,12 +13,12 @@ const { transform } = runtime('esbuild')
 const base = await readFile(new URL('../components/ui/BaseAccordion.vue', import.meta.url), 'utf8')
 const page = await readFile(new URL('../pages/products/[slug].vue', import.meta.url), 'utf8')
 
-async function serverComponent(source) {
+async function serverComponent(source, bindings = {}) {
   const { descriptor } = parse(source)
   const compiled = compileScript(descriptor, { id: 'description-ssr', inlineTemplate: true, templateOptions: { ssr: true } })
   const { code } = await transform(compiled.content, { loader: 'ts', format: 'cjs' })
   const module = { exports: {} }
-  runInNewContext(code, { ...Vue, module, exports: module.exports, require: runtime })
+  runInNewContext(code, { ...Vue, ...bindings, module, exports: module.exports, require: runtime })
   return module.exports.default
 }
 
@@ -36,12 +36,16 @@ test('base defaults SSR closed; explicit open and preview SSR expose content wit
 test('page description SSR is expanded and inert until client measurement', async () => {
   const logic = page.slice(page.indexOf('const descriptionElement ='), page.indexOf('const plainProductDescription ='))
   const template = page.match(/<BaseAccordion\s+v-if="productDescriptionHtml"[\s\S]*?<\/BaseAccordion>/)[0]
-  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const productText = {description: 'Description'}; ${logic}</script><template>${template}</template>`)
+  const localeSource = await readFile(new URL('../data/locale.ts', import.meta.url), 'utf8')
+  const { code } = await transform(localeSource, { loader: 'ts', format: 'esm' })
+  const { shopTerms } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const terms = ref(shopTerms.uk); ${logic}</script><template>${template}</template>`, { shopTerms })
   const app = Vue.createSSRApp(Description)
   app.component('BaseAccordion', Accordion)
   const html = await renderToString(app)
   assert.match(html, /<details[^>]* open/)
   assert.match(html, /aria-disabled="true"/)
   assert.match(html, /aria-expanded="true"/)
+  assert.ok(html.includes(shopTerms.uk.catalog.collapse))
   assert.match(html, /<p>Text<\/p>/)
 })
