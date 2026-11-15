@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { productDisplayImages } from '~/utils/productImages'
 import { canManageCatalog } from '~/utils/catalogAccess'
+import catalogSources from '~/data/catalogProductSources.json'
 import { PencilIcon, ArrowLeftIcon, TagIcon, CurrencyDollarIcon, CubeIcon, DocumentTextIcon, PhotoIcon, PlusIcon, CodeBracketIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
 import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } from '~/composables/useBackofficeApi'
@@ -34,6 +35,11 @@ const [{ data: productResult, refresh: refreshProduct }, { data: categories }, {
 ])
 
 const product = computed(() => productResult.value?.product ?? null)
+const catalogSource = computed(() => {
+  const sku = product.value?.sku
+  const sources: Record<string, { url: string, verified: boolean }> = catalogSources
+  return sku && Object.hasOwn(sources, sku) ? sources[sku] : undefined
+})
 const shopPromotionModalOpen = ref(false)
 const selectedShopPromotion = ref<ShopPromotion | null>(null)
 
@@ -237,6 +243,10 @@ const productMetadata = computed(() => product.value ? [
             <div class="space-y-1">
               <h3 class="flex items-center gap-1.5 text-sm font-medium text-ui-primary">Склад<BaseFieldHelp label="Склад" text="Інгредієнти товару, зазначені виробником." /></h3>
               <p tabindex="0" role="region" aria-label="Склад товару" class="max-h-64 overflow-y-auto break-words whitespace-pre-line text-sm leading-5 text-ui-secondary">{{ product.ingredients || 'Склад не вказано' }}</p>
+              <div v-if="catalogSource" class="pt-1 text-sm">
+                <a :href="catalogSource.url" target="_blank" rel="noopener noreferrer" class="font-medium text-ui-primary underline">Джерело виробника</a>
+                <p v-if="!catalogSource.verified" class="text-ui-muted">Точний варіант потребує звірки.</p>
+              </div>
             </div>
           </div>
         </BaseCard>
