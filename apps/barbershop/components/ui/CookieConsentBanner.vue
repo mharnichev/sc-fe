@@ -18,7 +18,7 @@ const {
   >
     <aside
       v-if="!hasConsent"
-      class="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6 sm:pb-6"
+      class="cookie-consent-banner fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6 sm:pb-6"
       :aria-label="terms.cookieConsent.title"
     >
       <div class="mx-auto flex w-full max-w-5xl flex-col gap-5 border border-neutral-900/10 bg-white p-5 shadow-2xl shadow-neutral-950/15 sm:p-6 md:flex-row md:items-end md:justify-between">
@@ -53,3 +53,12 @@ const {
     </aside>
   </Transition>
 </template>
+
+<style scoped>
+@media (width < 576px) {
+  .cookie-consent-banner {
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    z-index: 82;
+  }
+}
+</style>

@@ -29,6 +29,9 @@ export default defineEventHandler((event) => {
     });
     window.addEventListener('dobrodesk:ready', event => { if(event.detail?.integrationId === config.integrationId) send('ready') });
     window.addEventListener('dobrodesk:error', () => send('error'));
+    window.addEventListener('dobrodesk:event', event => {
+      if(event.detail?.integrationId === config.integrationId && event.detail.event?.type === 'closed') send('closed');
+    });
     window.addEventListener('dobrodesk:state', event => {
       if(event.detail?.integrationId !== config.integrationId) return;
       const state = event.detail.state;

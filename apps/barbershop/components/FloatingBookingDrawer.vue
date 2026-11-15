@@ -10,6 +10,11 @@ const supportRoute = useRoute()
 const supportConfig = useRuntimeConfig()
 const { isPrivateReviewRoute } = useReviewPrivacy()
 const supportOpenRequest = useState('dobrodesk-open-request', () => 0)
+const supportModalOpen = useState('dobrodesk-mobile-modal-open', () => false)
+const supportContainer = ref<HTMLElement | null>(null)
+const { $supportModal } = useNuxtApp()
+const supportTitle = computed(() => locale.value === 'en' ? 'Support' : 'Підтримка')
+watch(supportContainer, container => $supportModal.setContainer(container), { flush: 'post' })
 const showSupport = computed(() => isDobrodeskEnabled(supportConfig.public.dobrodeskEnabled)
   && !!supportConfig.public.dobrodeskIntegrationId
   && isDobrodeskPublicRoute(supportRoute, supportConfig.app.baseURL)
@@ -25,13 +30,21 @@ const {
 const isCustomerActivityOpen = ref(false)
 const isTriggerOverBooking = ref(false)
 const actionsContainer = ref<HTMLDivElement | null>(null)
+const phoneBar = ref<HTMLElement | null>(null)
+const isBarCompact = ref(false)
+const isBarOnDark = ref(false)
+let lastScrollY = 0
 let bodyScrollLock: symbol | null = null
 let triggerPositionFrame = 0
+let phoneViewport: MediaQueryList
+let pageResizeObserver: ResizeObserver
 
 const closeLabel = computed(() => locale.value === 'en' ? 'Close booking' : 'Закрити запис')
 const loadingLabel = computed(() => locale.value === 'en' ? 'Loading booking...' : 'Завантажуємо запис...')
 const triggerImage = computed(() => locale.value === 'en' ? bookEngImage : bookUaImage)
 const triggerImageAlt = computed(() => locale.value === 'en' ? 'Book appointment' : 'Записатися')
+const supportLabel = computed(() => locale.value === 'en' ? 'Open support chat' : 'Відкрити чат підтримки')
+const appointmentsLabel = computed(() => locale.value === 'en' ? 'My appointments' : 'Мої записи')
 
 const rectsIntersect = (first: DOMRect, second: DOMRect) =>
   first.left < second.right
@@ -44,6 +57,27 @@ const updateTriggerPosition = () => {
 
   const bookingSection = document.getElementById('booking')
   const trigger = actionsContainer.value
+
+  if (phoneViewport.matches) {
+    const scrollY = window.scrollY
+    if (scrollY <= 120 || Math.abs(scrollY - lastScrollY) >= 6) {
+      isBarCompact.value = scrollY > 120 && scrollY > lastScrollY
+      lastScrollY = scrollY
+    }
+
+    const booking = bookingSection?.getBoundingClientRect()
+    isTriggerOverBooking.value = !!booking && booking.top < window.innerHeight && booking.bottom > 0
+    const bar = phoneBar.value
+    if (bar && !isTriggerOverBooking.value && !isOpen.value && !isCustomerActivityOpen.value) {
+      const x = bar.offsetLeft + bar.offsetWidth / 2
+      const y = bar.offsetTop + bar.offsetHeight / 2
+      const section = document.elementsFromPoint(x, y)
+        .map(element => element.closest<HTMLElement>('[data-header-theme]'))
+        .find(Boolean)
+      isBarOnDark.value = section?.dataset.headerTheme === 'dark'
+    }
+    return
+  }
 
   if (!bookingSection || !trigger || isOpen.value) {
     isTriggerOverBooking.value = false
@@ -84,6 +118,7 @@ const openCustomerActivity = () => {
 
 const closeCustomerActivity = () => {
   isCustomerActivityOpen.value = false
+  nextTick(scheduleTriggerPositionUpdate)
 }
 
 const updateOverlayCloseCursor = (event: PointerEvent) => {
@@ -105,7 +140,7 @@ watch(isOpen, (open) => {
 
   if (open) {
     bodyScrollLock ??= acquireBodyScrollLock()
-    isTriggerOverBooking.value = false
+    if (!phoneViewport.matches) isTriggerOverBooking.value = false
     return
   }
 
@@ -115,13 +150,23 @@ watch(isOpen, (open) => {
 })
 
 onMounted(() => {
+  phoneViewport = window.matchMedia('(width < 576px)')
+  pageResizeObserver = new ResizeObserver(scheduleTriggerPositionUpdate)
+  const main = document.querySelector('main')
+  if (main) pageResizeObserver.observe(main)
+  lastScrollY = window.scrollY
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('scroll', scheduleTriggerPositionUpdate, { passive: true })
   window.addEventListener('resize', scheduleTriggerPositionUpdate)
   nextTick(scheduleTriggerPositionUpdate)
 })
 
+watch(() => supportRoute.fullPath, () => nextTick(scheduleTriggerPositionUpdate))
+
 onBeforeUnmount(() => {
+  supportModalOpen.value = false
+  if (supportContainer.value) $supportModal.setContainer(null)
+  pageResizeObserver.disconnect()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('scroll', scheduleTriggerPositionUpdate)
   window.removeEventListener('resize', scheduleTriggerPositionUpdate)
@@ -143,19 +188,20 @@ onBeforeUnmount(() => {
     v-show="!isOpen && !isCustomerActivityOpen"
     class="floating-booking-actions fixed bottom-4 right-4 z-[75] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6"
     :class="{ 'floating-booking-actions--over-booking': isTriggerOverBooking }"
+    :inert="isTriggerOverBooking"
   >
     <button
       v-if="showSupport"
       type="button"
-      class="inline-flex h-14 w-14 items-center justify-center rounded-full border border-neutral-700 bg-[#ffca2b] text-neutral-950 shadow-lg transition-colors hover:bg-[#ffda68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-      :aria-label="locale === 'en' ? 'Open support chat' : 'Відкрити чат підтримки'"
+      class="floating-desktop-action inline-flex h-14 w-14 items-center justify-center rounded-full border border-neutral-700 bg-[#ffca2b] text-neutral-950 shadow-lg transition-colors hover:bg-[#ffda68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+      :aria-label="supportLabel"
       @click="supportOpenRequest++"
     >
       <ChatBubbleBottomCenterTextIcon class="h-7 w-7" aria-hidden="true" />
     </button>
     <button
       type="button"
-      class="my-appointments-button group relative inline-flex h-14 w-14 items-center justify-center text-white outline-none focus-visible:ring-2 focus-visible:ring-[#ffca2b] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+      class="my-appointments-button floating-desktop-action group relative inline-flex h-14 w-14 items-center justify-center text-white outline-none focus-visible:ring-2 focus-visible:ring-[#ffca2b] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
       aria-label="Мої записи"
       @click="openCustomerActivity"
     >
@@ -186,6 +232,57 @@ onBeforeUnmount(() => {
       >
     </button>
   </div>
+
+  <div
+    v-show="!isOpen && !isCustomerActivityOpen"
+    ref="phoneBar"
+    class="phone-action-bar"
+    :class="{
+      'phone-action-bar--compact': isBarCompact,
+      'phone-action-bar--on-dark': isBarOnDark,
+      'phone-action-bar--over-booking': isTriggerOverBooking,
+    }"
+    :inert="isTriggerOverBooking"
+    role="group"
+    :aria-label="locale === 'en' ? 'Quick actions' : 'Швидкі дії'"
+  >
+    <button v-if="showSupport" type="button" aria-haspopup="dialog" @click="supportModalOpen = true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+        <path d="M7 9h10M7 13h7" />
+      </svg>
+      <span>{{ supportTitle }}</span>
+    </button>
+    <button type="button" @click="openCustomerActivity">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M7 3v4m10-4v4M3 10h18m-12 5 2 2 4-4" />
+      </svg>
+      <span>{{ appointmentsLabel }}</span>
+    </button>
+  </div>
+
+  <BaseModal
+    v-model="supportModalOpen"
+    :dialog-label="supportTitle"
+    :close-label="locale === 'en' ? 'Close support' : 'Закрити підтримку'"
+  >
+    <template #header>
+      <h2 class="py-1 text-lg font-semibold">{{ supportTitle }}</h2>
+    </template>
+
+    <div class="relative h-full bg-neutral-950 text-white">
+      <div ref="supportContainer" class="support-chat-frame absolute inset-0" />
+      <p v-if="$supportModal.status.value !== 'ready'" class="relative p-4 text-sm" role="status">
+        <template v-if="$supportModal.status.value === 'error'">
+          {{ locale === 'en' ? 'Chat is temporarily unavailable.' : 'Чат тимчасово недоступний.' }}
+        </template>
+        <template v-else>
+          {{ locale === 'en' ? 'Loading chat…' : 'Завантажуємо чат…' }}
+        </template>
+      </p>
+    </div>
+  </BaseModal>
 
   <CustomerActivityModal
     v-if="isCustomerActivityOpen"
@@ -262,6 +359,119 @@ onBeforeUnmount(() => {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+.phone-action-bar {
+  display: none;
+}
+
+.support-chat-frame {
+  bottom: env(safe-area-inset-bottom);
+}
+
+.support-chat-frame :deep(iframe) {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+}
+
+@media (width < 576px) {
+  .floating-booking-actions .floating-desktop-action {
+    display: none;
+  }
+
+  .phone-action-bar {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 81;
+    display: flex;
+    height: 44px;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.5);
+    border-radius: 4px;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.88), rgb(245 245 245 / 0.76));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65), 0 2px 12px rgb(0 0 0 / 0.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    backdrop-filter: blur(18px) saturate(1.3);
+    color: #0a0a0a;
+    transform: scale(1);
+    transform-origin: center bottom;
+    transition: transform 600ms cubic-bezier(0.3, 1, 0.3, 1), visibility 0s;
+  }
+
+  .phone-action-bar--compact {
+    transform: scale(0.9);
+  }
+
+  .phone-action-bar--on-dark {
+    border-color: rgb(255 255 255 / 0.22);
+    background: linear-gradient(160deg, rgb(45 45 45 / 0.88), rgb(20 20 20 / 0.8));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 2px 12px rgb(0 0 0 / 0.22);
+    color: #fff;
+  }
+
+  .phone-action-bar button {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: background-color 180ms ease;
+  }
+
+  .phone-action-bar button:is(:hover, :focus-visible) {
+    background: rgb(10 10 10 / 0.05);
+  }
+
+  .phone-action-bar--on-dark button:is(:hover, :focus-visible) {
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  .phone-action-bar button:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: -3px;
+  }
+
+  .phone-action-bar svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .floating-booking-actions {
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    transition: transform 600ms cubic-bezier(0.3, 1, 0.3, 1), visibility 0s;
+  }
+
+  .phone-action-bar--over-booking,
+  .floating-booking-actions--over-booking {
+    transform: translateY(calc(100% + 80px + env(safe-area-inset-bottom)));
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 600ms;
+  }
+
+  .floating-booking-actions--over-booking {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .phone-action-bar {
+    background: #f5f5f5;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .phone-action-bar--on-dark {
+    background: #202020;
+  }
 }
 
 .my-appointments-button {
@@ -377,6 +587,7 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .phone-action-bar,
   .floating-booking-actions,
   .my-appointments-button,
   .my-appointments-label,

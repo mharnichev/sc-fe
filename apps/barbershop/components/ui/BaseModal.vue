@@ -28,6 +28,7 @@ const focusableSelector = [
   'input:not([disabled])',
   'textarea:not([disabled])',
   'select:not([disabled])',
+  'iframe',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
@@ -68,6 +69,7 @@ const onKeydown = (event: KeyboardEvent) => {
   if (event.key !== 'Tab' || !dialog.value) return
 
   const focusableElements = [...dialog.value.querySelectorAll<HTMLElement>(focusableSelector)]
+    .filter(element => element.tagName !== 'IFRAME' || element.getClientRects().length > 0)
   if (!focusableElements.length) {
     event.preventDefault()
     dialog.value.focus()

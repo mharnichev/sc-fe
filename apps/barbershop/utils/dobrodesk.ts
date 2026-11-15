@@ -52,6 +52,7 @@ export const createDobrodeskLifecycle = (options: {
   integrationId: string
   enabled: boolean
   customLauncher?: boolean
+  onStatus?: (status: 'ready' | 'error') => void
   appearance: DobroDeskWidgetOptions['appearance']
   load: () => Promise<{ createDobroDeskWidget: (options: DobroDeskWidgetOptions) => SupportClient }>
 }) => {
@@ -88,11 +89,14 @@ export const createDobrodeskLifecycle = (options: {
       if (disposed) return
       ready = true
       present()
+      options.onStatus?.('ready')
     }
     catch {
+      if (disposed) return
       failed = true
       client?.destroy()
       client = undefined
+      options.onStatus?.('error')
       // Support must never interrupt the site's booking or shopping flows.
     }
     finally { pending = false }
