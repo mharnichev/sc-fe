@@ -244,7 +244,7 @@ const productMetadata = computed(() => product.value ? [
               <h3 class="flex items-center gap-1.5 text-sm font-medium text-ui-primary">Склад<BaseFieldHelp label="Склад" text="Інгредієнти товару, зазначені виробником." /></h3>
               <p tabindex="0" role="region" aria-label="Склад товару" class="max-h-64 overflow-y-auto break-words whitespace-pre-line text-sm leading-5 text-ui-secondary">{{ product.ingredients || 'Склад не вказано' }}</p>
               <div v-if="catalogSource" class="pt-1 text-sm">
-                <a :href="catalogSource.url" target="_blank" rel="noopener noreferrer" class="font-medium text-ui-primary underline">Джерело виробника</a>
+                <a :href="catalogSource.url" target="_blank" rel="noopener noreferrer" class="font-medium text-ui-primary underline">Джерело інформації</a>
                 <p v-if="!catalogSource.verified" class="text-ui-muted">Точний варіант потребує звірки.</p>
               </div>
             </div>
