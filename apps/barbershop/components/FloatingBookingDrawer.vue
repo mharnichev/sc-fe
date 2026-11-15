@@ -445,6 +445,7 @@ onBeforeUnmount(() => {
   }
 
   .floating-booking-actions {
+    right: -48px;
     bottom: calc(64px + env(safe-area-inset-bottom));
     transition: transform 600ms cubic-bezier(0.3, 1, 0.3, 1), visibility 0s;
   }
