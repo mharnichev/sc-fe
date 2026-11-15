@@ -18,6 +18,7 @@ type Entry = {
   amount_minor: number
   author_email: string
   created_at: string
+  entry_date?: string | null
   updated_at?: string | null
   updated_by_email?: string | null
 }
@@ -48,6 +49,7 @@ const filterKind = ref('')
 const sort = ref('newest')
 const isIncome = ref(false)
 const description = ref('')
+const entryDate = ref('')
 const amount = ref<string | number | null>('')
 const entryToDelete = shallowRef<Entry | null>(null)
 const deleting = ref(false)
@@ -61,7 +63,7 @@ let loadVersion = 0
 const entriesPath = '/backoffice/shop-balance/entries'
 const entries = computed(() => (records.value[month.value] ?? []).map(entry => ({
   ...entry,
-  day: dayFormat.format(new Date(entry.created_at)),
+  day: effectiveDate(entry),
 })))
 const visibleEntries = computed(() => {
   const selected = entries.value.filter(entry =>
@@ -103,8 +105,13 @@ function statusCode(error: unknown) {
   return (error as { response?: Response } | null)?.response?.status
 }
 
+function effectiveDate(entry: Entry) {
+  return entry.entry_date ?? dayFormat.format(new Date(entry.created_at))
+}
+
 function clearDraft() {
   editingId.value = null
+  entryDate.value = dayFormat.format(new Date())
   isIncome.value = false
   description.value = ''
   amount.value = ''
@@ -115,6 +122,7 @@ function openEntryForm(entry?: Entry) {
   clearDraft()
   if (entry) {
     editingId.value = entry.id
+    entryDate.value = effectiveDate(entry)
     isIncome.value = entry.kind === 'income'
     description.value = entry.description
     amount.value = (entry.amount_minor / 100).toFixed(2)
@@ -200,7 +208,12 @@ async function saveEntry() {
     return
   }
 
-  const payload = { kind: isIncome.value ? 'income' : 'expense', description: text, amount_minor: minor }
+  if (!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(entryDate.value)) {
+    formError.value = 'Виберіть дату операції у межах 2000–2099 років.'
+    return
+  }
+
+  const payload = { kind: isIncome.value ? 'income' : 'expense', description: text, amount_minor: minor, entry_date: entryDate.value }
   const editId = editingId.value
   const key = editId ? null : JSON.stringify(payload)
   const id = key === null ? editId : (pendingIds.get(key) ?? crypto.randomUUID())
@@ -216,7 +229,7 @@ async function saveEntry() {
     clearDraft()
     entryFormOpen.value = false
     notice.value = editId ? 'Запис оновлено.' : 'Запис збережено.'
-    month.value = dayFormat.format(new Date(entry.created_at)).slice(0, 7)
+    month.value = effectiveDate(entry).slice(0, 7)
     day.value = ''
     filterKind.value = ''
     await loadEntries()
@@ -340,7 +353,7 @@ onScopeDispose(() => {
           >
             <template #head>
               <tr>
-                <th scope="col" class="w-[15%] sm:w-[19%]">Дата<span class="hidden sm:inline"> й час</span></th>
+                <th scope="col" class="w-[15%] sm:w-[19%]">Дата</th>
                 <th scope="col" class="w-[10%] sm:w-[13%]">Тип</th>
                 <th scope="col">Опис</th>
                 <th scope="col" class="balance-amount w-[27%] sm:w-[18%]">Сума</th>
@@ -350,9 +363,9 @@ onScopeDispose(() => {
             </template>
             <tr v-for="entry in visibleEntries" :key="entry.id">
               <td class="whitespace-nowrap">
-                <time :datetime="entry.created_at">
-                  <span class="sm:hidden">{{ compactDateFormat.format(new Date(entry.created_at)) }}</span>
-                  <span class="hidden sm:inline">{{ timeFormat.format(new Date(entry.created_at)) }}</span>
+                <time :datetime="entry.day">
+                  <span class="sm:hidden">{{ compactDateFormat.format(new Date(entry.day + 'T12:00:00Z')) }}</span>
+                  <span class="hidden sm:inline">{{ entry.day }}</span>
                 </time>
               </td>
               <td class="whitespace-nowrap">
@@ -445,6 +458,8 @@ onScopeDispose(() => {
             </BaseRadioButton>
           </fieldset>
           <div class="grid gap-3">
+            <BaseCalendar v-model="entryDate" label="Дата операції" min="2000-01-01" max="2099-12-31"
+              input-class="base-control w-full py-2 pr-2 text-sm" required :disabled="saving" />
             <BaseTextarea v-model="description" label="Опис" :rows="3" required :disabled="saving">
               <template #icon><DocumentTextIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
             </BaseTextarea>
