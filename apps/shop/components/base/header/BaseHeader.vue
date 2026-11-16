@@ -567,7 +567,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.shop-header__popular-btn.shop-header__popular-btn--sale { color: #c2410c; }
+.shop-header__popular-btn.shop-header__popular-btn--sale {
+  padding-inline: calc(0.95rem - 0.35em);
+  color: #c2410c;
+}
+
+.shop-header__popular-btn--sale :deep(.base-animated-menu-text__stack > span) {
+  display: block;
+  padding: 0.2em 0.35em;
+}
 
 .shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover) {
   isolation: isolate;
@@ -577,10 +585,10 @@ onBeforeUnmount(() => {
 .shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover)::before {
   position: absolute;
   z-index: -1;
-  inset: -0.345em -0.3em;
+  inset: 0.05em 0.05em;
   background: #c2410c;
   content: '';
-  transform: translate(0.08em, -0.04em) rotate(-1.5deg) skewX(-4deg);
+  transform: skewX(-4deg);
   pointer-events: none;
 }
 
