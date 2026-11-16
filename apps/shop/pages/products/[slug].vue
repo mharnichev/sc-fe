@@ -235,8 +235,11 @@ onBeforeUnmount(() => {
   document.fonts.removeEventListener('loadingdone', scheduleDescriptionMeasurement)
 })
 
+const shortProductDescription = computed(() =>
+  htmlToText(product.value ? productDisplayContent(product.value, 'short_description') : ''),
+)
 const plainProductDescription = computed(() =>
-  htmlToText(productDescriptionHtml.value || (product.value ? productDisplayContent(product.value, 'short_description') : '')),
+  htmlToText(productDescriptionHtml.value) || shortProductDescription.value,
 )
 const isFavorite = computed(() => product.value ? favorites.has(product.value.id) : false)
 const isInCart = computed(() => product.value ? cart.items.some(item => item.product.id === product.value?.id) : false)
@@ -474,7 +477,7 @@ const seoDescription = computed(() => {
   const item = indexableProduct.value
   if (!item) return terms.value.seo.productFallbackDescription
   return (locale.value === 'en' ? '' : htmlToText(item.seo_description))
-    || htmlToText(productDisplayContent(item, 'short_description'))
+    || shortProductDescription.value
     || plainProductDescription.value
     || [...new Set([seoName.value, item.brand.name, item.package_size].filter(Boolean))].join(' · ')
 })
@@ -511,7 +514,7 @@ useHead(() => {
         '@id': url + '#product',
         url,
         name: seoName.value,
-        description: plainProductDescription.value || htmlToText(productDisplayContent(item, 'short_description')) || undefined,
+        description: plainProductDescription.value || undefined,
         sku: item.sku || undefined,
         image: seoImages.value.length ? seoImages.value : undefined,
         brand: item.brand.name ? { '@type': 'Brand', name: item.brand.name } : undefined,
@@ -570,6 +573,7 @@ useHead(() => {
                       :src="item.image.image"
                       :alt="item.image.alt || productDisplayName(product)"
                       class="product-gallery__image"
+                      :fetchpriority="item.imageIndex === 0 ? 'high' : undefined"
                       draggable="false"
                     >
                   </BaseButton>
@@ -639,6 +643,8 @@ useHead(() => {
                 {{ reviewsCount }} {{ terms.product.reviews }}
               </BaseBadge>
             </div>
+
+            <p v-if="shortProductDescription" class="product-buy__summary">{{ shortProductDescription }}</p>
 
             <section v-if="characteristicEntries.length" class="product-characteristics">
               <h2 class="product-section-title">{{ productText.characteristics }}</h2>
@@ -1383,6 +1389,11 @@ useHead(() => {
   letter-spacing: 1px;
   color: #0a0a0a;
   text-transform: uppercase;
+}
+
+.product-buy__summary {
+  margin: 0;
+  line-height: 1.5;
 }
 
 .product-buy__title-row {
