@@ -2,12 +2,12 @@
 import type { LocationQueryRaw } from 'vue-router'
 import type { CategoryFilterGroupDto } from '@shared-types'
 import { isMonochromeBrandLogo, localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
+import { SHOP_CATALOG_PAGE_SIZE } from '~/utils/shopSeo'
 import { categoryPathBySlug } from '~/utils/category-routing'
 import FeedbackState from '~/components/ui/FeedbackState.vue'
 
 const { categoryDisplayName, categoryDisplayDescription } = useCategoryDisplay()
 
-const DEFAULT_LIMIT = 20
 const props = withDefaults(defineProps<{
   topOnly?: boolean
   saleOnly?: boolean
@@ -43,7 +43,7 @@ const readIntegerQuery = (value: unknown, fallback: number) => {
 const filterDraft = ref<LocationQueryRaw | null>(null)
 const filterQuery = computed(() => filterDraft.value ?? route.query)
 
-const limit = computed(() => Math.min(100, readIntegerQuery(filterQuery.value.limit, DEFAULT_LIMIT) || DEFAULT_LIMIT))
+const limit = computed(() => Math.min(100, readIntegerQuery(filterQuery.value.limit, SHOP_CATALOG_PAGE_SIZE) || SHOP_CATALOG_PAGE_SIZE))
 const offset = computed(() => readIntegerQuery(filterQuery.value.offset, 0))
 const ordering = computed(() => readQueryValue(filterQuery.value.ordering) || readQueryValue(filterQuery.value.sort) || (props.topOnly ? '-is_top' : ''))
 const query = computed(() => readQueryValue(filterQuery.value.q))
@@ -281,17 +281,25 @@ const scheduleApplyState = () => {
   if (applyTimer) clearTimeout(applyTimer)
   applyTimer = setTimeout(() => void updateQuery({}), 250)
 }
-const changePage = async (page: number) => {
-  await updateQuery({ offset: page > 1 ? String((page - 1) * limit.value) : undefined })
-  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+const pageRoute = (page: number) => ({
+  path: route.path,
+  query: { ...route.query, offset: page > 1 ? String((page - 1) * limit.value) : undefined },
+})
 onBeforeUnmount(() => {
   if (applyTimer) clearTimeout(applyTimer)
 })
 
 useSeo(
-  () => props.saleOnly ? saleTitle.value : props.topOnly ? terms.value.home.popularTitle : terms.value.seo.catalogTitle,
-  () => props.saleOnly ? saleDescription.value : props.topOnly ? terms.value.home.popularDescription : terms.value.seo.catalogDescription,
+  () => {
+    const title = props.saleOnly ? saleTitle.value : props.topOnly ? terms.value.home.popularTitle
+      : categoryNode.value ? categoryName.value : terms.value.seo.catalogTitle
+    const page = Math.floor(offset.value / limit.value) + 1
+    return page > 1 ? `${title} · ${terms.value.cabinet.pageLabel} ${page}` : title
+  },
+  () => props.saleOnly ? saleDescription.value : props.topOnly ? terms.value.home.popularDescription
+    : categoryDescription.value || (categoryNode.value ? `${categoryName.value}. ${terms.value.seo.catalogDescription}` : terms.value.seo.catalogDescription),
+  {},
+  () => !productsError.value && (!category.value || Boolean(categoryNode.value)) && (!offset.value || offset.value < total.value),
 )
 </script>
 
@@ -431,7 +439,7 @@ useSeo(
           :limit="limit"
           :offset="offset"
           :disabled="productsPending"
-          @update:page="changePage"
+          :page-route="pageRoute"
         />
       </div>
 

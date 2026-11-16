@@ -11,6 +11,7 @@ export default defineEventHandler((event) => {
     '',
     `Sitemap: ${siteUrl}/sitemap.xml`,
     `Sitemap: ${siteUrl}/blog/sitemap.xml`,
+    `Sitemap: ${siteUrl}/shop/sitemap.xml`,
     '',
   ].join('\n')
 })

@@ -36,7 +36,7 @@ async function harness(t, props = { saleOnly: true }, initialQuery = {}) {
     await vue.nextTick()
   } }
   router.push = router.replace
-  const context = vm.createContext({ ...vue, setTimeout, clearTimeout,
+  const context = vm.createContext({ ...vue, setTimeout, clearTimeout, SHOP_CATALOG_PAGE_SIZE: 20,
     defineProps: () => ({ topOnly: false, saleOnly: false, ...props }), withDefaults: value => value,
     useRoute: () => route, useRouter: () => router, useCatalogDomain: () => domain,
     useShopLocale: () => ({ locale, terms }), useCategoryDisplay: () => ({ categoryDisplayName: item => item.name, categoryDisplayDescription: item => item.description || '' }),
@@ -51,7 +51,7 @@ async function harness(t, props = { saleOnly: true }, initialQuery = {}) {
       return { data, pending: vue.ref(false), refresh: async () => { data.value = await load() } }
     },
   })
-  const model = await vm.runInContext(`(async () => { ${script}; return { apiQuery, updateQuery, panelSelectedFilters, clearFilters, setFilter, setOrdering, changePage, priceMin, priceMax, offset, saleTitle, saleDescription } })()`, context)
+  const model = await vm.runInContext(`(async () => { ${script}; return { apiQuery, updateQuery, panelSelectedFilters, clearFilters, setFilter, setOrdering, pageRoute, priceMin, priceMax, offset, saleTitle, saleDescription } })()`, context)
   t.after(() => { cleanup.forEach(fn => fn()); stops.forEach(stop => stop()) })
   return { ...model, calls, keys, route, router, locale, seo: context.seo }
 }
@@ -75,7 +75,7 @@ test('sale keeps its fence for category/type/brand facets, pagination, sorting a
   await h.updateQuery({ category: 'hair' })
   await h.setFilter('type', 'shampoo', true)
   await h.setFilter('brand', 'fixture', true)
-  await h.changePage(3)
+  await h.router.push(h.pageRoute(3))
   assert.equal(h.offset.value, 40)
   assert.equal(h.calls.at(-1).query.offset, 40)
   assert.deepEqual(h.calls.at(-1).query.type, ['shampoo'])
@@ -115,6 +115,6 @@ test('ordinary, popular and sale response keys remain separate and preserve expl
       assert.equal(call.query.has_discount, 'false')
       assert.equal(call.query.is_top, props.topOnly || undefined)
     }
-    assert.equal(h.seo[0](), props.topOnly ? 'Popular' : 'Catalog')
+    assert.equal(h.seo[0](), props.topOnly ? 'Popular' : 'Hair')
   }
 })

@@ -24,6 +24,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || 'http://127.0.0.1:8000/api/v1',
     public: {
+      siteUrl: 'https://soulcuts.com.ua',
       sentryDsn: '',
       sentryEnvironment: 'production',
       sentryRelease: '',
@@ -48,7 +49,6 @@ export default defineNuxtConfig({
     '/**': {
       headers: {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'X-Robots-Tag': 'noindex, nofollow, noarchive',
       },
     },
   },
@@ -67,10 +67,6 @@ export default defineNuxtConfig({
     baseURL: process.env.NUXT_APP_BASE_URL || '/shop/',
     head: {
       titleTemplate: '%s | Atelier Supply',
-      meta: [
-        { name: 'robots', content: 'noindex, nofollow, noarchive' },
-        { name: 'googlebot', content: 'noindex, nofollow, noarchive' },
-      ],
     },
   },
 })

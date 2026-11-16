@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { NuxtLink } from '#components'
+import type { RouteLocationRaw } from 'vue-router'
+
 const props = withDefaults(defineProps<{
   total: number
   limit: number
   offset: number
   disabled?: boolean
   ariaLabel?: string
+  pageRoute?: (page: number) => RouteLocationRaw
 }>(), {
   disabled: false,
   ariaLabel: '',
@@ -27,48 +31,51 @@ const visiblePages = computed(() => {
   return [...pages].sort((first, second) => first - second)
 })
 
-const goToPage = (page: number) => {
-  if (props.disabled || page < 1 || page > pageCount.value || page === currentPage.value) return
-  emit('update:page', page)
+const isDisabled = (page: number) =>
+  props.disabled || page < 1 || page > pageCount.value || page === currentPage.value
+
+const pageLink = (page: number) => isDisabled(page) ? undefined : props.pageRoute?.(page)
+
+const pageControl = (page: number) => {
+  const to = pageLink(page)
+  return to ? { to, prefetch: false }
+    : { type: 'button', disabled: isDisabled(page), onClick: () => emit('update:page', page) }
 }
 </script>
 
 <template>
   <nav v-if="pageCount > 1" class="base-pagination" :aria-label="ariaLabel || (locale === 'en' ? 'Pagination' : 'Пагінація')">
-    <button
+    <component
       class="base-pagination__button"
-      type="button"
+      :is="pageLink(currentPage - 1) ? NuxtLink : 'button'"
+      v-bind="pageControl(currentPage - 1)"
       :aria-label="terms.cabinet.previousPageLabel"
-      :disabled="disabled || currentPage <= 1"
-      @click="goToPage(currentPage - 1)"
     >
       <BaseIcon name="chevron-left" size="xxs" />
-    </button>
+    </component>
 
     <template v-for="(page, index) in visiblePages" :key="page">
       <span v-if="index > 0 && page - visiblePages[index - 1] > 1" class="base-pagination__ellipsis">...</span>
-      <button
+      <component
         class="base-pagination__page"
         :class="{ 'base-pagination__page--active': page === currentPage }"
-        type="button"
+        :is="pageLink(page) ? NuxtLink : 'button'"
+        v-bind="pageControl(page)"
         :aria-label="`${terms.cabinet.pageLabel} ${page}`"
         :aria-current="page === currentPage ? 'page' : undefined"
-        :disabled="disabled || page === currentPage"
-        @click="goToPage(page)"
       >
         {{ page }}
-      </button>
+      </component>
     </template>
 
-    <button
+    <component
       class="base-pagination__button"
-      type="button"
+      :is="pageLink(currentPage + 1) ? NuxtLink : 'button'"
+      v-bind="pageControl(currentPage + 1)"
       :aria-label="terms.cabinet.nextPageLabel"
-      :disabled="disabled || currentPage >= pageCount"
-      @click="goToPage(currentPage + 1)"
     >
       <BaseIcon name="chevron-right" size="xxs" />
-    </button>
+    </component>
   </nav>
 </template>
 
@@ -94,6 +101,7 @@ const goToPage = (page: number) => {
   color: #0a0a0a;
   font-size: 0.875rem;
   font-weight: 800;
+  text-decoration: none;
   transition:
     background-color 180ms ease,
     color 180ms ease;
