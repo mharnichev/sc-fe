@@ -18,34 +18,29 @@ concurrency:
 
 jobs:
   build:
-    if: >-
-      github.ref == 'refs/heads/codex/shop-complete-owned-20261102' ||
-      github.ref == 'refs/heads/codex/pos-combined-release-20261106' ||
-      github.ref == 'refs/heads/codex/ready-ui-combined-20261109' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/shop-launch-ci-20261110') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/product-usage-release-20261116') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/shop-hide-shaving-ci-20261116'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      SOURCE_SHA: 5064b3e9206e721bc4115c2a90d458806fbb6235
       IMAGE_REPOSITORY: ghcr.io/mharnichev/sc-fe/shop-residual-20261101
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.SOURCE_SHA }}
           persist-credentials: false
 
       - name: Build Linux Shop
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          echo "IMAGE_TAG=${IMAGE_REPOSITORY}:residual-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "IMAGE_TAG=${IMAGE_REPOSITORY}:residual-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
           docker build --platform linux/amd64 \
             --label "org.opencontainers.image.source=https://github.com/mharnichev/sc-fe" \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
             --file apps/shop/Dockerfile \
-            --tag "${IMAGE_REPOSITORY}:residual-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" .
+            --tag "${IMAGE_REPOSITORY}:residual-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" .
 
       - name: Set up pinned Node runtime for regression tests
         uses: actions/setup-node@v4
@@ -101,7 +96,7 @@ jobs:
             }
             process.exit(1);
           '
-          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" = "$GITHUB_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_TAG")" = "$SOURCE_SHA"
           test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE_TAG")" = 'linux/amd64'
 
       - name: Login to own registry
@@ -137,8 +132,8 @@ jobs:
           digests = [value for value in image['RepoDigests'] if re.fullmatch(re.escape(repository) + r'@sha256:[a-f0-9]{64}', value)]
           assert len(digests) == 1
           assert image['Architecture'] == 'amd64' and image['Os'] == 'linux'
-          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA']
+          assert image['Config']['Labels']['org.opencontainers.image.revision'] == os.environ['SOURCE_SHA']
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('Source: `' + os.environ['GITHUB_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nOffline static asset and SSR 404/noindex smoke: passed.\n')
+              summary.write('Source: `' + os.environ['SOURCE_SHA'] + '`\n\nImage: `' + digests[0] + '`\n\nOffline static asset and SSR 404/noindex smoke: passed.\n')
           print(digests[0])
           PY
