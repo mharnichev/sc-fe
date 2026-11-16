@@ -273,6 +273,7 @@ const openBasket = () => {
   closeOverlays()
   modal.openModal('UserBasketModal')
 }
+const openCatalog = () => modal.openModal('CatalogModal')
 const isHydrated = ref(false)
 
 onMounted(() => {
@@ -298,7 +299,7 @@ const openFavorites = async () => {
 const updateHeaderVisibility = () => {
   const currentY = window.scrollY
 
-  if (currentY <= ALWAYS_SHOW_TOP) {
+  if (currentY <= ALWAYS_SHOW_TOP || !window.matchMedia('(min-width: 768px)').matches) {
     isHeaderHidden.value = false
     lastYPosition.value = currentY
     return
@@ -329,6 +330,7 @@ watch(() => route.fullPath, () => closeOverlays())
 watch(() => modal.isVisible, (visible) => { if (visible) closeOverlays() }, { flush: 'sync' })
 
 const handleWindowResize = () => {
+  updateHeaderVisibility()
   if (window.innerWidth >= 768 && isMobileSearchOpen.value) {
     const path = route.fullPath
     closeMobileSearch()
@@ -352,7 +354,7 @@ onMounted(() => {
 
   if (typeof window.ResizeObserver === 'function' && shopHeader.value) {
     headerResizeObserver = new ResizeObserver(syncHeaderState)
-    headerResizeObserver.observe(shopHeader.value)
+    headerResizeObserver.observe(shopHeader.value, { box: 'border-box' })
   }
 
   document.addEventListener('focusin', containMobileSearchFocus)
@@ -398,6 +400,9 @@ onBeforeUnmount(() => {
             >
           </NuxtLink>
 
+          <button class="shop-header__action shop-header__tablet-catalog" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
+            <BaseIcon name="catalog" size="xs" />
+          </button>
           <HeaderSearch
             ref="desktopSearch"
             :category-tree="categoryTree"
@@ -486,6 +491,9 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="shop-header__mobile">
+      <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
+        <BaseIcon name="catalog" size="xs" />
+      </button>
       <NuxtLink to="/" class="shop-header__mobile-logo" :aria-label="terms.brand.homeLabel" @click="closeOverlays">
         <img :src="shopAsset('/soulcuts/sc-logo-name-dark.webp')" alt="Soul Cuts" width="140" height="40">
       </NuxtLink>
@@ -1036,18 +1044,22 @@ onBeforeUnmount(() => {
 }
 
 .shop-header__mobile {
+  --mobile-header-gutter: max(0.85rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   position: relative;
   z-index: 83;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.65rem var(--mobile-header-gutter);
 }
 
 .shop-header__mobile-logo {
-  justify-self: start;
   width: 7.5rem;
+}
+
+.shop-header__tablet-catalog {
+  display: none;
 }
 
 .shop-header__mobile-logo img {
@@ -1063,6 +1075,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 767px) {
+  .shop-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
   .shop-header__category-list {
     left: 0;
     width: 100vw;
@@ -1097,6 +1113,21 @@ onBeforeUnmount(() => {
 
   .shop-header__mobile {
     display: none;
+  }
+}
+
+@media (768px <= width < 1024px), (768px <= width < 1440px) and (pointer: coarse) {
+  .shop-header__primary {
+    gap: 0.5rem;
+  }
+
+  .shop-header__soulcuts {
+    margin-inline-end: 0.5rem;
+  }
+
+  .shop-header__tablet-catalog {
+    display: inline-flex;
+    flex-shrink: 0;
   }
 }
 </style>

@@ -67,7 +67,9 @@ export default defineNuxtConfig({
     baseURL: process.env.NUXT_APP_BASE_URL || '/shop/',
     head: {
       titleTemplate: '%s | Atelier Supply',
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
       meta: [
+        { name: 'theme-color', content: '#ffffff' },
         { name: 'robots', content: 'noindex, nofollow, noarchive' },
         { name: 'googlebot', content: 'noindex, nofollow, noarchive' },
       ],
