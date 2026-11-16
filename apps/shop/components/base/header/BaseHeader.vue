@@ -1073,9 +1073,12 @@ onBeforeUnmount(() => {
   gap: 0.1rem;
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
   .shop-header {
+    position: fixed;
+    inset-inline: 0;
     padding-top: env(safe-area-inset-top, 0px);
+    transition: none;
   }
 
   .shop-header__category-list {
