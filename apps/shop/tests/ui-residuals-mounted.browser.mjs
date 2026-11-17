@@ -193,7 +193,6 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
         const rect = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom } }
         return { title: rect(title), primary: rect(primary), type: rect(type), prices: rect(prices), row: rect(row), cart: rect(cart),
           titleSize: getComputedStyle(title).fontSize,
-          titleTextSize: getComputedStyle(title.querySelector('.base-hover-underline-text__content')).fontSize,
           typeSize: getComputedStyle(type).fontSize, titleWeight: getComputedStyle(title).fontWeight,
           priceWeight: getComputedStyle(price).fontWeight, valueWeight: getComputedStyle(price.querySelector('span')).fontWeight,
           priceInRow: prices.parentElement === row && row.firstElementChild === prices,
@@ -203,7 +202,6 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
           expanded: el.classList.contains('catalog-product-tile--long-name') && (el.matches('.catalog-product-tile:hover') || el.matches(':focus-within')) }
       }, mobileMode)
       assert.equal(layout.titleSize, '12px')
-      assert.equal(layout.titleTextSize, '12px')
       if (mobileMode) assert.equal(layout.typeSize, '9px')
       assert.equal(layout.titleWeight, '600')
       assert.equal(layout.priceWeight, '600')

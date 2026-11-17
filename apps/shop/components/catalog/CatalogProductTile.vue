@@ -1089,10 +1089,6 @@ const toggleCart = async () => {
     min-height: 25rem;
   }
 
-  .catalog-product-tile__name {
-    font-size: 14px;
-  }
-
 }
 
 @media (max-width: 519px) {
