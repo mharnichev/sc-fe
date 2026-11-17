@@ -39,8 +39,7 @@ function setup() {
   }
   const navigate = async path => {
     const to = route(path), from = router.currentRoute.value
-    const pending = router.before(to, from)
-    await tick(300); await pending
+    assert.equal(router.before(to, from), undefined, 'the route guard must not block navigation')
     router.currentRoute.value = to; router.after(to, from)
     return to
   }
@@ -48,13 +47,22 @@ function setup() {
   return { router, hooks, visible, tick, navigate, route, page }
 }
 
+test('skips the overlay when the destination finishes before the show delay', async () => {
+  const app = setup()
+  await app.navigate('/brands')
+  await app.tick(119); assert.equal(app.visible.value, false)
+  app.hooks['page:finish'](app.page())
+  await app.tick(1000); assert.equal(app.visible.value, false)
+})
+
 test('waits for the destination page and ignores duplicate navigation loading end', async () => {
   const app = setup()
   const to = await app.navigate('/brands')
   const page = app.page(); app.hooks['page:start'](page)
+  await app.tick(120); assert.equal(app.visible.value, true)
   app.router.after(app.route('/brands'), to, { type: 16 })
   await app.tick(1000); assert.equal(app.visible.value, true)
-  app.hooks['page:finish'](page); await app.tick(80)
+  app.hooks['page:finish'](page)
   assert.equal(app.visible.value, false)
 })
 
@@ -64,15 +72,16 @@ test('stale asynchronous completion cannot reveal a newer page, including a sync
   await app.navigate('/second'); const second = app.page()
   app.hooks['page:finish'](first); await app.tick(1000)
   assert.equal(app.visible.value, true)
-  app.hooks['page:finish'](second); await app.tick(80)
+  app.hooks['page:finish'](second)
   assert.equal(app.visible.value, false)
 })
 
 test('query and hash changes skip overlay while preserving an already loading page', async () => {
   const app = setup()
   await app.navigate('/brands'); const page = app.page(); app.hooks['page:start'](page)
+  await app.tick(120)
   await app.navigate('/brands?sort=1#b'); assert.equal(app.visible.value, true)
-  app.hooks['page:finish'](page); await app.tick(80); assert.equal(app.visible.value, false)
+  app.hooks['page:finish'](page); assert.equal(app.visible.value, false)
   await app.navigate('/brands?sort=2'); assert.equal(app.visible.value, false)
 })
 
@@ -85,9 +94,9 @@ test('cancelled navigation only releases its own overlay and errors recover', as
   const app = setup()
   const first = await app.navigate('/first')
   const second = await app.navigate('/second')
-  app.router.after(first, {}, { type: 8 }); await app.tick(0); assert.equal(app.visible.value, true)
-  app.router.error(new Error('failure'), second); await app.tick(0); assert.equal(app.visible.value, false)
-  await app.navigate('/third'); app.hooks['app:error'](new Error('failure')); await app.tick(0); assert.equal(app.visible.value, false)
+  app.router.after(first, {}, { type: 8 }); await app.tick(120); assert.equal(app.visible.value, true)
+  app.router.error(new Error('failure'), second); assert.equal(app.visible.value, false)
+  await app.navigate('/third'); app.hooks['app:error'](new Error('failure')); await app.tick(120); assert.equal(app.visible.value, false)
 })
 
 test('an old visit to the same path cannot finish a later visit', async () => {
@@ -96,7 +105,7 @@ test('an old visit to the same path cannot finish a later visit', async () => {
   await app.navigate('/second')
   await app.navigate('/first'); const current = app.page(); app.hooks['page:start'](current)
   app.hooks['page:finish'](old); await app.tick(1000); assert.equal(app.visible.value, true)
-  app.hooks['page:finish'](current); await app.tick(80); assert.equal(app.visible.value, false)
+  app.hooks['page:finish'](current); assert.equal(app.visible.value, false)
 })
 
 test('a rejected or cancelled query cannot release the still-loading page', async () => {
@@ -110,12 +119,12 @@ test('a rejected or cancelled query cannot release the still-loading page', asyn
     app.router.after(app.route('/brands'), original, { type: 16 })
     app.router.error(new Error('query failed'), query)
     await app.tick(1000); assert.equal(app.visible.value, true)
-    app.hooks['page:finish'](page); await app.tick(80)
+    app.hooks['page:finish'](page)
     assert.equal(app.visible.value, false)
   }
 })
 
-test('a query navigation cannot cancel a reveal already scheduled by page finish', async () => {
+test('query navigation after page finish cannot reopen the overlay', async () => {
   for (const failure of [undefined, { type: 4 }]) {
     const app = setup()
     const original = await app.navigate('/brands')
@@ -124,7 +133,7 @@ test('a query navigation cannot cancel a reveal already scheduled by page finish
     await app.router.before(query, original)
     if (!failure) app.router.currentRoute.value = query
     app.router.after(query, original, failure)
-    await app.tick(80)
+    await app.tick(120)
     assert.equal(app.visible.value, false, failure ? 'failed query' : 'successful query')
   }
 })

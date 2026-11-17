@@ -881,7 +881,7 @@ useHead(() => {
             </BaseButton>
           </article>
           <div v-if="!reviewsPending && !(reviewsPage?.items || []).length" class="product-reviews__empty">
-            <img src="/images/mascots/reviews-empty.png" alt="" width="88" height="88">
+            <img src="/images/mascots/reviews-empty.webp" alt="" width="88" height="88" loading="lazy" decoding="async">
             <p class="product-reviews__muted">{{ terms.product.noReviews }}</p>
           </div>
         </div>

@@ -493,12 +493,55 @@ const mapCategoryFilters = (response: PublicCategoryFilters): CategoryFiltersDto
   filters: response.filters,
 })
 
+const REFERENCE_DATA_TTL_MS = 60_000
+
+const createReferenceLoader = <T>() => {
+  let request: Promise<T> | undefined
+  let expiresAt = 0
+
+  return (load: () => Promise<T>) => {
+    if (request && (expiresAt === 0 || Date.now() < expiresAt)) return request
+
+    expiresAt = 0
+    request = load().then((value) => {
+      expiresAt = Date.now() + REFERENCE_DATA_TTL_MS
+      return value
+    }, (error) => {
+      request = undefined
+      throw error
+    })
+    return request
+  }
+}
+
+const createReferenceLoaders = () => ({
+  categoryTree: createReferenceLoader<CategoryTreeNodeDto[]>(),
+  activeBrands: createReferenceLoader<BrandDto[]>(),
+  allBrands: createReferenceLoader<BrandDto[]>(),
+})
+
+const referenceLoaders = new WeakMap<ReturnType<typeof useNuxtApp>, {
+  sessionRevision: number
+  loaders: ReturnType<typeof createReferenceLoaders>
+}>()
+
 export const useCatalogDomain = () => {
+  const app = useNuxtApp()
+  const auth = useCustomerAuthStore()
   const api = useApi()
   const config = useRuntimeConfig()
   const requestUrl = useRequestURL()
   const resolveAssetUrl = (url: string) =>
     resolveApiAssetUrl(url, String(config.public.apiBase), requestUrl.origin)
+
+  const getGuestReferences = () => {
+    let entry = referenceLoaders.get(app)
+    if (!entry || entry.sessionRevision !== auth.sessionRevision) {
+      entry = { sessionRevision: auth.sessionRevision, loaders: createReferenceLoaders() }
+      referenceLoaders.set(app, entry)
+    }
+    return entry.loaders
+  }
 
   const getProductsPage = async (query: CatalogQuery = {}) => {
     const response = await api<PaginatedResponse<PublicProductDto>>('/public/products', {
@@ -563,7 +606,7 @@ export const useCatalogDomain = () => {
     return categories.map(mapCategory)
   }
 
-  const getCategoryTree = async () => {
+  const fetchCategoryTree = async () => {
     try {
       const tree = await api<PublicCategoryDto[]>('/public/categories/tree', {
         query: { includeEmpty: true },
@@ -577,6 +620,9 @@ export const useCatalogDomain = () => {
 
     return mapFlatCategoriesToTree(await getCategoryList())
   }
+
+  const getCategoryTree = () =>
+    auth.accessToken ? fetchCategoryTree() : getGuestReferences().categoryTree(fetchCategoryTree)
 
   const getCategoryProducts = async (categorySlug: string, query: CatalogQuery = {}) => {
     const response = await api<PaginatedResponse<PublicProductDto>>(
@@ -610,7 +656,7 @@ export const useCatalogDomain = () => {
     }
   }
 
-  const getBrands = async (options: { hasActiveProducts?: boolean } = {}) => {
+  const fetchBrands = async (options: { hasActiveProducts?: boolean } = {}) => {
     const firstPage = await api<PaginatedResponse<PublicBrandDto>>('/public/brands', {
       query: {
         page: 1,
@@ -635,6 +681,14 @@ export const useCatalogDomain = () => {
     }
 
     return items.map(mapBrand)
+  }
+
+  const getBrands = (options: { hasActiveProducts?: boolean } = {}) => {
+    if (auth.accessToken) return fetchBrands(options)
+
+    const references = getGuestReferences()
+    const load = options.hasActiveProducts ? references.activeBrands : references.allBrands
+    return load(() => fetchBrands(options))
   }
 
   const getProductReviews = async (productId: number) =>

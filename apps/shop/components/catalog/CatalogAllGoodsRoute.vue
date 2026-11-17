@@ -424,6 +424,7 @@ useSeo(
           :products="products"
           :pending="productsPending"
           :skeleton-count="limit"
+          :prioritize-initial-images="!saleOnly && !topOnly"
         />
 
         <FeedbackState

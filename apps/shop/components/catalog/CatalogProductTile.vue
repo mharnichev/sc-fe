@@ -9,6 +9,7 @@ const { productDisplayName, productDisplayType } = useProductDisplay()
 
 const props = defineProps<{
   product: ProductDto
+  imagePriority?: 'high' | 'auto'
   volumeLabel?: string
 }>()
 
@@ -222,7 +223,8 @@ const toggleCart = async () => {
                 :alt="image.alt"
                 width="240"
                 height="240"
-                :loading="index === 0 ? 'lazy' : 'eager'"
+                :loading="index === 0 && !imagePriority ? 'lazy' : 'eager'"
+                :fetchpriority="index === 0 ? imagePriority : undefined"
                 draggable="false"
                 itemprop="image"
               >

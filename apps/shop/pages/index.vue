@@ -120,7 +120,7 @@ useSeo(
             :key="`popular-${product.id}-${index}`"
             class="main-page__popular-card"
           >
-            <CatalogProductTile :product="product" />
+            <CatalogProductTile :product="product" :image-priority="index === 0 ? 'high' : undefined" />
           </li>
         </template>
       </ul>
