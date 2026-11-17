@@ -270,7 +270,7 @@ const toggleCart = async () => {
       </BaseButton>
 
       <div
-        v-if="hasPreview"
+        v-if="hasPreview && !volumeLabel"
         class="catalog-product-tile__dots"
         role="group"
         :aria-label="locale === 'uk' ? 'Фото товару' : 'Product images'"
