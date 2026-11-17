@@ -5,7 +5,7 @@ import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryDestination } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 import { productPageCopy } from '~/utils/product-page-localization'
-import { isProductUnavailable } from '~/utils/product-visibility'
+import { isProductEffectivelyVisible, isProductUnavailable } from '~/utils/product-visibility'
 import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
 const { runtimeMessage } = useShopRuntimeDisplay()
 
@@ -47,6 +47,15 @@ const isNotFoundError = (error: unknown) => {
   if (!error || typeof error !== 'object') return false
   const candidate = error as { statusCode?: unknown, status?: unknown, data?: { statusCode?: unknown } }
   return [candidate.statusCode, candidate.status, candidate.data?.statusCode].some(value => Number(value) === 404)
+}
+
+const indexableProduct = computed(() => product.value && isProductEffectivelyVisible(product.value) ? product.value : null)
+const productNotFound = computed(() => isNotFoundError(productError.value)
+  || Boolean(product.value && !indexableProduct.value))
+
+if (import.meta.server && !indexableProduct.value) {
+  const event = useRequestEvent()
+  if (event) setResponseStatus(event, !productError.value || productNotFound.value ? 404 : 503)
 }
 
 const selectedImage = ref('')
@@ -296,8 +305,11 @@ onBeforeUnmount(() => {
   document.fonts.removeEventListener('loadingdone', scheduleDescriptionMeasurement)
 })
 
+const shortProductDescription = computed(() =>
+  htmlToText(product.value ? productDisplayContent(product.value, 'short_description') : ''),
+)
 const plainProductDescription = computed(() =>
-  htmlToText(productDescriptionHtml.value || (product.value ? productDisplayContent(product.value, 'short_description') : '')),
+  htmlToText(productDescriptionHtml.value) || shortProductDescription.value,
 )
 const isFavorite = computed(() => product.value ? favorites.has(product.value.id) : false)
 const isInCart = computed(() => product.value ? cart.items.some(item => item.product.id === product.value?.id) : false)
@@ -521,54 +533,96 @@ const deleteReview = async (reviewId: number) => {
   }
 }
 
+const seoName = computed(() => indexableProduct.value ? productDisplayName(indexableProduct.value) : '')
+const seoImages = computed(() => (indexableProduct.value?.images ?? []).flatMap(({ image }) => {
+  try {
+    const url = new URL(image, config.public.siteUrl)
+    return ['https:', 'http:'].includes(url.protocol) ? [url.href] : []
+  }
+  catch {
+    return []
+  }
+}))
+const seoDescription = computed(() => {
+  const item = indexableProduct.value
+  if (!item) return terms.value.seo.productFallbackDescription
+  return (locale.value === 'en' ? '' : htmlToText(item.seo_description))
+    || shortProductDescription.value
+    || plainProductDescription.value
+    || [...new Set([seoName.value, item.brand.name, item.package_size].filter(Boolean))].join(' · ')
+})
+
 useSeo(
-  () => (locale.value === 'en' ? '' : product.value?.seo_title) || (product.value ? productDisplayName(product.value) : '') || terms.value.seo.productFallbackTitle,
-  () => (locale.value === 'en' ? plainProductDescription.value : product.value?.seo_description) || (product.value ? productDisplayContent(product.value, 'short_description') : '') || plainProductDescription.value || terms.value.seo.productFallbackDescription,
+  () => (locale.value === 'en' ? '' : htmlToText(indexableProduct.value?.seo_title)) || seoName.value || terms.value.seo.productFallbackTitle,
+  () => seoDescription.value,
+  {
+    ogImage: () => seoImages.value[0],
+    twitterCard: () => seoImages.value.length ? 'summary_large_image' : 'summary',
+  },
+  () => Boolean(indexableProduct.value),
 )
 
-useHead(() => ({
-  script: product.value ? [
-    {
-      type: 'application/ld+json',
-      children: JSON.stringify({
-        '@context': 'https://schema.org',
+const router = useRouter()
+useHead(() => {
+  const item = indexableProduct.value
+  if (!item) return {}
+  const absoluteUrl = (path: Parameters<typeof router.resolve>[0]) =>
+    new URL(router.resolve(path).href, config.public.siteUrl).href
+  const url = absoluteUrl('/products/' + encodeURIComponent(item.slug))
+  const rating = Number(averageRating.value)
+  const breadcrumbList = productBreadcrumbItems.value.map((crumb, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: crumb.name,
+    item: crumb.to ? absoluteUrl(crumb.to) : url,
+  }))
+  const data = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
         '@type': 'Product',
-        name: productDisplayName(product.value),
-        description: plainProductDescription.value,
-        sku: product.value.sku,
-        image: product.value.images.map(image => image.image),
-        brand: { '@type': 'Brand', name: product.value.brand.name },
-        aggregateRating: averageRating.value ? {
+        '@id': url + '#product',
+        url,
+        name: seoName.value,
+        description: plainProductDescription.value || undefined,
+        sku: item.sku || undefined,
+        image: seoImages.value.length ? seoImages.value : undefined,
+        brand: item.brand.name ? { '@type': 'Brand', name: item.brand.name } : undefined,
+        aggregateRating: rating > 0 && rating <= 5 && reviewsCount.value > 0 ? {
           '@type': 'AggregateRating',
-          ratingValue: averageRating.value,
+          ratingValue: rating,
           reviewCount: reviewsCount.value,
         } : undefined,
-        offers: {
+        offers: item.price.trim() && Number.isFinite(Number(item.price)) && Number(item.price) > 0 ? {
           '@type': 'Offer',
+          url,
           priceCurrency: 'UAH',
-          price: product.value.price,
-          availability: product.value.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-        },
-      }),
-    },
-  ] : [],
-}))
+          price: item.price,
+          availability: isProductUnavailable(item) ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+        } : undefined,
+      },
+      { '@type': 'BreadcrumbList', itemListElement: breadcrumbList },
+    ],
+  }
+  return {
+    script: [{
+      key: 'product-structured-data',
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify(data).replace(/</g, '\\u003c'),
+    }],
+  }
+})
 </script>
 
 <template>
-  <section v-if="product" class="product-page">
+  <section v-if="product && indexableProduct" class="product-page">
     <div class="product-page__container">
       <CatalogBreadcrumbs :items="productBreadcrumbItems" :pending="productPending" />
 
       <div class="product-page__body">
         <div class="product-page__preview">
           <div class="product-page__preview-wrapper">
-            <section
-              class="product-gallery"
-              itemscope
-              itemtype="https://schema.org/Product"
-            >
-              <meta v-if="galleryImages[0]?.image" itemprop="image" :content="galleryImages[0].image">
+            <section class="product-gallery">
               <div
                 ref="mobileGallery"
                 class="product-gallery__track"
@@ -589,8 +643,8 @@ useHead(() => ({
                       :src="item.image.image"
                       :alt="item.image.alt || productDisplayName(product)"
                       class="product-gallery__image"
+                      :fetchpriority="item.imageIndex === 0 ? 'high' : undefined"
                       draggable="false"
-                      itemprop="image"
                     >
                   </BaseButton>
                   <article
@@ -636,11 +690,7 @@ useHead(() => ({
         </div>
 
         <div class="product-page__info">
-          <section class="product-buy" itemscope itemtype="https://schema.org/Product">
-            <meta itemprop="sku" :content="product.sku">
-            <meta itemprop="brand" :content="product.brand.name">
-            <meta itemprop="productID" :content="String(product.id)">
-            <meta itemprop="name" :content="productDisplayName(product)">
+          <section class="product-buy">
 
             <div class="product-buy__header">
               <div>
@@ -675,6 +725,8 @@ useHead(() => ({
               </BaseBadge>
             </div>
 
+            <p v-if="shortProductDescription" class="product-buy__summary">{{ shortProductDescription }}</p>
+
             <section v-if="characteristicEntries.length" class="product-characteristics">
               <h2 class="product-section-title">{{ productText.characteristics }}</h2>
               <dl class="product-characteristics__list">
@@ -682,13 +734,9 @@ useHead(() => ({
                   v-for="[name, value] in characteristicEntries"
                   :key="name"
                   class="product-characteristics__item"
-                  itemprop="additionalProperty"
-                  itemscope
-                  itemtype="https://schema.org/PropertyValue"
                 >
-                  <dt itemprop="name">{{ name }}</dt>
+                  <dt>{{ name }}</dt>
                   <dd
-                    itemprop="value"
                     :class="{ 'product-characteristics__brand': isBrandCharacteristic(name) }"
                   >
                     <NuxtLink
@@ -734,16 +782,14 @@ useHead(() => ({
               />
             </div>
 
-            <div class="product-buy__cost" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
-              <meta itemprop="priceCurrency" content="UAH">
-              <meta itemprop="price" :content="product.price">
+            <div class="product-buy__cost">
               <div class="product-buy__price-with-badge">
                 <ProductStatusBadges class="product-buy__cost-badges" :product="product" />
                 <div class="product-buy__price-wrapper" :class="{ 'product-buy__price-wrapper--discount': discount }">
                   <p v-if="discount" class="product-buy__old-price">
                     {{ formatPrice(discount.compareAtPrice) }}
                   </p>
-                  <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }" itemprop="price">
+                  <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }">
                     {{ formatPrice(product.price) }}
                   </p>
                 </div>
@@ -802,7 +848,6 @@ useHead(() => ({
             summary-class="product-description__summary"
             :disabled="!descriptionCanCollapse"
             :preview-height="descriptionCanCollapse ? descriptionPreviewHeight : 0"
-            itemprop="description"
           >
             <template #summary="{ open }">
               {{ open ? terms.catalog.collapse : terms.home.showMore }}
@@ -1096,11 +1141,11 @@ useHead(() => ({
   <section v-else class="product-page product-page--error">
     <FeedbackState
       kind="error"
-      :title="isNotFoundError(productError) ? productText.notFoundTitle : productText.loadErrorTitle"
-      :description="isNotFoundError(productError) ? productText.notFoundDescription : productText.loadErrorDescription"
+      :title="productNotFound ? productText.notFoundTitle : productText.loadErrorTitle"
+      :description="productNotFound ? productText.notFoundDescription : productText.loadErrorDescription"
       :seed="String(route.params.slug)"
     >
-      <BaseButton v-if="!isNotFoundError(productError)" type="button" @click="refreshProduct">
+      <BaseButton v-if="!productNotFound" type="button" @click="refreshProduct">
         {{ productText.retry }}
       </BaseButton>
       <BaseButton to="/catalog" variant="outline-dark">
@@ -1478,6 +1523,11 @@ useHead(() => ({
   letter-spacing: 1px;
   color: #0a0a0a;
   text-transform: uppercase;
+}
+
+.product-buy__summary {
+  margin: 0;
+  line-height: 1.5;
 }
 
 .product-buy__title-row {

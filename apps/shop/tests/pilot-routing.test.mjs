@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+import ts from 'typescript'
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('Shop defaults to /shop/, root browser API and private SSR upstream', () => {
@@ -25,10 +26,24 @@ test('static assets stay under the configured mount', () => {
   }
 })
 
-test('closed pilot retains noindex and does not publish unapproved policy promises', () => {
-  assert.match(read('server/routes/robots.txt.ts'), /Disallow: \/shop\//)
-  assert.match(read('nuxt.config.ts'), /X-Robots-Tag/)
+test('Shop does not publish unapproved policy promises', () => {
   const locale = read('data/locale.ts')
   assert.doesNotMatch(locale, /60 грн|80 грн|150 грн|60 днів|60 days|5 банківських|5 banking/)
   assert.match(locale, /not approved/)
+})
+
+test('Shop canonical policy allows public pages and excludes private pages and filters', () => {
+  const code = ts.transpile(read('utils/shopSeo.ts'), { module: ts.ModuleKind.CommonJS })
+  const context = { exports: {}, URL }
+  vm.runInNewContext(code, context)
+  const origin = 'https://shop.example.test'
+  const indexable = (path, query = '') =>
+    context.exports.shopIndexableUrl(origin, '/shop/', path, new URLSearchParams(query))
+
+  assert.equal(indexable('/products/fixture', 'utm_source=search'), origin + '/shop/products/fixture')
+  assert.equal(indexable('/catalog', 'offset=20&category=care'), origin + '/shop/catalog?category=care&offset=20')
+  assert.equal(indexable('/catalog', 'offset=1'), null)
+  assert.equal(indexable('/catalog', 'q=care'), null)
+  assert.equal(indexable('/checkout/recover'), null)
+  assert.equal(indexable('/cabinet/orders/42'), null)
 })

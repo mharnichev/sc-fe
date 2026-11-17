@@ -56,7 +56,6 @@ test('journal is a full-width home-only layout band while preserving page safety
   assert.match(layout, /isHydrated && isPageTransitionVisible/)
   assert.match(home, /<div class="space-y-16">/)
   assert.doesNotMatch(home, /\.main-page__popular\s*\{[^}]*padding-bottom: 4rem/s)
-  assert.match(read('nuxt.config.ts'), /noindex, nofollow, noarchive/)
   assert.match(read('components/catalog/CatalogCategoryLandingRoute.vue'), /fatal: true/)
   assert.doesNotMatch(source, /font-size:\s*clamp\([^)]*vw/)
 })

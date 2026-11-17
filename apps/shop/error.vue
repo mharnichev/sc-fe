@@ -21,6 +21,7 @@ const description = computed(() => {
 
 useHead({
   title: () => `${props.error.statusCode || 500} — ${title.value}`,
+  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
   htmlAttrs: { lang: () => locale.value },
 })
 </script>
