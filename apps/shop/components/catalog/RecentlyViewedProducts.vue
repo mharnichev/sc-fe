@@ -15,6 +15,9 @@ const visibleProducts = computed(() =>
   recentlyViewed.products.filter(product => product.id !== props.excludeProductId),
 )
 
+const referenceGrid = (element: HTMLElement) =>
+  element.closest('main')?.querySelector<HTMLElement>('.catalog-product-grid:not(.product-buy__variants-grid)')
+
 const updateControls = () => {
   const element = viewport.value
   if (!element) return
@@ -28,16 +31,19 @@ const updateLayout = () => {
   if (!element) return
 
   // Match the actual catalog column, including space reserved for filters.
-  const grid = element.closest('main')?.querySelector<HTMLElement>('.catalog-product-grid')
+  const grid = referenceGrid(element)
   const gridColumn = grid ? Number.parseFloat(getComputedStyle(grid).gridTemplateColumns) : NaN
   const wide = window.matchMedia('(min-width: 1241px)').matches
   const medium = window.matchMedia('(min-width: 568px)').matches
   const track = element.querySelector<HTMLElement>('.recently-viewed-products__track')
   const gap = track ? Number.parseFloat(getComputedStyle(track).columnGap) || 0 : 0
   const columns = wide ? 4 : medium ? Math.max(1, Math.floor((element.clientWidth + gap) / (240 + gap))) : 2
-  cardWidth.value = Number.isFinite(gridColumn) && gridColumn > 0
+  const columnWidth = Number.isFinite(gridColumn) && gridColumn > 0
     ? gridColumn
     : (element.clientWidth - gap * (columns - 1)) / columns
+  cardWidth.value = window.matchMedia('(min-width: 520px)').matches
+    ? Math.max(240, columnWidth)
+    : columnWidth
   nextTick(updateControls)
 }
 
@@ -48,7 +54,7 @@ const observeViewport = () => {
 
   resizeObserver = new ResizeObserver(updateLayout)
   resizeObserver.observe(element)
-  const grid = element.closest('main')?.querySelector<HTMLElement>('.catalog-product-grid')
+  const grid = referenceGrid(element)
   if (grid) resizeObserver.observe(grid)
   updateLayout()
 }
@@ -202,7 +208,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 568px) {
   .recently-viewed-products__track {
-    grid-auto-columns: calc((100% - 2.25rem) / 4);
+    grid-auto-columns: minmax(240px, calc((100% - 2.25rem) / 4));
     gap: 0.75rem;
   }
 }

@@ -734,8 +734,14 @@ useSeo(
 
 .catalog-route__filter-actions .sc-button {
   min-width: 0;
-  padding-inline: 0.5rem;
+  font-size: 10px;
   white-space: normal;
+}
+
+@media (width >= 768px) {
+  .catalog-route__filter-actions .sc-button {
+    padding-inline: 0.5rem;
+  }
 }
 
 .catalog-route__drawer-filters {

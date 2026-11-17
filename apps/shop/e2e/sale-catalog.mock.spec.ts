@@ -154,7 +154,7 @@ for (const locale of ['uk', 'en'] as const) {
     await expect.poll(() => calls.at(-1)?.query.type).toBe(matte.slug)
     expect(new URL(page.url()).searchParams.has('category')).toBe(false)
     const footer = drawer.locator('.catalog-route__filter-actions')
-    const viewAll = locale === 'uk' ? 'Подивитись все' : 'View all'
+    const viewAll = locale === 'uk' ? 'Показати товари' : 'View all'
     await footer.getByRole('button', { name: `${viewAll}: 3`, exact: true }).click()
     await expect(drawer).toBeHidden()
     const applied = new URL(page.url()).searchParams
@@ -164,7 +164,7 @@ for (const locale of ['uk', 'en'] as const) {
     await expect(tiles.nth(1)).toContainText('Sale fixture 3')
 
     await trigger.click()
-    await footer.getByRole('button', { name: locale === 'uk' ? 'Видалити все' : 'Clear all', exact: true }).click()
+    await footer.getByRole('button', { name: locale === 'uk' ? 'Скинути фільтри' : 'Clear all', exact: true }).click()
     await footer.getByRole('button', { name: `${viewAll}: 6`, exact: true }).click()
     await expect(drawer).toBeHidden()
     expect(new URL(page.url()).searchParams.has('category')).toBe(false)

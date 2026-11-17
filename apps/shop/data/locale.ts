@@ -117,8 +117,8 @@ export const shopTerms = {
     },
     catalog: {
       filters: 'Фільтри',
-      clearAllFilters: 'Видалити все',
-      viewAllResults: 'Подивитись все',
+      clearAllFilters: 'Скинути фільтри',
+      viewAllResults: 'Показати товари',
       size: 'Розмір',
       color: 'Колір',
       brandSearchPlaceholder: 'Пошук брендів',

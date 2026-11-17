@@ -610,6 +610,25 @@ a {
   }
 }
 
+@media (width < 768px) {
+  .section-title.type-title-strong {
+    font-size: 22px;
+  }
+
+  .sc-button:where(:not(.sc-button--circle, .sc-button--text)) {
+    padding: 8px 10px;
+  }
+
+  .sc-button,
+  input.base-control,
+  select.base-control,
+  .base-calendar__month,
+  .base-calendar__weekdays,
+  .base-calendar__day {
+    font-size: 10px;
+  }
+}
+
 .reveal-ready [data-reveal] {
   opacity: 0;
   transform: translate3d(0, 1.75rem, 0);

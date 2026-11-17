@@ -111,7 +111,7 @@ for (const width of [320, 390, 768, 1440]) {
           const price = row.locator(':scope > .catalog-product-tile__prices .catalog-product-tile__price')
           const button = row.locator('.catalog-product-tile__cart')
           await expect(name).toHaveText(products[index]!.name)
-          await expect(name).toHaveCSS('font-size', '14px')
+          await expect(name).toHaveCSS('font-size', '12px')
           await expect(name).toHaveCSS('font-weight', '600')
           await expect(type).toBeVisible()
           await expect(layout.locator('.catalog-product-tile__volume')).toHaveCount(0)

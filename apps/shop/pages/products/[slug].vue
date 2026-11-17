@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { ProductDto, ProductReviewListDto } from '@shared-types'
+import { NuxtLink } from '#components'
 import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryDestination } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 import { productPageCopy } from '~/utils/product-page-localization'
 import { isProductEffectivelyVisible, isProductUnavailable } from '~/utils/product-visibility'
-import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
+import { catalogCharacteristicKind, localizedMetadataLabel, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
 const { runtimeMessage } = useShopRuntimeDisplay()
 
 const { categoryDisplayName } = useCategoryDisplay()
@@ -318,15 +319,24 @@ const productCode = computed(() => product.value?.sku || String(product.value?.i
 const availableVolumeVariants = computed(() =>
   (product.value?.volume_variants ?? []).filter(variant => variant.is_available),
 )
-const hasVolumeVariants = computed(() =>
-  availableVolumeVariants.value.length > 1,
-)
-const volumeTabs = computed(() =>
-  availableVolumeVariants.value.map(variant => ({
-    label: localizedVolumeLabel(variant, locale.value),
-    value: String(variant.id),
-    to: variant.id === product.value?.id ? undefined : `/products/${variant.slug}`,
-  })),
+const volumeVariantIds = computed(() => availableVolumeVariants.value.map(variant => variant.id))
+const volumeVariantLabels = computed(() => Object.fromEntries(
+  availableVolumeVariants.value.map(variant => [variant.id, localizedVolumeLabel(variant, locale.value)]),
+))
+const volumeVariantsKey = computed(() => `shop-volume-variants:${volumeVariantIds.value.join(',')}`)
+const { data: volumeVariantProducts } = useAsyncData(
+  volumeVariantsKey,
+  async () => {
+    const current = product.value
+    const variants = availableVolumeVariants.value
+    if (!current || variants.length < 2) return []
+
+    const results = await Promise.allSettled(
+      variants.map(variant => variant.id === current.id ? current : domain.getProduct(variant.slug)),
+    )
+    return results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+  },
+  { default: () => [], lazy: true },
 )
 const shopAsset = useShopAsset()
 const brandLogoUrl = computed(() => {
@@ -340,29 +350,16 @@ const brandCatalogRoute = computed(() => ({
   path: '/catalog',
   query: { brand: product.value?.brand.slug || undefined },
 }))
-const isBrandCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'brand'
-const isCategoryCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'category'
-const isProductCodeCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'code'
-const parameterEntries = computed(() =>
-  Object.entries(product.value?.parameters || {})
-    .filter(([name]) => !isCategoryCharacteristic(name) && !isProductCodeCharacteristic(name))
-    .map(([name, value]) => [
-      localizedMetadataLabel(name, name, locale.value),
-      localizedMetadataValue(name, value, locale.value),
-    ]),
-)
 const volumeLabel = computed(() => localizedMetadataLabel('volume', 'Об’єм', locale.value))
-const fallbackCharacteristicEntries = computed(() => {
-  if (!product.value) return []
+const productVolume = computed(() => {
+  const current = product.value
+  if (!current) return ''
 
-  return [
-    [terms.value.catalog.brand, product.value.brand.name],
-    [volumeLabel.value, localizedPackageSize(product.value.package_size || '', locale.value)],
-  ].filter(([, value]) => value)
+  const variant = current.volume_variants.find(item => item.id === current.id)
+  const variantLabel = variant ? localizedVolumeLabel(variant, locale.value) : ''
+  const parameter = Object.entries(current.parameters ?? {}).find(([name]) => catalogCharacteristicKind(name) === 'volume')
+  return variantLabel || localizedPackageSize(current.package_size?.trim() || parameter?.[1]?.trim() || '', locale.value)
 })
-const characteristicEntries = computed(() =>
-  (parameterEntries.value.length ? parameterEntries.value : fallbackCharacteristicEntries.value).slice(0, 8),
-)
 
 const toggleFavorite = async () => {
   if (!product.value) return
@@ -694,6 +691,15 @@ useHead(() => {
 
             <div class="product-buy__header">
               <div>
+                <component
+                  :is="product.brand.slug ? NuxtLink : 'span'"
+                  v-if="product.brand.name"
+                  class="product-buy__brand"
+                  :to="product.brand.slug ? brandCatalogRoute : undefined"
+                >
+                  <img v-if="brandLogoUrl" :src="brandLogoUrl" alt="" width="40" height="24">
+                  <BaseHoverUnderlineText>{{ product.brand.name }}</BaseHoverUnderlineText>
+                </component>
                 <div class="product-buy__title-row">
                   <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
                 </div>
@@ -727,60 +733,10 @@ useHead(() => {
 
             <p v-if="shortProductDescription" class="product-buy__summary">{{ shortProductDescription }}</p>
 
-            <section v-if="characteristicEntries.length" class="product-characteristics">
-              <h2 class="product-section-title">{{ productText.characteristics }}</h2>
-              <dl class="product-characteristics__list">
-                <div
-                  v-for="[name, value] in characteristicEntries"
-                  :key="name"
-                  class="product-characteristics__item"
-                >
-                  <dt>{{ name }}</dt>
-                  <dd
-                    :class="{ 'product-characteristics__brand': isBrandCharacteristic(name) }"
-                  >
-                    <NuxtLink
-                      v-if="isBrandCharacteristic(name) && product.brand.slug"
-                      class="product-characteristics__brand-link"
-                      :to="brandCatalogRoute"
-                    >
-                      <img
-                        v-if="brandLogoUrl"
-                        class="product-characteristics__brand-logo"
-                        :src="brandLogoUrl"
-                        alt=""
-                        width="40"
-                        height="24"
-                        loading="lazy"
-                      >
-                      <BaseHoverUnderlineText>{{ value }}</BaseHoverUnderlineText>
-                    </NuxtLink>
-                    <template v-else>
-                      <img
-                        v-if="isBrandCharacteristic(name) && brandLogoUrl"
-                        class="product-characteristics__brand-logo"
-                        :src="brandLogoUrl"
-                        alt=""
-                        width="40"
-                        height="24"
-                        loading="lazy"
-                      >
-                      <span>{{ value }}</span>
-                    </template>
-                  </dd>
-                </div>
-              </dl>
+            <section v-if="volumeVariantProducts.length > 1" class="product-buy__variants" :aria-label="productText.chooseVolume">
+              <h2 class="product-buy__variants-label">{{ volumeLabel }}</h2>
+              <CatalogProductGrid class="product-buy__variants-grid" :products="volumeVariantProducts" :volume-labels="volumeVariantLabels" />
             </section>
-
-            <div v-if="hasVolumeVariants" class="product-buy__variants">
-              <span class="product-buy__variants-label">{{ volumeLabel }}</span>
-              <CatalogSortTabs
-                class="product-buy__variants-tabs"
-                :model-value="String(product.id)"
-                :tabs="volumeTabs"
-                :aria-label="productText.chooseVolume"
-              />
-            </div>
 
             <div class="product-buy__cost">
               <div class="product-buy__price-with-badge">
@@ -790,7 +746,8 @@ useHead(() => {
                     {{ formatPrice(discount.compareAtPrice) }}
                   </p>
                   <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }">
-                    {{ formatPrice(product.price) }}
+                    <span>{{ formatPrice(product.price) }}</span>
+                    <span v-if="productVolume" class="product-buy__volume">({{ productVolume }})</span>
                   </p>
                 </div>
               </div>
@@ -1182,6 +1139,7 @@ useHead(() => {
   scrollbar-gutter: stable;
   padding: 0.5rem 0.25rem;
   overflow-wrap: anywhere;
+  font-size: 12px;
   line-height: 1.6;
   opacity: 0;
   visibility: hidden;
@@ -1286,7 +1244,6 @@ useHead(() => {
 .product-buy,
 .product-delivery,
 .product-description,
-.product-characteristics,
 .product-reviews__list,
 .product-reviews__form {
   width: 100%;
@@ -1503,11 +1460,6 @@ useHead(() => {
   padding-inline: 0;
 }
 
-.product-buy > .product-characteristics {
-  margin: 0.5rem 0;
-  padding: 0;
-}
-
 .product-buy__header {
   display: flex;
   gap: 1.5rem;
@@ -1515,9 +1467,24 @@ useHead(() => {
   justify-content: space-between;
 }
 
+.product-buy__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+  color: #262626;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.product-buy__brand img {
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .product-buy__name {
   margin: 0;
-  font-size: 1rem;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: 1px;
@@ -1527,6 +1494,7 @@ useHead(() => {
 
 .product-buy__summary {
   margin: 0;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -1541,7 +1509,6 @@ useHead(() => {
 .product-buy__type {
   margin: 0;
   color: #737373;
-  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -1552,11 +1519,11 @@ useHead(() => {
   align-items: baseline;
   gap: 0.375rem;
   color: #737373;
+  font-size: 12px;
 }
 
 .product-buy__code {
   color: #737373;
-  font-size: 0.875rem;
   line-height: 1.5;
 }
 
@@ -1637,16 +1604,17 @@ useHead(() => {
   text-transform: uppercase;
 }
 
-.product-buy__variants-tabs {
-  width: min(100%, 17.5rem);
+.product-buy__variants .product-buy__variants-grid {
+  grid-template-columns: repeat(auto-fill, min(140px, 100%));
+  padding-bottom: 0;
 }
 
 .product-buy__cost {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 12px;
   align-items: stretch;
-  padding: 0.25rem 0.5rem;
+  padding: 8px 12px;
   background: #f5f5f5;
 }
 
@@ -1695,11 +1663,21 @@ useHead(() => {
 }
 
 .product-buy__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.375rem;
   margin: 0;
   color: #0a0a0a;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1;
+}
+
+.product-buy__volume {
+  color: #525252;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .product-buy__price--discount {
@@ -1772,20 +1750,9 @@ useHead(() => {
   border-left: 0;
 }
 
-.product-section-title {
-  margin: 0 0 0.75rem;
-  color: #0a0a0a;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.product-characteristics .product-section-title {
-  text-transform: uppercase;
-}
-
 :deep(.product-description__summary) {
   margin-bottom: 0.75rem;
+  font-size: 12px;
 }
 
 :deep(.product-description__summary[aria-disabled="true"]) {
@@ -1795,7 +1762,6 @@ useHead(() => {
 .product-description__html,
 .product-details__ingredients {
   color: #404040;
-  font-size: 14px;
   line-height: 1.7;
 }
 
@@ -1838,53 +1804,6 @@ useHead(() => {
   color: #0a0a0a;
 }
 
-.product-characteristics__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0;
-  font-size: 14px;
-}
-
-.product-characteristics__item {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: space-between;
-}
-
-.product-characteristics__item dt {
-  color: #737373;
-}
-
-.product-characteristics__item dd {
-  margin: 0;
-  color: #262626;
-  font-weight: 700;
-  text-align: right;
-}
-
-.product-characteristics__brand {
-  display: inline-flex;
-  gap: 0.625rem;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.product-characteristics__brand-link {
-  display: inline-flex;
-  gap: 0.625rem;
-  align-items: center;
-  justify-content: flex-end;
-  color: inherit;
-  text-decoration: none;
-}
-
-.product-characteristics__brand-logo {
-  width: 2.5rem;
-  height: 1.5rem;
-  object-fit: contain;
-}
-
 .product-reviews {
   display: grid;
   gap: 0.75rem;
@@ -1915,7 +1834,7 @@ useHead(() => {
 .product-reviews__header span,
 .product-reviews__muted {
   color: #737373;
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 
 .product-review {
@@ -1948,7 +1867,7 @@ useHead(() => {
 .product-review__comment {
   margin-top: 0.5rem;
   color: #525252;
-  font-size: 0.875rem;
+  font-size: 12px;
   line-height: 1.65;
 }
 
@@ -2036,7 +1955,7 @@ useHead(() => {
 .product-reviews__success {
   margin: 0;
   color: #188711;
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 
 .product-gallery-modal__body {
@@ -2335,7 +2254,6 @@ useHead(() => {
   .product-buy,
   .product-delivery,
   .product-description,
-  .product-characteristics,
   .product-reviews__list,
   .product-reviews__form {
     padding: 0.625rem;
@@ -2343,23 +2261,6 @@ useHead(() => {
 
   .product-buy {
     padding-inline: 0;
-  }
-
-  .product-characteristics__item {
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  .product-characteristics__item dd {
-    text-align: left;
-  }
-
-  .product-characteristics__brand {
-    justify-content: flex-start;
-  }
-
-  .product-characteristics__brand-link {
-    justify-content: flex-start;
   }
 
   .product-buy__price--discount {
