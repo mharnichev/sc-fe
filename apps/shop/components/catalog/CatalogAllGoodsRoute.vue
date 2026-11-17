@@ -18,6 +18,8 @@ const props = withDefaults(defineProps<{
 
 const route = useRoute()
 const router = useRouter()
+const catalogToolbar = ref<HTMLElement | null>(null)
+const catalogContent = ref<HTMLElement | null>(null)
 const domain = useCatalogDomain()
 const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
@@ -285,7 +287,35 @@ const pageRoute = (page: number) => ({
   path: route.path,
   query: { ...route.query, offset: page > 1 ? String((page - 1) * limit.value) : undefined },
 })
+let paginationHref: string | undefined
+const trackPaginationClick = (event: MouseEvent) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  const link = event.target instanceof Element ? event.target.closest('a[href]') : null
+  paginationHref = link?.getAttribute('href') ?? undefined
+}
+
+let removePaginationNavigationHook: (() => void) | undefined
+onMounted(() => {
+  removePaginationNavigationHook = router.afterEach(async (destination, _previous, failure) => {
+    const href = paginationHref
+    paginationHref = undefined
+    if (failure || !href || router.resolve(destination).href !== href) return
+
+    await nextTick()
+    const content = catalogContent.value
+    if (!content) return
+
+    const headerHeight = document.querySelector('.shop-header')?.getBoundingClientRect().height ?? 0
+    const toolbarHeight = catalogToolbar.value?.getBoundingClientRect().height ?? 0
+    const top = window.scrollY + content.getBoundingClientRect().top - headerHeight - toolbarHeight
+    window.scrollTo({
+      top,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    })
+  })
+})
 onBeforeUnmount(() => {
+  removePaginationNavigationHook?.()
   if (applyTimer) clearTimeout(applyTimer)
 })
 
@@ -395,7 +425,7 @@ useSeo(
         >{{ type.name }}</BaseButton>
       </div>
 
-      <div class="catalog-route__head-side-bar">
+      <div ref="catalogToolbar" class="catalog-route__head-side-bar">
         <div class="catalog-route__head-actions">
           <BaseButton
             type="button"
@@ -419,7 +449,7 @@ useSeo(
         <p class="catalog-route__count" aria-live="polite">{{ terms.catalog.productCount(total) }}</p>
       </div>
 
-      <div class="catalog-route__content">
+      <div ref="catalogContent" class="catalog-route__content">
         <CatalogProductGrid
           :products="products"
           :pending="productsPending"
@@ -441,6 +471,7 @@ useSeo(
           :offset="offset"
           :disabled="productsPending"
           :page-route="pageRoute"
+          @click.capture="trackPaginationClick"
         />
       </div>
 
