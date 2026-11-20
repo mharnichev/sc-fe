@@ -114,6 +114,8 @@ export interface Brand {
 }
 
 export interface Product {
+  barbershop_price?: string | null
+  effective_shop_price?: string | null
   id: number
   created_at: string
   updated_at: string
@@ -1695,6 +1697,8 @@ export const useBackofficeApi = () => {
       sku: product.sku,
       barcode: product.barcode,
       purchase_unit_cost: product.purchase_unit_cost,
+      barbershop_price: product.barbershop_price,
+      effective_shop_price: product.effective_shop_price,
       on_hand: product.stock_quantity,
       reserved: product.reserved_quantity,
       available: product.available_quantity,

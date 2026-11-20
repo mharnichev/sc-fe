@@ -7,6 +7,8 @@ import { productDisplayImages } from '~/utils/productImages'
 const props = defineProps<{ offer: PosOffer | null }>()
 const emit = defineEmits<{ close: [] }>()
 const api = useBackofficeApi()
+const { isAdmin, isBarber } = useBackofficeAccess()
+const { formatMoney } = useBookingFormatting()
 const assetUrl = useAssetUrl()
 const photos = ref<string[]>([])
 const failed = ref<string[]>([])
@@ -49,9 +51,11 @@ watch(() => props.offer, async (offer, _, onCleanup) => {
           <p v-if="offer.brand_name || offer.variant_label" class="text-sm text-ui-secondary">{{ [offer.brand_name, offer.variant_label].filter(Boolean).join(' · ') }}</p>
         </div>
         <div class="flex flex-wrap gap-1.5">
-          <BaseBadge tone="accent"><TagIcon class="h-4 w-4" aria-hidden="true" />{{ offer.amount_minor > 0 ? posMoney(offer.amount_minor) : 'Ціна в кошику' }}</BaseBadge>
+          <BaseBadge tone="accent"><TagIcon class="h-4 w-4" aria-hidden="true" />Ціна продажу: {{ isBarber && offer.barbershop_price == null ? 'Ціна недоступна' : offer.amount_minor > 0 ? posMoney(offer.amount_minor) : 'Ціна в кошику' }}</BaseBadge>
           <BaseBadge :tone="offer.available_quantity > 0 ? 'success' : 'warning'"><ArchiveBoxIcon class="h-4 w-4" aria-hidden="true" />Доступно: {{ offer.available_quantity }} шт.</BaseBadge>
         </div>
+        <div aria-label="Базові ціни товару" class="space-y-1"><span class="block text-xs text-ui-secondary">Ціна барбершопу: {{ offer.barbershop_price != null ? formatMoney(offer.barbershop_price) : 'Ціна недоступна' }}</span>
+                <span v-if="isAdmin" class="block text-xs text-ui-secondary">Ціна сайту: {{ offer.effective_shop_price != null ? formatMoney(offer.effective_shop_price) : 'Ціна недоступна' }}</span></div>
         <p v-if="offer.sku || offer.barcode" class="flex items-start gap-1.5 break-all text-xs text-ui-secondary"><QrCodeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />{{ [offer.sku && 'SKU: ' + offer.sku, offer.barcode && 'Штрихкод: ' + offer.barcode].filter(Boolean).join(' · ') }}</p>
         <div v-if="visiblePhotos.length" class="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="Фото товару">
           <img v-for="(url, index) in visiblePhotos" :key="url" :src="assetUrl(url)" :alt="`${offer.name} · фото ${index + 1}`" class="aspect-square w-full rounded-lg border border-ui bg-ui-subtle object-contain" loading="lazy" @error="failed.push(url)">

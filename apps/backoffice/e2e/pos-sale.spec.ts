@@ -1,17 +1,18 @@
 import { BinaryBitmap, HybridBinarizer, QRCodeReader, RGBLuminanceSource } from '@zxing/library'
 import { test, expect, type Page } from '@playwright/test'
 import type { PosCheckout } from '../types/posSale'
-const offer = {id:101,name:'Reuzel Blue',brand_name:'Reuzel',sku:'R-001',barcode:'00000101',image_url:'/media/pos-test.svg',variant_label:'113 г',amount_minor:31000,currency:'UAH',available_quantity:2,can_sell:true,blocking_reasons:[]}
+const offer = {barbershop_price:'310.00',effective_shop_price:'720.00',id:101,name:'Reuzel Blue',brand_name:'Reuzel',sku:'R-001',barcode:'00000101',image_url:'/media/pos-test.svg',variant_label:'113 г',amount_minor:31000,currency:'UAH',available_quantity:2,can_sell:true,blocking_reasons:[]}
 const uuid='22222222-2222-4222-8222-222222222222'
-async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout; verifyCheckout?: (checkout: PosCheckout) => PosCheckout | null}={}) {
- const role=options.role || 'master', user={id:role==='admin'?18:17,is_active:true,is_superuser:role==='admin',role:role==='admin'?'admin':'barber',master_id:role==='admin'?null:42,can_record_sales:true,can_accept_qr_payments:true,email:'synthetic@example.test'}
+async function setup(page:Page, options:{role?:'master'|'admin';rolePrices?:boolean;unlinkedMaster?:boolean;lostCreate?:boolean;priceChange?:boolean;lostHandover?:boolean;manualRefresh?:boolean; secondOffer?:boolean; lostBeforeCommit?:boolean; promotions?:boolean; projectCheckout?: (checkout: PosCheckout) => PosCheckout; verifyCheckout?: (checkout: PosCheckout) => PosCheckout | null}={}) {
+ const role=options.role || 'master', user={id:role==='admin'?18:17,is_active:true,is_superuser:role==='admin',role:role==='admin'?'admin':options.unlinkedMaster?'master':'barber',master_id:role==='admin'||options.unlinkedMaster?null:42,can_record_sales:true,can_accept_qr_payments:true,email:'synthetic@example.test'}
  let current:any=null, revoked=false, paused=false, handovers=0, creates=0
  const firstRevision='1'.repeat(64), changedRevision='2'.repeat(64)
  function quote(items: {product_id:number; quantity:number}[], code: string | null, promotion: number | null, changed = false) {
   const priced = items.map(item => {
    const automatic = options.promotions && item.product_id === 101
    const selected = promotion === 12 && item.product_id === 102
-   const base = changed ? 32000 : 31000, net = code ? 28000 : selected ? 27000 : automatic ? 29000 : base
+   const base = options.rolePrices ? (role === 'master' ? 49900 : 72000) : changed ? 32000 : 31000
+   const net = options.rolePrices ? (code ? (role === 'master' ? 39900 : 60000) : role === 'master' ? 44900 : 65000) : code ? 28000 : selected ? 27000 : automatic ? 29000 : base
    return {...item, base_unit_minor: base, unit_minor: net, subtotal_minor: base * item.quantity,
     discount_minor: (base - net) * item.quantity, amount_minor: net * item.quantity,
     discount_source: code ? 'promo_code' : selected ? 'selected_promotion' : automatic ? 'automatic' : null,
@@ -47,7 +48,7 @@ async function setup(page:Page, options:{role?:'master'|'admin';lostCreate?:bool
   requests.push({path,method:req.method(),body,key:req.headers()['idempotency-key'],query:url.searchParams})
   if(revoked)return route.fulfill({status:403,json:{detail:{code:'permission_denied'}}})
   if(path==='/capabilities')return route.fulfill({json:{mode:'mono_checkbox',currency:'UAH',max_quantity:1,cart_limits:{max_items:100,max_quantity:100},can_search:true,can_start:!paused,can_view_admin_sales:role==='admin',automatic_reconciliation_enabled:options.manualRefresh !== true,poll_after_ms:30000,blocking_reasons:[]}})
-  if(path==='/products')return route.fulfill({json:{items:[offer,{...offer,id:102,name:'Reuzel Green',sku:'R-002',barcode:'00000102',available_quantity:options.secondOffer?4:0,can_sell:!!options.secondOffer}],total:2,page:1,page_size:20}})
+  if(path==='/products')return route.fulfill({json:{items:[{...offer,...(options.rolePrices ? {barbershop_price:'499.00',effective_shop_price:role==='admin'?'720.00':null,amount_minor:role==='admin'?65000:44900} : {})},{...offer,id:102,name:'Reuzel Green',sku:'R-002',barcode:'00000102',available_quantity:options.secondOffer?4:0,can_sell:!!options.secondOffer}],total:2,page:1,page_size:20}})
   if(path==='/checkouts/active')return route.fulfill({json:{items:current&&current.status!=='completed'?[current]:[],total:current?1:0,page:1,page_size:20}})
   if(path.startsWith('/checkouts/by-intent/'))return current?route.fulfill({json:current}):route.fulfill({status:404,json:{detail:{code:'missing'}}})
   if(path==='/cart/quote') {
@@ -393,7 +394,7 @@ test('cart collects items and supports quantity edits before any checkout', asyn
 })
 
 test('promotion is applied and removed using quotes; multi-item checkout starts once', async ({ page }) => {
-  const fixture = await setup(page, { secondOffer: true })
+  const fixture = await setup(page, { role: 'admin', secondOffer: true })
   await page.goto('/orders/pos')
   await page.getByLabel('Знайти товар', { exact: true }).fill('Reuzel')
   await page.getByRole('button', { name: 'Додати: Reuzel Blue' }).click()
@@ -507,8 +508,8 @@ for (const role of ['master', 'admin'] as const) for (const theme of ['light', '
   })
 }
 
-test('available automatic promotion selection uses the server total and persists on checkout replay', async ({ page }) => {
-  const fixture = await setup(page, { secondOffer: true, promotions: true, lostBeforeCommit: true })
+for (const role of ['master', 'admin'] as const) test(`available automatic promotion selection uses the server total and persists on checkout replay: ${role}`, async ({ page }) => {
+  const fixture = await setup(page, { role, secondOffer: true, promotions: true, lostBeforeCommit: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/orders/pos')
   await page.getByLabel('Знайти товар', { exact: true }).fill('Reuzel')
@@ -1289,4 +1290,85 @@ test('personal history applies dialog filters, resets pagination and ignores sta
       }
     })
   }
+})
+
+for (const role of ['master', 'admin'] as const) {
+  test(`role prices preserve server amount, barcode and quote: ${role}`, async ({ page }, testInfo) => {
+    const fixture = await setup(page, { role, rolePrices: true, unlinkedMaster: role === 'master' })
+    const current = role === 'master' ? '449,00' : '650,00'
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/orders/pos')
+    const input = page.getByLabel('Знайти товар', { exact: true })
+    await input.fill('Reuzel')
+    await input.press('Enter')
+    const result = page.getByRole('region', { name: 'Пошук товарів' }).locator('article').first()
+    await expect(result).toContainText('Ціна барбершопу: 499,00')
+    await expect(result).toContainText(`Ціна продажу: ${current}`)
+    if (role === 'master') await expect(result).not.toContainText('Ціна сайту')
+    else await expect(result).toContainText('Ціна сайту: 720,00')
+    await result.getByRole('button', { name: 'Деталі: Reuzel Blue' }).click()
+    const detail = page.getByRole('dialog', { name: 'Деталі товару' })
+    await expect(detail).toContainText('Ціна барбершопу: 499,00')
+    await expect(detail).toContainText(`Ціна продажу: ${current}`)
+    if (role === 'master') await expect(detail).not.toContainText('Ціна сайту')
+    else await expect(detail).toContainText('Ціна сайту: 720,00')
+    await page.keyboard.press('Escape')
+    await input.fill('00000101')
+    await input.press('Enter')
+    await expect.poll(() => fixture.requests.filter(r => r.path === '/products').at(-1)?.query.get('q')).toBe('00000101')
+    await result.getByRole('button', { name: 'Додати: Reuzel Blue' }).click()
+    await page.getByRole('button', { name: /Відкрити кошик/ }).click()
+    const cart = page.getByRole('dialog', { name: 'Кошик', exact: true })
+    await expect(cart).toContainText(`Ціна продажу: ${current}`)
+    await expect(cart).toContainText('Ціна барбершопу: 499,00')
+    if (role === 'master') await expect(cart).not.toContainText('Ціна сайту')
+    else await expect(cart).toContainText('Ціна сайту: 720,00')
+    await cart.getByText('Промокод', { exact: true }).first().click()
+    await cart.getByLabel('Промокод', { exact: true }).fill('SYNTHETIC')
+    await cart.getByRole('button', { name: 'Застосувати', exact: true }).click()
+    const discounted = role === 'master' ? '399,00' : '600,00'
+    await expect(cart).toContainText(`Ціна продажу: ${discounted}`)
+    const quoted = fixture.requests.filter(r => r.path === '/cart/quote').at(-1)!
+    expect(quoted.body.promo_code).toBe('SYNTHETIC')
+    expect(quoted.body.promotion_id).toBeNull()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+    await page.screenshot({ path: testInfo.outputPath(`role-prices-${role}-390.png`) })
+    await cart.getByRole('button', { name: 'Перейти до оплати', exact: true }).click()
+    await expect(page.getByRole('region', { name: 'Поточний продаж' })).toContainText(discounted)
+    const create = fixture.requests.find(r => r.path === '/checkouts')!
+    expect(create.body.quote_revision).toBe('1'.repeat(64))
+    expect(create.body.items).toEqual([{ product_id: 101, quantity: 1 }])
+    expect(Object.keys(create.body).sort()).toEqual(['currency', 'intent_id', 'items', 'promo_code', 'promotion_id', 'quote_revision'])
+    expect(create.body.promo_code).toBe('SYNTHETIC')
+    expect(create.body.promotion_id).toBeNull()
+    expect(fixture.current.amount_minor).toBe(role === 'master' ? 39900 : 60000)
+    expect(fixture.external).toEqual([])
+    expect(fixture.consoleErrors).toEqual([])
+  })
+}
+
+test('master cannot add an old API offer without barbershop price', async ({ page }) => {
+  const fixture = await setup(page, { unlinkedMaster: true })
+  await page.route('**/pos/products?**', route => route.fulfill({ json: { items: [{ ...offer, barbershop_price: undefined, effective_shop_price: undefined, amount_minor: 72000 }], total: 1, page: 1, page_size: 20 } }))
+  await page.goto('/orders/pos')
+  await page.getByLabel('Знайти товар', { exact: true }).fill('legacy')
+  await expect(page.getByRole('button', { name: 'Додати: Reuzel Blue' })).toBeDisabled()
+  await expect(page.getByRole('region', { name: 'Пошук товарів' })).toContainText('Ціна недоступна')
+  await expect(page.getByRole('region', { name: 'Пошук товарів' })).not.toContainText('720,00')
+  await expect(page.getByRole('button', { name: /Відкрити кошик/ })).toHaveCount(0)
+  expect(fixture.requests.filter(r => r.method === 'POST')).toHaveLength(0)
+})
+
+test('linked barber retains promo input and rejects legacy prices', async ({ page }) => {
+  const fixture = await setup(page)
+  await page.goto('/orders/pos')
+  await page.getByLabel('Знайти товар', { exact: true }).fill('Reuzel')
+  await page.getByRole('button', { name: 'Додати: Reuzel Blue' }).click()
+  await page.getByRole('button', { name: /Відкрити кошик/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Кошик', exact: true }).locator('summary').filter({ hasText: /^Промокод$/ })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.route('**/pos/products?**', route => route.fulfill({ json: { items: [{ ...offer, id: 105, name: 'Legacy', barbershop_price: undefined, amount_minor: 72000 }], total: 1, page: 1, page_size: 20 } }))
+  await page.getByLabel('Знайти товар', { exact: true }).fill('legacy')
+  await expect(page.getByRole('button', { name: 'Додати: Legacy' })).toBeDisabled()
+  expect(fixture.requests.filter(r => r.path === '/checkouts')).toHaveLength(0)
 })

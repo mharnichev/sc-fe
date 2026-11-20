@@ -13,6 +13,8 @@ export type ProcurementStatus = 'not_required' | 'to_order' | 'ordered' | 'recei
 export type ManualInventoryOperationType = 'opening-balance' | 'receipt' | 'customer-return' | 'write-off'
 
 export interface InventoryProduct {
+  barbershop_price?: string | number | null
+  effective_shop_price?: string | number | null
   purchase_unit_cost?: string | number | null
   id: number
   name: string

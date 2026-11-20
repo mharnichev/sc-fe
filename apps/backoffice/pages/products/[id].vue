@@ -9,6 +9,7 @@ import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } f
 provide('compactFieldHints', true)
 
 const catalogAuth = useAuthStore()
+const { isAdmin, isBarber } = useBackofficeAccess()
 const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const route = useRoute()
@@ -173,9 +174,9 @@ const submit = async (payload: ProductPayload) => {
   }
 }
 const productMetrics = computed(() => product.value ? [
-  { label: 'Ціна', value: formatPrice(product.value.price), hint: 'Базова ціна товару в каталозі.', icon: CurrencyDollarIcon },
-  { label: 'Ціна магазину', value: formatPrice(product.value.shop_price ?? product.value.price), hint: 'Ціна для сайту та замовлень до застосування акцій. Якщо не задана, використовується базова ціна.', icon: TagIcon },
-  { label: 'Рекомендована', value: product.value.recommended_retail_price != null ? formatPrice(product.value.recommended_retail_price) : '—', hint: 'Рекомендована роздрібна ціна виробника.', icon: CurrencyDollarIcon },
+  { label: 'Ціна барбершопу', value: product.value.barbershop_price != null ? formatPrice(product.value.barbershop_price) : 'Ціна недоступна', hint: 'Серверна ціна товару для продажу майстром у салоні.', icon: CurrencyDollarIcon },
+  ...(isAdmin.value ? [{ label: 'Ціна сайту', value: product.value.effective_shop_price != null ? formatPrice(product.value.effective_shop_price) : 'Ціна недоступна', hint: 'Ціна сайту, яку повернув сервер.', icon: TagIcon }] : []),
+  ...(!isBarber.value ? [{ label: 'Рекомендована', value: product.value.recommended_retail_price != null ? formatPrice(product.value.recommended_retail_price) : '—', hint: 'Рекомендована роздрібна ціна виробника.', icon: CurrencyDollarIcon }] : []),
   { label: 'На складі', value: product.value.stock_quantity, hint: 'Загальна кількість одиниць товару на складі.', icon: CubeIcon },
   { label: 'У резерві', value: product.value.reserved_quantity, hint: 'Одиниці, зарезервовані під замовлення.', icon: CubeIcon },
   { label: 'Доступно', value: product.value.available_quantity, hint: 'Кількість, доступна для нових замовлень з урахуванням резерву.', icon: CubeIcon },

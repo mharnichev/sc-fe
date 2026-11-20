@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ArrowDownRightIcon, ArrowUpRightIcon, ArrowsUpDownIcon, BanknotesIcon, CalendarDaysIcon, DocumentTextIcon, FunnelIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownRightIcon, ArrowUpRightIcon, ArrowsUpDownIcon, BanknotesIcon, CalendarDaysIcon, DocumentTextIcon, FunnelIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import TrashIcon from '~/components/TrashIcon.vue'
 import { canAccessShopBalance } from '~/utils/shopBalanceAccess'
 
 definePageMeta({
@@ -497,7 +498,7 @@ onScopeDispose(() => {
             <BaseButton variant="primary" :disabled="loading || saving" @click="openEntryForm(selectedEntry)">
               <PencilIcon class="h-4 w-4" aria-hidden="true" /> Редагувати
             </BaseButton>
-            <BaseButton variant="danger-outline" :disabled="deleting || saving" @click="confirmDeletion(selectedEntry)">
+            <BaseButton variant="danger" :disabled="deleting || saving" @click="confirmDeletion(selectedEntry)">
               <TrashIcon class="h-4 w-4" aria-hidden="true" /> Видалити
             </BaseButton>
             <BaseButton variant="secondary" @click="close">Закрити</BaseButton>

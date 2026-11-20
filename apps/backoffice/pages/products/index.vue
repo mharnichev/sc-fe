@@ -13,7 +13,8 @@ const route = useRoute()
 const router = useRouter()
 const toast = useBaseToastNotification()
 const assetUrl = useAssetUrl()
-const { apiErrorMessage } = useBookingFormatting()
+const { apiErrorMessage, formatMoney } = useBookingFormatting()
+const { isAdmin } = useBackofficeAccess()
 const quickSearchOpen = ref(false)
 const openQuickSearchProduct = (product: { id: number }) => { void router.push('/products/' + product.id) }
 const page = ref(1)
@@ -254,9 +255,8 @@ const prev = async () => {
             <td data-label="Категорія" class="text-ui-secondary">{{ categoryLabels.get(item.category_id ?? -1) || item.category?.name || '—' }}</td>
             <td data-label="Бренд" class="text-ui-secondary">{{ item.brand?.name || '—' }}</td>
             <td data-label="Ціноутворення" class="min-w-56 text-ui-secondary">
-              <p>Базова ціна: {{ item.price }}</p>
-              <p>Наша ціна: {{ item.shop_price ?? item.price }}</p>
-              <p class="mt-1 text-xs text-ui-muted">Промоційна ціна не повертається backoffice endpoint.</p>
+              <p>Ціна барбершопу: {{ item.barbershop_price != null ? formatMoney(item.barbershop_price) : 'Ціна недоступна' }}</p>
+              <p v-if="isAdmin">Ціна сайту: {{ item.effective_shop_price != null ? formatMoney(item.effective_shop_price) : 'Ціна недоступна' }}</p>
               <NuxtLink :to="`/shop-promotions?product_id=${item.id}`" class="mt-2 inline-block text-xs font-medium text-cyan-700 hover:underline">Акції товару</NuxtLink>
             </td>
             <td data-label="Рекомендована ціна" class="text-ui-secondary">{{ item.recommended_retail_price }}</td>

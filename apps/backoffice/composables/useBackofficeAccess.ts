@@ -22,7 +22,7 @@ export const useBackofficeAccess = (masters?: Ref<Master[]>) => {
     return masters.value.find(master => master.admin_user_id === auth.user?.id || master.id === auth.user?.master_id) || null
   })
 
-  const isBarber = computed(() => Boolean((linkedMaster.value || auth.user?.master_id || auth.user?.role === 'barber') && !isAdmin.value))
+  const isBarber = computed(() => Boolean((linkedMaster.value || auth.user?.master_id || auth.user?.role === 'barber' || auth.user?.role === 'master') && !isAdmin.value))
 
   const roleLabel = computed(() => {
     if (isAdmin.value) return 'Адміністратор'

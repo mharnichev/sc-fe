@@ -8,6 +8,7 @@ import PosSaleCheckout from '~/components/pos/PosSaleCheckout.vue'
 import { posCanAddOffer, posDiscountLabels, posMoney } from '~/composables/usePosSale'
 const sale = usePosSale()
 const auth = useAuthStore()
+const { isBarber } = useBackofficeAccess()
 const canViewOwnHistory = computed(() => !!auth.accessToken && !!auth.user?.is_active
   && (auth.user.is_superuser || (auth.user.can_record_sales === true && auth.user.can_accept_qr_payments === true)))
 const heading = ref<HTMLElement | null>(null)
@@ -84,7 +85,7 @@ function clearCart() {
 }
 function add(offer: PosOffer) {
   const limits = sale.cartLimits.value
-  if (!sale.allowed.value || !limits || sale.saved.value || paying.value || !posCanAddOffer(offer)) return
+  if (!sale.allowed.value || !limits || sale.saved.value || paying.value || !posCanAddOffer(offer) || (isBarber.value && offer.barbershop_price == null)) return
   const current = rows.value.find(row => row.offer.id === offer.id)
   if (!current && rows.value.length >= limits.max_items) return
   const quantity = (current?.quantity || 0) + 1
