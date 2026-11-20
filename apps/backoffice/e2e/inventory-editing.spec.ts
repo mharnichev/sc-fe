@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function setup(page: Page, width: number, poster = true) {
   await page.setViewportSize({ width, height: 900 })
-  const user = { id: 5, role: 'admin', is_superuser: poster, is_active: true, can_post_inventory: poster }
+  const user = { id: 5, email: 'booking-ci@example.org', role: 'admin', is_superuser: poster, is_active: true, can_post_inventory: poster }
   const photo = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="teal"/></svg>')
   const product = { id: 42, name: 'Shampoo 250ml', sku: 'EDIT', barcode: '42', purchase_unit_cost: '10.00', package_size: '250 мл', stock_quantity: 5, reserved_quantity: 0, available_quantity: 5, allow_backorder: false, display_image_urls: [photo] }
   const line = { id: 8, product_id: 42, barcode: '42', quantity: 5, purchase_unit_cost: '10.00', batch_number: null, expiration_date: null, allocations: [{ order_item_id: 90, quantity: 4 }], effective_quantity: 5, effective_purchase_unit_cost: '10.00', effective_purchase_value: '50.00', last_correction_id: null as number | null }
