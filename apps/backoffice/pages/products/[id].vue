@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { productDisplayImages } from '~/utils/productImages'
 import { canManageCatalog } from '~/utils/catalogAccess'
+import catalogSources from '~/data/catalogProductSources.json'
 import { PencilIcon, ArrowLeftIcon, TagIcon, CurrencyDollarIcon, CubeIcon, DocumentTextIcon, PhotoIcon, PlusIcon, CodeBracketIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import { formatPrice } from '@shared-utils'
 import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } from '~/composables/useBackofficeApi'
@@ -8,6 +9,7 @@ import type { PaginatedResponse, ProductImage, ProductPayload, ShopPromotion } f
 provide('compactFieldHints', true)
 
 const catalogAuth = useAuthStore()
+const { isAdmin, isBarber } = useBackofficeAccess()
 const catalogEditable = computed(() => canManageCatalog(catalogAuth.user))
 
 const route = useRoute()
@@ -34,6 +36,11 @@ const [{ data: productResult, refresh: refreshProduct }, { data: categories }, {
 ])
 
 const product = computed(() => productResult.value?.product ?? null)
+const catalogSource = computed(() => {
+  const sku = product.value?.sku
+  const sources: Record<string, { url: string, verified: boolean }> = catalogSources
+  return sku && Object.hasOwn(sources, sku) ? sources[sku] : undefined
+})
 const shopPromotionModalOpen = ref(false)
 const selectedShopPromotion = ref<ShopPromotion | null>(null)
 
@@ -167,9 +174,9 @@ const submit = async (payload: ProductPayload) => {
   }
 }
 const productMetrics = computed(() => product.value ? [
-  { label: 'Ціна', value: formatPrice(product.value.price), hint: 'Базова ціна товару в каталозі.', icon: CurrencyDollarIcon },
-  { label: 'Ціна магазину', value: formatPrice(product.value.shop_price ?? product.value.price), hint: 'Ціна для сайту та замовлень до застосування акцій. Якщо не задана, використовується базова ціна.', icon: TagIcon },
-  { label: 'Рекомендована', value: product.value.recommended_retail_price != null ? formatPrice(product.value.recommended_retail_price) : '—', hint: 'Рекомендована роздрібна ціна виробника.', icon: CurrencyDollarIcon },
+  { label: 'Ціна барбершопу', value: product.value.barbershop_price != null ? formatPrice(product.value.barbershop_price) : 'Ціна недоступна', hint: 'Серверна ціна товару для продажу майстром у салоні.', icon: CurrencyDollarIcon },
+  ...(isAdmin.value ? [{ label: 'Ціна сайту', value: product.value.effective_shop_price != null ? formatPrice(product.value.effective_shop_price) : 'Ціна недоступна', hint: 'Ціна сайту, яку повернув сервер.', icon: TagIcon }] : []),
+  ...(!isBarber.value ? [{ label: 'Рекомендована', value: product.value.recommended_retail_price != null ? formatPrice(product.value.recommended_retail_price) : '—', hint: 'Рекомендована роздрібна ціна виробника.', icon: CurrencyDollarIcon }] : []),
   { label: 'На складі', value: product.value.stock_quantity, hint: 'Загальна кількість одиниць товару на складі.', icon: CubeIcon },
   { label: 'У резерві', value: product.value.reserved_quantity, hint: 'Одиниці, зарезервовані під замовлення.', icon: CubeIcon },
   { label: 'Доступно', value: product.value.available_quantity, hint: 'Кількість, доступна для нових замовлень з урахуванням резерву.', icon: CubeIcon },
@@ -237,6 +244,10 @@ const productMetadata = computed(() => product.value ? [
             <div class="space-y-1">
               <h3 class="flex items-center gap-1.5 text-sm font-medium text-ui-primary">Склад<BaseFieldHelp label="Склад" text="Інгредієнти товару, зазначені виробником." /></h3>
               <p tabindex="0" role="region" aria-label="Склад товару" class="max-h-64 overflow-y-auto break-words whitespace-pre-line text-sm leading-5 text-ui-secondary">{{ product.ingredients || 'Склад не вказано' }}</p>
+              <div v-if="catalogSource" class="pt-1 text-sm">
+                <a :href="catalogSource.url" target="_blank" rel="noopener noreferrer" class="font-medium text-ui-primary underline">Джерело інформації</a>
+                <p v-if="!catalogSource.verified" class="text-ui-muted">Точний варіант потребує звірки.</p>
+              </div>
             </div>
           </div>
         </BaseCard>

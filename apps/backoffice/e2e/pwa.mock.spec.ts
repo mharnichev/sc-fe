@@ -102,8 +102,10 @@ test('calendar help, landscape menu and display-mode detection', async ({ page }
   await page.getByRole('button', { name: 'Закрити', exact: true }).click()
   await page.setViewportSize({ width: 844, height: 390 })
   await page.getByRole('button', { name: 'Відкрити меню', exact: true }).click()
-  await expect(page.locator('#backoffice-mobile-menu')).toBeVisible()
-  await page.getByRole('button', { name: 'Закрити меню', exact: true }).click()
+  const navigation = page.getByRole('dialog', { name: 'Навігація', exact: true })
+  await expect(navigation).toBeVisible()
+  await navigation.getByRole('button', { name: 'Закрити меню', exact: true }).click()
+  await expect(navigation).toBeHidden()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.addInitScript(() => {
     const original = window.matchMedia.bind(window)

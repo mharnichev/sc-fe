@@ -8,6 +8,8 @@ const props = defineProps<{ modelValue: boolean, compactMobile?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean], select: [product: InventoryProduct] }>()
 const api = useBackofficeApi()
 const route = useRoute()
+const { isAdmin } = useBackofficeAccess()
+const { formatMoney } = useBookingFormatting()
 const assetUrl = useAssetUrl()
 const scannerOpen = ref(false)
 const scannerId = useId()
@@ -114,7 +116,10 @@ const choose = (product: InventoryProduct) => {
             :aria-label="`Додати: ${product.name}`" :disabled="busy" @click="choose(product)">
             <img v-if="productDisplayImage(product) && !failedImages.includes(product.id)" :src="assetUrl(productDisplayImage(product))" alt="" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedImages.push(product.id)">
             <span v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-ui-surface text-ui-secondary" aria-hidden="true"><PhotoIcon class="h-7 w-7" /></span>
-            <span class="min-w-0 flex-1"><span class="block break-words font-semibold">{{ product.name }}</span><span class="mt-1 block text-sm text-ui-secondary">Доступно: {{ product.available }} шт.</span></span>
+            <span class="min-w-0 flex-1"><span class="block break-words font-semibold">{{ product.name }}</span><span class="mt-1 block text-sm text-ui-secondary">Доступно: {{ product.available }} шт.</span>
+              <span class="mt-1 block text-sm">Ціна барбершопу: <strong>{{ product.barbershop_price != null ? formatMoney(product.barbershop_price) : 'Ціна недоступна' }}</strong></span>
+              <span v-if="isAdmin" class="mt-1 block text-sm">Ціна сайту: <strong>{{ product.effective_shop_price != null ? formatMoney(product.effective_shop_price) : 'Ціна недоступна' }}</strong></span>
+            </span>
             <PlusIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
           </button>
         </div>

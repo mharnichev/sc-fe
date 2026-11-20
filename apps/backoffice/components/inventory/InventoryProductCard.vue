@@ -7,6 +7,8 @@ const photoIndex = ref(0)
 const photos = computed(() => productDisplayImages(props.product))
 watch(() => props.product.id, () => { photosOpen.value = false; photoIndex.value = 0 })
 const assetUrl = useAssetUrl()
+const { isAdmin } = useBackofficeAccess()
+const { formatMoney } = useBookingFormatting()
 </script>
 
 <template>
@@ -27,6 +29,10 @@ const assetUrl = useAssetUrl()
         <span class="stock-chip stock-chip--reserved">Резерв: <strong>{{ product.reserved }}</strong></span>
         <span class="stock-chip stock-chip--available">Доступно: <strong>{{ product.available }}</strong></span>
       </div>
+      <dl class="space-y-1 text-sm" aria-label="Ціни товару">
+        <div><dt class="inline text-ui-secondary">Ціна барбершопу: </dt><dd class="inline font-semibold">{{ product.barbershop_price != null ? formatMoney(product.barbershop_price) : 'Ціна недоступна' }}</dd></div>
+        <div v-if="isAdmin"><dt class="inline text-ui-secondary">Ціна сайту: </dt><dd class="inline font-semibold">{{ product.effective_shop_price != null ? formatMoney(product.effective_shop_price) : 'Ціна недоступна' }}</dd></div>
+      </dl>
       <slot />
     </div>
     </div>

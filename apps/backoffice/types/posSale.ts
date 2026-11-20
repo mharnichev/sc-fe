@@ -5,6 +5,7 @@ export interface PosCapabilities {
   automatic_reconciliation_enabled: boolean; poll_after_ms: number; blocking_reasons: string[]
 }
 export interface PosOffer {
+  barbershop_price?: string | number | null; effective_shop_price?: string | number | null
   id: number; name: string; brand_name: string | null; sku: string | null; barcode: string | null
   image_url: string | null; variant_label: string | null; amount_minor: number; currency: 'UAH'
   available_quantity: number; can_sell: boolean; blocking_reasons: string[]

@@ -23,6 +23,9 @@ export const posExpiredClosure = (c: PosCheckout) => c.order_status === 'cancell
   && c.payment.status === 'expired' && c.payment.invoice_id === null && c.payment.qr_payload === null && c.payment.confirmed_at === null
   && c.receipt.status === 'not_requested' && c.handover.status === 'not_ready'
   && !c.blocking_reasons?.includes('master_mono_closed_conflict')
+export const posRefundClosed = (c: PosCheckout) => c.order_status === 'cancelled'
+  && c.payment.status === 'reversed' && c.handover.status === 'not_ready'
+  && c.blocking_reasons?.includes('master_mono_refund_closed') === true
 const canExitExpired = (c: PosCheckout) => posExpiredClosure(c) && c.blocking_reasons?.includes('master_mono_sale_closed') === true && c.actions.can_start_new
   && !c.actions.can_resume && !c.actions.can_refresh && !c.actions.can_handover && !c.actions.can_recover_invoice && c.actions.can_verify_invoice !== true
 const quoteRevision = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
@@ -115,12 +118,12 @@ export const usePosSale = () => {
     if (!allowed.value || error.value || !c?.actions.can_start_new || !record
       || record.checkout_id !== c.checkout_id || record.command) return false
     if (c.status === 'completed' && c.handover.status === 'handed_over') return true
-    return canExitExpired(c)
+    return canExitExpired(c) || posRefundClosed(c)
   })
   const startNewIssue = computed(() => {
     const c = checkout.value
     if (!c || error.value) return ''
-    if (posExpiredClosure(c)) {
+    if (posExpiredClosure(c) || posRefundClosed(c)) {
       if (saved.value?.command) return 'Є незавершена дія з цим продажем. Перечитайте його стан.'
       if (!access.value) return 'Доступ до продажів недоступний. Зверніться до адміністратора.'
       if (!capabilities.value?.can_start) return 'Нові продажі тимчасово призупинено.'

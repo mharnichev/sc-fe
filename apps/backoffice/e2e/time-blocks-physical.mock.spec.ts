@@ -4,7 +4,7 @@ for (const width of [390, 1440]) {
   test(`physical calendar statistics and day clipping at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-    const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+    const user = { id: 91001, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true }
     await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
     const masters = [
       { id: 91001, first_name_uk: 'Гліб', last_name_uk: 'Фізичний', is_active: true },
@@ -54,7 +54,7 @@ for (const width of [390, 1440]) {
 
 test('before-month multi-day source is clipped for display but deletion discloses full impact', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-  const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+  const user = { id: 91001, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true }
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
   const master = { id: 91001, first_name_uk: 'Тест', last_name_uk: 'Календар', is_active: true }
   const start_at = '2026-10-31T23:00:00+02:00', end_at = '2026-11-03T13:00:00+02:00'
@@ -94,7 +94,7 @@ for (const width of [390, 1440]) {
   test(`pending or failed month is explained outside closed filters at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-    const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+    const user = { id: 91001, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true }
     await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
     let finish!: () => void
     const hold = new Promise<void>(resolve => { finish = resolve })
@@ -126,7 +126,7 @@ for (const endpoint of ['masters', 'services']) for (const width of [390, 1440])
   test(`${endpoint} metadata failure and retry remain honest at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-    const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+    const user = { id: 91001, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true }
     await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
     let fail = true
     const writes: string[] = []
@@ -154,7 +154,7 @@ for (const endpoint of ['masters', 'services']) for (const width of [390, 1440])
 test('month navigation prevents pending races and restores A after B with consistent capacity', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.clock.install({ time: new Date('2026-11-03T10:00:00Z') })
-  const user = { id: 91001, role: 'admin', is_superuser: true, is_active: true }
+  const user = { id: 91001, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true }
   await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({ accessToken: 'fixture-only', refreshToken: '', user })), user)
   let finish!: () => void
   const hold = new Promise<void>(resolve => { finish = resolve })

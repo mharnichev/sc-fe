@@ -359,12 +359,12 @@ test('mobile menu contains scrolling and restores the page on close and desktop 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
   // Open from an already-scrolled page, without auto-scrolling the trigger into view.
   await page.getByRole('button', { name: 'Відкрити меню', exact: true }).evaluate((element: HTMLButtonElement) => element.click())
-  const menu = page.locator('#backoffice-mobile-menu')
+  const menu = page.getByRole('dialog', { name: 'Навігація' })
   await expect(menu).toBeVisible()
   await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('fixed')
   const mainTop = await page.locator('main').evaluate(element => element.getBoundingClientRect().top)
   await expect.poll(() => menu.evaluate(element => Math.round(element.getBoundingClientRect().bottom))).toBe(700)
-  await menu.evaluate(element => { element.scrollTop = element.scrollHeight })
+  await menu.getByRole('button', { name: 'Вийти', exact: true }).scrollIntoViewIfNeeded()
   await expect(menu.getByRole('button', { name: 'Вийти', exact: true })).toBeVisible()
   await menu.hover()
   await page.mouse.wheel(0, 2000)
@@ -386,6 +386,10 @@ test('mobile menu contains scrolling and restores the page on close and desktop 
   await expect(page).toHaveURL(/\/brands$/)
   await expect(menu).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('')
+  await page.getByRole('button', { name: 'Відкрити меню', exact: true }).click()
+  await menu.getByRole('link', { name: 'Бренди', exact: true }).click()
+  await expect(menu).toHaveCount(0)
+  await expect(page).toHaveURL(/\/brands$/)
 })
 
 test('brands: effective visibility includes all product pages and toggle failures preserve state', async ({ page }) => {

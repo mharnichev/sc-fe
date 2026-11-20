@@ -7,6 +7,8 @@ const emit = defineEmits<{ search: [query: string, page?: number]; select: [offe
 const query = ref(''), searched = ref(false), failedImages = ref<number[]>([])
 const selected = shallowRef<PosOffer | null>(null)
 const atItemLimit = computed(() => Object.keys(props.quantities).length >= (props.limits?.max_items ?? 0))
+const { isAdmin, isBarber } = useBackofficeAccess()
+const { formatMoney } = useBookingFormatting()
 const assetUrl = useAssetUrl(), api = useApi()
 let debounce: ReturnType<typeof setTimeout> | undefined
 const clearDebounce = () => { if (debounce !== undefined) clearTimeout(debounce); debounce = undefined }
@@ -47,6 +49,7 @@ const lookupBarcode = async (barcode: string): Promise<{ barcode: string }> => {
     <BaseLoader v-if="loading" label="Шукаємо товари" />
     <BaseEmptyState v-else-if="searched && !results.items.length" title="Товарів не знайдено" description="Спробуйте іншу назву або штрихкод." compact />
     <BaseEmptyState v-else-if="!searched" title="Додайте товари до кошика" description="Введіть назву або скануйте штрихкод." compact />
+    <p v-if="isBarber && results.items.some(offer => offer.barbershop_price == null)" role="status" class="text-sm text-ui-secondary">Ціна барбершопу недоступна. Оновіть пошук після оновлення сервісу.</p>
     <div class="space-y-1.5">
       <BaseCard v-for="offer in results.items" :key="offer.id" as="article" variant="subtle" padding="none" class="flex items-center gap-1.5 !rounded-xl p-1.5">
         <BaseButton type="button" variant="unstyled" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg p-0.5 text-left focus-visible:outline focus-visible:outline-2" :aria-label="`Деталі: ${offer.name}`" :aria-describedby="`pos-offer-summary-${offer.id}`" :disabled="disabled" @click="selected = offer">
@@ -62,12 +65,14 @@ const lookupBarcode = async (barcode: string): Promise<{ barcode: string }> => {
                 <BaseBadge :tone="posCanAddOffer(offer) ? 'neutral' : 'warning'">
                   {{ posCanAddOffer(offer) ? `Доступно: ${offer.available_quantity} шт.` : 'Зараз недоступно' }}
                 </BaseBadge>
-                <span class="text-sm font-medium">{{ offer.amount_minor > 0 ? posMoney(offer.amount_minor) : 'Ціна в кошику' }}</span>
+                <span class="text-sm font-medium">Ціна продажу: {{ isBarber && offer.barbershop_price == null ? 'Ціна недоступна' : offer.amount_minor > 0 ? posMoney(offer.amount_minor) : 'Ціна в кошику' }}</span>
               </span>
+                <span class="block text-xs text-ui-secondary">Ціна барбершопу: {{ offer.barbershop_price != null ? formatMoney(offer.barbershop_price) : 'Ціна недоступна' }}</span>
+                <span v-if="isAdmin" class="block text-xs text-ui-secondary">Ціна сайту: {{ offer.effective_shop_price != null ? formatMoney(offer.effective_shop_price) : 'Ціна недоступна' }}</span>
             </span>
           </span>
         </BaseButton>
-        <BaseButton variant="primary" class="!h-11 !w-11 shrink-0 !p-0" :disabled="disabled || !canStart || loading || !posCanAddOffer(offer) || (atItemLimit && !quantities[offer.id]) || Math.min(offer.available_quantity, limits?.max_quantity ?? 0) <= (quantities[offer.id] || 0)" :aria-label="`Додати: ${offer.name}`" @click="emit('select', offer)">
+        <BaseButton variant="primary" class="!h-11 !w-11 shrink-0 !p-0" :disabled="disabled || !canStart || loading || !posCanAddOffer(offer) || (isBarber && offer.barbershop_price == null) || (atItemLimit && !quantities[offer.id]) || Math.min(offer.available_quantity, limits?.max_quantity ?? 0) <= (quantities[offer.id] || 0)" :aria-label="`Додати: ${offer.name}`" @click="emit('select', offer)">
           <PlusIcon class="h-5 w-5" aria-hidden="true" />
         </BaseButton>
       </BaseCard>

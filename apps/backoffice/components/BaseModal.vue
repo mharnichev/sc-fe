@@ -58,6 +58,7 @@ const props = withDefaults(defineProps<{
   maxWidthClass?: string
   fillHeight?: boolean
   compact?: boolean
+  bottomSheet?: boolean
   ariaLabel?: string
   ariaLabelledby?: string
   closeOnBackdrop?: boolean
@@ -182,14 +183,15 @@ onBeforeUnmount(() => {
     <Transition name="base-modal" appear @before-enter="prepareEnter" @before-leave="prepareLeave">
     <div
       v-if="modelValue"
-      class="base-modal__backdrop fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none px-0 py-0 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
+      class="base-modal__backdrop fixed inset-0 z-[300] flex items-end justify-center overflow-hidden overscroll-none px-0 py-0 backdrop-blur-md"
+      :class="bottomSheet ? '' : 'sm:items-center sm:px-4 sm:py-6'"
       @click.self="closeOnBackdrop && close()"
       @keydown="handleKeydown"
     >
       <section
         ref="panelRef"
-        class="backoffice-modal-panel base-modal__panel liquid-glass flex w-full flex-col overflow-hidden rounded-t-[1.5rem] sm:rounded-[1.75rem]"
-        :class="[maxWidthClass, { 'base-modal__panel--fill': fillHeight, 'base-modal__panel--compact': compact && !fillHeight }]"
+        class="backoffice-modal-panel base-modal__panel liquid-glass flex w-full flex-col overflow-hidden rounded-t-[1.5rem]"
+        :class="[maxWidthClass, bottomSheet ? 'base-modal__panel--sheet' : 'sm:rounded-[1.75rem]', { 'base-modal__panel--fill': fillHeight, 'base-modal__panel--compact': compact && !fillHeight && !bottomSheet }]"
         role="dialog"
         aria-modal="true"
         :aria-label="ariaLabelledby ? undefined : ariaLabel"
@@ -212,6 +214,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .base-modal__panel { height: 95dvh; max-height: 95dvh; }
 .base-modal__panel--compact { height: auto; }
+.base-modal__panel--sheet > :last-child:not(.base-modal__header) {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
 .base-modal-enter-active, .base-modal-leave-active { transition: opacity 200ms ease; }
 .base-modal-enter-active .base-modal__panel, .base-modal-leave-active .base-modal__panel {
   transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -219,10 +224,12 @@ onBeforeUnmount(() => {
 .base-modal-enter-from, .base-modal-leave-to { opacity: 0; }
 .base-modal-enter-from .base-modal__panel { transform: translateY(18px) scale(0.99); }
 .base-modal-leave-to .base-modal__panel { transform: translateY(8px) scale(0.995); }
+.base-modal-enter-from .base-modal__panel--sheet,
+.base-modal-leave-to .base-modal__panel--sheet { transform: translateY(100%); }
 .base-modal-leave-active { pointer-events: none; }
 @media (min-width: 640px) {
-  .base-modal__panel { height: auto; max-height: calc(100dvh - 3rem); }
-  .base-modal__panel--fill { height: calc(100dvh - 3rem); }
+  .base-modal__panel:not(.base-modal__panel--sheet) { height: auto; max-height: calc(100dvh - 3rem); }
+  .base-modal__panel--fill:not(.base-modal__panel--sheet) { height: calc(100dvh - 3rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   .base-modal-enter-active, .base-modal-leave-active,

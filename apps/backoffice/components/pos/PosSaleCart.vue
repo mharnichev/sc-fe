@@ -27,6 +27,8 @@ const emit = defineEmits<{
 const open = ref(false)
 const bar = ref<ComponentPublicInstance | null>(null)
 const height = ref(0)
+const { isAdmin } = useBackofficeAccess()
+const { formatMoney } = useBookingFormatting()
 const assetUrl = useAssetUrl()
 const failedImages = ref<number[]>([])
 const count = computed(() => props.rows.reduce((sum, row) => sum + row.quantity, 0))
@@ -106,6 +108,9 @@ function proceed() {
               <PhotoIcon v-else class="h-10 w-10 shrink-0 text-ui-muted" aria-hidden="true" />
               <div class="min-w-0 break-words text-sm">
                 <p class="font-medium">{{ offer.name }}</p>
+                <span class="block text-xs text-ui-secondary">Ціна барбершопу: {{ offer.barbershop_price != null ? formatMoney(offer.barbershop_price) : 'Ціна недоступна' }}</span>
+                <span v-if="isAdmin" class="block text-xs text-ui-secondary">Ціна сайту: {{ offer.effective_shop_price != null ? formatMoney(offer.effective_shop_price) : 'Ціна недоступна' }}</span>
+                <p v-if="quoteLines[offer.id]" class="text-xs font-medium">Ціна продажу: {{ posMoney(quoteLines[offer.id].unit_minor) }}</p>
                 <p v-if="quoteLines[offer.id]?.discount_source && quoteLines[offer.id].promotion_name" class="text-xs text-ui-secondary">
                   {{ posDiscountLabels[quoteLines[offer.id].discount_source!] }}:
                   {{ quoteLines[offer.id].promotion_name }} · −{{ posMoney(quoteLines[offer.id].discount_minor) }}

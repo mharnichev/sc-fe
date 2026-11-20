@@ -57,15 +57,22 @@ test('explicit manual price edits and explicit clearing retain their intended pa
   assert.equal(payload(state).shop_price, null)
 })
 
-test('compact overview uses base price only for absent shop prices and never mutates product prices', () => {
+test('compact overview uses server role prices and never substitutes or mutates catalog prices', () => {
   const metrics = declaration('../pages/products/[id].vue', 'productMetrics')
-  for (const [value, expected] of [[null, '100.00'], [undefined, '100.00'], [0, 0], ['0.00', '0.00'], ['180.00', '180.00']]) {
-    const record = Object.freeze({ ...product, shop_price: value })
-    const result = new Function('product', 'computed', 'formatPrice', 'CurrencyDollarIcon', 'TagIcon', 'CubeIcon', `${metrics}; return productMetrics;`)(
-      { value: record }, fn => fn(), value => value, null, null, null,
+  for (const role of ['admin', 'master']) for (const value of [null, undefined, 0, '0.00', '720.00']) {
+    const record = Object.freeze({ ...product, barbershop_price: '499.00', effective_shop_price: value })
+    const result = new Function('product', 'computed', 'formatPrice', 'CurrencyDollarIcon', 'TagIcon', 'CubeIcon', 'isAdmin', 'isBarber', `${metrics}; return productMetrics;`)(
+      { value: record }, fn => fn(), value => value, null, null, null, { value: role === 'admin' }, { value: role === 'master' },
     )
-    assert.equal(result.find(metric => metric.label === 'Ціна магазину').value, expected)
-    assert.equal(record.shop_price, value)
+    assert.equal(result.find(metric => metric.label === 'Ціна барбершопу').value, '499.00')
+    const site = result.find(metric => metric.label === 'Ціна сайту')
+    if (role === 'admin') assert.equal(site.value, value ?? 'Ціна недоступна')
+    else {
+      assert.equal(site, undefined)
+      assert.equal(result.find(metric => metric.label === 'Рекомендована'), undefined)
+    }
+    assert.equal(record.effective_shop_price, value)
+    assert.equal(record.shop_price, '180.00')
     assert.equal(record.price, '100.00')
     assert.ok(result.some(metric => metric.label === 'На складі'))
     assert.ok(result.some(metric => metric.label === 'У резерві'))

@@ -16,6 +16,7 @@ function mountFixture(compactMobile, api) {
   const globals = {
     defineProps: () => ({ modelValue: true, compactMobile }),
     defineEmits: () => (...args) => events.push(args),
+    useBackofficeAccess: () => ({ isAdmin: ref(false) }), useBookingFormatting: () => ({ formatMoney: String }),
     useBackofficeApi: () => api, useRoute: () => ({ fullPath: '/orders/pos' }),
     useAssetUrl: () => value => value, useId: () => 'fixture-scanner',
     ref, watch: () => {}, onBeforeUnmount: () => {}, inventoryApiErrorMessage: () => 'fixture error',

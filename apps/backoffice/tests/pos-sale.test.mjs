@@ -118,6 +118,7 @@ async function searchComponent(send) {
  const props=vue.reactive({results:{items:[],total:0,page:1,page_size:20},loading:false,disabled:false,error:''}),events=[],timers=new Map(),cleanup=[]
  let nextTimer=0
  Object.assign(globalThis,vue,{defineProps:()=>props,defineEmits:()=>(...args)=>events.push(args),useAssetUrl:()=>String,useApi:()=>send,posMoney:String,
+  useBackofficeAccess:()=>({isAdmin:vue.ref(false),isBarber:vue.ref(true)}),useBookingFormatting:()=>({formatMoney:String}),
   watch:(...args)=>{const stop=vue.watch(...args);cleanup.push(stop);return stop},onScopeDispose:fn=>cleanup.push(fn),
   setTimeout:(fn,ms)=>{assert.equal(ms,275);timers.set(++nextTimer,fn);return nextTimer},clearTimeout:id=>timers.delete(id)})
  const raw=(await readFile(new URL('../components/pos/PosSaleSearch.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*\n/gm,'')
@@ -632,4 +633,22 @@ test('read-only reload resolves a lost successful verification without replaying
   assert.equal(reopened.sale.canVerifyInvoice.value, false)
   assert.equal(reopened.calls.filter(call => call.method === 'POST').length, 0)
   reopened.stop()
+})
+
+test('confirmed full refund before handover releases the saved checkout for another sale', async () => {
+ const fixture = await setup((path, options) => base(path) || state({ intent_id: options.body?.intent_id }))
+ await start(fixture.sale)
+ const intentId = fixture.sale.saved.value.body.intent_id
+ fixture.sale.checkout.value = state({
+  intent_id: intentId, order_status: 'cancelled', status: 'requires_review',
+  payment: { ...state().payment, status: 'reversed', qr_payload: null },
+  handover: { status: 'not_ready' },
+  blocking_reasons: ['master_mono_refund_closed'],
+  actions: { ...state().actions, can_resume: false, can_refresh: false, can_start_new: true },
+ })
+ assert.equal(fixture.sale.canStartNew.value, true)
+ await fixture.sale.startNew()
+ assert.equal(fixture.sale.saved.value, null)
+ assert.equal(fixture.calls.filter(call => call.method === 'POST').length, 1)
+ fixture.stop()
 })

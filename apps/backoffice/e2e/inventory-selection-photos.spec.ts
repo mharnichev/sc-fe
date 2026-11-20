@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 for (const width of [390, 1440]) {
   test(`selection, photo gallery and editable review at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    const user = { id: 5, role: 'admin', is_superuser: true, is_active: true, can_post_inventory: true }
+    const user = { id: 5, email: 'booking-ci@example.org', role: 'admin', is_superuser: true, is_active: true, can_post_inventory: true }
     const photo = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="teal"/></svg>')
     const product = { id: 42, name: 'Test shampoo', sku: 'PHOTO', package_size: '250 мл', purchase_unit_cost: '19.75', barcode: '123', on_hand: 4, reserved: 0, available: 4, allow_backorder: false, display_image_urls: [photo, photo + '#second'] }
     const draft = { id: 12, reason: 'Test receipt', status: 'draft', items: [], created_at: '2026-11-03T00:00:00Z', posted_at: null }
