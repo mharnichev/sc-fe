@@ -36,10 +36,39 @@ if (import.meta.server) {
       <slot />
     </main>
     <div id="contact" data-header-theme="dark" class="h-0 bg-neutral-950" aria-hidden="true" />
-    <Footer />
+    <div class="footer-reveal">
+      <Footer class="footer-reveal__content" />
+    </div>
     <ClientOnly v-if="shouldMountFloatingActions">
       <LazyCookieConsentBanner />
       <LazyFloatingBookingDrawer />
     </ClientOnly>
   </div>
 </template>
+
+<style scoped>
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  @supports (animation-timeline: view()) {
+    .footer-reveal {
+      position: relative;
+      z-index: 0;
+      view-timeline: --footer-reveal block;
+    }
+
+    .footer-reveal__content {
+      animation: footer-reveal 1ms linear both;
+      animation-timeline: --footer-reveal;
+      animation-range: entry;
+    }
+
+    .footer-reveal:focus-within .footer-reveal__content {
+      animation-name: none;
+    }
+  }
+}
+
+@keyframes footer-reveal {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+</style>
