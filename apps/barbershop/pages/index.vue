@@ -17,7 +17,7 @@ let homePageDisposed = false
 let bookingAnchorSession: { hash: string, startedAt: number, generation: number, active: boolean } | null = null
 let deferredSectionsMountTimer: number | null = null
 const bookingHashTargets = new Set(['#booking', '#booking-stepper'])
-const homeHashTargets = new Set(['#booking', '#booking-stepper', '#team', '#reviews'])
+const homeHashTargets = new Set(['#booking', '#booking-stepper', '#team', '#join-the-team', '#reviews'])
 const hasHomeHashTarget = () => homeHashTargets.has(window.location.hash)
 const stopBookingAnchorLock = () => {
   // Invalidate callbacks even if input arrives before their first RAF executes.
@@ -263,6 +263,9 @@ useSeo(
     <LazyBotSection />
     <LazyTeamSection />
     <LazyReviewsSection />
+    <div class="bg-white">
+      <RecruitmentSection />
+    </div>
     <ClientOnly v-if="shouldMountDeferredSections">
       <LazyBlogSection />
       <LazyIdemNaBukviMarquee />

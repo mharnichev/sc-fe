@@ -124,6 +124,11 @@ onMounted(() => {
               </LocaleLink>
             </p>
             <p>
+              <LocaleLink to="/careers" class="transition hover:text-white">
+                <BaseHoverUnderlineText>{{ terms.home.recruitment.footerLink }}</BaseHoverUnderlineText>
+              </LocaleLink>
+            </p>
+            <p>
               <LocaleLink to="/terms" class="transition hover:text-white">
                 <BaseHoverUnderlineText>{{ terms.common.termsLinkLabel }}</BaseHoverUnderlineText>
               </LocaleLink>

@@ -1,6 +1,6 @@
 export type PublicLocale = 'uk' | 'en'
 
-const publicPages = new Set(['/', '/services', '/masters', '/contacts', '/about', '/terms', '/blog-faq', '/barbershop-odesa', '/znyzhka-dlia-zsu'])
+const publicPages = new Set(['/', '/services', '/masters', '/contacts', '/about', '/careers', '/terms', '/blog-faq', '/barbershop-odesa', '/znyzhka-dlia-zsu'])
 
 export const unlocalizedPath = (path: string) => {
   const clean = path.split(/[?#]/, 1)[0] || '/'
