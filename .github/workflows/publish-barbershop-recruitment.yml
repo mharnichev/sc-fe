@@ -11,11 +11,11 @@ jobs:
     timeout-minutes: 25
     env:
       IMAGE: ghcr.io/mharnichev/sc-fe/public-site
-      SOURCE: 82666d952f20bd0e1536ee50c0cebc4aae561320
+      SOURCE: 946842d50a54c6a718bb0a1b529ab443cfbcd01e
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 82666d952f20bd0e1536ee50c0cebc4aae561320
+          ref: 946842d50a54c6a718bb0a1b529ab443cfbcd01e
           persist-credentials: false
       - name: Build exact Barbershop source
         run: |
