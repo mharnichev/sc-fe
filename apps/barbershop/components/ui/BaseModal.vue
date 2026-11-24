@@ -53,7 +53,7 @@ const focusDialog = async () => {
   if (!target) return
 
   const firstFocusable = target.querySelector<HTMLElement>(focusableSelector)
-  ;(firstFocusable || target).focus()
+  ;(firstFocusable || target).focus({ preventScroll: true })
 }
 
 const onKeydown = (event: KeyboardEvent) => {
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
         >
           <div
             v-if="!blockClose"
-            class="absolute right-3 top-3 z-20"
+            class="base-modal__close absolute right-3 top-3 z-20"
           >
             <BaseButton
               class="modal-close-button"
@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
             <slot name="header" />
           </header>
 
-          <div class="min-h-0 flex-1 overflow-y-auto">
+          <div class="base-modal__content min-h-0 flex-1 overflow-y-auto">
             <slot />
           </div>
         </section>
@@ -274,28 +274,51 @@ onBeforeUnmount(() => {
   }
 }
 
-.base-modal-enter-active .base-modal__backdrop,
-.base-modal-leave-active .base-modal__backdrop {
-  transition: opacity 220ms ease;
+/* Keep the transition classes until the delayed content fade finishes. */
+.base-modal-enter-active {
+  --base-modal-motion-easing: cubic-bezier(0.65, 0, 0.85, 0.55);
+  transition: opacity 700ms var(--base-modal-motion-easing);
 }
 
-.base-modal-enter-active .base-modal__container,
+.base-modal-leave-active {
+  --base-modal-motion-easing: cubic-bezier(0.55, 0.05, 0.75, 1);
+  transition: opacity 300ms var(--base-modal-motion-easing);
+}
+
+.base-modal-enter-active .base-modal__backdrop {
+  transition: opacity 332ms var(--base-modal-motion-easing);
+}
+
+.base-modal-leave-active .base-modal__backdrop {
+  transition: opacity 300ms var(--base-modal-motion-easing);
+}
+
+.base-modal-enter-active .base-modal__container {
+  transition: transform 332ms var(--base-modal-motion-easing);
+}
+
 .base-modal-leave-active .base-modal__container {
-  transition:
-    opacity 220ms ease,
-    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 300ms var(--base-modal-motion-easing);
+}
+
+.base-modal-enter-active :is(.base-modal__header, .base-modal__content, .base-modal__close) {
+  transition: opacity 360ms var(--base-modal-motion-easing) 332ms;
+}
+
+.base-modal-leave-active :is(.base-modal__header, .base-modal__content, .base-modal__close) {
+  transition: opacity 300ms var(--base-modal-motion-easing);
 }
 
 .base-modal-enter-from .base-modal__backdrop,
 .base-modal-leave-to .base-modal__backdrop,
-.base-modal-enter-from.base-modal--default .base-modal__container,
-.base-modal-leave-to.base-modal--default .base-modal__container {
+.base-modal-enter-from :is(.base-modal__header, .base-modal__content, .base-modal__close),
+.base-modal-leave-to :is(.base-modal__header, .base-modal__content, .base-modal__close) {
   opacity: 0;
 }
 
 .base-modal-enter-from.base-modal--default .base-modal__container,
 .base-modal-leave-to.base-modal--default .base-modal__container {
-  transform: translateY(1rem) scale(0.985);
+  transform: scale(0.96);
 }
 
 .base-modal-enter-from.base-modal--right .base-modal__container,
@@ -335,10 +358,14 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .base-modal-enter-active,
+  .base-modal-leave-active,
   .base-modal-enter-active .base-modal__backdrop,
   .base-modal-leave-active .base-modal__backdrop,
   .base-modal-enter-active .base-modal__container,
-  .base-modal-leave-active .base-modal__container {
+  .base-modal-leave-active .base-modal__container,
+  .base-modal-enter-active :is(.base-modal__header, .base-modal__content, .base-modal__close),
+  .base-modal-leave-active :is(.base-modal__header, .base-modal__content, .base-modal__close) {
     transition: none;
   }
 }
