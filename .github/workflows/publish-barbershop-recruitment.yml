@@ -42,6 +42,7 @@ jobs:
             assert.match(html, new RegExp('<html[^>]+lang="' + locale + '"'), path)
             assert.match(html, /id="recruitment-title"/, path)
           }
+          assert.match(await (await get('/robots.txt')).text(), /Sitemap: .*shop\/sitemap\.xml/)
           for (const [asset, mime] of [
             ['desktop-light.webm', 'video/webm'],
             ['mobile.webm', 'video/webm'],
