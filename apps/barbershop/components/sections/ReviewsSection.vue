@@ -200,11 +200,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section id="reviews" data-header-theme="light" class="section-y-tight bg-stone-100">
+  <section id="reviews" aria-labelledby="reviews-title" data-header-theme="light" class="section-y-tight bg-white text-neutral-950">
     <div class="site-container">
-      <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6" data-reveal="soft">
+      <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6">
         <div>
-          <SectionLabel>{{ terms.home.reviews.label }}</SectionLabel>
+          <h2 id="reviews-title" class="text-3xl font-semibold uppercase leading-tight md:text-4xl">
+            {{ terms.home.reviews.label }}
+          </h2>
           <p v-if="reviewsResponse?.average_rating" class="mt-4 text-3xl font-semibold leading-tight text-neutral-950">
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
@@ -328,7 +330,7 @@ onBeforeUnmount(() => {
         :title="pending ? terms.home.reviews.loading : terms.home.reviews.unavailable"
         seed="google-reviews"
         compact
-        style="--feedback-state-surface: #f5f5f4"
+        style="--feedback-state-surface: #fff"
       />
     </div>
 

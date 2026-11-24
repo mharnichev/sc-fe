@@ -35,6 +35,7 @@ const staticRoutes: SitemapRoute[] = [
   { loc: '/masters', priority: '0.8', changefreq: 'weekly' },
   { loc: '/contacts', priority: '0.8', changefreq: 'monthly' },
   { loc: '/about', priority: '0.6', changefreq: 'monthly' },
+  { loc: '/careers', priority: '0.6', changefreq: 'monthly' },
   { loc: '/blog-faq', priority: '0.6', changefreq: 'monthly' },
   { loc: '/terms', priority: '0.3', changefreq: 'yearly' },
 ]
