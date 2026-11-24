@@ -26,7 +26,7 @@ jobs:
       - name: Verify Barbershop pages and media
         run: |
           set -euo pipefail
-          cid="$(docker run -d --network none "$IMAGE:$SOURCE")"
+          cid="$(docker run -d --network none -e NUXT_API_UPSTREAM_BASE=http://127.0.0.1:8000/api/v1 "$IMAGE:$SOURCE")"
           trap 'docker rm -f "$cid" >/dev/null' EXIT
           docker exec -i "$cid" node --input-type=module - <<'JS'
           import assert from 'node:assert/strict'
