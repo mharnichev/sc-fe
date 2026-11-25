@@ -86,7 +86,7 @@ for (const locale of ['uk', 'en'] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 })
     const { calls, writes } = await fixture(page, locale)
     await navigate(page, '/sale?has_discount=false&limit=2')
-    const title = locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer'
+    const title = locale === 'uk' ? 'Знижки на чоловічу косметику' : 'Men’s Grooming Sale'
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
     await expect(page).toHaveTitle(new RegExp(title))
     const tiles = page.locator('.catalog-route__content .catalog-product-tile')
@@ -122,7 +122,7 @@ for (const locale of ['uk', 'en'] as const) {
     await expect.poll(badgePosition).toBe('below')
     await saleLink.hover()
     await expect.poll(badgePosition).toBe('inside')
-    await expect(saleHover).toHaveText(title)
+    await expect(saleHover).toHaveText(locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
     await expect(saleHover).toHaveCSS('color', 'rgb(255, 255, 255)')
     await expect.poll(() => saleHover.evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgb(194, 65, 12)')
 
@@ -187,7 +187,7 @@ for (const locale of ['uk', 'en'] as const) {
     await page.screenshot({ path: `/tmp/sc-fe-sale-ui-${locale}-390-menu-20261101.png`, animations: 'disabled' })
     await lastEntry.click()
     await expect(page).toHaveURL(/\/shop\/sale$/)
-    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Знижки на чоловічу косметику' : 'Men’s Grooming Sale', exact: true })).toBeVisible()
     await expect(page.locator('.base-bottom-bar').getByRole('button', { name: locale === 'uk' ? 'Каталог' : 'Catalog', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('.catalog-route__content .catalog-product-tile').first()).toContainText('Sale fixture 1')
     await expect(page.locator('.catalog-route__title .base-scribble-outline__scribble')).toBeAttached()
