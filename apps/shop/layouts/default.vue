@@ -64,7 +64,7 @@ useHead({
   margin-top: 4rem;
 }
 
-@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+@media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) {
     .footer-reveal {
       position: relative;
