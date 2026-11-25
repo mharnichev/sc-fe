@@ -166,6 +166,10 @@ export default defineNuxtConfig({
       path: '~/components',
       pathPrefix: false,
     },
+    {
+      path: new URL('../../packages/shared-ui/components', import.meta.url).pathname,
+      pathPrefix: false,
+    },
   ],
   runtimeConfig: {
     apiUpstreamBase: normalizeApiBase(process.env.NUXT_API_UPSTREAM_BASE || defaultApiUpstreamBase),
