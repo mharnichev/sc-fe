@@ -20,6 +20,10 @@ export default defineNuxtConfig({
       path: '~/components',
       pathPrefix: false,
     },
+    {
+      path: new URL('../../packages/shared-ui/components', import.meta.url).pathname,
+      pathPrefix: false,
+    },
   ],
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || 'http://127.0.0.1:8000/api/v1',
