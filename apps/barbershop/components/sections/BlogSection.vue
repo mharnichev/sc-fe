@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section id="blog" data-header-theme="dark" class="section-y-large overflow-hidden bg-neutral-950 text-white">
+  <section id="blog" data-header-theme="dark" class="section-y-large overflow-clip bg-neutral-950 text-white">
     <div class="site-container">
       <div class="mb-8 flex flex-col gap-5 md:mb-10 md:flex-row md:items-end md:justify-between" data-reveal="soft">
         <div>
@@ -74,23 +74,25 @@ onBeforeUnmount(() => {
       <div ref="postGrid" class="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(17rem,0.7fr)] lg:items-stretch">
         <article data-reveal="image" data-reveal-delay="80">
           <a :href="leadPostHref" class="group block h-full">
-            <div class="relative min-h-[28rem] overflow-hidden bg-neutral-900 sm:min-h-[36rem] lg:h-full lg:min-h-[42rem]">
-              <picture v-if="leadPostCover" class="absolute inset-0 h-full w-full">
-                <source
-                  v-if="leadPostCoverMobile"
-                  :srcset="leadPostCoverMobile"
-                  media="(max-width: 767px)"
-                >
-                <img
-                  :src="leadPostCover"
-                  :alt="terms.home.blog.lead.coverAlt"
-                  class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.02]"
-                  width="1920"
-                  height="1080"
-                  loading="lazy"
-                  decoding="async"
-                >
-              </picture>
+            <BaseScrollParallax class="min-h-[28rem] bg-neutral-900 sm:min-h-[36rem] lg:h-full lg:min-h-[42rem]">
+              <template #media>
+                <picture v-if="leadPostCover" class="absolute inset-0 h-full w-full">
+                  <source
+                    v-if="leadPostCoverMobile"
+                    :srcset="leadPostCoverMobile"
+                    media="(max-width: 767px)"
+                  >
+                  <img
+                    :src="leadPostCover"
+                    :alt="terms.home.blog.lead.coverAlt"
+                    class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.02]"
+                    width="1920"
+                    height="1080"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                </picture>
+              </template>
               <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/5 to-transparent" />
               <p class="type-meta absolute left-5 top-20 bg-neutral-950/70 px-3 py-2 text-[11px] text-white/78 backdrop-blur sm:left-7 sm:top-7">
                 {{ terms.home.blog.lead.category }}
@@ -104,7 +106,7 @@ onBeforeUnmount(() => {
                   {{ terms.home.blog.lead.title }}
                 </h3>
               </div>
-            </div>
+            </BaseScrollParallax>
           </a>
         </article>
 
