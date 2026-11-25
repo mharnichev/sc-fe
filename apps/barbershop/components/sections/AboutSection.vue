@@ -7,7 +7,7 @@ const { terms } = useTerms()
     <div class="site-container grid gap-12 lg:grid-cols-[0.58fr_0.42fr] lg:items-center">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.about.label }}</SectionLabel>
-        <h2 class="section-title mt-4">
+        <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-neutral-950">
           {{ terms.home.about.title }}
         </h2>
         <div class="mt-8 grid gap-6 text-base leading-8 text-neutral-600 md:grid-cols-2">

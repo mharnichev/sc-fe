@@ -59,7 +59,7 @@ useFaqStructuredData(() => page.value.faq)
       <div class="site-container">
         <div class="max-w-4xl space-y-6">
           <SectionLabel>{{ page.label }}</SectionLabel>
-          <h1 class="type-page-title text-4xl leading-tight md:text-6xl">{{ page.heading }}</h1>
+          <h1 class="section-title type-page-title text-4xl leading-tight md:text-6xl">{{ page.heading }}</h1>
           <p class="max-w-3xl text-base leading-8 text-neutral-700">{{ page.intro }}</p>
           <div class="flex flex-col gap-3 sm:flex-row">
             <BaseButton to="/#booking">{{ page.book }}</BaseButton>
@@ -71,13 +71,13 @@ useFaqStructuredData(() => page.value.faq)
     <section data-header-theme="light" class="section-y bg-white">
       <div class="site-container grid gap-12 lg:grid-cols-2">
         <div class="space-y-5">
-          <h2 class="section-title md:text-4xl">{{ page.scopeTitle }}</h2>
+          <h2 class="section-title md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.scopeTitle }}</h2>
           <p class="leading-8 text-neutral-700">{{ page.scope }}</p>
           <p class="border-l-2 border-amber-700 pl-5 text-sm leading-7 text-neutral-600">{{ page.conditions }}</p>
           <LocaleLink to="/services" class="inline-block"><BaseHoverUnderlineText>{{ page.services }}</BaseHoverUnderlineText></LocaleLink>
         </div>
         <div>
-          <h2 class="section-title md:text-4xl">{{ page.stepsTitle }}</h2>
+          <h2 class="section-title md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.stepsTitle }}</h2>
           <ol class="mt-6 list-decimal space-y-4 pl-6 leading-8 text-neutral-700">
             <li v-for="step in page.steps" :key="step">{{ step }}</li>
           </ol>
@@ -87,12 +87,12 @@ useFaqStructuredData(() => page.value.faq)
     <section data-header-theme="dark" class="section-y bg-neutral-950 text-white">
       <div class="site-container grid gap-12 lg:grid-cols-2">
         <div class="space-y-5">
-          <h2 class="section-title-inverse md:text-4xl">{{ page.thanksTitle }}</h2>
-          <p class="leading-8 text-white/75">{{ page.thanks }}</p>
+          <h2 class="section-title md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-white">{{ page.thanksTitle }}</h2>
+          <p class="section-description leading-8 text-white/75">{{ page.thanks }}</p>
           <BaseButton to="/#booking" variant="light">{{ page.book }}</BaseButton>
         </div>
         <div class="space-y-5">
-          <h2 class="text-2xl font-semibold">{{ page.locationTitle }}</h2>
+          <h2 class="section-title text-2xl font-semibold">{{ page.locationTitle }}</h2>
           <p>{{ address }}</p>
           <a :href="phoneHref" class="inline-block"><BaseHoverUnderlineText>{{ terms.home.contact.phone }}</BaseHoverUnderlineText></a>
           <dl class="space-y-2 text-sm text-white/75">
@@ -107,7 +107,7 @@ useFaqStructuredData(() => page.value.faq)
     </section>
     <section data-header-theme="light" class="section-y">
       <div class="site-container max-w-4xl">
-        <h2 class="section-title mb-8 md:text-4xl">{{ page.faqTitle }}</h2>
+        <h2 class="section-title mb-8 md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.faqTitle }}</h2>
         <BaseAccordion
           v-for="(item, index) in page.faq"
           :key="item.question"

@@ -188,7 +188,7 @@ watch(teamMembers, (members) => {
         <div class="absolute inset-x-0 top-0 z-20 pb-14 pt-5" data-reveal="soft">
           <div class="site-container">
             <SectionLabel class="text-white/75">{{ terms.home.team.label }}</SectionLabel>
-            <h2 class="mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-white">
+            <h2 class="section-title mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-white">
               {{ terms.home.team.title }}
             </h2>
           </div>
@@ -289,7 +289,7 @@ watch(teamMembers, (members) => {
               <div class="flex w-fit max-w-full items-start justify-start pb-4">
                 <div>
                   <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
-                  <h2 class="mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-neutral-950 sm:text-2xl md:text-4xl lg:text-4xl">
+                  <h2 class="section-title mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-neutral-950 sm:text-2xl md:text-4xl lg:text-4xl">
                     {{ terms.home.team.title }}
                   </h2>
                 </div>

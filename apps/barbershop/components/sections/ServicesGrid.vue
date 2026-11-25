@@ -143,15 +143,15 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 <template>
   <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
-      <div class="mb-8 flex flex-col justify-between gap-4 pb-6 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
+      <div class="mb-8 flex flex-col justify-between pb-6 sm:gap-4 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
           <SectionLabel>{{ displaySectionLabel }}</SectionLabel>
-          <h2 class="section-title mt-4">
+          <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-neutral-950">
             {{ displaySectionTitle }}
           </h2>
         </div>
         <div class="max-w-md">
-          <p class="text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
+          <p class="section-description text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
             {{ displaySectionDescription }}
           </p>
           <LocaleLink
@@ -208,7 +208,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
         <article
           v-for="(service, index) in baseServices"
           :key="service.catalog_id"
-          class="service-card relative grid h-full w-full gap-4 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
+          class="service-card relative grid h-full w-full gap-3 overflow-hidden px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5 md:gap-5 md:py-5"
           data-reveal="soft"
           :data-reveal-delay="Math.min(index, 5) * 70"
         >
@@ -218,14 +218,15 @@ const selectService = async (service: ServiceCatalogItemDto) => {
             @click="selectService(service)"
           >
             <div class="flex items-start justify-between gap-5">
-              <h3 class="min-w-0 text-xl font-semibold text-neutral-950">
-                {{ localizedService.serviceName(service) }}
+              <h3 class="min-w-0 break-words text-sm font-semibold text-neutral-950">
+                <template v-for="(part, partIndex) in localizedService.serviceName(service).split(/(?<=\+)/)" :key="partIndex">{{ part }}<wbr v-if="part.endsWith('+')"></template>
               </h3>
               <p class="shrink-0 text-sm font-semibold text-neutral-950">{{ formatServicePrice(service) }}</p>
             </div>
           </button>
           <ServiceDescriptionAccordion
             :description="localizedService.serviceDescription(service) || terms.home.services.noDescription"
+            :show-read-more="false"
           />
           <LocaleLink
             v-if="serviceDetailPath(service)"

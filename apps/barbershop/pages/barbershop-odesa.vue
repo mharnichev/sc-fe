@@ -343,7 +343,7 @@ useFaqStructuredData(() =>
           <p class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">
             {{ page.eyebrow }}
           </p>
-          <h1 class="text-4xl font-semibold leading-tight text-stone-950 md:text-6xl">
+          <h1 class="section-title text-4xl font-semibold leading-tight text-stone-950 md:text-6xl">
             {{ page.heading }}
           </h1>
           <p class="max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
@@ -363,7 +363,7 @@ useFaqStructuredData(() =>
       <div class="site-container grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
         <div data-reveal="soft">
           <SectionLabel>{{ page.locationLabel }}</SectionLabel>
-          <h2 class="section-title mt-4 md:text-4xl">{{ page.locationTitle }}</h2>
+          <h2 class="section-title mt-1 md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.locationTitle }}</h2>
           <p class="mt-5 max-w-xl text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
             {{ page.locationIntro }}
           </p>
@@ -409,7 +409,7 @@ useFaqStructuredData(() =>
         <div class="space-y-5" data-reveal="soft" data-reveal-delay="120">
           <div>
             <SectionLabel>{{ terms.common.book }}</SectionLabel>
-            <h2 class="mt-4 text-3xl font-semibold text-neutral-950">{{ page.bookingTitle }}</h2>
+            <h2 class="section-title mt-1 text-2xl sm:text-3xl font-semibold text-neutral-950">{{ page.bookingTitle }}</h2>
             <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
               {{ page.bookingIntro }}
             </p>
@@ -452,7 +452,7 @@ useFaqStructuredData(() =>
         <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div class="max-w-3xl" data-reveal="soft">
             <SectionLabel>{{ page.servicesLabel }}</SectionLabel>
-            <h2 class="section-title mt-4 md:text-4xl">{{ page.servicesTitle }}</h2>
+            <h2 class="section-title mt-1 md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.servicesTitle }}</h2>
             <p class="mt-5 text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
               {{ page.servicesIntro }}
             </p>
@@ -504,8 +504,8 @@ useFaqStructuredData(() =>
         <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div class="max-w-3xl" data-reveal="soft">
             <SectionLabel class="text-white/65">{{ page.teamLabel }}</SectionLabel>
-            <h2 class="section-title-inverse mt-4 md:text-4xl">{{ page.teamTitle }}</h2>
-            <p class="mt-5 text-sm leading-6 text-white/65 md:text-base md:leading-8">
+            <h2 class="section-title mt-1 md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-white">{{ page.teamTitle }}</h2>
+            <p class="section-description mt-5 text-sm leading-6 text-white/65 md:text-base md:leading-8">
               {{ page.teamIntro }}
             </p>
           </div>
@@ -570,7 +570,7 @@ useFaqStructuredData(() =>
         <article class="grid gap-8 bg-stone-100 p-6 md:grid-cols-[0.42fr_0.58fr] md:items-end md:p-10" data-reveal="soft">
           <div>
             <SectionLabel>{{ page.journalLabel }}</SectionLabel>
-            <h2 class="mt-4 text-3xl font-semibold leading-tight text-neutral-950 md:text-4xl">
+            <h2 class="section-title mt-1 text-2xl sm:text-3xl font-semibold leading-tight text-neutral-950 md:text-4xl">
               {{ terms.home.blog.featured.title }}
             </h2>
           </div>
@@ -594,10 +594,10 @@ useFaqStructuredData(() =>
     </section>
 
     <section id="faq" ref="faqRoot" data-header-theme="light" class="section-y-tight bg-stone-100">
-      <div class="site-container flex flex-col gap-8 pt-10 md:gap-12 md:pt-24">
+      <div class="site-container flex flex-col gap-8 md:gap-12">
         <div data-reveal="soft">
           <SectionLabel>{{ page.faqLabel }}</SectionLabel>
-          <h2 class="section-title mt-4 md:text-4xl">{{ page.faqTitle }}</h2>
+          <h2 class="section-title mt-1 md:text-4xl text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950">{{ page.faqTitle }}</h2>
           <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7">
             {{ page.faqDescription }}
           </p>

@@ -149,11 +149,11 @@ function onAccordionSummaryClick(event: MouseEvent) {
 
 <template>
   <section id="faq" ref="faqRoot" data-header-theme="light" class="section-y-tight bg-stone-100">
-    <div class="site-container flex flex-col gap-8 pt-10 md:gap-12 md:pt-24">
+    <div class="site-container flex flex-col gap-8 md:gap-12">
       <div data-reveal="soft">
         <SectionLabel>{{ terms.home.faq.label }}</SectionLabel>
-        <h2 class="section-title mt-4 md:text-4xl">{{ terms.home.faq.title }}</h2>
-        <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7">
+        <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal text-neutral-950 md:text-4xl">{{ terms.home.faq.title }}</h2>
+        <p class="section-description mt-4 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7">
           {{ terms.home.faq.description }}
         </p>
       </div>
@@ -323,6 +323,12 @@ function onAccordionSummaryClick(event: MouseEvent) {
 .faq-accordion__answer {
   background: rgb(23 23 23 / 0.06);
   padding: 1rem;
+}
+
+@media (width < 640px) {
+  .faq-accordion__summary.items-start {
+    padding-block: 1rem;
+  }
 }
 
 @media (min-width: 768px) {

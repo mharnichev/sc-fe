@@ -339,7 +339,7 @@ if (faqItems.value.length) {
         <div class="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(18rem,0.28fr)] lg:items-start">
           <div class="min-w-0 max-w-4xl">
             <SectionLabel>{{ terms.home.services.label }}</SectionLabel>
-            <h1 class="service-name-wrap type-page-title mt-4 text-4xl leading-[1.08] text-stone-950 md:text-6xl">
+            <h1 class="section-title service-name-wrap type-page-title mt-1 text-4xl leading-[1.08] text-stone-950 md:text-6xl">
               {{ serviceName }}
             </h1>
             <p class="mt-6 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">
@@ -372,15 +372,15 @@ if (faqItems.value.length) {
     <section v-if="guide" class="border-y border-stone-300 bg-white section-y">
       <div class="site-container grid gap-8 md:grid-cols-3">
         <article class="border-t border-stone-300 pt-5">
-          <h2 class="text-xl font-semibold text-stone-950">{{ copy.choice }}</h2>
+          <h2 class="section-title text-xl font-semibold text-stone-950">{{ copy.choice }}</h2>
           <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.choice }}</p>
         </article>
         <article class="border-t border-stone-300 pt-5">
-          <h2 class="text-xl font-semibold text-stone-950">{{ copy.preparation }}</h2>
+          <h2 class="section-title text-xl font-semibold text-stone-950">{{ copy.preparation }}</h2>
           <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.preparation }}</p>
         </article>
         <article class="border-t border-stone-300 pt-5">
-          <h2 class="text-xl font-semibold text-stone-950">{{ copy.result }}</h2>
+          <h2 class="section-title text-xl font-semibold text-stone-950">{{ copy.result }}</h2>
           <p class="mt-4 text-sm leading-7 text-stone-700">{{ guide.result }}</p>
         </article>
       </div>
@@ -388,7 +388,7 @@ if (faqItems.value.length) {
 
     <section v-if="relatedServices.length" class="border-b border-stone-300 bg-white py-8">
       <div class="site-container">
-        <h2 class="text-xl font-semibold text-stone-950">{{ copy.compareTitle }}</h2>
+        <h2 class="section-title text-xl font-semibold text-stone-950">{{ copy.compareTitle }}</h2>
         <nav class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-800" :aria-label="copy.compareTitle">
           <LocaleLink v-for="item in relatedServices" :key="item.path" :to="item.path">
             <BaseHoverUnderlineText>{{ item.name }}</BaseHoverUnderlineText>
@@ -399,7 +399,7 @@ if (faqItems.value.length) {
 
     <section v-if="barberOffers.length" class="border-y border-stone-300 bg-white section-y">
       <div class="site-container">
-        <h2 class="type-section-title text-3xl text-stone-950 md:text-4xl">
+        <h2 class="section-title type-section-title text-2xl sm:text-3xl text-stone-950 md:text-4xl">
           {{ copy.barbersTitle }}
         </h2>
         <div class="mt-8 grid gap-4 md:grid-cols-2">
@@ -434,7 +434,7 @@ if (faqItems.value.length) {
 
     <section v-if="faqItems.length" class="section-y">
       <div class="site-container max-w-4xl">
-        <h2 class="type-section-title text-3xl text-stone-950 md:text-4xl">
+        <h2 class="section-title type-section-title text-2xl sm:text-3xl text-stone-950 md:text-4xl">
           {{ copy.faqTitle }}
         </h2>
         <div class="mt-8 divide-y divide-stone-300 border-y border-stone-300">
@@ -448,7 +448,7 @@ if (faqItems.value.length) {
 
     <section class="border-t border-stone-300 bg-white py-10">
       <div class="site-container">
-        <h2 class="type-meta text-xs text-stone-500">{{ copy.relatedTitle }}</h2>
+        <h2 class="section-title type-meta text-xs text-stone-500">{{ copy.relatedTitle }}</h2>
         <nav class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-800" :aria-label="copy.relatedTitle">
           <LocaleLink to="/services">
             <BaseHoverUnderlineText>{{ copy.services }}</BaseHoverUnderlineText>

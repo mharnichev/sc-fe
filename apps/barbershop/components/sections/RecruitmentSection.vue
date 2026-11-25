@@ -70,18 +70,23 @@ onBeforeUnmount(() => {
 
     <div class="site-container relative flex w-full flex-col items-start gap-5 pb-10 pt-36 md:gap-7 md:pb-16">
       <div class="max-w-3xl">
-        <component :is="standalone ? 'h1' : 'h2'" id="recruitment-title" class="section-title-inverse">
+        <component :is="standalone ? 'h1' : 'h2'" id="recruitment-title" class="section-title text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-white">
           {{ standalone ? copy.pageTitle : copy.title }}
         </component>
-        <p class="mt-4 max-w-xl text-sm leading-7 text-white/58 sm:text-base">
+        <p class="section-description mt-4 max-w-xl text-sm text-white/58 sm:text-base sm:leading-7">
           {{ copy.subtitle }}
         </p>
       </div>
-      <div class="flex flex-wrap items-center gap-x-6 gap-y-4">
-        <BaseButton variant="outline-light" aria-haspopup="dialog" @click="applicationOpen = true">
+      <div class="flex items-center gap-2 whitespace-nowrap sm:gap-6">
+        <BaseButton
+          variant="outline-light"
+          :class="{ 'max-sm:!px-2 max-sm:!text-xs': !standalone }"
+          aria-haspopup="dialog"
+          @click="applicationOpen = true"
+        >
           {{ copy.cta }}
         </BaseButton>
-        <LocaleLink v-if="!standalone" to="/careers" class="text-sm font-semibold">
+        <LocaleLink v-if="!standalone" to="/careers" class="text-xs font-semibold sm:text-sm">
           <BaseHoverUnderlineText>{{ copy.detailsLink }}</BaseHoverUnderlineText>
         </LocaleLink>
       </div>

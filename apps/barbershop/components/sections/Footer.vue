@@ -58,10 +58,10 @@ onMounted(() => {
 
         <div class="order-1 w-full space-y-3 md:space-y-5 lg:order-1">
           <SectionLabel>{{ terms.home.cta.label }}</SectionLabel>
-          <h2 class="mt-3 w-full text-2xl font-semibold uppercase leading-tight md:mt-5 md:text-4xl">
+          <h2 class="section-title mt-3 w-full text-2xl font-semibold uppercase leading-tight md:mt-5 md:text-4xl">
             {{ terms.home.cta.title }}
           </h2>
-          <p class="max-w-2xl text-sm leading-6 text-white/65 md:text-base md:leading-8">
+          <p class="section-description max-w-2xl text-sm leading-6 text-white/65 md:text-base md:leading-8">
             {{ terms.home.cta.text }}
           </p>
           <BaseButton class="w-full md:w-auto" to="/#booking" variant="light" effect="waves" @click="trackEvent('booking_cta_click', { source: 'footer_cta' })">{{ terms.home.cta.button }}</BaseButton>
