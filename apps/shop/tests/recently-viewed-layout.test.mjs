@@ -7,13 +7,14 @@ import ts from 'typescript'
 const source = await readFile(new URL('../components/catalog/RecentlyViewedProducts.vue', import.meta.url), 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 
-function harness(width, gridColumn, gap = 12) {
+function harness(width, gridColumn, gap = 12, variantColumn = null) {
   const events = new Map(), observed = [], hooks = {}
   const grid = gridColumn === null ? null : { style: { gridTemplateColumns: gridColumn } }
+  const variantGrid = variantColumn === null ? null : { style: { gridTemplateColumns: variantColumn } }
   const track = { style: { columnGap: String(gap) } }
   const element = {
     clientWidth: width, scrollWidth: width * 3, scrollLeft: 0,
-    closest: () => ({ querySelector: () => grid }),
+    closest: () => ({ querySelector: selector => selector.includes(':not(.product-buy__variants-grid)') ? grid : variantGrid || grid }),
     querySelector: selector => selector.endsWith('__track') ? track : { getBoundingClientRect: () => ({ width: 140 }) },
     scrollBy: options => { element.scrolled = options },
   }
@@ -32,7 +33,7 @@ function harness(width, gridColumn, gap = 12) {
       disconnect() { hooks.disconnected = true }
     },
     window: {
-      matchMedia: query => ({ matches: query.includes('1241') ? width >= 1241 : query.includes('568') ? width >= 568 : true }),
+      matchMedia: query => ({ matches: query.includes('1241') ? width >= 1241 : query.includes('568') ? width >= 568 : query.includes('520') ? width >= 520 : true }),
       addEventListener: (name, fn) => events.set(name, fn),
       removeEventListener: (name, fn) => { if (events.get(name) === fn) events.delete(name) },
     },
@@ -62,6 +63,17 @@ for (const [width, gap, columns] of [[320, 5.6, 2], [390, 5.6, 2], [768, 12, 3],
     assert.equal(h.cardWidth.value, (width - gap * (columns - 1)) / columns)
   })
 }
+
+test('compact volume grid is ignored and desktop tile widths leave room for purchase controls', () => {
+  const detail = harness(540, null, 5.6, '140px 140px')
+  detail.hooks.mount()
+  assert.equal(detail.cardWidth.value, (540 - 5.6) / 2)
+  assert.deepEqual(detail.observed, [detail.element])
+
+  const narrowCatalog = harness(600, '195px 195px 195px')
+  narrowCatalog.updateLayout()
+  assert.equal(narrowCatalog.cardWidth.value, 240)
+})
 
 test('scroll distance uses track gap and honors reduced motion', () => {
   const h = harness(390, null, 5.6)
@@ -136,7 +148,7 @@ test('mobile purchase row preserves wrapping and full-size non-buy controls with
   assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row\s*\{[^}]*flex-wrap: wrap/s)
   assert.match(mobile, /\.catalog-product-tile__mobile-layout \.catalog-product-tile__prices\s*\{[^}]*min-width: min-content;[^}]*flex: 0 0 auto/s)
   assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row \.catalog-product-tile__cart\s*\{[^}]*max-width: 100%;[^}]*min-height: 2.75rem;[^}]*font-size: 12px;[^}]*white-space: normal/s)
-  assert.doesNotMatch(mobile, /font-size: [89]px/)
+  assert.match(mobile, /\.catalog-product-tile__mobile-type\s*\{[^}]*font-size: 9px;/s)
   assert.match(mobile, /\.catalog-product-tile__mobile-purchase-row \.catalog-product-tile__cart--buy\s*\{[^}]*width: 72px;[^}]*height: 24px;[^}]*padding: 0 8px;[^}]*font-size: 10px;[^}]*white-space: nowrap/s)
   assert.match(mobile, /\.catalog-product-tile__volume\.base-badge\s*\{[^}]*min-height: 24px;[^}]*height: 24px;[^}]*padding: 0 8px;[^}]*font-size: 10px;[^}]*line-height: 16px/s)
   assert.match(mobile, /padding: 8px 12px/)
@@ -149,7 +161,7 @@ test('top and favorite are body-anchored above description with reserved preview
   const tile = await readFile(new URL('../components/catalog/CatalogProductTile.vue', import.meta.url), 'utf8')
   const body = tile.slice(tile.indexOf('<div class="catalog-product-tile__body">'), tile.indexOf('<div class="catalog-product-tile__desktop-layout">'))
   assert.match(body, /class="catalog-product-tile__top"/)
-  assert.match(body, /<BaseButton\s+class="catalog-product-tile__favorite"/)
+  assert.match(body, /<BaseButton\s+v-if="!volumeLabel"\s+class="catalog-product-tile__favorite"/)
   assert.match(body, /class="catalog-product-tile__dots"/)
   assert.match(tile, /\.catalog-product-tile__favorite\s*\{[^}]*position: absolute;\s*top: -2.75rem;\s*right: 0;\s*z-index: 3/s)
   assert.match(tile, /\.catalog-product-tile__top\s*\{[^}]*top: -2.75rem;\s*left: 0;/s)
@@ -193,7 +205,7 @@ test('compact header and basket layout retain base-aware assets and valid copy',
   assert.match(basket, /\.basket-sidebar__total\s*\{[^}]*flex-wrap: wrap/s)
   assert.match(basket, /terms\.basket\.orderTotal/)
   assert.match(basket, /terms\.basket\.discountNote/)
-  assert.match(basket, /terms\.basket\.proceedToPayment/)
+  assert.match(basket, /terms\.basket\.proceedToCheckout/)
   const copy = await readFile(new URL('../data/locale.ts', import.meta.url), 'utf8')
   assert.match(copy, /Остаточна сума підтверджується під час створення замовлення/)
   assert.match(copy, /The final total is confirmed when your order is placed/)

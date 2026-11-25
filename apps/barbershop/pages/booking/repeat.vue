@@ -64,7 +64,7 @@ useHead({
     <div v-if="state === 'ready' && context" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 px-4 pb-3 sm:px-6">
         <p class="text-xs font-semibold uppercase text-white/50">{{ terms.home.booking.label }}</p>
-        <h1 class="mt-1 text-2xl font-semibold sm:text-3xl">{{ terms.common.bookAppointment }}</h1>
+        <h1 class="section-title mt-1 text-2xl font-semibold sm:text-3xl">{{ terms.common.bookAppointment }}</h1>
       </div>
       <BookingSection
         analytics-source="repeat_booking"
@@ -81,7 +81,7 @@ useHead({
         {{ copy.loading }}
       </p>
       <div v-else class="max-w-lg">
-        <h1 class="text-3xl font-semibold leading-tight sm:text-4xl">
+        <h1 class="section-title text-2xl font-semibold leading-tight sm:text-4xl">
           {{ state === 'expired' ? copy.expiredTitle : copy.errorTitle }}
         </h1>
         <p class="mt-4 text-sm leading-6 text-white/65">

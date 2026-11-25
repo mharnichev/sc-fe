@@ -14,10 +14,10 @@ defineProps<{
       <template v-else>{{ eyebrow }}</template>
     </p>
     <div class="space-y-2">
-      <h2 class="section-title type-title-strong text-3xl text-stone-900">
+      <h2 class="section-title type-title-strong">
         {{ title }}
       </h2>
-      <p v-if="description" class="max-w-2xl text-sm leading-7 text-stone-600">
+      <p v-if="description" class="section-subtitle max-w-2xl text-stone-600">
         {{ description }}
       </p>
     </div>

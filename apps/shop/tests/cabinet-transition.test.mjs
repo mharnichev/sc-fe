@@ -71,37 +71,32 @@ test('cabinet query/hash navigation also skips the global transition', async () 
   assert.equal(app.timers.size, 0)
 })
 
-test('entering/leaving cabinet and similarly named public paths keep the delay', async () => {
+test('entering/leaving cabinet shows the overlay only while a destination is still loading', async () => {
   for (const [from, to] of [['/', '/cabinet'], ['/cabinet', '/contacts'], ['/cabinet-other', '/cabinet']]) {
     const app = setup()
-    const pending = app.begin(from, to)
-    assert.equal(app.visible.value, true)
-    assert.equal([...app.timers.values()][0].delay, 300)
-    await app.flush(300)
-    await pending
+    assert.equal(app.begin(from, to), undefined)
     app.commit(to)
+    assert.equal(app.visible.value, false)
+    await app.flush(120)
+    assert.equal(app.visible.value, true)
     app.hooks['page:finish'](app.page())
-    await app.flush(80)
     assert.equal(app.visible.value, false)
   }
 })
 
 test('query-only public navigation skips the overlay', async () => {
   const app = setup()
-  const pending = app.begin('/catalog?page=1', '/catalog?page=2')
-  await app.flush(300)
-  await pending
+  app.begin('/catalog?page=1', '/catalog?page=2')
   app.commit('/catalog?page=2')
-  await app.flush(80)
   assert.equal(app.visible.value, false)
+  assert.equal(app.timers.size, 0)
 })
 
 test('internal navigation cancels a pending cabinet-entry reveal', async () => {
   const app = setup()
-  const pending = app.begin('/', '/cabinet')
-  await app.flush(300)
-  await pending
+  app.begin('/', '/cabinet')
   app.commit('/cabinet')
+  assert.equal(app.timers.size, 1)
   await app.begin('/cabinet', '/cabinet/favorites')
   assert.equal(app.visible.value, false)
   assert.equal(app.timers.size, 0)
@@ -112,12 +107,11 @@ test('internal navigation cancels a pending cabinet-entry reveal', async () => {
 for (const failure of ['abort', 'router']) {
   test(`${failure} still releases the overlay`, async () => {
     const app = setup()
-    const pending = app.begin('/', '/cabinet')
-    await app.flush(300)
-    await pending
+    app.begin('/', '/cabinet')
+    await app.flush(120)
+    assert.equal(app.visible.value, true)
     if (failure === 'abort') app.commit('/cabinet', new Error('aborted'))
     else app.router.error(new Error('failed'), app.target())
-    await app.flush(0)
     assert.equal(app.visible.value, false)
   })
 }

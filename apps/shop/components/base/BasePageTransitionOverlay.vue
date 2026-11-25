@@ -27,9 +27,9 @@ const shopAsset = useShopAsset()
   background: #000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 300ms ease-out;
+  transition: opacity 120ms ease-out;
 }
-.page-transition-overlay.is-visible { opacity: 1; pointer-events: auto; }
+.page-transition-overlay.is-visible { opacity: 1; pointer-events: auto; transition-duration: 300ms; }
 .page-transition-overlay__logo { width: min(220px, 55vw); opacity: 0; transition: opacity 300ms ease; }
 .is-visible .page-transition-overlay__logo { opacity: 1; transition-delay: 700ms; }
 .page-transition-overlay__logo img {
@@ -45,7 +45,7 @@ const shopAsset = useShopAsset()
   50% { opacity: 1; transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-transition-overlay, .page-transition-overlay__logo { transition: none; }
+  .page-transition-overlay, .page-transition-overlay.is-visible, .page-transition-overlay__logo { transition: none; }
   .is-visible .page-transition-overlay__logo img { animation: none; }
 }
 </style>

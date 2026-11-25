@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { ProductDto, ProductReviewListDto } from '@shared-types'
+import { NuxtLink } from '#components'
 import { localBrandLogoUrl, resolveApiAssetUrl } from '@shared-utils'
 import type { CategoryRouteCrumb } from '~/utils/category-routing'
 import { categoryDestination } from '~/utils/category-routing'
 import { getProductDiscount } from '~/utils/product-status'
 import { productPageCopy } from '~/utils/product-page-localization'
 import { isProductEffectivelyVisible, isProductUnavailable } from '~/utils/product-visibility'
-import { catalogCharacteristicKind, localizedMetadataLabel, localizedMetadataValue, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
+import { catalogCharacteristicKind, localizedMetadataLabel, localizedPackageSize, localizedVolumeLabel } from '~/utils/catalog-metadata-localization'
 const { runtimeMessage } = useShopRuntimeDisplay()
 
 const { categoryDisplayName } = useCategoryDisplay()
@@ -69,6 +70,7 @@ const productDetailsId = useId()
 const productDetailsTabs = computed(() => [
   { value: 'description', label: productText.value.description },
   ...(productComposition.value ? [{ value: 'ingredients', label: productText.value.composition }] : []),
+  ...(productUsageHtml.value ? [{ value: 'usage', label: productText.value.usage }] : []),
   { value: 'reviews', label: locale.value === 'uk' ? 'Відгуки' : 'Reviews' },
 ])
 watch(() => route.params.slug, () => { activeProductTab.value = 'description' })
@@ -103,6 +105,46 @@ const htmlToText = (value: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+const usageLabel = /^(?:спосіб застосування|застосування|спосіб використання|how to use|method of (?:application|use)|application|directions(?: for use)?)(?:\s*[:\-–—]\s*|$)/iu
+const compositionLabel = /^(?:склад|ingredients?)\s*:\s*/iu
+const usageText = (html: string) => decodeHtmlEntities(html
+  .replace(/<!--[^]*?-->/g, '')
+  .replace(/<\/?(?:p|div|br|li|ul|ol|h[1-6])\b[^>]*>/gi, ' ')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&#(?:160|x0*a0);/gi, ' '))
+  .replace(/\s+/gu, ' ')
+  .trim()
+
+const removeDuplicateProductBlock = (description: string, html: string, label: RegExp) => {
+  const content = usageText(html).replace(label, '').trim()
+  if (!content) return description
+
+  // Compare whole blocks so paragraphs with additional information stay intact.
+  if (usageText(description).replace(label, '').trim() === content) return ''
+  const blocks = [...description.matchAll(/<(ol|ul)\b[^>]*>[^]*?<\/\1\s*>|<(p|h[1-6])\b[^>]*>(?:(?!<\/?(?:p|h[1-6]|ol|ul)\b)[^])*<\/\2\s*>/gi)]
+  let keptHtml = ''
+  let removedThrough = 0
+  for (const [index, first] of blocks.entries()) {
+    if (first.index < removedThrough) continue
+    const startsWithHeading = !usageText(first[0]).replace(label, '').trim()
+    const contentStart = startsWithHeading ? first.index + first[0].length : first.index
+    let end = first.index
+    for (let next = index; next < blocks.length; next++) {
+      const block = blocks[next]!
+      if (description.slice(end, block.index).trim()) break
+      end = block.index + block[0].length
+      const candidate = usageText(description.slice(contentStart, end)).replace(label, '').trim()
+      if (candidate === content) {
+        keptHtml += description.slice(removedThrough, first.index)
+        removedThrough = end
+        break
+      }
+      if (!content.startsWith(candidate)) break
+    }
+  }
+  return (keptHtml + description.slice(removedThrough)).trim()
+}
+
 const removeCompositionFromDescription = (value: string) => {
   const compositionLabel = /(?:склад|ingredients?)\s*:/i.exec(value)
   if (!compositionLabel) return value.trim()
@@ -116,6 +158,30 @@ const removeCompositionFromDescription = (value: string) => {
 
 const galleryImages = computed(() => product.value?.images || [])
 const productComposition = computed(() => htmlToText(product.value ? productDisplayContent(product.value, 'ingredients') : ''))
+const compositionViewports = ref<HTMLElement[]>([])
+const compositionScrollDuration = ref(0)
+watchPostEffect((onCleanup) => {
+  const viewport = compositionViewports.value[0]
+  const text = viewport?.querySelector('p')
+  if (!viewport || !text) {
+    compositionScrollDuration.value = 0
+    return
+  }
+
+  const measure = () => {
+    const height = text.getBoundingClientRect().height
+    compositionScrollDuration.value = height > viewport.clientHeight ? (height + 16) / 22 : 0
+  }
+  const observer = new ResizeObserver(measure)
+  observer.observe(viewport)
+  observer.observe(text)
+  measure()
+  onCleanup(() => observer.disconnect())
+})
+const productUsageHtml = computed(() => {
+  const usage = product.value ? productDisplayContent(product.value, 'usage').trim() : ''
+  return usageText(usage) ? usage : ''
+})
 watch(productDetailsTabs, (tabs) => {
   if (!tabs.some(tab => tab.value === activeProductTab.value)) activeProductTab.value = 'description'
 })
@@ -167,16 +233,19 @@ const averageRating = computed(() => reviewsPage.value?.average_rating || produc
 const reviewsCount = computed(() => reviewsPage.value?.total ?? product.value?.reviews_count ?? 0)
 const productDescriptionHtml = computed(() => {
   const description = (product.value ? productDisplayContent(product.value, 'description') : '').trim()
-  return productComposition.value ? removeCompositionFromDescription(description) : description
+  if (!productUsageHtml.value) {
+    return productComposition.value ? removeCompositionFromDescription(description) : description
+  }
+  // A legacy ingredients block can be followed by instructions that must remain visible.
+  const withoutComposition = removeDuplicateProductBlock(description, productComposition.value, compositionLabel)
+  return removeDuplicateProductBlock(withoutComposition, productUsageHtml.value, usageLabel)
 })
 const descriptionElement = ref<HTMLElement | null>(null)
 const descriptionExpanded = ref(false)
 const descriptionCanCollapse = ref(false)
 const descriptionPreviewHeight = ref(0)
-const descriptionAccordionOpen = computed({
-  get: () => !descriptionCanCollapse.value || descriptionExpanded.value,
-  set: (value: boolean) => { descriptionExpanded.value = value },
-})
+const descriptionFullHeight = ref(0)
+const descriptionCollapsed = computed(() => descriptionCanCollapse.value && !descriptionExpanded.value)
 let descriptionObserver: ResizeObserver | undefined
 let descriptionFrame = 0
 let descriptionMounted = false
@@ -203,6 +272,7 @@ const measureDescription = () => {
   descriptionPreviewHeight.value = lines[9]
     ? Math.ceil(lines[9].bottom - element.getBoundingClientRect().top)
     : element.scrollHeight
+  descriptionFullHeight.value = element.offsetHeight
   descriptionCanCollapse.value = window.innerWidth < 1280 && lines.length > 10
 }
 const scheduleDescriptionMeasurement = () => {
@@ -248,15 +318,24 @@ const productCode = computed(() => product.value?.sku || String(product.value?.i
 const availableVolumeVariants = computed(() =>
   (product.value?.volume_variants ?? []).filter(variant => variant.is_available),
 )
-const hasVolumeVariants = computed(() =>
-  availableVolumeVariants.value.length > 1,
-)
-const volumeTabs = computed(() =>
-  availableVolumeVariants.value.map(variant => ({
-    label: localizedVolumeLabel(variant, locale.value),
-    value: String(variant.id),
-    to: variant.id === product.value?.id ? undefined : `/products/${variant.slug}`,
-  })),
+const volumeVariantIds = computed(() => availableVolumeVariants.value.map(variant => variant.id))
+const volumeVariantLabels = computed(() => Object.fromEntries(
+  availableVolumeVariants.value.map(variant => [variant.id, localizedVolumeLabel(variant, locale.value)]),
+))
+const volumeVariantsKey = computed(() => `shop-volume-variants:${volumeVariantIds.value.join(',')}`)
+const { data: volumeVariantProducts } = useAsyncData(
+  volumeVariantsKey,
+  async () => {
+    const current = product.value
+    const variants = availableVolumeVariants.value
+    if (!current || variants.length < 2) return []
+
+    const results = await Promise.allSettled(
+      variants.map(variant => variant.id === current.id ? current : domain.getProduct(variant.slug)),
+    )
+    return results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+  },
+  { default: () => [], lazy: true },
 )
 const shopAsset = useShopAsset()
 const brandLogoUrl = computed(() => {
@@ -270,29 +349,16 @@ const brandCatalogRoute = computed(() => ({
   path: '/catalog',
   query: { brand: product.value?.brand.slug || undefined },
 }))
-const isBrandCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'brand'
-const isCategoryCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'category'
-const isProductCodeCharacteristic = (name: string) => catalogCharacteristicKind(name) === 'code'
-const parameterEntries = computed(() =>
-  Object.entries(product.value?.parameters || {})
-    .filter(([name]) => !isCategoryCharacteristic(name) && !isProductCodeCharacteristic(name))
-    .map(([name, value]) => [
-      localizedMetadataLabel(name, name, locale.value),
-      localizedMetadataValue(name, value, locale.value),
-    ]),
-)
 const volumeLabel = computed(() => localizedMetadataLabel('volume', 'Об’єм', locale.value))
-const fallbackCharacteristicEntries = computed(() => {
-  if (!product.value) return []
+const productVolume = computed(() => {
+  const current = product.value
+  if (!current) return ''
 
-  return [
-    [terms.value.catalog.brand, product.value.brand.name],
-    [volumeLabel.value, localizedPackageSize(product.value.package_size || '', locale.value)],
-  ].filter(([, value]) => value)
+  const variant = current.volume_variants.find(item => item.id === current.id)
+  const variantLabel = variant ? localizedVolumeLabel(variant, locale.value) : ''
+  const parameter = Object.entries(current.parameters ?? {}).find(([name]) => catalogCharacteristicKind(name) === 'volume')
+  return variantLabel || localizedPackageSize(current.package_size?.trim() || parameter?.[1]?.trim() || '', locale.value)
 })
-const characteristicEntries = computed(() =>
-  (parameterEntries.value.length ? parameterEntries.value : fallbackCharacteristicEntries.value).slice(0, 8),
-)
 
 const toggleFavorite = async () => {
   if (!product.value) return
@@ -473,13 +539,21 @@ const seoImages = computed(() => (indexableProduct.value?.images ?? []).flatMap(
     return []
   }
 }))
+const seoDescriptionExcerpt = computed(() => {
+  const description = plainProductDescription.value
+  if (description.length <= 170) return description
+
+  const excerpt = description.slice(0, 170)
+  const lastSpace = excerpt.lastIndexOf(' ')
+  return `${lastSpace > 0 ? excerpt.slice(0, lastSpace) : excerpt}…`
+})
 const seoDescription = computed(() => {
   const item = indexableProduct.value
   if (!item) return terms.value.seo.productFallbackDescription
   return (locale.value === 'en' ? '' : htmlToText(item.seo_description))
     || shortProductDescription.value
-    || plainProductDescription.value
-    || [...new Set([seoName.value, item.brand.name, item.package_size].filter(Boolean))].join(' · ')
+    || seoDescriptionExcerpt.value
+    || (seoName.value ? terms.value.seo.productDescription(seoName.value) : terms.value.seo.productFallbackDescription)
 })
 
 useSeo(
@@ -583,8 +657,19 @@ useHead(() => {
                     :aria-label="productText.compositionTitle"
                   >
                     <BaseBadge class="product-gallery__composition-label" tone="neutral">{{ productText.composition }}</BaseBadge>
-                    <div class="product-gallery__composition-content">
-                      <p>{{ productComposition }}</p>
+                    <div
+                      ref="compositionViewports"
+                      class="product-gallery__composition-content"
+                      :class="{ 'product-gallery__composition-content--scrolling': compositionScrollDuration }"
+                      :tabindex="compositionScrollDuration ? 0 : undefined"
+                    >
+                      <div
+                        class="product-gallery__composition-track"
+                        :style="{ animationDuration: `${compositionScrollDuration}s` }"
+                      >
+                        <p>{{ productComposition }}</p>
+                        <p v-if="compositionScrollDuration" class="product-gallery__composition-repeat" aria-hidden="true">{{ productComposition }}</p>
+                      </div>
                     </div>
                   </article>
                 </template>
@@ -611,105 +696,66 @@ useHead(() => {
         <div class="product-page__info">
           <section class="product-buy">
 
-            <div class="product-buy__header">
-              <div>
-                <div class="product-buy__title-row">
-                  <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
-                </div>
-                <div class="product-buy__meta-row">
-                  <p v-if="productType" class="product-buy__type">{{ productType }}</p>
-                  <span v-if="productType" aria-hidden="true">/</span>
-                  <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+            <div>
+              <div class="product-buy__header">
+                <component
+                  :is="product.brand.slug ? NuxtLink : 'span'"
+                  v-if="product.brand.name"
+                  class="product-buy__brand"
+                  :to="product.brand.slug ? brandCatalogRoute : undefined"
+                >
+                  <img v-if="brandLogoUrl" :src="brandLogoUrl" alt="" width="40" height="24">
+                  <BaseHoverUnderlineText>{{ product.brand.name }}</BaseHoverUnderlineText>
+                </component>
+                <div class="product-buy__header-actions">
+                  <ProductStatusBadges class="product-buy__header-badges" :product="product" />
+                  <BaseButton
+                    class="product-buy__favorite"
+                    :class="{ 'product-buy__favorite--active': isFavorite }"
+                    type="button"
+                    variant="text"
+                    size="sm"
+                    shape="circle"
+                    :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
+                    @click="toggleFavorite"
+                  >
+                    <BaseIcon name="heart" size="xxs" effect="heart" />
+                  </BaseButton>
                 </div>
               </div>
-              <BaseButton
-                class="product-buy__favorite"
-                :class="{ 'product-buy__favorite--active': isFavorite }"
-                type="button"
-                variant="text"
-                size="sm"
-                shape="circle"
-                :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
-                @click="toggleFavorite"
-              >
-                <BaseIcon name="heart" size="xxs" effect="heart" />
-              </BaseButton>
+              <div class="product-buy__title-row">
+                <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
+              </div>
+              <div class="product-buy__meta-row">
+                <p v-if="productType" class="product-buy__type">{{ productType }}</p>
+                <span v-if="productType" aria-hidden="true">/</span>
+                <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+              </div>
             </div>
 
-            <div class="product-buy__badges">
-              <ProductStatusBadges class="product-buy__header-badges" :product="product" />
+            <div v-if="averageRating || reviewsCount > 0" class="product-buy__badges">
               <BaseBadge v-if="averageRating" tone="dark">{{ averageRating }}/5</BaseBadge>
               <BaseBadge v-if="reviewsCount > 0" class="product-buy__badge--borderless" tone="neutral">
                 {{ reviewsCount }} {{ terms.product.reviews }}
               </BaseBadge>
             </div>
 
-            <p v-if="shortProductDescription" class="product-buy__summary">{{ shortProductDescription }}</p>
 
-            <section v-if="characteristicEntries.length" class="product-characteristics">
-              <h2 class="product-section-title">{{ productText.characteristics }}</h2>
-              <dl class="product-characteristics__list">
-                <div
-                  v-for="[name, value] in characteristicEntries"
-                  :key="name"
-                  class="product-characteristics__item"
-                >
-                  <dt>{{ name }}</dt>
-                  <dd
-                    :class="{ 'product-characteristics__brand': isBrandCharacteristic(name) }"
-                  >
-                    <NuxtLink
-                      v-if="isBrandCharacteristic(name) && product.brand.slug"
-                      class="product-characteristics__brand-link"
-                      :to="brandCatalogRoute"
-                    >
-                      <img
-                        v-if="brandLogoUrl"
-                        class="product-characteristics__brand-logo"
-                        :src="brandLogoUrl"
-                        alt=""
-                        width="40"
-                        height="24"
-                        loading="lazy"
-                      >
-                      <BaseHoverUnderlineText>{{ value }}</BaseHoverUnderlineText>
-                    </NuxtLink>
-                    <template v-else>
-                      <img
-                        v-if="isBrandCharacteristic(name) && brandLogoUrl"
-                        class="product-characteristics__brand-logo"
-                        :src="brandLogoUrl"
-                        alt=""
-                        width="40"
-                        height="24"
-                        loading="lazy"
-                      >
-                      <span>{{ value }}</span>
-                    </template>
-                  </dd>
-                </div>
-              </dl>
+            <section v-if="volumeVariantProducts.length > 1" class="product-buy__variants" :aria-label="productText.chooseVolume">
+              <h2 class="product-buy__variants-label">{{ volumeLabel }}</h2>
+              <CatalogProductGrid class="product-buy__variants-grid" :products="volumeVariantProducts" :volume-labels="volumeVariantLabels" />
             </section>
-
-            <div v-if="hasVolumeVariants" class="product-buy__variants">
-              <span class="product-buy__variants-label">{{ volumeLabel }}</span>
-              <CatalogSortTabs
-                class="product-buy__variants-tabs"
-                :model-value="String(product.id)"
-                :tabs="volumeTabs"
-                :aria-label="productText.chooseVolume"
-              />
-            </div>
 
             <div class="product-buy__cost">
               <div class="product-buy__price-with-badge">
-                <ProductStatusBadges class="product-buy__cost-badges" :product="product" />
+                <ProductStatusBadges v-if="discount && discount.percent >= 5" class="product-buy__cost-badges" :product="product" />
                 <div class="product-buy__price-wrapper" :class="{ 'product-buy__price-wrapper--discount': discount }">
                   <p v-if="discount" class="product-buy__old-price">
                     {{ formatPrice(discount.compareAtPrice) }}
                   </p>
                   <p class="product-buy__price" :class="{ 'product-buy__price--discount': discount }">
-                    {{ formatPrice(product.price) }}
+                    <span>{{ formatPrice(product.price) }}</span>
+                    <span v-if="productVolume" class="product-buy__volume">({{ productVolume }})</span>
                   </p>
                 </div>
               </div>
@@ -761,27 +807,60 @@ useHead(() => {
               :aria-labelledby="`${productDetailsId}-tab-description`"
               tabindex="0"
             >
-          <BaseAccordion
-            v-if="productDescriptionHtml"
-            v-model="descriptionAccordionOpen"
-            class="product-description"
-            summary-class="product-description__summary"
-            :disabled="!descriptionCanCollapse"
-            :preview-height="descriptionCanCollapse ? descriptionPreviewHeight : 0"
-          >
-            <template #summary>
-              <h2 class="product-section-title">{{ productText.description }}</h2>
-            </template>
-            <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
-          </BaseAccordion>
-              <p v-if="!productDescriptionHtml" class="product-reviews__muted">
+              <div v-if="productDescriptionHtml" class="product-description">
+                <BaseButton
+                  v-if="descriptionCanCollapse"
+                  class="product-description__chevron"
+                  variant="text"
+                  size="xs"
+                  :aria-label="descriptionExpanded ? terms.catalog.collapse : terms.home.showMore"
+                  :aria-expanded="descriptionExpanded"
+                  :aria-controls="`${productDetailsId}-description-content`"
+                  @click="descriptionExpanded = !descriptionExpanded"
+                >
+                  <BaseIcon name="chevron-down" size="xxs" />
+                </BaseButton>
+                <div
+                  :id="`${productDetailsId}-description-content`"
+                  class="product-description__preview"
+                  :style="{ maxHeight: descriptionCanCollapse ? `${descriptionCollapsed ? descriptionPreviewHeight : descriptionFullHeight}px` : undefined }"
+                  :inert="descriptionCollapsed"
+                >
+                  <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
+                </div>
+                <BaseButton
+                  v-if="descriptionCanCollapse"
+                  class="product-description__toggle"
+                  variant="text"
+                  size="sm"
+                  :aria-expanded="descriptionExpanded"
+                  :aria-controls="`${productDetailsId}-description-content`"
+                  @click="descriptionExpanded = !descriptionExpanded"
+                >
+                  {{ descriptionExpanded ? terms.catalog.collapse : terms.home.showMore }}
+                </BaseButton>
+              </div>
+              <p v-else-if="shortProductDescription" class="product-description__html">{{ shortProductDescription }}</p>
+              <p v-else class="product-reviews__muted">
                 {{ locale === 'uk' ? 'Опис поки не додано.' : 'No description available yet.' }}
               </p>
             </div>
             <div
+              v-if="productUsageHtml"
+              :id="`${productDetailsId}-panel-usage`"
+              class="product-details__panel product-description__html"
+              :class="{ 'product-details__panel--active': activeProductTab === 'usage' }"
+              :aria-hidden="activeProductTab !== 'usage'"
+              :inert="activeProductTab !== 'usage'"
+              role="tabpanel"
+              :aria-labelledby="`${productDetailsId}-tab-usage`"
+              tabindex="0"
+              v-html="productUsageHtml"
+            />
+            <div
               v-if="productComposition"
               :id="`${productDetailsId}-panel-ingredients`"
-              class="product-details__panel"
+              class="product-details__panel product-details__ingredients"
               :class="{ 'product-details__panel--active': activeProductTab === 'ingredients' }"
               :aria-hidden="activeProductTab !== 'ingredients'"
               :inert="activeProductTab !== 'ingredients'"
@@ -832,7 +911,7 @@ useHead(() => {
             </BaseButton>
           </article>
           <div v-if="!reviewsPending && !(reviewsPage?.items || []).length" class="product-reviews__empty">
-            <img src="/images/mascots/reviews-empty.png" alt="" width="88" height="88">
+            <img src="/images/mascots/reviews-empty.webp" alt="" width="88" height="88" loading="lazy" decoding="async">
             <p class="product-reviews__muted">{{ terms.product.noReviews }}</p>
           </div>
         </div>
@@ -1007,8 +1086,8 @@ useHead(() => {
               />
             </div>
             <div class="product-buy__cost product-page-skeleton__cost">
-              <BaseSkeleton width="8rem" height="2rem" radius="0.375rem" />
-              <BaseSkeleton width="13rem" height="2.75rem" radius="0.375rem" />
+              <BaseSkeleton width="8rem" height="1.5rem" radius="0.375rem" />
+              <BaseSkeleton width="13rem" height="2.5rem" radius="0.375rem" />
             </div>
           </section>
 
@@ -1069,6 +1148,14 @@ useHead(() => {
   min-width: 0;
   gap: 1rem;
 }
+@media (max-width: 520px) {
+  .product-details :deep(.base-tabs [role="tab"]) {
+    flex: 1 0 auto;
+    padding-inline: 0.125rem;
+    font-size: clamp(0.75rem, 3.6vw, 0.875rem);
+    white-space: nowrap;
+  }
+}
 .product-details__panels {
   position: relative;
   height: 22rem;
@@ -1082,6 +1169,7 @@ useHead(() => {
   scrollbar-gutter: stable;
   padding: 0.5rem 0.25rem;
   overflow-wrap: anywhere;
+  font-size: 12px;
   line-height: 1.6;
   opacity: 0;
   visibility: hidden;
@@ -1186,7 +1274,6 @@ useHead(() => {
 .product-buy,
 .product-delivery,
 .product-description,
-.product-characteristics,
 .product-reviews__list,
 .product-reviews__form {
   width: 100%;
@@ -1284,12 +1371,13 @@ useHead(() => {
   overflow: hidden;
   background: #ffc846;
   color: #0a0a0a;
+  padding: 3.5rem 1.25rem 1.25rem;
 }
 
 .product-gallery__composition-label {
-  flex: 0 0 auto;
-  align-self: flex-end;
-  margin: 0.75rem 0.75rem 0;
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
   border: 1px solid currentColor;
   background: transparent;
   color: inherit;
@@ -1300,28 +1388,61 @@ useHead(() => {
   width: 100%;
   min-height: 0;
   flex: 1 1 auto;
-  flex-direction: column;
-  align-items: stretch;
   overflow-y: auto;
-  padding: 1rem 1.25rem 1.25rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(10 10 10 / 35%) transparent;
+  scrollbar-width: none;
   text-align: right;
 }
 
-.product-gallery__composition-content::-webkit-scrollbar {
-  width: 4px;
+.product-gallery__composition-track {
+  display: grid;
+  width: 100%;
+  margin-top: auto;
+  gap: 16px;
+  overflow-wrap: anywhere;
 }
 
-.product-gallery__composition-content::-webkit-scrollbar-thumb {
-  background: rgb(10 10 10 / 35%);
-  border-radius: 2px;
+.product-gallery__composition-repeat {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .product-gallery__composition-content--scrolling {
+    overflow: hidden;
+  }
+
+  .product-gallery__composition-content--scrolling .product-gallery__composition-track {
+    animation: product-composition-scroll linear infinite;
+  }
+
+  .product-gallery__composition-content--scrolling .product-gallery__composition-repeat {
+    display: block;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within {
+    overflow-y: auto;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within .product-gallery__composition-track {
+    animation-name: none;
+  }
+
+  .product-gallery__composition-content--scrolling:focus-within .product-gallery__composition-repeat {
+    display: none;
+  }
+}
+
+@keyframes product-composition-scroll {
+  to {
+    transform: translateY(calc(-50% - 8px));
+  }
+}
+
+.product-gallery__composition-content::-webkit-scrollbar {
+  display: none;
 }
 
 .product-gallery__composition-content p {
-  flex: 0 0 auto;
-  margin: auto 0 0;
-  overflow-wrap: anywhere;
+  margin: 0;
   text-align: right;
   font-size: clamp(0.6875rem, 2.5vw, 0.875rem);
   font-weight: 600;
@@ -1369,31 +1490,46 @@ useHead(() => {
   padding-inline: 0;
 }
 
-.product-buy > .product-characteristics {
-  margin: 0.5rem 0;
-  padding: 0;
-}
-
 .product-buy__header {
   display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
-  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.product-buy__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+  margin-inline-start: auto;
+}
+
+.product-buy__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #262626;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.product-buy__brand img {
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .product-buy__name {
   margin: 0;
-  font-size: 1rem;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: 1px;
+  overflow-wrap: anywhere;
   color: #0a0a0a;
   text-transform: uppercase;
-}
-
-.product-buy__summary {
-  margin: 0;
-  line-height: 1.5;
 }
 
 .product-buy__title-row {
@@ -1407,7 +1543,6 @@ useHead(() => {
 .product-buy__type {
   margin: 0;
   color: #737373;
-  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -1418,11 +1553,11 @@ useHead(() => {
   align-items: baseline;
   gap: 0.375rem;
   color: #737373;
+  font-size: 12px;
 }
 
 .product-buy__code {
   color: #737373;
-  font-size: 0.875rem;
   line-height: 1.5;
 }
 
@@ -1503,16 +1638,17 @@ useHead(() => {
   text-transform: uppercase;
 }
 
-.product-buy__variants-tabs {
-  width: min(100%, 17.5rem);
+.product-buy__variants .product-buy__variants-grid {
+  grid-template-columns: repeat(auto-fill, min(140px, 100%));
+  padding-bottom: 0;
 }
 
 .product-buy__cost {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 4px;
   align-items: stretch;
-  padding: 0.25rem 0.5rem;
+  padding: 4px 12px;
   background: #f5f5f5;
 }
 
@@ -1521,15 +1657,19 @@ useHead(() => {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
+  padding-block: 12px;
 }
 
 .product-buy__cost-badges {
   position: relative;
   flex: 0 0 auto;
-  width: 5.5rem;
-  height: 70px;
   align-items: center;
   flex-wrap: nowrap;
+}
+
+.product-buy__cost-badges :deep(.product-discount-sticker) {
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .product-buy__cost-badges :deep(.product-status-badges__item) {
@@ -1561,11 +1701,21 @@ useHead(() => {
 }
 
 .product-buy__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.375rem;
   margin: 0;
   color: #0a0a0a;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1;
+}
+
+.product-buy__volume {
+  color: #525252;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .product-buy__price--discount {
@@ -1638,29 +1788,48 @@ useHead(() => {
   border-left: 0;
 }
 
-.product-section-title {
-  margin: 0 0 0.75rem;
-  color: #0a0a0a;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.35;
+.product-description {
+  position: relative;
 }
 
-.product-characteristics .product-section-title {
-  text-transform: uppercase;
+@media (width < 1280px) {
+  .product-description__preview {
+    margin-inline-end: 16px;
+  }
 }
 
-:deep(.product-description__summary) {
-  margin-bottom: 0.75rem;
+.product-description__chevron {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
 }
 
-:deep(.product-description__summary) .product-section-title {
-  margin-bottom: 0;
+.product-description__preview {
+  overflow: clip;
+  transition: max-height 420ms cubic-bezier(0.3, 1, 0.3, 1);
 }
 
-.product-description__html {
+.product-description__toggle {
+  margin-top: 0.75rem;
+}
+
+.product-description__chevron[aria-expanded="true"] :deep(svg) {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-description__preview {
+    transition: none;
+  }
+}
+
+.product-description__preview > .product-description__html {
+  display: flow-root;
+}
+
+.product-description__html,
+.product-details__ingredients {
   color: #404040;
-  font-size: 14px;
   line-height: 1.7;
 }
 
@@ -1703,53 +1872,6 @@ useHead(() => {
   color: #0a0a0a;
 }
 
-.product-characteristics__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0;
-  font-size: 14px;
-}
-
-.product-characteristics__item {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: space-between;
-}
-
-.product-characteristics__item dt {
-  color: #737373;
-}
-
-.product-characteristics__item dd {
-  margin: 0;
-  color: #262626;
-  font-weight: 700;
-  text-align: right;
-}
-
-.product-characteristics__brand {
-  display: inline-flex;
-  gap: 0.625rem;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.product-characteristics__brand-link {
-  display: inline-flex;
-  gap: 0.625rem;
-  align-items: center;
-  justify-content: flex-end;
-  color: inherit;
-  text-decoration: none;
-}
-
-.product-characteristics__brand-logo {
-  width: 2.5rem;
-  height: 1.5rem;
-  object-fit: contain;
-}
-
 .product-reviews {
   display: grid;
   gap: 0.75rem;
@@ -1780,7 +1902,7 @@ useHead(() => {
 .product-reviews__header span,
 .product-reviews__muted {
   color: #737373;
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 
 .product-review {
@@ -1813,7 +1935,7 @@ useHead(() => {
 .product-review__comment {
   margin-top: 0.5rem;
   color: #525252;
-  font-size: 0.875rem;
+  font-size: 12px;
   line-height: 1.65;
 }
 
@@ -1901,7 +2023,7 @@ useHead(() => {
 .product-reviews__success {
   margin: 0;
   color: #188711;
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 
 .product-gallery-modal__body {
@@ -2081,11 +2203,14 @@ useHead(() => {
   }
 
   .product-buy__cost {
-    min-height: 78px;
-    box-sizing: border-box;
+    gap: 12px;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .product-buy__price-with-badge {
+    padding-block: 0;
   }
 
   .product-buy__price-wrapper {
@@ -2200,7 +2325,6 @@ useHead(() => {
   .product-buy,
   .product-delivery,
   .product-description,
-  .product-characteristics,
   .product-reviews__list,
   .product-reviews__form {
     padding: 0.625rem;
@@ -2208,23 +2332,6 @@ useHead(() => {
 
   .product-buy {
     padding-inline: 0;
-  }
-
-  .product-characteristics__item {
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  .product-characteristics__item dd {
-    text-align: left;
-  }
-
-  .product-characteristics__brand {
-    justify-content: flex-start;
-  }
-
-  .product-characteristics__brand-link {
-    justify-content: flex-start;
   }
 
   .product-buy__price--discount {

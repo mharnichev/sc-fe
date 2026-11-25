@@ -181,7 +181,7 @@ for (const width of [320, 360, 390, 430]) test(`mobile confirmation visibility a
   await page.addInitScript(({ body }) => sessionStorage.setItem('shop-checkout-intent-v1', JSON.stringify({ key: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', body, scope: 'guest' })), { body })
   await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/public/orders') && route.request().method() === 'POST' ? { ...order, id: 987, status: 'pending', fulfillment_status: 'reserved', fiscal_status: 'not_requested' } : { items: [], total: 0 } }))
   await page.goto('/checkout/purchase')
-  const retry = page.getByRole('button', { name: 'Перевірити / повторити попереднє замовлення', exact: true })
+  const retry = page.getByRole('button', { name: 'Перевірити замовлення', exact: true })
   await expect(retry).toBeVisible()
   await retry.click()
   const number = page.getByTestId('order-number')

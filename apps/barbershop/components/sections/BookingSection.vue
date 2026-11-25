@@ -2003,10 +2003,10 @@ onBeforeUnmount(() => {
           <div class="grid gap-6 min-[560px]:grid-cols-[minmax(0,1fr)_minmax(10rem,18rem)] min-[560px]:items-start lg:block">
             <div>
               <SectionLabel>{{ terms.home.booking.label }}</SectionLabel>
-              <h2 class="section-title-inverse mt-4">
+              <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-white">
                 {{ terms.home.booking.title }}
               </h2>
-              <p class="mt-4 text-sm leading-6 text-white/65 md:mt-6 md:text-base md:leading-8">
+              <p class="section-description mt-4 text-sm leading-6 text-white/65 md:mt-6 md:text-base md:leading-8">
                 {{ terms.home.booking.description }}
               </p>
             </div>
@@ -2027,7 +2027,7 @@ onBeforeUnmount(() => {
           :id="bookingStepperId"
           ref="bookingForm"
           class="booking-form relative scroll-mt-24 overflow-hidden bg-transparent sm:bg-white/[0.03] lg:scroll-mt-28"
-          :class="isDrawerMode ? 'booking-form--drawer flex-1' : 'booking-form--section self-start p-2'"
+          :class="isDrawerMode ? 'booking-form--drawer flex-1' : 'booking-form--section self-start sm:p-2'"
           :data-reveal="isDrawerMode ? undefined : 'soft'"
           :data-reveal-delay="isDrawerMode ? undefined : '140'"
           @submit.prevent="submit"

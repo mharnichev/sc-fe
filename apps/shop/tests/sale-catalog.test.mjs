@@ -12,13 +12,20 @@ const source = readFileSync(new URL('../components/catalog/CatalogAllGoodsRoute.
 const script = ts.transpileModule(source.split('<script setup lang="ts">')[1].split('</script>')[0], {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText.replace(/^import .*\n/gm, '').replace(/export \{\};?/, '').replaceAll('import.meta.client', 'false')
+const localeSource = readFileSync(new URL('../data/locale.ts', import.meta.url), 'utf8')
+const localeModule = ts.transpileModule(localeSource, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+}).outputText
+const localeExports = {}
+vm.runInNewContext(localeModule, { exports: localeExports })
+const { shopTerms } = localeExports
 const plain = value => JSON.parse(JSON.stringify(value))
 
 async function harness(t, props = { saleOnly: true }, initialQuery = {}) {
   const calls = [], keys = [], stops = [], cleanup = []
   const route = vue.reactive({ path: props.saleOnly ? '/sale' : '/catalog', query: initialQuery, fullPath: '' })
   const locale = vue.ref('en')
-  const terms = vue.ref({ catalog: { brand: 'Brand', category: 'Category', title: 'Catalog', productType: 'Type', sortOptions: { newest: 'Newest', name: 'Name', nameDesc: 'Name descending' } }, home: { popularTitle: 'Popular', popularDescription: 'Popular products' }, seo: { catalogTitle: 'Catalog', catalogDescription: 'Catalog products' } })
+  const terms = vue.computed(() => shopTerms[locale.value])
   const domain = {
     getCategoryTree: async () => [{ id: 1, name: 'Hair', slug: 'hair', children: [] }],
     getBrands: async () => [{ slug: 'fixture', name: 'Fixture' }],
@@ -48,7 +55,7 @@ async function harness(t, props = { saleOnly: true }, initialQuery = {}) {
       keys.push(key)
       const data = vue.ref(await load())
       if (options.watch) stops.push(vue.watch(options.watch, async () => { data.value = await load() }))
-      return { data, pending: vue.ref(false), refresh: async () => { data.value = await load() } }
+      return { data, pending: vue.ref(false), error: vue.ref(null), refresh: async () => { data.value = await load() } }
     },
   })
   const model = await vm.runInContext(`(async () => { ${script}; return { apiQuery, updateQuery, panelSelectedFilters, clearFilters, setFilter, setOrdering, pageRoute, priceMin, priceMax, offset, saleTitle, saleDescription } })()`, context)
@@ -64,10 +71,10 @@ test('sale ignores a false query fence and uses one combined products/facets res
   assert.equal(h.panelSelectedFilters.value.has_discount, undefined)
   await h.updateQuery({ has_discount: 'false' })
   assert.equal(h.apiQuery.value.has_discount, true)
-  assert.equal(h.seo[0](), 'Special offer')
+  assert.equal(h.seo[0](), 'Men’s Grooming Sale')
   h.locale.value = 'uk'
-  assert.equal(h.seo[0](), 'Спеціальна пропозиція')
-  assert.match(h.seo[1](), /знижками/)
+  assert.equal(h.seo[0](), 'Знижки на чоловічу косметику')
+  assert.match(h.seo[1](), /знижки/)
 })
 
 test('sale keeps its fence for category/type/brand facets, pagination, sorting and clear', async t => {
@@ -115,6 +122,17 @@ test('ordinary, popular and sale response keys remain separate and preserve expl
       assert.equal(call.query.has_discount, 'false')
       assert.equal(call.query.is_top, props.topOnly || undefined)
     }
-    assert.equal(h.seo[0](), props.topOnly ? 'Popular' : 'Hair')
+    assert.equal(h.seo[0](), props.topOnly ? 'Popular Men’s Grooming Products' : 'Hair')
   }
+})
+
+test('catalog metadata describes a category and identifies paginated results in both locales', async t => {
+  const h = await harness(t, { saleOnly: false }, { category: 'hair', offset: '20' })
+  assert.equal(h.seo[0](), 'Hair · Page 2')
+  assert.match(h.seo[1](), /^Page 2\. .*Hair/)
+  assert.equal(h.seo[3](), true)
+
+  h.locale.value = 'uk'
+  assert.equal(h.seo[0](), 'Hair · Сторінка 2')
+  assert.match(h.seo[1](), /^Сторінка 2\. .*«Hair»/)
 })

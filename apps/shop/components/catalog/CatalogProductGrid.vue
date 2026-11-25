@@ -6,6 +6,8 @@ withDefaults(defineProps<{
   pending?: boolean
   skeletonCount?: number
   tailSkeletonCount?: number
+  prioritizeInitialImages?: boolean
+  volumeLabels?: Record<number, string>
 }>(), {
   pending: false,
   skeletonCount: 12,
@@ -22,8 +24,12 @@ withDefaults(defineProps<{
     </template>
 
     <template v-else>
-      <li v-for="product in products" :key="product.id" data-sc-reveal-item>
-        <CatalogProductTile :product="product" />
+      <li v-for="(product, index) in products" :key="product.id" data-sc-reveal-item>
+        <CatalogProductTile
+          :product="product"
+          :volume-label="volumeLabels?.[product.id]"
+          :image-priority="prioritizeInitialImages && index < 4 ? (index === 0 ? 'high' : 'auto') : undefined"
+        />
       </li>
       <li v-for="index in tailSkeletonCount" :key="`tail-skeleton-${index}`">
         <ProductCardSkeleton />

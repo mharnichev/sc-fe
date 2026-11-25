@@ -9,6 +9,8 @@ const { productDisplayName, productDisplayType } = useProductDisplay()
 
 const props = defineProps<{
   product: ProductDto
+  imagePriority?: 'high' | 'auto'
+  volumeLabel?: string
 }>()
 
 const cart = useCartStore()
@@ -173,6 +175,7 @@ const toggleCart = async () => {
   <article
     class="catalog-product-tile"
     :class="{
+      'catalog-product-tile--volume': volumeLabel,
       'catalog-product-tile--unavailable': isUnavailable,
       'catalog-product-tile--long-name': isNameTruncated,
       'catalog-product-tile--scroll-name': nameScrollDistance > 1,
@@ -188,6 +191,7 @@ const toggleCart = async () => {
       class="catalog-product-tile__link"
       :to="isHidden ? undefined : `/products/${product.slug}`"
       :aria-disabled="isHidden || undefined"
+      :aria-label="volumeLabel ? `${productDisplayName(product)}, ${volumeLabel}` : undefined"
       itemprop="url"
       @keydown="previewOnKey"
       @blur="resetPreview"
@@ -219,7 +223,8 @@ const toggleCart = async () => {
                 :alt="image.alt"
                 width="240"
                 height="240"
-                :loading="index === 0 ? 'lazy' : 'eager'"
+                :loading="index === 0 && !imagePriority ? 'lazy' : 'eager'"
+                :fetchpriority="index === 0 ? imagePriority : undefined"
                 draggable="false"
                 itemprop="image"
               >
@@ -251,6 +256,7 @@ const toggleCart = async () => {
         <BaseIcon name="star" size="xxs" />
       </span>
       <BaseButton
+        v-if="!volumeLabel"
         class="catalog-product-tile__favorite"
         :class="{ 'catalog-product-tile__favorite--active': isFavorite }"
         type="button"
@@ -264,7 +270,7 @@ const toggleCart = async () => {
       </BaseButton>
 
       <div
-        v-if="hasPreview"
+        v-if="hasPreview && !volumeLabel"
         class="catalog-product-tile__dots"
         role="group"
         :aria-label="locale === 'uk' ? 'Фото товару' : 'Product images'"
@@ -290,7 +296,7 @@ const toggleCart = async () => {
         </div>
       </div>
       <div class="catalog-product-tile__desktop-layout">
-        <div class="catalog-product-tile__primary">
+        <div v-if="!volumeLabel" class="catalog-product-tile__primary">
           <component
             :is="isHidden ? 'div' : NuxtLink"
             class="catalog-product-tile__name-link"
@@ -310,7 +316,7 @@ const toggleCart = async () => {
 
         </div>
         <div class="catalog-product-tile__details">
-          <div class="catalog-product-tile__type-row">
+          <div v-if="!volumeLabel" class="catalog-product-tile__type-row">
             <p class="catalog-product-tile__type">{{ productType }}</p>
             <p v-if="sku" class="catalog-product-tile__sku"><span class="catalog-product-tile__sku-text">{{ locale === 'uk' ? 'Код товару' : 'Product code' }}: {{ sku }}</span></p>
           </div>
@@ -333,6 +339,15 @@ const toggleCart = async () => {
               <meta itemprop="priceCurrency" content="UAH">
               <meta itemprop="price" :content="product.price">
               <BaseButton
+                v-if="volumeLabel"
+                :to="`/products/${product.slug}`"
+                class="catalog-product-tile__cart catalog-product-tile__cart--buy catalog-product-tile__cart--volume"
+                size="xs"
+              >
+                {{ volumeLabel }}
+              </BaseButton>
+              <BaseButton
+                v-else
                 class="catalog-product-tile__cart"
                 :class="{ 'catalog-product-tile__cart--unavailable': isUnavailable, 'catalog-product-tile__cart--active': isInCart, 'catalog-product-tile__cart--buy': !isInCart && !isUnavailable }"
                 type="button"
@@ -353,7 +368,7 @@ const toggleCart = async () => {
       </div>
 
       <div class="catalog-product-tile__mobile-layout">
-        <div class="catalog-product-tile__primary">
+        <div v-if="!volumeLabel" class="catalog-product-tile__primary">
           <component
             :is="isHidden ? 'div' : NuxtLink"
             class="catalog-product-tile__mobile-name-link"
@@ -366,7 +381,7 @@ const toggleCart = async () => {
             </h3>
           </component>
         </div>
-        <div class="catalog-product-tile__mobile-meta">
+        <div v-if="!volumeLabel" class="catalog-product-tile__mobile-meta">
           <p class="catalog-product-tile__mobile-type">{{ productType }}</p>
 
         </div>
@@ -381,6 +396,15 @@ const toggleCart = async () => {
             </p>
           </div>
           <BaseButton
+            v-if="volumeLabel"
+            :to="`/products/${product.slug}`"
+            class="catalog-product-tile__cart catalog-product-tile__cart--buy catalog-product-tile__cart--volume"
+            size="xs"
+          >
+            {{ volumeLabel }}
+          </BaseButton>
+          <BaseButton
+            v-else
             class="catalog-product-tile__cart"
             :class="{ 'catalog-product-tile__cart--unavailable': isUnavailable, 'catalog-product-tile__cart--active': isInCart, 'catalog-product-tile__cart--buy': !isInCart && !isUnavailable }"
             type="button"
@@ -630,7 +654,7 @@ const toggleCart = async () => {
   overflow: hidden;
   color: #262626;
   flex: 1 1 auto;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -1067,13 +1091,13 @@ const toggleCart = async () => {
     min-height: 25rem;
   }
 
-  .catalog-product-tile__name {
-    font-size: 14px;
-  }
-
 }
 
 @media (max-width: 519px) {
+  .catalog-product-tile__dots {
+    top: -16px;
+  }
+
   .catalog-product-tile__desktop-layout {
     display: none;
   }
@@ -1143,16 +1167,12 @@ const toggleCart = async () => {
     max-height: 2.6em;
     overflow: hidden;
     color: #262626;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.3;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
-  }
-
-  .catalog-product-tile__mobile-name-text :deep(.base-hover-underline-text__content) {
-    font-size: 14px;
   }
 
   .catalog-product-tile__mobile-meta {
@@ -1170,7 +1190,7 @@ const toggleCart = async () => {
     text-overflow: ellipsis;
     margin-top: 0;
     color: #737373;
-    font-size: 10px;
+    font-size: 9px;
     line-height: 1.35;
   }
 
@@ -1309,6 +1329,72 @@ const toggleCart = async () => {
   .catalog-product-tile__badges :deep(.product-status-badges__item) {
     display: inline-flex;
   }
+}
+
+.catalog-product-tile--volume {
+  height: auto;
+  min-height: 0;
+  padding-top: 0;
+  aspect-ratio: auto;
+}
+
+.catalog-product-tile--volume:not(:has(.catalog-product-tile__cart--volume[aria-current='page'])) {
+  filter: saturate(0.28);
+  opacity: 0.74;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__link {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__image {
+  object-fit: contain;
+}
+
+.catalog-product-tile.catalog-product-tile--volume .catalog-product-tile__image--single {
+  transform: none;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__body {
+  position: relative;
+  inset: auto;
+  margin: 0;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: #f9f8f3;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__mobile-layout {
+  grid-template-rows: auto;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__details-row {
+  gap: 0.25rem;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__price span {
+  font-size: 12px;
+}
+
+.catalog-product-tile--volume .catalog-product-tile__price small {
+  font-size: 10px;
+}
+
+.catalog-product-tile .catalog-product-tile__cart--volume {
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.catalog-product-tile__cart--volume:not([aria-current='page']) {
+  --sc-button-bg: #e5e0d6;
+  --sc-button-text: #1c1b18;
+  --sc-button-hover-text: #1c1b18;
 }
 
 @media (prefers-reduced-motion: reduce) {

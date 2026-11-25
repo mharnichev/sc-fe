@@ -96,19 +96,27 @@ test('actual filter setup localizes selected chips and checkbox labels without c
   assert.deepEqual(props.selectedFilters, { size: ['100-ml'], color: ['black'] })
 })
 
-test('actual product characteristic computation filters source category/code keys in both locales and preserves brand values', async () => {
+test('volume beside the product price localizes the selected variant and package fallback', async () => {
   const page = await readFile(new URL('../pages/products/[slug].vue', import.meta.url), 'utf8')
-  const source = page.slice(page.indexOf('const isBrandCharacteristic ='), page.indexOf('\nconst toggleFavorite ='))
-  const loaded = vue.ref({ brand: { name: 'Uppercut Deluxe' }, parameters: { Бренд: 'Uppercut Deluxe', Категорія: 'Догляд', 'Код товару': 'SKU-1', Розмір: '100 мл', Колір: 'Черный' }, package_size: '100 мл' })
-  Object.assign(globalThis, vue, metadata, { product: loaded, locale, terms: vue.computed(() => ({ catalog: { brand: locale.value === 'en' ? 'Brand' : 'Бренд' } })) })
-  const { characteristicEntries, isBrandCharacteristic } = await importSource(source + '\nexport { characteristicEntries, isBrandCharacteristic };')
+  const source = page.slice(page.indexOf('const productVolume ='), page.indexOf('\nconst toggleFavorite ='))
+  const loaded = vue.ref({
+    id: 2,
+    volume_variants: [{ id: 1, volume_ml: 30, volume_label: '30 мл' }, { id: 2, volume_ml: 100, volume_label: '100 мл' }],
+    package_size: '250 мл',
+    parameters: { 'Об’єм': '500 мл' },
+  })
+  Object.assign(globalThis, vue, metadata, { product: loaded, locale })
+  const { productVolume } = await importSource(source + '\nexport { productVolume };')
   locale.value = 'uk'
-  assert.deepEqual(characteristicEntries.value, [['Бренд', 'Uppercut Deluxe'], ['Розмір', '100 мл'], ['Колір', 'Черный']])
+  assert.equal(productVolume.value, '100 мл')
   locale.value = 'en'
-  assert.deepEqual(characteristicEntries.value, [['Brand', 'Uppercut Deluxe'], ['Size', '100 ml'], ['Color', 'Black']])
-  assert.equal(isBrandCharacteristic('Brand'), true)
-  loaded.value.parameters = {}
-  assert.deepEqual(characteristicEntries.value, [['Brand', 'Uppercut Deluxe'], ['Volume', '100 ml']])
+  assert.equal(productVolume.value, '100 ml')
+  loaded.value.volume_variants = []
+  assert.equal(productVolume.value, '250 ml')
+  loaded.value.package_size = ''
+  assert.equal(productVolume.value, '500 ml')
   locale.value = 'uk'
-  assert.deepEqual(characteristicEntries.value, [['Бренд', 'Uppercut Deluxe'], ['Об’єм', '100 мл']])
+  assert.equal(productVolume.value, '500 мл')
+  loaded.value.parameters = {}
+  assert.equal(productVolume.value, '')
 })

@@ -240,9 +240,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .base-bottom-bar {
   position: fixed;
-  right: 8px;
-  bottom: 8px;
-  left: 8px;
+  right: max(8px, env(safe-area-inset-right, 0px));
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  left: max(8px, env(safe-area-inset-left, 0px));
   z-index: 60;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

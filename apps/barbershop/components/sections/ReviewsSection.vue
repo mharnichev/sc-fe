@@ -203,11 +203,11 @@ onBeforeUnmount(() => {
   <section id="reviews" aria-labelledby="reviews-title" data-header-theme="light" class="section-y-tight bg-white text-neutral-950">
     <div class="site-container">
       <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6">
-        <div>
-          <h2 id="reviews-title" class="text-3xl font-semibold uppercase leading-tight md:text-4xl">
+        <div class="max-sm:flex max-sm:items-baseline max-sm:justify-between max-sm:gap-3">
+          <h2 id="reviews-title" class="section-title text-2xl sm:text-3xl font-semibold uppercase leading-tight md:text-4xl">
             {{ terms.home.reviews.label }}
           </h2>
-          <p v-if="reviewsResponse?.average_rating" class="mt-4 text-3xl font-semibold leading-tight text-neutral-950">
+          <p v-if="reviewsResponse?.average_rating" class="text-3xl sm:mt-4 font-semibold leading-tight text-neutral-950">
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
         </div>
@@ -216,14 +216,27 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-if="reviews.length" class="mt-8 md:mt-10">
-        <div
-          class="overflow-hidden"
-          @mouseenter="stopAutoplay"
-          @mouseleave="startAutoplay"
-          @focusin="stopAutoplay"
-          @focusout="startAutoplay"
+      <div
+        v-if="reviews.length"
+        class="mt-8 flex items-center gap-2 md:mt-10 md:gap-3"
+        @mouseenter="stopAutoplay"
+        @mouseleave="startAutoplay"
+        @focusin="stopAutoplay"
+        @focusout="startAutoplay"
+      >
+        <BaseButton
+          v-if="maxActiveIndex > 0"
+          type="button"
+          variant="outline-dark"
+          shape="circle"
+          size="sm"
+          class="shrink-0"
+          :aria-label="terms.home.reviews.previous"
+          @click="goToReview(activeIndex - 1)"
         >
+          ‹
+        </BaseButton>
+        <div class="min-w-0 flex-1 overflow-hidden">
           <div
             class="flex transition-transform duration-700 ease-out"
             :style="{ transform: sliderTransform }"
@@ -231,7 +244,8 @@ onBeforeUnmount(() => {
             <article
               v-for="(review, index) in reviews"
               :key="review.review_id"
-              class="min-w-full border-l border-neutral-300 pl-4 pr-4 md:min-w-[50%] md:pl-5 md:pr-6 lg:min-w-[33.333333%]"
+              class="min-w-full pl-4 pr-4 md:min-w-[50%] md:pl-5 md:pr-6 lg:min-w-[33.333333%]"
+              :class="{ 'border-neutral-300 md:border-l': reviews.length > 1 }"
               data-reveal="soft"
               :data-reveal-delay="Math.min(index, 2) * 90"
             >
@@ -287,30 +301,18 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="mt-7 flex justify-end">
-          <div class="flex gap-2">
-            <BaseButton
-              type="button"
-              variant="outline-dark"
-              shape="circle"
-              size="sm"
-              :aria-label="terms.home.reviews.previous"
-              @click="goToReview(activeIndex - 1)"
-            >
-              ‹
-            </BaseButton>
-            <BaseButton
-              type="button"
-              variant="outline-dark"
-              shape="circle"
-              size="sm"
-              :aria-label="terms.home.reviews.next"
-              @click="goToReview(activeIndex + 1)"
-            >
-              ›
-            </BaseButton>
-          </div>
-        </div>
+        <BaseButton
+          v-if="maxActiveIndex > 0"
+          type="button"
+          variant="outline-dark"
+          shape="circle"
+          size="sm"
+          class="shrink-0"
+          :aria-label="terms.home.reviews.next"
+          @click="goToReview(activeIndex + 1)"
+        >
+          ›
+        </BaseButton>
       </div>
 
       <div v-else-if="hasReviewStats" class="mt-8 border-l border-neutral-300 pl-4 md:mt-12 md:pl-6">

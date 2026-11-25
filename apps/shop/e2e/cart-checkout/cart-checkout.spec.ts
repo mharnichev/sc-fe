@@ -57,7 +57,7 @@ test('checkout keeps cart state and shows an actionable error when order creatio
   })
 
   const submit = page.getByRole('button', { name: 'ОФОРМИТИ ЗАМОВЛЕННЯ' }).last()
-  const retry = page.getByRole('button', { name: 'Перевірити / повторити попереднє замовлення', exact: true })
+  const retry = page.getByRole('button', { name: 'Перевірити замовлення', exact: true })
   const failedOrderResponse = () => page.waitForResponse(response =>
     response.url().endsWith('/api/v1/public/orders') && response.request().method() === 'POST' && response.status() === 503,
   )

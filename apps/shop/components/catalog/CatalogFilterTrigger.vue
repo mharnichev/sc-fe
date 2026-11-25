@@ -28,7 +28,12 @@ const { terms } = useShopLocale()
 <style scoped>
 .catalog-filter-trigger {
   min-height: 2.5rem;
-  padding-inline: 0.65rem;
+}
+
+@media (width >= 768px) {
+  .catalog-filter-trigger {
+    padding-inline: 0.65rem;
+  }
 }
 
 .catalog-filter-trigger__count {

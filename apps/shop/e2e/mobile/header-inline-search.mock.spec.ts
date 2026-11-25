@@ -13,7 +13,7 @@ for (const width of [390, 768, 1024, 1440]) {
     })
     await page.goto('contacts')
     if (width < 768) {
-      const trigger = page.locator('.shop-header__mobile-btn').first()
+      const trigger = page.locator('button[aria-controls="shop-mobile-search"]')
       await trigger.click()
       const panel = page.locator('#shop-mobile-search')
       const input = panel.getByRole('searchbox')
@@ -58,7 +58,7 @@ for (const width of [390, 768, 1024, 1440]) {
       await expect(panel).not.toBeVisible()
       await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
       await trigger.click()
-      await page.locator('.shop-header__mobile-btn').nth(1).click()
+      await page.locator('.shop-header__mobile').getByRole('button', { name: /^(Кошик|Cart)$/ }).click()
       await expect(panel).not.toBeVisible()
       await expect(page.locator('.base-modal[role=dialog]')).toBeVisible()
       await expect(page.locator('body')).toHaveCSS('overflow', 'hidden')

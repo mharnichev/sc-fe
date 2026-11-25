@@ -267,8 +267,8 @@ onBeforeUnmount(() => {
         </SectionLabel>
       </div>
 
-      <div class="flex max-w-[22rem] flex-col gap-1 sm:max-w-none sm:gap-0">
-        <h1 class="max-w-5xl text-center text-2xl font-semibold uppercase leading-[0.95] tracking-normal sm:text-2xl md:text-3xl">
+      <div class="flex max-w-[22rem] flex-col sm:max-w-none">
+        <h1 class="section-title max-w-5xl text-center text-2xl font-semibold uppercase leading-[0.95] tracking-normal sm:text-2xl md:text-3xl">
           <LocaleLink
             to="/barbershop-odesa"
             class="transition-colors hover:text-white/80"
@@ -277,7 +277,7 @@ onBeforeUnmount(() => {
           </LocaleLink>
         </h1>
 
-        <p class="text-sm leading-6 text-white/65 sm:text-base sm:leading-8 sm:text-white/60">
+        <p class="section-description text-sm leading-6 text-white/65 sm:text-base sm:leading-8 sm:text-white/60">
           {{ terms.home.hero.text }}
         </p>
       </div>

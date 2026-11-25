@@ -9,6 +9,13 @@ const sharedBrandLogosPath = new URL('../../packages/shared-assets/brand-logos',
 export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
+  hooks: {
+    'build:manifest'(manifest) {
+      for (const asset of Object.values(manifest)) {
+        if (asset.resourceType === 'image') asset.prefetch = false
+      }
+    },
+  },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: [
     '~/assets/css/animations/reveal.css',
@@ -71,6 +78,8 @@ export default defineNuxtConfig({
     baseURL: process.env.NUXT_APP_BASE_URL || '/shop/',
     head: {
       titleTemplate: '%s | Atelier Supply',
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
+      meta: [{ name: 'theme-color', content: '#ffffff' }],
     },
   },
 })

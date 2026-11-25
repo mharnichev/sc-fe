@@ -43,13 +43,13 @@ const stories = [
 const copy = computed(() => locale.value === 'en' ? {
   eyebrow: 'Soulcuts Journal',
   title: 'Our world. Our culture.',
-  description: 'The people, places and conversations that shape Soulcuts. Step into our world through stories about barbering, community and the culture we share.',
+  description: 'Two stories about Ukrainian barber culture: how Idem na Bukvy began and how barbers came together at a museum in Odesa.',
   read: 'Read the story',
   minutes: 'min read',
 } : {
   eyebrow: 'Журнал Soulcuts',
   title: 'Наш світ. Наша культура.',
-  description: 'Люди, місця й розмови, з яких складається Soulcuts. Знайомимо ближче з нашим світом через історії про барберінг, спільноту та культуру, яку творимо разом.',
+  description: 'Дві історії про українську барберську культуру: як виник проєкт «Ідем на Букви» та як барбери зустрілися в одеському музеї.',
   read: 'Читати історію',
   minutes: 'хв читання',
 })
@@ -114,7 +114,7 @@ const formatDate = (date: string) => new Intl.DateTimeFormat(locale.value === 'e
   color: #f9f8f3;
 }
 
-.home-journal :deep(.space-y-2 > p) {
+.home-journal :deep(.section-subtitle) {
   color: #c4c0b8;
 }
 

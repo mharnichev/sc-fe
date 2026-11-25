@@ -86,26 +86,50 @@ for (const locale of ['uk', 'en'] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 })
     const { calls, writes } = await fixture(page, locale)
     await navigate(page, '/sale?has_discount=false&limit=2')
-    const title = locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer'
+    const title = locale === 'uk' ? 'Знижки на чоловічу косметику' : 'Men’s Grooming Sale'
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
     await expect(page).toHaveTitle(new RegExp(title))
     const tiles = page.locator('.catalog-route__content .catalog-product-tile')
     await expect(tiles).toHaveCount(2)
     await expect(tiles.first()).toContainText('Sale fixture 1')
-    const saleLink = page.locator('.shop-header__popular-btn').last()
+    const saleLink = page.locator('.shop-header__popular-btn--sale')
+    const labelWindow = saleLink.locator('.base-animated-menu-text__window')
+    const saleHover = saleLink.locator('.base-animated-menu-text__hover')
     await expect(saleLink).toHaveAttribute('href', '/shop/sale')
     await expect(saleLink).toHaveCSS('color', 'rgb(194, 65, 12)')
-    await saleLink.hover()
-    const saleHover = saleLink.locator('.base-animated-menu-text__hover')
-    await expect(saleHover).toHaveCSS('color', 'rgb(255, 255, 255)')
-    const plaque = await saleHover.evaluate(element => {
-      const style = getComputedStyle(element, '::before')
-      return { background: style.backgroundColor, top: parseFloat(style.top), bottom: parseFloat(style.bottom), transform: style.transform }
+    await expect(labelWindow).toHaveCSS('overflow-y', 'hidden')
+
+    const badgePosition = () => saleHover.evaluate(element => {
+      const line = element.closest('.base-animated-menu-text__window')!.getBoundingClientRect()
+      const copy = element.getBoundingClientRect()
+      const plaque = getComputedStyle(element, '::before')
+      const matrix = new DOMMatrixReadOnly(plaque.transform)
+      const top = parseFloat(plaque.top)
+      const bottom = copy.height - parseFloat(plaque.bottom)
+      const left = parseFloat(plaque.left)
+      const right = copy.width - parseFloat(plaque.right)
+      const origin = plaque.transformOrigin.split(' ').map(Number.parseFloat)
+      const cornerY = [[left, top], [right, top], [left, bottom], [right, bottom]].map(([x, y]) =>
+        copy.top + matrix.transformPoint({ x: x - left - origin[0]!, y: y - top - origin[1]! }).y + top + origin[1]!,
+      )
+      const plaqueTop = Math.min(...cornerY)
+      const plaqueBottom = Math.max(...cornerY)
+      if (plaqueTop >= line.bottom) return 'below'
+      if (plaqueTop >= line.top && plaqueBottom <= line.bottom && plaqueBottom > plaqueTop) return 'inside'
+      return 'clipped'
     })
-    expect(plaque.background).toBe('rgb(194, 65, 12)')
-    expect(plaque.top).toBeLessThan(0)
-    expect(plaque.bottom).toBeLessThan(0)
-    expect(plaque.transform).not.toBe('none')
+
+    await expect.poll(badgePosition).toBe('below')
+    await saleLink.hover()
+    await expect.poll(badgePosition).toBe('inside')
+    await expect(saleHover).toHaveText(locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
+    await expect(saleHover).toHaveCSS('color', 'rgb(255, 255, 255)')
+    await expect.poll(() => saleHover.evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgb(194, 65, 12)')
+
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(saleLink.locator('.base-animated-menu-text__stack')).toHaveCSS('transition-property', 'none')
+    await expect.poll(badgePosition).toBe('below')
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
     await page.locator('.catalog-pagination .base-pagination__page').filter({ hasText: /^2$/ }).click()
     await expect.poll(() => calls.at(-1)?.query.offset).toBe('2')
     await expect(tiles.first()).toContainText('Sale fixture 3')
@@ -130,7 +154,7 @@ for (const locale of ['uk', 'en'] as const) {
     await expect.poll(() => calls.at(-1)?.query.type).toBe(matte.slug)
     expect(new URL(page.url()).searchParams.has('category')).toBe(false)
     const footer = drawer.locator('.catalog-route__filter-actions')
-    const viewAll = locale === 'uk' ? 'Подивитись все' : 'View all'
+    const viewAll = locale === 'uk' ? 'Показати товари' : 'Show products'
     await footer.getByRole('button', { name: `${viewAll}: 3`, exact: true }).click()
     await expect(drawer).toBeHidden()
     const applied = new URL(page.url()).searchParams
@@ -140,7 +164,7 @@ for (const locale of ['uk', 'en'] as const) {
     await expect(tiles.nth(1)).toContainText('Sale fixture 3')
 
     await trigger.click()
-    await footer.getByRole('button', { name: locale === 'uk' ? 'Видалити все' : 'Clear all', exact: true }).click()
+    await footer.getByRole('button', { name: locale === 'uk' ? 'Скинути фільтри' : 'Clear filters', exact: true }).click()
     await footer.getByRole('button', { name: `${viewAll}: 6`, exact: true }).click()
     await expect(drawer).toBeHidden()
     expect(new URL(page.url()).searchParams.has('category')).toBe(false)
@@ -163,7 +187,7 @@ for (const locale of ['uk', 'en'] as const) {
     await page.screenshot({ path: `/tmp/sc-fe-sale-ui-${locale}-390-menu-20261101.png`, animations: 'disabled' })
     await lastEntry.click()
     await expect(page).toHaveURL(/\/shop\/sale$/)
-    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Спеціальна пропозиція' : 'Special offer', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: locale === 'uk' ? 'Знижки на чоловічу косметику' : 'Men’s Grooming Sale', exact: true })).toBeVisible()
     await expect(page.locator('.base-bottom-bar').getByRole('button', { name: locale === 'uk' ? 'Каталог' : 'Catalog', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('.catalog-route__content .catalog-product-tile').first()).toContainText('Sale fixture 1')
     await expect(page.locator('.catalog-route__title .base-scribble-outline__scribble')).toBeAttached()

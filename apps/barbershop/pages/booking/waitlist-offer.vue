@@ -88,12 +88,12 @@ useHead({
         <p class="type-eyebrow text-xs text-neutral-500">{{ copy.eyebrow }}</p>
 
         <template v-if="state === 'checking'">
-          <h1 class="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">{{ copy.title }}</h1>
+          <h1 class="section-title mt-1 text-2xl font-semibold leading-tight sm:text-4xl">{{ copy.title }}</h1>
           <p class="mt-4 max-w-xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7" role="status">{{ copy.checking }}</p>
         </template>
 
         <template v-else-if="state === 'ready' || state === 'claiming'">
-          <h1 class="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">{{ copy.title }}</h1>
+          <h1 class="section-title mt-1 text-2xl font-semibold leading-tight sm:text-4xl">{{ copy.title }}</h1>
           <p class="mt-4 max-w-xl text-sm leading-6 text-neutral-600 md:text-base md:leading-7">{{ copy.description }}</p>
           <BaseButton type="button" variant="dark" class="mt-8" :disabled="state === 'claiming'" @click="confirm">
             {{ state === 'claiming' ? copy.claiming : copy.confirm }}
@@ -101,7 +101,7 @@ useHead({
         </template>
 
         <template v-else-if="state === 'success'">
-          <h1 class="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">{{ copy.successTitle }}</h1>
+          <h1 class="section-title mt-1 text-2xl font-semibold leading-tight sm:text-4xl">{{ copy.successTitle }}</h1>
           <p class="mt-4 text-sm leading-6 text-neutral-600 md:text-base md:leading-7">{{ copy.successDescription }}</p>
           <p v-if="bookedStartAt" class="mt-5 border border-neutral-200 bg-neutral-50 p-4 text-lg font-semibold">
             {{ formatDateTime(bookedStartAt) }}
@@ -109,7 +109,7 @@ useHead({
         </template>
 
         <template v-else>
-          <h1 class="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
+          <h1 class="section-title mt-1 text-2xl font-semibold leading-tight sm:text-4xl">
             {{ state === 'unavailable' ? copy.unavailableTitle : copy.errorTitle }}
           </h1>
           <p class="mt-4 text-sm leading-6 text-neutral-600 md:text-base md:leading-7">

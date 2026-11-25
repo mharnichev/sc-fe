@@ -581,7 +581,7 @@ useBarberStructuredData(() => ({
               <p v-if="role" class="type-eyebrow type-eyebrow--wide text-xs text-amber-700">
                 {{ role }}
               </p>
-              <h1 class="mt-3 max-w-4xl text-4xl font-semibold leading-tight md:text-6xl">
+              <h1 class="section-title mt-3 max-w-4xl text-4xl font-semibold leading-tight md:text-6xl">
                 {{ fullName }}
               </h1>
               <p v-if="profileDescription" class="mt-5 max-w-2xl text-sm leading-6 text-neutral-700 md:text-lg md:leading-8">
@@ -736,7 +736,7 @@ useBarberStructuredData(() => ({
       <div class="site-container flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
           <SectionLabel class="text-white/60">Soul Cuts / Odesa</SectionLabel>
-          <h2 class="section-title-inverse mt-4 max-w-2xl">
+          <h2 class="section-title mt-1 max-w-2xl text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-white">
             {{ fullName }}
           </h2>
         </div>
@@ -755,7 +755,7 @@ useBarberStructuredData(() => ({
     </section>
 
     <BaseModal v-model="reviewsDialogOpen" type="right" :dialog-label="pageLabels.reviews" :close-label="locale === 'en' ? 'Close reviews' : 'Закрити відгуки'">
-      <template #header><h2 class="pr-10 text-xl font-semibold">{{ pageLabels.reviews }}</h2></template>
+      <template #header><h2 class="section-title pr-10 text-xl font-semibold">{{ pageLabels.reviews }}</h2></template>
       <div class="space-y-5 p-5 text-neutral-950 sm:p-8">
         <article v-for="review in dialogReviews" :key="review.id" class="border-b border-neutral-200 pb-5">
           <div class="flex flex-wrap items-center gap-2 text-sm">

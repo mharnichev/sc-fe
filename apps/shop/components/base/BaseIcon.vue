@@ -1,6 +1,8 @@
-<script setup lang="ts">
-const iconsCache = new Map<string, string>()
+<script lang="ts">
+const iconRequests = new Map<string, Promise<string>>()
+</script>
 
+<script setup lang="ts">
 const props = withDefaults(defineProps<{
   name: string
   category?: string
@@ -20,25 +22,29 @@ const shopAsset = useShopAsset()
 const iconPath = computed(() => shopAsset(`/lehko/icons/${props.category}/${props.name}.svg`))
 const svgMarkup = ref('')
 
-const loadIcon = async () => {
-  const path = iconPath.value
+const loadIcon = async (path: string) => {
   if (!import.meta.client) return
 
-  const cached = iconsCache.get(path)
-  if (cached) {
-    svgMarkup.value = cached
-    return
+  let request = iconRequests.get(path)
+  if (!request) {
+    request = fetch(path)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Icon not found: ${path}`)
+        return response.text()
+      })
+      .catch((error) => {
+        iconRequests.delete(path)
+        throw error
+      })
+    iconRequests.set(path, request)
   }
 
   try {
-    const response = await fetch(path)
-    if (!response.ok) throw new Error(`Icon not found: ${path}`)
-    const svg = await response.text()
-    iconsCache.set(path, svg)
-    svgMarkup.value = svg
+    const svg = await request
+    if (path === iconPath.value) svgMarkup.value = svg
   }
   catch {
-    svgMarkup.value = ''
+    if (path === iconPath.value) svgMarkup.value = ''
   }
 }
 

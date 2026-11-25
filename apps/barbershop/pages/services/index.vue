@@ -42,7 +42,7 @@ useServiceCatalogStructuredData(structuredServices)
       <div class="site-container grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(18rem,0.4fr)] lg:items-end">
         <div class="max-w-4xl" data-reveal="soft">
           <SectionLabel>{{ terms.pages.services.label }}</SectionLabel>
-          <h1 class="type-page-title mt-4 text-4xl text-stone-950 md:text-6xl">
+          <h1 class="section-title type-page-title mt-1 text-4xl text-stone-950 md:text-6xl">
             {{ terms.pages.services.title }}
           </h1>
           <p class="mt-5 max-w-3xl text-sm leading-6 text-stone-700 md:text-lg md:leading-8">

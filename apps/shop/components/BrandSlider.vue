@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
         <h2 class="section-title type-title-strong">
           {{ terms.home.brandsTitle }}
         </h2>
-        <p>{{ terms.home.brandsDescription }}</p>
+        <p class="section-subtitle">{{ terms.home.brandsDescription }}</p>
       </div>
 
     </div>
@@ -314,12 +314,10 @@ onBeforeUnmount(() => {
   padding-top: 0.75rem;
 }
 
-.brand-slider__copy > p:last-child {
+.brand-slider__copy .section-subtitle {
   max-width: 42rem;
   padding-top: 0.5rem;
   color: #57534e;
-  font-size: 0.875rem;
-  line-height: 1.75rem;
 }
 
 .brand-slider__carousel {

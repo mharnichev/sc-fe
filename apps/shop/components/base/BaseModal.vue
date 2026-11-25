@@ -492,12 +492,12 @@ defineExpose({
   transition: opacity 300ms var(--base-modal-motion-easing);
 }
 
-.base-modal-enter-active,
 .base-modal-leave-active {
   --base-modal-motion-easing: cubic-bezier(0.55, 0.05, 0.75, 1);
 }
 
 .base-modal-enter-active {
+  --base-modal-motion-easing: cubic-bezier(0.65, 0, 0.85, 0.55);
   transition: opacity 332ms var(--base-modal-motion-easing);
 }
 

@@ -126,7 +126,7 @@ useHead({
     <div v-if="state === 'ready' && context" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 px-4 pb-3 sm:px-6">
         <p class="text-xs font-semibold uppercase text-white/50">{{ terms.home.booking.label }}</p>
-        <h1 class="mt-1 text-2xl font-semibold sm:text-3xl">{{ terms.common.bookAppointment }}</h1>
+        <h1 class="section-title mt-1 text-2xl font-semibold sm:text-3xl">{{ terms.common.bookAppointment }}</h1>
       </div>
       <BookingSection
         analytics-source="campaign_offer_booking"
@@ -145,7 +145,7 @@ useHead({
       <div class="max-w-lg">
         <p v-if="state === 'loading'" role="status">{{ copy.loading }}</p>
         <template v-else>
-          <h1 class="text-3xl font-semibold">{{ state === 'unavailable' ? copy.unavailable : copy.error }}</h1>
+          <h1 class="section-title text-2xl sm:text-3xl font-semibold">{{ state === 'unavailable' ? copy.unavailable : copy.error }}</h1>
           <div class="mt-7 flex flex-wrap justify-center gap-4">
             <BaseButton v-if="state === 'error'" type="button" variant="light" @click="resolveOffer">{{ copy.retry }}</BaseButton>
             <BaseButton type="button" variant="light" @click="clearOffer">{{ copy.normal }}</BaseButton>
