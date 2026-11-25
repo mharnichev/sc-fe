@@ -1,46 +1,39 @@
 import type { RouteLocationNormalized } from 'vue-router'
 
-const TRANSITION_OUT_MS = 300
-const TRANSITION_IN_DELAY_MS = 80
+const SHOW_DELAY_MS = 120
 const isCabinetPath = (path: string) => path === '/cabinet' || path.startsWith('/cabinet/')
-
-const wait = (duration: number) => new Promise(resolve => window.setTimeout(resolve, duration))
 
 export default defineNuxtPlugin((nuxtApp) => {
   const router = useRouter()
   const isVisible = usePageTransitionOverlay()
   let pendingRoute: RouteLocationNormalized | null = null
   let transitionOwner = {}
-  let revealTimer: ReturnType<typeof setTimeout> | null = null
+  let showTimer: ReturnType<typeof setTimeout> | null = null
   // Nuxt passes the same vnode to page:start and page:finish. Remember its
   // route so a superseded Suspense cannot finish a newer navigation.
   const pageOwners = new WeakMap<object, object>()
 
-  const clearRevealTimer = () => {
-    if (revealTimer === null) return
-    window.clearTimeout(revealTimer)
-    revealTimer = null
+  const clearShowTimer = () => {
+    if (showTimer === null) return
+    window.clearTimeout(showTimer)
+    showTimer = null
   }
 
-  const revealPage = (route: typeof pendingRoute, delay = TRANSITION_IN_DELAY_MS) => {
+  const revealPage = (route: typeof pendingRoute) => {
     if (!route || pendingRoute !== route) return
-    clearRevealTimer()
-    revealTimer = window.setTimeout(() => {
-      if (pendingRoute !== route) return
-      isVisible.value = false
-      pendingRoute = null
-      revealTimer = null
-    }, delay)
+    clearShowTimer()
+    isVisible.value = false
+    pendingRoute = null
   }
 
-  router.beforeEach(async (to, from) => {
+  router.beforeEach((to, from) => {
     if (!from.matched.length || to.fullPath === from.fullPath) return
 
     // A query/hash change does not own the page already being rendered.
     // Keeping its original owner also prevents a rejected query guard from
     // releasing that page while its Suspense is still pending.
     if (to.path === from.path && pendingRoute?.path === from.path) return
-    clearRevealTimer()
+    clearShowTimer()
     if (to.path === from.path || (isCabinetPath(from.path) && isCabinetPath(to.path))) {
       pendingRoute = null
       isVisible.value = false
@@ -49,18 +42,22 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     transitionOwner = {}
     pendingRoute = to
-    isVisible.value = true
-    await wait(TRANSITION_OUT_MS)
+    if (!isVisible.value) {
+      showTimer = window.setTimeout(() => {
+        showTimer = null
+        if (pendingRoute === to) isVisible.value = true
+      }, SHOW_DELAY_MS)
+    }
   })
 
   router.afterEach((to, _from, failure) => {
     // Duplicate pushes never ran our guard and must not release a page whose
     // Suspense is still pending. Other failures only own their own guard.
-    if (failure && failure.type !== 16 && pendingRoute === to) revealPage(to, 0)
+    if (failure && failure.type !== 16 && pendingRoute === to) revealPage(to)
   })
 
   router.onError((_error, to) => {
-    if (pendingRoute === to) revealPage(to, 0)
+    if (pendingRoute === to) revealPage(to)
   })
 
   nuxtApp.hook('page:start', (page) => {
@@ -81,6 +78,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   nuxtApp.hook('app:error', () => {
-    if (pendingRoute) revealPage(pendingRoute, 0)
+    if (pendingRoute) revealPage(pendingRoute)
   })
 })

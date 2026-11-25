@@ -119,7 +119,7 @@ useSeo(
     <section data-header-theme="dark" class="bg-neutral-950 pb-12 pt-28 text-white sm:pb-16 sm:pt-32">
       <div class="site-container">
         <p class="type-eyebrow type-eyebrow--wide text-sm text-white/50">{{ pageText.eyebrow }}</p>
-        <h1 class="type-page-title mt-5 max-w-5xl text-4xl sm:text-6xl">{{ pageText.title }}</h1>
+        <h1 class="section-title type-page-title mt-5 max-w-5xl text-4xl sm:text-6xl">{{ pageText.title }}</h1>
       </div>
     </section>
 

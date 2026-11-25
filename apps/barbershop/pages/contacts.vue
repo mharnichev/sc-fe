@@ -329,7 +329,7 @@ const submit = async () => {
     <section class="space-y-6" data-reveal="soft">
       <div class="space-y-3">
         <p class="text-sm uppercase tracking-[0.3em] text-amber-700">{{ terms.pages.contacts.label }}</p>
-        <h1 class="text-5xl font-semibold text-stone-900">{{ terms.pages.contacts.title }}</h1>
+        <h1 class="section-title text-5xl font-semibold text-stone-900">{{ terms.pages.contacts.title }}</h1>
       </div>
       <div class="rounded-[2rem] bg-white p-6 shadow-sm">
         <div class="space-y-4 text-sm leading-7 text-stone-600">

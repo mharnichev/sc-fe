@@ -9,6 +9,7 @@ export const useSeo = (
 ) => {
   const route = useRoute()
   const config = useRuntimeConfig()
+  const { locale } = useShopLocale()
   const canonical = computed(() => {
     if (!indexable()) return null
     const url = new URL(route.fullPath, config.public.siteUrl)
@@ -21,6 +22,9 @@ export const useSeo = (
   useSeoMeta({
     title,
     description,
+    ogSiteName: 'Atelier Supply',
+    ogType: 'website',
+    ogLocale: () => locale.value === 'en' ? 'en_GB' : 'uk_UA',
     ogTitle: title,
     ogDescription: description,
     ogUrl: () => canonical.value ?? undefined,

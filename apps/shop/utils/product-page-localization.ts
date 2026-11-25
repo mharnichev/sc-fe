@@ -2,7 +2,7 @@ export const productPageCopy = {
   uk: {
     guestReviewInvitation: 'Будемо раді вашому відгуку! Ваш досвід допоможе іншим обрати свій догляд. Авторизуйтеся, щоб поділитися враженнями.',
     gallery: 'Галерея товару', compositionTitle: 'Склад продукту', composition: 'Склад',
-    galleryNavigation: 'Навігація галереєю', characteristics: 'Характеристики', description: 'Опис',
+    galleryNavigation: 'Навігація галереєю', characteristics: 'Характеристики', description: 'Опис', usage: 'Застосування',
     chooseVolume: 'Оберіть об’єм товару', previousImage: 'Попереднє зображення', nextImage: 'Наступне зображення',
     zoomOut: 'Зменшити зображення', zoomIn: 'Збільшити зображення', otherImages: 'Інші зображення товару',
     loadingProduct: 'Завантаження товару', notFoundTitle: 'Товар не знайдено', loadErrorTitle: 'Не вдалося завантажити товар',
@@ -15,7 +15,7 @@ export const productPageCopy = {
   en: {
     guestReviewInvitation: 'We’d love to hear from you! Your experience can help others choose their care. Sign in to share your thoughts.',
     gallery: 'Product gallery', compositionTitle: 'Product ingredients', composition: 'Ingredients',
-    galleryNavigation: 'Gallery navigation', characteristics: 'Characteristics', description: 'Description',
+    galleryNavigation: 'Gallery navigation', characteristics: 'Characteristics', description: 'Description', usage: 'How to use',
     chooseVolume: 'Choose a product volume', previousImage: 'Previous image', nextImage: 'Next image',
     zoomOut: 'Zoom out', zoomIn: 'Zoom in', otherImages: 'Other product images',
     loadingProduct: 'Loading product', notFoundTitle: 'Product not found', loadErrorTitle: 'Could not load the product',

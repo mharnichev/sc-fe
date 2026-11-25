@@ -330,7 +330,19 @@ a {
   }
 
   .section-title {
-    @apply text-3xl leading-[1.2] tracking-normal text-stone-900;
+    @apply text-[24px] leading-[1.2] tracking-normal text-stone-900 md:text-3xl md:leading-[1.2];
+  }
+
+  .section-subtitle {
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  @screen md {
+    .section-subtitle {
+      font-size: 0.875rem;
+      line-height: var(--section-subtitle-line-height, 1.75rem);
+    }
   }
 
   .section-title-inverse {
@@ -607,6 +619,25 @@ a {
   .base-quantity-stepper__input::-webkit-inner-spin-button {
     margin: 0;
     appearance: none;
+  }
+}
+
+@media (width < 768px) {
+  .section-title.type-title-strong {
+    font-size: 22px;
+  }
+
+  .sc-button:where(:not(.sc-button--circle, .sc-button--text)) {
+    padding: 8px 10px;
+  }
+
+  .sc-button,
+  input.base-control,
+  select.base-control,
+  .base-calendar__month,
+  .base-calendar__weekdays,
+  .base-calendar__day {
+    font-size: 10px;
   }
 }
 

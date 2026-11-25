@@ -78,3 +78,16 @@ test('category-only search suggestion chips react UK → EN → UK and retain un
   assert.deepEqual(results.suggestions, ['Для тіла', 'Невідоме'])
   assert.match(await readFile(new URL('../components/base/header/HeaderSearchResults.vue', import.meta.url), 'utf8'), /@click="emit\('suggestion', suggestion\)"/)
 })
+
+test('public category intro is localized, with authored API descriptions taking precedence', () => {
+  const { categoryDisplayDescription } = useCategoryDisplay()
+  const category = { slug: 'kosmetika-dlia-volossia-shampun', description: '  ' }
+  locale.value = 'uk'
+  assert.match(categoryDisplayDescription(category), /^Шампуні/)
+  locale.value = 'en'
+  assert.match(categoryDisplayDescription(category), /^Browse shampoos/)
+  assert.equal(categoryDisplayDescription({ ...category, description_en: 'Authored English intro' }), 'Authored English intro')
+  assert.equal(categoryDisplayDescription({ ...category, description: 'Опис із каталогу' }), 'Опис із каталогу')
+  assert.equal(categoryDisplayDescription({ slug: 'unknown' }), '')
+  locale.value = 'uk'
+})

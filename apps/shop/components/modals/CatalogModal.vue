@@ -50,7 +50,6 @@ const BRAND_SEARCH_DEBOUNCE_MS = 250
 const categoryLinks: CatalogNavLink[] = [
   { slug: 'kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD', to: '' },
   { slug: 'kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR', to: '' },
-  { slug: 'kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING', to: '' },
   { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY', to: '' },
   { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES', to: '' },
   { uk: 'БРЕНДИ', en: 'BRANDS', to: '', kind: 'brands' },

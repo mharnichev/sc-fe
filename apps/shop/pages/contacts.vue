@@ -35,7 +35,7 @@ const submit = async () => {
 }
 
 useSeo(
-  () => terms.value.contacts.title,
+  () => terms.value.seo.contactsTitle,
   () => terms.value.contacts.subtitle,
 )
 </script>

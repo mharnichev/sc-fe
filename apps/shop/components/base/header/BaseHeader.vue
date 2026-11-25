@@ -16,7 +16,6 @@ const MENU_CLOSE_DELAY = 180
 const HEADER_CATEGORY_LINKS = [
   { slug: 'kosmetika-dlia-borodi', uk: 'ДЛЯ БОРОДИ', en: 'FOR BEARD' },
   { slug: 'kosmetika-dlia-volossia', uk: 'ДЛЯ ВОЛОССЯ', en: 'FOR HAIR' },
-  { slug: 'kosmetika-dlia-golinnia', uk: 'ДЛЯ ГОЛІННЯ', en: 'FOR SHAVING' },
   { slug: 'kosmetika-dlia-tila', uk: 'ДЛЯ ТІЛА', en: 'FOR BODY' },
   { slug: 'profesiini-grebeni-ta-shchitki', uk: 'ГРЕБЕНІ ТА ЩІТКИ', en: 'COMBS AND BRUSHES' },
 ] as const
@@ -273,6 +272,7 @@ const openBasket = () => {
   closeOverlays()
   modal.openModal('UserBasketModal')
 }
+const openCatalog = () => modal.openModal('CatalogModal')
 const isHydrated = ref(false)
 
 onMounted(() => {
@@ -298,7 +298,7 @@ const openFavorites = async () => {
 const updateHeaderVisibility = () => {
   const currentY = window.scrollY
 
-  if (currentY <= ALWAYS_SHOW_TOP) {
+  if (currentY <= ALWAYS_SHOW_TOP || !window.matchMedia('(min-width: 768px)').matches) {
     isHeaderHidden.value = false
     lastYPosition.value = currentY
     return
@@ -329,6 +329,7 @@ watch(() => route.fullPath, () => closeOverlays())
 watch(() => modal.isVisible, (visible) => { if (visible) closeOverlays() }, { flush: 'sync' })
 
 const handleWindowResize = () => {
+  updateHeaderVisibility()
   if (window.innerWidth >= 768 && isMobileSearchOpen.value) {
     const path = route.fullPath
     closeMobileSearch()
@@ -352,7 +353,7 @@ onMounted(() => {
 
   if (typeof window.ResizeObserver === 'function' && shopHeader.value) {
     headerResizeObserver = new ResizeObserver(syncHeaderState)
-    headerResizeObserver.observe(shopHeader.value)
+    headerResizeObserver.observe(shopHeader.value, { box: 'border-box' })
   }
 
   document.addEventListener('focusin', containMobileSearchFocus)
@@ -398,6 +399,9 @@ onBeforeUnmount(() => {
             >
           </NuxtLink>
 
+          <button class="shop-header__action shop-header__tablet-catalog" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
+            <BaseIcon name="catalog" size="xs" />
+          </button>
           <HeaderSearch
             ref="desktopSearch"
             :category-tree="categoryTree"
@@ -486,6 +490,9 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="shop-header__mobile">
+      <button class="shop-header__mobile-btn" type="button" :aria-label="terms.common.catalog" @click="openCatalog">
+        <BaseIcon name="catalog" size="xs" />
+      </button>
       <NuxtLink to="/" class="shop-header__mobile-logo" :aria-label="terms.brand.homeLabel" @click="closeOverlays">
         <img :src="shopAsset('/soulcuts/sc-logo-name-dark.webp')" alt="Soul Cuts" width="140" height="40">
       </NuxtLink>
@@ -560,7 +567,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.shop-header__popular-btn.shop-header__popular-btn--sale { color: #c2410c; }
+.shop-header__popular-btn.shop-header__popular-btn--sale {
+  padding-inline: calc(0.95rem - 0.35em);
+  color: #c2410c;
+}
+
+.shop-header__popular-btn--sale :deep(.base-animated-menu-text__stack > span) {
+  display: block;
+  padding: 0.2em 0.35em;
+}
 
 .shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover) {
   isolation: isolate;
@@ -570,10 +585,10 @@ onBeforeUnmount(() => {
 .shop-header__popular-btn--sale :deep(.base-animated-menu-text__hover)::before {
   position: absolute;
   z-index: -1;
-  inset: -0.345em -0.3em;
+  inset: 0.05em 0.05em;
   background: #c2410c;
   content: '';
-  transform: translate(0.08em, -0.04em) rotate(-1.5deg) skewX(-4deg);
+  transform: skewX(-4deg);
   pointer-events: none;
 }
 
@@ -1036,18 +1051,22 @@ onBeforeUnmount(() => {
 }
 
 .shop-header__mobile {
+  --mobile-header-gutter: max(0.85rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   position: relative;
   z-index: 83;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.65rem var(--mobile-header-gutter);
 }
 
 .shop-header__mobile-logo {
-  justify-self: start;
   width: 7.5rem;
+}
+
+.shop-header__tablet-catalog {
+  display: none;
 }
 
 .shop-header__mobile-logo img {
@@ -1062,7 +1081,14 @@ onBeforeUnmount(() => {
   gap: 0.1rem;
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
+  .shop-header {
+    position: fixed;
+    inset-inline: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    transition: none;
+  }
+
   .shop-header__category-list {
     left: 0;
     width: 100vw;
@@ -1097,6 +1123,21 @@ onBeforeUnmount(() => {
 
   .shop-header__mobile {
     display: none;
+  }
+}
+
+@media (768px <= width < 1024px), (768px <= width < 1440px) and (pointer: coarse) {
+  .shop-header__primary {
+    gap: 0.5rem;
+  }
+
+  .shop-header__soulcuts {
+    margin-inline-end: 0.5rem;
+  }
+
+  .shop-header__tablet-catalog {
+    display: inline-flex;
+    flex-shrink: 0;
   }
 }
 </style>

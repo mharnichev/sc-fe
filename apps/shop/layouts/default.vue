@@ -31,7 +31,7 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen" :style="layoutStyle">
+  <div class="shop-layout--fixed-header min-h-screen" :style="layoutStyle">
     <BaseHeader @visibility-change="handleHeaderVisibilityChange" />
     <main class="relative z-10 min-h-screen bg-white">
       <div class="site-container" :class="{ 'site-container--home': route.path === '/' }">
@@ -49,6 +49,13 @@ useHead({
 </template>
 
 <style scoped>
+@media (width < 768px) {
+  .shop-layout--fixed-header {
+    --shop-header-offset: calc(3.8rem + env(safe-area-inset-top, 0px));
+    padding-top: var(--shop-header-offset);
+  }
+}
+
 .site-container--home {
   padding-bottom: 0;
 }

@@ -24,7 +24,7 @@ let originalCart = ''
 let originalScope = ''
 const scope = () => auth.isAuthenticated ? `customer:${auth.customer?.id}` : 'guest'
 const text = computed(() => locale.value === 'uk' ? {
-  title: 'Ваше незавершене оформлення', intro: 'Перевірте збережені товари. Це ще не замовлення.',
+  title: 'Продовжити оформлення', intro: 'Перевірте збережені товари. Замовлення ще не створено.',
   review: 'Переглянути збережені товари', apply: 'Використати ці товари для оформлення',
   confirm: 'Я перевірив(-ла) актуальні товари та погоджуюся замінити товари оформлення в цій вкладці.',
   invalid: 'Посилання недійсне, прострочене або недоступне для цієї сесії. Відкрийте кошик і почніть оформлення знову.',
@@ -32,7 +32,7 @@ const text = computed(() => locale.value === 'uk' ? {
   basket: 'Відкрити кошик',
   pending: 'Попередній запит оформлення в цій вкладці ще не вирішено або його стан недоступний. Перейдіть до оформлення, перш ніж відновлювати товари.',
 } : {
-  title: 'Your unfinished checkout', intro: 'Review the saved items. This is not an order yet.',
+  title: 'Continue checkout', intro: 'Review your saved items. An order hasn’t been placed yet.',
   review: 'Review saved items', apply: 'Use these items for checkout',
   confirm: 'I reviewed the current items and agree to replace the checkout items in this tab.',
   invalid: 'This link is invalid, expired or unavailable for this session. Open your basket and start checkout again.',

@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
         <div class="flex w-full flex-col gap-8 min-[560px]:flex-1 md:gap-12" data-reveal="soft" data-reveal-delay="220">
           <div class="flex w-full flex-col">
             <SectionLabel>{{ terms.home.intro.label }}</SectionLabel>
-            <p class="mt-4 max-w-5xl text-2xl font-semibold uppercase leading-tight text-white lg:mt-6 lg:text-3xl">
+            <p class="section-title mt-1 max-w-5xl text-2xl font-semibold uppercase leading-tight text-white lg:mt-6 lg:text-3xl">
               {{ terms.home.intro.quote }}
             </p>
           </div>
@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
               <p
                 v-for="paragraph in visibleIntroText"
                 :key="paragraph"
-                class="mt-3 text-sm leading-6 text-white/60 first:mt-0 md:mt-4 md:text-base md:leading-8"
+                class="section-description mt-3 text-sm leading-6 text-white/60 first:mt-0 md:mt-4 md:text-base md:leading-8"
               >
                 {{ paragraph }}
               </p>
@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
                 <p
                   v-for="paragraph in accordionIntroText"
                   :key="paragraph"
-                  class="mt-3 text-sm leading-6 text-white/60 md:mt-4 md:text-base md:leading-8"
+                  class="section-description mt-3 text-sm leading-6 text-white/60 md:mt-4 md:text-base md:leading-8"
                 >
                   {{ paragraph }}
                 </p>
@@ -149,14 +149,12 @@ onBeforeUnmount(() => {
             <button
               v-if="hasIntroAccordion"
               type="button"
-              class="type-meta mt-4 inline-flex items-center gap-2 text-sm text-white"
+              class="type-meta mt-4 inline-flex items-center gap-2 text-[10px] text-white"
               :aria-expanded="isIntroExpanded"
               aria-controls="intro-philosophy-text"
               @click="isIntroExpanded = !isIntroExpanded"
             >
-              <BaseHoverUnderlineText>
-                {{ isIntroExpanded ? terms.home.intro.readLess : terms.home.intro.readAll }}
-              </BaseHoverUnderlineText>
+              {{ isIntroExpanded ? terms.home.intro.readLess : terms.home.intro.readAll }}
               <span class="intro-accordion-arrow h-2 w-2 border-b border-r border-current" :class="{ 'is-open': isIntroExpanded }" aria-hidden="true" />
             </button>
           </div>

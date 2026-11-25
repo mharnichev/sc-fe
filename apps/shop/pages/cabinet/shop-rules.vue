@@ -2,9 +2,9 @@
 const { terms } = useShopLocale()
 
 const sections = computed(() => [
-  { id: 'delivery', icon: 'nova-post', title: terms.value.common.delivery, summary: terms.value.support.novaPost, text: terms.value.support.novaPostPrice, detail: terms.value.support.shippingNote3 },
-  { id: 'payment', icon: 'shopping-cart', title: terms.value.common.payment, summary: terms.value.support.cash, text: terms.value.support.novaPostBranch, detail: terms.value.support.shippingNote2 },
-  { id: 'returns', icon: 'arrow-left', title: terms.value.common.returns, summary: terms.value.support.returnWindow, text: terms.value.support.returnByDelivery, detail: terms.value.support.returnRequirement2 },
+  { id: 'delivery', icon: 'nova-post', title: terms.value.common.delivery, text: terms.value.support.shipping },
+  { id: 'payment', icon: 'shopping-cart', title: terms.value.common.payment, text: terms.value.support.payment },
+  { id: 'returns', icon: 'arrow-left', title: terms.value.common.returns, text: terms.value.support.returns },
 ])
 
 useSeo(() => terms.value.cabinet.shopRules, () => terms.value.support.description)
@@ -24,9 +24,7 @@ useSeo(() => terms.value.cabinet.shopRules, () => terms.value.support.descriptio
             <span class="account-rules__number">0{{ index + 1 }}</span>
           </div>
           <h2>{{ section.title }}</h2>
-          <h3>{{ section.summary }}</h3>
           <p>{{ section.text }}</p>
-          <p class="account-rules__detail">{{ section.detail }}</p>
           <BaseButton :to="`/delivery-payment#${section.id}`" variant="text" size="sm" class="account-rules__source">
             <BaseHoverUnderlineText>{{ section.title }}</BaseHoverUnderlineText>
             <BaseIcon class="account-rules__source-arrow" name="arrow-right" size="xxs" />
@@ -57,9 +55,7 @@ useSeo(() => terms.value.cabinet.shopRules, () => terms.value.support.descriptio
 .account-rules__card-top { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: .75rem; }
 .account-rules__number { color: #8a8a8a; font-size: .75rem; font-weight: 700; letter-spacing: .12em; }
 .account-rules__card h2 { font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
-.account-rules__card h3 { font-size: .9rem; font-weight: 700; line-height: 1.5; }
 .account-rules__card p { color: #737373; font-size: .85rem; line-height: 1.65; overflow-wrap: anywhere; }
-.account-rules__card .account-rules__detail { padding-top: .85rem; border-top: 1px solid rgb(0 0 0 / .08); width: 100%; }
 .account-rules__source { margin-top: auto; text-decoration: none; }
 .account-rules__source :deep(.account-rules__source-arrow) { transition: transform 432ms cubic-bezier(0.3, 1, 0.3, 1); }
 .account-rules__source:focus-visible :deep(.account-rules__source-arrow) { transform: rotate(90deg); }

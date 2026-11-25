@@ -83,6 +83,11 @@ useSeo(
 
 <template>
   <div class="space-y-16">
+    <header class="space-y-3">
+      <h1 class="section-title type-title-strong">{{ terms.home.heading }}</h1>
+      <p class="section-subtitle max-w-2xl text-stone-600">{{ terms.home.intro }}</p>
+    </header>
+
     <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
     <section
@@ -97,7 +102,7 @@ useSeo(
           <h2 class="section-title type-title-strong">
             {{ terms.home.popularTitle }}
           </h2>
-          <p>{{ terms.home.popularDescription }}</p>
+          <p class="section-subtitle">{{ terms.home.popularDescription }}</p>
         </div>
         <BaseButton class="main-page__popular-action" to="/top" variant="outline-dark">
           {{ terms.home.popularCta }}
@@ -120,7 +125,7 @@ useSeo(
             :key="`popular-${product.id}-${index}`"
             class="main-page__popular-card"
           >
-            <CatalogProductTile :product="product" />
+            <CatalogProductTile :product="product" :image-priority="index === 0 ? 'high' : undefined" />
           </li>
         </template>
       </ul>
@@ -167,12 +172,10 @@ useSeo(
   min-width: 0;
 }
 
-.main-page__popular-copy p {
+.main-page__popular-copy .section-subtitle {
   max-width: 42rem;
   padding-top: 0.5rem;
   color: #57534e;
-  font-size: 0.875rem;
-  line-height: 1.75rem;
 }
 
 .main-page__popular-action {

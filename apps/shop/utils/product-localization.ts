@@ -25,7 +25,7 @@ export const localizedProductSuggestion = (
   return product?.name_en?.trim() ? localizedProductName(product, locale) : suggestion
 }
 
-export type ProductContentField = 'description' | 'short_description' | 'ingredients'
+export type ProductContentField = 'description' | 'short_description' | 'ingredients' | 'usage'
 type ProductContent = Partial<Record<ProductContentField | `${ProductContentField}_en`, string | null>>
 
 export const localizedProductContent = (product: ProductContent, field: ProductContentField, locale: string): string =>

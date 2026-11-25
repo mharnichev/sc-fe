@@ -115,7 +115,7 @@ test('desktop heading shares its row with a usable close control in every result
 
 test('mobile keeps one close control and contains focus @mobile', async ({ page, baseURL }) => {
   const fixture = await prepare(page, baseURL!, 390)
-  const trigger = page.locator('.shop-header__mobile-btn').first()
+  const trigger = page.locator('button[aria-controls="shop-mobile-search"]')
   await trigger.click()
   const panel = page.locator('#shop-mobile-search')
   const input = panel.getByRole('searchbox')

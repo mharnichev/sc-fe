@@ -48,3 +48,13 @@ body {
   letter-spacing: var(--letter-spacing-meta);
   text-transform: uppercase;
 }
+
+.section-title {
+  font-family: var(--font-family-primary);
+  font-weight: var(--font-weight-section-title);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  text-shadow: 2.4px -0.4px 0 #000;
+  -webkit-text-fill-color: white;
+  -webkit-text-stroke: 1px #000;
+}

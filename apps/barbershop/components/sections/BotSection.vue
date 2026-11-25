@@ -11,13 +11,13 @@ const botLink = 'https://t.me/SoulcutsBot'
       <div class="grid gap-6 p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_15rem] md:p-8 lg:grid-cols-[minmax(0,1fr)_16rem]" data-reveal="soft">
         <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] items-start gap-4 sm:grid-cols-[minmax(0,1fr)_8rem] md:contents">
           <div class="md:col-start-1">
-            <p class="type-eyebrow inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs text-sky-100">
+            <p class="section-subtitle type-eyebrow inline-flex border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-xs text-sky-100">
               {{ terms.home.bot.badge }}
             </p>
-            <h2 class="mt-5 text-2xl font-semibold uppercase leading-none tracking-normal text-white sm:text-2xl md:text-4xl">
+            <h2 class="section-title mt-5 text-2xl font-semibold uppercase leading-none tracking-normal text-white sm:text-2xl md:text-4xl">
               {{ terms.home.bot.title }}
             </h2>
-            <p class="mt-5 max-w-2xl text-sm leading-6 text-white/68 md:text-lg md:leading-8">
+            <p class="section-description mt-5 max-w-2xl text-sm leading-6 text-white/68 md:text-lg md:leading-8">
               {{ terms.home.bot.description }}
             </p>
           </div>

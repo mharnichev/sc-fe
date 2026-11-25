@@ -33,15 +33,14 @@ test('base defaults SSR closed; explicit open and preview SSR expose content wit
   }
 })
 
-test('page description SSR is expanded and inert until client measurement', async () => {
+test('page description SSR renders the full text before client measurement', async () => {
   const logic = page.slice(page.indexOf('const descriptionElement ='), page.indexOf('const plainProductDescription ='))
-  const template = page.match(/<BaseAccordion\s+v-if="productDescriptionHtml"[\s\S]*?<\/BaseAccordion>/)[0]
-  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const productText = {description: 'Description'}; ${logic}</script><template>${template}</template>`)
+  const template = page.match(/<div v-if="productDescriptionHtml" class="product-description">[\s\S]*?<\/BaseButton>\s*<\/div>/)[0]
+  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const productDetailsId = 'product'; ${logic}</script><template>${template}</template>`)
   const app = Vue.createSSRApp(Description)
-  app.component('BaseAccordion', Accordion)
+  app.component('BaseButton', { render: () => Vue.h('button') })
+  app.component('BaseIcon', { render: () => null })
   const html = await renderToString(app)
-  assert.match(html, /<details[^>]* open/)
-  assert.match(html, /aria-disabled="true"/)
-  assert.match(html, /aria-expanded="true"/)
+  assert.doesNotMatch(html, /inert|max-height|<button/)
   assert.match(html, /<p>Text<\/p>/)
 })

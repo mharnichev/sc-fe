@@ -43,11 +43,11 @@ const { data: brands, pending, error, refresh } = await useAsyncData(
   () => domain.getBrands({ hasActiveProducts: true }),
 )
 const copy = computed(() => locale.value === 'uk' ? {
-  description: 'Знайдіть свій бренд. Відкрийте догляд, який підходить саме вам.',
+  description: 'Бренди розташовані за алфавітом. Виберіть назву, щоб переглянути товари цього бренду.',
   alphabet: 'Бренди за алфавітом',
   noLogo: 'Логотип незабаром',
 } : {
-  description: 'Find your brand. Discover the care that works for you.',
+  description: 'Browse grooming brands by name and select one to see its products.',
   alphabet: 'Brands alphabetically',
   noLogo: 'Logo coming soon',
 })
@@ -97,13 +97,14 @@ const markLogoFailed = (id: number) => {
   failedLogos.value = new Set(failedLogos.value).add(id)
 }
 
-useSeo(() => terms.value.catalog.allBrands, () => copy.value.description)
+useSeo(() => terms.value.seo.brandsTitle, () => copy.value.description)
 </script>
 
 <template>
   <section class="brands-page">
     <header class="brands-page__heading">
       <h1 class="type-title-strong">{{ terms.catalog.allBrands }}</h1>
+      <p class="mt-3 text-sm leading-6 text-stone-600">{{ copy.description }}</p>
     </header>
 
     <div class="brands-page__tools">

@@ -58,10 +58,10 @@ onBeforeUnmount(() => {
       <div class="mb-8 flex flex-col gap-5 md:mb-10 md:flex-row md:items-end md:justify-between" data-reveal="soft">
         <div>
           <SectionLabel class="text-white/60">{{ terms.home.blog.label }}</SectionLabel>
-          <h2 class="section-title-inverse mt-4 max-w-3xl">
+          <h2 class="section-title mt-1 max-w-3xl text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-white">
             {{ terms.home.blog.title }}
           </h2>
-          <p class="mt-4 max-w-xl text-sm leading-7 text-white/58 sm:text-base">
+          <p class="section-description mt-4 max-w-xl text-sm text-white/58 sm:text-base sm:leading-7">
             {{ terms.home.blog.description }}
           </p>
         </div>
@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
                 </picture>
               </template>
               <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/5 to-transparent" />
-              <p class="type-meta absolute left-5 top-20 bg-neutral-950/70 px-3 py-2 text-[11px] text-white/78 backdrop-blur sm:left-7 sm:top-7">
+              <p class="section-subtitle type-meta absolute left-5 top-20 bg-neutral-950/70 px-3 py-2 text-[11px] text-white/78 backdrop-blur sm:left-7 sm:top-7">
                 {{ terms.home.blog.lead.category }}
               </p>
               <div class="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-9">
@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
                   <time datetime="2026-07-14">{{ terms.home.blog.lead.date }}</time>
                   <span>{{ terms.home.blog.lead.readTime }}</span>
                 </div>
-                <h3 class="type-display mt-4 max-w-4xl text-3xl leading-[0.98] text-white sm:text-5xl lg:text-6xl">
+                <h3 class="section-title type-display mt-1 max-w-4xl text-2xl leading-[0.98] text-white sm:text-5xl lg:text-6xl">
                   {{ terms.home.blog.lead.title }}
                 </h3>
               </div>
@@ -125,10 +125,10 @@ onBeforeUnmount(() => {
               >
             </div>
             <div class="flex flex-col justify-end p-5 pr-24 sm:p-6 lg:p-7">
-              <p class="type-meta text-[11px] text-white/48">
+              <p class="section-subtitle type-meta text-[11px] text-white/48">
                 {{ terms.home.blog.featured.category }}
               </p>
-              <h3 class="type-card-title mt-4 text-2xl leading-tight text-white lg:text-3xl">
+              <h3 class="section-title type-card-title mt-1 text-2xl leading-tight text-white lg:text-3xl">
                 {{ terms.home.blog.featured.title }}
               </h3>
               <time class="type-meta mt-5 text-xs text-white/42" datetime="2026-03-16">

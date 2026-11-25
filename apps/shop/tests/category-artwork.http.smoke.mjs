@@ -40,7 +40,7 @@ for (const locale of ['uk', 'en']) {
     const html = await response.text()
     assert.ok(html.includes('/shop/illustrations/retro-cartoon-404.png'))
     assert.match(html, /<h1[^>]*>/)
-    assert.ok(html.includes(locale === 'en' ? 'This page wandered off' : 'Ця сторінка кудись поділася'))
+    assert.ok(html.includes(locale === 'en' ? 'Page not found' : 'Сторінку не знайдено'))
     assert.ok(html.includes('>404</span>'))
   }
 }

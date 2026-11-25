@@ -11,12 +11,12 @@ const { locale } = useShopLocale()
 const shopAsset = useShopAsset()
 const isNotFound = computed(() => props.error.statusCode === 404)
 const title = computed(() => {
-  if (locale.value === 'en') return isNotFound.value ? 'This page wandered off' : 'Something went wrong'
-  return isNotFound.value ? 'Ця сторінка кудись поділася' : 'Щось пішло не так'
+  if (locale.value === 'en') return isNotFound.value ? 'Page not found' : 'Something went wrong'
+  return isNotFound.value ? 'Сторінку не знайдено' : 'Щось пішло не так'
 })
 const description = computed(() => {
-  if (locale.value === 'en') return isNotFound.value ? 'Try the catalog or return to the home page.' : 'Please refresh the page or try again in a moment.'
-  return isNotFound.value ? 'Спробуйте відкрити каталог або поверніться на головну.' : 'Оновіть сторінку або спробуйте ще раз за мить.'
+  if (locale.value === 'en') return isNotFound.value ? 'Browse the catalog to find a product, or go back to the home page.' : 'Please refresh the page or try again in a moment.'
+  return isNotFound.value ? 'Знайдіть потрібний товар у каталозі або поверніться на головну.' : 'Оновіть сторінку або спробуйте ще раз за мить.'
 })
 
 useHead({

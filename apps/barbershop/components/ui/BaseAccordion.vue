@@ -48,10 +48,10 @@ const setOpen = (open: boolean) => {
 }
 
 const animate = (open: boolean) => {
-  if (!details.value || !summary.value || !content.value) return
+  if (!details.value || !summary.value) return
   clearAnimation()
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (!content.value || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     setOpen(open)
     return
   }
@@ -122,7 +122,7 @@ onBeforeUnmount(clearAnimation)
         <path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </summary>
-    <div ref="content" :class="contentClass">
+    <div v-if="$slots.default" ref="content" :class="contentClass">
       <slot />
     </div>
   </details>
