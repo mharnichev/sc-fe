@@ -1,0 +1,71 @@
+name: Publish Stories parallax images
+on:
+  push:
+    branches: [codex/stories-parallax-images]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: barbershop
+            rev: ce9b0744dd2d5a518f0f0fe3d7190428f52d5aaa
+            repo: admin-rewards-20261030-pr40
+            route: '/'
+          - app: shop
+            rev: fd50a609a47495a32b455ef661819d087a8477af
+            repo: shop-residual-20261101
+            route: '/shop/'
+    env:
+      APP: ${{ matrix.app }}
+      REV: ${{ matrix.rev }}
+      ROUTE: ${{ matrix.route }}
+      IMAGE: ghcr.io/mharnichev/sc-fe/${{ matrix.repo }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.rev }}
+          persist-credentials: false
+      - name: Build pinned app source
+        run: |
+          test "$(git rev-parse HEAD)" = "$REV"
+          docker build --platform linux/amd64 -f "apps/$APP/Dockerfile" \
+            --label "org.opencontainers.image.source=https://github.com/mharnichev/sc-fe" \
+            --label "org.opencontainers.image.revision=$REV" -t "$IMAGE:stories-$APP-$REV" .
+      - name: Verify rendered footer and compiled animation
+        run: |
+          set -euo pipefail
+          cid="$(docker run -d --network none -e NUXT_API_UPSTREAM_BASE=http://127.0.0.1:8000/api/v1 \
+             -e NUXT_API_BASE=http://127.0.0.1:8000/api/v1 -e NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1 "$IMAGE:stories-$APP-$REV")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker exec "$cid" node --input-type=module -e '
+            const url = "http://127.0.0.1:3000" + process.argv[1];
+            for (let i=0;i<15;i++) {
+              try {
+                const r=await fetch(url,{signal:AbortSignal.timeout(3000)});
+                if(r.ok && (await r.text()).includes("footer-reveal__content")) process.exit(0);
+              } catch {}
+              await new Promise(r=>setTimeout(r,500));
+            }
+            process.exit(1);
+          ' "$ROUTE"
+          docker exec "$cid" sh -c 'find .output/public -name "*.css" -exec grep -l "animation-timeline:--footer-reveal" {} +' | grep .
+          if [[ "$APP" == barbershop ]]; then
+            docker exec "$cid" sh -c 'find .output/public -name "*.css" -exec grep -l "animation-timeline:--scroll-parallax" {} +' | grep .
+          fi
+      - name: Publish verified image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          tag="$IMAGE:stories-$APP-$REV"
+          docker push "$tag"
+          digest="$(docker image inspect "$tag" --format '{{index .RepoDigests 0}}')"
+          [[ "$digest" =~ @sha256:[0-9a-f]{64}$ ]]
+          printf '%s %s\n' "$APP" "$digest" | tee -a "$GITHUB_STEP_SUMMARY"
