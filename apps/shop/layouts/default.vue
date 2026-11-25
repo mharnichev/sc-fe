@@ -33,13 +33,15 @@ useHead({
 <template>
   <div class="shop-layout--fixed-header min-h-screen" :style="layoutStyle">
     <BaseHeader @visibility-change="handleHeaderVisibilityChange" />
-    <main class="relative z-10 min-h-screen">
+    <main class="relative z-10 min-h-screen bg-white">
       <div class="site-container" :class="{ 'site-container--home': route.path === '/' }">
         <slot />
       </div>
       <HomeJournalSection v-if="route.path === '/'" class="home-journal-section" />
     </main>
-    <BaseFooter />
+    <div class="footer-reveal">
+      <BaseFooter class="footer-reveal__content" />
+    </div>
     <BaseBottomBar />
     <ClientOnly><ShopSupportLauncher /></ClientOnly>
     <BasePageTransitionOverlay :visible="isHydrated && isPageTransitionVisible" />
@@ -60,5 +62,30 @@ useHead({
 
 .home-journal-section {
   margin-top: 4rem;
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  @supports (animation-timeline: view()) {
+    .footer-reveal {
+      position: relative;
+      z-index: 0;
+      view-timeline: --footer-reveal block;
+    }
+
+    .footer-reveal__content {
+      animation: footer-reveal 1ms linear both;
+      animation-timeline: --footer-reveal;
+      animation-range: entry;
+    }
+
+    .footer-reveal:focus-within .footer-reveal__content {
+      animation-name: none;
+    }
+  }
+}
+
+@keyframes footer-reveal {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
 }
 </style>
