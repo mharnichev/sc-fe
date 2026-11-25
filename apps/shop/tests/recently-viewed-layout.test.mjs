@@ -205,7 +205,7 @@ test('compact header and basket layout retain base-aware assets and valid copy',
   assert.match(basket, /\.basket-sidebar__total\s*\{[^}]*flex-wrap: wrap/s)
   assert.match(basket, /terms\.basket\.orderTotal/)
   assert.match(basket, /terms\.basket\.discountNote/)
-  assert.match(basket, /terms\.basket\.proceedToPayment/)
+  assert.match(basket, /terms\.basket\.proceedToCheckout/)
   const copy = await readFile(new URL('../data/locale.ts', import.meta.url), 'utf8')
   assert.match(copy, /Остаточна сума підтверджується під час створення замовлення/)
   assert.match(copy, /The final total is confirmed when your order is placed/)

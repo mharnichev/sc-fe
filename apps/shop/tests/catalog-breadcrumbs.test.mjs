@@ -42,7 +42,7 @@ test('popular keeps its visible heading and description without catalog breadcru
   assert.equal(className(heading), 'catalog-route__title section-title type-title-strong')
   assert.equal(heading.children.find(node => node.tag === 'BaseScribbleOutline').children[0].content.content,
     'saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title')
-  assert.ok(wrapper.children.flatMap(node => node.children || []).some(node => className(node) === 'catalog-route__description'))
+  assert.ok(wrapper.children.flatMap(node => node.children || []).some(node => className(node).split(/\s+/).includes('catalog-route__description')))
   assert.match(read('pages/top.vue'), /<CatalogAllGoodsRoute top-only\s*\//)
   assert.match(read('pages/catalog.vue'), /<CatalogAllGoodsRoute\s*\//)
 })

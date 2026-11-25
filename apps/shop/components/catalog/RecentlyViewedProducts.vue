@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
         <h2 class="section-title type-title-strong">
           {{ terms.common.recentlyViewed }}
         </h2>
-        <p>{{ terms.common.recentlyViewedDescription }}</p>
+        <p class="section-subtitle">{{ terms.common.recentlyViewedDescription }}</p>
       </div>
 
       <div class="recently-viewed-products__controls">
@@ -163,12 +163,12 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.recently-viewed-products__copy p {
+.recently-viewed-products__copy .section-subtitle {
+  --section-subtitle-line-height: 1.6;
+
   max-width: 36rem;
   padding-top: 0.375rem;
   color: #737373;
-  font-size: 0.875rem;
-  line-height: 1.6;
 }
 
 .recently-viewed-products__controls {

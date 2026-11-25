@@ -330,7 +330,19 @@ a {
   }
 
   .section-title {
-    @apply text-3xl leading-[1.2] tracking-normal text-stone-900;
+    @apply text-[24px] leading-[1.2] tracking-normal text-stone-900 md:text-3xl md:leading-[1.2];
+  }
+
+  .section-subtitle {
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  @screen md {
+    .section-subtitle {
+      font-size: 0.875rem;
+      line-height: var(--section-subtitle-line-height, 1.75rem);
+    }
   }
 
   .section-title-inverse {

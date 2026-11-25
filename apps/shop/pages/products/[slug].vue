@@ -244,10 +244,8 @@ const descriptionElement = ref<HTMLElement | null>(null)
 const descriptionExpanded = ref(false)
 const descriptionCanCollapse = ref(false)
 const descriptionPreviewHeight = ref(0)
-const descriptionAccordionOpen = computed({
-  get: () => !descriptionCanCollapse.value || descriptionExpanded.value,
-  set: (value: boolean) => { descriptionExpanded.value = value },
-})
+const descriptionFullHeight = ref(0)
+const descriptionCollapsed = computed(() => descriptionCanCollapse.value && !descriptionExpanded.value)
 let descriptionObserver: ResizeObserver | undefined
 let descriptionFrame = 0
 let descriptionMounted = false
@@ -274,6 +272,7 @@ const measureDescription = () => {
   descriptionPreviewHeight.value = lines[9]
     ? Math.ceil(lines[9].bottom - element.getBoundingClientRect().top)
     : element.scrollHeight
+  descriptionFullHeight.value = element.offsetHeight
   descriptionCanCollapse.value = window.innerWidth < 1280 && lines.length > 10
 }
 const scheduleDescriptionMeasurement = () => {
@@ -540,13 +539,21 @@ const seoImages = computed(() => (indexableProduct.value?.images ?? []).flatMap(
     return []
   }
 }))
+const seoDescriptionExcerpt = computed(() => {
+  const description = plainProductDescription.value
+  if (description.length <= 170) return description
+
+  const excerpt = description.slice(0, 170)
+  const lastSpace = excerpt.lastIndexOf(' ')
+  return `${lastSpace > 0 ? excerpt.slice(0, lastSpace) : excerpt}…`
+})
 const seoDescription = computed(() => {
   const item = indexableProduct.value
   if (!item) return terms.value.seo.productFallbackDescription
   return (locale.value === 'en' ? '' : htmlToText(item.seo_description))
     || shortProductDescription.value
-    || plainProductDescription.value
-    || [...new Set([seoName.value, item.brand.name, item.package_size].filter(Boolean))].join(' · ')
+    || seoDescriptionExcerpt.value
+    || (seoName.value ? terms.value.seo.productDescription(seoName.value) : terms.value.seo.productFallbackDescription)
 })
 
 useSeo(
@@ -689,8 +696,8 @@ useHead(() => {
         <div class="product-page__info">
           <section class="product-buy">
 
-            <div class="product-buy__header">
-              <div>
+            <div>
+              <div class="product-buy__header">
                 <component
                   :is="product.brand.slug ? NuxtLink : 'span'"
                   v-if="product.brand.name"
@@ -700,38 +707,39 @@ useHead(() => {
                   <img v-if="brandLogoUrl" :src="brandLogoUrl" alt="" width="40" height="24">
                   <BaseHoverUnderlineText>{{ product.brand.name }}</BaseHoverUnderlineText>
                 </component>
-                <div class="product-buy__title-row">
-                  <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
-                </div>
-                <div class="product-buy__meta-row">
-                  <p v-if="productType" class="product-buy__type">{{ productType }}</p>
-                  <span v-if="productType" aria-hidden="true">/</span>
-                  <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+                <div class="product-buy__header-actions">
+                  <ProductStatusBadges class="product-buy__header-badges" :product="product" />
+                  <BaseButton
+                    class="product-buy__favorite"
+                    :class="{ 'product-buy__favorite--active': isFavorite }"
+                    type="button"
+                    variant="text"
+                    size="sm"
+                    shape="circle"
+                    :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
+                    @click="toggleFavorite"
+                  >
+                    <BaseIcon name="heart" size="xxs" effect="heart" />
+                  </BaseButton>
                 </div>
               </div>
-              <BaseButton
-                class="product-buy__favorite"
-                :class="{ 'product-buy__favorite--active': isFavorite }"
-                type="button"
-                variant="text"
-                size="sm"
-                shape="circle"
-                :aria-label="isFavorite ? terms.product.removeFavorite : terms.product.saveFavorite"
-                @click="toggleFavorite"
-              >
-                <BaseIcon name="heart" size="xxs" effect="heart" />
-              </BaseButton>
+              <div class="product-buy__title-row">
+                <h1 class="product-buy__name">{{ productDisplayName(product) }}</h1>
+              </div>
+              <div class="product-buy__meta-row">
+                <p v-if="productType" class="product-buy__type">{{ productType }}</p>
+                <span v-if="productType" aria-hidden="true">/</span>
+                <span class="product-buy__code">{{ terms.catalog.productCode }}: {{ productCode }}</span>
+              </div>
             </div>
 
-            <div class="product-buy__badges">
-              <ProductStatusBadges class="product-buy__header-badges" :product="product" />
+            <div v-if="averageRating || reviewsCount > 0" class="product-buy__badges">
               <BaseBadge v-if="averageRating" tone="dark">{{ averageRating }}/5</BaseBadge>
               <BaseBadge v-if="reviewsCount > 0" class="product-buy__badge--borderless" tone="neutral">
                 {{ reviewsCount }} {{ terms.product.reviews }}
               </BaseBadge>
             </div>
 
-            <p v-if="shortProductDescription" class="product-buy__summary">{{ shortProductDescription }}</p>
 
             <section v-if="volumeVariantProducts.length > 1" class="product-buy__variants" :aria-label="productText.chooseVolume">
               <h2 class="product-buy__variants-label">{{ volumeLabel }}</h2>
@@ -740,7 +748,7 @@ useHead(() => {
 
             <div class="product-buy__cost">
               <div class="product-buy__price-with-badge">
-                <ProductStatusBadges class="product-buy__cost-badges" :product="product" />
+                <ProductStatusBadges v-if="discount && discount.percent >= 5" class="product-buy__cost-badges" :product="product" />
                 <div class="product-buy__price-wrapper" :class="{ 'product-buy__price-wrapper--discount': discount }">
                   <p v-if="discount" class="product-buy__old-price">
                     {{ formatPrice(discount.compareAtPrice) }}
@@ -799,19 +807,41 @@ useHead(() => {
               :aria-labelledby="`${productDetailsId}-tab-description`"
               tabindex="0"
             >
-          <BaseAccordion
-            v-if="productDescriptionHtml"
-            v-model="descriptionAccordionOpen"
-            summary-class="product-description__summary"
-            :disabled="!descriptionCanCollapse"
-            :preview-height="descriptionCanCollapse ? descriptionPreviewHeight : 0"
-          >
-            <template #summary="{ open }">
-              {{ open ? terms.catalog.collapse : terms.home.showMore }}
-            </template>
-            <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
-          </BaseAccordion>
-              <p v-if="!productDescriptionHtml" class="product-reviews__muted">
+              <div v-if="productDescriptionHtml" class="product-description">
+                <BaseButton
+                  v-if="descriptionCanCollapse"
+                  class="product-description__chevron"
+                  variant="text"
+                  size="xs"
+                  :aria-label="descriptionExpanded ? terms.catalog.collapse : terms.home.showMore"
+                  :aria-expanded="descriptionExpanded"
+                  :aria-controls="`${productDetailsId}-description-content`"
+                  @click="descriptionExpanded = !descriptionExpanded"
+                >
+                  <BaseIcon name="chevron-down" size="xxs" />
+                </BaseButton>
+                <div
+                  :id="`${productDetailsId}-description-content`"
+                  class="product-description__preview"
+                  :style="{ maxHeight: descriptionCanCollapse ? `${descriptionCollapsed ? descriptionPreviewHeight : descriptionFullHeight}px` : undefined }"
+                  :inert="descriptionCollapsed"
+                >
+                  <div ref="descriptionElement" class="product-description__html" v-html="productDescriptionHtml" />
+                </div>
+                <BaseButton
+                  v-if="descriptionCanCollapse"
+                  class="product-description__toggle"
+                  variant="text"
+                  size="sm"
+                  :aria-expanded="descriptionExpanded"
+                  :aria-controls="`${productDetailsId}-description-content`"
+                  @click="descriptionExpanded = !descriptionExpanded"
+                >
+                  {{ descriptionExpanded ? terms.catalog.collapse : terms.home.showMore }}
+                </BaseButton>
+              </div>
+              <p v-else-if="shortProductDescription" class="product-description__html">{{ shortProductDescription }}</p>
+              <p v-else class="product-reviews__muted">
                 {{ locale === 'uk' ? 'Опис поки не додано.' : 'No description available yet.' }}
               </p>
             </div>
@@ -1056,8 +1086,8 @@ useHead(() => {
               />
             </div>
             <div class="product-buy__cost product-page-skeleton__cost">
-              <BaseSkeleton width="8rem" height="2rem" radius="0.375rem" />
-              <BaseSkeleton width="13rem" height="2.75rem" radius="0.375rem" />
+              <BaseSkeleton width="8rem" height="1.5rem" radius="0.375rem" />
+              <BaseSkeleton width="13rem" height="2.5rem" radius="0.375rem" />
             </div>
           </section>
 
@@ -1462,16 +1492,25 @@ useHead(() => {
 
 .product-buy__header {
   display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
-  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.product-buy__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+  margin-inline-start: auto;
 }
 
 .product-buy__brand {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  margin-bottom: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #262626;
   font-size: 12px;
   font-weight: 700;
@@ -1482,20 +1521,16 @@ useHead(() => {
   object-fit: contain;
 }
 
+
 .product-buy__name {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: 1px;
+  overflow-wrap: anywhere;
   color: #0a0a0a;
   text-transform: uppercase;
-}
-
-.product-buy__summary {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .product-buy__title-row {
@@ -1612,9 +1647,9 @@ useHead(() => {
 .product-buy__cost {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   align-items: stretch;
-  padding: 8px 12px;
+  padding: 4px 12px;
   background: #f5f5f5;
 }
 
@@ -1623,15 +1658,19 @@ useHead(() => {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
+  padding-block: 12px;
 }
 
 .product-buy__cost-badges {
   position: relative;
   flex: 0 0 auto;
-  width: 5.5rem;
-  height: 70px;
   align-items: center;
   flex-wrap: nowrap;
+}
+
+.product-buy__cost-badges :deep(.product-discount-sticker) {
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .product-buy__cost-badges :deep(.product-status-badges__item) {
@@ -1750,13 +1789,43 @@ useHead(() => {
   border-left: 0;
 }
 
-:deep(.product-description__summary) {
-  margin-bottom: 0.75rem;
-  font-size: 12px;
+.product-description {
+  position: relative;
 }
 
-:deep(.product-description__summary[aria-disabled="true"]) {
-  display: none;
+@media (width < 1280px) {
+  .product-description__preview {
+    margin-inline-end: 16px;
+  }
+}
+
+.product-description__chevron {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+}
+
+.product-description__preview {
+  overflow: clip;
+  transition: max-height 420ms cubic-bezier(0.3, 1, 0.3, 1);
+}
+
+.product-description__toggle {
+  margin-top: 0.75rem;
+}
+
+.product-description__chevron[aria-expanded="true"] :deep(svg) {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-description__preview {
+    transition: none;
+  }
+}
+
+.product-description__preview > .product-description__html {
+  display: flow-root;
 }
 
 .product-description__html,
@@ -2135,11 +2204,14 @@ useHead(() => {
   }
 
   .product-buy__cost {
-    min-height: 78px;
-    box-sizing: border-box;
+    gap: 12px;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .product-buy__price-with-badge {
+    padding-block: 0;
   }
 
   .product-buy__price-wrapper {

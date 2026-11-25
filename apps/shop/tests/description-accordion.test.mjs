@@ -33,19 +33,14 @@ test('base defaults SSR closed; explicit open and preview SSR expose content wit
   }
 })
 
-test('page description SSR is expanded and inert until client measurement', async () => {
+test('page description SSR renders the full text before client measurement', async () => {
   const logic = page.slice(page.indexOf('const descriptionElement ='), page.indexOf('const plainProductDescription ='))
-  const template = page.match(/<BaseAccordion\s+v-if="productDescriptionHtml"[\s\S]*?<\/BaseAccordion>/)[0]
-  const localeSource = await readFile(new URL('../data/locale.ts', import.meta.url), 'utf8')
-  const { code } = await transform(localeSource, { loader: 'ts', format: 'esm' })
-  const { shopTerms } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
-  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const terms = ref(shopTerms.uk); ${logic}</script><template>${template}</template>`, { shopTerms })
+  const template = page.match(/<div v-if="productDescriptionHtml" class="product-description">[\s\S]*?<\/BaseButton>\s*<\/div>/)[0]
+  const Description = await serverComponent(`<script setup lang="ts">const productDescriptionHtml = ref('<p>Text</p>'); const productDetailsId = 'product'; ${logic}</script><template>${template}</template>`)
   const app = Vue.createSSRApp(Description)
-  app.component('BaseAccordion', Accordion)
+  app.component('BaseButton', { render: () => Vue.h('button') })
+  app.component('BaseIcon', { render: () => null })
   const html = await renderToString(app)
-  assert.match(html, /<details[^>]* open/)
-  assert.match(html, /aria-disabled="true"/)
-  assert.match(html, /aria-expanded="true"/)
-  assert.ok(html.includes(shopTerms.uk.catalog.collapse))
+  assert.doesNotMatch(html, /inert|max-height|<button/)
   assert.match(html, /<p>Text<\/p>/)
 })

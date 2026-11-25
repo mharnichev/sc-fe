@@ -25,8 +25,8 @@ const { locale, terms } = useShopLocale()
 const config = useRuntimeConfig()
 const requestUrl = useRequestURL()
 const shopAsset = useShopAsset()
-const saleTitle = computed(() => locale.value === 'uk' ? 'Спеціальна пропозиція' : 'Special offer')
-const saleDescription = computed(() => locale.value === 'uk' ? 'Товари з актуальними знижками та спеціальними цінами.' : 'Products with current discounts and special prices.')
+const saleTitle = computed(() => terms.value.seo.saleTitle)
+const saleDescription = computed(() => terms.value.seo.saleDescription)
 const catalogKeyPrefix = props.saleOnly ? 'shop-sale' : props.topOnly ? 'shop-top' : 'shop-catalog'
 
 const readQueryValue = (value: unknown) =>
@@ -117,9 +117,16 @@ const selectedBrandWebsite = computed(() => {
   return selected.website || ''
 })
 const categoryNodes = computed(() => categoryTree.value || [])
-const categoryNode = computed(() => categoryPathBySlug(categoryNodes.value, category.value).at(-1))
+const categoryPath = computed(() => categoryPathBySlug(categoryNodes.value, category.value))
+const categoryNode = computed(() => categoryPath.value.at(-1))
 const categoryName = computed(() => categoryNode.value ? categoryDisplayName(categoryNode.value) : terms.value.catalog.title)
-const categoryDescription = computed(() => categoryNode.value ? categoryDisplayDescription(categoryNode.value) : '')
+const categoryTitle = computed(() => {
+  const parent = categoryPath.value.at(-2)
+  return parent ? `${categoryName.value} — ${categoryDisplayName(parent)}` : categoryName.value
+})
+const categoryDescription = computed(() => categoryNode.value
+  ? categoryDisplayDescription(categoryNode.value) || terms.value.seo.categoryDescription(categoryTitle.value)
+  : '')
 const introElement = ref<HTMLElement | null>(null)
 const introMeasure = ref<HTMLElement | null>(null)
 const introOverflows = ref(false)
@@ -319,15 +326,20 @@ onBeforeUnmount(() => {
   if (applyTimer) clearTimeout(applyTimer)
 })
 
+const seoPage = computed(() => Math.floor(offset.value / limit.value) + 1)
+
 useSeo(
   () => {
-    const title = props.saleOnly ? saleTitle.value : props.topOnly ? terms.value.home.popularTitle
-      : categoryNode.value ? categoryName.value : terms.value.seo.catalogTitle
-    const page = Math.floor(offset.value / limit.value) + 1
-    return page > 1 ? `${title} · ${terms.value.cabinet.pageLabel} ${page}` : title
+    const title = props.saleOnly ? saleTitle.value : props.topOnly ? terms.value.seo.topTitle
+      : categoryNode.value ? categoryTitle.value : selectedBrand.value?.name || terms.value.seo.catalogTitle
+    return seoPage.value > 1 ? `${title} · ${terms.value.cabinet.pageLabel} ${seoPage.value}` : title
   },
-  () => props.saleOnly ? saleDescription.value : props.topOnly ? terms.value.home.popularDescription
-    : categoryDescription.value || (categoryNode.value ? `${categoryName.value}. ${terms.value.seo.catalogDescription}` : terms.value.seo.catalogDescription),
+  () => {
+    const { seo, home, cabinet } = terms.value
+    const description = props.saleOnly ? saleDescription.value : props.topOnly ? home.popularDescription
+      : categoryDescription.value || selectedBrandDescription.value || seo.catalogDescription
+    return seoPage.value > 1 ? `${cabinet.pageLabel} ${seoPage.value}. ${description}` : description
+  },
   {},
   () => !productsError.value && (!category.value || Boolean(categoryNode.value)) && (!offset.value || offset.value < total.value),
 )
@@ -342,7 +354,7 @@ useSeo(
       />
       <header v-if="!topOnly && !saleOnly" class="catalog-route__category-header">
         <h1 class="section-title type-title-strong">{{ categoryName }}</h1>
-        <div v-if="categoryDescription" ref="introElement" class="catalog-route__intro">
+        <div v-if="categoryDescription" ref="introElement" class="catalog-route__intro section-subtitle">
           <span ref="introMeasure" class="catalog-route__intro-measure" aria-hidden="true">{{ categoryDescription }}</span>
           <p :id="introId" :class="{ 'catalog-route__intro-collapsed': !introExpanded }">{{ categoryDescription }}</p>
           <BaseButton
@@ -355,6 +367,7 @@ useSeo(
             @click="introExpanded = !introExpanded"
           >{{ introExpanded ? terms.catalog.collapse : terms.home.showMore }}</BaseButton>
         </div>
+        <p v-else-if="!category && !selectedBrand" class="catalog-route__description section-subtitle">{{ terms.catalog.intro }}</p>
       </header>
 
       <div v-if="topOnly || saleOnly" class="catalog-route__title-wrapper">
@@ -363,7 +376,7 @@ useSeo(
           <h1 class="catalog-route__title section-title type-title-strong">
             <BaseScribbleOutline>{{ saleOnly ? saleTitle : topOnly ? terms.home.popularTitle : terms.catalog.title }}</BaseScribbleOutline>
           </h1>
-          <p class="catalog-route__description">{{ saleOnly ? saleDescription : terms.home.popularDescription }}</p>
+          <p class="catalog-route__description section-subtitle">{{ saleOnly ? saleDescription : terms.home.popularDescription }}</p>
         </div>
       </div>
 
@@ -463,6 +476,7 @@ useSeo(
           kind="search"
           :seed="String(route.fullPath)"
           :title="productsError ? (locale === 'uk' ? 'Не вдалося завантажити товари' : 'Could not load products') : terms.catalog.empty"
+          :description="!productsError && selectedFilterCount ? terms.catalog.emptyFiltered : undefined"
         />
 
         <CatalogPagination
@@ -562,11 +576,10 @@ useSeo(
 }
 
 .catalog-route__description {
+  --section-subtitle-line-height: 1.6;
   max-width: 42rem;
   padding-top: 0.5rem;
   color: #737373;
-  font-size: 0.875rem;
-  line-height: 1.6;
 }
 
 .catalog-route__category-header {
@@ -577,6 +590,7 @@ useSeo(
 }
 
 .catalog-route__intro {
+  --section-subtitle-line-height: 1.5;
   position: relative;
   display: flex;
   min-width: 0;
@@ -584,8 +598,6 @@ useSeo(
   gap: 0.5rem;
   overflow: hidden;
   color: #525252;
-  font-size: 0.875rem;
-  line-height: 1.5;
 }
 
 .catalog-route__intro p {

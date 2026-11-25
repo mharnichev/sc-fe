@@ -238,7 +238,7 @@ const unavailableMessage = computed(() => terms.value.checkout.unavailableProduc
           {{ unavailableMessage }}
         </p>
         <BaseButton :to="cart.hasUnavailableItems ? undefined : '/checkout/purchase'" block :disabled="cart.syncing || cart.hasUnavailableItems" @click="hideBasketModal">
-          {{ terms.basket.proceedToPayment }}
+          {{ terms.basket.proceedToCheckout }}
         </BaseButton>
       </div>
     </template>

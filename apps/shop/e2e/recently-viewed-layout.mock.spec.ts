@@ -75,7 +75,7 @@ for (const [locale, width] of [['uk', 320], ['en', 1440]] as const) {
     await page.locator('.shop-header').getByRole('button', { name: locale === 'uk' ? 'Кошик' : 'Cart', exact: true }).filter({ visible: true }).click()
     await expect(page.getByText(locale === 'uk' ? 'Сума замовлення:' : 'Order total:', { exact: true })).toBeVisible()
     await expect(page.getByText(locale === 'uk' ? 'Остаточна сума підтверджується під час створення замовлення.' : 'The final total is confirmed when your order is placed.', { exact: true })).toBeVisible()
-    const proceed = page.getByRole('link', { name: locale === 'uk' ? 'Перейти до оплати' : 'Proceed to payment', exact: true })
+    const proceed = page.getByRole('link', { name: locale === 'uk' ? 'Перейти до оформлення' : 'Proceed to checkout', exact: true })
     await expect(proceed).toHaveAttribute('href', '/shop/checkout/purchase')
     await page.screenshot({ path: `/tmp/shop-release-${locale}-${width}.png`, animations: 'disabled' })
     expect(writes).toEqual([])
