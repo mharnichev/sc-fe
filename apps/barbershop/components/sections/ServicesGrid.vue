@@ -143,7 +143,7 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 <template>
   <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
-      <div class="mb-8 flex flex-col justify-between pb-6 sm:gap-4 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
+      <div class="mb-0 flex flex-col justify-between pb-6 sm:gap-4 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
         <div>
           <SectionLabel>{{ displaySectionLabel }}</SectionLabel>
           <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-neutral-950">
