@@ -15,7 +15,9 @@ useHead({
     <main class="relative z-10 bg-neutral-950">
       <slot />
     </main>
-    <BlogFooter />
+    <div class="footer-reveal">
+      <BlogFooter class="footer-reveal__content" />
+    </div>
     <LazyBlogSubscribeModal />
     <div
       data-testid="page-transition-overlay"
@@ -26,3 +28,30 @@ useHead({
     />
   </div>
 </template>
+
+<style scoped>
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  @supports (animation-timeline: view()) {
+    .footer-reveal {
+      position: relative;
+      z-index: 0;
+      view-timeline: --footer-reveal block;
+    }
+
+    .footer-reveal__content {
+      animation: footer-reveal 1ms linear both;
+      animation-timeline: --footer-reveal;
+      animation-range: entry;
+    }
+
+    .footer-reveal:focus-within .footer-reveal__content {
+      animation-name: none;
+    }
+  }
+}
+
+@keyframes footer-reveal {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+</style>
