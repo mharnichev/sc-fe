@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - app: barbershop
-            rev: f7e276166a23f77141a9fcd31cf03623d3d38424
+            rev: e9c204c831117a6ece26bab92c20b29aebb03173
             repo: admin-rewards-20261030-pr40
             route: '/'
           - app: shop
