@@ -920,3 +920,34 @@ test('no slots: checks without session identifiers remain inspectable without in
   await expect(section.getByTestId('no-slot-check')).toHaveCount(2)
   await expect(section).toContainText('Дата не визначена')
 })
+
+test('balance filter dropdowns return Tab focus to the modal', async ({ page }) => {
+  const user = { ...adminUser, email: 'admin.generated@example.com' }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(user => localStorage.setItem('backoffice-auth', JSON.stringify({
+    accessToken: 'fixture',
+    refreshToken: '',
+    user,
+  })), user)
+  await page.route('**/api/v1/**', route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: user })
+    if (url.pathname.endsWith('/shop-balance/entries')) return route.fulfill({ json: [] })
+    return route.fulfill({ json: responseFor(url, route.request().method()) })
+  })
+
+  await page.goto('/general-balance')
+  await page.getByRole('button', { name: 'Фільтри', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Фільтри загального балансу' })
+  const type = dialog.getByRole('button', { name: 'Тип Усі типи' })
+  for (const [tab, nextField] of [['Tab', /Сортування/], ['Shift+Tab', /День/]] as const) {
+    await type.focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('option', { name: 'Усі типи' })).toBeFocused()
+    await page.keyboard.press(tab)
+    await expect(page.getByRole('listbox')).toBeHidden()
+    await expect(type).toBeFocused()
+    await page.keyboard.press(tab)
+    await expect(dialog.getByRole('button', { name: nextField })).toBeFocused()
+  }
+})

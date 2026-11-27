@@ -440,16 +440,16 @@ onScopeDispose(() => {
             <section class="space-y-2">
               <h3 class="text-sm font-semibold">Історія записів</h3>
               <div class="balance-filters grid grid-cols-2 items-start gap-2">
-                <BaseSelect menu-class="z-[310]" :model-value="day" @update:model-value="day = String($event ?? '')" label="День" :options="[{ value: '', label: 'Усі дні' }, ...days.map(value => ({ value, label: value }))]">
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" :model-value="day" @update:model-value="day = String($event ?? '')" label="День" :options="[{ value: '', label: 'Усі дні' }, ...days.map(value => ({ value, label: value }))]">
                   <template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template>
                 </BaseSelect>
-                <BaseSelect menu-class="z-[310]" :model-value="filterKind" @update:model-value="filterKind = String($event ?? '')" label="Тип" :options="[
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" :model-value="filterKind" @update:model-value="filterKind = String($event ?? '')" label="Тип" :options="[
                   { value: '', label: 'Усі типи' },
                   { value: 'income', label: 'Дохід' }, { value: 'expense', label: 'Витрата' },
                 ]">
                   <template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
                 </BaseSelect>
-                <BaseSelect menu-class="z-[310]" field-class="base-field col-span-2 space-y-1.5 text-sm" :model-value="sort" @update:model-value="sort = String($event ?? '')" label="Сортування" :options="[
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" field-class="base-field col-span-2 space-y-1.5 text-sm" :model-value="sort" @update:model-value="sort = String($event ?? '')" label="Сортування" :options="[
                   { value: 'newest', label: 'Спочатку нові' }, { value: 'oldest', label: 'Спочатку старі' },
                 ]">
                   <template #icon><ArrowsUpDownIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
