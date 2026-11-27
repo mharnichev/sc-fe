@@ -83,74 +83,76 @@ useSeo(
 
 <template>
   <div class="space-y-16">
-    <header class="space-y-3">
+    <ShopHomeIntro>
       <h1 class="section-title type-title-strong">{{ terms.home.heading }}</h1>
-      <p class="section-subtitle max-w-2xl text-stone-600">{{ terms.home.intro }}</p>
-    </header>
+      <p class="section-subtitle max-w-2xl text-white">{{ terms.home.intro }}</p>
+    </ShopHomeIntro>
 
-    <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
+    <div class="site-container space-y-16 !pb-0">
+      <BrandSlider :brands="brands || []" :pending="areBrandsLoading" />
 
-    <section
-      v-if="arePopularProductsLoading || popularProducts.length"
-      class="main-page__popular"
-    >
-      <p class="type-eyebrow type-eyebrow--wide text-xs">
-        <BaseScribbleOutline>{{ terms.home.popularEyebrow }}</BaseScribbleOutline>
-      </p>
-      <div class="main-page__popular-heading">
-        <div class="main-page__popular-copy">
-          <h2 class="section-title type-title-strong">
-            {{ terms.home.popularTitle }}
-          </h2>
-          <p class="section-subtitle">{{ terms.home.popularDescription }}</p>
-        </div>
-        <BaseButton class="main-page__popular-action" to="/top" variant="outline-dark">
-          {{ terms.home.popularCta }}
-        </BaseButton>
-      </div>
-
-      <ul
-        class="main-page__popular-list"
-        :class="{ 'main-page__popular-list--single-row': !arePopularProductsLoading && popularProducts.length <= 4 }"
-        :aria-label="terms.home.popularTitle"
+      <section
+        v-if="arePopularProductsLoading || popularProducts.length"
+        class="main-page__popular"
       >
-        <template v-if="arePopularProductsLoading">
-          <li v-for="i in 12" :key="`popular-loading-${i}`" class="main-page__popular-card">
-            <ProductCardSkeleton />
-          </li>
-        </template>
-        <template v-else>
-          <li
-            v-for="(product, index) in popularProducts"
-            :key="`popular-${product.id}-${index}`"
-            class="main-page__popular-card"
-          >
-            <CatalogProductTile :product="product" :image-priority="index === 0 ? 'high' : undefined" />
-          </li>
-        </template>
-      </ul>
-    </section>
+        <p class="type-eyebrow type-eyebrow--wide text-xs">
+          <BaseScribbleOutline>{{ terms.home.popularEyebrow }}</BaseScribbleOutline>
+        </p>
+        <div class="main-page__popular-heading">
+          <div class="main-page__popular-copy">
+            <h2 class="section-title type-title-strong">
+              {{ terms.home.popularTitle }}
+            </h2>
+            <p class="section-subtitle">{{ terms.home.popularDescription }}</p>
+          </div>
+          <BaseButton class="main-page__popular-action" to="/top" variant="outline-dark">
+            {{ terms.home.popularCta }}
+          </BaseButton>
+        </div>
 
-    <AppSection
-      :eyebrow="terms.home.catalogEyebrow"
-      :title="terms.home.catalogTitle"
-      :description="terms.home.catalogDescription"
-      scribble-title
-    >
-      <CatalogProductGrid
-        :products="products"
-        :pending="isFirstLoading"
-        :tail-skeleton-count="isLoading ? 12 : 0"
-      />
-      <div v-if="canLoadMore" class="mt-6">
-        <BaseButton type="button" variant="text" :disabled="isLoading" @click="fetchGoods">
-          {{ isLoading ? terms.common.loading : terms.home.showMore }}
-          <BaseIcon name="simple-arrow-right" size="xxs" />
-        </BaseButton>
-      </div>
-    </AppSection>
+        <ul
+          class="main-page__popular-list"
+          :class="{ 'main-page__popular-list--single-row': !arePopularProductsLoading && popularProducts.length <= 4 }"
+          :aria-label="terms.home.popularTitle"
+        >
+          <template v-if="arePopularProductsLoading">
+            <li v-for="i in 12" :key="`popular-loading-${i}`" class="main-page__popular-card">
+              <ProductCardSkeleton />
+            </li>
+          </template>
+          <template v-else>
+            <li
+              v-for="(product, index) in popularProducts"
+              :key="`popular-${product.id}-${index}`"
+              class="main-page__popular-card"
+            >
+              <CatalogProductTile :product="product" :image-priority="index === 0 ? 'high' : undefined" />
+            </li>
+          </template>
+        </ul>
+      </section>
 
-    <RecentlyViewedProducts />
+      <AppSection
+        :eyebrow="terms.home.catalogEyebrow"
+        :title="terms.home.catalogTitle"
+        :description="terms.home.catalogDescription"
+        scribble-title
+      >
+        <CatalogProductGrid
+          :products="products"
+          :pending="isFirstLoading"
+          :tail-skeleton-count="isLoading ? 12 : 0"
+        />
+        <div v-if="canLoadMore" class="mt-6">
+          <BaseButton type="button" variant="text" :disabled="isLoading" @click="fetchGoods">
+            {{ isLoading ? terms.common.loading : terms.home.showMore }}
+            <BaseIcon name="simple-arrow-right" size="xxs" />
+          </BaseButton>
+        </div>
+      </AppSection>
+
+      <RecentlyViewedProducts />
+    </div>
   </div>
 </template>
 

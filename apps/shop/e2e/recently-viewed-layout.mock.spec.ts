@@ -55,6 +55,9 @@ for (const [locale, width] of [['uk', 320], ['en', 1440]] as const) {
     const writes = await fixture(page, items, [items[2]!])
     const tiles = page.locator('.catalog-product-grid').first().locator('.catalog-product-tile')
     await expect(tiles).toHaveCount(items.length)
+    // Bring the first product rows into view so the storefront reveal can run.
+    await tiles.first().scrollIntoViewIfNeeded()
+    await tiles.nth(2).scrollIntoViewIfNeeded()
     const button = (index: number) => tiles.nth(index).locator('.catalog-product-tile__cart:visible')
     const buy = locale === 'uk' ? 'Купити' : 'Buy', inCart = locale === 'uk' ? 'У кошику' : 'In cart'
     await expect(button(0)).toContainText(buy)

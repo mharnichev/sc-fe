@@ -26,6 +26,8 @@ const auth = useCustomerAuthStore()
 const modal = useModalStore()
 const domain = useCatalogDomain()
 const route = useRoute()
+const isHome = computed(() => route.path === '/')
+const isScrolled = ref(false)
 const { locale, localeOptions, setLocale, terms } = useShopLocale()
 const { data: initialHeaderCategories } = await useAsyncData(
   'shop-header-category-tree',
@@ -297,8 +299,9 @@ const openFavorites = async () => {
 
 const updateHeaderVisibility = () => {
   const currentY = window.scrollY
+  isScrolled.value = currentY > 0
 
-  if (currentY <= ALWAYS_SHOW_TOP || !window.matchMedia('(min-width: 768px)').matches) {
+  if (isHome.value || currentY <= ALWAYS_SHOW_TOP || !window.matchMedia('(min-width: 768px)').matches) {
     isHeaderHidden.value = false
     lastYPosition.value = currentY
     return
@@ -343,6 +346,7 @@ const handleWindowResize = () => {
   syncHeaderState()
 }
 
+watch(isHome, updateHeaderVisibility)
 watch(isHeaderHidden, syncHeaderState, { flush: 'post' })
 
 onMounted(() => {
@@ -382,6 +386,8 @@ onBeforeUnmount(() => {
       {
         'shop-header--hidden': isHeaderHidden,
         'shop-header--active': isHeaderActive,
+        'shop-header--home': isHome,
+        'shop-header--scrolled': isScrolled,
       },
     ]"
   >
@@ -413,7 +419,7 @@ onBeforeUnmount(() => {
           <nav class="shop-header__actions" :aria-label="terms.header.shopActions">
             <button class="shop-header__action" type="button" :aria-label="terms.common.favorites" @click="openFavorites">
               <span class="shop-header__action-icon">
-                <BaseIcon name="heart" size="xs" />
+                <BaseIcon name="heart" size="xs" effect="heart" />
                 <span v-if="favorites.count" class="shop-header__badge">{{ favorites.count }}</span>
               </span>
               <span class="sr-only">{{ terms.common.favorites }}</span>
@@ -569,7 +575,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .shop-header__popular-btn.shop-header__popular-btn--sale {
   padding-inline: calc(0.95rem - 0.35em);
-  color: #c2410c;
+  color: var(--shop-header-item-ink, #c2410c);
 }
 
 .shop-header__popular-btn--sale :deep(.base-animated-menu-text__stack > span) {
@@ -611,14 +617,87 @@ onBeforeUnmount(() => {
 }
 
 .shop-header {
+  --shop-header-theme-duration: 240ms;
+  --shop-header-border-color: rgb(10 10 10 / 24%);
+
   position: sticky;
   top: 0;
   z-index: 60;
+  border-bottom: 0.1px solid var(--shop-header-border-color);
   background: #ffffff;
   color: #0a0a0a;
   transition:
-    background-color 220ms ease,
+    background-color var(--shop-header-theme-duration) ease,
+    border-color var(--shop-header-theme-duration) ease,
+    color var(--shop-header-theme-duration) ease,
     transform 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-header {
+    --shop-header-theme-duration: 0s;
+  }
+}
+
+.shop-header--home {
+  position: fixed;
+  inset-inline: 0;
+}
+
+.shop-header--home:not(:hover, :focus-within, .shop-header--active, .shop-header--scrolled) {
+  --shop-header-item-ink: #fff;
+  --shop-header-search-ink: #fff;
+  --shop-header-search-surface: rgb(24 24 27 / 55%);
+  --shop-header-search-blur: blur(12px);
+  --shop-header-search-submit-surface: transparent;
+  --shop-header-locale-surface: transparent;
+  --shop-header-locale-inactive-ink: rgb(255 255 255 / 82%);
+
+  border-bottom-color: transparent;
+  background: transparent;
+  color: #fff;
+}
+
+.shop-header::before,
+.shop-header::after {
+  --header-corner-size: clamp(0.875rem, 2.5vw, 2rem);
+
+  position: absolute;
+  top: 100%;
+  width: var(--header-corner-size);
+  height: var(--header-corner-size);
+  background: radial-gradient(
+    circle at var(--header-corner-center) 100%,
+    transparent calc(var(--header-corner-size) - 0.5px),
+    var(--shop-header-border-color) var(--header-corner-size),
+    #fff calc(var(--header-corner-size) + 0.5px)
+  );
+  opacity: 0;
+  transform: scaleY(0);
+  transform-origin: top;
+  pointer-events: none;
+  transition:
+    opacity var(--shop-header-theme-duration) ease,
+    transform var(--shop-header-theme-duration) ease;
+  content: '';
+}
+
+.shop-header::before {
+  --header-corner-center: 100%;
+
+  left: 0;
+}
+
+.shop-header::after {
+  --header-corner-center: 0%;
+
+  right: 0;
+}
+
+.shop-header--scrolled::before,
+.shop-header--scrolled::after {
+  opacity: 1;
+  transform: scaleY(1);
 }
 
 .shop-header--active {
@@ -726,10 +805,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   border: 0;
   background: transparent;
-  color: #0a0a0a;
+  color: var(--shop-header-item-ink, #0a0a0a);
   cursor: pointer;
   transition:
-    background-color 180ms ease,
+    background-color var(--shop-header-theme-duration) ease,
+    color var(--shop-header-theme-duration) ease,
     opacity 180ms ease;
 }
 
@@ -767,9 +847,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.25rem;
   border-radius: 999px;
-  background: #0a0a0a;
+  background: var(--shop-header-locale-surface, #0a0a0a);
   padding: 0.25rem;
   color: #ffffff;
+  transition: background-color var(--shop-header-theme-duration) ease;
 }
 
 .shop-header__locale-btn {
@@ -777,15 +858,15 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: transparent;
   padding: 0.4rem 0.7rem;
-  color: rgb(255 255 255 / 0.5);
+  color: var(--shop-header-locale-inactive-ink, rgb(255 255 255 / 0.5));
   cursor: pointer;
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
   transition:
-    background-color 180ms ease,
-    color 180ms ease;
+    background-color var(--shop-header-theme-duration) ease,
+    color var(--shop-header-theme-duration) ease;
 }
 
 .shop-header__locale-btn:hover,
@@ -810,12 +891,12 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   padding: 0 0.9rem;
-  color: #0a0a0a;
+  color: var(--shop-header-item-ink, #0a0a0a);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
-  transition: color 180ms ease;
+  transition: color var(--shop-header-theme-duration) ease;
 }
 
 .shop-header__catalog:hover,
@@ -834,7 +915,6 @@ onBeforeUnmount(() => {
   width: fit-content;
   flex-wrap: wrap;
   gap: 0.15rem;
-  background: #ffffff;
 }
 
 .shop-header__popular-btn {
@@ -845,8 +925,8 @@ onBeforeUnmount(() => {
   border-radius: 9999px;
   padding: 0 0.95rem;
   background: transparent;
-  color: #0a0a0a;
-  transition: color 180ms ease;
+  color: var(--shop-header-item-ink, #0a0a0a);
+  transition: color var(--shop-header-theme-duration) ease;
 }
 
 .shop-header__popular-btn:hover,
@@ -1086,7 +1166,7 @@ onBeforeUnmount(() => {
     position: fixed;
     inset-inline: 0;
     padding-top: env(safe-area-inset-top, 0px);
-    transition: none;
+    transition-property: background-color, border-color, color;
   }
 
   .shop-header__category-list {

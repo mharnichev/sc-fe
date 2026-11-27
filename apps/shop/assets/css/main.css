@@ -90,7 +90,7 @@ a {
   justify-content: center;
   overflow: visible;
   border: 1px solid var(--sc-button-border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--sc-button-bg);
   -webkit-backdrop-filter: var(--sc-button-backdrop-filter);
   backdrop-filter: var(--sc-button-backdrop-filter);
@@ -330,7 +330,7 @@ a {
   }
 
   .section-title {
-    @apply text-[24px] leading-[1.2] tracking-normal text-stone-900 md:text-3xl md:leading-[1.2];
+    @apply text-2xl leading-none md:text-4xl;
   }
 
   .section-subtitle {
@@ -420,6 +420,11 @@ a {
       opacity 180ms ease;
   }
 
+  input.base-control,
+  textarea.base-control {
+    border-radius: 6px;
+  }
+
   .base-control--textarea {
     min-height: 7rem;
     resize: none;
@@ -446,7 +451,6 @@ a {
   .base-control:focus,
   .base-control:focus-visible {
     border-color: var(--base-control-focus-border, rgb(10 10 10 / 0.18));
-    border-radius: 0;
     background: var(--base-control-focus-bg, rgb(23 23 23 / 0.05));
   }
 
@@ -623,10 +627,6 @@ a {
 }
 
 @media (width < 768px) {
-  .section-title.type-title-strong {
-    font-size: 22px;
-  }
-
   .sc-button:where(:not(.sc-button--circle, .sc-button--text)) {
     padding: 8px 10px;
   }
