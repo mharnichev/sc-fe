@@ -31,7 +31,7 @@ useHead({
 </script>
 
 <template>
-  <div class="shop-layout--fixed-header min-h-screen" :style="layoutStyle">
+  <div class="shop-layout--fixed-header min-h-screen" :class="{ 'shop-layout--home': route.path === '/' }" :style="layoutStyle">
     <BaseHeader @visibility-change="handleHeaderVisibilityChange" />
     <main class="relative z-10 min-h-screen bg-white">
       <div class="site-container" :class="{ 'site-container--home': route.path === '/' }">
@@ -54,10 +54,16 @@ useHead({
     --shop-header-offset: calc(3.8rem + env(safe-area-inset-top, 0px));
     padding-top: var(--shop-header-offset);
   }
+
+  .shop-layout--home {
+    padding-top: 0;
+  }
 }
 
 .site-container--home {
   padding-bottom: 0;
+  max-width: none;
+  padding-inline: 0;
 }
 
 .home-journal-section {
