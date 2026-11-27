@@ -96,7 +96,7 @@ onMounted(async () => {
           <label class="grid gap-1">До, виключно · Europe/Kyiv<input v-model="periodTo" type="datetime-local" class="new-master-control rounded-xl border p-3" /></label>
         </div>
         <p class="text-sm text-ui-muted">Період відбирає когорту запусків за часом фіксації аудиторії (або створення до фіксації). Показники містять накопичені результати цих запусків, включно з подіями після кінця періоду.</p>
-        <button class="rounded-full bg-cyan-700 px-5 py-3 text-white disabled:opacity-50" :disabled="loading" @click="loadAnalytics">{{ loading ? 'Завантаження…' : 'Застосувати фільтри' }}</button>
+        <BaseButton type="button" variant="primary" :loading="loading" @click="loadAnalytics">Застосувати фільтри</BaseButton>
       </section>
       <p v-if="error" role="alert" class="text-red-500">{{ error }}</p>
       <section v-if="analytics" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="offer-analytics-metrics"><article v-for="metric in metrics" :key="String(metric[0])" class="base-card rounded-2xl p-4"><p class="text-sm text-ui-muted">{{ metric[0] }}</p><strong class="mt-2 block text-2xl">{{ metric[1] }}</strong></article></section>

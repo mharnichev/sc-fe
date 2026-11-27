@@ -71,50 +71,70 @@ const toggle = (master: DashboardNoSlotMaster) => {
       Повна зведена історія недоступна. Обмежений список контекстів не дозволяє точно порахувати сесії. Оновіть дані або повторіть спробу пізніше.
     </p>
     <p v-else-if="!masters.length" class="px-4 pb-4 text-sm text-ui-muted">За вибраними фільтрами перевірок без слотів немає.</p>
-    <template v-else>
-      <div class="hidden grid-cols-[1.2fr_1fr_1.3fr_1fr_auto] gap-4 border-t px-4 py-2 text-xs text-ui-muted lg:grid" aria-hidden="true">
-        <span>Майстер</span><span>Сесії та перевірки</span><span>Бажані дати</span><span>Остання активність</span><span>Деталі</span>
-      </div>
-      <article v-for="master in masters" :key="key(master)" class="border-t" data-testid="no-slot-master">
-        <div class="grid min-w-0 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1.3fr_1fr_auto] lg:items-center">
-          <h4 class="font-semibold text-ui-primary">{{ name(master) }}</h4>
-          <div>
-            <p class="text-lg font-semibold tabular-nums text-ui-primary">{{ master.unique_sessions }} <span class="text-sm font-normal">сесії</span></p>
+    <BaseTable
+      v-else
+      caption="Історичні пошуки без доступних слотів"
+      dense
+      sticky-actions
+      min-width="39rem"
+      scroll-class="[container-type:inline-size]"
+      wrapper-class="!rounded-none !border-x-0 !border-b-0"
+    >
+      <template #head>
+        <tr>
+          <th scope="col">Майстер</th>
+          <th scope="col">Сесії та перевірки</th>
+          <th scope="col">Бажані дати</th>
+          <th scope="col">Остання активність</th>
+          <th scope="col">Деталі</th>
+        </tr>
+      </template>
+      <template v-for="master in masters" :key="key(master)">
+        <tr data-testid="no-slot-master">
+          <th scope="row" class="!whitespace-normal text-ui-primary">{{ name(master) }}</th>
+          <td>
+            <p class="font-semibold tabular-nums text-ui-primary">{{ master.unique_sessions }} <span class="font-normal">сесії</span></p>
             <p class="text-xs text-ui-secondary">{{ master.observations }} перевірок · {{ master.contexts }} контексти</p>
-          </div>
-          <div class="text-sm text-ui-secondary"><p>{{ master.checked_dates }} бажаних дат</p><p class="text-xs">{{ noSlotDateRange(master.date_from, master.date_to) }}</p></div>
-          <p class="text-xs text-ui-secondary"><span class="block text-ui-muted lg:hidden">Остання активність</span><time :datetime="master.last_observed_at">{{ noSlotActivity(master.last_observed_at) }}</time></p>
-          <button type="button" class="no-slots__button justify-self-start rounded-lg border px-3 py-2 text-sm"
-            :aria-expanded="states[key(master)]?.open ?? false" :aria-controls="`no-slot-master-${key(master)}`"
-            :aria-label="`${states[key(master)]?.open ? 'Згорнути' : 'Розгорнути'} спроби: ${name(master)}`" @click="toggle(master)">
-            {{ states[key(master)]?.open ? 'Згорнути' : 'Спроби' }}
-          </button>
-        </div>
-        <div v-if="states[key(master)]?.open" :id="`no-slot-master-${key(master)}`" class="border-t px-4 py-3" :aria-busy="states[key(master)]?.loading">
-          <p v-if="master.unattributed_observations" class="mb-3 text-xs text-ui-secondary">{{ master.unattributed_observations }} перевірок без ідентифікатора сесії; вони не включені до кількості сесій.</p>
-          <p v-if="states[key(master)]?.loading" role="status" class="py-3 text-sm text-ui-muted">Завантаження спроб…</p>
-          <div v-else-if="states[key(master)]?.error" role="alert" class="py-3 text-sm text-ui-secondary">
-            Не вдалося завантажити спроби.
-            <button type="button" class="no-slots__button ml-2 underline" @click="load(master, states[key(master)]?.offset)">Повторити</button>
-          </div>
-          <template v-else-if="states[key(master)]?.page">
-            <DashboardBookingNoSlotAttempt v-if="master.unattributed_observations" :unattributed-observations="master.unattributed_observations"
-              :master-id="master.master_id" :date-from="dateFrom" :date-to="dateTo" :snapshot-id="states[key(master)]!.page!.snapshot_id" />
-            <p v-if="states[key(master)]!.page!.total !== master.unique_sessions" role="status" class="ui-status-warning mb-3 rounded-lg p-2 text-xs">
-              Історія змінилася після завантаження зведення. Оновіть дашборд для узгоджених підсумків.
-            </p>
-            <p v-if="!states[key(master)]!.page!.items.length" class="text-sm text-ui-muted">Анонімних спроб для цієї сторінки немає.</p>
-            <DashboardBookingNoSlotAttempt v-for="(attempt, index) in states[key(master)]!.page!.items" :key="attempt.attempt_id"
-              :attempt="attempt" :number="states[key(master)]!.page!.offset + index + 1" :master-id="master.master_id" :date-from="dateFrom" :date-to="dateTo" :snapshot-id="states[key(master)]!.page!.snapshot_id" />
-            <nav v-if="states[key(master)]!.page!.total" class="mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-secondary" aria-label="Сторінки анонімних спроб">
-              <span>Показано {{ states[key(master)]!.page!.offset + 1 }}–{{ states[key(master)]!.page!.offset + states[key(master)]!.page!.items.length }} із {{ states[key(master)]!.page!.total }} сесій. Зведення враховує весь період.</span>
-              <button v-if="states[key(master)]!.page!.offset > 0" type="button" class="no-slots__button rounded-lg border px-3 py-2" @click="load(master, Math.max(0, states[key(master)]!.page!.offset - 10))">Попередні спроби</button>
-              <button v-if="states[key(master)]!.page!.has_more" type="button" class="no-slots__button rounded-lg border px-3 py-2" @click="load(master, states[key(master)]!.page!.offset + 10)">Наступні спроби</button>
-            </nav>
-          </template>
-        </div>
-      </article>
-    </template>
+          </td>
+          <td><p>{{ master.checked_dates }} бажаних дат</p><p class="text-xs">{{ noSlotDateRange(master.date_from, master.date_to) }}</p></td>
+          <td class="text-xs"><time :datetime="master.last_observed_at">{{ noSlotActivity(master.last_observed_at) }}</time></td>
+          <td>
+            <BaseButton variant="unstyled" type="button" class="no-slots__button whitespace-nowrap rounded-lg border px-3 py-2 text-sm"
+              :aria-expanded="states[key(master)]?.open ?? false" :aria-controls="`no-slot-master-${key(master)}`"
+              :aria-label="`${states[key(master)]?.open ? 'Згорнути' : 'Розгорнути'} спроби: ${name(master)}`" @click="toggle(master)">
+              {{ states[key(master)]?.open ? 'Згорнути' : 'Спроби' }}
+            </BaseButton>
+          </td>
+        </tr>
+        <tr v-if="states[key(master)]?.open">
+          <td colspan="5" class="!p-0">
+            <div :id="`no-slot-master-${key(master)}`" class="sticky left-0 max-w-[100cqw] px-3 py-3" :aria-busy="states[key(master)]?.loading">
+              <p v-if="master.unattributed_observations" class="mb-3 text-xs text-ui-secondary">{{ master.unattributed_observations }} перевірок без ідентифікатора сесії; вони не включені до кількості сесій.</p>
+              <p v-if="states[key(master)]?.loading" role="status" class="py-3 text-sm text-ui-muted">Завантаження спроб…</p>
+              <div v-else-if="states[key(master)]?.error" role="alert" class="py-3 text-sm text-ui-secondary">
+                Не вдалося завантажити спроби.
+                <BaseButton variant="unstyled" type="button" class="no-slots__button ml-2 underline" @click="load(master, states[key(master)]?.offset)">Повторити</BaseButton>
+              </div>
+              <template v-else-if="states[key(master)]?.page">
+                <DashboardBookingNoSlotAttempt v-if="master.unattributed_observations" :unattributed-observations="master.unattributed_observations"
+                  :master-id="master.master_id" :date-from="dateFrom" :date-to="dateTo" :snapshot-id="states[key(master)]!.page!.snapshot_id" />
+                <p v-if="states[key(master)]!.page!.total !== master.unique_sessions" role="status" class="ui-status-warning mb-3 rounded-lg p-2 text-xs">
+                  Історія змінилася після завантаження зведення. Оновіть дашборд для узгоджених підсумків.
+                </p>
+                <p v-if="!states[key(master)]!.page!.items.length" class="text-sm text-ui-muted">Анонімних спроб для цієї сторінки немає.</p>
+                <DashboardBookingNoSlotAttempt v-for="(attempt, index) in states[key(master)]!.page!.items" :key="attempt.attempt_id"
+                  :attempt="attempt" :number="states[key(master)]!.page!.offset + index + 1" :master-id="master.master_id" :date-from="dateFrom" :date-to="dateTo" :snapshot-id="states[key(master)]!.page!.snapshot_id" />
+                <nav v-if="states[key(master)]!.page!.total" class="mt-3 flex flex-wrap items-center gap-3 text-xs text-ui-secondary" aria-label="Сторінки анонімних спроб">
+                  <span>Показано {{ states[key(master)]!.page!.offset + 1 }}–{{ states[key(master)]!.page!.offset + states[key(master)]!.page!.items.length }} із {{ states[key(master)]!.page!.total }} сесій. Зведення враховує весь період.</span>
+                  <BaseButton variant="unstyled" v-if="states[key(master)]!.page!.offset > 0" type="button" class="no-slots__button rounded-lg border px-3 py-2" @click="load(master, Math.max(0, states[key(master)]!.page!.offset - 10))">Попередні спроби</BaseButton>
+                  <BaseButton variant="unstyled" v-if="states[key(master)]!.page!.has_more" type="button" class="no-slots__button rounded-lg border px-3 py-2" @click="load(master, states[key(master)]!.page!.offset + 10)">Наступні спроби</BaseButton>
+                </nav>
+              </template>
+            </div>
+          </td>
+        </tr>
+      </template>
+    </BaseTable>
     <p v-if="unknownDateCount" class="border-t p-4 text-xs text-ui-muted">У {{ unknownDateCount }} історичних перевірках бажану дату не визначено.</p>
   </section>
 </template>

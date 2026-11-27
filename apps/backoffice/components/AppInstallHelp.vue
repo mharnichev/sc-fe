@@ -35,18 +35,18 @@ const copy = computed(() => locale.value === 'uk' ? {
 
 <template>
   <template v-if="eligible">
-    <button type="button" class="min-h-11 rounded-xl px-3 text-sm text-[var(--bo-text-secondary)] hover:text-[var(--bo-text-primary)] focus-visible:outline focus-visible:outline-2" @click="open = true">{{ copy.cta }}</button>
+    <BaseButton variant="unstyled" type="button" class="min-h-11 rounded-xl px-3 text-sm text-[var(--bo-text-secondary)] hover:text-[var(--bo-text-primary)] focus-visible:outline focus-visible:outline-2" @click="open = true">{{ copy.cta }}</BaseButton>
     <BaseModal v-model="open" :aria-label="copy.title" max-width-class="max-w-lg">
       <template #head>
         <div class="flex items-center justify-between gap-3">
           <h2 class="text-lg font-semibold">{{ copy.title }}</h2>
-          <button type="button" class="min-h-11 px-2 text-sm" @click="open = false">{{ copy.close }}</button>
+          <BaseButton variant="unstyled" type="button" class="min-h-11 px-2 text-sm" @click="open = false">{{ copy.close }}</BaseButton>
         </div>
       </template>
       <template #body>
         <div :lang="locale" class="space-y-5 text-sm leading-relaxed">
           <div class="flex gap-2" aria-label="Language / Мова">
-            <button v-for="language in (['uk', 'en'] as const)" :key="language" type="button" :aria-pressed="locale === language" class="min-h-11 rounded-xl px-4" :class="locale === language ? 'bg-[var(--bo-surface-active)] font-semibold' : 'text-[var(--bo-text-secondary)]'" @click="locale = language">{{ language === 'uk' ? 'Українська' : 'English' }}</button>
+            <BaseButton variant="unstyled" v-for="language in (['uk', 'en'] as const)" :key="language" type="button" :aria-pressed="locale === language" class="min-h-11 rounded-xl px-4" :class="locale === language ? 'bg-[var(--bo-surface-active)] font-semibold' : 'text-[var(--bo-text-secondary)]'" @click="locale = language">{{ language === 'uk' ? 'Українська' : 'English' }}</BaseButton>
           </div>
           <p>{{ copy.intro }}</p>
           <ol class="list-decimal space-y-4 pl-5"><li v-for="step in copy.steps" :key="step">{{ step }}</li></ol>

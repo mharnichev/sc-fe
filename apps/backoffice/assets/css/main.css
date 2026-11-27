@@ -2651,7 +2651,7 @@ html[data-backoffice-theme="light"] main .text-rose-700 {
     min-height: 6rem;
   }
 
-  main .messaging-page button,
+  main .messaging-page button:not(.base-button),
   main .messaging-page a[class*="rounded-full"] {
     min-height: 2.25rem;
     padding: 0.5rem 0.875rem;
@@ -2770,14 +2770,6 @@ html[data-backoffice-theme="light"] main .text-rose-700 {
 
   .inventory-page .inventory-receipt-quantity-fields .base-field__label {
     min-height: 2.25rem;
-  }
-
-  .inventory-page .base-button {
-    min-height: 2.75rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    font-size: 0.8125rem;
-    line-height: 1.125rem;
   }
 
   .inventory-page .base-empty-state {

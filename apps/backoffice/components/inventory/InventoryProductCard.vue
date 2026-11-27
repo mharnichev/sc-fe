@@ -14,10 +14,10 @@ const { formatMoney } = useBookingFormatting()
 <template>
   <article class="inventory-product-card min-w-0" :class="framed ? 'rounded-xl bg-ui-subtle p-3' : 'inventory-product-card--unframed'">
     <div class="flex min-w-0 gap-3">
-    <button v-if="photos.length" type="button" class="shrink-0 self-start rounded-xl p-1 text-ui-accent focus-visible:outline focus-visible:outline-2" :aria-label="`Переглянути всі фото: ${product.name}`" @click="photoIndex = 0; photosOpen = true">
+    <BaseButton variant="unstyled" v-if="photos.length" type="button" class="shrink-0 self-start rounded-xl p-1 text-ui-accent focus-visible:outline focus-visible:outline-2" :aria-label="`Переглянути всі фото: ${product.name}`" @click="photoIndex = 0; photosOpen = true">
       <img :src="assetUrl(productDisplayImage(product))" :alt="product.name" class="h-16 w-16 rounded-lg object-contain sm:h-20 sm:w-20" loading="lazy">
       <span class="mt-1 block text-xs font-medium">Фото · {{ photos.length }}</span>
-    </button>
+    </BaseButton>
     <div class="min-w-0 flex-1 space-y-1">
       <p class="break-words font-semibold text-ui-primary">{{ product.name }}</p>
       <p v-if="product.brand_name || product.model_name" class="text-sm text-ui-secondary">{{ [product.brand_name, product.model_name].filter(Boolean).join(' · ') }}</p>
@@ -43,7 +43,7 @@ const { formatMoney } = useBookingFormatting()
     <template #body>
       <img v-if="photos[photoIndex]" :src="assetUrl(photos[photoIndex])" :alt="`${product.name} — фото ${photoIndex + 1}`" class="h-[50dvh] w-full rounded-xl object-contain">
       <p role="status" class="my-3 text-center text-sm text-ui-secondary">{{ photoIndex + 1 }} / {{ photos.length }} · Натисніть мініатюру для перегляду</p>
-      <div class="flex flex-wrap justify-center gap-2"><button v-for="(photo, index) in photos" :key="photo" type="button" :aria-label="`Фото ${index + 1}`" :aria-pressed="photoIndex === index" class="rounded-xl p-1" :class="photoIndex === index ? 'bg-ui-accent text-white' : 'bg-ui-subtle'" @click="photoIndex = index"><img :src="assetUrl(photo)" alt="" class="h-16 w-16 rounded-lg object-contain" loading="lazy"></button></div>
+      <div class="flex flex-wrap justify-center gap-2"><BaseButton variant="unstyled" v-for="(photo, index) in photos" :key="photo" type="button" :aria-label="`Фото ${index + 1}`" :aria-pressed="photoIndex === index" class="rounded-xl p-1" :class="photoIndex === index ? 'bg-ui-accent text-white' : 'bg-ui-subtle'" @click="photoIndex = index"><img :src="assetUrl(photo)" alt="" class="h-16 w-16 rounded-lg object-contain" loading="lazy"></BaseButton></div>
     </template>
   </BaseModal>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowDownRightIcon, ArrowUpRightIcon, ArrowsUpDownIcon, BanknotesIcon, CalendarDaysIcon, DocumentTextIcon, FunnelIcon, PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownRightIcon, ArrowUpRightIcon, ArrowsRightLeftIcon, ArrowsUpDownIcon, BanknotesIcon, CalendarDaysIcon, CheckIcon, DocumentTextIcon, FunnelIcon, PencilIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import TrashIcon from '~/components/TrashIcon.vue'
 import { canAccessShopBalance } from '~/utils/shopBalanceAccess'
 
@@ -35,6 +35,7 @@ const lifetime = new AbortController()
 
 const auth = useAuthStore()
 const granted = ref(false)
+const filtersOpen = ref(false)
 const entryFormOpen = ref(false)
 const editingId = ref<string | null>(null)
 const entryFormTitle = computed(() => editingId.value ? 'Редагування запису' : 'Новий запис')
@@ -133,6 +134,7 @@ function openEntryForm(entry?: Entry) {
 }
 
 function clearJournal() {
+  filtersOpen.value = false
   entryToDelete.value = null
   deleting.value = false
   deleteError.value = ''
@@ -294,30 +296,21 @@ onScopeDispose(() => {
   <div v-if="canAccessShopBalance(auth.user)" class="space-y-3 sm:space-y-4">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-lg font-semibold sm:text-2xl">Загальний баланс</h1>
-      <BaseButton v-if="granted" variant="primary" size="sm" :disabled="loading || saving" @click="openEntryForm()">
-        <PlusIcon class="h-4 w-4" aria-hidden="true" />
-        Додати запис
-      </BaseButton>
+      <div v-if="granted" class="flex flex-wrap items-center gap-2">
+        <BaseButton variant="neutral" size="sm" aria-haspopup="dialog" :disabled="saving" @click="filtersOpen = true">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          Фільтри
+        </BaseButton>
+        <BaseButton variant="primary" size="sm" :disabled="loading || saving" @click="openEntryForm()">
+          <PlusIcon class="h-4 w-4" aria-hidden="true" />
+          Додати запис
+        </BaseButton>
+      </div>
     </header>
 
     <p v-if="notice" role="status">{{ notice }}</p>
 
     <div class="space-y-3">
-      <template v-if="granted">
-        <BaseCard as="section" padding="sm" class="space-y-2">
-          <h2 class="text-base font-semibold">Період</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <BaseCalendar :model-value="month" label="Місяць журналу" menu-class="min-w-56" mode="month" placeholder="Оберіть місяць" input-class="base-control w-full py-2 pr-1 text-xs sm:text-sm" min="2000-01" max="2099-12" :disabled="saving"
-              @update:model-value="month = String($event ?? ''); day = ''; loadEntries()" />
-            <BaseCalendar :model-value="comparison" label="Порівняння" menu-class="right-0 min-w-56" mode="month" placeholder="Оберіть місяць" input-class="base-control w-full py-2 pr-1 text-xs sm:text-sm" min="2000-01" max="2099-12" :disabled="saving"
-              @update:model-value="comparison = String($event ?? ''); loadEntries()" />
-          </div>
-          <BaseButton v-if="comparison" variant="outline" size="sm" :disabled="saving" @click="comparison = ''; loadEntries()">
-            Прибрати порівняння
-          </BaseButton>
-        </BaseCard>
-      </template>
-
       <p v-if="loading" role="status">Завантажуємо журнал…</p>
       <div v-else-if="loadError" class="space-y-3">
         <p role="alert">{{ loadError }}</p>
@@ -327,22 +320,6 @@ onScopeDispose(() => {
       <template v-else-if="granted">
         <BaseCard as="section" padding="sm" class="space-y-2">
           <h2 class="text-base font-semibold">Історія записів</h2>
-          <div class="balance-filters grid grid-cols-2 items-start gap-2 sm:grid-cols-3">
-            <BaseSelect :model-value="day" @update:model-value="day = String($event ?? '')" label="День" :options="[{ value: '', label: 'Усі дні' }, ...days.map(value => ({ value, label: value }))]">
-              <template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template>
-            </BaseSelect>
-            <BaseSelect :model-value="filterKind" @update:model-value="filterKind = String($event ?? '')" label="Тип" :options="[
-              { value: '', label: 'Усі типи' },
-              { value: 'income', label: 'Дохід' }, { value: 'expense', label: 'Витрата' },
-            ]">
-              <template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
-            </BaseSelect>
-            <BaseSelect field-class="base-field col-span-2 space-y-1.5 text-sm sm:col-span-1" :model-value="sort" @update:model-value="sort = String($event ?? '')" label="Сортування" :options="[
-              { value: 'newest', label: 'Спочатку нові' }, { value: 'oldest', label: 'Спочатку старі' },
-            ]">
-              <template #icon><ArrowsUpDownIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
-            </BaseSelect>
-          </div>
           <BaseTable
             caption="Історія записів"
             :empty="!visibleEntries.length"
@@ -404,35 +381,87 @@ onScopeDispose(() => {
 
         <BaseCard as="section" padding="sm" class="space-y-2">
           <h2 class="text-base font-semibold">Підсумки за місяцями</h2>
-          <BaseTable caption="Підсумки за місяцями" :empty="!monthlyTotals.length" empty-title="За цей період записів немає" min-width="25rem" table-class="balance-totals" dense>
-            <template #head>
-              <tr>
-                <th scope="col">Місяць</th>
-                <th scope="col">
-                  <span class="balance-income inline-flex items-center gap-1">
-                    <ArrowUpRightIcon class="hidden h-4 w-4 sm:block" aria-hidden="true" /> Доходи
-                  </span>
-                </th>
-                <th scope="col">
-                  <span class="balance-expense inline-flex items-center gap-1">
-                    <ArrowDownRightIcon class="hidden h-4 w-4 sm:block" aria-hidden="true" /> Витрати
-                  </span>
-                </th>
-                <th scope="col">Різниця</th>
-              </tr>
-            </template>
-            <tr v-for="[period, totals] in monthlyTotals" :key="period" class="tabular-nums">
-              <td class="break-words">{{ period }}</td>
-              <td class="balance-income whitespace-nowrap">{{ money(totals.income) }}</td>
-              <td class="balance-expense whitespace-nowrap">{{ money(totals.expense) }}</td>
-              <td class="whitespace-nowrap font-semibold" :class="netTone(totals)">
-                {{ money(totals.income - totals.expense) }}
-              </td>
-            </tr>
-          </BaseTable>
+          <BaseEmptyState v-if="!monthlyTotals.length" compact title="За цей період записів немає" />
+          <div v-else class="grid min-w-0 gap-2 lg:grid-cols-2">
+            <article v-for="[period, totals] in monthlyTotals" :key="period" class="min-w-0 space-y-2 rounded-lg border border-ui bg-ui-subtle p-3">
+              <h3 class="flex items-center gap-2 text-sm font-semibold text-ui-primary">
+                <CalendarDaysIcon class="h-4 w-4 shrink-0 text-ui-muted" aria-hidden="true" />
+                {{ period }}
+              </h3>
+              <dl class="grid grid-cols-2 gap-2 text-sm tabular-nums sm:grid-cols-3">
+                <div class="min-w-0">
+                  <dt class="flex items-center gap-1 text-xs text-ui-secondary">
+                    <ArrowUpRightIcon class="balance-income h-4 w-4 shrink-0" aria-hidden="true" /> Доходи
+                  </dt>
+                  <dd class="balance-income mt-1 break-words font-semibold">{{ money(totals.income) }}</dd>
+                </div>
+                <div class="min-w-0">
+                  <dt class="flex items-center gap-1 text-xs text-ui-secondary">
+                    <ArrowDownRightIcon class="balance-expense h-4 w-4 shrink-0" aria-hidden="true" /> Витрати
+                  </dt>
+                  <dd class="balance-expense mt-1 break-words font-semibold">{{ money(totals.expense) }}</dd>
+                </div>
+                <div class="col-span-2 min-w-0 border-t border-ui pt-2 sm:col-span-1 sm:border-0 sm:pt-0">
+                  <dt class="flex items-center gap-1 text-xs text-ui-secondary">
+                    <ArrowsRightLeftIcon class="h-4 w-4 shrink-0" aria-hidden="true" /> Різниця
+                  </dt>
+                  <dd class="mt-1 break-words font-semibold" :class="netTone(totals)">{{ money(totals.income - totals.expense) }}</dd>
+                </div>
+              </dl>
+            </article>
+          </div>
         </BaseCard>
       </template>
     </div>
+    <BaseModal v-model="filtersOpen" aria-label="Фільтри загального балансу" max-width-class="max-w-lg">
+      <template #head="{ close }">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold">Фільтри</h2>
+          <BaseButton type="button" variant="icon" aria-label="Закрити фільтри" @click="close">
+            <XMarkIcon class="h-5 w-5" aria-hidden="true" />
+          </BaseButton>
+        </div>
+      </template>
+      <template #body>
+        <div class="relative rounded-lg">
+          <fieldset class="min-w-0 space-y-4" :disabled="loading || saving" :aria-busy="loading || undefined">
+            <section class="space-y-2">
+              <h3 class="text-sm font-semibold">Період</h3>
+              <div class="grid grid-cols-2 gap-2">
+                <BaseCalendar :model-value="month" label="Місяць журналу" menu-class="min-w-56" mode="month" placeholder="Оберіть місяць" input-class="base-control w-full py-2 pr-1 text-xs sm:text-sm" min="2000-01" max="2099-12" :disabled="saving"
+                  @update:model-value="month = String($event ?? ''); day = ''; loadEntries()" />
+                <BaseCalendar :model-value="comparison" label="Порівняння" menu-class="right-0 min-w-56" mode="month" placeholder="Оберіть місяць" input-class="base-control w-full py-2 pr-1 text-xs sm:text-sm" min="2000-01" max="2099-12" :disabled="saving"
+                  @update:model-value="comparison = String($event ?? ''); loadEntries()" />
+              </div>
+              <BaseButton v-if="comparison" variant="outline" size="sm" :disabled="saving" @click="comparison = ''; loadEntries()">
+                Прибрати порівняння
+              </BaseButton>
+            </section>
+            <section class="space-y-2">
+              <h3 class="text-sm font-semibold">Історія записів</h3>
+              <div class="balance-filters grid grid-cols-2 items-start gap-2">
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" :model-value="day" @update:model-value="day = String($event ?? '')" label="День" :options="[{ value: '', label: 'Усі дні' }, ...days.map(value => ({ value, label: value }))]">
+                  <template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template>
+                </BaseSelect>
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" :model-value="filterKind" @update:model-value="filterKind = String($event ?? '')" label="Тип" :options="[
+                  { value: '', label: 'Усі типи' },
+                  { value: 'income', label: 'Дохід' }, { value: 'expense', label: 'Витрата' },
+                ]">
+                  <template #icon><FunnelIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
+                </BaseSelect>
+                <BaseSelect return-focus-on-tab menu-class="z-[310]" field-class="base-field col-span-2 space-y-1.5 text-sm" :model-value="sort" @update:model-value="sort = String($event ?? '')" label="Сортування" :options="[
+                  { value: 'newest', label: 'Спочатку нові' }, { value: 'oldest', label: 'Спочатку старі' },
+                ]">
+                  <template #icon><ArrowsUpDownIcon class="h-4 w-4 shrink-0" aria-hidden="true" /></template>
+                </BaseSelect>
+              </div>
+            </section>
+          </fieldset>
+          <BaseLoader v-if="loading" overlay label="Оновлюємо журнал…" />
+        </div>
+      </template>
+    </BaseModal>
+
     <BaseModal
       v-model="entryFormOpen"
       :aria-label="entryFormTitle"
@@ -469,9 +498,13 @@ onScopeDispose(() => {
             </BaseInput>
           </div>
           <p v-if="formError" role="alert">{{ formError }}</p>
-          <div class="flex flex-wrap justify-end gap-2">
-            <BaseButton variant="outline" :disabled="saving" @click="close">Скасувати</BaseButton>
-            <BaseButton type="submit" variant="primary" :loading="saving" :disabled="loading">Зберегти</BaseButton>
+          <div class="grid gap-2 border-t border-ui pt-4">
+            <BaseButton block variant="outline" :disabled="saving" @click="close">
+              <XMarkIcon class="h-4 w-4" aria-hidden="true" /> Скасувати
+            </BaseButton>
+            <BaseButton block type="submit" variant="primary" :loading="saving" :disabled="loading">
+              <CheckIcon class="h-4 w-4" aria-hidden="true" /> Зберегти
+            </BaseButton>
           </div>
         </form>
       </template>
@@ -485,23 +518,25 @@ onScopeDispose(() => {
     >
       <template #head><h2 class="text-base font-semibold">Опис запису</h2></template>
       <template #body="{ close }">
-        <div v-if="selectedEntry" class="space-y-3">
-          <p class="whitespace-pre-wrap break-words">{{ selectedEntry.description }}</p>
-          <p class="break-words text-sm text-ui-muted">
-            {{ selectedEntry.author_email }} · {{ timeFormat.format(new Date(selectedEntry.created_at)) }}
-          </p>
-          <p v-if="selectedEntry.updated_at" class="break-words text-sm text-ui-muted">
-            Відредаговано {{ timeFormat.format(new Date(selectedEntry.updated_at)) }}
-            <span v-if="selectedEntry.updated_by_email"> · {{ selectedEntry.updated_by_email }}</span>
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <BaseButton variant="primary" :disabled="loading || saving" @click="openEntryForm(selectedEntry)">
+        <div v-if="selectedEntry">
+          <div class="space-y-3">
+            <p class="whitespace-pre-wrap break-words">{{ selectedEntry.description }}</p>
+            <p class="break-words text-sm text-ui-muted">
+              {{ selectedEntry.author_email }} · {{ timeFormat.format(new Date(selectedEntry.created_at)) }}
+            </p>
+            <p v-if="selectedEntry.updated_at" class="break-words text-sm text-ui-muted">
+              Відредаговано {{ timeFormat.format(new Date(selectedEntry.updated_at)) }}
+              <span v-if="selectedEntry.updated_by_email"> · {{ selectedEntry.updated_by_email }}</span>
+            </p>
+          </div>
+          <div class="mt-4 grid gap-2 border-t border-ui pt-4">
+            <BaseButton block variant="primary" :disabled="loading || saving" @click="openEntryForm(selectedEntry)">
               <PencilIcon class="h-4 w-4" aria-hidden="true" /> Редагувати
             </BaseButton>
-            <BaseButton variant="danger" :disabled="deleting || saving" @click="confirmDeletion(selectedEntry)">
+            <BaseButton block variant="danger" :disabled="deleting || saving" @click="confirmDeletion(selectedEntry)">
               <TrashIcon class="h-4 w-4" aria-hidden="true" /> Видалити
             </BaseButton>
-            <BaseButton variant="secondary" @click="close">Закрити</BaseButton>
+            <BaseButton block variant="secondary" @click="close">Закрити</BaseButton>
           </div>
         </div>
       </template>
@@ -519,9 +554,13 @@ onScopeDispose(() => {
         <div class="space-y-3">
           <p class="break-words">{{ entryToDelete?.description }}</p>
           <p v-if="deleteError" role="alert">{{ deleteError }}</p>
-          <div class="flex flex-wrap justify-end gap-2">
-            <BaseButton variant="secondary" :disabled="deleting" @click="close">Скасувати</BaseButton>
-            <BaseButton variant="danger" :loading="deleting" @click="deleteEntry">Видалити</BaseButton>
+          <div class="grid gap-2 border-t border-ui pt-4">
+            <BaseButton block variant="secondary" :disabled="deleting" @click="close">
+              <XMarkIcon class="h-4 w-4" aria-hidden="true" /> Скасувати
+            </BaseButton>
+            <BaseButton block variant="danger" :loading="deleting" @click="deleteEntry">
+              <TrashIcon class="h-4 w-4" aria-hidden="true" /> Видалити
+            </BaseButton>
           </div>
         </div>
       </template>
@@ -540,7 +579,6 @@ onScopeDispose(() => {
 :deep(.balance-history-wrapper .base-table__mobile-hint) { display: none; }
 :deep(.balance-history-wrapper .base-table__scroll) { scrollbar-gutter: auto; }
 :deep(.balance-history) :is(th, td).balance-amount { text-align: right; }
-:deep(.balance-totals) :is(th, td) { text-align: center; }
 
 @media (max-width: 639px) {
   :deep(.balance-history-wrapper .balance-history) :is(th, td) { padding: .375rem .25rem; font-size: .75rem; }

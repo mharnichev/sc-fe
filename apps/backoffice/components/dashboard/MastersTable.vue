@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ChevronUpIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import type { Master } from '~/composables/useBackofficeApi'
 import type { DashboardMasterBreakdownItem } from '~/utils/adminDashboardContract'
 import {
   compareDashboardMasterRows,
@@ -13,12 +14,14 @@ import { formatRating } from '~/utils/reviews'
 
 const props = defineProps<{
   rows: DashboardMasterBreakdownItem[]
+  masters: Master[]
   loading?: boolean
 }>()
 
 const { formatMoney } = useBookingFormatting()
 const sortKey = ref<AdminDashboardMasterSortKey>('revenue_per_available_hour')
 const sortDirection = ref<SortDirection>('desc')
+const mastersById = computed(() => new Map(props.masters.map(master => [master.id, master])))
 
 const sortedRows = computed(() =>
   [...props.rows].sort((first, second) =>
@@ -108,9 +111,9 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
     >
       <template #head>
             <tr>
-              <th class="sticky left-0 z-10 bg-ui-subtle">Майстер</th>
+              <th class="sticky left-0 z-10 bg-ui-subtle !text-center">Майстер</th>
               <th v-for="column in columns" :key="column.key">
-                <button
+                <BaseButton variant="unstyled"
                   type="button"
                   class="base-table__sort inline-flex items-center gap-1 rounded-md text-left"
                   :aria-label="sortAriaLabel(column.key, column.label)"
@@ -119,13 +122,23 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
                   {{ column.label }}
                   <ChevronUpIcon v-if="sortKey === column.key && sortDirection === 'asc'" class="h-3.5 w-3.5" aria-hidden="true" />
                   <ChevronDownIcon v-else-if="sortKey === column.key" class="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+                </BaseButton>
               </th>
               <th><span class="sr-only">Дії</span></th>
             </tr>
       </template>
           <tr v-for="row in sortedRows" :key="row.master_id">
-            <td class="sticky left-0 bg-ui-surface font-medium text-ui-primary">{{ row.master_name }}</td>
+            <td class="sticky left-0 z-10 bg-ui-surface font-medium text-ui-primary">
+              <div class="mx-auto flex max-w-28 flex-col items-center gap-1 text-center">
+                <MasterProfileAvatar :master-id="row.master_id" :name="row.master_name" :master="mastersById.get(row.master_id)">
+                  <dl class="grid grid-cols-2 gap-3">
+                    <div><dt>Виручка за період</dt><dd class="font-semibold text-ui-primary">{{ formatMoneyMetric(row.gross_revenue) }}</dd></div>
+                    <div><dt>Завершені візити</dt><dd class="font-semibold text-ui-primary">{{ formatNumber(row.completed_visits) }}</dd></div>
+                  </dl>
+                </MasterProfileAvatar>
+                <span class="max-w-full break-words leading-tight">{{ row.master_name }}</span>
+              </div>
+            </td>
             <td class="text-ui-secondary">{{ formatMoneyMetric(row.gross_revenue) }}</td>
             <td class="text-ui-secondary">{{ formatNumber(row.completed_visits) }}</td>
             <td class="text-ui-secondary">{{ averageCheckLabel(row) }}</td>
@@ -133,7 +146,15 @@ const ratingLabel = (row: DashboardMasterBreakdownItem) =>
             <td class="text-ui-secondary">{{ revenuePerHourLabel(row) }}</td>
             <td class="text-ui-secondary">{{ returningShareLabel(row) }}</td>
             <td><BaseBadge tone="warning">{{ ratingLabel(row) }}</BaseBadge></td>
-            <td class="text-right"><NuxtLink :to="`/admin/statistics/barbers/${row.master_id}`" class="font-medium text-ui-accent hover:underline">Деталі</NuxtLink></td>
+            <td class="w-px text-right">
+              <NuxtLink
+                :to="`/admin/statistics/barbers/${row.master_id}`"
+                :aria-label="`Деталі: ${row.master_name}`"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full text-ui-accent hover:bg-ui-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <EyeIcon class="h-5 w-5" aria-hidden="true" />
+              </NuxtLink>
+            </td>
           </tr>
     </BaseTable>
   </section>

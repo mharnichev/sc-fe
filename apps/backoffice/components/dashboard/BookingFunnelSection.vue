@@ -109,8 +109,8 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
       </div>
     </div>
 
-    <div v-if="loading" class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6" aria-label="Завантаження воронки запису">
-      <div v-for="index in 6" :key="index" class="h-32 animate-pulse rounded-xl bg-slate-100" />
+    <div v-if="loading" class="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-6" aria-label="Завантаження воронки запису">
+      <div v-for="index in 6" :key="index" class="h-24 animate-pulse rounded-lg bg-slate-100 sm:h-32 sm:rounded-xl" />
     </div>
 
     <StatisticsEmptyState
@@ -160,7 +160,7 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
 
       <ol
         v-if="isRenderable"
-        class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6"
+        class="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-6"
         aria-label="Кроки воронки онлайн-запису"
       >
         <li
@@ -173,7 +173,7 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
               {{ index + 1 }}
             </span>
             <p class="flex min-w-0 flex-1 items-center gap-0.5 text-xs font-medium leading-4 text-slate-700">
-              <span class="min-w-0 truncate">{{ row.label }}</span>
+              <span class="min-w-0 sm:truncate">{{ row.label }}</span>
               <DashboardMetricHelp
                 :title="row.label"
                 :summary="bookingFunnelStepDescriptions[row.step]"
@@ -182,7 +182,7 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
             </p>
           </div>
           <div class="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-            <p class="text-xl font-semibold leading-none text-slate-950">
+            <p class="text-lg font-semibold leading-none text-slate-950 sm:text-xl">
               {{ row.count === null ? 'Недоступно' : row.count.toLocaleString('uk-UA') }}
             </p>
             <p class="text-[0.625rem] leading-4 text-slate-500">спроб запису</p>
@@ -331,18 +331,18 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
         </h3>
         <template v-if="noSlotOutcomes">
           <p class="mt-1 text-sm font-medium text-slate-700">Зіткнулися з порожнім пошуком: {{ noSlotOutcomes.affected.toLocaleString('uk-UA') }} унікальних сесій.</p>
-          <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <dl class="mt-2 grid grid-cols-2 gap-2 sm:mt-3 xl:grid-cols-4">
             <div v-for="item in [
               { label: 'Пізніше записалися', count: noSlotOutcomes.booked },
               { label: 'Обрали час без запису', count: noSlotOutcomes.selected },
               { label: 'Без спостереженого продовження', count: noSlotOutcomes.unresolved },
               { label: 'Очікують спостереження', count: noSlotOutcomes.pending },
-            ]" :key="item.label" class="rounded-xl border border-slate-200 p-2.5">
-              <dt class="text-xs text-slate-600">{{ item.label }}</dt>
-              <dd class="mt-1 text-xl font-semibold text-slate-950">{{ item.count.toLocaleString('uk-UA') }}</dd>
+            ]" :key="item.label" class="min-w-0 rounded-lg border border-slate-200 p-1.5 sm:rounded-xl sm:p-2.5">
+              <dt class="text-xs leading-tight text-slate-600 sm:leading-4">{{ item.label }}</dt>
+              <dd class="mt-0.5 text-lg font-semibold leading-tight text-slate-950 sm:mt-1 sm:text-xl">{{ item.count.toLocaleString('uk-UA') }}</dd>
             </div>
           </dl>
-          <p class="mt-3 text-xs text-slate-600">
+          <p class="mt-2 text-xs text-slate-600 sm:mt-3">
             Частка без спостереженого продовження: {{ formatBookingFunnelPercentage(noSlotOutcomes.ratePercent) }}
             ({{ noSlotOutcomes.rateSessions.toLocaleString('uk-UA') }} із {{ noSlotOutcomes.denominator.toLocaleString('uk-UA') }} сесій у розрахунку).
           </p>
@@ -459,6 +459,17 @@ const alertTrigger = (code: keyof typeof bookingFunnelAlertContent) =>
   outline: 2px solid var(--bo-focus-border);
   outline-offset: 2px;
   border-radius: 0.25rem;
+}
+
+@media (max-width: 639px) {
+  .booking-funnel { padding: 0.625rem; border-radius: 0.4375rem; }
+  .booking-funnel__overall { width: 100%; padding: 0.5rem 0.625rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; text-align: left; }
+  .booking-funnel__overall > p { margin: 0; }
+  .booking-funnel__step { min-width: 0; padding: 0.375rem; border-radius: 0.5rem; }
+  .booking-funnel__conversion { margin-top: 0.25rem; padding: 0.25rem; border: 0; }
+  .booking-funnel__insight,
+  .booking-funnel__bottleneck,
+  .booking-funnel__alert { padding: 0.625rem; border-radius: 0.375rem; }
 }
 
 .booking-funnel {

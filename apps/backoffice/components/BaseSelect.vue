@@ -27,6 +27,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   placeholder?: string
   menuClass?: string
+  returnFocusOnTab?: boolean
   ariaLabel?: string
   fieldClass?: string
   triggerClass?: string
@@ -134,7 +135,12 @@ const handleMenuKeydown = (event: KeyboardEvent) => {
     return
   }
   if (event.key === 'Tab') {
-    open.value = false
+    if (props.returnFocusOnTab) {
+      event.preventDefault()
+      void closeAndFocusTrigger()
+    } else {
+      open.value = false
+    }
     return
   }
   if (!optionButtons.length) return

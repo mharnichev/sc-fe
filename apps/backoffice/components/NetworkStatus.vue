@@ -22,8 +22,8 @@ onBeforeUnmount(() => {
     <template v-if="offline">Немає з’єднання / Offline. Дані можуть бути застарілими. Зміни не надсилаються без інтернету.
     Після відновлення зв’язку перевірте запис перед повторною спробою: попередній запит міг надійти на сервер.</template>
     <template v-else>З’єднання відновлено / Back online. Оновіть дані та перевірте записи перед повторною спробою.
-      <button type="button" class="min-h-11 px-3 underline" @click="reload">Оновити / Reload</button>
-      <button type="button" class="min-h-11 px-3" @click="reconnect = false">Закрити / Dismiss</button>
+      <BaseButton variant="unstyled" type="button" class="min-h-11 px-3 underline" @click="reload">Оновити / Reload</BaseButton>
+      <BaseButton variant="unstyled" type="button" class="min-h-11 px-3" @click="reconnect = false">Закрити / Dismiss</BaseButton>
     </template>
   </aside>
 </template>
