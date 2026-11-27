@@ -102,7 +102,7 @@ const applyMovementFilters = () => updateQuery({
         <BaseSelect v-model="movementType" field-class="col-span-2 sm:col-span-1" :options="movementTypeOptions" label="Тип руху" hint="Фільтри діють на поточній сторінці історії. Для інших записів перейдіть на наступну сторінку." ><template #icon><ArrowsRightLeftIcon class="h-4 w-4" aria-hidden="true" /></template></BaseSelect>
         <BaseInput v-model="dateFrom" type="date" label="Від дати" hint="Початок періоду включно." aria-description="Початок періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
         <BaseInput v-model="dateTo" type="date" label="До дати" hint="Кінець періоду включно." aria-description="Кінець періоду включно." ><template #icon><CalendarDaysIcon class="h-4 w-4" aria-hidden="true" /></template></BaseInput>
-        <BaseButton type="submit" variant="primary" class="col-span-2 min-h-11 self-end sm:col-span-1"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
+        <BaseButton type="submit" variant="primary" class="col-span-2 self-end sm:col-span-1"><AdjustmentsHorizontalIcon class="h-4 w-4" aria-hidden="true" />Застосувати</BaseButton>
       </form>
       <p v-if="error || productError" class="ui-status-danger rounded-2xl px-4 py-3 text-sm" role="alert">{{ inventoryApiErrorMessage(error || productError, 'Не вдалося завантажити рух товару.') }} <BaseButton variant="unstyled" class="ml-2 font-semibold underline" @click="retry">Спробувати ще раз</BaseButton></p>
       <div v-else-if="pending || productPending" class="grid gap-4"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-ui-subtle" /></div>

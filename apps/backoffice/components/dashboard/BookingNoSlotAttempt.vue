@@ -63,9 +63,9 @@ const toggle = () => {
     <p v-if="attempt.rapid_checks" class="mt-2 text-xs leading-5 text-ui-muted">{{ attempt.rapid_checks }} послідовних перевірок з інтервалом до 10 секунд. Це сигнал темпу перевірок, не висновок про їхню причину.</p>
     </template>
     <h5 v-else class="text-sm font-semibold text-ui-primary">Перевірки без ідентифікатора сесії · {{ unattributedObservations }}</h5>
-    <button type="button" class="attempt__button mt-3 rounded-lg border px-3 py-2 text-xs" :aria-expanded="open" :aria-controls="detailsId" @click="toggle">
+    <BaseButton variant="unstyled" type="button" class="attempt__button mt-3 rounded-lg border px-3 py-2 text-xs" :aria-expanded="open" :aria-controls="detailsId" @click="toggle">
       {{ open ? 'Сховати перевірки' : 'Переглянути перевірки' }}
-    </button>
+    </BaseButton>
     <div v-if="open" :id="detailsId" class="mt-3" :aria-busy="loading">
       <ol class="grid gap-2" aria-label="Історичні перевірки">
         <li v-for="(check, index) in checks" :key="index" class="rounded-lg border p-3 text-xs text-ui-secondary" data-testid="no-slot-check">
@@ -75,11 +75,11 @@ const toggle = () => {
         </li>
       </ol>
       <p v-if="loading" role="status" class="mt-3 text-xs text-ui-muted">Завантаження перевірок…</p>
-      <div v-else-if="error" role="alert" class="mt-3 text-xs text-ui-secondary">Не вдалося завантажити перевірки. <button type="button" class="attempt__button underline" @click="load">Повторити</button></div>
+      <div v-else-if="error" role="alert" class="mt-3 text-xs text-ui-secondary">Не вдалося завантажити перевірки. <BaseButton variant="unstyled" type="button" class="attempt__button underline" @click="load">Повторити</BaseButton></div>
       <template v-else-if="page">
         <p class="mt-3 text-xs text-ui-muted">Показано {{ checks.length }} із {{ page.total }} перевірок. Підсумки враховують усі перевірки.</p>
         <p v-if="page.total !== (attempt?.observations ?? unattributedObservations)" role="status" class="mt-2 text-xs text-ui-secondary">Деталі не узгоджені зі зведенням. Оновіть дашборд.</p>
-        <button v-if="page.has_more" type="button" class="attempt__button mt-2 rounded-lg border px-3 py-2 text-xs" @click="load">Показати ще перевірки</button>
+        <BaseButton variant="unstyled" v-if="page.has_more" type="button" class="attempt__button mt-2 rounded-lg border px-3 py-2 text-xs" @click="load">Показати ще перевірки</BaseButton>
       </template>
     </div>
   </article>

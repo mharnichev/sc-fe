@@ -111,7 +111,7 @@ const choose = (product: InventoryProduct) => {
         <p v-if="searched && !results.length && !busy" role="status" class="text-sm text-ui-secondary">Товарів не знайдено. Змініть назву або SKU.</p>
         <div v-if="compactMobile" class="space-y-2 sm:hidden">
           <p v-if="results.length" class="text-sm text-ui-secondary">Натисніть на товар, щоб додати.</p>
-          <button v-for="product in results" :key="product.id" type="button"
+          <BaseButton variant="unstyled" v-for="product in results" :key="product.id" type="button"
             class="flex min-h-16 w-full items-center gap-3 rounded-xl border border-ui bg-ui-subtle p-3 text-left transition hover:bg-ui-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-50"
             :aria-label="`Додати: ${product.name}`" :disabled="busy" @click="choose(product)">
             <img v-if="productDisplayImage(product) && !failedImages.includes(product.id)" :src="assetUrl(productDisplayImage(product))" alt="" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain" loading="lazy" @error="failedImages.push(product.id)">
@@ -121,7 +121,7 @@ const choose = (product: InventoryProduct) => {
               <span v-if="isAdmin" class="mt-1 block text-sm">Ціна сайту: <strong>{{ product.effective_shop_price != null ? formatMoney(product.effective_shop_price) : 'Ціна недоступна' }}</strong></span>
             </span>
             <PlusIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
-          </button>
+          </BaseButton>
         </div>
         <div :class="compactMobile ? 'hidden space-y-4 sm:block' : 'space-y-4'">
           <InventoryProductCard v-for="product in results" :key="product.id" :product="product">

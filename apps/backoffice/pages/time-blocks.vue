@@ -744,10 +744,13 @@ const confirmDeleteAvailability = async () => {
           <th scope="row" :class="leadingCellClass">
             <div class="flex min-w-0 flex-col items-center gap-0.5 md:items-start md:gap-1">
               <div class="flex flex-col items-center gap-0.5 md:flex-row md:gap-1.5">
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.6rem] font-semibold text-ui-secondary md:h-9 md:w-9 md:text-[0.65rem]">
-                <img v-if="stat.imageUrl" :src="stat.imageUrl" alt="" class="h-full w-full object-cover">
-                <span v-else>{{ stat.initials }}</span>
-              </span>
+              <MasterProfileAvatar
+                :master-id="stat.master.id"
+                :master="stat.master"
+                :name="stat.displayName"
+                :avatar-url="stat.imageUrl"
+                class="!h-7 !w-7 md:!h-9 md:!w-9"
+              />
               <BaseButton
                 type="button"
                 variant="unstyled"

@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
     @mouseenter="show"
     @mouseleave="hideUnlessPinned"
   >
-    <button
+    <BaseButton variant="unstyled"
       type="button"
       class="dashboard-metric-help__button"
       :aria-label="`Як рахується: ${title}`"
@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
       @blur="handleBlur"
     >
       <QuestionMarkCircleIcon class="h-4 w-4" aria-hidden="true" />
-    </button>
+    </BaseButton>
 
     <span
       v-if="visible"

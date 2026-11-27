@@ -29,7 +29,6 @@ import {
 } from '~/utils/adminDashboard'
 import type {
   DashboardActionSeverity,
-  DashboardRepeatMetric,
   DashboardServiceBreakdownItem,
 } from '~/utils/adminDashboardContract'
 import { formatModerationDuration, formatRating, formatReviewConversionRate } from '~/utils/reviews'
@@ -119,9 +118,10 @@ const selectCustom = () => {
 
 const updateComparison = () => persistRange()
 
-const { data: mastersData } = await useAsyncData(
+const { data: mastersData, pending: mastersPending } = await useAsyncData(
   'admin-dashboard-master-options',
   () => api.adminGetMasters(1, 200, { is_active: true }),
+  { lazy: true },
 )
 const masters = computed<Master[]>(() => normalizeItems<Master>(mastersData.value))
 watch(selectedMasterId, () => persistRange())
@@ -158,6 +158,7 @@ const {
     compare_to_previous: compareToPrevious.value,
     master_id: selectedMasterId.value,
   }),
+  { lazy: true },
 )
 
 const {
@@ -172,6 +173,7 @@ const {
     date_to: appliedDateTo.value,
     master_id: selectedMasterId.value,
   }),
+  { lazy: true },
 )
 
 const {
@@ -185,8 +187,10 @@ const {
     date_from: appliedDateFrom.value,
     date_to: appliedDateTo.value,
   }),
+  { lazy: true },
 )
 
+const dashboardBusy = computed(() => pending.value || reviewMetricsPending.value || bookingRecoveryPending.value)
 const refreshAll = () => Promise.all([refresh(), refreshReviewMetrics(), refreshBookingRecovery(), discountsSection.value?.refresh()])
 const applyDashboardFilters = () => selectedPreset.value === 'custom' ? applyRange() : refreshAll()
 const errorStatus = computed(() => {
@@ -251,11 +255,13 @@ const primeTimeFormatter = new Intl.DateTimeFormat('uk-UA', {
 })
 const formatPrimeTimeWindow = (startAt: string, endAt: string) =>
   `${primeTimeFormatter.format(new Date(startAt))} — ${primeTimeFormatter.format(new Date(endAt))}`
-const repeatMetricLabel = (metric: DashboardRepeatMetric | null | undefined) => {
-  if (!metric) return 'Недоступно'
-  const rate = metric.repeat_rate === null ? 'ще не спостережувано' : formatDashboardRate(metric.repeat_rate)
-  return `${metric.repeated_clients}/${metric.eligible_clients} · ${rate}`
-}
+const observedRepeatMetrics = computed(() => {
+  const retention = dashboard.value?.retention
+  return retention
+    ? [retention.repeat_30_day, retention.repeat_45_day, retention.repeat_60_day]
+        .filter(metric => metric.eligible_clients > 0 && metric.repeat_rate !== null)
+    : []
+})
 
 const serviceSortKey = ref<'gross_revenue' | 'completed_visits'>('gross_revenue')
 const sortedServices = computed(() => [...(dashboard.value?.services || [])].sort((first, second) => {
@@ -294,92 +300,100 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
 </script>
 
 <template>
-  <div class="space-y-5">
-    <header class="flex flex-wrap items-start justify-between gap-4">
-      <div>
+  <div class="dashboard-overview space-y-3 sm:space-y-5">
+    <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-3 sm:gap-y-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-x-4">
+      <header class="col-span-2 md:col-span-1">
         <p class="text-xs font-medium uppercase tracking-[0.24em] text-cyan-700">Soul Cuts · бізнес-огляд</p>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Дашборд барбершопу</h1>
         <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
           Рішення для якісної виручки, завантаження команди та повернення клієнтів.
         </p>
-      </div>
-      <BaseButton variant="neutral" :loading="pending || reviewMetricsPending || bookingRecoveryPending" @click="refreshAll">
+      </header>
+      <BaseButton
+        variant="neutral"
+        class="min-w-[6.5rem] whitespace-nowrap md:min-w-0"
+        :loading="dashboardBusy"
+        @click="refreshAll"
+      >
         <ArrowPathIcon class="h-4 w-4" aria-hidden="true" />
         Оновити
       </BaseButton>
-    </header>
 
-    <BaseFilterPanel
-      fields-class="!block"
-      :active-count="activeFilterCount"
-      mobile-title="Період аналізу"
-      :loading="pending || reviewMetricsPending || bookingRecoveryPending"
-      :show-clear="false"
-      aria-label="Період аналізу"
-      @apply="applyDashboardFilters"
-    >
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
-            <CalendarDaysIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
-            Період аналізу
-          </h2>
-          <p class="mt-1 text-sm text-slate-500">{{ periodLabel }} · часовий пояс Europe/Kyiv</p>
-          <p v-if="comparisonPeriodLabel" class="mt-1 text-xs text-slate-400">Порівняння: {{ comparisonPeriodLabel }}</p>
-        </div>
-      </div>
-
-      <div class="mt-4 flex flex-wrap gap-2" aria-label="Швидкий вибір періоду">
-        <BaseButton
-          v-for="option in presetOptions"
-          :key="option.value"
-          type="button"
-          :variant="selectedPreset === option.value ? 'primary' : 'neutral'"
-          size="sm"
-          class="!h-9 !min-h-9 self-start !py-1.5"
-          :aria-pressed="selectedPreset === option.value"
-          @click="selectPreset(option.value)"
+      <div class="min-w-0 self-center md:col-span-2 md:self-auto">
+        <BaseFilterPanel
+          fields-class="!block"
+          :active-count="activeFilterCount"
+          mobile-title="Період аналізу"
+          :loading="dashboardBusy || mastersPending"
+          loading-overlay-label="Оновлюємо дані дашборду…"
+          :show-clear="false"
+          aria-label="Період аналізу"
+          @apply="applyDashboardFilters"
         >
-          {{ option.label }}
-        </BaseButton>
-        <BaseButton
-          type="button"
-          :variant="selectedPreset === 'custom' ? 'primary' : 'neutral'"
-          size="sm"
-          class="!h-9 !min-h-9 self-start !py-1.5"
-          :aria-pressed="selectedPreset === 'custom'"
-          @click="selectCustom"
-        >
-          Власний період
-        </BaseButton>
-      </div>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
+                <CalendarDaysIcon class="h-5 w-5 text-cyan-700" aria-hidden="true" />
+                Період аналізу
+              </h2>
+              <p class="mt-1 text-sm text-slate-500">{{ periodLabel }} · часовий пояс Europe/Kyiv</p>
+              <p v-if="comparisonPeriodLabel" class="mt-1 text-xs text-slate-400">Порівняння: {{ comparisonPeriodLabel }}</p>
+            </div>
+          </div>
 
-      <div v-if="selectedPreset === 'custom'" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_auto] lg:items-end">
-        <BaseDateRange
-          v-model:date-from="customDateFrom"
-          v-model:date-to="customDateTo"
-          from-label="Дата від"
-          to-label="Дата до"
-          class="sm:col-span-2 lg:col-span-2"
-        />
-        <BaseButton type="submit" variant="primary" :disabled="pending || reviewMetricsPending || bookingRecoveryPending">Застосувати</BaseButton>
-      </div>
-      <div class="mt-4 max-w-sm">
-        <MasterSelect
-          v-model="selectedMasterId"
-          label="Майстер"
-          :masters="masters"
-          all-label="Усі майстри"
-          value-type="number"
-          compact
-        />
-      </div>
-      <p v-if="rangeError" class="mt-3 text-sm text-rose-600" role="alert">{{ rangeError }}</p>
+          <div class="mt-4 flex flex-wrap gap-2" aria-label="Швидкий вибір періоду">
+            <BaseButton
+              v-for="option in presetOptions"
+              :key="option.value"
+              type="button"
+              :variant="selectedPreset === option.value ? 'primary' : 'neutral'"
+              size="sm"
+              class="self-start"
+              :aria-pressed="selectedPreset === option.value"
+              @click="selectPreset(option.value)"
+            >
+              {{ option.label }}
+            </BaseButton>
+            <BaseButton
+              type="button"
+              :variant="selectedPreset === 'custom' ? 'primary' : 'neutral'"
+              size="sm"
+              class="self-start"
+              :aria-pressed="selectedPreset === 'custom'"
+              @click="selectCustom"
+            >
+              Власний період
+            </BaseButton>
+          </div>
 
-      <template #actions>
-        <BaseToggle v-model="compareToPrevious" label="Попередній рівний період" @change="updateComparison" />
-      </template>
-    </BaseFilterPanel>
+          <div v-if="selectedPreset === 'custom'" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_auto] lg:items-end">
+            <BaseDateRange
+              v-model:date-from="customDateFrom"
+              v-model:date-to="customDateTo"
+              from-label="Дата від"
+              to-label="Дата до"
+              class="sm:col-span-2 lg:col-span-2"
+            />
+            <BaseButton type="submit" variant="primary">Застосувати</BaseButton>
+          </div>
+          <div class="mt-4 max-w-sm">
+            <MasterSelect
+              v-model="selectedMasterId"
+              label="Майстер"
+              :masters="masters"
+              all-label="Усі майстри"
+              value-type="number"
+              compact
+            />
+          </div>
+          <p v-if="rangeError" class="mt-3 text-sm text-rose-600" role="alert">{{ rangeError }}</p>
+
+          <template #actions>
+            <BaseToggle v-model="compareToPrevious" label="Попередній рівний період" @change="updateComparison" />
+          </template>
+        </BaseFilterPanel>
+      </div>
+    </div>
 
     <section
       v-if="error"
@@ -403,6 +417,10 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
         </div>
       </div>
     </section>
+
+    <BaseCard v-else-if="!dashboard" padding="none">
+      <BaseLoader label="Завантажуємо дашборд…" />
+    </BaseCard>
 
     <template v-else>
       <section aria-labelledby="executive-kpi-title">
@@ -507,8 +525,8 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
               <p class="mt-1 text-sm text-slate-500">Завантаження рахується від підтвердженої доступності, а не від найзавантаженішого дня.</p>
             </div>
           </div>
-          <div v-if="pending" class="mt-4 grid gap-3 sm:grid-cols-2"><div v-for="index in 6" :key="index" class="h-24 animate-pulse rounded-2xl bg-slate-100" /></div>
-          <dl v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-if="pending" class="dashboard-capacity-metrics mt-4 grid gap-3 sm:grid-cols-2"><div v-for="index in 6" :key="index" class="h-24 animate-pulse rounded-2xl bg-slate-100" /></div>
+          <dl v-else class="dashboard-capacity-metrics mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div class="rounded-2xl bg-slate-50 p-4">
               <dt class="flex items-center gap-1 text-sm text-slate-500">
                 Заброньовано годин
@@ -645,29 +663,30 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
             </dl>
             <div class="mt-3 rounded-2xl border border-slate-200 p-4">
               <p class="flex items-center gap-1 text-sm font-medium text-slate-900">
-                Повторний візит після завершеного візиту
+                Повторні візити
                 <DashboardMetricHelp
                   title="Повторний візит за 30 / 45 / 60 днів"
-                  summary="Для кожного вікна показано: повторні клієнти / клієнти, яких уже можна оцінити · частка повтору."
+                  summary="Для кожного доступного вікна показано частку повторних візитів і кількість клієнтів із повторним візитом із тих, кого вже можна оцінити."
                   formula="repeated_clients ÷ eligible_clients × 100%."
-                  note="«Ще не спостережувано» означає, що для жодного клієнта когорти повне вікно ще не завершилося; це не 0%."
+                  note="До розрахунку входять клієнти, для яких усе вікно спостереження минуло до кінця періоду або поточного часу за Києвом."
                 />
               </p>
-              <dl class="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div><dt class="text-xs text-slate-500">30 днів</dt><dd class="mt-1 font-semibold text-slate-900">{{ repeatMetricLabel(dashboard?.retention.repeat_30_day) }}</dd></div>
-                <div><dt class="text-xs text-slate-500">45 днів</dt><dd class="mt-1 font-semibold text-slate-900">{{ repeatMetricLabel(dashboard?.retention.repeat_45_day) }}</dd></div>
-                <div><dt class="text-xs text-slate-500">60 днів</dt><dd class="mt-1 font-semibold text-slate-900">{{ repeatMetricLabel(dashboard?.retention.repeat_60_day) }}</dd></div>
+              <dl v-if="observedRepeatMetrics.length" class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div v-for="metric in observedRepeatMetrics" :key="metric.window_days" class="min-w-0">
+                  <dt class="text-xs text-slate-500">{{ metric.window_days }} днів</dt>
+                  <dd class="mt-1 break-words text-sm font-semibold text-slate-900">
+                    {{ formatDashboardRate(metric.repeat_rate) }}
+                    <span class="block text-xs font-normal text-slate-500">{{ metric.repeated_clients }} із {{ metric.eligible_clients }}</span>
+                  </dd>
+                </div>
               </dl>
+              <p v-else class="mt-1 text-xs leading-5 text-slate-500">За цей період ще недостатньо даних для оцінки повторних візитів за 30, 45 або 60 днів.</p>
             </div>
-            <p class="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-500">
-              <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              До знаменника кожного вікна входять лише клієнти, для яких усі 30, 45 або 60 днів уже минули до кінця періоду чи поточного київського часу.
-            </p>
           </template>
         </section>
       </div>
 
-      <DashboardMastersTable :rows="dashboard?.masters || []" :loading="pending" />
+      <DashboardMastersTable :rows="dashboard?.masters || []" :masters="masters" :loading="pending" />
 
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
         <section class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="services-title">
@@ -688,8 +707,8 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
               </p>
             </div>
             <div class="inline-flex rounded-full border border-slate-200 p-1" aria-label="Сортування послуг">
-              <button type="button" class="rounded-full px-3 py-1.5 text-xs font-medium" :class="serviceSortKey === 'gross_revenue' ? 'bg-slate-950 text-white' : 'text-slate-600'" :aria-pressed="serviceSortKey === 'gross_revenue'" @click="serviceSortKey = 'gross_revenue'">За виручкою</button>
-              <button type="button" class="rounded-full px-3 py-1.5 text-xs font-medium" :class="serviceSortKey === 'completed_visits' ? 'bg-slate-950 text-white' : 'text-slate-600'" :aria-pressed="serviceSortKey === 'completed_visits'" @click="serviceSortKey = 'completed_visits'">За візитами</button>
+              <BaseButton type="button" size="sm" :variant="serviceSortKey === 'gross_revenue' ? 'primary' : 'neutral'" :aria-pressed="serviceSortKey === 'gross_revenue'" @click="serviceSortKey = 'gross_revenue'">За виручкою</BaseButton>
+              <BaseButton type="button" size="sm" :variant="serviceSortKey === 'completed_visits' ? 'primary' : 'neutral'" :aria-pressed="serviceSortKey === 'completed_visits'" @click="serviceSortKey = 'completed_visits'">За візитами</BaseButton>
             </div>
           </div>
           <div v-if="pending" class="mt-4 space-y-3"><div v-for="index in 5" :key="index" class="h-16 animate-pulse rounded-2xl bg-slate-100" /></div>
@@ -871,6 +890,62 @@ const actionSignalTrigger = (code: keyof typeof dashboardActionLabels) =>
 </template>
 
 <style scoped>
+.dashboard-overview :deep(section.border),
+.dashboard-overview :deep(article.border) {
+  border-color: var(--border);
+}
+
+@media (max-width: 639px) {
+  .dashboard-overview { min-width: 0; }
+  .dashboard-overview :deep(section),
+  .dashboard-overview :deep(article) { min-width: 0; }
+  .dashboard-overview :deep(.p-4),
+  .dashboard-overview :deep(.p-5),
+  .dashboard-overview :deep(.p-6),
+  .dashboard-overview :deep(.booking-recovery) { padding: 0.625rem; }
+  .dashboard-overview :deep(.px-4) { padding-inline: 0.625rem; }
+  .dashboard-overview :deep(.py-3) { padding-block: 0.5rem; }
+  .dashboard-overview :deep(.rounded-\[1\.75rem\]),
+  .dashboard-overview :deep(.rounded-\[1\.5rem\]),
+  .dashboard-overview :deep(.rounded-2xl) { border-radius: 0.4375rem; }
+  .dashboard-overview :deep(.gap-4),
+  .dashboard-overview :deep(.gap-3) { gap: 0.5rem; }
+  .dashboard-overview :deep(.mt-4),
+  .dashboard-overview :deep(.mt-5) { margin-top: 0.625rem; }
+  .dashboard-overview :deep(.mt-3) { margin-top: 0.5rem; }
+  .dashboard-overview :deep(h1) { margin-top: 0.25rem; font-size: 1.25rem; line-height: 1.5; }
+  .dashboard-overview :deep(h2) { font-size: 0.9375rem; line-height: 1.4; }
+  .dashboard-overview :deep(.leading-6) { line-height: 1.4; }
+  .dashboard-overview :deep(.text-sm) { font-size: 0.75rem; }
+  .dashboard-overview :deep(.text-2xl),
+  .dashboard-overview :deep(.text-3xl) { font-size: 1.25rem; line-height: 1.25; }
+  .dashboard-overview :deep(dl.grid),
+  .dashboard-overview :deep(.telegram-bookings__statuses) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-overview dl.dashboard-capacity-metrics,
+  .dashboard-overview .dashboard-capacity-metrics {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(12rem, 70%);
+    overflow-x: auto;
+  }
+  .dashboard-overview :deep(.booking-recovery__metric) { min-height: 0; padding: 0.625rem; border-radius: 0.375rem; }
+  .dashboard-overview :deep(.booking-recovery__description) { font-size: 0.75rem; line-height: 1.4; }
+  .dashboard-kpis :deep(.dashboard-decision-metric-card) {
+    min-width: 0;
+    min-height: 0;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+  }
+  .dashboard-kpis :deep(.statistics-stat-card__value) { margin-top: 0.25rem; font-size: 1.125rem; }
+  .dashboard-kpis :deep(.dashboard-decision-metric-card > p.mt-3) {
+    margin-top: 0.375rem;
+    font-size: 0.6875rem;
+    line-height: 1.35;
+  }
+  .dashboard-kpis :deep(.animate-pulse > div) { max-width: 100%; }
+  .dashboard-kpis :deep(.animate-pulse > div + div) { margin-top: 0.5rem; }
+}
+
 .dashboard-period-option {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
 }

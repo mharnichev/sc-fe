@@ -5,7 +5,8 @@ import { useId } from 'vue'
 const props = defineProps<{ text: string; label?: string; id?: string }>()
 const generatedId = useId()
 const tooltipId = computed(() => props.id || `field-help-${generatedId}`)
-const trigger = ref<HTMLButtonElement | null>(null)
+const triggerRef = ref<{ $el: HTMLButtonElement } | null>(null)
+const trigger = computed(() => triggerRef.value?.$el)
 const tooltip = ref<HTMLElement | null>(null)
 const visible = ref(false)
 const pinned = ref(false)
@@ -64,12 +65,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <button ref="trigger" type="button" class="field-help-trigger text-ui-muted"
+  <BaseButton variant="unstyled" ref="triggerRef" type="button" class="field-help-trigger text-ui-muted"
     :aria-label="label ? `Пояснення: ${label}` : 'Пояснення'" :aria-expanded="visible"
     :aria-controls="visible ? tooltipId : undefined" :aria-describedby="visible ? tooltipId : undefined"
     @mouseenter="show" @mouseleave="leave" @focus="show" @blur="blur" @click.stop.prevent="toggle">
     <QuestionMarkCircleIcon class="h-4 w-4" aria-hidden="true" />
-  </button>
+  </BaseButton>
   <Teleport to="body">
     <span v-if="visible" :id="tooltipId" ref="tooltip" role="tooltip" class="field-help-tooltip"
       :style="position" @mouseenter="keepOpen" @mouseleave="leave">{{ text }}</span>

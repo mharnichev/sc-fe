@@ -9,6 +9,7 @@ type CardPadding = 'none' | 'sm' | 'md' | 'lg'
 
 const props = withDefaults(defineProps<{
   loading?: boolean
+  loadingOverlayLabel?: string
   disabled?: boolean
   applyLabel?: string
   clearLabel?: string
@@ -192,9 +193,11 @@ const handleClear = () => {
       ref="triggerRef"
       type="button"
       variant="neutral"
+      size="sm"
       class="base-filter-panel__mobile-trigger w-full justify-between md:hidden"
       :class="hasActiveFilters ? 'base-filter-panel__mobile-trigger--active' : ''"
       :disabled="unavailable"
+      :aria-busy="loadingOverlayLabel && loading ? true : undefined"
       :aria-label="mobileAccessibleLabel"
       :aria-expanded="mobileOpen"
       :aria-controls="formId"
@@ -203,14 +206,15 @@ const handleClear = () => {
       @click="openMobilePanel"
     >
       <span class="flex items-center gap-2">
-        <span class="relative">
-          <FunnelIcon class="h-5 w-5" aria-hidden="true" />
+        <BaseLoader v-if="loadingOverlayLabel && loading && !mobileVisible" as="span" inline size="sm" :label="loadingOverlayLabel" label-class="sr-only" />
+        <span v-else class="relative">
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
           <span v-if="hasActiveFilters" class="base-filter-panel__active-dot absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full ring-2" aria-hidden="true" />
         </span>
         <span>{{ mobileTriggerLabel }}</span>
       </span>
       <span
-        class="base-filter-panel__mobile-status rounded-full px-2.5 py-1 text-xs font-semibold"
+        class="base-filter-panel__mobile-status rounded-full px-2 py-0.5 text-xs font-semibold"
         :class="hasActiveFilters ? 'base-filter-panel__mobile-status--active' : 'base-filter-panel__mobile-status--inactive'"
       >
         {{ mobileStatusLabel }}
@@ -227,7 +231,7 @@ const handleClear = () => {
         ]"
         @keydown="handleMobileKeydown"
       >
-        <button
+        <BaseButton variant="unstyled"
           v-if="mobileVisible"
           type="button"
           class="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
@@ -238,13 +242,13 @@ const handleClear = () => {
         <form
           ref="formRef"
           :id="formId"
-          class="base-filter-panel"
+          class="base-filter-panel relative"
           :class="[
             rootClass,
-            mobileVisible ? 'liquid-glass relative z-10 h-[90dvh] max-h-[90dvh] w-full overflow-hidden rounded-t-[1.5rem]' : '',
+            mobileVisible ? 'liquid-glass z-10 h-[90dvh] max-h-[90dvh] w-full overflow-hidden rounded-t-[1.5rem]' : '',
           ]"
           :aria-label="ariaLabel"
-          :aria-busy="loading || undefined"
+          :aria-busy="!loadingOverlayLabel && loading ? true : undefined"
           :aria-disabled="disabled || undefined"
           :role="mobileVisible ? 'dialog' : undefined"
           :aria-modal="mobileVisible || undefined"
@@ -254,6 +258,7 @@ const handleClear = () => {
         >
           <fieldset
             :disabled="unavailable"
+            :aria-busy="loadingOverlayLabel && loading ? true : undefined"
             class="m-0 min-w-0 border-0 p-0"
             :class="mobileVisible ? 'h-full' : ''"
           >
@@ -331,6 +336,7 @@ const handleClear = () => {
               </div>
             </BaseCard>
           </fieldset>
+          <BaseLoader v-if="loadingOverlayLabel && loading" overlay :label="loadingOverlayLabel" />
         </form>
       </div>
     </Teleport>

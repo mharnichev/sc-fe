@@ -178,6 +178,17 @@ const isEmpty = computed(() => props.summary !== undefined && props.summary !== 
   .booking-recovery__grid, .booking-recovery__skeleton { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+@media (max-width: 639px) {
+  .booking-recovery__grid, .booking-recovery__skeleton {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(12rem, 70%);
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    overflow-x: auto;
+  }
+}
+
 @media (max-width: 30rem) {
   .booking-recovery__header { flex-direction: column; }
 }

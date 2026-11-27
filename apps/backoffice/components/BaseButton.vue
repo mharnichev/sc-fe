@@ -42,9 +42,9 @@ const baseClass = computed(() => {
   if (props.variant === 'unstyled') return ''
 
   const isIconVariant = props.variant === 'icon' || props.variant === 'danger-icon'
-  const sizeClass = isIconVariant ? 'h-10 w-10 gap-0 p-0' : {
-    sm: 'min-h-9 gap-1.5 px-3 py-1.5 text-xs',
-    md: 'min-h-10 gap-2 px-4 py-2 text-sm',
+  const sizeClass = isIconVariant ? 'h-8 w-8 gap-0 p-0' : {
+    sm: 'min-h-8 gap-1.5 px-3 py-0.5 text-xs',
+    md: 'min-h-8 gap-2 px-4 py-1 text-sm',
     lg: 'min-h-11 gap-2 px-5 py-3 text-sm',
   }[props.size]
 

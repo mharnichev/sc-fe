@@ -64,6 +64,7 @@ const { data: publicMasters } = useAsyncData('sidebar-public-masters', () => api
 const selfMaster = computed<Master | null>(() =>
   (publicMasters.value || []).find(master => Number(master.id) === Number(auth.user?.master_id)) || null,
 )
+const selfMasterId = computed(() => selfMaster.value?.id ?? auth.user?.master_id)
 const selfMasterName = computed(() => selfMaster.value ? masterName(selfMaster.value) : auth.user?.full_name || auth.user?.email || 'Майстер')
 const selfMasterImageUrl = computed(() => {
   const master = selfMaster.value
@@ -302,7 +303,19 @@ const blockDeleteMessage = computed(() => {
         </template>
         <template #default="{ leadingCellClass, dayCellClass, trailingCellClass, todayCellClass }">
         <tr>
-          <th scope="row" :class="leadingCellClass"><span class="flex min-h-10 items-center justify-center"><span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary"><img v-if="selfMasterImageUrl" :src="selfMasterImageUrl" alt="" class="h-full w-full object-cover"><span v-else>{{ selfMasterInitials }}</span></span><span class="sr-only">Моя доступність · {{ selfMasterName }} · {{ workDays }} робочих дн. у місяці</span></span></th>
+          <th scope="row" :class="leadingCellClass">
+            <span class="flex min-h-10 items-center justify-center">
+              <MasterProfileAvatar
+                v-if="selfMasterId"
+                :master-id="selfMasterId"
+                :master="selfMaster ?? undefined"
+                :name="selfMasterName"
+                :avatar-url="selfMasterImageUrl"
+              />
+              <span v-else class="flex h-9 w-9 items-center justify-center rounded-full border border-ui bg-ui-subtle text-[0.65rem] font-semibold text-ui-secondary">{{ selfMasterInitials }}</span>
+              <span class="sr-only">Моя доступність · {{ selfMasterName }} · {{ workDays }} робочих дн. у місяці</span>
+            </span>
+          </th>
           <td v-for="day in monthDays" :key="day.date" :class="[dayCellClass, day.isToday ? todayCellClass : '']">
             <div v-if="scheduleByDay[day.date]?.availabilitySummary || scheduleByDay[day.date]?.blockSummary" class="space-y-1">
               <div v-if="scheduleByDay[day.date]?.availabilitySummary" class="flex min-h-10 items-start gap-1 rounded-lg border px-1.5 py-1.5" :class="scheduleByDay[day.date].availabilitySummary!.ranges.length ? 'border-emerald-500/20 bg-emerald-500/12' : 'border-amber-500/25 bg-amber-500/10'">
