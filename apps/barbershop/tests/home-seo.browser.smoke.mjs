@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 
@@ -9,15 +9,14 @@ import { createRequire } from 'node:module'
 // Recovery run: restart the API with HOME_SEO_API_DELAY_MS=6000 and run --recovery.
 const origin = process.env.HOME_SEO_ORIGIN || 'http://127.0.0.1:4182'
 const apiDelayMs = Number(process.env.HOME_SEO_API_DELAY_MS || 0)
-const builtAssets = readdirSync(new URL('../.output/public/_nuxt/', import.meta.url), { withFileTypes: true })
-const fixturePhoto = builtAssets.find(entry => entry.isFile() && /^sc-hero-barber-1\..+\.webp$/.test(entry.name))?.name
-assert.ok(fixturePhoto, 'Build barbershop before running the homepage SEO fixture')
+const fixturePhoto = '/videos/hero/soulcuts-poster.webp'
+assert.ok(existsSync(new URL(`../.output/public${fixturePhoto}`, import.meta.url)), 'Build barbershop before running the homepage SEO fixture')
 const masters = [1, 2, 3, 4].map(id => ({
   id,
   name: `SEO Master ${id}`,
   full_name: `SEO Master ${id}`,
   slug: `seo-master-${id}`,
-  photo: `${origin}/_nuxt/${fixturePhoto}`,
+  photo: `${origin}${fixturePhoto}`,
   is_active: true,
   status: 'active',
   show_on_master_block: true,
@@ -139,7 +138,8 @@ if (process.argv.includes('--api')) {
         assert.equal(response?.status(), 200, 'SSR should return a page when upstream times out')
         assert.ok(elapsedMs < 4500, `SSR timeout should bound response near four seconds; took ${elapsedMs}ms`)
         const responseHtml = await response.text()
-        assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+        // The recruitment section also uses BaseModal; rating-specific CSS must stay lazy.
+      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+MasterRatingBlock/, 'Closed review widgets must not add render-blocking styles')
         const markup = responseHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         assert.equal(markup.includes('SEO haircut'), false, 'Slow fixture should time out during SSR; restart API with HOME_SEO_API_DELAY_MS=6000')
         await expect(page.locator('#services')).toContainText('SEO haircut', { timeout: 20_000 })
@@ -161,7 +161,8 @@ if (process.argv.includes('--api')) {
       // Payload JSON can contain every fixture string even when the page itself is empty.
       // These checks inspect only server-emitted markup and the DOM with JS disabled.
       const responseHtml = await response.text()
-      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+      // The recruitment section also uses BaseModal; rating-specific CSS must stay lazy.
+      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+MasterRatingBlock/, 'Closed review widgets must not add render-blocking styles')
       const markup = responseHtml
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '')

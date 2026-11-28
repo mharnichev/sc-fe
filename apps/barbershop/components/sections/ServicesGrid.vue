@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
   sectionTitle?: string
   sectionDescription?: string
   showCatalogueLink?: boolean
+  hideSectionLabel?: boolean
   preserveCatalogItems?: boolean
   priceFrom?: boolean
   bookingMasterId?: number
@@ -143,34 +144,33 @@ const selectService = async (service: ServiceCatalogItemDto) => {
 <template>
   <section id="services" data-header-theme="light" class="section-y-tight bg-stone-100">
     <div class="site-container">
-      <div class="mb-0 flex flex-col justify-between pb-6 sm:gap-4 md:mb-12 md:flex-row md:items-end md:gap-6 md:pb-8" data-reveal="soft">
-        <div>
-          <SectionLabel>{{ displaySectionLabel }}</SectionLabel>
+      <div class="mb-0 flex flex-col pb-6 md:mb-12 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] md:gap-x-6 md:pb-8" data-reveal="soft">
+        <div class="min-w-0 md:col-start-1 md:row-start-1 md:self-end" :class="{ 'md:row-span-2': !servicesFirstVisitOffer }">
+          <SectionLabel v-if="!isHomePage && !hideSectionLabel">{{ displaySectionLabel }}</SectionLabel>
           <h2 class="section-title mt-1 text-2xl font-semibold uppercase leading-tight tracking-normal md:text-4xl text-neutral-950">
             {{ displaySectionTitle }}
           </h2>
         </div>
-        <div class="max-w-md">
-          <p class="section-description text-sm leading-6 text-neutral-600 md:text-base md:leading-8">
+        <div class="contents md:col-start-2 md:row-span-2 md:row-start-1 md:block md:self-end">
+          <p class="section-description max-w-md text-sm leading-6 text-neutral-600 sm:max-md:mt-4 md:text-base md:leading-8">
             {{ displaySectionDescription }}
           </p>
           <LocaleLink
             v-if="isHomePage || showCatalogueLink"
             to="/services"
-            class="type-meta mt-4 block w-fit text-sm font-semibold text-neutral-700 transition hover:text-neutral-950"
+            class="type-meta mt-4 block w-fit text-sm font-semibold text-neutral-700 transition hover:text-neutral-950 max-md:order-last md:mt-2"
           >
             <BaseHoverUnderlineText>{{ catalogueLabel }}</BaseHoverUnderlineText>
           </LocaleLink>
         </div>
+        <BookingPromotionNotice
+          v-if="servicesFirstVisitOffer"
+          :offer="servicesFirstVisitOffer"
+          theme="light"
+          compact
+          class="mt-4 max-w-2xl md:col-start-1 md:row-start-2 md:self-start"
+        />
       </div>
-
-      <BookingPromotionNotice
-        v-if="servicesFirstVisitOffer"
-        :offer="servicesFirstVisitOffer"
-        theme="light"
-        compact
-        class="mb-5 max-w-2xl md:mb-7"
-      />
 
       <div
         v-if="showServicesSkeleton"

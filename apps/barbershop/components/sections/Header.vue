@@ -30,11 +30,11 @@ const menuLinkClass = computed(() =>
 )
 const desktopMenuSurfaceClass = computed(() =>
   headerTheme.value === 'dark'
-    ? 'border-white/10 bg-neutral-950/20'
-    : 'border-neutral-950/10 bg-stone-100/35',
+    ? 'border-white/10 desktop-menu-surface--dark'
+    : 'border-neutral-950/10 desktop-menu-surface--light',
 )
 const raggedMenuSurfaceStyle = {
-  clipPath: 'polygon(0 4%, 6% 0, 18% 2%, 31% 0, 47% 3%, 64% 1%, 80% 3%, 100% 0, 97% 15%, 100% 32%, 97% 49%, 100% 67%, 98% 84%, 100% 100%, 84% 98%, 67% 100%, 50% 97%, 32% 100%, 15% 98%, 0 100%, 3% 84%, 0 67%, 3% 50%, 0 33%, 3% 16%)',
+  clipPath: 'polygon(1px 4%, 6% 0, 18% 2%, 31% 0, 47% 3%, 64% 1%, 80% 3%, 100% 0, 97% 15%, 100% 32%, 97% 49%, 100% 67%, 98% 84%, 100% 100%, 84% 98%, 67% 100%, 50% 97%, 32% 100%, 15% 98%, 1px 100%, 11px 86%, 2px 75%, 10px 62%, 1px 48%, 9px 35%, 2px 23%, 12px 15%)',
   backdropFilter: 'blur(8px)',
   WebkitBackdropFilter: 'blur(8px)',
 }
@@ -284,11 +284,11 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="relative -ml-3 mt-1 flex flex-col items-start px-3 py-2"
+        class="relative -ml-3 mt-1 flex flex-col items-start py-2 pl-7 pr-3"
         :class="isOpen ? 'pointer-events-auto' : 'pointer-events-none'"
       >
         <div
-          class="absolute -inset-x-2 -inset-y-1 border transition-opacity duration-200"
+          class="absolute -inset-y-1 -right-2 left-3 border transition-opacity duration-200"
           :class="[desktopMenuSurfaceClass, isOpen ? 'opacity-100' : 'opacity-0']"
           :style="raggedMenuSurfaceStyle"
           aria-hidden="true"
@@ -336,22 +336,21 @@ onBeforeUnmount(() => {
           </BaseButton>
         </div>
 
-        <nav class="flex min-h-screen flex-col justify-center overflow-y-auto px-8 py-20" :aria-label="terms.common.menu">
-          <div class="relative w-full max-w-[44rem] px-3 py-4">
+        <nav class="flex h-full flex-col items-center overflow-y-auto px-8 py-20" :aria-label="terms.common.menu">
+          <div class="relative my-auto w-full max-w-[44rem] shrink-0 px-5 py-4">
             <div
-              class="absolute -inset-x-2 -inset-y-1 border border-white/10 bg-white/5"
+              class="mobile-menu-surface absolute -inset-x-2 -inset-y-1 border border-white/10"
               :style="raggedMenuSurfaceStyle"
               aria-hidden="true"
             />
             <LocaleLink
-              v-for="(item, index) in menuItems"
+              v-for="item in menuItems"
               :key="item.href"
               :to="item.href"
-              class="type-display group relative z-10 block text-left text-[42px] leading-[1.08] text-white/35 transition-[opacity,transform,color] duration-300 hover:text-lime-300 min-[390px]:text-[52px] sm:text-7xl"
-              :style="{ transitionDelay: `${index * 45}ms` }"
+              class="type-display relative z-10 block text-left text-[42px] leading-[1.08] text-white/35 min-[390px]:text-[52px] sm:text-7xl"
               @click.prevent="handleMenuItemClick(item.href)"
             >
-              <AnimatedMenuText :text="item.label" />
+              {{ item.label }}
             </LocaleLink>
           </div>
         </nav>
@@ -359,3 +358,17 @@ onBeforeUnmount(() => {
     </Transition>
   </header>
 </template>
+
+<style scoped>
+.desktop-menu-surface--dark {
+  background: linear-gradient(145deg, rgb(28 32 38 / 0.28), rgb(34 29 36 / 0.24), rgb(14 18 20 / 0.36));
+}
+
+.desktop-menu-surface--light {
+  background: linear-gradient(145deg, rgb(227 232 235 / 0.42), rgb(238 233 229 / 0.38), rgb(227 234 230 / 0.42));
+}
+
+.mobile-menu-surface {
+  background: linear-gradient(145deg, #202227, #201e22, #191f1e);
+}
+</style>

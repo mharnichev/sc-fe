@@ -42,25 +42,21 @@ watch(open, async (expanded, _, onCleanup) => {
   heightAnimation.onfinish = () => { closing.value = false }
 })
 
-
 watch(fullDescription, (element, _, onCleanup) => {
   if (!element) return
 
-  const mobile = window.matchMedia('(max-width: 639px)')
   const measure = () => {
     const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight)
-    hasOverflow.value = mobile.matches && element.getBoundingClientRect().height > lineHeight * 2 + 1
+    hasOverflow.value = element.getBoundingClientRect().height > lineHeight * 2 + 1
     if (!hasOverflow.value) open.value = false
   }
 
   const observer = new ResizeObserver(measure)
   observer.observe(element)
-  mobile.addEventListener('change', measure)
   measure()
 
   onCleanup(() => {
     observer.disconnect()
-    mobile.removeEventListener('change', measure)
   })
 }, { flush: 'post' })
 const expandLabel = computed(() => locale.value === 'en' ? 'Read full description' : 'Читати повністю')
