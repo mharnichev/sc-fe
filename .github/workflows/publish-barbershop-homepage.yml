@@ -1,0 +1,68 @@
+name: Publish Barbershop homepage image
+on:
+  push:
+    branches: [codex/barber-nov28-image]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      IMAGE: ghcr.io/mharnichev/sc-fe/admin-rewards-20261030-pr40
+      SOURCE: 508540f62dce7a9f07f00d39b1c9ac527596f98c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 508540f62dce7a9f07f00d39b1c9ac527596f98c
+          persist-credentials: false
+      - name: Build exact Barbershop source
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          docker build --platform linux/amd64 --file apps/barbershop/Dockerfile \
+            --label "org.opencontainers.image.source=https://github.com/mharnichev/sc-fe" \
+            --label "org.opencontainers.image.revision=$SOURCE" --tag "$IMAGE:$SOURCE" .
+      - name: Verify Barbershop pages and media
+        run: |
+          set -euo pipefail
+          cid="$(docker run -d --network none -e NUXT_API_UPSTREAM_BASE=http://127.0.0.1:8000/api/v1 "$IMAGE:$SOURCE")"
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker exec -i "$cid" node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict'
+          const get = (path) => fetch('http://127.0.0.1:3000' + path, { signal: AbortSignal.timeout(4000) })
+          for (let i = 0; i < 30; i++) {
+            try { if ((await get('/')).ok) break } catch {}
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+          for (const [path, locale] of [['/', 'uk'], ['/careers', 'uk'], ['/en/careers', 'en']]) {
+            const res = await get(path)
+            assert.equal(res.status, 200, path)
+            const html = await res.text()
+            assert.match(html, new RegExp('<html[^>]+lang="' + locale + '"'), path)
+            assert.match(html, /id="recruitment-title"/, path)
+            if (path === "/") assert.ok(html.includes("/videos/hero/soulcuts-poster.webp"))
+          }
+          assert.match(await (await get('/robots.txt')).text(), /Sitemap: .*shop\/sitemap\.xml/)
+          for (const [asset, mime] of [
+            ['desktop-light.webm', 'video/webm'],
+            ['mobile.webm', 'video/webm'],
+            ['poster.webp', 'image/webp'],
+          ]) {
+            const res = await get('/videos/soulcuts-recruitment-' + asset)
+            assert.equal(res.status, 200, asset)
+            assert.equal(res.headers.get('content-type')?.split(';')[0], mime, asset)
+            assert.ok((await res.arrayBuffer()).byteLength > 50000, asset)
+          }
+          JS
+          docker exec "$cid" sh -c 'for name in soulcuts-desktop-light.webm soulcuts-mobile-light.webm soulcuts-fallback.mp4 soulcuts-poster.webp; do test -s ".output/public/videos/hero/$name" || exit 1; done'
+      - name: Publish immutable image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$SOURCE"
+          digest="$(docker image inspect "$IMAGE:$SOURCE" --format '{{index .RepoDigests 0}}')"
+          [[ "$digest" =~ @sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$digest" | tee -a "$GITHUB_STEP_SUMMARY"
