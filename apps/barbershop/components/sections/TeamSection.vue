@@ -9,6 +9,8 @@ type TeamProfile = Pick<MasterDto,
 
 const props = withDefaults(defineProps<{
   bookingTarget?: string
+  hideSectionLabel?: boolean
+  showDescription?: boolean
 }>(), {
   bookingTarget: '#booking',
 })
@@ -185,12 +187,15 @@ watch(teamMembers, (members) => {
   <section id="team" ref="teamSection" data-header-theme="light" class="team-section relative bg-stone-100" :style="{ '--team-desktop-height': teamScrollHeight }">
     <div class="sticky top-0 h-screen w-full overflow-hidden">
       <div class="relative left-1/2 h-screen w-screen -translate-x-1/2 bg-white md:hidden">
-        <div class="absolute inset-x-0 top-0 z-20 pb-14 pt-5" data-reveal="soft">
+        <div class="pointer-events-none absolute inset-x-0 top-0 z-20 pb-14 pt-5" :class="{ 'bg-gradient-to-b from-neutral-950/75 to-transparent': showDescription }" data-reveal="soft">
           <div class="site-container">
-            <SectionLabel class="text-white/75">{{ terms.home.team.label }}</SectionLabel>
+            <SectionLabel v-if="!hideSectionLabel" class="text-white/75">{{ terms.home.team.label }}</SectionLabel>
             <h2 class="section-title mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-white">
               {{ terms.home.team.title }}
             </h2>
+            <p v-if="showDescription" class="section-description mt-3 max-w-sm text-sm leading-6 text-white/90">
+              {{ terms.home.team.mobileDescription }}
+            </p>
           </div>
         </div>
 
@@ -288,10 +293,13 @@ watch(teamMembers, (members) => {
             <div class="flex flex-col items-start gap-3">
               <div class="flex w-fit max-w-full items-start justify-start pb-4">
                 <div>
-                  <SectionLabel>{{ terms.home.team.label }}</SectionLabel>
+                  <SectionLabel v-if="!hideSectionLabel">{{ terms.home.team.label }}</SectionLabel>
                   <h2 class="section-title mt-2 text-2xl font-semibold uppercase leading-none tracking-normal text-neutral-950 sm:text-2xl md:text-4xl lg:text-4xl">
                     {{ terms.home.team.title }}
                   </h2>
+                  <p v-if="showDescription" class="section-description mt-3 text-base leading-6 text-neutral-600">
+                    {{ terms.home.team.description }}
+                  </p>
                 </div>
               </div>
 

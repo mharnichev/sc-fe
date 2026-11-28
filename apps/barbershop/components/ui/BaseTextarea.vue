@@ -35,6 +35,6 @@ const attrs = useAttrs()
     :maxlength="maxlength"
     :placeholder="placeholder"
     :disabled="disabled"
-    class="w-full resize-y bg-stone-100 px-4 py-3 text-base leading-7 text-neutral-950 outline-none transition placeholder:text-stone-400 focus-visible:ring-2 focus-visible:ring-neutral-950/25 disabled:cursor-not-allowed disabled:opacity-60"
+    class="w-full resize-y rounded-[6px] bg-stone-100 px-4 py-3 text-base leading-7 text-neutral-950 outline-none transition placeholder:text-stone-400 focus-visible:ring-2 focus-visible:ring-neutral-950/25 disabled:cursor-not-allowed disabled:opacity-60"
   />
 </template>

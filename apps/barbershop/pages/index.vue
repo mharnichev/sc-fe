@@ -261,9 +261,9 @@ useSeo(
       </section>
     </ClientOnly>
     <LazyBotSection />
-    <LazyTeamSection />
+    <LazyTeamSection hide-section-label show-description />
     <LazyReviewsSection />
-    <div class="bg-white">
+    <div class="bg-stone-100">
       <RecruitmentSection />
     </div>
     <ClientOnly v-if="shouldMountDeferredSections">
