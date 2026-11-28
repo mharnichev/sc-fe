@@ -138,7 +138,8 @@ if (process.argv.includes('--api')) {
         assert.equal(response?.status(), 200, 'SSR should return a page when upstream times out')
         assert.ok(elapsedMs < 4500, `SSR timeout should bound response near four seconds; took ${elapsedMs}ms`)
         const responseHtml = await response.text()
-        assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+        // The recruitment section also uses BaseModal; rating-specific CSS must stay lazy.
+      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+MasterRatingBlock/, 'Closed review widgets must not add render-blocking styles')
         const markup = responseHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         assert.equal(markup.includes('SEO haircut'), false, 'Slow fixture should time out during SSR; restart API with HOME_SEO_API_DELAY_MS=6000')
         await expect(page.locator('#services')).toContainText('SEO haircut', { timeout: 20_000 })
@@ -160,7 +161,8 @@ if (process.argv.includes('--api')) {
       // Payload JSON can contain every fixture string even when the page itself is empty.
       // These checks inspect only server-emitted markup and the DOM with JS disabled.
       const responseHtml = await response.text()
-      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+(?:BaseModal|MasterRatingBlock)/, 'Closed review widgets must not add render-blocking styles')
+      // The recruitment section also uses BaseModal; rating-specific CSS must stay lazy.
+      assert.doesNotMatch(responseHtml.split('</head>')[0], /<link[^>]+rel="stylesheet"[^>]+MasterRatingBlock/, 'Closed review widgets must not add render-blocking styles')
       const markup = responseHtml
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, '')
