@@ -12,7 +12,7 @@ test('home page body copy uses the 14px mobile typography tier', async () => {
     sectionSource('FeedbackSection.vue'),
   ])
 
-  assert.match(services, /text-sm leading-6 text-neutral-600 md:text-base md:leading-8/)
+  assert.match(services, /text-sm leading-6 text-neutral-600 sm:max-md:mt-4 md:text-base md:leading-8/)
   assert.match(booking, /text-sm leading-6 text-white\/65 md:mt-6 md:text-base md:leading-8/)
   assert.match(booking, /text-sm leading-6 text-neutral-700 md:text-base md:leading-7/)
   assert.match(bot, /text-sm leading-6 text-white\/68 md:text-lg md:leading-8/)
