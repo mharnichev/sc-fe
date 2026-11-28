@@ -42,6 +42,9 @@ watch(reviewsDialogOpen, (open) => {
 const maxActiveIndex = computed(() =>
   Math.max(0, reviews.value.length - visibleSlides.value),
 )
+const centerReviewIndex = computed(() =>
+  visibleSlides.value === 3 && reviews.value.length >= 3 ? activeIndex.value + 1 : -1,
+)
 
 const sliderTransform = computed(() =>
   `translateX(-${activeIndex.value * (100 / visibleSlides.value)}%)`,
@@ -200,20 +203,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section id="reviews" aria-labelledby="reviews-title" data-header-theme="light" class="section-y-tight bg-white text-neutral-950">
+  <section id="reviews" aria-labelledby="reviews-title" data-header-theme="light" class="section-y-tight bg-stone-100 text-neutral-950">
     <div class="site-container">
-      <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end md:gap-6">
-        <div class="max-sm:flex max-sm:items-baseline max-sm:justify-between max-sm:gap-3">
-          <h2 id="reviews-title" class="section-title text-2xl sm:text-3xl font-semibold uppercase leading-tight md:text-4xl">
-            {{ terms.home.reviews.label }}
-          </h2>
-          <p v-if="reviewsResponse?.average_rating" class="text-3xl sm:mt-4 font-semibold leading-tight text-neutral-950">
+      <div class="flex flex-wrap items-start justify-between gap-4 md:gap-6">
+        <h2 id="reviews-title" class="section-title text-2xl sm:text-3xl font-semibold uppercase leading-tight md:text-4xl">
+          {{ terms.home.reviews.label }}
+        </h2>
+        <div v-if="hasReviewStats" class="ml-auto flex flex-col items-end gap-2 text-right">
+          <p v-if="reviewsResponse?.average_rating" class="text-3xl font-semibold leading-tight text-neutral-950">
             {{ reviewsResponse.average_rating.toFixed(1) }}/5
           </p>
+          <button v-if="reviewsResponse?.total_review_count" type="button" class="type-eyebrow cursor-pointer text-xs text-neutral-600 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2" aria-haspopup="dialog" @click="reviewsDialogOpen = true">
+            Google Maps / {{ reviewsResponse.total_review_count }}
+          </button>
         </div>
-        <button v-if="reviewsResponse?.total_review_count" type="button" class="type-eyebrow cursor-pointer text-xs text-neutral-600 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-offset-2" aria-haspopup="dialog" @click="reviewsDialogOpen = true">
-          Google Maps / {{ reviewsResponse.total_review_count }}
-        </button>
       </div>
 
       <div
@@ -236,7 +239,7 @@ onBeforeUnmount(() => {
         >
           ‹
         </BaseButton>
-        <div class="min-w-0 flex-1 overflow-hidden">
+        <div class="min-w-0 flex-1 overflow-clip">
           <div
             class="flex transition-transform duration-700 ease-out"
             :style="{ transform: sliderTransform }"
@@ -244,10 +247,9 @@ onBeforeUnmount(() => {
             <article
               v-for="(review, index) in reviews"
               :key="review.review_id"
-              class="min-w-full pl-4 pr-4 md:min-w-[50%] md:pl-5 md:pr-6 lg:min-w-[33.333333%]"
-              :class="{ 'border-neutral-300 md:border-l': reviews.length > 1 }"
-              data-reveal="soft"
-              :data-reveal-delay="Math.min(index, 2) * 90"
+              class="review-slide w-full shrink-0 break-words px-4 py-4 md:w-1/2 md:px-5 lg:w-1/3"
+              :class="{ 'review-slide--center': index === centerReviewIndex }"
+              :inert="index < activeIndex || index >= activeIndex + visibleSlides"
             >
               <div class="mb-4 flex items-center gap-3">
                 <img
@@ -259,8 +261,8 @@ onBeforeUnmount(() => {
                   referrerpolicy="no-referrer"
                 >
                 <div>
-                  <p class="text-sm font-semibold text-neutral-950">{{ reviewerName(review) }}</p>
-                  <div class="type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600">
+                  <p class="text-sm font-semibold">{{ reviewerName(review) }}</p>
+                  <div class="review-slide__muted type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                     <span class="flex items-center gap-0.5 text-amber-500" role="img" :aria-label="`${review.star_rating || 0}/5`">
                       <span
                         v-for="(filled, index) in starIcons(review.star_rating)"
@@ -273,11 +275,11 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </div>
-              <p class="text-sm font-semibold leading-6 text-neutral-950 md:text-base md:leading-7">"<span>{{ reviewText(review).trim().slice(0, 140) }}</span><span v-if="isReviewTruncated(review)" v-show="isReviewExpanded(review)">{{ reviewText(review).trim().slice(140) }}</span><span v-if="isReviewTruncated(review) && !isReviewExpanded(review)">...</span>"</p>
+              <p class="text-sm font-semibold leading-6 md:text-base md:leading-7">"<span>{{ reviewText(review).trim().slice(0, 140) }}</span><span v-if="isReviewTruncated(review)" v-show="isReviewExpanded(review)">{{ reviewText(review).trim().slice(140) }}</span><span v-if="isReviewTruncated(review) && !isReviewExpanded(review)">...</span>"</p>
               <button
                 v-if="isReviewTruncated(review)"
                 type="button"
-                class="type-meta mt-4 text-xs text-neutral-600 transition hover:text-neutral-950"
+                class="review-slide__action type-meta mt-4 text-xs transition"
                 @click="toggleReviewText(review)"
               >
                 <BaseHoverUnderlineText>
@@ -287,14 +289,14 @@ onBeforeUnmount(() => {
               <button
                 v-if="hasOriginalReviewText(review)"
                 type="button"
-                class="type-meta mt-4 text-xs text-neutral-600 transition hover:text-neutral-950"
+                class="review-slide__action type-meta mt-4 text-xs transition"
                 @click="toggleOriginalReview(review)"
               >
                 <BaseHoverUnderlineText>
                   {{ isOriginalExpanded(review) ? terms.home.reviews.hideOriginal : terms.home.reviews.readOriginal }}
                 </BaseHoverUnderlineText>
               </button>
-              <p v-if="isOriginalExpanded(review)" class="mt-4 border-l border-neutral-300 pl-4 text-sm leading-6 text-neutral-600">
+              <p v-if="isOriginalExpanded(review)" class="review-slide__muted mt-4 text-sm leading-6">
                 {{ originalReviewText(review) }}
               </p>
             </article>
@@ -362,3 +364,36 @@ onBeforeUnmount(() => {
     </LazyBaseModal>
   </section>
 </template>
+
+<style scoped>
+.review-slide {
+  --review-muted: #525252;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .review-slide {
+    transition: background-color 300ms ease, color 300ms ease;
+  }
+
+  .review-slide__muted,
+  .review-slide__action {
+    transition: color 300ms ease;
+  }
+}
+
+.review-slide--center {
+  --review-muted: #d4d4d4;
+
+  background-color: #000;
+  color: #fff;
+}
+
+.review-slide__muted,
+.review-slide__action {
+  color: var(--review-muted);
+}
+
+.review-slide__action:hover {
+  color: inherit;
+}
+</style>

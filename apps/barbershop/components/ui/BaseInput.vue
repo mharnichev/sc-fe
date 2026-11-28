@@ -41,7 +41,7 @@ const handleInput = (event: Event) => {
         :type="type"
         :required="required"
         :disabled="disabled"
-        class="min-h-11 w-full border-0 bg-stone-100 py-2.5 pr-3 text-sm font-normal text-neutral-950 outline-none transition placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-950/20 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500"
+        class="min-h-11 w-full rounded-[6px] border-0 bg-stone-100 py-2.5 pr-3 text-sm font-normal text-neutral-950 outline-none transition placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-950/20 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500"
         :class="$slots.icon ? 'pl-10' : 'pl-3'"
         @input="handleInput"
       >
